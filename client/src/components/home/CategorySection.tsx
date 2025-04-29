@@ -65,9 +65,6 @@ const CategorySection = () => {
                     <div className="w-5 h-5 rounded-full bg-[#3bcac4] animate-pulse delay-100"></div>
                     <div className="w-5 h-5 rounded-full bg-[#005476] animate-pulse delay-200"></div>
                   </div>
-                  <p className="text-center text-white text-sm font-medium mb-3 max-w-[80%]">
-                    Premium properties currently under construction by top developers
-                  </p>
                   <div className="flex items-center gap-1">
                     <div className="h-5 w-5 bg-yellow-400 rounded-sm flex items-center justify-center">
                       <span className="text-black text-xs font-bold">!</span>
