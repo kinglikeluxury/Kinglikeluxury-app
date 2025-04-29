@@ -1,0 +1,225 @@
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/lib/auth";
+import { Menu, X, User } from "lucide-react";
+import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
+
+const Navbar = () => {
+  const [location] = useLocation();
+  const { user, logout } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
+  const navLinks = [
+    { name: "Home", path: "/" },
+    { name: "Apartments", path: "/properties?type=apartment" },
+    { name: "Villas", path: "/properties?type=villa" },
+    { name: "Lands", path: "/properties?type=land" },
+    { name: "Projects", path: "/properties?type=project" },
+  ];
+
+  return (
+    <nav className="bg-white shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <div className="flex-shrink-0 flex items-center">
+              <Link href="/">
+                <img src={logoPath} alt="Kinglike Luxury" className="h-10 w-auto" />
+              </Link>
+            </div>
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+              {navLinks.map((link) => (
+                <Link key={link.path} href={link.path}>
+                  <a
+                    className={`${
+                      location === link.path
+                        ? "border-primary-500 text-gray-900"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                  >
+                    {link.name}
+                  </a>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            {user ? (
+              <>
+                <Button asChild variant="default" className="mr-2">
+                  <Link href="/submit-property">Add Property</Link>
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                      <span className="text-xs font-medium">
+                        {user.username.substring(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>
+                      <span className="font-medium">{user.username}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <span className="text-sm text-gray-500">{user.email}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/properties?myProperties=true">
+                        My Properties
+                      </Link>
+                    </DropdownMenuItem>
+                    {user.isAdmin && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/dashboard">Admin Dashboard</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/approvals">Property Approvals</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/add-project">Add Project</Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" className="mr-2" asChild>
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/register">Sign Up</Link>
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="-mr-2 flex items-center sm:hidden">
+            <Button
+              variant="ghost"
+              onClick={toggleMenu}
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none"
+            >
+              {isMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      <div className={`${isMenuOpen ? "block" : "hidden"} sm:hidden`}>
+        <div className="pt-2 pb-3 space-y-1">
+          {navLinks.map((link) => (
+            <Link key={link.path} href={link.path}>
+              <a
+                className={`${
+                  location === link.path
+                    ? "bg-primary-50 border-primary-500 text-primary-700"
+                    : "border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
+                } block pl-3 pr-4 py-2 border-l-4 text-base font-medium`}
+              >
+                {link.name}
+              </a>
+            </Link>
+          ))}
+        </div>
+        {user ? (
+          <div className="pt-4 pb-3 border-t border-gray-200">
+            <div className="flex items-center px-4">
+              <div className="flex-shrink-0">
+                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                  <span className="text-sm font-medium">
+                    {user.username.substring(0, 2).toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-3">
+                <div className="text-base font-medium text-gray-800">
+                  {user.username}
+                </div>
+                <div className="text-sm font-medium text-gray-500">
+                  {user.email}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 space-y-1">
+              <Link href="/submit-property">
+                <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                  Add Property
+                </a>
+              </Link>
+              <Link href="/properties?myProperties=true">
+                <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                  My Properties
+                </a>
+              </Link>
+              {user.isAdmin && (
+                <>
+                  <Link href="/admin/dashboard">
+                    <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                      Admin Dashboard
+                    </a>
+                  </Link>
+                  <Link href="/admin/approvals">
+                    <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                      Property Approvals
+                    </a>
+                  </Link>
+                  <Link href="/admin/add-project">
+                    <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                      Add Project
+                    </a>
+                  </Link>
+                </>
+              )}
+              <button
+                onClick={handleLogout}
+                className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-4 pb-3 border-t border-gray-200 px-4 space-y-2">
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/login">Login</Link>
+            </Button>
+            <Button className="w-full" asChild>
+              <Link href="/register">Sign Up</Link>
+            </Button>
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;

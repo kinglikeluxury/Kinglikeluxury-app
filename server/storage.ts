@@ -1,0 +1,212 @@
+import {
+  users,
+  properties,
+  projects,
+  type User,
+  type InsertUser,
+  type Property, 
+  type InsertProperty,
+  type Project,
+  type InsertProject,
+  PROPERTY_STATUS,
+  PROPERTY_TYPES
+} from "@shared/schema";
+
+export interface IStorage {
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
+  // Property operations
+  getProperties(filters?: {
+    type?: string;
+    status?: string;
+    ownerId?: number;
+    location?: string;
+    minPrice?: number;
+    maxPrice?: number;
+  }): Promise<Property[]>;
+  getProperty(id: number): Promise<Property | undefined>;
+  createProperty(property: InsertProperty): Promise<Property>;
+  updatePropertyStatus(id: number, status: string): Promise<Property | undefined>;
+  deleteProperty(id: number): Promise<boolean>;
+  
+  // Project operations
+  getProjects(): Promise<(Project & { property: Property })[]>;
+  getProject(id: number): Promise<(Project & { property: Property }) | undefined>;
+  createProject(project: InsertProject): Promise<Project>;
+}
+
+export class MemStorage implements IStorage {
+  private users: Map<number, User>;
+  private properties: Map<number, Property>;
+  private projects: Map<number, Project>;
+  private userIdCounter: number;
+  private propertyIdCounter: number;
+  private projectIdCounter: number;
+
+  constructor() {
+    this.users = new Map();
+    this.properties = new Map();
+    this.projects = new Map();
+    this.userIdCounter = 1;
+    this.propertyIdCounter = 1;
+    this.projectIdCounter = 1;
+    
+    // Create admin user
+    this.createUser({
+      username: "admin",
+      password: "admin123", // In a real app, this would be hashed
+      email: "admin@realestatepro.com",
+      isAdmin: true
+    });
+  }
+
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.username === username
+    );
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === email
+    );
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const id = this.userIdCounter++;
+    const user: User = {
+      ...userData,
+      id,
+      createdAt: new Date(),
+    };
+    this.users.set(id, user);
+    return user;
+  }
+
+  // Property operations
+  async getProperties(filters?: {
+    type?: string;
+    status?: string;
+    ownerId?: number;
+    location?: string;
+    minPrice?: number;
+    maxPrice?: number;
+  }): Promise<Property[]> {
+    let properties = Array.from(this.properties.values());
+
+    if (filters) {
+      if (filters.type) {
+        properties = properties.filter(p => p.propertyType === filters.type);
+      }
+      
+      if (filters.status) {
+        properties = properties.filter(p => p.status === filters.status);
+      }
+      
+      if (filters.ownerId) {
+        properties = properties.filter(p => p.ownerId === filters.ownerId);
+      }
+      
+      if (filters.location) {
+        properties = properties.filter(p => 
+          p.location.toLowerCase().includes(filters.location!.toLowerCase())
+        );
+      }
+      
+      if (filters.minPrice) {
+        properties = properties.filter(p => p.price >= filters.minPrice!);
+      }
+      
+      if (filters.maxPrice) {
+        properties = properties.filter(p => p.price <= filters.maxPrice!);
+      }
+    }
+
+    return properties;
+  }
+
+  async getProperty(id: number): Promise<Property | undefined> {
+    return this.properties.get(id);
+  }
+
+  async createProperty(propertyData: InsertProperty): Promise<Property> {
+    const id = this.propertyIdCounter++;
+    const now = new Date();
+    
+    const property: Property = {
+      ...propertyData,
+      id,
+      status: propertyData.propertyType === PROPERTY_TYPES.PROJECT 
+        ? PROPERTY_STATUS.APPROVED 
+        : PROPERTY_STATUS.PENDING,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    this.properties.set(id, property);
+    return property;
+  }
+
+  async updatePropertyStatus(id: number, status: string): Promise<Property | undefined> {
+    const property = this.properties.get(id);
+    if (!property) return undefined;
+    
+    const updatedProperty = { 
+      ...property, 
+      status, 
+      updatedAt: new Date() 
+    };
+    
+    this.properties.set(id, updatedProperty);
+    return updatedProperty;
+  }
+
+  async deleteProperty(id: number): Promise<boolean> {
+    return this.properties.delete(id);
+  }
+
+  // Project operations
+  async getProjects(): Promise<(Project & { property: Property })[]> {
+    const projectsArray = Array.from(this.projects.values());
+    return projectsArray.map(project => {
+      const property = this.properties.get(project.propertyId);
+      if (!property) {
+        throw new Error(`Property not found for project ${project.id}`);
+      }
+      return { ...project, property };
+    });
+  }
+
+  async getProject(id: number): Promise<(Project & { property: Property }) | undefined> {
+    const project = this.projects.get(id);
+    if (!project) return undefined;
+    
+    const property = this.properties.get(project.propertyId);
+    if (!property) return undefined;
+    
+    return { ...project, property };
+  }
+
+  async createProject(projectData: InsertProject): Promise<Project> {
+    const id = this.projectIdCounter++;
+    const project: Project = {
+      ...projectData,
+      id,
+      createdAt: new Date(),
+    };
+    
+    this.projects.set(id, project);
+    return project;
+  }
+}
+
+export const storage = new MemStorage();

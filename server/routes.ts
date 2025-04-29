@@ -1,0 +1,333 @@
+import type { Express, Request, Response } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { 
+  insertUserSchema, 
+  insertPropertySchema, 
+  insertProjectSchema,
+  PROPERTY_TYPES,
+  PROPERTY_STATUS
+} from "@shared/schema";
+import session from "express-session";
+import MemoryStore from "memorystore";
+import { z } from "zod";
+
+// Session type definition
+declare module "express-session" {
+  interface SessionData {
+    userId: number;
+    isAdmin: boolean;
+  }
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+  const SessionStore = MemoryStore(session);
+
+  // Configure sessions
+  app.use(
+    session({
+      cookie: { maxAge: 86400000 }, // 24 hours
+      store: new SessionStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+      }),
+      resave: false,
+      saveUninitialized: false,
+      secret: process.env.SESSION_SECRET || "realestatepro-secret",
+    })
+  );
+
+  // Middleware to check if user is authenticated
+  const isAuthenticated = (req: Request, res: Response, next: Function) => {
+    if (req.session.userId) {
+      return next();
+    }
+    res.status(401).json({ message: "Not authenticated" });
+  };
+
+  // Middleware to check if user is admin
+  const isAdmin = (req: Request, res: Response, next: Function) => {
+    if (req.session.userId && req.session.isAdmin) {
+      return next();
+    }
+    res.status(403).json({ message: "Not authorized" });
+  };
+
+  // Auth routes
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if username or email already exists
+      const existingUser = await storage.getUserByUsername(userData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      
+      const existingEmail = await storage.getUserByEmail(userData.email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+      
+      // Create new user with isAdmin set to false for security
+      const user = await storage.createUser({
+        ...userData,
+        isAdmin: false // Ensure regular users can't register as admin
+      });
+      
+      // Set session
+      req.session.userId = user.id;
+      req.session.isAdmin = user.isAdmin;
+      
+      res.status(201).json({ 
+        id: user.id, 
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+      
+      const user = await storage.getUserByUsername(username);
+      
+      if (!user || user.password !== password) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Set session
+      req.session.userId = user.id;
+      req.session.isAdmin = user.isAdmin;
+      
+      res.json({ 
+        id: user.id, 
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Failed to logout" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const user = await storage.getUser(req.session.userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    res.json({ 
+      id: user.id, 
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin
+    });
+  });
+
+  // Property routes
+  app.get("/api/properties", async (req, res) => {
+    try {
+      const { 
+        type, 
+        status = PROPERTY_STATUS.APPROVED, // Default to showing only approved properties
+        location,
+        minPrice,
+        maxPrice
+      } = req.query;
+      
+      let filters: any = { status };
+      
+      if (type) filters.type = type as string;
+      if (location) filters.location = location as string;
+      if (minPrice) filters.minPrice = parseInt(minPrice as string);
+      if (maxPrice) filters.maxPrice = parseInt(maxPrice as string);
+      
+      // If admin is requesting, allow getting all statuses
+      if (req.session.isAdmin && req.query.status) {
+        filters.status = req.query.status as string;
+      }
+      
+      // If regular user is requesting their own properties, include their pending ones
+      if (req.session.userId && !req.session.isAdmin && req.query.myProperties) {
+        filters = {
+          ownerId: req.session.userId
+        };
+      }
+      
+      const properties = await storage.getProperties(filters);
+      res.json(properties);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/properties/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      // If property is not approved, only show to owner or admin
+      if (
+        property.status !== PROPERTY_STATUS.APPROVED && 
+        (!req.session.userId || 
+          (property.ownerId !== req.session.userId && !req.session.isAdmin))
+      ) {
+        return res.status(403).json({ message: "Not authorized to view this property" });
+      }
+      
+      res.json(property);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/properties", isAuthenticated, async (req, res) => {
+    try {
+      const propertyData = insertPropertySchema.parse(req.body);
+      
+      // Validate property type - only admins can add projects
+      if (
+        propertyData.propertyType === PROPERTY_TYPES.PROJECT && 
+        !req.session.isAdmin
+      ) {
+        return res.status(403).json({ 
+          message: "Only administrators can add construction projects" 
+        });
+      }
+      
+      // Set current user as owner
+      const property = await storage.createProperty({
+        ...propertyData,
+        ownerId: req.session.userId!
+      });
+      
+      // If this is a project and user is admin, create project details
+      if (
+        propertyData.propertyType === PROPERTY_TYPES.PROJECT && 
+        req.session.isAdmin && 
+        req.body.projectDetails
+      ) {
+        const projectData = insertProjectSchema.parse({
+          ...req.body.projectDetails,
+          propertyId: property.id
+        });
+        
+        await storage.createProject(projectData);
+      }
+      
+      res.status(201).json(property);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Admin routes for property approval
+  app.patch("/api/properties/:id/status", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!status || !Object.values(PROPERTY_STATUS).includes(status as any)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const property = await storage.updatePropertyStatus(id, status);
+      
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      res.json(property);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Project routes
+  app.get("/api/projects", async (req, res) => {
+    try {
+      const projects = await storage.getProjects();
+      res.json(projects);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/projects/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const project = await storage.getProject(id);
+      
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      res.json(project);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/projects", isAdmin, async (req, res) => {
+    try {
+      // First create the property
+      const propertyData = insertPropertySchema.parse({
+        ...req.body.property,
+        propertyType: PROPERTY_TYPES.PROJECT,
+        ownerId: req.session.userId!
+      });
+      
+      const property = await storage.createProperty(propertyData);
+      
+      // Then create the project with the property ID
+      const projectData = insertProjectSchema.parse({
+        ...req.body.projectDetails,
+        propertyId: property.id
+      });
+      
+      const project = await storage.createProject(projectData);
+      
+      res.status(201).json({ property, project });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  return httpServer;
+}
