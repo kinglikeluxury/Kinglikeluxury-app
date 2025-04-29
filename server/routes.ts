@@ -59,33 +59,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = insertUserSchema.parse(req.body);
       
-      // Check if username or email already exists
+      // Check if username already exists
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
       
-      const existingEmail = await storage.getUserByEmail(userData.email);
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists" });
+      // Check for existing credentials based on auth method
+      if (userData.email) {
+        const existingEmail = await storage.getUserByEmail(userData.email);
+        if (existingEmail) {
+          return res.status(400).json({ message: "Email already exists" });
+        }
       }
       
-      // Create new user with isAdmin set to false for security
-      const user = await storage.createUser({
+      // For phone/WhatsApp/Facebook authentication methods, we'd check for duplicates here
+      // This would require additional storage methods we'd need to implement
+      
+      // For demo purposes, we'll mark users as verified immediately
+      // In a production app, email/SMS/WhatsApp verification would be implemented
+      const userWithVerification = {
         ...userData,
-        isAdmin: false // Ensure regular users can't register as admin
-      });
+        isAdmin: false, // Ensure regular users can't register as admin
+        isVerified: true
+      };
+      
+      const user = await storage.createUser(userWithVerification);
       
       // Set session
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
       
-      res.status(201).json({ 
-        id: user.id, 
+      // Return appropriate user data
+      const userResponse = {
+        id: user.id,
         username: user.username,
-        email: user.email,
+        authMethod: user.authMethod,
         isAdmin: user.isAdmin
-      });
+      };
+      
+      // Add method-specific fields to response
+      if (user.email) userResponse.email = user.email;
+      if (user.phoneNumber) userResponse.phoneNumber = user.phoneNumber;
+      if (user.whatsappNumber) userResponse.whatsappNumber = user.whatsappNumber;
+      if (user.facebookId) userResponse.facebookId = user.facebookId;
+      
+      res.status(201).json(userResponse);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
@@ -96,28 +115,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { username, password, phoneNumber, whatsappNumber, facebookId, authMethod } = req.body;
       
-      if (!username || !password) {
-        return res.status(400).json({ message: "Username and password are required" });
+      // Get user based on auth method
+      let user;
+      
+      // Validate required fields based on auth method
+      if (authMethod === 'email') {
+        if (!username || !password) {
+          return res.status(400).json({ message: "Username and password are required for email login" });
+        }
+        
+        user = await storage.getUserByUsername(username);
+        
+        if (!user || user.password !== password) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+      } 
+      else if (authMethod === 'phone') {
+        if (!phoneNumber) {
+          return res.status(400).json({ message: "Phone number is required for SMS login" });
+        }
+        
+        // Here we would normally validate a verification code
+        // For demo, we'll just check if a user with this phone number exists
+        user = await storage.getUserByField('phoneNumber', phoneNumber);
+        
+        // In production, verify OTP code here
+      }
+      else if (authMethod === 'whatsapp') {
+        if (!whatsappNumber) {
+          return res.status(400).json({ message: "WhatsApp number is required for WhatsApp login" });
+        }
+        
+        // Here we would normally validate a verification code
+        // For demo, we'll just check if a user with this WhatsApp number exists
+        user = await storage.getUserByField('whatsappNumber', whatsappNumber);
+        
+        // In production, verify WhatsApp code here
+      }
+      else if (authMethod === 'facebook') {
+        if (!facebookId) {
+          return res.status(400).json({ message: "Facebook ID is required for Facebook login" });
+        }
+        
+        // For demo, we'll just check if a user with this Facebook ID exists
+        user = await storage.getUserByField('facebookId', facebookId);
+        
+        // In production, Facebook OAuth would handle this
+      }
+      else {
+        // Default to traditional username/password login if no auth method specified
+        if (!username || !password) {
+          return res.status(400).json({ message: "Username and password are required" });
+        }
+        
+        user = await storage.getUserByUsername(username);
+        
+        if (!user || user.password !== password) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
       }
       
-      const user = await storage.getUserByUsername(username);
-      
-      if (!user || user.password !== password) {
-        return res.status(401).json({ message: "Invalid credentials" });
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
       }
       
       // Set session
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
       
-      res.json({ 
+      // Return appropriate user data
+      const userResponse = {
         id: user.id, 
         username: user.username,
-        email: user.email,
+        authMethod: user.authMethod,
         isAdmin: user.isAdmin
-      });
+      };
+      
+      // Add method-specific fields to response
+      if (user.email) userResponse.email = user.email;
+      if (user.phoneNumber) userResponse.phoneNumber = user.phoneNumber;
+      if (user.whatsappNumber) userResponse.whatsappNumber = user.whatsappNumber;
+      if (user.facebookId) userResponse.facebookId = user.facebookId;
+      
+      res.json(userResponse);
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }

@@ -3,11 +3,24 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // User model
+// Authentication methods
+export const AUTH_METHODS = {
+  EMAIL: "email",
+  PHONE: "phone",
+  WHATSAPP: "whatsapp",
+  FACEBOOK: "facebook",
+} as const;
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email").notNull().unique(),
+  password: text("password"),  // Can be null for social logins
+  email: text("email").unique(),  // Can be null if using phone
+  phoneNumber: text("phone_number").unique(), // For SMS verification
+  whatsappNumber: text("whatsapp_number").unique(), // For WhatsApp verification
+  facebookId: text("facebook_id").unique(), // For Facebook login
+  authMethod: text("auth_method").notNull().default(AUTH_METHODS.EMAIL),
+  isVerified: boolean("is_verified").default(false).notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -16,7 +29,59 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
+  phoneNumber: true,
+  whatsappNumber: true,
+  facebookId: true,
+  authMethod: true,
   isAdmin: true,
+})
+.extend({
+  // Make certain fields conditional based on auth method
+  password: z.string().optional().refine(
+    (val, ctx) => {
+      if (ctx.data.authMethod === AUTH_METHODS.EMAIL && !val) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Password is required for email authentication" }
+  ),
+  email: z.string().email().optional().refine(
+    (val, ctx) => {
+      if (ctx.data.authMethod === AUTH_METHODS.EMAIL && !val) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Email is required for email authentication" }
+  ),
+  phoneNumber: z.string().optional().refine(
+    (val, ctx) => {
+      if (ctx.data.authMethod === AUTH_METHODS.PHONE && !val) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Phone number is required for SMS authentication" }
+  ),
+  whatsappNumber: z.string().optional().refine(
+    (val, ctx) => {
+      if (ctx.data.authMethod === AUTH_METHODS.WHATSAPP && !val) {
+        return false;
+      }
+      return true;
+    },
+    { message: "WhatsApp number is required for WhatsApp authentication" }
+  ),
+  facebookId: z.string().optional().refine(
+    (val, ctx) => {
+      if (ctx.data.authMethod === AUTH_METHODS.FACEBOOK && !val) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Facebook ID is required for Facebook authentication" }
+  ),
 });
 
 // Property types
@@ -111,5 +176,27 @@ export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 
 // Extended types (combining related data)
+// Blog post schema
+export const blogPosts = pgTable("blog_posts", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  content: text("content").notNull(),
+  excerpt: text("excerpt").notNull(),
+  coverImage: text("cover_image").notNull(),
+  authorId: integer("author_id").notNull().references(() => users.id),
+  categories: jsonb("categories").notNull().$type<string[]>(),
+  published: boolean("published").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertBlogPostSchema = createInsertSchema(blogPosts)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+export type BlogPost = typeof blogPosts.$inferSelect;
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+
 export type PropertyWithOwner = Property & { owner: User };
 export type ProjectWithProperty = Project & { property: Property };
+export type BlogPostWithAuthor = BlogPost & { author: User };

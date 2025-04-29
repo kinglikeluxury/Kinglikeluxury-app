@@ -2,12 +2,15 @@ import {
   users,
   properties,
   projects,
+  blogPosts,
   type User,
   type InsertUser,
   type Property, 
   type InsertProperty,
   type Project,
   type InsertProject,
+  type BlogPost,
+  type InsertBlogPost,
   PROPERTY_STATUS,
   PROPERTY_TYPES
 } from "@shared/schema";
@@ -37,23 +40,39 @@ export interface IStorage {
   getProjects(): Promise<(Project & { property: Property })[]>;
   getProject(id: number): Promise<(Project & { property: Property }) | undefined>;
   createProject(project: InsertProject): Promise<Project>;
+  
+  // Blog operations
+  getBlogPosts(filters?: { 
+    published?: boolean;
+    authorId?: number;
+    category?: string;
+  }): Promise<(BlogPost & { author: User })[]>;
+  getBlogPostById(id: number): Promise<(BlogPost & { author: User }) | undefined>;
+  getBlogPostBySlug(slug: string): Promise<(BlogPost & { author: User }) | undefined>;
+  createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
+  updateBlogPost(id: number, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined>;
+  deleteBlogPost(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private properties: Map<number, Property>;
   private projects: Map<number, Project>;
+  private blogPosts: Map<number, BlogPost>;
   private userIdCounter: number;
   private propertyIdCounter: number;
   private projectIdCounter: number;
+  private blogPostIdCounter: number;
 
   constructor() {
     this.users = new Map();
     this.properties = new Map();
     this.projects = new Map();
+    this.blogPosts = new Map();
     this.userIdCounter = 1;
     this.propertyIdCounter = 1;
     this.projectIdCounter = 1;
+    this.blogPostIdCounter = 1;
     
     // Create admin user
     this.createUser({
