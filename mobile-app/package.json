@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "build-android-debug": "cd android && ./gradlew assembleDebug",
     "build-android-release": "cd android && ./gradlew assembleRelease",
-    "build-android-bundle": "cd android && ./gradlew bundleRelease"
+    "build-android-bundle": "cd android && ./gradlew bundleRelease",
+    "generate-keystore": "./generate-keystore.sh",
+    "build-apk": "./build-apk.sh",
+    "clean-android": "cd android && ./gradlew clean"
   },
   "dependencies": {
     "@react-navigation/native": "^6.1.9",
