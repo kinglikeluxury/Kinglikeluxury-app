@@ -117,10 +117,12 @@ export const properties = pgTable("properties", {
   area: integer("area").notNull(), // in sq ft
   bedrooms: integer("bedrooms"), // nullable for land
   bathrooms: integer("bathrooms"), // nullable for land
+  floorNumber: integer("floor_number"), // for apartments
   propertyType: text("property_type").notNull(),
   images: jsonb("images").notNull().$type<string[]>(),
   videos: jsonb("videos").notNull().$type<string[]>().default([]),
   features: jsonb("features").notNull().$type<string[]>(),
+  amenities: jsonb("amenities").notNull().$type<string[]>().default([]),
   status: text("status").notNull().default(PROPERTY_STATUS.PENDING),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -147,6 +149,8 @@ export const insertPropertySchema = createInsertSchema(properties)
     images: z.array(z.string()),
     videos: z.array(z.string()).optional().default([]),
     features: z.array(z.string()),
+    amenities: z.array(z.string()).optional().default([]),
+    floorNumber: z.number().optional().nullable(),
     bedrooms: z.number().optional().nullable(),
     bathrooms: z.number().optional().nullable(),
   });

@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Video } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 
 // Predefined amenities/facilities for properties
 const COMMON_AMENITIES = [
@@ -531,10 +532,113 @@ const PropertyForm = ({ isAdmin = false }) => {
               )}
             </div>
 
+            {/* Videos Section */}
+            <div>
+              <FormLabel>Videos</FormLabel>
+              <FormDescription>
+                Add video URLs for your property. You can add YouTube, Vimeo, or direct video links.
+              </FormDescription>
+
+              <div className="flex mt-2">
+                <Input
+                  type="text"
+                  placeholder="Enter video URL"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  className="mr-2"
+                />
+                <Button type="button" onClick={handleAddVideo} variant="outline">
+                  <Video className="mr-2 h-4 w-4" />
+                  Add
+                </Button>
+              </div>
+
+              {videoUrls.length > 0 && (
+                <div className="mt-4 grid grid-cols-1 gap-4">
+                  {videoUrls.map((url, index) => (
+                    <div key={index} className="flex items-center justify-between bg-primary/5 p-3 rounded-md">
+                      <div className="flex items-center">
+                        <Video className="h-5 w-5 mr-2 text-primary" />
+                        <span className="text-sm truncate max-w-xs">{url}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newUrls = videoUrls.filter((_, i) => i !== index);
+                          setVideoUrls(newUrls);
+                          form.setValue("videos", newUrls);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Amenities & Facilities */}
+            <div>
+              <FormLabel>Amenities & Facilities</FormLabel>
+              <FormDescription>
+                Select the amenities and facilities available for this property.
+              </FormDescription>
+
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {COMMON_AMENITIES.map((amenity) => (
+                  <div className="flex items-center space-x-2" key={amenity.id}>
+                    <Checkbox 
+                      id={`amenity-${amenity.id}`} 
+                      onCheckedChange={(checked) => 
+                        handleAmenityChange(amenity.id, checked === true)
+                      }
+                    />
+                    <label
+                      htmlFor={`amenity-${amenity.id}`}
+                      className="text-sm font-medium leading-none"
+                    >
+                      {amenity.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Floor Number for Apartments */}
+            {propertyType === PROPERTY_TYPES.APARTMENT && (
+              <div>
+                <FormField
+                  control={form.control}
+                  name="floorNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Floor Number</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Floor number"
+                          value={field.value || ""}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value ? Number(e.target.value) : null
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* Features */}
             <div>
               <FormLabel>Features</FormLabel>
               <FormDescription>
-                Add features of your property (e.g., Swimming Pool, Garage, etc.)
+                Add features of your property (e.g., Renovated Kitchen, Ocean View, etc.)
               </FormDescription>
 
               <div className="flex mt-2">
@@ -553,11 +657,11 @@ const PropertyForm = ({ isAdmin = false }) => {
               {features.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {features.map((f, index) => (
-                    <Badge key={index} variant="secondary" className="px-3 py-1">
-                      {f}
+                    <div key={index} className="bg-primary/10 text-primary px-3 py-1 rounded-full flex items-center">
+                      <span>{f}</span>
                       <button
                         type="button"
-                        className="ml-2 text-gray-500 hover:text-gray-700"
+                        className="ml-2 text-primary hover:text-primary-dark"
                         onClick={() => {
                           const newFeatures = features.filter((_, i) => i !== index);
                           setFeatures(newFeatures);
@@ -566,7 +670,7 @@ const PropertyForm = ({ isAdmin = false }) => {
                       >
                         ×
                       </button>
-                    </Badge>
+                    </div>
                   ))}
                 </div>
               )}
