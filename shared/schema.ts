@@ -119,6 +119,7 @@ export const properties = pgTable("properties", {
   bathrooms: integer("bathrooms"), // nullable for land
   propertyType: text("property_type").notNull(),
   images: jsonb("images").notNull().$type<string[]>(),
+  videos: jsonb("videos").notNull().$type<string[]>().default([]),
   features: jsonb("features").notNull().$type<string[]>(),
   status: text("status").notNull().default(PROPERTY_STATUS.PENDING),
   ownerId: integer("owner_id").notNull().references(() => users.id),
@@ -144,6 +145,7 @@ export const insertPropertySchema = createInsertSchema(properties)
     ]).default(LISTING_TYPES.REGULAR),
     listingDuration: z.number().optional().describe("Duration in days"),
     images: z.array(z.string()),
+    videos: z.array(z.string()).optional().default([]),
     features: z.array(z.string()),
     bedrooms: z.number().optional().nullable(),
     bathrooms: z.number().optional().nullable(),
