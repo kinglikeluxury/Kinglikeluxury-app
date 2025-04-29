@@ -11,6 +11,7 @@ import {
 import session from "express-session";
 import MemoryStore from "memorystore";
 import { z } from "zod";
+import { processImages } from "./utils/imageProcessing";
 
 // Session type definition
 declare module "express-session" {
