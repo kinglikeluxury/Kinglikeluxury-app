@@ -9,8 +9,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, Globe } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 const Navbar = () => {
   const [location] = useLocation();
@@ -60,6 +61,9 @@ const Navbar = () => {
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            <div className="flex items-center mr-4">
+              <LanguageSwitcher />
+            </div>
             {user ? (
               <>
                 <Button asChild variant="default" className="mr-2">
@@ -209,6 +213,9 @@ const Navbar = () => {
           </div>
         ) : (
           <div className="pt-4 pb-3 border-t border-gray-200 px-4 space-y-2">
+            <div className="mb-3 flex justify-center">
+              <LanguageSwitcher />
+            </div>
             <Button variant="outline" className="w-full" asChild>
               <Link href="/login">Login</Link>
             </Button>

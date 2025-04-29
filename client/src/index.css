@@ -65,8 +65,32 @@
     @apply text-[#005476] font-medium;
   }
   
+  p {
+    @apply text-[#005476];
+  }
+  
+  label {
+    @apply text-[#005476] !important;
+  }
+  
   a {
     @apply text-[#005476] hover:text-[#3bcac4] transition-colors;
+  }
+  
+  span {
+    @apply text-[#005476];
+  }
+  
+  .text-gray-700, .text-gray-800, .text-gray-900 {
+    @apply text-[#005476] !important;
+  }
+  
+  .text-gray-500, .text-gray-600 {
+    @apply text-[#005476]/80 !important;
+  }
+  
+  .text-black {
+    @apply text-[#005476] !important;
   }
 }
 
