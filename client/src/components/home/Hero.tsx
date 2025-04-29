@@ -55,10 +55,10 @@ const Hero = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-12 md:py-20">
           <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-bold text-white">
-              Find Your Perfect Property
+            <h1 className="text-3xl md:text-5xl font-bold text-white">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-amber-200 to-yellow-400 drop-shadow-md">Find Your Perfect Property</span>
             </h1>
-            <p className="mt-3 max-w-md mx-auto text-base text-primary-100 sm:text-lg">
+            <p className="mt-3 max-w-md mx-auto text-base sm:text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-200 to-yellow-400">
               Discover apartments, villas, lands and construction projects that match your needs
             </p>
           </div>
