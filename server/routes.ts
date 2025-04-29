@@ -9,7 +9,6 @@ import {
   PROPERTY_STATUS
 } from "@shared/schema";
 import session from "express-session";
-import MemoryStore from "memorystore";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 
@@ -23,15 +22,12 @@ declare module "express-session" {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
-  const SessionStore = MemoryStore(session);
 
-  // Configure sessions
+  // Configure sessions with PostgreSQL store
   app.use(
     session({
       cookie: { maxAge: 86400000 }, // 24 hours
-      store: new SessionStore({
-        checkPeriod: 86400000, // prune expired entries every 24h
-      }),
+      store: storage.sessionStore,
       resave: false,
       saveUninitialized: false,
       secret: process.env.SESSION_SECRET || "realestatepro-secret",
