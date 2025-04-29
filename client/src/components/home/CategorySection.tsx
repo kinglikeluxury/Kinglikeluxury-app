@@ -1,5 +1,7 @@
 import { Link } from "wouter";
 import { PROPERTY_TYPES } from "@shared/schema";
+import luxuryLogoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
+import constructionImagePath from "@assets/1702663538423.jfif";
 
 const CategorySection = () => {
   const categories = [
@@ -23,7 +25,7 @@ const CategorySection = () => {
     },
     {
       name: "Under Construction Projects",
-      image: "https://images.unsplash.com/photo-1581094488379-7f6a844e5100?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+      image: constructionImagePath,
       path: `/properties?type=${PROPERTY_TYPES.PROJECT}`,
       count: "42+ Listings",
       isProject: true,
