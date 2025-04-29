@@ -21,7 +21,8 @@ export default function LanguageSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 px-0">
+        <Button variant="ghost" size="sm" className="h-8 flex items-center gap-1 px-2">
+          <span>{languages[i18n.language as keyof typeof languages]?.flag || '🇬🇧'}</span>
           <Globe className="h-4 w-4" />
           <span className="sr-only">Switch language</span>
         </Button>
@@ -33,6 +34,7 @@ export default function LanguageSwitcher() {
             onClick={() => changeLanguage(code)}
             className={i18n.language === code ? "bg-accent font-semibold" : ""}
           >
+            <span className="mr-2">{languages[code as keyof typeof languages].flag}</span>
             {name}
           </DropdownMenuItem>
         ))}

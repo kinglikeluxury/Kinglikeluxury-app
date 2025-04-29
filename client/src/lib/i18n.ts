@@ -5,15 +5,15 @@ import Backend from 'i18next-http-backend';
 
 // Define the language configuration
 export const languages = {
-  en: { name: 'English', dir: 'ltr' },
-  ar: { name: 'العربية', dir: 'rtl' },
-  he: { name: 'עברית', dir: 'rtl' },
-  ru: { name: 'Русский', dir: 'ltr' },
-  ka: { name: 'ქართული', dir: 'ltr' }, // Georgian
-  az: { name: 'Azərbaycan', dir: 'ltr' }, // Azerbaijani
-  tr: { name: 'Türkçe', dir: 'ltr' }, // Turkish
-  zh: { name: '中文', dir: 'ltr' }, // Chinese
-  pl: { name: 'Polski', dir: 'ltr' }, // Polish
+  en: { name: 'English', dir: 'ltr', flag: '🇬🇧' },
+  ar: { name: 'العربية', dir: 'rtl', flag: '🇦🇪' },
+  he: { name: 'עברית', dir: 'rtl', flag: '🇮🇱' },
+  ru: { name: 'Русский', dir: 'ltr', flag: '🇷🇺' },
+  ka: { name: 'ქართული', dir: 'ltr', flag: '🇬🇪' }, // Georgian
+  az: { name: 'Azərbaycan', dir: 'ltr', flag: '🇦🇿' }, // Azerbaijani
+  tr: { name: 'Türkçe', dir: 'ltr', flag: '🇹🇷' }, // Turkish
+  zh: { name: '中文', dir: 'ltr', flag: '🇨🇳' }, // Chinese
+  pl: { name: 'Polski', dir: 'ltr', flag: '🇵🇱' }, // Polish
 };
 
 // Helper function to get the text direction of a language
