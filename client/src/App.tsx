@@ -16,6 +16,9 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import Approvals from "@/pages/admin/approvals";
 import AddProject from "@/pages/admin/add-project";
 import NotFound from "@/pages/not-found";
+import { useTranslation } from "react-i18next";
+import { useEffect } from "react";
+import { getLanguageDirection } from "./lib/i18n";
 
 function Router() {
   return (
@@ -41,6 +44,14 @@ function Router() {
 }
 
 function App() {
+  const { i18n } = useTranslation();
+  
+  // Set document direction based on language (RTL for Arabic and Hebrew)
+  useEffect(() => {
+    document.documentElement.dir = getLanguageDirection(i18n.language);
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
