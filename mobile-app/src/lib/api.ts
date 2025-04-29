@@ -1,13 +1,9 @@
 import axios from 'axios';
-
-// Base URL for API requests
-// For development, use the local server's IP address and port
-// For production, use the deployed API URL
-const API_BASE_URL = 'http://10.0.2.2:5000/api'; // Use 10.0.2.2 for Android emulator to reach host machine
+import { API_URL } from '../config/api.config';
 
 // Create an axios instance
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
