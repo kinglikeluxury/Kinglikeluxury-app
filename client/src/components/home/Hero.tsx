@@ -56,9 +56,9 @@ const Hero = () => {
         <div className="py-12 md:py-20">
           <div className="text-center">
             <h1 className="text-3xl md:text-5xl font-bold text-white">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-amber-200 to-yellow-400 drop-shadow-md">Find Your Perfect Property</span>
+              <span className="text-[#005476] drop-shadow-md">Find Your Perfect Property</span>
             </h1>
-            <p className="mt-3 max-w-md mx-auto text-base sm:text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-amber-200 to-yellow-400 drop-shadow-md">
+            <p className="mt-3 max-w-md mx-auto text-base sm:text-lg font-bold text-[#005476] drop-shadow-md">
               Discover apartments, villas, lands and construction projects that match your needs
             </p>
           </div>
