@@ -31,7 +31,7 @@ i18n
   // init i18next
   .init({
     fallbackLng: 'en',
-    debug: false,
+    debug: true,
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },
@@ -41,7 +41,7 @@ i18n
       caches: ['localStorage', 'cookie'],
     },
     backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json',
+      loadPath: './locales/{{lng}}/{{ns}}.json',
     },
     react: {
       useSuspense: false, // react-i18next suspense not currently needed 
