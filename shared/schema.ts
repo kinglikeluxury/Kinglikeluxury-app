@@ -34,6 +34,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   facebookId: true,
   authMethod: true,
   isAdmin: true,
+  isVerified: true,
 })
 .extend({
   // Make certain fields conditional based on auth method
