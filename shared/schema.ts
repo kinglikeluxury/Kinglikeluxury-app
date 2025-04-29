@@ -90,6 +90,7 @@ export const PROPERTY_TYPES = {
   APARTMENT: "apartment",
   VILLA: "villa",
   LAND: "land",
+  COMMERCIAL: "commercial",
   PROJECT: "project",
 } as const;
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -60,6 +60,7 @@ const formSchema = insertPropertySchema.extend({
     PROPERTY_TYPES.APARTMENT,
     PROPERTY_TYPES.VILLA,
     PROPERTY_TYPES.LAND,
+    PROPERTY_TYPES.COMMERCIAL,
     PROPERTY_TYPES.PROJECT,
   ]),
   bedrooms: z.number().optional().nullable(),
@@ -85,6 +86,7 @@ const PropertyForm = ({ isAdmin = false }) => {
   const [features, setFeatures] = useState<string[]>([]);
   const [feature, setFeature] = useState("");
   const [floorNumber, setFloorNumber] = useState<number | null>(null);
+  const [pricePerSqft, setPricePerSqft] = useState<number | null>(null);
 
   // Property type options based on user role
   const propertyTypeOptions = isAdmin
@@ -122,6 +124,17 @@ const PropertyForm = ({ isAdmin = false }) => {
   });
 
   const propertyType = form.watch("propertyType");
+  const price = form.watch("price");
+  const area = form.watch("area");
+  
+  // Calculate price per square foot whenever price or area changes
+  useEffect(() => {
+    if (price && area && area > 0) {
+      setPricePerSqft(Number((price / area).toFixed(2)));
+    } else {
+      setPricePerSqft(null);
+    }
+  }, [price, area]);
 
   // Handle property type change to show/hide project fields
   const handlePropertyTypeChange = (value: string) => {

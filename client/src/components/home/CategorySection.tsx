@@ -50,7 +50,12 @@ const CategorySection = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
               
               {category.isProject && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/50">
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/60">
+                  <img 
+                    src="/assets/LUXURY_20230822_234540_0000-removebg.png" 
+                    alt="Kinglike Luxury" 
+                    className="h-16 mb-4 drop-shadow-lg"
+                  />
                   <div className="bg-[#3bcac4]/90 px-3 py-1 rounded-full mb-2 rotate-[-5deg] shadow-lg">
                     <span className="text-white font-bold text-sm">Coming Soon</span>
                   </div>
