@@ -3,52 +3,48 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import Backend from 'i18next-http-backend';
 
-// Languages supported by the application
+// Define the language configuration
 export const languages = {
-  en: { nativeName: 'English', direction: 'ltr' },
-  ar: { nativeName: 'العربية', direction: 'rtl' },
-  he: { nativeName: 'עברית', direction: 'rtl' },
-  ru: { nativeName: 'Русский', direction: 'ltr' },
-  ka: { nativeName: 'ქართული', direction: 'ltr' },
-  az: { nativeName: 'Azərbaycan', direction: 'ltr' },
-  tr: { nativeName: 'Türkçe', direction: 'ltr' },
-  zh: { nativeName: '中文', direction: 'ltr' },
-  pl: { nativeName: 'Polski', direction: 'ltr' }
+  en: { name: 'English', dir: 'ltr' },
+  ar: { name: 'العربية', dir: 'rtl' },
+  he: { name: 'עברית', dir: 'rtl' },
+  ru: { name: 'Русский', dir: 'ltr' },
+  ka: { name: 'ქართული', dir: 'ltr' }, // Georgian
+  az: { name: 'Azərbaycan', dir: 'ltr' }, // Azerbaijani
+  tr: { name: 'Türkçe', dir: 'ltr' }, // Turkish
+  zh: { name: '中文', dir: 'ltr' }, // Chinese
+  pl: { name: 'Polski', dir: 'ltr' }, // Polish
 };
 
-// Get the language direction (ltr or rtl)
+// Helper function to get the text direction of a language
 export const getLanguageDirection = (lng: string): string => {
-  return languages[lng as keyof typeof languages]?.direction || 'ltr';
+  return languages[lng as keyof typeof languages]?.dir || 'ltr';
 };
 
 i18n
-  // Load translation using http, learn more: https://github.com/i18next/i18next-http-backend
+  // load translation using http (default public/locales/{{lng}}/{{ns}}.json)
   .use(Backend)
-  // Detect user language, learn more: https://github.com/i18next/i18next-browser-languageDetector
+  // detect user language
   .use(LanguageDetector)
-  // Pass the i18n instance to react-i18next
+  // pass the i18n instance to react-i18next
   .use(initReactI18next)
-  // Initialize i18next
+  // init i18next
   .init({
-    supportedLngs: Object.keys(languages),
     fallbackLng: 'en',
-    debug: process.env.NODE_ENV === 'development',
-    
+    debug: false,
     interpolation: {
-      escapeValue: false, // Not needed for React as it escapes by default
+      escapeValue: false, // not needed for react as it escapes by default
     },
-    
-    // Backend options
+    supportedLngs: Object.keys(languages),
+    detection: {
+      order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage', 'cookie'],
+    },
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json',
     },
-    
-    // Default namespace
-    defaultNS: 'common',
-    
-    // React settings
     react: {
-      useSuspense: true,
+      useSuspense: false, // react-i18next suspense not currently needed 
     },
   });
 
