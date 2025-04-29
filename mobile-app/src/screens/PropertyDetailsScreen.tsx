@@ -1,248 +1,206 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  Dimensions,
+  StyleSheet,
+  Image,
   ActivityIndicator,
+  TouchableOpacity,
   Linking,
+  Dimensions,
 } from 'react-native';
-import FastImage from 'react-native-fast-image';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { getProperty } from '../lib/api';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../lib/theme';
-import Button from '../components/ui/Button';
+import { useRoute, RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '@navigation/AppNavigator';
+import { getProperty } from '@lib/api';
+import { COLORS, FONTS, SPACING } from '@lib/theme';
+
+type PropertyDetailsRouteProp = RouteProp<RootStackParamList, 'PropertyDetails'>;
+
+type PropertyDetail = {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  price: number;
+  propertyType: string;
+  status: string;
+  area: number;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  floorNumber?: number | null;
+  images: string[];
+  ownerId: number;
+  owner?: {
+    username: string;
+    email: string;
+    phoneNumber: string;
+  };
+};
 
 const { width } = Dimensions.get('window');
 
 const PropertyDetailsScreen = () => {
-  const route = useRoute();
-  const navigation = useNavigation();
-  const { id } = route.params as { id: number };
-  
+  const route = useRoute<PropertyDetailsRouteProp>();
+  const { propertyId } = route.params;
+  const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [property, setProperty] = useState<any>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
-    fetchPropertyDetails();
-  }, [id]);
-
-  const fetchPropertyDetails = async () => {
-    setLoading(true);
-    try {
-      // In a real implementation, we would call the API
-      // const data = await getProperty(id);
-      // setProperty(data);
-      
-      // Mock data for demo
-      setTimeout(() => {
-        setProperty({
-          id: 1,
-          title: 'Modern Apartment in City Center',
-          location: 'Batumi, Georgia',
-          price: 120000,
-          area: 85,
-          bedrooms: 2,
-          bathrooms: 1,
-          description: 'A beautiful modern apartment located in the heart of Batumi. Features include a spacious living room, fully equipped kitchen, balcony with city views, and 24/7 security. Walking distance to the beach, restaurants, and shopping.',
-          propertyType: 'apartment',
-          images: [
-            'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-            'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-            'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-          ],
-          features: [
-            'Central Heating',
-            'Air Conditioning',
-            'Elevator',
-            'High-speed Internet',
-            'Parking Space',
-            'Swimming Pool',
-            'Security System'
-          ],
-          status: 'approved',
-          ownerPhone: '+995 555 12 34 56',
-          ownerEmail: 'owner@example.com',
-          createdAt: '2023-10-15T09:00:00.000Z',
-          floorNumber: 4,
-          totalFloors: 8,
-          latitude: 41.6462,
-          longitude: 41.6420,
-        });
+    const fetchPropertyDetails = async () => {
+      try {
+        setLoading(true);
+        const data = await getProperty(propertyId);
+        setProperty(data);
+      } catch (error) {
+        console.error('Error fetching property details:', error);
+      } finally {
         setLoading(false);
-      }, 1000);
-    } catch (error) {
-      console.error('Error fetching property details:', error);
-      setLoading(false);
-    }
-  };
+      }
+    };
 
-  const handleContactOwner = () => {
-    // In a real app, this would open a dialog or modal
-    // For this demo, we'll just simulate dialing the number
-    if (property?.ownerPhone) {
-      Linking.openURL(`tel:${property.ownerPhone}`);
-    }
-  };
+    fetchPropertyDetails();
+  }, [propertyId]);
 
-  const handleEmailOwner = () => {
-    if (property?.ownerEmail) {
-      Linking.openURL(`mailto:${property.ownerEmail}?subject=Inquiry about property ${property.title}`);
+  const handleContact = async (contactType: 'phone' | 'email') => {
+    if (!property?.owner) return;
+
+    if (contactType === 'phone' && property.owner.phoneNumber) {
+      await Linking.openURL(`tel:${property.owner.phoneNumber}`);
+    } else if (contactType === 'email' && property.owner.email) {
+      await Linking.openURL(`mailto:${property.owner.email}`);
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading property details...</Text>
       </View>
     );
   }
 
   if (!property) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={styles.centered}>
         <Text style={styles.errorText}>Property not found</Text>
-        <Button
-          title="Go Back"
-          onPress={() => navigation.goBack()}
-          style={styles.errorButton}
-        />
       </View>
     );
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Image Gallery */}
       <View style={styles.imageContainer}>
-        <FastImage
-          source={{ uri: property.images[selectedImageIndex] }}
-          style={styles.mainImage}
-          resizeMode={FastImage.resizeMode.cover}
-        />
-        
-        {/* Project badge if applicable */}
-        {property.propertyType === 'project' && (
-          <View style={styles.projectBadge}>
-            <Text style={styles.badgeText}>Under Construction</Text>
-          </View>
+        {property.images && property.images.length > 0 ? (
+          <>
+            <Image
+              source={{ uri: property.images[currentImageIndex] }}
+              style={styles.mainImage}
+              resizeMode="cover"
+            />
+            <View style={styles.thumbnailContainer}>
+              {property.images.map((img, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => setCurrentImageIndex(index)}
+                  style={[
+                    styles.thumbnailWrapper,
+                    currentImageIndex === index && styles.activeThumbnail,
+                  ]}
+                >
+                  <Image
+                    source={{ uri: img }}
+                    style={styles.thumbnail}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : (
+          <Image
+            source={{ uri: 'https://via.placeholder.com/400x300' }}
+            style={styles.mainImage}
+            resizeMode="cover"
+          />
         )}
-        
-        {/* Thumbnail Carousel */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.thumbnailContainer}
-        >
-          {property.images.map((image: string, index: number) => (
-            <TouchableOpacity
-              key={index}
-              onPress={() => setSelectedImageIndex(index)}
-              style={[
-                styles.thumbnailWrapper,
-                selectedImageIndex === index && styles.selectedThumbnail,
-              ]}
-            >
-              <FastImage
-                source={{ uri: image }}
-                style={styles.thumbnail}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
-      
-      {/* Property Details */}
-      <View style={styles.detailsContainer}>
-        <Text style={styles.price}>${property.price.toLocaleString()}</Text>
+
+      <View style={styles.content}>
         <Text style={styles.title}>{property.title}</Text>
         <Text style={styles.location}>{property.location}</Text>
-        
-        {/* Key Features */}
-        <View style={styles.keyFeaturesContainer}>
-          <View style={styles.keyFeature}>
-            <Text style={styles.keyFeatureValue}>{property.area}</Text>
-            <Text style={styles.keyFeatureLabel}>m²</Text>
+        <Text style={styles.price}>${property.price.toLocaleString()}</Text>
+
+        <View style={styles.infoContainer}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Type</Text>
+            <Text style={styles.infoValue}>{property.propertyType}</Text>
           </View>
-          
-          {property.bedrooms !== null && (
-            <View style={styles.keyFeature}>
-              <Text style={styles.keyFeatureValue}>{property.bedrooms}</Text>
-              <Text style={styles.keyFeatureLabel}>Beds</Text>
-            </View>
-          )}
-          
-          {property.bathrooms !== null && (
-            <View style={styles.keyFeature}>
-              <Text style={styles.keyFeatureValue}>{property.bathrooms}</Text>
-              <Text style={styles.keyFeatureLabel}>Baths</Text>
-            </View>
-          )}
-          
-          {property.floorNumber !== null && (
-            <View style={styles.keyFeature}>
-              <Text style={styles.keyFeatureValue}>{property.floorNumber}/{property.totalFloors}</Text>
-              <Text style={styles.keyFeatureLabel}>Floor</Text>
-            </View>
-          )}
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Status</Text>
+            <Text style={styles.infoValue}>{property.status}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Area</Text>
+            <Text style={styles.infoValue}>{property.area} m²</Text>
+          </View>
         </View>
-        
-        {/* Description */}
+
+        {(property.bedrooms != null ||
+          property.bathrooms != null ||
+          property.floorNumber != null) && (
+          <View style={styles.infoContainer}>
+            {property.bedrooms != null && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Bedrooms</Text>
+                <Text style={styles.infoValue}>{property.bedrooms}</Text>
+              </View>
+            )}
+            {property.bathrooms != null && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Bathrooms</Text>
+                <Text style={styles.infoValue}>{property.bathrooms}</Text>
+              </View>
+            )}
+            {property.floorNumber != null && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Floor</Text>
+                <Text style={styles.infoValue}>{property.floorNumber}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Description</Text>
           <Text style={styles.description}>{property.description}</Text>
         </View>
-        
-        {/* Features */}
-        {property.features && property.features.length > 0 && (
+
+        {property.owner && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Features</Text>
-            <View style={styles.featuresContainer}>
-              {property.features.map((feature: string, index: number) => (
-                <View key={index} style={styles.feature}>
-                  <Text style={styles.featureText}>{feature}</Text>
-                </View>
-              ))}
+            <Text style={styles.sectionTitle}>Contact</Text>
+            <Text style={styles.contactName}>{property.owner.username}</Text>
+            <View style={styles.contactButtons}>
+              {property.owner.phoneNumber && (
+                <TouchableOpacity
+                  style={styles.contactButton}
+                  onPress={() => handleContact('phone')}
+                >
+                  <Text style={styles.contactButtonText}>Call</Text>
+                </TouchableOpacity>
+              )}
+              {property.owner.email && (
+                <TouchableOpacity
+                  style={[styles.contactButton, styles.emailButton]}
+                  onPress={() => handleContact('email')}
+                >
+                  <Text style={styles.contactButtonText}>Email</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
-        
-        {/* Date */}
-        <View style={styles.dateContainer}>
-          <Text style={styles.dateText}>
-            Listed on {formatDate(property.createdAt)}
-          </Text>
-        </View>
-        
-        {/* Contact Buttons */}
-        <View style={styles.contactContainer}>
-          <Button
-            title="Call Owner"
-            style={styles.contactButton}
-            onPress={handleContactOwner}
-          />
-          <Button
-            title="Email"
-            variant="outline"
-            style={styles.contactButton}
-            onPress={handleEmailOwner}
-          />
-        </View>
       </View>
     </ScrollView>
   );
@@ -251,166 +209,132 @@ const PropertyDetailsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
   },
-  loadingContainer: {
+  centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-  },
-  loadingText: {
-    marginTop: SPACING[2],
-    color: COLORS.gray[600],
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING[5],
   },
   errorText: {
-    fontSize: 16,
-    color: COLORS.gray[700],
-    marginBottom: SPACING[3],
-  },
-  errorButton: {
-    width: 150,
+    fontSize: FONTS.sizes.medium,
+    color: COLORS.error,
   },
   imageContainer: {
-    position: 'relative',
+    width: '100%',
+    backgroundColor: COLORS.white,
   },
   mainImage: {
-    width,
-    height: width * 0.75,
-  },
-  projectBadge: {
-    position: 'absolute',
-    top: SPACING[3],
-    left: SPACING[3],
-    backgroundColor: COLORS.secondary,
-    paddingHorizontal: SPACING[3],
-    paddingVertical: SPACING[1],
-    borderRadius: BORDER_RADIUS.full,
-  },
-  badgeText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: 'bold',
+    width: '100%',
+    height: 250,
+    backgroundColor: COLORS.lightGray,
   },
   thumbnailContainer: {
-    position: 'absolute',
-    bottom: SPACING[3],
-    left: 0,
-    right: 0,
-    paddingHorizontal: SPACING[3],
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.small,
   },
   thumbnailWrapper: {
-    width: 60,
-    height: 60,
-    marginRight: SPACING[2],
-    borderRadius: BORDER_RADIUS.md,
+    width: width / 5 - SPACING.small * 2,
+    height: width / 5 - SPACING.small * 2,
+    marginRight: SPACING.small,
+    borderRadius: 5,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  selectedThumbnail: {
+  activeThumbnail: {
     borderColor: COLORS.primary,
   },
   thumbnail: {
     width: '100%',
     height: '100%',
+    backgroundColor: COLORS.lightGray,
   },
-  detailsContainer: {
-    padding: SPACING[4],
-  },
-  price: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginBottom: SPACING[1],
+  content: {
+    padding: SPACING.medium,
   },
   title: {
-    fontSize: 20,
+    fontSize: FONTS.sizes.xlarge,
     fontWeight: 'bold',
-    color: COLORS.gray[800],
-    marginBottom: SPACING[1],
+    color: COLORS.text,
+    marginBottom: 4,
   },
   location: {
-    fontSize: 14,
-    color: COLORS.gray[600],
-    marginBottom: SPACING[3],
+    fontSize: FONTS.sizes.small,
+    color: COLORS.textLight,
+    marginBottom: 8,
   },
-  keyFeaturesContainer: {
+  price: {
+    fontSize: FONTS.sizes.large,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: SPACING.medium,
+  },
+  infoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING[3],
-    marginBottom: SPACING[4],
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    padding: SPACING.medium,
+    marginBottom: SPACING.medium,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  keyFeature: {
+  infoItem: {
     alignItems: 'center',
+    flex: 1,
   },
-  keyFeatureValue: {
-    fontSize: 18,
+  infoLabel: {
+    fontSize: FONTS.sizes.xsmall,
+    color: COLORS.textLight,
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: FONTS.sizes.medium,
     fontWeight: 'bold',
-    color: COLORS.gray[800],
-  },
-  keyFeatureLabel: {
-    fontSize: 12,
-    color: COLORS.gray[600],
-    marginTop: SPACING[1],
+    color: COLORS.text,
   },
   section: {
-    marginBottom: SPACING[4],
+    marginBottom: SPACING.large,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: FONTS.sizes.medium,
     fontWeight: 'bold',
-    color: COLORS.gray[800],
-    marginBottom: SPACING[2],
+    color: COLORS.text,
+    marginBottom: SPACING.small,
   },
   description: {
-    fontSize: 14,
-    lineHeight: 24,
-    color: COLORS.gray[700],
+    fontSize: FONTS.sizes.small,
+    lineHeight: 22,
+    color: COLORS.text,
   },
-  featuresContainer: {
+  contactName: {
+    fontSize: FONTS.sizes.medium,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SPACING.small,
+  },
+  contactButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  feature: {
-    backgroundColor: COLORS.gray[100],
-    paddingHorizontal: SPACING[3],
-    paddingVertical: SPACING[2],
-    borderRadius: BORDER_RADIUS.full,
-    marginRight: SPACING[2],
-    marginBottom: SPACING[2],
-  },
-  featureText: {
-    fontSize: 12,
-    color: COLORS.gray[700],
-  },
-  dateContainer: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
-    paddingVertical: SPACING[3],
-    marginBottom: SPACING[3],
-  },
-  dateText: {
-    fontSize: 12,
-    color: COLORS.gray[500],
-    textAlign: 'center',
-  },
-  contactContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   contactButton: {
-    flex: 1,
-    marginHorizontal: SPACING[1],
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.small,
+    paddingHorizontal: SPACING.medium,
+    borderRadius: 5,
+    marginRight: SPACING.small,
+  },
+  emailButton: {
+    backgroundColor: COLORS.secondary,
+  },
+  contactButtonText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+    fontSize: FONTS.sizes.small,
   },
 });
 
