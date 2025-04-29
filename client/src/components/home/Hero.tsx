@@ -9,9 +9,9 @@ import { Search } from "lucide-react";
 
 const Hero = () => {
   const [, navigate] = useLocation();
-  const [propertyType, setPropertyType] = useState<string>("");
-  const [location, setLocation] = useState<string>("");
-  const [priceRange, setPriceRange] = useState<string>("");
+  const [propertyType, setPropertyType] = useState<string>("all");
+  const [location, setLocation] = useState<string>("any");
+  const [priceRange, setPriceRange] = useState<string>("any");
 
   const handleSearch = () => {
     const params = new URLSearchParams();
@@ -84,11 +84,18 @@ const Hero = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <Input 
-                      placeholder="Any location" 
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                    />
+                    <Select value={location} onValueChange={setLocation}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any location</SelectItem>
+                        <SelectItem value="Batumi">Batumi</SelectItem>
+                        <SelectItem value="Tbilisi">Tbilisi</SelectItem>
+                        <SelectItem value="Baku">Baku</SelectItem>
+                        <SelectItem value="Istanbul">Istanbul</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div>
