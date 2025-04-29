@@ -177,6 +177,22 @@ const PropertyDetailsScreen = () => {
           <Text style={styles.description}>{property.description}</Text>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Virtual Tour</Text>
+          <TouchableOpacity
+            style={styles.arButton}
+            onPress={() => navigation.navigate('ARPropertyView', { 
+              propertyId: property.id,
+              floorPlanUrl: 'https://kinglikeluxury.com/floor-plans/' + property.id + '.glb' 
+            })}
+          >
+            <Text style={styles.arButtonText}>View in AR</Text>
+          </TouchableOpacity>
+          <Text style={styles.arDescription}>
+            Experience the property in augmented reality. See the floor plan and layout in 3D.
+          </Text>
+        </View>
+
         {property.owner && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Contact</Text>
@@ -335,6 +351,24 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: 'bold',
     fontSize: FONTS.sizes.small,
+  },
+  arButton: {
+    backgroundColor: COLORS.secondary,
+    paddingVertical: SPACING.medium,
+    paddingHorizontal: SPACING.medium,
+    borderRadius: 8,
+    marginBottom: SPACING.small,
+    alignItems: 'center',
+  },
+  arButtonText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+    fontSize: FONTS.sizes.medium,
+  },
+  arDescription: {
+    fontSize: FONTS.sizes.small,
+    color: COLORS.textLight,
+    lineHeight: 20,
   },
 });
 

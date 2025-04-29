@@ -1,90 +1,142 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Replace with your actual API URL when in production
-const API_URL = 'https://kinglike-luxury.replit.app/api';
+// Base URL for API requests
+// For development, use the local server's IP address and port
+// For production, use the deployed API URL
+const API_BASE_URL = 'http://10.0.2.2:5000/api'; // Use 10.0.2.2 for Android emulator to reach host machine
 
+// Create an axios instance
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 seconds
 });
 
-// Add a request interceptor to include auth token in requests
-api.interceptors.request.use(
-  async (config) => {
-    const token = await AsyncStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+// Get properties with optional filters
+export const getProperties = async (filters = {}) => {
+  try {
+    const response = await api.get('/properties', { params: filters });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    throw error;
   }
-);
+};
 
-// Authentication API calls
+// Get a single property by ID
+export const getProperty = async (id: number) => {
+  try {
+    const response = await api.get(`/properties/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching property ${id}:`, error);
+    throw error;
+  }
+};
+
+// Get projects
+export const getProjects = async () => {
+  try {
+    const response = await api.get('/projects');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Get a single project by ID
+export const getProject = async (id: number) => {
+  try {
+    const response = await api.get(`/projects/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching project ${id}:`, error);
+    throw error;
+  }
+};
+
+// Authentication functions
 export const login = async (username: string, password: string) => {
-  const response = await api.post('/login', { username, password });
-  return response.data;
+  try {
+    const response = await api.post('/auth/login', { username, password });
+    return response.data;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
 };
 
 export const register = async (userData: {
   username: string;
   password: string;
   email: string;
+  phoneNumber?: string;
+  whatsappNumber?: string;
 }) => {
-  const response = await api.post('/register', userData);
-  return response.data;
+  try {
+    const response = await api.post('/auth/register', userData);
+    return response.data;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
 };
 
 export const logout = async () => {
-  await api.post('/logout');
-  await AsyncStorage.removeItem('auth_token');
+  try {
+    await api.post('/auth/logout');
+    return true;
+  } catch (error) {
+    console.error('Logout error:', error);
+    throw error;
+  }
 };
 
 export const getCurrentUser = async () => {
   try {
-    const response = await api.get('/user');
+    const response = await api.get('/auth/me');
     return response.data;
   } catch (error) {
-    return null;
+    console.error('Error fetching user:', error);
+    throw error;
   }
 };
 
-// Properties API calls
-export const getProperties = async (filters = {}) => {
-  const response = await api.get('/properties', { params: filters });
-  return response.data;
-};
-
-export const getProperty = async (id: number) => {
-  const response = await api.get(`/properties/${id}`);
-  return response.data;
-};
-
-export const createProperty = async (propertyData: any) => {
-  const response = await api.post('/properties', propertyData);
-  return response.data;
-};
-
-// Projects API calls
-export const getProjects = async () => {
-  const response = await api.get('/projects');
-  return response.data;
-};
-
-export const getProject = async (id: number) => {
-  const response = await api.get(`/projects/${id}`);
-  return response.data;
-};
-
-// Blog API calls
+// Blog posts
 export const getBlogPosts = async (filters = {}) => {
-  const response = await api.get('/blog', { params: filters });
-  return response.data;
+  try {
+    const response = await api.get('/blog', { params: filters });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching blog posts:', error);
+    throw error;
+  }
 };
+
+export const getBlogPost = async (id: number) => {
+  try {
+    const response = await api.get(`/blog/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching blog post ${id}:`, error);
+    throw error;
+  }
+};
+
+// Add request interceptor to handle authentication
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle 401 errors (unauthorized)
+    if (error.response && error.response.status === 401) {
+      // You might want to redirect to login or refresh token
+      console.log('User is not authenticated');
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

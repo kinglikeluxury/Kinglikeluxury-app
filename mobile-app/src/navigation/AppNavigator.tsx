@@ -4,11 +4,17 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import HomeScreen from '@screens/HomeScreen';
 import PropertyDetailsScreen from '@screens/PropertyDetailsScreen';
+import ARPropertyViewScreen from '@screens/ARPropertyViewScreen';
 import { COLORS } from '@lib/theme';
 
 export type RootStackParamList = {
   Home: undefined;
   PropertyDetails: { propertyId: number };
+  ARPropertyView: { 
+    propertyId: number;
+    modelUrl?: string;
+    floorPlanUrl?: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -37,6 +43,15 @@ const AppNavigator = () => {
           name="PropertyDetails"
           component={PropertyDetailsScreen}
           options={{ title: 'Property Details' }}
+        />
+        <Stack.Screen
+          name="ARPropertyView"
+          component={ARPropertyViewScreen}
+          options={{ 
+            title: 'AR View',
+            headerShown: true,
+            animation: 'slide_from_bottom'
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

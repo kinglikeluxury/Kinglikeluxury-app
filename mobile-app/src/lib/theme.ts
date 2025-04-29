@@ -1,98 +1,102 @@
+// Define colors using the Kinglike Luxury brand palette
 export const COLORS = {
-  primary: '#3bcac4',
-  secondary: '#005476',
+  // Brand colors
+  primary: '#3bcac4', // Teal
+  secondary: '#005476', // Dark blue
+  
+  // Base colors
   white: '#FFFFFF',
   black: '#000000',
+  
+  // Grays
   gray: {
-    50: '#F9FAFB',
-    100: '#F3F4F6',
-    200: '#E5E7EB',
-    300: '#D1D5DB',
-    400: '#9CA3AF',
-    500: '#6B7280',
-    600: '#4B5563',
-    700: '#374151',
-    800: '#1F2937',
-    900: '#111827',
+    50: '#f8f9fa',
+    100: '#f1f3f5',
+    200: '#e9ecef',
+    300: '#dee2e6',
+    400: '#ced4da',
+    500: '#adb5bd',
+    600: '#868e96',
+    700: '#495057',
+    800: '#343a40',
+    900: '#212529',
   },
-  danger: '#EF4444',
-  success: '#10B981',
-  warning: '#F59E0B',
+  
+  // UI colors
+  text: '#1A202C',
+  textLight: '#718096',
+  error: '#E53E3E',
+  success: '#38A169',
+  warning: '#F6AD55',
+  background: '#F7FAFC',
+  lightGray: '#F0F2F5',
+  border: '#E2E8F0',
   transparent: 'transparent',
 };
 
+// Font families
 export const FONTS = {
   regular: 'System',
-  medium: 'System',
-  bold: 'System',
+  medium: 'System-Medium',
+  bold: 'System-Bold',
+  sizes: {
+    xsmall: 12,
+    small: 14,
+    medium: 16,
+    large: 18,
+    xlarge: 22,
+    xxlarge: 28,
+  },
 };
 
-export const FONT_SIZES = {
-  xs: 12,
-  sm: 14,
-  base: 16,
-  lg: 18,
-  xl: 20,
-  '2xl': 24,
-  '3xl': 30,
-  '4xl': 36,
-  '5xl': 48,
-};
-
+// Spacing scale
 export const SPACING = {
-  '0': 0,
-  '1': 4,
-  '2': 8,
-  '3': 12,
-  '4': 16,
-  '5': 20,
-  '6': 24,
-  '8': 32,
-  '10': 40,
-  '12': 48,
-  '16': 64,
-  '20': 80,
-  '24': 96,
+  xsmall: 4,
+  small: 8,
+  medium: 16,
+  large: 24,
+  xlarge: 32,
+  xxlarge: 48,
 };
 
+// Border radius
 export const BORDER_RADIUS = {
-  none: 0,
-  sm: 2,
-  base: 4,
-  md: 6,
-  lg: 8,
-  xl: 12,
-  '2xl': 16,
+  small: 4,
+  medium: 8,
+  large: 12,
   full: 9999,
 };
 
+// Shadows
 export const SHADOWS = {
-  sm: {
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  base: {
+  small: {
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 2,
   },
-  md: {
+  medium: {
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
-    elevation: 3,
-  },
-  lg: {
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1, 
-    shadowRadius: 10,
     elevation: 4,
   },
+  large: {
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+};
+
+// Export as a default theme object
+export default {
+  COLORS,
+  FONTS,
+  SPACING,
+  BORDER_RADIUS,
+  SHADOWS,
 };
