@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck } from "lucide-react";
+import PropertyMap from "@/components/property/PropertyMap";
 
 const PropertyDetail = () => {
   const [, params] = useRoute("/property/:id");
@@ -327,6 +328,13 @@ const PropertyDetail = () => {
                     
                     <Separator className="my-4" />
                     
+                    <div className="mt-4 mb-4">
+                      <h3 className="text-lg font-semibold mb-2">Location</h3>
+                      <PropertyMap location={property.location} title={property.title} className="mt-2" />
+                    </div>
+                    
+                    <Separator className="my-4" />
+                    
                     <Button className="w-full" asChild>
                       <Link href={`mailto:info@realestatepro.com?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
                         Contact Agent
@@ -340,14 +348,8 @@ const PropertyDetail = () => {
                 </Card>
                 
                 <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-3">Location</h3>
-                  <div className="bg-gray-200 rounded-lg h-64 flex items-center justify-center">
-                    <div className="text-center p-4">
-                      <MapPin className="h-8 w-8 mx-auto mb-2 text-gray-500" />
-                      <p className="text-gray-700">{property.location}</p>
-                      <p className="text-sm text-gray-500">Map view not available in demo</p>
-                    </div>
-                  </div>
+                  <h3 className="text-lg font-semibold mb-3">Location Map</h3>
+                  <PropertyMap location={property.location} title={property.title} />
                 </div>
               </div>
             </div>
