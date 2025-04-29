@@ -12,11 +12,13 @@ import { useAuth } from "@/lib/auth";
 import { Menu, X, User, Globe } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 const Navbar = () => {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { t } = useTranslation();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -27,11 +29,11 @@ const Navbar = () => {
   };
 
   const navLinks = [
-    { name: "Home", path: "/" },
-    { name: "Apartments", path: "/properties?type=apartment" },
-    { name: "Villas", path: "/properties?type=villa" },
-    { name: "Lands", path: "/properties?type=land" },
-    { name: "Projects", path: "/properties?type=project" },
+    { name: t('nav.home', 'Home'), path: "/" },
+    { name: t('propertyTypes.apartment', 'Apartments'), path: "/properties?type=apartment" },
+    { name: t('propertyTypes.villa', 'Villas'), path: "/properties?type=villa" },
+    { name: t('propertyTypes.land', 'Lands'), path: "/properties?type=land" },
+    { name: t('propertyTypes.project', 'Projects'), path: "/properties?type=project" },
   ];
 
   return (
@@ -67,7 +69,7 @@ const Navbar = () => {
             {user ? (
               <>
                 <Button asChild variant="default" className="mr-2">
-                  <Link href="/submit-property">Add Property</Link>
+                  <Link href="/submit-property">{t('property.submit', 'Add Property')}</Link>
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger>
@@ -87,25 +89,25 @@ const Navbar = () => {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/properties?myProperties=true">
-                        My Properties
+                        {t('property.myProperties', 'My Properties')}
                       </Link>
                     </DropdownMenuItem>
                     {user.isAdmin && (
                       <>
                         <DropdownMenuItem asChild>
-                          <Link href="/admin/dashboard">Admin Dashboard</Link>
+                          <Link href="/admin/dashboard">{t('admin.dashboard', 'Admin Dashboard')}</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href="/admin/approvals">Property Approvals</Link>
+                          <Link href="/admin/approvals">{t('admin.approvals', 'Property Approvals')}</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href="/admin/add-project">Add Project</Link>
+                          <Link href="/admin/add-project">{t('admin.createProject', 'Add Project')}</Link>
                         </DropdownMenuItem>
                       </>
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout}>
-                      Sign out
+                      {t('auth.logout', 'Sign out')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -113,10 +115,10 @@ const Navbar = () => {
             ) : (
               <>
                 <Button variant="outline" className="mr-2" asChild>
-                  <Link href="/login">Login</Link>
+                  <Link href="/login">{t('auth.login', 'Login')}</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/register">Sign Up</Link>
+                  <Link href="/register">{t('auth.register', 'Sign Up')}</Link>
                 </Button>
               </>
             )}
@@ -176,29 +178,29 @@ const Navbar = () => {
             <div className="mt-3 space-y-1">
               <Link href="/submit-property">
                 <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
-                  Add Property
+                  {t('property.submit', 'Add Property')}
                 </a>
               </Link>
               <Link href="/properties?myProperties=true">
                 <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
-                  My Properties
+                  {t('property.myProperties', 'My Properties')}
                 </a>
               </Link>
               {user.isAdmin && (
                 <>
                   <Link href="/admin/dashboard">
                     <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
-                      Admin Dashboard
+                      {t('admin.dashboard', 'Admin Dashboard')}
                     </a>
                   </Link>
                   <Link href="/admin/approvals">
                     <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
-                      Property Approvals
+                      {t('admin.approvals', 'Property Approvals')}
                     </a>
                   </Link>
                   <Link href="/admin/add-project">
                     <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
-                      Add Project
+                      {t('admin.createProject', 'Add Project')}
                     </a>
                   </Link>
                 </>
@@ -207,7 +209,7 @@ const Navbar = () => {
                 onClick={handleLogout}
                 className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
               >
-                Sign out
+                {t('auth.logout', 'Sign out')}
               </button>
             </div>
           </div>
@@ -217,10 +219,10 @@ const Navbar = () => {
               <LanguageSwitcher />
             </div>
             <Button variant="outline" className="w-full" asChild>
-              <Link href="/login">Login</Link>
+              <Link href="/login">{t('auth.login', 'Login')}</Link>
             </Button>
             <Button className="w-full" asChild>
-              <Link href="/register">Sign Up</Link>
+              <Link href="/register">{t('auth.register', 'Sign Up')}</Link>
             </Button>
           </div>
         )}
