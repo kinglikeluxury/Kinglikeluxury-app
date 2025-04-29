@@ -36,6 +36,9 @@ i18n
       escapeValue: false, // not needed for react as it escapes by default
     },
     supportedLngs: Object.keys(languages),
+    ns: ['common'],
+    defaultNS: 'common',
+    fallbackNS: 'common',
     detection: {
       order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],
       caches: ['localStorage', 'cookie'],

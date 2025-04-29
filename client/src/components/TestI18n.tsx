@@ -9,6 +9,8 @@ export function TestI18n() {
   useEffect(() => {
     const interval = setInterval(() => {
       console.log('Current language:', i18n.language);
+      console.log('Available namespaces:', i18n.options.ns);
+      console.log('Default namespace:', i18n.options.defaultNS);
       console.log('Available languages:', i18n.options.supportedLngs);
       console.log('t function test:', t('common.loading', 'Loading...'));
       setLang(i18n.language);
