@@ -1,0 +1,81 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "all": "All Types",
+    "category": "category",
+    "search": "Search",
+    "exclusive": "KINGLIKE EXCLUSIVE",
+    "comingSoon": "Coming Soon"
+  },
+  "score": {
+    "propertyScore": "Property Score",
+    "location": "Location",
+    "value": "Value",
+    "amenities": "Amenities",
+    "condition": "Condition",
+    "investment": "Investment",
+    "excellent": "Excellent",
+    "good": "Good",
+    "average": "Average",
+    "fair": "Fair",
+    "poor": "Poor",
+    "locationDetails": "Evaluates the property location based on proximity to amenities, transportation, and neighborhood quality",
+    "valueDetails": "Assesses if the property is priced fairly compared to similar properties in the area",
+    "amenitiesDetails": "Rates the availability and quality of property amenities and features",
+    "conditionDetails": "Evaluates the property's physical condition and maintenance status",
+    "investmentDetails": "Indicates potential for value appreciation and rental income",
+    "overallScoreDetails": "Combined score based on all property aspects"
+  },
+  "nav": {
+    "home": "Home",
+    "properties": "Properties",
+    "projects": "Projects",
+    "about": "About",
+    "contact": "Contact",
+    "blog": "Blog",
+    "login": "Login",
+    "register": "Register",
+    "submit": "Submit Property",
+    "admin": "Admin Panel",
+    "logout": "Logout",
+    "profile": "My Profile"
+  },
+  "property": {
+    "heroTitle": "Find Your Perfect Property",
+    "heroSubtitle": "Discover apartments, villas, lands and construction projects that match your needs",
+    "type": "Property Type",
+    "location": "Location",
+    "anyLocation": "Any location",
+    "priceRange": "Price Range",
+    "anyPrice": "Any Price",
+    "listings": "120+ Listings",
+    "listings2": "85+ Listings",
+    "listings3": "63+ Listings",
+    "listings4": "42+ Listings"
+  },
+  "propertyTypes": {
+    "apartment": "Apartments",
+    "villa": "Villas",
+    "land": "Lands",
+    "project": "Projects"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Sign Up",
+    "forgotPassword": "Forgot Password?",
+    "alreadyAccount": "Already have an account?",
+    "noAccount": "Don't have an account?"
+  },
+  "favorites": {
+    "title": "Favorites",
+    "empty": "No favorites yet",
+    "add": "Add to Favorites",
+    "remove": "Remove from Favorites"
+  },
+  "categories": {
+    "title": "Browse by category"
+  },
+  "admin": {
+    "onlyListings": "Admin-only listings"
+  }
+}
