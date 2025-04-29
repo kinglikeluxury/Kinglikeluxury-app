@@ -14,8 +14,33 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Video } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+
+// Predefined amenities/facilities for properties
+const COMMON_AMENITIES = [
+  { id: "electricity", label: "Electricity" },
+  { id: "gas", label: "Gas" },
+  { id: "heating", label: "Heating" },
+  { id: "airConditioning", label: "Air Conditioning" },
+  { id: "parking", label: "Parking" },
+  { id: "garage", label: "Garage" },
+  { id: "swimmingPool", label: "Swimming Pool" },
+  { id: "garden", label: "Garden" },
+  { id: "security", label: "Security System" },
+  { id: "elevator", label: "Elevator" },
+  { id: "gym", label: "Fitness Center/Gym" },
+  { id: "internet", label: "High-Speed Internet" },
+  { id: "balcony", label: "Balcony/Terrace" },
+  { id: "furnished", label: "Furnished" },
+  { id: "laundry", label: "Laundry Facilities" },
+  { id: "storage", label: "Storage Space" },
+  { id: "fireplace", label: "Fireplace" },
+  { id: "petsAllowed", label: "Pets Allowed" },
+  { id: "waterfront", label: "Waterfront" },
+  { id: "view", label: "Scenic View" }
+];
 
 // Extend the property schema with validation
 const formSchema = insertPropertySchema.extend({
