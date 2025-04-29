@@ -50,7 +50,10 @@ const formSchema = insertPropertySchema.extend({
   area: z.number().min(1, "Area must be greater than 0"),
   location: z.string().min(3, "Location must be at least 3 characters"),
   images: z.array(z.string()).min(1, "At least one image URL is required"),
+  videos: z.array(z.string()).optional().default([]), // Add videos array
   features: z.array(z.string()),
+  amenities: z.array(z.string()).optional().default([]), // Add amenities array 
+  floorNumber: z.number().optional().nullable(), // Add floor number
   // Make bedrooms and bathrooms required for apartments and villas
   propertyType: z.enum([
     PROPERTY_TYPES.APARTMENT,
@@ -76,8 +79,11 @@ const PropertyForm = ({ isAdmin = false }) => {
   const [showProjectFields, setShowProjectFields] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
+  const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const [videoUrl, setVideoUrl] = useState("");
   const [features, setFeatures] = useState<string[]>([]);
   const [feature, setFeature] = useState("");
+  const [floorNumber, setFloorNumber] = useState<number | null>(null);
 
   // Property type options based on user role
   const propertyTypeOptions = isAdmin
@@ -104,7 +110,10 @@ const PropertyForm = ({ isAdmin = false }) => {
       location: "",
       propertyType: PROPERTY_TYPES.APARTMENT,
       images: [],
+      videos: [],
       features: [],
+      amenities: [],
+      floorNumber: null,
       bedrooms: null,
       bathrooms: null,
       ownerId: user?.id || 0,
@@ -147,6 +156,16 @@ const PropertyForm = ({ isAdmin = false }) => {
     }
   };
 
+  // Handle video URL addition
+  const handleAddVideo = () => {
+    if (videoUrl && !videoUrls.includes(videoUrl)) {
+      const newVideoUrls = [...videoUrls, videoUrl];
+      setVideoUrls(newVideoUrls);
+      form.setValue("videos", newVideoUrls);
+      setVideoUrl("");
+    }
+  };
+
   // Handle feature addition
   const handleAddFeature = () => {
     if (feature && !features.includes(feature)) {
@@ -154,6 +173,20 @@ const PropertyForm = ({ isAdmin = false }) => {
       setFeatures(newFeatures);
       form.setValue("features", newFeatures);
       setFeature("");
+    }
+  };
+  
+  // Handle amenity selection
+  const handleAmenityChange = (amenityId: string, checked: boolean) => {
+    const currentAmenities = form.getValues("amenities") || [];
+    
+    if (checked && !currentAmenities.includes(amenityId)) {
+      form.setValue("amenities", [...currentAmenities, amenityId]);
+    } else if (!checked && currentAmenities.includes(amenityId)) {
+      form.setValue(
+        "amenities",
+        currentAmenities.filter((id) => id !== amenityId)
+      );
     }
   };
 
