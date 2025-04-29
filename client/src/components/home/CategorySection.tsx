@@ -22,16 +22,22 @@ const CategorySection = () => {
       count: "63+ Listings",
     },
     {
-      name: "Projects",
-      image: "https://images.unsplash.com/photo-1553247407-23251f7e13d0?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+      name: "Under Construction Projects",
+      image: "https://images.unsplash.com/photo-1581094488379-7f6a844e5100?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
       path: `/properties?type=${PROPERTY_TYPES.PROJECT}`,
       count: "42+ Listings",
+      isProject: true,
     },
   ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h2 className="text-2xl font-bold text-gray-900 mb-8">Browse by category</h2>
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">Browse by category</h2>
+        <div className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white text-xs font-medium px-3 py-1 rounded-full shadow-md">
+          KINGLIKE EXCLUSIVE
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {categories.map((category, index) => (
           <Link key={index} href={category.path}>
@@ -42,6 +48,29 @@ const CategorySection = () => {
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+              
+              {category.isProject && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/50">
+                  <div className="bg-[#3bcac4]/90 px-3 py-1 rounded-full mb-2 rotate-[-5deg] shadow-lg">
+                    <span className="text-white font-bold text-sm">Coming Soon</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-5 h-5 rounded-full bg-[#005476] animate-pulse"></div>
+                    <div className="w-5 h-5 rounded-full bg-[#3bcac4] animate-pulse delay-100"></div>
+                    <div className="w-5 h-5 rounded-full bg-[#005476] animate-pulse delay-200"></div>
+                  </div>
+                  <p className="text-center text-white text-sm font-medium mb-3 max-w-[80%]">
+                    Premium properties currently under construction by top developers
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <div className="h-5 w-5 bg-yellow-400 rounded-sm flex items-center justify-center">
+                      <span className="text-black text-xs font-bold">!</span>
+                    </div>
+                    <p className="text-white text-xs">Admin-only listings</p>
+                  </div>
+                </div>
+              )}
+              
               <div className="absolute bottom-0 left-0 p-4">
                 <h3 className="text-xl font-bold text-white">{category.name}</h3>
                 <p className="text-sm text-white/80">{category.count}</p>
