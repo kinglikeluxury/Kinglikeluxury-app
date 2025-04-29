@@ -226,6 +226,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Add watermark to all property images
+      try {
+        const watermarkedImages = await processImages(propertyData.images);
+        propertyData.images = watermarkedImages;
+      } catch (err) {
+        console.error('Error adding watermarks to images:', err);
+        // Continue with original images if watermarking fails
+      }
+      
       // Set current user as owner
       const property = await storage.createProperty({
         ...propertyData,
@@ -310,6 +319,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         propertyType: PROPERTY_TYPES.PROJECT,
         ownerId: req.session.userId!
       });
+      
+      // Add watermark to all project images
+      try {
+        const watermarkedImages = await processImages(propertyData.images);
+        propertyData.images = watermarkedImages;
+      } catch (err) {
+        console.error('Error adding watermarks to project images:', err);
+        // Continue with original images if watermarking fails
+      }
       
       const property = await storage.createProperty(propertyData);
       

@@ -46,9 +46,12 @@ export async function addWatermark(imageDataUrl: string, watermarkText: string =
     
     // Convert canvas to data URL
     const mimeType = imageDataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
-    // Make sure we only use supported mime types
-    const mime = mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
-    return canvas.toDataURL(mime);
+    // Return data URL with the appropriate mime type
+    if (mimeType === 'image/png') {
+      return canvas.toDataURL('image/png');
+    } else {
+      return canvas.toDataURL('image/jpeg');
+    }
   } catch (error) {
     console.error('Error adding watermark to image:', error);
     return imageDataUrl; // Return original image if watermarking fails
