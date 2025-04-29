@@ -124,6 +124,13 @@ export const properties = pgTable("properties", {
   videos: jsonb("videos").notNull().$type<string[]>().default([]),
   features: jsonb("features").notNull().$type<string[]>(),
   amenities: jsonb("amenities").notNull().$type<string[]>().default([]),
+  // Property score metrics (0-100 scale)
+  locationScore: integer("location_score").default(70),
+  valueScore: integer("value_score").default(65),
+  amenitiesScore: integer("amenities_score").default(60),
+  conditionScore: integer("condition_score").default(75),
+  investmentScore: integer("investment_score").default(68),
+  overallScore: integer("overall_score").default(70),
   status: text("status").notNull().default(PROPERTY_STATUS.PENDING),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
