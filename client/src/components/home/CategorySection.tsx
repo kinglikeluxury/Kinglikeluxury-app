@@ -54,7 +54,7 @@ const CategorySection = () => {
               {category.isProject && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/60">
                   <div className="flex flex-col items-center mb-4">
-                    <div className="text-white font-bold text-lg mb-1">KINGLIKE</div>
+                    <div className="text-[#3bcac4] font-bold text-lg mb-1">KINGLIKE</div>
                     <div className="text-[#3bcac4] font-bold text-lg">LUXURY</div>
                   </div>
                   <div className="bg-[#3bcac4]/90 px-3 py-1 rounded-full mb-2 rotate-[-5deg] shadow-lg">
