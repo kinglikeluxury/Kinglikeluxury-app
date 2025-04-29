@@ -4,13 +4,13 @@
 
 :root {
   --background: 0 0% 100%;
-  --foreground: 20 14.3% 4.1%;
+  --foreground: 198 100% 23%; /* Kinglike Luxury blue color #005476 */
   --muted: 60 4.8% 95.9%;
-  --muted-foreground: 25 5.3% 44.7%;
+  --muted-foreground: 198 40% 40%;
   --popover: 0 0% 100%;
-  --popover-foreground: 20 14.3% 4.1%;
+  --popover-foreground: 198 100% 23%;
   --card: 0 0% 100%;
-  --card-foreground: 20 14.3% 4.1%;
+  --card-foreground: 198 100% 23%;
   --border: 20 5.9% 90%;
   --input: 20 5.9% 90%;
   /* Kinglike Luxury primary teal color: #3bcac4 */
@@ -29,7 +29,7 @@
 
 .dark {
   --background: 198 30% 10%;
-  --foreground: 0 0% 98%;
+  --foreground: 177 53% 90%;
   --muted: 198 20% 15%;
   --muted-foreground: 240 5% 64.9%;
   --popover: 198 35% 8%;
@@ -60,5 +60,30 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-[#005476] font-medium;
+  }
+  
+  a {
+    @apply text-[#005476] hover:text-[#3bcac4] transition-colors;
+  }
+}
+
+/* Custom styles for the application */
+.text-primary-blue {
+  color: #005476;
+}
+
+.bg-primary-blue {
+  background-color: #005476;
+}
+
+.text-primary-teal {
+  color: #3bcac4;
+}
+
+.bg-primary-teal {
+  background-color: #3bcac4;
 }
 

@@ -4,6 +4,7 @@ import FeaturedProperties from "@/components/home/FeaturedProperties";
 import LatestProjects from "@/components/home/LatestProjects";
 import CallToAction from "@/components/home/CallToAction";
 import HowItWorks from "@/components/home/HowItWorks";
+import BlogSection from "@/components/home/BlogSection";
 
 const Home = () => {
   return (
@@ -14,6 +15,7 @@ const Home = () => {
       <CallToAction />
       <LatestProjects />
       <HowItWorks />
+      <BlogSection />
     </div>
   );
 };
