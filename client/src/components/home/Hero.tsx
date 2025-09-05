@@ -112,10 +112,13 @@ const Hero = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="any">{t('property.anyLocation', 'Any location')}</SelectItem>
-                        <SelectItem value="Batumi">Batumi</SelectItem>
-                        <SelectItem value="Tbilisi">Tbilisi</SelectItem>
-                        <SelectItem value="Dubai">Dubai</SelectItem>
-                        <SelectItem value="Istanbul">Istanbul</SelectItem>
+                        <SelectItem value="studios">Studios</SelectItem>
+                        <SelectItem value="one-bedroom">One Bedroom</SelectItem>
+                        <SelectItem value="two-bedroom">2 Bedroom</SelectItem>
+                        <SelectItem value="three-bedroom">3 Bedroom</SelectItem>
+                        <SelectItem value="four-bedroom">4 Bedroom</SelectItem>
+                        <SelectItem value="townhouses">Townhouses</SelectItem>
+                        <SelectItem value="doublex">Doublex</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
