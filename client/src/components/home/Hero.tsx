@@ -14,6 +14,7 @@ const Hero = () => {
   const [propertyType, setPropertyType] = useState<string>("all");
   const [location, setLocation] = useState<string>("any");
   const [priceRange, setPriceRange] = useState<string>("any");
+  const [purpose, setPurpose] = useState<string>("any");
 
   const getCitiesForCountry = (country: string) => {
     switch (country) {
@@ -60,6 +61,10 @@ const Hero = () => {
       if (max) params.append("maxPrice", max.toString());
     }
     
+    if (purpose && purpose !== "any") {
+      params.append("purpose", purpose);
+    }
+    
     navigate(`/properties?${params.toString()}`);
   };
 
@@ -95,7 +100,7 @@ const Hero = () => {
           <div className="mt-10">
             <Card className="max-w-4xl mx-auto">
               <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                     <Select value={city} onValueChange={handleCountryChange}>
@@ -157,6 +162,20 @@ const Hero = () => {
                         <SelectItem value="200000-500000">$200K - $500K</SelectItem>
                         <SelectItem value="500000-1000000">$500K - $1M</SelectItem>
                         <SelectItem value="1000000+">$1M+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">What for</label>
+                    <Select value={purpose} onValueChange={setPurpose}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any Purpose" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any Purpose</SelectItem>
+                        <SelectItem value="buy">To buy</SelectItem>
+                        <SelectItem value="rent">For rent</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
