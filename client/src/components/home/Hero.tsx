@@ -114,7 +114,7 @@ const Hero = () => {
                         <SelectItem value="any">{t('property.anyLocation', 'Any location')}</SelectItem>
                         <SelectItem value="Batumi">Batumi</SelectItem>
                         <SelectItem value="Tbilisi">Tbilisi</SelectItem>
-                        <SelectItem value="Baku">Baku</SelectItem>
+                        <SelectItem value="Dubai">Dubai</SelectItem>
                         <SelectItem value="Istanbul">Istanbul</SelectItem>
                       </SelectContent>
                     </Select>
