@@ -12,17 +12,14 @@ import { z } from 'zod';
 import { AUTH_METHODS, insertUserSchema } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
-import { FacebookIcon, MailIcon, Phone, MessageCircle } from 'lucide-react';
+import { FacebookIcon, MailIcon } from 'lucide-react';
 
 // Create a simplified version of the schema for the client-side
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.PHONE, AUTH_METHODS.WHATSAPP, AUTH_METHODS.FACEBOOK]),
+  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.FACEBOOK]),
   email: z.string().email().optional(),
   password: z.string().min(6, "Password must be at least 6 characters").optional(),
-  phoneNumber: z.string().optional(),
-  whatsappNumber: z.string().optional(),
-  confirmationCode: z.string().optional(),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -31,7 +28,6 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<string>(AUTH_METHODS.EMAIL);
-  const [showVerificationInput, setShowVerificationInput] = useState(false);
   
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -40,8 +36,6 @@ export default function RegisterPage() {
       authMethod: AUTH_METHODS.EMAIL,
       email: '',
       password: '',
-      phoneNumber: '',
-      whatsappNumber: '',
     },
   });
   
@@ -49,57 +43,8 @@ export default function RegisterPage() {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     form.setValue('authMethod', value as any);
-    setShowVerificationInput(false);
   };
   
-  const sendVerificationCode = async () => {
-    const authMethod = form.getValues('authMethod');
-    
-    try {
-      // This would normally make an API request to send a verification code
-      // Since we don't have the actual APIs set up, we'll mock this for now
-      
-      if (authMethod === AUTH_METHODS.PHONE) {
-        const phoneNumber = form.getValues('phoneNumber');
-        if (!phoneNumber) {
-          toast({ 
-            title: "Phone number required",
-            description: "Please enter your phone number to receive the verification code",
-            variant: "destructive" 
-          });
-          return;
-        }
-        
-        toast({
-          title: "Verification code sent",
-          description: "We've sent a verification code to your phone number",
-        });
-      } else if (authMethod === AUTH_METHODS.WHATSAPP) {
-        const whatsappNumber = form.getValues('whatsappNumber');
-        if (!whatsappNumber) {
-          toast({ 
-            title: "WhatsApp number required",
-            description: "Please enter your WhatsApp number to receive the verification code",
-            variant: "destructive" 
-          });
-          return;
-        }
-        
-        toast({
-          title: "Verification code sent",
-          description: "We've sent a verification code to your WhatsApp",
-        });
-      }
-      
-      setShowVerificationInput(true);
-    } catch (error) {
-      toast({
-        title: "Failed to send verification code",
-        description: "Please try again later",
-        variant: "destructive",
-      });
-    }
-  };
   
   const onSubmit = async (data: RegisterFormValues) => {
     try {
@@ -119,42 +64,6 @@ export default function RegisterPage() {
         
         setLocation('/login');
       } 
-      // For phone registration
-      else if (data.authMethod === AUTH_METHODS.PHONE) {
-        // In a real app, we would verify the confirmation code here
-        // And then register the user if the code is valid
-        
-        await apiRequest('POST', '/api/register', {
-          username: data.username,
-          phoneNumber: data.phoneNumber,
-          authMethod: AUTH_METHODS.PHONE,
-        });
-        
-        toast({
-          title: "Registration successful",
-          description: "You can now log in with your phone number",
-        });
-        
-        setLocation('/login');
-      }
-      // For WhatsApp registration
-      else if (data.authMethod === AUTH_METHODS.WHATSAPP) {
-        // In a real app, we would verify the confirmation code here
-        // And then register the user if the code is valid
-        
-        await apiRequest('POST', '/api/register', {
-          username: data.username,
-          whatsappNumber: data.whatsappNumber,
-          authMethod: AUTH_METHODS.WHATSAPP,
-        });
-        
-        toast({
-          title: "Registration successful",
-          description: "You can now log in with your WhatsApp number",
-        });
-        
-        setLocation('/login');
-      }
       // For Facebook registration
       else if (data.authMethod === AUTH_METHODS.FACEBOOK) {
         // In a real app, this would redirect to Facebook OAuth
@@ -185,22 +94,14 @@ export default function RegisterPage() {
         </CardHeader>
         
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid grid-cols-4 mb-4 mx-4">
+          <TabsList className="grid grid-cols-2 mb-4 mx-4">
             <TabsTrigger value={AUTH_METHODS.EMAIL}>
               <MailIcon className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Email</span>
-            </TabsTrigger>
-            <TabsTrigger value={AUTH_METHODS.PHONE}>
-              <Phone className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">SMS</span>
-            </TabsTrigger>
-            <TabsTrigger value={AUTH_METHODS.WHATSAPP}>
-              <MessageCircle className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">WhatsApp</span>
+              Email
             </TabsTrigger>
             <TabsTrigger value={AUTH_METHODS.FACEBOOK}>
               <FacebookIcon className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Facebook</span>
+              Facebook
             </TabsTrigger>
           </TabsList>
           
@@ -253,93 +154,6 @@ export default function RegisterPage() {
                   </>
                 )}
                 
-                {/* Phone Tab Content */}
-                {activeTab === AUTH_METHODS.PHONE && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="phoneNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
-                          <FormControl>
-                            <Input type="tel" placeholder="+1234567890" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {!showVerificationInput ? (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={sendVerificationCode}
-                      >
-                        Send Verification Code
-                      </Button>
-                    ) : (
-                      <FormField
-                        control={form.control}
-                        name="confirmationCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Verification Code</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter code" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </>
-                )}
-                
-                {/* WhatsApp Tab Content */}
-                {activeTab === AUTH_METHODS.WHATSAPP && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="whatsappNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>WhatsApp Number</FormLabel>
-                          <FormControl>
-                            <Input type="tel" placeholder="+1234567890" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {!showVerificationInput ? (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={sendVerificationCode}
-                      >
-                        Send WhatsApp Code
-                      </Button>
-                    ) : (
-                      <FormField
-                        control={form.control}
-                        name="confirmationCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Verification Code</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter code" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </>
-                )}
                 
                 {/* Facebook Tab Content */}
                 {activeTab === AUTH_METHODS.FACEBOOK && (
@@ -358,9 +172,7 @@ export default function RegisterPage() {
                   </div>
                 )}
                 
-                {(activeTab === AUTH_METHODS.EMAIL || 
-                 (activeTab === AUTH_METHODS.PHONE && showVerificationInput) || 
-                 (activeTab === AUTH_METHODS.WHATSAPP && showVerificationInput)) && (
+                {activeTab === AUTH_METHODS.EMAIL && (
                   <Button type="submit" className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]">
                     Sign Up
                   </Button>
