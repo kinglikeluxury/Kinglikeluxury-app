@@ -105,7 +105,7 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('property.location', 'Location')}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                     <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger>
                         <SelectValue placeholder={t('property.anyLocation', 'Any location')} />
