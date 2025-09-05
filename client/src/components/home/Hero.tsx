@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 
 const Hero = () => {
   const [, navigate] = useLocation();
+  const [city, setCity] = useState<string>("any");
   const [propertyType, setPropertyType] = useState<string>("all");
   const [location, setLocation] = useState<string>("any");
   const [priceRange, setPriceRange] = useState<string>("any");
@@ -17,6 +18,10 @@ const Hero = () => {
 
   const handleSearch = () => {
     const params = new URLSearchParams();
+    
+    if (city && city !== "any") {
+      params.append("city", city);
+    }
     
     if (propertyType && propertyType !== "all") {
       params.append("type", propertyType);
@@ -67,7 +72,21 @@ const Hero = () => {
           <div className="mt-10">
             <Card className="max-w-4xl mx-auto">
               <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <Select value={city} onValueChange={setCity}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any City" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any City</SelectItem>
+                        <SelectItem value="georgia">Georgia</SelectItem>
+                        <SelectItem value="uae">United Arab Emirates</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('property.type', 'Property Type')}</label>
                     <Select value={propertyType} onValueChange={setPropertyType}>
