@@ -74,13 +74,13 @@ const Hero = () => {
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                     <Select value={city} onValueChange={setCity}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Any City" />
+                        <SelectValue placeholder="Any Country" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="any">Any City</SelectItem>
+                        <SelectItem value="any">Any Country</SelectItem>
                         <SelectItem value="georgia">Georgia</SelectItem>
                         <SelectItem value="uae">United Arab Emirates</SelectItem>
                       </SelectContent>
