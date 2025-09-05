@@ -88,23 +88,6 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('property.type', 'Property Type')}</label>
-                    <Select value={propertyType} onValueChange={setPropertyType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('common.all', 'All Types')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t('common.all', 'All Types')}</SelectItem>
-                        <SelectItem value={PROPERTY_TYPES.APARTMENT}>{t('propertyTypes.apartment', 'Apartments')}</SelectItem>
-                        <SelectItem value={PROPERTY_TYPES.VILLA}>{t('propertyTypes.villa', 'Villas')}</SelectItem>
-                        <SelectItem value={PROPERTY_TYPES.LAND}>{t('propertyTypes.land', 'Lands')}</SelectItem>
-                        <SelectItem value={PROPERTY_TYPES.COMMERCIAL}>{t('propertyTypes.commercial', 'Commercial Spaces')}</SelectItem>
-                        <SelectItem value={PROPERTY_TYPES.PROJECT}>{t('propertyTypes.project', 'Projects')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                     <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger>
@@ -119,6 +102,23 @@ const Hero = () => {
                         <SelectItem value="four-bedroom">4 Bedroom</SelectItem>
                         <SelectItem value="townhouses">Townhouses</SelectItem>
                         <SelectItem value="doublex">Doublex</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('property.type', 'Property Type')}</label>
+                    <Select value={propertyType} onValueChange={setPropertyType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('common.all', 'All Types')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('common.all', 'All Types')}</SelectItem>
+                        <SelectItem value={PROPERTY_TYPES.APARTMENT}>{t('propertyTypes.apartment', 'Apartments')}</SelectItem>
+                        <SelectItem value={PROPERTY_TYPES.VILLA}>{t('propertyTypes.villa', 'Villas')}</SelectItem>
+                        <SelectItem value={PROPERTY_TYPES.LAND}>{t('propertyTypes.land', 'Lands')}</SelectItem>
+                        <SelectItem value={PROPERTY_TYPES.COMMERCIAL}>{t('propertyTypes.commercial', 'Commercial Spaces')}</SelectItem>
+                        <SelectItem value={PROPERTY_TYPES.PROJECT}>{t('propertyTypes.project', 'Projects')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
