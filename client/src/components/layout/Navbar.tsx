@@ -73,6 +73,7 @@ const Navbar = () => {
     { name: t('propertyTypes.villa', 'Villas'), path: "/properties?type=villa" },
     { name: t('propertyTypes.land', 'Lands'), path: "/properties?type=land" },
     { name: t('propertyTypes.project', 'Off Plan Projects'), path: "/properties?type=project" },
+    { name: t('property.uploadProperties', 'Upload your properties'), path: "/submit-property" },
   ];
 
   return (
