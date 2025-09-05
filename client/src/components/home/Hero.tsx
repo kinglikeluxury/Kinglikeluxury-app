@@ -14,7 +14,30 @@ const Hero = () => {
   const [propertyType, setPropertyType] = useState<string>("all");
   const [location, setLocation] = useState<string>("any");
   const [priceRange, setPriceRange] = useState<string>("any");
+
+  const getCitiesForCountry = (country: string) => {
+    switch (country) {
+      case "georgia":
+        return [
+          { value: "batumi", label: "Batumi" },
+          { value: "tbilisi", label: "Tbilisi" }
+        ];
+      case "uae":
+        return [
+          { value: "dubai", label: "Dubai" },
+          { value: "sharjah", label: "Sharjah" },
+          { value: "ras-al-khaimah", label: "Ras Al Khaimah" }
+        ];
+      default:
+        return [];
+    }
+  };
   const { t } = useTranslation();
+
+  const handleCountryChange = (value: string) => {
+    setCity(value);
+    setLocation("any"); // Reset city when country changes
+  };
 
   const handleSearch = () => {
     const params = new URLSearchParams();
@@ -75,7 +98,7 @@ const Hero = () => {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                    <Select value={city} onValueChange={setCity}>
+                    <Select value={city} onValueChange={handleCountryChange}>
                       <SelectTrigger>
                         <SelectValue placeholder="Any Country" />
                       </SelectTrigger>
@@ -95,13 +118,11 @@ const Hero = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="any">{t('property.anyLocation', 'Any location')}</SelectItem>
-                        <SelectItem value="studios">Studios</SelectItem>
-                        <SelectItem value="one-bedroom">One Bedroom</SelectItem>
-                        <SelectItem value="two-bedroom">2 Bedroom</SelectItem>
-                        <SelectItem value="three-bedroom">3 Bedroom</SelectItem>
-                        <SelectItem value="four-bedroom">4 Bedroom</SelectItem>
-                        <SelectItem value="townhouses">Townhouses</SelectItem>
-                        <SelectItem value="doublex">Doublex</SelectItem>
+                        {getCitiesForCountry(city).map((cityOption) => (
+                          <SelectItem key={cityOption.value} value={cityOption.value}>
+                            {cityOption.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
