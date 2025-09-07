@@ -60,14 +60,15 @@ const SubmitProperty = () => {
       available: true,
       path: `/submit-property/form?type=${PROPERTY_TYPES.COMMERCIAL}`
     },
-    {
+    // Only show off-plan projects to authorized admins
+    ...(canAddOffPlan ? [{
       type: PROPERTY_TYPES.PROJECT,
       title: t('propertyTypes.project', 'Off-Plan Projects'),
       description: "Pre-construction developments and projects",
       icon: <FileText className="h-8 w-8" />,
-      available: canAddOffPlan,
+      available: true,
       path: `/submit-property/form?type=${PROPERTY_TYPES.PROJECT}`
-    }
+    }] : [])
   ];
   
   return (
@@ -84,18 +85,10 @@ const SubmitProperty = () => {
           {propertyTypes.map((propertyType) => (
             <Card 
               key={propertyType.type} 
-              className={`relative cursor-pointer transition-all duration-200 ${
-                propertyType.available 
-                  ? 'hover:shadow-lg hover:scale-105 border-transparent hover:border-primary-200' 
-                  : 'opacity-50 cursor-not-allowed bg-gray-100'
-              }`}
+              className="relative cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 border-transparent hover:border-primary-200"
             >
               <CardHeader className="text-center">
-                <div className={`mx-auto mb-4 p-4 rounded-full ${
-                  propertyType.available 
-                    ? 'bg-primary-100 text-primary-600' 
-                    : 'bg-gray-200 text-gray-400'
-                }`}>
+                <div className="mx-auto mb-4 p-4 rounded-full bg-primary-100 text-primary-600">
                   {propertyType.icon}
                 </div>
                 <CardTitle className="text-xl mb-2">{propertyType.title}</CardTitle>
@@ -103,41 +96,15 @@ const SubmitProperty = () => {
               <CardContent className="text-center">
                 <p className="text-gray-600 mb-6">{propertyType.description}</p>
                 
-                {propertyType.available ? (
-                  <Button asChild className="w-full">
-                    <Link href={propertyType.path}>
-                      Select {propertyType.title}
-                    </Link>
-                  </Button>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-2 text-amber-600">
-                      <AlertCircle className="h-4 w-4" />
-                      <span className="text-sm font-medium">Restricted Access</span>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Only authorized admins can add off-plan projects
-                    </p>
-                    <Button disabled className="w-full">
-                      Access Denied
-                    </Button>
-                  </div>
-                )}
+                <Button asChild className="w-full">
+                  <Link href={propertyType.path}>
+                    Select {propertyType.title}
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
-
-        {!canAddOffPlan && (
-          <div className="mt-8 text-center">
-            <div className="inline-flex items-center space-x-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-lg">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">
-                Need to add off-plan projects? Contact your administrator.
-              </span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
