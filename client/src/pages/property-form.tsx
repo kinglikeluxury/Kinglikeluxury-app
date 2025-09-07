@@ -920,13 +920,23 @@ const PropertyForm = () => {
 
                   <div>
                     <Label htmlFor="bathrooms">Bathrooms</Label>
-                    <Input
-                      id="bathrooms"
-                      type="number"
-                      value={formData.bathrooms}
-                      onChange={(e) => handleInputChange('bathrooms', e.target.value)}
-                      placeholder="Number of bathrooms"
-                    />
+                    <Select value={formData.bathrooms} onValueChange={(value) => handleInputChange('bathrooms', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select number of bathrooms" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 bathroom</SelectItem>
+                        <SelectItem value="2">2 bathrooms</SelectItem>
+                        <SelectItem value="3">3 bathrooms</SelectItem>
+                        <SelectItem value="4">4 bathrooms</SelectItem>
+                        <SelectItem value="5">5 bathrooms</SelectItem>
+                        <SelectItem value="6">6 bathrooms</SelectItem>
+                        <SelectItem value="7">7 bathrooms</SelectItem>
+                        <SelectItem value="8">8 bathrooms</SelectItem>
+                        <SelectItem value="9">9 bathrooms</SelectItem>
+                        <SelectItem value="10">10+ bathrooms</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {propertyType === PROPERTY_TYPES.APARTMENT && (
