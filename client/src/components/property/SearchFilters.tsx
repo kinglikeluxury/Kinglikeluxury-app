@@ -66,6 +66,10 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
     navigate(`/properties?${params.toString()}`);
   };
 
+  const handleLocationSelect = (lat: number, lng: number, address: string) => {
+    setLocation(address);
+  };
+
   return (
     <>
       <Card className="w-full">
@@ -146,13 +150,19 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
         </CardContent>
       </Card>
       
-      {/* Map Section */}
+      {/* Interactive Map Section */}
       <Card className="w-full mt-4">
-        <CardContent className="p-0">
+        <CardContent className="p-4">
+          <div className="mb-2">
+            <h3 className="text-lg font-semibold">Select Location on Map</h3>
+            <p className="text-sm text-gray-600">Click anywhere on the map to select your preferred location</p>
+          </div>
           <PropertyMap 
-            location="Batumi, Georgia" 
+            location={location || "Batumi, Georgia"} 
             title="Search Area" 
             className="w-full"
+            interactive={true}
+            onLocationSelect={handleLocationSelect}
           />
         </CardContent>
       </Card>
