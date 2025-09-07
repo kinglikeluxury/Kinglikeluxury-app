@@ -553,11 +553,24 @@ const PropertyForm = () => {
                                 onChange={(e) => {
                                   const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
                                   let newCities;
+                                  
                                   if (e.target.checked) {
-                                    newCities = [...currentCities, cityOption.value];
+                                    // If selecting a Georgian city, remove Dubai
+                                    if (cityOption.value === 'batumi' || cityOption.value === 'tbilisi') {
+                                      newCities = [...currentCities.filter(c => c !== 'dubai'), cityOption.value];
+                                    }
+                                    // If selecting Dubai, remove Georgian cities
+                                    else if (cityOption.value === 'dubai') {
+                                      newCities = [...currentCities.filter(c => c !== 'batumi' && c !== 'tbilisi'), cityOption.value];
+                                    }
+                                    // For other cities (future expansion)
+                                    else {
+                                      newCities = [...currentCities, cityOption.value];
+                                    }
                                   } else {
                                     newCities = currentCities.filter(c => c !== cityOption.value);
                                   }
+                                  
                                   handleInputChange('city', newCities.join(','));
                                   setUseMapSelection(false); // Reset location map when city changes
                                 }}
