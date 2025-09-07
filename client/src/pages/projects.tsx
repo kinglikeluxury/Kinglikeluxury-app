@@ -432,7 +432,7 @@ const Projects = () => {
                     Save more on your off-plan property investment with our exclusive pricing
                   </p>
                   <p className="text-sm text-blue-500 font-medium">
-                    Click to contact us via WhatsApp 📱
+                    Click to contact us via WhatsApp 💬
                   </p>
                 </div>
                 <span className="text-3xl">💰</span>
