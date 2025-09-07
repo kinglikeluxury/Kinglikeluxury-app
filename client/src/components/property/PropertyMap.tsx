@@ -34,34 +34,10 @@ const getCoordinates = (location: string): [number, number] => {
   // Default to Batumi, Georgia coordinates
   const defaultCoords: [number, number] = [41.6168, 41.6367];
   
-  // Return different coordinates based on Batumi streets
-  const batumiCoords: { [key: string]: [number, number] } = {
-    'rustaveli-avenue': [41.6177, 41.6350],
-    'chavchavadze-avenue': [41.6165, 41.6380],
-    'gogebashvili-street': [41.6155, 41.6340],
-    'baratashvili-street': [41.6170, 41.6360],
-    'agmashenebeli-street': [41.6160, 41.6370],
-    'pushkin-street': [41.6180, 41.6330],
-    'gorgiladze-street': [41.6150, 41.6350],
-    'takaishvili-street': [41.6175, 41.6340],
-    'ninoshvili-street': [41.6145, 41.6360],
-    'mazniashvili-street': [41.6185, 41.6375],
-    'lermontov-street': [41.6140, 41.6345],
-    'vazha-pshavela-avenue': [41.6190, 41.6320],
-    'aghmashenebeli-avenue': [41.6135, 41.6355],
-    'sherif-khimshiashvili-street': [41.6195, 41.6385],
-    'grishashvili-street': [41.6130, 41.6365],
-    'kostava-street': [41.6200, 41.6340],
-    'parnavaz-mepe-street': [41.6125, 41.6375],
-    'zurab-gorgiladze-street': [41.6205, 41.6350],
-    'batumi-boulevard': [41.6220, 41.6400],
-    'europe-square': [41.6180, 41.6390]
-  };
-  
   // Check if location matches any street
-  for (const [streetKey, coords] of Object.entries(batumiCoords)) {
+  for (const [streetKey, streetData] of Object.entries(batumiStreets)) {
     if (location.toLowerCase().includes(streetKey) || location.toLowerCase().includes(streetKey.replace('-', ' '))) {
-      return coords;
+      return streetData.coords;
     }
   }
   
@@ -83,29 +59,41 @@ const MapClickHandler = ({ onLocationSelect }: { onLocationSelect?: (lat: number
   return null;
 };
 
+// Street coordinates and names for markers
+const batumiStreets: { [key: string]: { coords: [number, number], name: string } } = {
+  'rustaveli-avenue': { coords: [41.6177, 41.6350], name: 'Rustaveli Avenue' },
+  'chavchavadze-avenue': { coords: [41.6165, 41.6380], name: 'Chavchavadze Avenue' },
+  'gogebashvili-street': { coords: [41.6155, 41.6340], name: 'Gogebashvili Street' },
+  'baratashvili-street': { coords: [41.6170, 41.6360], name: 'Baratashvili Street' },
+  'agmashenebeli-street': { coords: [41.6160, 41.6370], name: 'Agmashenebeli Street' },
+  'pushkin-street': { coords: [41.6180, 41.6330], name: 'Pushkin Street' },
+  'gorgiladze-street': { coords: [41.6150, 41.6350], name: 'Gorgiladze Street' },
+  'takaishvili-street': { coords: [41.6175, 41.6340], name: 'Takaishvili Street' },
+  'ninoshvili-street': { coords: [41.6145, 41.6360], name: 'Ninoshvili Street' },
+  'mazniashvili-street': { coords: [41.6185, 41.6375], name: 'Mazniashvili Street' },
+  'lermontov-street': { coords: [41.6140, 41.6345], name: 'Lermontov Street' },
+  'vazha-pshavela-avenue': { coords: [41.6190, 41.6320], name: 'Vazha-Pshavela Avenue' },
+  'aghmashenebeli-avenue': { coords: [41.6135, 41.6355], name: 'Aghmashenebeli Avenue' },
+  'sherif-khimshiashvili-street': { coords: [41.6195, 41.6385], name: 'Sherif Khimshiashvili Street' },
+  'grishashvili-street': { coords: [41.6130, 41.6365], name: 'Grishashvili Street' },
+  'kostava-street': { coords: [41.6200, 41.6340], name: 'Kostava Street' },
+  'parnavaz-mepe-street': { coords: [41.6125, 41.6375], name: 'Parnavaz Mepe Street' },
+  'zurab-gorgiladze-street': { coords: [41.6205, 41.6350], name: 'Zurab Gorgiladze Street' },
+  'batumi-boulevard': { coords: [41.6220, 41.6400], name: 'Batumi Boulevard' },
+  'europe-square': { coords: [41.6180, 41.6390], name: 'Europe Square' }
+};
+
 // Helper function to find closest street to clicked coordinates
 const getClosestStreet = (lat: number, lng: number): string => {
-  const batumiCoords: { [key: string]: [number, number] } = {
-    'rustaveli-avenue': [41.6177, 41.6350],
-    'chavchavadze-avenue': [41.6165, 41.6380],
-    'gogebashvili-street': [41.6155, 41.6340],
-    'baratashvili-street': [41.6170, 41.6360],
-    'agmashenebeli-street': [41.6160, 41.6370],
-    'pushkin-street': [41.6180, 41.6330],
-    'gorgiladze-street': [41.6150, 41.6350],
-    'takaishvili-street': [41.6175, 41.6340],
-    'batumi-boulevard': [41.6220, 41.6400],
-    'europe-square': [41.6180, 41.6390]
-  };
-
   let closestStreet = 'batumi-boulevard';
   let minDistance = Infinity;
 
-  for (const [streetName, [streetLat, streetLng]] of Object.entries(batumiCoords)) {
+  for (const [streetKey, streetData] of Object.entries(batumiStreets)) {
+    const [streetLat, streetLng] = streetData.coords;
     const distance = Math.sqrt(Math.pow(lat - streetLat, 2) + Math.pow(lng - streetLng, 2));
     if (distance < minDistance) {
       minDistance = distance;
-      closestStreet = streetName;
+      closestStreet = streetKey;
     }
   }
 
@@ -148,12 +136,30 @@ const PropertyMap = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {interactive && <MapClickHandler onLocationSelect={handleLocationSelect} />}
-        <Marker position={position as L.LatLngExpression}>
-          <Popup>
-            {markerPosition ? 'Selected Location' : `${title} - ${location}`}
-            {interactive && <div className="text-xs mt-1">Click anywhere on the map to select a location</div>}
-          </Popup>
-        </Marker>
+        
+        {/* Street markers with names */}
+        {Object.entries(batumiStreets).map(([streetKey, streetData]) => (
+          <Marker key={streetKey} position={streetData.coords as L.LatLngExpression}>
+            <Popup>
+              <div className="text-center">
+                <div className="font-semibold">{streetData.name}</div>
+                <div className="text-xs text-gray-600">Click to select this location</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+        
+        {/* Selected location marker */}
+        {markerPosition && (
+          <Marker position={position as L.LatLngExpression}>
+            <Popup>
+              <div className="text-center">
+                <div className="font-semibold text-blue-600">Selected Location</div>
+                {interactive && <div className="text-xs mt-1">Click anywhere on the map to select a different location</div>}
+              </div>
+            </Popup>
+          </Marker>
+        )}
       </MapContainer>
     </div>
   );
