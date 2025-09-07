@@ -45,8 +45,8 @@ export function ObjectUploader({
     try {
       for (const file of selectedFiles) {
         // Get upload URL from server
-        const response = await apiRequest(`/api/${type}s/upload`, 'POST');
-        const { uploadURL } = response as { uploadURL: string };
+        const urlResponse = await apiRequest(`/api/${type}s/upload`, 'POST');
+        const { uploadURL } = urlResponse as { uploadURL: string };
 
         // Extract fileId from URL
         const fileId = uploadURL.split('/').pop();
@@ -55,16 +55,16 @@ export function ObjectUploader({
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch(uploadURL, {
+        const uploadResponse = await fetch(uploadURL, {
           method: 'POST',
           body: formData,
         });
 
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
+        if (!uploadResponse.ok) {
+          throw new Error(`Upload failed: ${uploadResponse.statusText}`);
         }
 
-        const { url } = await response.json();
+        const { url } = await uploadResponse.json();
         uploadedUrls.push(url);
       }
 
