@@ -158,7 +158,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
             <p className="text-sm text-gray-600">Click anywhere on the map to select your preferred location</p>
           </div>
           <PropertyMap 
-            location={location || "Dubai, UAE"} 
+            location={location || "Sharjah, UAE"} 
             title="Search Area" 
             className="w-full"
             interactive={true}
