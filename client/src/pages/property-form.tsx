@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PROPERTY_TYPES } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Upload, X, Plus } from "lucide-react";
+import { ArrowLeft, Upload, X, Plus, Map, List } from "lucide-react";
 import { Link } from "wouter";
+import PropertyMap from "@/components/property/PropertyMap";
 
 const PropertyForm = () => {
   const { user, isLoading } = useAuth();
@@ -36,12 +37,14 @@ const PropertyForm = () => {
     floorNumber: '',
     features: [] as string[],
     amenities: [] as string[],
-    purpose: 'buy'
+    purpose: 'buy',
+    coordinates: { lat: 0, lng: 0 }
   });
   
   const [newFeature, setNewFeature] = useState('');
   const [newAmenity, setNewAmenity] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [useMapSelection, setUseMapSelection] = useState(false);
   
   // Show loading state while checking authentication
   if (isLoading) {
@@ -167,7 +170,17 @@ const PropertyForm = () => {
   };
 
   const handleCityChange = (value: string) => {
-    setFormData(prev => ({ ...prev, city: value, location: '' }));
+    setFormData(prev => ({ ...prev, city: value, location: '', coordinates: { lat: 0, lng: 0 } }));
+    setUseMapSelection(false); // Reset to dropdown when city changes
+  };
+
+  // Handle location selection from map
+  const handleMapLocationSelect = (lat: number, lng: number, address: string) => {
+    setFormData(prev => ({
+      ...prev,
+      location: address,
+      coordinates: { lat, lng }
+    }));
   };
 
   // Handle form submission
@@ -327,10 +340,57 @@ const PropertyForm = () => {
               </div>
 
               <div>
-                <Label htmlFor="location">
-                  {formData.city === 'batumi' ? 'Street *' : 'Specific Location *'}
-                </Label>
-                {formData.city === 'batumi' ? (
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="location">
+                    {formData.city === 'batumi' ? 'Street *' : 'Specific Location *'}
+                  </Label>
+                  {formData.city === 'batumi' && (
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        type="button"
+                        variant={!useMapSelection ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setUseMapSelection(false)}
+                        className="h-8"
+                      >
+                        <List className="h-4 w-4 mr-1" />
+                        Dropdown
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={useMapSelection ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setUseMapSelection(true)}
+                        className="h-8"
+                      >
+                        <Map className="h-4 w-4 mr-1" />
+                        Map
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {formData.city === 'batumi' && useMapSelection ? (
+                  <div className="space-y-2">
+                    <div className="h-64 rounded-lg overflow-hidden border">
+                      <PropertyMap
+                        location={formData.location || 'batumi'}
+                        title="Select Location"
+                        interactive={true}
+                        onLocationSelect={handleMapLocationSelect}
+                        className="h-full w-full"
+                      />
+                    </div>
+                    {formData.location && (
+                      <p className="text-sm text-gray-600">
+                        Selected: {formData.location}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      Click anywhere on the map to select a location
+                    </p>
+                  </div>
+                ) : formData.city === 'batumi' ? (
                   <Select 
                     value={formData.location} 
                     onValueChange={(value) => handleInputChange('location', value)}

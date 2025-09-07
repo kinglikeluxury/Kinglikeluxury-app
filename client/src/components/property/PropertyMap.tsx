@@ -58,13 +58,47 @@ const rasAlKhaimahStreets: { [key: string]: { coords: [number, number], name: st
   'al-uraibi': { coords: [25.7391, 55.9456], name: 'Al Uraibi' }
 };
 
+// Batumi street coordinates and names for markers
+const batumiStreets: { [key: string]: { coords: [number, number], name: string } } = {
+  'rustaveli-ave': { coords: [41.6461, 41.6368], name: 'Rustaveli Avenue' },
+  'gogebashvili-str': { coords: [41.6484, 41.6345], name: 'Gogebashvili Street' },
+  'chavchavadze-str': { coords: [41.6473, 41.6356], name: 'Chavchavadze Street' },
+  'parnavaz-mepe-str': { coords: [41.6459, 41.6378], name: 'Parnavaz Mepe Street' },
+  'agmashenebeli-str': { coords: [41.6445, 41.6389], name: 'Agmashenebeli Street' },
+  'ninoshvili-str': { coords: [41.6467, 41.6341], name: 'Ninoshvili Street' },
+  'lermontov-str': { coords: [41.6478, 41.6334], name: 'Lermontov Street' },
+  'pushkin-str': { coords: [41.6489, 41.6327], name: 'Pushkin Street' },
+  'tabidze-str': { coords: [41.6456, 41.6362], name: 'Tabidze Street' },
+  'vazha-pshavela-ave': { coords: [41.6434, 41.6398], name: 'Vazha Pshavela Avenue' },
+  'melikishvili-str': { coords: [41.6492, 41.6324], name: 'Melikishvili Street' },
+  'batumi-boulevard': { coords: [41.6434, 41.6356], name: 'Batumi Boulevard' },
+  'gorgiladze-str': { coords: [41.6467, 41.6378], name: 'Gorgiladze Street' },
+  'sherif-khimshiashvili-str': { coords: [41.6445, 41.6345], name: 'Sherif Khimshiashvili Street' },
+  'kostava-str': { coords: [41.6478, 41.6389], name: 'Kostava Street' }
+};
+
 // Helper function to convert location address to approximate coordinates
 // In a real app, this would be replaced with a geocoding service
 const getCoordinates = (location: string): [number, number] => {
+  // Check if location is Batumi
+  if (location.toLowerCase().includes('batumi')) {
+    // Default to Batumi center coordinates
+    const batumiCenter: [number, number] = [41.6461, 41.6368];
+    
+    // Check if location matches any Batumi street
+    for (const [streetKey, streetData] of Object.entries(batumiStreets)) {
+      if (location.toLowerCase().includes(streetKey) || location.toLowerCase().includes(streetKey.replace('-', ' '))) {
+        return streetData.coords;
+      }
+    }
+    
+    return batumiCenter;
+  }
+  
   // Default to Ras Al Khaimah, UAE coordinates
   const defaultCoords: [number, number] = [25.7889, 55.9778];
   
-  // Check if location matches any street
+  // Check if location matches any RAK street
   for (const [streetKey, streetData] of Object.entries(rasAlKhaimahStreets)) {
     if (location.toLowerCase().includes(streetKey) || location.toLowerCase().includes(streetKey.replace('-', ' '))) {
       return streetData.coords;
@@ -93,8 +127,15 @@ const MapClickHandler = ({ onLocationSelect }: { onLocationSelect?: (lat: number
 const getClosestStreet = (lat: number, lng: number): string => {
   let closestStreet = 'al-quwain-street';
   let minDistance = Infinity;
+  let streetCollection = rasAlKhaimahStreets;
+  
+  // Determine if we're in Batumi area (Georgia) based on coordinates
+  if (lat > 40 && lat < 43 && lng > 40 && lng < 43) {
+    streetCollection = batumiStreets;
+    closestStreet = 'rustaveli-ave';
+  }
 
-  for (const [streetKey, streetData] of Object.entries(rasAlKhaimahStreets)) {
+  for (const [streetKey, streetData] of Object.entries(streetCollection)) {
     const [streetLat, streetLng] = streetData.coords;
     const distance = Math.sqrt(Math.pow(lat - streetLat, 2) + Math.pow(lng - streetLng, 2));
     if (distance < minDistance) {
@@ -144,16 +185,29 @@ const PropertyMap = ({
         {interactive && <MapClickHandler onLocationSelect={handleLocationSelect} />}
         
         {/* Street markers with names */}
-        {Object.entries(rasAlKhaimahStreets).map(([streetKey, streetData]) => (
-          <Marker key={streetKey} position={streetData.coords as L.LatLngExpression}>
-            <Popup>
-              <div className="text-center">
-                <div className="font-semibold">{streetData.name}</div>
-                <div className="text-xs text-gray-600">Click to select this location</div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {/* Show Batumi streets if location includes 'batumi' */}
+        {location.toLowerCase().includes('batumi') 
+          ? Object.entries(batumiStreets).map(([streetKey, streetData]) => (
+              <Marker key={streetKey} position={streetData.coords as L.LatLngExpression}>
+                <Popup>
+                  <div className="text-center">
+                    <div className="font-semibold">{streetData.name}</div>
+                    <div className="text-xs text-gray-600">Click to select this location</div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))
+          : Object.entries(rasAlKhaimahStreets).map(([streetKey, streetData]) => (
+              <Marker key={streetKey} position={streetData.coords as L.LatLngExpression}>
+                <Popup>
+                  <div className="text-center">
+                    <div className="font-semibold">{streetData.name}</div>
+                    <div className="text-xs text-gray-600">Click to select this location</div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))
+        }
         
         {/* Selected location marker */}
         {markerPosition && (
