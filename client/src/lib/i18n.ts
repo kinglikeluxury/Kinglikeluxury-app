@@ -5,7 +5,7 @@ import Backend from 'i18next-http-backend';
 
 // Define the language configuration
 export const languages = {
-  en: { name: 'English', dir: 'ltr', flag: '🇬🇧' },
+  en: { name: 'English', dir: 'ltr', flag: 'En' },
   ar: { name: 'العربية', dir: 'rtl', flag: '🇦🇪' },
   he: { name: 'עברית', dir: 'rtl', flag: '🇮🇱' },
   ru: { name: 'Русский', dir: 'ltr', flag: '🇷🇺' },
