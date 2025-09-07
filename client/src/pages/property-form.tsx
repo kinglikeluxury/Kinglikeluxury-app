@@ -212,7 +212,7 @@ const PropertyForm = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="title">Property Title *</Label>
+                  <Label htmlFor="title">Project Name *</Label>
                   <Input
                     id="title"
                     value={formData.title}
