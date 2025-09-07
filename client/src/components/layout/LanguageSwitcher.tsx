@@ -22,7 +22,7 @@ export default function LanguageSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="h-8 flex items-center gap-1 px-2">
-          <span>{languages[i18n.language as keyof typeof languages]?.flag || '🇬🇧'}</span>
+          <span>{languages[i18n.language as keyof typeof languages]?.flag || 'En'}</span>
           <Globe className="h-4 w-4" />
           <span className="sr-only">Switch language</span>
         </Button>
