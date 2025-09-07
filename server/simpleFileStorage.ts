@@ -13,27 +13,29 @@ export class SimpleFileStorage {
     try {
       await fs.mkdir(path.join(this.uploadDir, "photos"), { recursive: true });
       await fs.mkdir(path.join(this.uploadDir, "videos"), { recursive: true });
+      await fs.mkdir(path.join(this.uploadDir, "audio"), { recursive: true });
     } catch (error) {
       console.error("Error creating upload directories:", error);
     }
   }
 
-  generateUploadUrl(fileType: "photo" | "video"): { uploadUrl: string; fileId: string } {
+  generateUploadUrl(fileType: "photo" | "video" | "audio"): { uploadUrl: string; fileId: string } {
     const fileId = randomUUID();
     const uploadUrl = `/api/files/upload/${fileType}/${fileId}`;
     return { uploadUrl, fileId };
   }
 
-  getFilePath(fileType: "photo" | "video", fileId: string, extension: string): string {
-    const dir = fileType === "photo" ? "photos" : "videos";
+  getFilePath(fileType: "photo" | "video" | "audio", fileId: string, extension: string): string {
+    const dir = fileType === "photo" ? "photos" : fileType === "video" ? "videos" : "audio";
     return path.join(this.uploadDir, dir, `${fileId}${extension}`);
   }
 
-  getPublicUrl(fileType: "photo" | "video", fileId: string, extension: string): string {
-    return `/uploads/${fileType === "photo" ? "photos" : "videos"}/${fileId}${extension}`;
+  getPublicUrl(fileType: "photo" | "video" | "audio", fileId: string, extension: string): string {
+    const dir = fileType === "photo" ? "photos" : fileType === "video" ? "videos" : "audio";
+    return `/uploads/${dir}/${fileId}${extension}`;
   }
 
-  async saveFile(fileType: "photo" | "video", fileId: string, buffer: Buffer, originalName: string): Promise<string> {
+  async saveFile(fileType: "photo" | "video" | "audio", fileId: string, buffer: Buffer, originalName: string): Promise<string> {
     const extension = path.extname(originalName);
     const filePath = this.getFilePath(fileType, fileId, extension);
     

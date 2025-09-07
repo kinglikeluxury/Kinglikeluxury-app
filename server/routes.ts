@@ -21,11 +21,13 @@ import multer from "multer";
 import { fileStorage } from "./simpleFileStorage";
 import path from "path";
 
-// Configure multer for file uploads
+// Configure multer for unlimited file uploads (videos, audio, any duration)
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: { 
-    fileSize: 50 * 1024 * 1024 // 50MB limit
+    fileSize: Infinity, // No file size limit - unlimited duration videos/audio
+    fieldSize: Infinity, // No field size limit
+    files: Infinity // No file count limit
   }
 });
 
@@ -470,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Video upload routes
+  // Video upload routes - supports unlimited duration
   app.post("/api/videos/upload", isAuthenticated, async (req, res) => {
     try {
       const { uploadUrl, fileId } = fileStorage.generateUploadUrl("video");
@@ -497,10 +499,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Audio upload routes - supports unlimited duration MP3, MP4 audio, etc.
+  app.post("/api/audios/upload", isAuthenticated, async (req, res) => {
+    try {
+      const { uploadUrl, fileId } = fileStorage.generateUploadUrl("audio");
+      res.json({ uploadURL: uploadUrl, fileId });
+    } catch (error) {
+      console.error("Error getting audio upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  app.post("/api/audios/process", isAuthenticated, async (req, res) => {
+    try {
+      const { audioURL } = req.body;
+      
+      if (!audioURL) {
+        return res.status(400).json({ error: "audioURL is required" });
+      }
+
+      // Return the path for local storage
+      res.status(200).json({ objectPath: audioURL });
+    } catch (error) {
+      console.error("Error processing audio:", error);
+      res.status(500).json({ error: "Failed to process audio" });
+    }
+  });
+
   // Serve uploaded files
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // File upload handlers
+  // File upload handlers supporting all media types
   app.post("/api/files/upload/photo/:fileId", isAuthenticated, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -529,6 +558,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, url: publicUrl });
     } catch (error) {
       console.error("Error uploading video:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  // Audio upload handler for MP3 and other audio formats
+  app.post("/api/files/upload/audio/:fileId", isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const { fileId } = req.params;
+      const publicUrl = await fileStorage.saveFile("audio", fileId, req.file.buffer, req.file.originalname);
+      
+      res.json({ success: true, url: publicUrl });
+    } catch (error) {
+      console.error("Error uploading audio:", error);
       res.status(500).json({ error: "Failed to upload file" });
     }
   });

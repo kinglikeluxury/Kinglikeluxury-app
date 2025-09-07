@@ -11,15 +11,15 @@ interface ObjectUploaderProps {
   onComplete?: (fileUrls: string[]) => void;
   buttonClassName?: string;
   children: ReactNode;
-  type?: "photo" | "video";
+  type?: "photo" | "video" | "audio";
 }
 
 /**
  * Simple file upload component with drag-and-drop support
  */
 export function ObjectUploader({
-  maxNumberOfFiles = 1,
-  maxFileSize = 10485760, // 10MB default
+  maxNumberOfFiles = 10, // Allow multiple files
+  maxFileSize = Infinity, // No size limit for unlimited duration videos/audio
   allowedFileTypes = [],
   onComplete,
   buttonClassName,
@@ -46,7 +46,7 @@ export function ObjectUploader({
       for (const file of selectedFiles) {
         // Get upload URL from server
         const urlResponse = await apiRequest(`/api/${type}s/upload`, 'POST');
-        const { uploadURL } = urlResponse as { uploadURL: string };
+        const { uploadURL } = (urlResponse as any).uploadURL ? urlResponse as { uploadURL: string } : { uploadURL: (urlResponse as any) };
 
         // Extract fileId from URL
         const fileId = uploadURL.split('/').pop();
