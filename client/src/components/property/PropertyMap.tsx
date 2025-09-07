@@ -171,16 +171,25 @@ const PropertyMap = ({
   };
 
   return (
-    <div className={`overflow-hidden rounded-lg ${className}`}>
+    <div className={`overflow-hidden rounded-lg shadow-2xl border-2 border-gray-200 ${className}`}>
       <MapContainer
         center={defaultPosition as L.LatLngExpression}
-        zoom={14}
-        style={{ height: '300px', width: '100%' }}
+        zoom={15}
+        style={{ height: '400px', width: '100%' }}
         scrollWheelZoom={true}
+        className="super-3d-map"
       >
+        {/* Enhanced satellite/hybrid tile layer for 3D effect */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          opacity={0.9}
+        />
+        {/* Overlay for street names and labels */}
+        <TileLayer
+          attribution=''
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+          opacity={0.8}
         />
         {interactive && <MapClickHandler onLocationSelect={handleLocationSelect} />}
         
