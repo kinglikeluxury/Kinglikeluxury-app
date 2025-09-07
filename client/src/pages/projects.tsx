@@ -428,7 +428,7 @@ const Projects = () => {
                   <p className="text-xl font-semibold text-gray-800 mb-2">
                     Special Promotion: 2% Less Than Construction Company Prices!
                   </p>
-                  <p className="text-base text-gray-600 mb-1">
+                  <p className="text-base text-gray-600 mb-1 underline">
                     Save more on your off-plan property investment with our exclusive pricing
                   </p>
                   <p className="text-sm text-[#3bcac4] font-medium">
