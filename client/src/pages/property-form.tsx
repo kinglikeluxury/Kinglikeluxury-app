@@ -350,33 +350,48 @@ const PropertyForm = () => {
 
                 <div>
                   <Label htmlFor="area">Area (m²) *</Label>
-                  <Select 
-                    value={formData.area} 
-                    onValueChange={(value) => handleInputChange('area', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select area" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="39">39 m²</SelectItem>
-                      <SelectItem value="45">45 m²</SelectItem>
-                      <SelectItem value="50">50 m²</SelectItem>
-                      <SelectItem value="55">55 m²</SelectItem>
-                      <SelectItem value="60">60 m²</SelectItem>
-                      <SelectItem value="65">65 m²</SelectItem>
-                      <SelectItem value="70">70 m²</SelectItem>
-                      <SelectItem value="75">75 m²</SelectItem>
-                      <SelectItem value="80">80 m²</SelectItem>
-                      <SelectItem value="85">85 m²</SelectItem>
-                      <SelectItem value="90">90 m²</SelectItem>
-                      <SelectItem value="95">95 m²</SelectItem>
-                      <SelectItem value="100">100 m²</SelectItem>
-                      <SelectItem value="105">105 m²</SelectItem>
-                      <SelectItem value="110">110 m²</SelectItem>
-                      <SelectItem value="115">115 m²</SelectItem>
-                      <SelectItem value="120">120 m²</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white">
+                    <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto">
+                      {['39', '45', '50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100', '105', '110', '115', '120'].map((areaValue) => {
+                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? [formData.area] : []);
+                        const isSelected = selectedAreas.includes(areaValue);
+                        
+                        return (
+                          <label key={areaValue} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? [formData.area] : []);
+                                let newAreas;
+                                if (e.target.checked) {
+                                  newAreas = [...currentAreas, areaValue];
+                                } else {
+                                  newAreas = currentAreas.filter(area => area !== areaValue);
+                                }
+                                handleInputChange('area', newAreas);
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{areaValue} m²</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {Array.isArray(formData.area) && formData.area.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="text-xs text-gray-500 mb-1">Selected areas:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {formData.area.map((area) => (
+                            <Badge key={area} variant="secondary" className="text-xs">
+                              {area} m²
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
