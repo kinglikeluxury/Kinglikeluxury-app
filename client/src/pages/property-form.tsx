@@ -13,6 +13,8 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List } from "lucide-react";
 import { Link } from "wouter";
 import PropertyMap from "@/components/property/PropertyMap";
+import { PhotoUploader } from "@/components/PhotoUploader";
+import { VideoUploader } from "@/components/VideoUploader";
 
 const PropertyForm = () => {
   const { user, isLoading } = useAuth();
@@ -47,7 +49,10 @@ const PropertyForm = () => {
     utilitiesIncluded: [] as string[],
     petPolicy: '',
     leaseDuration: '',
-    rentalTerms: ''
+    rentalTerms: '',
+    // Media files
+    images: [] as string[],
+    videos: [] as string[]
   });
   
   const [newFeature, setNewFeature] = useState('');
