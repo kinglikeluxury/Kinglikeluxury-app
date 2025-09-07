@@ -94,36 +94,12 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="any">Any location</SelectItem>
-                
-                {/* Batumi Streets */}
-                <SelectItem value="rustaveli-avenue-batumi">Rustaveli Avenue (Batumi)</SelectItem>
-                <SelectItem value="chavchavadze-avenue-batumi">Chavchavadze Avenue (Batumi)</SelectItem>
-                <SelectItem value="gogebashvili-street-batumi">Gogebashvili Street (Batumi)</SelectItem>
-                <SelectItem value="baratashvili-street-batumi">Baratashvili Street (Batumi)</SelectItem>
-                <SelectItem value="agmashenebeli-street-batumi">Agmashenebeli Street (Batumi)</SelectItem>
-                <SelectItem value="pushkin-street-batumi">Pushkin Street (Batumi)</SelectItem>
-                <SelectItem value="gorgiladze-street-batumi">Gorgiladze Street (Batumi)</SelectItem>
-                <SelectItem value="takaishvili-street-batumi">Takaishvili Street (Batumi)</SelectItem>
-                <SelectItem value="ninoshvili-street-batumi">Ninoshvili Street (Batumi)</SelectItem>
-                <SelectItem value="mazniashvili-street-batumi">Mazniashvili Street (Batumi)</SelectItem>
-                <SelectItem value="lermontov-street-batumi">Lermontov Street (Batumi)</SelectItem>
-                <SelectItem value="vazha-pshavela-avenue-batumi">Vazha-Pshavela Avenue (Batumi)</SelectItem>
-                <SelectItem value="aghmashenebeli-avenue-batumi">Aghmashenebeli Avenue (Batumi)</SelectItem>
-                <SelectItem value="sherif-khimshiashvili-street-batumi">Sherif Khimshiashvili Street (Batumi)</SelectItem>
-                <SelectItem value="grishashvili-street-batumi">Grishashvili Street (Batumi)</SelectItem>
-                <SelectItem value="kostava-street-batumi">Kostava Street (Batumi)</SelectItem>
-                <SelectItem value="parnavaz-mepe-street-batumi">Parnavaz Mepe Street (Batumi)</SelectItem>
-                <SelectItem value="zurab-gorgiladze-street-batumi">Zurab Gorgiladze Street (Batumi)</SelectItem>
-                <SelectItem value="batumi-boulevard">Batumi Boulevard</SelectItem>
-                <SelectItem value="europe-square-batumi">Europe Square (Batumi)</SelectItem>
-                
-                {/* Tbilisi Streets */}
-                <SelectItem value="rustaveli-avenue-tbilisi">Rustaveli Avenue (Tbilisi)</SelectItem>
-                <SelectItem value="kostava-street-tbilisi">Kostava Street (Tbilisi)</SelectItem>
-                <SelectItem value="chavchavadze-avenue-tbilisi">Chavchavadze Avenue (Tbilisi)</SelectItem>
+                <SelectItem value="rustaveli-avenue">Rustaveli Avenue</SelectItem>
+                <SelectItem value="kostava-street">Kostava Street</SelectItem>
+                <SelectItem value="chavchavadze-avenue">Chavchavadze Avenue</SelectItem>
                 <SelectItem value="pekini-avenue">Pekini Avenue</SelectItem>
-                <SelectItem value="aghmashenebeli-avenue-tbilisi">Aghmashenebeli Avenue (Tbilisi)</SelectItem>
-                <SelectItem value="vazha-pshavela-avenue-tbilisi">Vazha-Pshavela Avenue (Tbilisi)</SelectItem>
+                <SelectItem value="aghmashenebeli-avenue">Aghmashenebeli Avenue</SelectItem>
+                <SelectItem value="vazha-pshavela-avenue">Vazha-Pshavela Avenue</SelectItem>
                 <SelectItem value="tsereteli-avenue">Tsereteli Avenue</SelectItem>
                 <SelectItem value="kazbegi-avenue">Kazbegi Avenue</SelectItem>
                 <SelectItem value="varketili-street">Varketili Street</SelectItem>
