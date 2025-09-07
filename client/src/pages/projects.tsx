@@ -150,6 +150,7 @@ const Projects = () => {
       case 'apartment': return <Home className="h-4 w-4" />;
       case 'villa': return <Building className="h-4 w-4" />;
       case 'land': return <TreePine className="h-4 w-4" />;
+      case 'commercial': return <Building className="h-4 w-4" />;
       default: return <Home className="h-4 w-4" />;
     }
   };
@@ -328,6 +329,7 @@ const Projects = () => {
                     <SelectItem value="apartment">🏢 Apartments</SelectItem>
                     <SelectItem value="villa">🏡 Villas</SelectItem>
                     <SelectItem value="land">🌳 Land</SelectItem>
+                    <SelectItem value="commercial">🏬 Commercial</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
