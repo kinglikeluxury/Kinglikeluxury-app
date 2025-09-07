@@ -11,6 +11,10 @@ import {
 import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
+import {
+  ObjectStorageService,
+  ObjectNotFoundError,
+} from "./objectStorage";
 
 // Session type definition
 declare module "express-session" {
@@ -423,6 +427,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
       res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Photo upload routes
+  app.post("/api/photos/upload", isAuthenticated, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting photo upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  app.post("/api/photos/process", isAuthenticated, async (req, res) => {
+    try {
+      const { photoURL } = req.body;
+      
+      if (!photoURL) {
+        return res.status(400).json({ error: "photoURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL policy for the photo (public visibility for property photos)
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        photoURL,
+        {
+          owner: req.session.userId!.toString(),
+          visibility: "public", // Property photos should be publicly accessible
+        }
+      );
+
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error processing photo:", error);
+      res.status(500).json({ error: "Failed to process photo" });
+    }
+  });
+
+  // Video upload routes
+  app.post("/api/videos/upload", isAuthenticated, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting video upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  app.post("/api/videos/process", isAuthenticated, async (req, res) => {
+    try {
+      const { videoURL, originalName, fileSize } = req.body;
+      
+      if (!videoURL) {
+        return res.status(400).json({ error: "videoURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL policy for the video (public visibility for property videos)
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        videoURL,
+        {
+          owner: req.session.userId!.toString(),
+          visibility: "public", // Property videos should be publicly accessible
+        }
+      );
+
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error processing video:", error);
+      res.status(500).json({ error: "Failed to process video" });
+    }
+  });
+
+  // Serve uploaded objects
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(
+        req.path
+      );
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Serve public objects
+  app.get("/public-objects/:filePath(*)", async (req, res) => {
+    const filePath = req.params.filePath;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const file = await objectStorageService.searchPublicObject(filePath);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      console.error("Error searching for public object:", error);
+      return res.status(500).json({ error: "Internal server error" });
     }
   });
 
