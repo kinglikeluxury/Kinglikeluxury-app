@@ -463,41 +463,97 @@ const PropertyForm = () => {
                 </div>
                 
                 {formData.city === 'batumi' && useMapSelection ? (
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <div className="absolute top-4 left-4 z-[1000] bg-black/80 text-white px-3 py-2 rounded-lg text-sm font-medium">
-                        🗺️ Super 3D Map - Click to Select Location
+                  <div className="space-y-6">
+                    {/* Enhanced Map Header */}
+                    <div className="text-center bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-100">
+                      <h3 className="text-lg font-semibold text-blue-900 mb-2">🌍 Interactive Location Selector</h3>
+                      <p className="text-sm text-blue-700">Click anywhere on the map to pinpoint your exact property location</p>
+                    </div>
+
+                    {/* Premium Map Container */}
+                    <div className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-cyan-900 p-6 rounded-2xl shadow-2xl">
+                      <div className="absolute top-6 left-6 z-[1000] bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-3 rounded-full text-sm font-bold shadow-lg animate-pulse">
+                        ✨ Premium 3D Satellite View ✨
                       </div>
-                      <div className="h-96 rounded-xl overflow-hidden border-4 border-blue-200 shadow-2xl transform hover:scale-[1.01] transition-all duration-300">
+                      
+                      <div className="absolute top-6 right-6 z-[1000] bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-gray-700 font-medium shadow-md">
+                        🔍 Zoom & Click to Select
+                      </div>
+
+                      <div className="h-[500px] rounded-2xl overflow-hidden border-4 border-white/30 shadow-inner bg-white/10 backdrop-blur-sm transform transition-all duration-500 hover:scale-[1.005] hover:shadow-3xl">
                         <PropertyMap
                           location={formData.location || 'batumi'}
                           title="Select Location"
                           interactive={true}
                           onLocationSelect={handleMapLocationSelect}
-                          className="h-full w-full"
+                          className="h-full w-full rounded-xl"
                         />
                       </div>
+                      
+                      {/* Map Controls Info */}
+                      <div className="absolute bottom-6 left-6 right-6 z-[1000] bg-white/95 backdrop-blur-sm rounded-xl p-3 shadow-lg border border-white/50">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center space-x-4">
+                            <span className="text-blue-600 font-medium">🖱️ Click to select</span>
+                            <span className="text-purple-600 font-medium">🔄 Scroll to zoom</span>
+                            <span className="text-green-600 font-medium">🖐️ Drag to explore</span>
+                          </div>
+                          <div className="text-gray-500 font-medium">Powered by Satellite Imagery</div>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Enhanced Location Confirmation */}
                     {formData.location && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-800 font-medium">
-                          📍 Selected Location: {formData.location}
-                        </p>
-                        {formData.coordinates.lat !== 0 && (
-                          <p className="text-xs text-green-600 mt-1">
-                            Coordinates: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
-                          </p>
-                        )}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 shadow-lg transform transition-all duration-300 hover:scale-[1.02]">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
+                            📍
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-lg text-green-800 font-bold">
+                              Perfect! Location Selected
+                            </p>
+                            <p className="text-sm text-green-700 font-medium">
+                              📌 {formData.location}
+                            </p>
+                            {formData.coordinates.lat !== 0 && (
+                              <p className="text-xs text-green-600 mt-1 font-mono bg-green-100 px-2 py-1 rounded">
+                                📊 Coordinates: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-2xl">✅</div>
+                        </div>
                       </div>
                     )}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-blue-800 font-medium">🎯 How to use:</p>
-                      <ul className="text-xs text-blue-600 mt-1 space-y-1">
-                        <li>• Click anywhere on the satellite map to select exact location</li>
-                        <li>• Zoom in/out using mouse wheel or map controls</li>
-                        <li>• Click on street markers for predefined locations</li>
-                        <li>• Drag to explore the area</li>
-                      </ul>
+
+                    {/* Interactive Guide */}
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5 shadow-lg">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
+                          💡
+                        </div>
+                        <h4 className="text-lg font-bold text-indigo-900">Quick Guide</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
+                          <span className="text-lg">🎯</span>
+                          <span className="text-sm text-indigo-800 font-medium">Click anywhere to place pin</span>
+                        </div>
+                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
+                          <span className="text-lg">🔍</span>
+                          <span className="text-sm text-indigo-800 font-medium">Zoom for precise positioning</span>
+                        </div>
+                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
+                          <span className="text-lg">🏘️</span>
+                          <span className="text-sm text-indigo-800 font-medium">View neighborhood details</span>
+                        </div>
+                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
+                          <span className="text-lg">⚡</span>
+                          <span className="text-sm text-indigo-800 font-medium">Real-time satellite imagery</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : formData.city === 'batumi' ? (
