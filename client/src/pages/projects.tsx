@@ -188,6 +188,30 @@ const Projects = () => {
     bedroomCount
   ].filter(Boolean).length;
 
+  // Handle promotion banner click
+  const handlePromotionClick = () => {
+    let whatsappNumber = "";
+    let message = "special Promotion 2% for the project|";
+
+    // Set WhatsApp number based on selected country
+    if (selectedCountry === 'georgia') {
+      whatsappNumber = "995591000058";
+    } else {
+      // Default number or show alert if no country selected
+      alert("Please select a country first to contact the appropriate office.");
+      return;
+    }
+
+    // Encode the message for URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Create WhatsApp URL
+    const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+    
+    // Open WhatsApp
+    window.open(whatsappURL, '_blank');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -395,20 +419,23 @@ const Projects = () => {
         </Card>
 
         {/* Promotion Banner */}
-        <Card className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">🎉</span>
+        <Card className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-green-200 cursor-pointer hover:shadow-lg transition-shadow duration-300" onClick={handlePromotionClick}>
+          <CardContent className="py-8 px-8">
+            <div className="flex items-center justify-center space-x-6">
+              <div className="flex items-center space-x-4">
+                <span className="text-3xl">🎉</span>
                 <div className="text-center">
-                  <p className="text-lg font-semibold text-green-800">
+                  <p className="text-xl font-semibold text-green-800 mb-2">
                     Special Promotion: 2% Less Than Construction Company Prices!
                   </p>
-                  <p className="text-sm text-green-600">
+                  <p className="text-base text-green-600 mb-1">
                     Save more on your off-plan property investment with our exclusive pricing
                   </p>
+                  <p className="text-sm text-green-500 font-medium">
+                    Click to contact us via WhatsApp 📱
+                  </p>
                 </div>
-                <span className="text-2xl">💰</span>
+                <span className="text-3xl">💰</span>
               </div>
             </div>
           </CardContent>
