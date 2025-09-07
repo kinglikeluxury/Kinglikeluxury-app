@@ -1048,7 +1048,7 @@ const PropertyForm = () => {
                             '❄️ Heating',
                             '❄️ Air Conditioning'
                           ].map((utility) => {
-                            const selectedUtilities = Array.isArray(formData.utilitiesIncluded) ? formData.utilitiesIncluded : (formData.utilitiesIncluded ? formData.utilitiesIncluded.toString().split(',') : []);
+                            const selectedUtilities = formData.utilitiesIncluded;
                             const isSelected = selectedUtilities.includes(utility);
                             
                             return (
@@ -1057,7 +1057,7 @@ const PropertyForm = () => {
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={(e) => {
-                                    const currentUtilities = Array.isArray(formData.utilitiesIncluded) ? formData.utilitiesIncluded : (formData.utilitiesIncluded ? formData.utilitiesIncluded.toString().split(',') : []);
+                                    const currentUtilities = formData.utilitiesIncluded;
                                     let newUtilities;
                                     if (e.target.checked) {
                                       newUtilities = [...currentUtilities, utility];
@@ -1397,7 +1397,7 @@ const PropertyForm = () => {
                     
                     // Kitchen & Dining
                     '🍳 Modern Kitchen',
-                    '👨‍🍳 Chef's Kitchen',
+                    "👨‍🍳 Chef's Kitchen",
                     '🍰 Baking Kitchen',
                     '🍷 Wine Bar',
                     '🍸 Cocktail Bar',
@@ -1508,7 +1508,7 @@ const PropertyForm = () => {
                     '🏠 Maid Room',
                     '👨‍💼 Concierge',
                     '🧹 Housekeeping Service',
-                    '👔 Butler's Pantry',
+                    "👔 Butler's Pantry",
                     '🛎️ Service Elevator',
                     '🚪 Service Entrance',
                     '🧺 Laundry Chute',
@@ -1590,7 +1590,7 @@ const PropertyForm = () => {
                     '🎪 Circus Room',
                     '🎡 Ferris Wheel View'
                   ].map((facility) => {
-                    const selectedFacilities = Array.isArray(formData.features) ? formData.features : (formData.features ? formData.features.toString().split(',') : []);
+                    const selectedFacilities = formData.features;
                     const isSelected = selectedFacilities.includes(facility);
                     
                     return (
@@ -1599,7 +1599,7 @@ const PropertyForm = () => {
                           type="checkbox"
                           checked={isSelected}
                           onChange={(e) => {
-                            const currentFacilities = Array.isArray(formData.features) ? formData.features : (formData.features ? formData.features.toString().split(',') : []);
+                            const currentFacilities = formData.features;
                             let newFacilities;
                             if (e.target.checked) {
                               newFacilities = [...currentFacilities, facility];
@@ -1619,13 +1619,13 @@ const PropertyForm = () => {
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="text-xs text-gray-500 mb-2">Selected facilities:</div>
                     <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(formData.features) ? formData.features : formData.features.toString().split(',')).filter((feature: string) => feature).map((feature: string) => (
+                      {formData.features.filter((feature: string) => feature).map((feature: string) => (
                         <Badge key={feature} variant="secondary" className="text-xs flex items-center space-x-1">
                           <span>{feature}</span>
                           <button
                             type="button"
                             onClick={() => {
-                              const currentFacilities = Array.isArray(formData.features) ? formData.features : formData.features.toString().split(',');
+                              const currentFacilities = formData.features;
                               const newFacilities = currentFacilities.filter((f: string) => f !== feature);
                               setFormData(prev => ({ ...prev, features: newFacilities }));
                             }}
