@@ -290,13 +290,13 @@ const PropertyForm = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="area">Area (sq ft) *</Label>
+                  <Label htmlFor="area">Area (m²) *</Label>
                   <Input
                     id="area"
                     type="number"
                     value={formData.area}
                     onChange={(e) => handleInputChange('area', e.target.value)}
-                    placeholder="Square footage"
+                    placeholder="Area in square meters"
                     required
                   />
                 </div>
