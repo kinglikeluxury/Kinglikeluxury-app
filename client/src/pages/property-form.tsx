@@ -909,17 +909,216 @@ const PropertyForm = () => {
                     onValueChange={(value) => handleInputChange('purpose', value)}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select purpose" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="buy">For Sale</SelectItem>
-                      <SelectItem value="rent">For Rent</SelectItem>
+                      <SelectItem value="buy">🏠 For Sale</SelectItem>
+                      <SelectItem value="rent">🏡 For Rent</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Rental-specific fields */}
+                {formData.purpose === 'rent' && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="rentalPeriod">Rental Period</Label>
+                        <Select 
+                          value={formData.rentalPeriod || ''} 
+                          onValueChange={(value) => handleInputChange('rentalPeriod', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select rental period" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="monthly">📅 Monthly</SelectItem>
+                            <SelectItem value="quarterly">📅 Quarterly (3 months)</SelectItem>
+                            <SelectItem value="semi-annual">📅 Semi-Annual (6 months)</SelectItem>
+                            <SelectItem value="annual">📅 Annual (12 months)</SelectItem>
+                            <SelectItem value="long-term">📅 Long-term (2+ years)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="furnished">Furnished Status</Label>
+                        <Select 
+                          value={formData.furnished || ''} 
+                          onValueChange={(value) => handleInputChange('furnished', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select furnished status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="furnished">🛋️ Fully Furnished</SelectItem>
+                            <SelectItem value="semi-furnished">🪑 Semi-Furnished</SelectItem>
+                            <SelectItem value="unfurnished">📦 Unfurnished</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="securityDeposit">Security Deposit</Label>
+                        <Input
+                          id="securityDeposit"
+                          type="text"
+                          value={formData.securityDeposit || ''}
+                          onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
+                          placeholder="e.g., $2,000 or 1 month rent"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="availableFrom">Available From</Label>
+                        <Input
+                          id="availableFrom"
+                          type="date"
+                          value={formData.availableFrom || ''}
+                          onChange={(e) => handleInputChange('availableFrom', e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Utilities Included</Label>
+                      <div className="border border-gray-300 rounded-md p-3 bg-white">
+                        <div className="text-sm text-gray-600 mb-2">Select included utilities:</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {[
+                            '💡 Electricity',
+                            '🚰 Water',
+                            '🔥 Gas',
+                            '🌐 Internet/WiFi',
+                            '📺 Cable TV',
+                            '🗑️ Trash Collection',
+                            '❄️ Heating',
+                            '❄️ Air Conditioning'
+                          ].map((utility) => {
+                            const selectedUtilities = Array.isArray(formData.utilitiesIncluded) ? formData.utilitiesIncluded : (formData.utilitiesIncluded ? formData.utilitiesIncluded.toString().split(',') : []);
+                            const isSelected = selectedUtilities.includes(utility);
+                            
+                            return (
+                              <label key={utility} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const currentUtilities = Array.isArray(formData.utilitiesIncluded) ? formData.utilitiesIncluded : (formData.utilitiesIncluded ? formData.utilitiesIncluded.toString().split(',') : []);
+                                    let newUtilities;
+                                    if (e.target.checked) {
+                                      newUtilities = [...currentUtilities, utility];
+                                    } else {
+                                      newUtilities = currentUtilities.filter(u => u !== utility);
+                                    }
+                                    setFormData(prev => ({ ...prev, utilitiesIncluded: newUtilities }));
+                                  }}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className="text-xs font-medium">{utility}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Pet Policy</Label>
+                      <Select 
+                        value={formData.petPolicy || ''} 
+                        onValueChange={(value) => handleInputChange('petPolicy', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select pet policy" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pets-allowed">🐕 Pets Allowed</SelectItem>
+                          <SelectItem value="cats-only">🐱 Cats Only</SelectItem>
+                          <SelectItem value="dogs-only">🐕 Dogs Only</SelectItem>
+                          <SelectItem value="small-pets">🐹 Small Pets Only</SelectItem>
+                          <SelectItem value="no-pets">🚫 No Pets</SelectItem>
+                          <SelectItem value="negotiable">💬 Negotiable</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Rental Terms - Only for rental properties */}
+          {formData.purpose === 'rent' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Rental Terms & Conditions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="leaseDuration">Minimum Lease Duration</Label>
+                  <Select 
+                    value={formData.leaseDuration || ''} 
+                    onValueChange={(value) => handleInputChange('leaseDuration', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select minimum lease duration" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1-month">1 Month</SelectItem>
+                      <SelectItem value="3-months">3 Months</SelectItem>
+                      <SelectItem value="6-months">6 Months</SelectItem>
+                      <SelectItem value="12-months">12 Months</SelectItem>
+                      <SelectItem value="24-months">24 Months</SelectItem>
+                      <SelectItem value="flexible">Flexible</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="rentalTerms">Additional Rental Terms</Label>
+                  <textarea
+                    id="rentalTerms"
+                    className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md resize-vertical"
+                    value={formData.rentalTerms || ''}
+                    onChange={(e) => handleInputChange('rentalTerms', e.target.value)}
+                    placeholder="Enter any additional rental terms, conditions, or requirements..."
+                  />
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Price Section - Updated for rental/sale context */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {formData.purpose === 'rent' ? 'Rental Price' : 'Sale Price'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="price">
+                  {formData.purpose === 'rent' ? 'Monthly Rental Price *' : 'Sale Price *'}
+                </Label>
+                <Input
+                  id="price"
+                  type="text"
+                  value={formData.price}
+                  onChange={(e) => handleInputChange('price', e.target.value)}
+                  placeholder={formData.purpose === 'rent' ? "e.g., $2,500/month" : "e.g., $450,000"}
+                />
+              </div>
+              
+              {formData.purpose === 'rent' && (
+                <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                  💡 <strong>Tip:</strong> Include utilities, parking, or other costs in the description if they're separate from the base rent.
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Facilities */}
           <Card>
@@ -1055,45 +1254,233 @@ const PropertyForm = () => {
               <CardTitle>Amenities</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex space-x-2">
-                <Input
-                  value={newAmenity}
-                  onChange={(e) => setNewAmenity(e.target.value)}
-                  placeholder="Add an amenity..."
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addAmenity())}
-                />
-                <Button type="button" onClick={addAmenity}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+              <div className="border border-gray-300 rounded-md p-3 bg-white">
+                <div className="text-sm text-gray-600 mb-3">Select multiple luxury amenities:</div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+                  {[
+                    '💎 Concierge Service',
+                    '🍾 Private Chef Service',
+                    '🧹 Housekeeping Service',
+                    '🚗 Valet Parking',
+                    '🛩️ Helipad Access',
+                    '⛵ Private Marina',
+                    '🎭 Private Theater',
+                    '🍸 Wine Tasting Room',
+                    '💆 Private Spa',
+                    '🏌️ Golf Simulator',
+                    '🎳 Bowling Alley',
+                    '🏊 Infinity Pool',
+                    '🌊 Private Beach Access',
+                    '🏔️ Mountain Retreat',
+                    '🛥️ Yacht Club Access',
+                    '🎯 Private Club Membership',
+                    '🥂 Butler Service',
+                    '💼 Business Center',
+                    '🎪 Event Planning Service',
+                    '🌺 Landscaping Service',
+                    '🚁 Private Transport',
+                    '🍰 Personal Chef Kitchen',
+                    '🍷 Climate-controlled Wine Cellar',
+                    '🎵 Professional Music Studio',
+                    '📸 Photography Studio',
+                    '🏋️ Personal Trainer Access',
+                    '🧘 Meditation Garden',
+                    '🌿 Herb Garden',
+                    '🦢 Private Lake',
+                    '⛲ Water Features',
+                    '🌙 Observatory Deck',
+                    '🔥 Fire Pit Area',
+                    '🏰 Castle-style Architecture',
+                    '🎨 Art Gallery Space',
+                    '📚 Private Library',
+                    '🎹 Grand Piano Room',
+                    '💍 Jewelry Safe Room',
+                    '🛡️ Panic Room',
+                    '🌡️ Climate Control System',
+                    '💨 Air Purification System',
+                    '🚿 Steam Room',
+                    '❄️ Sauna',
+                    '🧊 Ice Room',
+                    '🍀 Indoor Garden',
+                    '🦋 Butterfly Conservatory',
+                    '🐠 Aquarium Room',
+                    '🕊️ Aviary',
+                    '🏺 Antique Collection Display',
+                    '💎 Crystal Chandelier Collection',
+                    '🏛️ Marble Features Throughout',
+                    '✨ Gold-plated Fixtures',
+                    '🌟 Swarovski Crystal Details',
+                    '🎆 LED Light Show System',
+                    '🎪 Automated Home Features',
+                    '📱 Smart Home Integration'
+                  ].map((amenity) => {
+                    const selectedAmenities = Array.isArray(formData.amenities) ? formData.amenities : (formData.amenities ? formData.amenities.toString().split(',') : []);
+                    const isSelected = selectedAmenities.includes(amenity);
+                    
+                    return (
+                      <label key={amenity} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const currentAmenities = Array.isArray(formData.amenities) ? formData.amenities : (formData.amenities ? formData.amenities.toString().split(',') : []);
+                            let newAmenities;
+                            if (e.target.checked) {
+                              newAmenities = [...currentAmenities, amenity];
+                            } else {
+                              newAmenities = currentAmenities.filter(a => a !== amenity);
+                            }
+                            setFormData(prev => ({ ...prev, amenities: newAmenities }));
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-xs font-medium">{amenity}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {formData.amenities && formData.amenities.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-xs text-gray-500 mb-2">Selected amenities:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(Array.isArray(formData.amenities) ? formData.amenities : formData.amenities.toString().split(',')).filter(amenity => amenity).map((amenity) => (
+                        <Badge key={amenity} variant="secondary" className="text-xs flex items-center space-x-1">
+                          <span>{amenity}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentAmenities = Array.isArray(formData.amenities) ? formData.amenities : formData.amenities.toString().split(',');
+                              const newAmenities = currentAmenities.filter(a => a !== amenity);
+                              setFormData(prev => ({ ...prev, amenities: newAmenities }));
+                            }}
+                            className="ml-1 hover:text-red-500"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {formData.amenities.map((amenity) => (
-                  <Badge key={amenity} variant="secondary" className="flex items-center space-x-1">
-                    <span>{amenity}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeAmenity(amenity)}
-                      className="ml-1 hover:text-red-500"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
+
+              {/* Custom amenity input */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="text-sm text-gray-600 mb-2">Add custom amenity:</div>
+                <div className="flex space-x-2">
+                  <Input
+                    value={newAmenity}
+                    onChange={(e) => setNewAmenity(e.target.value)}
+                    placeholder="Add a custom luxury amenity..."
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addAmenity())}
+                  />
+                  <Button type="button" onClick={addAmenity}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Images Section - Placeholder for future implementation */}
+          {/* Images Section */}
           <Card>
             <CardHeader>
-              <CardTitle>Images</CardTitle>
+              <CardTitle>Property Images</CardTitle>
+              <p className="text-sm text-gray-600">Upload high-quality photos to showcase your property</p>
             </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Image upload functionality coming soon</p>
-                <p className="text-sm text-gray-400">You'll be able to upload property images here</p>
+            <CardContent className="space-y-4">
+              {/* Image Upload Specifications */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-blue-900 mb-2">📸 Photo Requirements</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-blue-800">
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-blue-200 px-2 py-1 rounded font-medium">📊 Maximum Size:</span>
+                    <span>5MB per image</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-blue-200 px-2 py-1 rounded font-medium">🔢 Maximum Count:</span>
+                    <span>20 photos total</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-blue-200 px-2 py-1 rounded font-medium">📐 Recommended Size:</span>
+                    <span>1920x1080px or higher</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-blue-200 px-2 py-1 rounded font-medium">🖼️ Formats:</span>
+                    <span>JPG, PNG, WebP</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Area */}
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-colors">
+                <div className="bg-gradient-to-br from-blue-100 to-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Upload className="h-10 w-10 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">Upload Property Photos</h3>
+                <p className="text-gray-500 mb-4">Drag and drop your photos here, or click to browse</p>
+                
+                {/* Upload Button */}
+                <div className="space-y-3">
+                  <button 
+                    type="button"
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-600 hover:to-indigo-700 transition-colors shadow-lg"
+                  >
+                    📁 Choose Photos
+                  </button>
+                  <p className="text-xs text-gray-400">Maximum 20 photos, 5MB each</p>
+                </div>
+              </div>
+
+              {/* Photo Categories */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-green-900 mb-3">📋 Recommended Photo Types</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  {[
+                    '🏠 Exterior Views',
+                    '🛋️ Living Areas',
+                    '🍳 Kitchen',
+                    '🛏️ Bedrooms',
+                    '🚿 Bathrooms',
+                    '🌿 Outdoor Spaces',
+                    '🚗 Parking Areas',
+                    '🏢 Building/Complex'
+                  ].map((category) => (
+                    <div key={category} className="bg-white/70 rounded p-2 text-center font-medium text-green-800">
+                      {category}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Photo Tips */}
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-amber-900 mb-2">💡 Pro Photography Tips</h4>
+                <div className="text-xs text-amber-800 space-y-1">
+                  <div className="flex items-start space-x-2">
+                    <span>🌅</span>
+                    <span>Take photos during golden hour (morning/evening) for best lighting</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span>📐</span>
+                    <span>Use wide-angle shots to showcase space and room dimensions</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span>🧹</span>
+                    <span>Ensure all areas are clean, decluttered and well-staged</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span>🎯</span>
+                    <span>Highlight unique features, views, and luxury amenities</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Status placeholder */}
+              <div className="text-center text-gray-500 text-sm">
+                <span className="bg-gray-100 px-3 py-2 rounded-full">
+                  🚀 Advanced upload functionality coming soon
+                </span>
               </div>
             </CardContent>
           </Card>
