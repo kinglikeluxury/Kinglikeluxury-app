@@ -16,6 +16,17 @@ import { processImages } from "./utils/imageProcessing";
 //   ObjectStorageService,
 //   ObjectNotFoundError,
 // } from "./objectStorage";
+import multer from "multer";
+import { fileStorage } from "./simpleFileStorage";
+import path from "path";
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { 
+    fileSize: 50 * 1024 * 1024 // 50MB limit
+  }
+});
 
 // Session type definition
 declare module "express-session" {
@@ -431,32 +442,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Photo upload routes - temporarily disabled until object storage is fixed
+  // Photo upload routes
   app.post("/api/photos/upload", isAuthenticated, async (req, res) => {
-    // TODO: Implement photo upload after fixing Google Cloud Storage issues
-    res.status(503).json({ error: "Photo upload temporarily unavailable" });
+    try {
+      const { uploadUrl, fileId } = fileStorage.generateUploadUrl("photo");
+      res.json({ uploadURL: uploadUrl, fileId });
+    } catch (error) {
+      console.error("Error getting photo upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
   });
 
   app.post("/api/photos/process", isAuthenticated, async (req, res) => {
-    // TODO: Implement photo processing after fixing Google Cloud Storage issues
-    res.status(503).json({ error: "Photo processing temporarily unavailable" });
+    try {
+      const { photoURL } = req.body;
+      
+      if (!photoURL) {
+        return res.status(400).json({ error: "photoURL is required" });
+      }
+
+      // Return the path for local storage
+      res.status(200).json({ objectPath: photoURL });
+    } catch (error) {
+      console.error("Error processing photo:", error);
+      res.status(500).json({ error: "Failed to process photo" });
+    }
   });
 
-  // Video upload routes - temporarily disabled until object storage is fixed
+  // Video upload routes
   app.post("/api/videos/upload", isAuthenticated, async (req, res) => {
-    // TODO: Implement video upload after fixing Google Cloud Storage issues
-    res.status(503).json({ error: "Video upload temporarily unavailable" });
+    try {
+      const { uploadUrl, fileId } = fileStorage.generateUploadUrl("video");
+      res.json({ uploadURL: uploadUrl, fileId });
+    } catch (error) {
+      console.error("Error getting video upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
   });
 
   app.post("/api/videos/process", isAuthenticated, async (req, res) => {
-    // TODO: Implement video processing after fixing Google Cloud Storage issues
-    res.status(503).json({ error: "Video processing temporarily unavailable" });
+    try {
+      const { videoURL } = req.body;
+      
+      if (!videoURL) {
+        return res.status(400).json({ error: "videoURL is required" });
+      }
+
+      // Return the path for local storage
+      res.status(200).json({ objectPath: videoURL });
+    } catch (error) {
+      console.error("Error processing video:", error);
+      res.status(500).json({ error: "Failed to process video" });
+    }
   });
 
-  // Serve uploaded objects - temporarily disabled until object storage is fixed
+  // Serve uploaded files
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+  // File upload handlers
+  app.post("/api/files/upload/photo/:fileId", isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const { fileId } = req.params;
+      const publicUrl = await fileStorage.saveFile("photo", fileId, req.file.buffer, req.file.originalname);
+      
+      res.json({ success: true, url: publicUrl });
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  app.post("/api/files/upload/video/:fileId", isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const { fileId } = req.params;
+      const publicUrl = await fileStorage.saveFile("video", fileId, req.file.buffer, req.file.originalname);
+      
+      res.json({ success: true, url: publicUrl });
+    } catch (error) {
+      console.error("Error uploading video:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  // Legacy route for object serving
   app.get("/objects/:objectPath(*)", async (req, res) => {
-    // TODO: Implement object serving after fixing Google Cloud Storage issues
-    res.status(503).json({ error: "Object serving temporarily unavailable" });
+    const filePath = req.params.objectPath;
+    const exists = await fileStorage.fileExists(`/uploads/${filePath}`);
+    if (!exists) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    res.redirect(`/uploads/${filePath}`);
   });
 
   // Serve public objects - temporarily disabled until object storage is fixed
