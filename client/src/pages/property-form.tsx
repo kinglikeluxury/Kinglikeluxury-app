@@ -260,15 +260,37 @@ const PropertyForm = () => {
                 </div>
                 
                 <div>
-                  <Label htmlFor="price">Price (USD) *</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
-                    placeholder="Enter price"
-                    required
-                  />
+                  <Label htmlFor="price">Price Range (USD) *</Label>
+                  <Select 
+                    value={formData.price} 
+                    onValueChange={(value) => handleInputChange('price', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select price range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25000">$0 - $25,000</SelectItem>
+                      <SelectItem value="50000">$25,000 - $50,000</SelectItem>
+                      <SelectItem value="75000">$50,000 - $75,000</SelectItem>
+                      <SelectItem value="100000">$75,000 - $100,000</SelectItem>
+                      <SelectItem value="125000">$100,000 - $125,000</SelectItem>
+                      <SelectItem value="150000">$125,000 - $150,000</SelectItem>
+                      <SelectItem value="175000">$150,000 - $175,000</SelectItem>
+                      <SelectItem value="200000">$175,000 - $200,000</SelectItem>
+                      <SelectItem value="225000">$200,000 - $225,000</SelectItem>
+                      <SelectItem value="250000">$225,000 - $250,000</SelectItem>
+                      <SelectItem value="275000">$250,000 - $275,000</SelectItem>
+                      <SelectItem value="300000">$275,000 - $300,000</SelectItem>
+                      <SelectItem value="325000">$300,000 - $325,000</SelectItem>
+                      <SelectItem value="350000">$325,000 - $350,000</SelectItem>
+                      <SelectItem value="375000">$350,000 - $375,000</SelectItem>
+                      <SelectItem value="400000">$375,000 - $400,000</SelectItem>
+                      <SelectItem value="425000">$400,000 - $425,000</SelectItem>
+                      <SelectItem value="450000">$425,000 - $450,000</SelectItem>
+                      <SelectItem value="475000">$450,000 - $475,000</SelectItem>
+                      <SelectItem value="500000">$475,000 - $500,000</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
