@@ -317,15 +317,51 @@ const PropertyForm = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="country">Country *</Label>
-                  <Select value={formData.country} onValueChange={handleCountryChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="georgia">Georgia</SelectItem>
-                      <SelectItem value="uae">United Arab Emirates</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white">
+                    <div className="text-sm text-gray-600 mb-2">Select multiple countries:</div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {[
+                        { value: 'georgia', label: '🇬🇪 Georgia' },
+                        { value: 'uae', label: '🇦🇪 United Arab Emirates' }
+                      ].map((countryOption) => {
+                        const selectedCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
+                        const isSelected = selectedCountries.includes(countryOption.value);
+                        
+                        return (
+                          <label key={countryOption.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
+                                let newCountries;
+                                if (e.target.checked) {
+                                  newCountries = [...currentCountries, countryOption.value];
+                                } else {
+                                  newCountries = currentCountries.filter(country => country !== countryOption.value);
+                                }
+                                handleInputChange('country', newCountries.join(','));
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{countryOption.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {Array.isArray(formData.country) || (formData.country && formData.country.includes(',')) ? (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="text-xs text-gray-500 mb-1">Selected countries:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(formData.country) ? formData.country : formData.country?.split(',') || []).map((country) => (
+                            <Badge key={country} variant="secondary" className="text-xs">
+                              {country === 'georgia' ? '🇬🇪 Georgia' : '🇦🇪 UAE'}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div>
@@ -354,7 +390,7 @@ const PropertyForm = () => {
                     <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
                     <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto">
                       {['39', '45', '50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100', '105', '110', '115', '120'].map((areaValue) => {
-                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? [formData.area] : []);
+                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
                         const isSelected = selectedAreas.includes(areaValue);
                         
                         return (
@@ -363,14 +399,14 @@ const PropertyForm = () => {
                               type="checkbox"
                               checked={isSelected}
                               onChange={(e) => {
-                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? [formData.area] : []);
+                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
                                 let newAreas;
                                 if (e.target.checked) {
                                   newAreas = [...currentAreas, areaValue];
                                 } else {
                                   newAreas = currentAreas.filter(area => area !== areaValue);
                                 }
-                                handleInputChange('area', newAreas);
+                                handleInputChange('area', newAreas.join(','));
                               }}
                               className="rounded border-gray-300"
                             />
@@ -379,11 +415,11 @@ const PropertyForm = () => {
                         );
                       })}
                     </div>
-                    {Array.isArray(formData.area) && formData.area.length > 0 && (
+                    {formData.area && (formData.area.includes(',') || formData.area.length > 0) && (
                       <div className="mt-2 pt-2 border-t border-gray-200">
                         <div className="text-xs text-gray-500 mb-1">Selected areas:</div>
                         <div className="flex flex-wrap gap-1">
-                          {formData.area.map((area) => (
+                          {(Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter(area => area).map((area) => (
                             <Badge key={area} variant="secondary" className="text-xs">
                               {area} m²
                             </Badge>
