@@ -29,43 +29,43 @@ interface PropertyMapProps {
 }
 
 // Street coordinates and names for markers
-const tbilisiStreets: { [key: string]: { coords: [number, number], name: string } } = {
-  'rustaveli-avenue': { coords: [41.6941, 44.8337], name: 'Rustaveli Avenue' },
-  'kostava-street': { coords: [41.7151, 44.7737], name: 'Kostava Street' },
-  'chavchavadze-avenue': { coords: [41.7086, 44.7739], name: 'Chavchavadze Avenue' },
-  'pekini-avenue': { coords: [41.7297, 44.7514], name: 'Pekini Avenue' },
-  'aghmashenebeli-avenue': { coords: [41.6928, 44.8086], name: 'Aghmashenebeli Avenue' },
-  'vazha-pshavela-avenue': { coords: [41.7225, 44.7806], name: 'Vazha-Pshavela Avenue' },
-  'tsereteli-avenue': { coords: [41.7136, 44.7472], name: 'Tsereteli Avenue' },
-  'kazbegi-avenue': { coords: [41.7297, 44.7514], name: 'Kazbegi Avenue' },
-  'varketili-street': { coords: [41.6547, 44.8947], name: 'Varketili Street' },
-  'gldani-street': { coords: [41.7736, 44.8072], name: 'Gldani Street' },
-  'saburtalo-street': { coords: [41.7428, 44.7264], name: 'Saburtalo Street' },
-  'nutsubidze-street': { coords: [41.7300, 44.7200], name: 'Nutsubidze Street' },
-  'vake-street': { coords: [41.7086, 44.7639], name: 'Vake Street' },
-  'mtatsminda-street': { coords: [41.6886, 44.7917], name: 'Mtatsminda Street' },
-  'didube-street': { coords: [41.7319, 44.7792], name: 'Didube Street' },
-  'isani-street': { coords: [41.6886, 44.8317], name: 'Isani Street' },
-  'samgori-street': { coords: [41.7086, 44.8639], name: 'Samgori Street' },
-  'chugureti-street': { coords: [41.6997, 44.8222], name: 'Chugureti Street' },
-  'vera-street': { coords: [41.7019, 44.7906], name: 'Vera Street' },
-  'sololaki-street': { coords: [41.6911, 44.8081], name: 'Sololaki Street' },
-  'avlabari-street': { coords: [41.6889, 44.8194], name: 'Avlabari Street' },
-  'ortachala-street': { coords: [41.6747, 44.8389], name: 'Ortachala Street' },
-  'krtsanisi-street': { coords: [41.6747, 44.8239], name: 'Krtsanisi Street' },
-  'digomi-street': { coords: [41.7619, 44.7556], name: 'Digomi Street' },
-  'temka-street': { coords: [41.7486, 44.8111], name: 'Temka Street' },
-  'lilo-street': { coords: [41.6519, 44.9056], name: 'Lilo Street' }
+const dubaiStreets: { [key: string]: { coords: [number, number], name: string } } = {
+  'sheikh-zayed-road': { coords: [25.2048, 55.2708], name: 'Sheikh Zayed Road' },
+  'al-wasl-road': { coords: [25.2285, 55.2870], name: 'Al Wasl Road' },
+  'jumeirah-beach-road': { coords: [25.2387, 55.2774], name: 'Jumeirah Beach Road' },
+  'emirates-road': { coords: [25.1872, 55.2796], name: 'Emirates Road' },
+  'al-khaleej-road': { coords: [25.2697, 55.3095], name: 'Al Khaleej Road' },
+  'dubai-marina-walk': { coords: [25.0769, 55.1390], name: 'Dubai Marina Walk' },
+  'palm-jumeirah': { coords: [25.1124, 55.1390], name: 'Palm Jumeirah' },
+  'downtown-dubai': { coords: [25.1972, 55.2744], name: 'Downtown Dubai' },
+  'business-bay': { coords: [25.1877, 55.2635], name: 'Business Bay' },
+  'jbr-walk': { coords: [25.0769, 55.1390], name: 'JBR Walk' },
+  'dubai-mall-area': { coords: [25.1975, 55.2796], name: 'Dubai Mall Area' },
+  'burj-khalifa-area': { coords: [25.1972, 55.2744], name: 'Burj Khalifa Area' },
+  'deira-district': { coords: [25.2697, 55.3095], name: 'Deira District' },
+  'bur-dubai': { coords: [25.2637, 55.2975], name: 'Bur Dubai' },
+  'jumeirah-1': { coords: [25.2387, 55.2774], name: 'Jumeirah 1' },
+  'jumeirah-2': { coords: [25.2289, 55.2698], name: 'Jumeirah 2' },
+  'jumeirah-3': { coords: [25.2191, 55.2622], name: 'Jumeirah 3' },
+  'umm-suqeim': { coords: [25.1797, 55.2289], name: 'Umm Suqeim' },
+  'al-barsha': { coords: [25.1066, 55.1950], name: 'Al Barsha' },
+  'motor-city': { coords: [25.0506, 55.2289], name: 'Motor City' },
+  'sports-city': { coords: [25.0382, 55.2289], name: 'Sports City' },
+  'dubai-hills': { coords: [25.1066, 55.2450], name: 'Dubai Hills' },
+  'mirdif': { coords: [25.2191, 55.4057], name: 'Mirdif' },
+  'festival-city': { coords: [25.2289, 55.3532], name: 'Festival City' },
+  'silicon-oasis': { coords: [25.1204, 55.3857], name: 'Silicon Oasis' },
+  'academic-city': { coords: [25.1066, 55.4057], name: 'Academic City' }
 };
 
 // Helper function to convert location address to approximate coordinates
 // In a real app, this would be replaced with a geocoding service
 const getCoordinates = (location: string): [number, number] => {
-  // Default to Tbilisi, Georgia coordinates
-  const defaultCoords: [number, number] = [41.7151, 44.8271];
+  // Default to Dubai, UAE coordinates
+  const defaultCoords: [number, number] = [25.2048, 55.2708];
   
   // Check if location matches any street
-  for (const [streetKey, streetData] of Object.entries(tbilisiStreets)) {
+  for (const [streetKey, streetData] of Object.entries(dubaiStreets)) {
     if (location.toLowerCase().includes(streetKey) || location.toLowerCase().includes(streetKey.replace('-', ' '))) {
       return streetData.coords;
     }
@@ -91,10 +91,10 @@ const MapClickHandler = ({ onLocationSelect }: { onLocationSelect?: (lat: number
 
 // Helper function to find closest street to clicked coordinates
 const getClosestStreet = (lat: number, lng: number): string => {
-  let closestStreet = 'rustaveli-avenue';
+  let closestStreet = 'sheikh-zayed-road';
   let minDistance = Infinity;
 
-  for (const [streetKey, streetData] of Object.entries(tbilisiStreets)) {
+  for (const [streetKey, streetData] of Object.entries(dubaiStreets)) {
     const [streetLat, streetLng] = streetData.coords;
     const distance = Math.sqrt(Math.pow(lat - streetLat, 2) + Math.pow(lng - streetLng, 2));
     if (distance < minDistance) {
@@ -144,7 +144,7 @@ const PropertyMap = ({
         {interactive && <MapClickHandler onLocationSelect={handleLocationSelect} />}
         
         {/* Street markers with names */}
-        {Object.entries(tbilisiStreets).map(([streetKey, streetData]) => (
+        {Object.entries(dubaiStreets).map(([streetKey, streetData]) => (
           <Marker key={streetKey} position={streetData.coords as L.LatLngExpression}>
             <Popup>
               <div className="text-center">
