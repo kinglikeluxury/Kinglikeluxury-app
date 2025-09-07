@@ -1144,13 +1144,95 @@ const PropertyForm = () => {
                 <Label htmlFor="price">
                   {formData.purpose === 'rent' ? 'Monthly Rental Price *' : 'Sale Price *'}
                 </Label>
-                <Input
-                  id="price"
-                  type="text"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange('price', e.target.value)}
-                  placeholder={formData.purpose === 'rent' ? "e.g., $2,500/month" : "e.g., $450,000"}
-                />
+                <Select value={formData.price} onValueChange={(value) => handleInputChange('price', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={formData.purpose === 'rent' ? "Select monthly rent..." : "Select price range..."} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64 overflow-y-auto">
+                    {formData.purpose === 'rent' ? (
+                      // Rental prices (monthly)
+                      <>
+                        <SelectItem value="500">$500/month</SelectItem>
+                        <SelectItem value="750">$750/month</SelectItem>
+                        <SelectItem value="1000">$1,000/month</SelectItem>
+                        <SelectItem value="1250">$1,250/month</SelectItem>
+                        <SelectItem value="1500">$1,500/month</SelectItem>
+                        <SelectItem value="1750">$1,750/month</SelectItem>
+                        <SelectItem value="2000">$2,000/month</SelectItem>
+                        <SelectItem value="2500">$2,500/month</SelectItem>
+                        <SelectItem value="3000">$3,000/month</SelectItem>
+                        <SelectItem value="3500">$3,500/month</SelectItem>
+                        <SelectItem value="4000">$4,000/month</SelectItem>
+                        <SelectItem value="4500">$4,500/month</SelectItem>
+                        <SelectItem value="5000">$5,000/month</SelectItem>
+                        <SelectItem value="6000">$6,000/month</SelectItem>
+                        <SelectItem value="7000">$7,000/month</SelectItem>
+                        <SelectItem value="8000">$8,000/month</SelectItem>
+                        <SelectItem value="9000">$9,000/month</SelectItem>
+                        <SelectItem value="10000">$10,000/month</SelectItem>
+                        <SelectItem value="12500">$12,500/month</SelectItem>
+                        <SelectItem value="15000">$15,000/month</SelectItem>
+                        <SelectItem value="20000">$20,000/month</SelectItem>
+                        <SelectItem value="25000">$25,000+/month</SelectItem>
+                      </>
+                    ) : (
+                      // Sale prices
+                      <>
+                        <SelectItem value="5000">$5,000</SelectItem>
+                        <SelectItem value="10000">$10,000</SelectItem>
+                        <SelectItem value="15000">$15,000</SelectItem>
+                        <SelectItem value="20000">$20,000</SelectItem>
+                        <SelectItem value="25000">$25,000</SelectItem>
+                        <SelectItem value="30000">$30,000</SelectItem>
+                        <SelectItem value="35000">$35,000</SelectItem>
+                        <SelectItem value="40000">$40,000</SelectItem>
+                        <SelectItem value="45000">$45,000</SelectItem>
+                        <SelectItem value="50000">$50,000</SelectItem>
+                        <SelectItem value="60000">$60,000</SelectItem>
+                        <SelectItem value="70000">$70,000</SelectItem>
+                        <SelectItem value="80000">$80,000</SelectItem>
+                        <SelectItem value="90000">$90,000</SelectItem>
+                        <SelectItem value="100000">$100,000</SelectItem>
+                        <SelectItem value="125000">$125,000</SelectItem>
+                        <SelectItem value="150000">$150,000</SelectItem>
+                        <SelectItem value="175000">$175,000</SelectItem>
+                        <SelectItem value="200000">$200,000</SelectItem>
+                        <SelectItem value="225000">$225,000</SelectItem>
+                        <SelectItem value="250000">$250,000</SelectItem>
+                        <SelectItem value="275000">$275,000</SelectItem>
+                        <SelectItem value="300000">$300,000</SelectItem>
+                        <SelectItem value="325000">$325,000</SelectItem>
+                        <SelectItem value="350000">$350,000</SelectItem>
+                        <SelectItem value="375000">$375,000</SelectItem>
+                        <SelectItem value="400000">$400,000</SelectItem>
+                        <SelectItem value="425000">$425,000</SelectItem>
+                        <SelectItem value="450000">$450,000</SelectItem>
+                        <SelectItem value="475000">$475,000</SelectItem>
+                        <SelectItem value="500000">$500,000</SelectItem>
+                        <SelectItem value="550000">$550,000</SelectItem>
+                        <SelectItem value="600000">$600,000</SelectItem>
+                        <SelectItem value="650000">$650,000</SelectItem>
+                        <SelectItem value="700000">$700,000</SelectItem>
+                        <SelectItem value="750000">$750,000</SelectItem>
+                        <SelectItem value="800000">$800,000</SelectItem>
+                        <SelectItem value="850000">$850,000</SelectItem>
+                        <SelectItem value="900000">$900,000</SelectItem>
+                        <SelectItem value="950000">$950,000</SelectItem>
+                        <SelectItem value="1000000">$1,000,000</SelectItem>
+                        <SelectItem value="1100000">$1,100,000</SelectItem>
+                        <SelectItem value="1200000">$1,200,000</SelectItem>
+                        <SelectItem value="1300000">$1,300,000</SelectItem>
+                        <SelectItem value="1400000">$1,400,000</SelectItem>
+                        <SelectItem value="1500000">$1,500,000</SelectItem>
+                        <SelectItem value="1600000">$1,600,000</SelectItem>
+                        <SelectItem value="1700000">$1,700,000</SelectItem>
+                        <SelectItem value="1800000">$1,800,000</SelectItem>
+                        <SelectItem value="1900000">$1,900,000</SelectItem>
+                        <SelectItem value="2000000">$2,000,000</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               
               {formData.purpose === 'rent' && (
