@@ -540,7 +540,23 @@ const PropertyForm = () => {
                           { value: 'batumi', label: '🇬🇪 Batumi, Georgia' },
                           { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
                           { value: 'dubai', label: '🇦🇪 Dubai, UAE' }
-                        ].map((cityOption) => {
+                        ].filter((cityOption) => {
+                          // Hide Dubai if any Georgian city is selected
+                          const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
+                          const hasGeorgianCity = currentCities.some(city => city === 'batumi' || city === 'tbilisi');
+                          
+                          if (cityOption.value === 'dubai' && hasGeorgianCity) {
+                            return false; // Hide Dubai option
+                          }
+                          
+                          // Hide Georgian cities if Dubai is selected
+                          const hasDubai = currentCities.includes('dubai');
+                          if ((cityOption.value === 'batumi' || cityOption.value === 'tbilisi') && hasDubai) {
+                            return false; // Hide Georgian options
+                          }
+                          
+                          return true; // Show the option
+                        }).map((cityOption) => {
                           const isSelected = Array.isArray(formData.city) 
                             ? formData.city.includes(cityOption.value)
                             : formData.city ? formData.city.split(',').includes(cityOption.value) : false;
