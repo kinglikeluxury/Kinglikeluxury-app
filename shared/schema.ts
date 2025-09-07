@@ -51,12 +51,7 @@ export const insertUserSchema = createInsertSchema(users)
       .string()
       .optional()
       .refine(
-        (val, ctx) => {
-          if (ctx.data.authMethod === AUTH_METHODS.EMAIL && !val) {
-            return false;
-          }
-          return true;
-        },
+        (val) => val !== undefined && val.length > 0,
         { message: "Password is required for email authentication" },
       ),
     email: z
@@ -64,50 +59,18 @@ export const insertUserSchema = createInsertSchema(users)
       .email()
       .optional()
       .refine(
-        (val, ctx) => {
-          if (ctx.data.authMethod === AUTH_METHODS.EMAIL && !val) {
-            return false;
-          }
-          return true;
-        },
+        (val) => val !== undefined && val.length > 0,
         { message: "Email is required for email authentication" },
       ),
     phoneNumber: z
       .string()
-      .optional()
-      .refine(
-        (val, ctx) => {
-          if (ctx.data.authMethod === AUTH_METHODS.PHONE && !val) {
-            return false;
-          }
-          return true;
-        },
-        { message: "Phone number is required for SMS authentication" },
-      ),
+      .optional(),
     whatsappNumber: z
       .string()
-      .optional()
-      .refine(
-        (val, ctx) => {
-          if (ctx.data.authMethod === AUTH_METHODS.WHATSAPP && !val) {
-            return false;
-          }
-          return true;
-        },
-        { message: "WhatsApp number is required for WhatsApp authentication" },
-      ),
+      .optional(),
     facebookId: z
       .string()
-      .optional()
-      .refine(
-        (val, ctx) => {
-          if (ctx.data.authMethod === AUTH_METHODS.FACEBOOK && !val) {
-            return false;
-          }
-          return true;
-        },
-        { message: "Facebook ID is required for Facebook authentication" },
-      ),
+      .optional(),
   });
 
 // Property types

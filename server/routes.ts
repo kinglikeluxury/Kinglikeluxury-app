@@ -87,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.isAdmin = user.isAdmin;
       
       // Return appropriate user data
-      const userResponse = {
+      const userResponse: any = {
         id: user.id,
         username: user.username,
         authMethod: user.authMethod,
@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.isAdmin = user.isAdmin;
       
       // Return appropriate user data
-      const userResponse = {
+      const userResponse: any = {
         id: user.id, 
         username: user.username,
         authMethod: user.authMethod,
