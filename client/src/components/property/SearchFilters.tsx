@@ -93,7 +93,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
                 <SelectValue placeholder="Any location" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any location</SelectItem>
+                <SelectItem value="any">Any location</SelectItem>
                 <SelectItem value="rustaveli-avenue">Rustaveli Avenue</SelectItem>
                 <SelectItem value="chavchavadze-avenue">Chavchavadze Avenue</SelectItem>
                 <SelectItem value="gogebashvili-street">Gogebashvili Street</SelectItem>
