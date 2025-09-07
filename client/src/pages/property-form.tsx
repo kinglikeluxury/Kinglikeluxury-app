@@ -534,7 +534,10 @@ const PropertyForm = () => {
                     <div className="border border-gray-300 rounded-md p-3 bg-white">
                       <div className="text-sm text-gray-600 mb-2">Select cities:</div>
                       <div className="space-y-2">
-                        {getCitiesForCountry(formData.country).map((cityOption) => {
+                        {[
+                          { value: 'batumi', label: '🇬🇪 Batumi, Georgia' },
+                          { value: 'dubai', label: '🇦🇪 Dubai, UAE' }
+                        ].map((cityOption) => {
                           const isSelected = Array.isArray(formData.city) 
                             ? formData.city.includes(cityOption.value)
                             : formData.city ? formData.city.split(',').includes(cityOption.value) : false;
@@ -557,7 +560,7 @@ const PropertyForm = () => {
                                 }}
                                 className="rounded border-gray-300"
                               />
-                              <span className="text-sm">{cityOption.label}</span>
+                              <span className="text-sm font-medium">{cityOption.label}</span>
                             </label>
                           );
                         })}
@@ -567,10 +570,10 @@ const PropertyForm = () => {
                           <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
                           <div className="flex flex-wrap gap-1">
                             {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
-                              const cityData = getCitiesForCountry(formData.country).find(c => c.value === cityValue);
+                              const cityName = cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' : cityValue;
                               return (
                                 <Badge key={cityValue} variant="secondary" className="text-xs">
-                                  {cityData ? cityData.label : cityValue}
+                                  {cityName}
                                 </Badge>
                               );
                             })}
