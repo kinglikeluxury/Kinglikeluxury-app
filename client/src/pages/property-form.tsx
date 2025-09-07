@@ -350,14 +350,33 @@ const PropertyForm = () => {
 
                 <div>
                   <Label htmlFor="area">Area (m²) *</Label>
-                  <Input
-                    id="area"
-                    type="number"
-                    value={formData.area}
-                    onChange={(e) => handleInputChange('area', e.target.value)}
-                    placeholder="Area in square meters"
-                    required
-                  />
+                  <Select 
+                    value={formData.area} 
+                    onValueChange={(value) => handleInputChange('area', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select area" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="39">39 m²</SelectItem>
+                      <SelectItem value="45">45 m²</SelectItem>
+                      <SelectItem value="50">50 m²</SelectItem>
+                      <SelectItem value="55">55 m²</SelectItem>
+                      <SelectItem value="60">60 m²</SelectItem>
+                      <SelectItem value="65">65 m²</SelectItem>
+                      <SelectItem value="70">70 m²</SelectItem>
+                      <SelectItem value="75">75 m²</SelectItem>
+                      <SelectItem value="80">80 m²</SelectItem>
+                      <SelectItem value="85">85 m²</SelectItem>
+                      <SelectItem value="90">90 m²</SelectItem>
+                      <SelectItem value="95">95 m²</SelectItem>
+                      <SelectItem value="100">100 m²</SelectItem>
+                      <SelectItem value="105">105 m²</SelectItem>
+                      <SelectItem value="110">110 m²</SelectItem>
+                      <SelectItem value="115">115 m²</SelectItem>
+                      <SelectItem value="120">120 m²</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
