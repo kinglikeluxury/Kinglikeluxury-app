@@ -9,7 +9,7 @@ export const languages = {
   ar: { name: 'العربية', dir: 'rtl', flag: '🇦🇪' },
   he: { name: 'עברית', dir: 'rtl', flag: '🇮🇱' },
   ru: { name: 'Русский', dir: 'ltr', flag: '🇷🇺' },
-  ka: { name: 'ქართული', dir: 'ltr', flag: '🇬🇪' }, // Georgian
+  ka: { name: 'ქართული', dir: 'ltr', flag: 'En' }, // Georgian
   az: { name: 'Azərbaycan', dir: 'ltr', flag: '🇦🇿' }, // Azerbaijani
   tr: { name: 'Türkçe', dir: 'ltr', flag: '🇹🇷' }, // Turkish
   zh: { name: '中文', dir: 'ltr', flag: '🇨🇳' }, // Chinese
