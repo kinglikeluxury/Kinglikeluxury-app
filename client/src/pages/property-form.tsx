@@ -502,7 +502,9 @@ const PropertyForm = () => {
                           
                           <div className="flex flex-wrap gap-1">
                             {formData.city.split(',').map((city, index) => {
-                              const cityName = city === 'batumi' ? 'Batumi, Georgia' : city === 'dubai' ? 'Dubai, UAE' : city;
+                              const cityName = city === 'batumi' ? 'Batumi, Georgia' : 
+                                              city === 'tbilisi' ? 'Tbilisi, Georgia' : 
+                                              city === 'dubai' ? 'Dubai, UAE' : city;
                               return (
                                 <div key={index} className="bg-white/70 rounded px-2 py-1 flex items-center space-x-1">
                                   <span className="text-xs text-purple-800 font-medium">{cityName}</span>
@@ -536,6 +538,7 @@ const PropertyForm = () => {
                       <div className="space-y-2">
                         {[
                           { value: 'batumi', label: '🇬🇪 Batumi, Georgia' },
+                          { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
                           { value: 'dubai', label: '🇦🇪 Dubai, UAE' }
                         ].map((cityOption) => {
                           const isSelected = Array.isArray(formData.city) 
@@ -570,7 +573,9 @@ const PropertyForm = () => {
                           <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
                           <div className="flex flex-wrap gap-1">
                             {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
-                              const cityName = cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' : cityValue;
+                              const cityName = cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : 
+                                              cityValue === 'tbilisi' ? '🇬🇪 Tbilisi, Georgia' : 
+                                              cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' : cityValue;
                               return (
                                 <Badge key={cityValue} variant="secondary" className="text-xs">
                                   {cityName}
