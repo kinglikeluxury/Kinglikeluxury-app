@@ -77,10 +77,11 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value={PROPERTY_TYPES.APARTMENT}>Apartments</SelectItem>
-                <SelectItem value={PROPERTY_TYPES.VILLA}>Villas</SelectItem>
-                <SelectItem value={PROPERTY_TYPES.LAND}>Lands</SelectItem>
-                <SelectItem value={PROPERTY_TYPES.PROJECT}>Projects</SelectItem>
+                <SelectItem value="studio">Studio</SelectItem>
+                <SelectItem value="one-bedroom">One bedroom</SelectItem>
+                <SelectItem value="two-bedrooms">Two bedrooms</SelectItem>
+                <SelectItem value="three-bedrooms">Three bedrooms</SelectItem>
+                <SelectItem value="doublex">Doublex</SelectItem>
               </SelectContent>
             </Select>
           </div>
