@@ -11,6 +11,7 @@ import Properties from "@/pages/properties";
 import PropertyDetail from "@/pages/property-detail";
 import SubmitProperty from "@/pages/submit-property";
 import PropertyForm from "@/pages/property-form";
+import Projects from "@/pages/projects";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -30,6 +31,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/properties" component={Properties} />
+          <Route path="/projects" component={Projects} />
           <Route path="/property/:id" component={PropertyDetail} />
           <Route path="/submit-property" component={SubmitProperty} />
           <Route path="/submit-property/form" component={PropertyForm} />
