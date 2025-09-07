@@ -389,7 +389,7 @@ const PropertyForm = () => {
                   <div className="border border-gray-300 rounded-md p-3 bg-white">
                     <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
                     <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto">
-                      {['39', '45', '50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100', '105', '110', '115', '120'].map((areaValue) => {
+                      {Array.from({length: 91}, (_, i) => String(30 + i)).map((areaValue) => {
                         const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
                         const isSelected = selectedAreas.includes(areaValue);
                         
