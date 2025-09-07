@@ -431,7 +431,7 @@ const Projects = () => {
                   <p className="text-base text-gray-600 mb-1">
                     Save more on your off-plan property investment with our exclusive pricing
                   </p>
-                  <p className="text-sm text-amber-600 font-medium">
+                  <p className="text-sm text-[#005476] font-medium">
                     Click to contact us via WhatsApp 💬
                   </p>
                 </div>
