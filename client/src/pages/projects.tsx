@@ -90,22 +90,22 @@ const Projects = () => {
     }
 
     // Country filter
-    if (selectedCountry && project.country !== selectedCountry) {
+    if (selectedCountry && selectedCountry !== 'all' && project.country !== selectedCountry) {
       return false;
     }
 
     // City filter
-    if (selectedCity && project.city !== selectedCity) {
+    if (selectedCity && selectedCity !== 'all' && project.city !== selectedCity) {
       return false;
     }
 
     // Type filter
-    if (selectedType && project.type !== selectedType) {
+    if (selectedType && selectedType !== 'all' && project.type !== selectedType) {
       return false;
     }
 
     // Purpose filter
-    if (selectedPurpose && project.purpose !== selectedPurpose) {
+    if (selectedPurpose && selectedPurpose !== 'all' && project.purpose !== selectedPurpose) {
       return false;
     }
 
@@ -118,7 +118,7 @@ const Projects = () => {
     }
 
     // Bedroom count filter
-    if (bedroomCount && project.bedrooms !== parseInt(bedroomCount)) {
+    if (bedroomCount && bedroomCount !== 'any' && project.bedrooms !== parseInt(bedroomCount)) {
       return false;
     }
 
@@ -167,12 +167,12 @@ const Projects = () => {
   // Clear all filters
   const clearFilters = () => {
     setSearchTerm("");
-    setSelectedCountry("");
-    setSelectedCity("");
-    setSelectedType("");
-    setSelectedPurpose("");
+    setSelectedCountry("all");
+    setSelectedCity("all");
+    setSelectedType("all");
+    setSelectedPurpose("all");
     setPriceRange({ min: "", max: "" });
-    setBedroomCount("");
+    setBedroomCount("any");
   };
 
   // Count active filters
@@ -284,7 +284,7 @@ const Projects = () => {
                     <SelectValue placeholder="All Countries" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Countries</SelectItem>
+                    <SelectItem value="all">All Countries</SelectItem>
                     <SelectItem value="georgia">🇬🇪 Georgia</SelectItem>
                     <SelectItem value="uae">🇦🇪 UAE</SelectItem>
                   </SelectContent>
@@ -303,7 +303,7 @@ const Projects = () => {
                     <SelectValue placeholder="All Cities" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Cities</SelectItem>
+                    <SelectItem value="all">All Cities</SelectItem>
                     {getCitiesForCountry(selectedCountry).map((city) => (
                       <SelectItem key={city.value} value={city.value}>
                         {city.label}
@@ -324,7 +324,7 @@ const Projects = () => {
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
+                    <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="apartment">🏢 Apartments</SelectItem>
                     <SelectItem value="villa">🏡 Villas</SelectItem>
                     <SelectItem value="land">🌳 Land</SelectItem>
@@ -340,7 +340,7 @@ const Projects = () => {
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
                     <SelectItem value="buy">For Sale</SelectItem>
                     <SelectItem value="rent">For Rent</SelectItem>
                   </SelectContent>
@@ -379,7 +379,7 @@ const Projects = () => {
                     <SelectValue placeholder="Any" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any</SelectItem>
+                    <SelectItem value="any">Any</SelectItem>
                     <SelectItem value="1">1</SelectItem>
                     <SelectItem value="2">2</SelectItem>
                     <SelectItem value="3">3</SelectItem>
