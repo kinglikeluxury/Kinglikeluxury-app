@@ -11,10 +11,11 @@ import {
 import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
-import {
-  ObjectStorageService,
-  ObjectNotFoundError,
-} from "./objectStorage";
+// TODO: Fix Google Cloud Storage TypeScript compatibility issues
+// import {
+//   ObjectStorageService,
+//   ObjectNotFoundError,
+// } from "./objectStorage";
 
 // Session type definition
 declare module "express-session" {
