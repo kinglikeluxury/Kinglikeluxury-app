@@ -431,113 +431,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Photo upload routes
+  // Photo upload routes - temporarily disabled until object storage is fixed
   app.post("/api/photos/upload", isAuthenticated, async (req, res) => {
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
-    } catch (error) {
-      console.error("Error getting photo upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
-    }
+    // TODO: Implement photo upload after fixing Google Cloud Storage issues
+    res.status(503).json({ error: "Photo upload temporarily unavailable" });
   });
 
   app.post("/api/photos/process", isAuthenticated, async (req, res) => {
-    try {
-      const { photoURL } = req.body;
-      
-      if (!photoURL) {
-        return res.status(400).json({ error: "photoURL is required" });
-      }
-
-      const objectStorageService = new ObjectStorageService();
-      
-      // Set ACL policy for the photo (public visibility for property photos)
-      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-        photoURL,
-        {
-          owner: req.session.userId!.toString(),
-          visibility: "public", // Property photos should be publicly accessible
-        }
-      );
-
-      res.status(200).json({ objectPath });
-    } catch (error) {
-      console.error("Error processing photo:", error);
-      res.status(500).json({ error: "Failed to process photo" });
-    }
+    // TODO: Implement photo processing after fixing Google Cloud Storage issues
+    res.status(503).json({ error: "Photo processing temporarily unavailable" });
   });
 
-  // Video upload routes
+  // Video upload routes - temporarily disabled until object storage is fixed
   app.post("/api/videos/upload", isAuthenticated, async (req, res) => {
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
-    } catch (error) {
-      console.error("Error getting video upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
-    }
+    // TODO: Implement video upload after fixing Google Cloud Storage issues
+    res.status(503).json({ error: "Video upload temporarily unavailable" });
   });
 
   app.post("/api/videos/process", isAuthenticated, async (req, res) => {
-    try {
-      const { videoURL, originalName, fileSize } = req.body;
-      
-      if (!videoURL) {
-        return res.status(400).json({ error: "videoURL is required" });
-      }
-
-      const objectStorageService = new ObjectStorageService();
-      
-      // Set ACL policy for the video (public visibility for property videos)
-      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-        videoURL,
-        {
-          owner: req.session.userId!.toString(),
-          visibility: "public", // Property videos should be publicly accessible
-        }
-      );
-
-      res.status(200).json({ objectPath });
-    } catch (error) {
-      console.error("Error processing video:", error);
-      res.status(500).json({ error: "Failed to process video" });
-    }
+    // TODO: Implement video processing after fixing Google Cloud Storage issues
+    res.status(503).json({ error: "Video processing temporarily unavailable" });
   });
 
-  // Serve uploaded objects
+  // Serve uploaded objects - temporarily disabled until object storage is fixed
   app.get("/objects/:objectPath(*)", async (req, res) => {
-    const objectStorageService = new ObjectStorageService();
-    try {
-      const objectFile = await objectStorageService.getObjectEntityFile(
-        req.path
-      );
-      objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      console.error("Error serving object:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.sendStatus(404);
-      }
-      return res.sendStatus(500);
-    }
+    // TODO: Implement object serving after fixing Google Cloud Storage issues
+    res.status(503).json({ error: "Object serving temporarily unavailable" });
   });
 
-  // Serve public objects
+  // Serve public objects - temporarily disabled until object storage is fixed
   app.get("/public-objects/:filePath(*)", async (req, res) => {
-    const filePath = req.params.filePath;
-    const objectStorageService = new ObjectStorageService();
-    try {
-      const file = await objectStorageService.searchPublicObject(filePath);
-      if (!file) {
-        return res.status(404).json({ error: "File not found" });
-      }
-      objectStorageService.downloadObject(file, res);
-    } catch (error) {
-      console.error("Error searching for public object:", error);
-      return res.status(500).json({ error: "Internal server error" });
-    }
+    // TODO: Implement public object serving after fixing Google Cloud Storage issues
+    res.status(503).json({ error: "Public object serving temporarily unavailable" });
   });
 
   return httpServer;

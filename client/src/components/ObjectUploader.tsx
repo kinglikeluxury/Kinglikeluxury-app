@@ -2,8 +2,9 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
 import { DashboardModal } from "@uppy/react";
-import "@uppy/core/dist/style.css";
-import "@uppy/dashboard/dist/style.css";
+// TODO: Fix Uppy CSS imports - paths not found
+// import "@uppy/core/dist/style.css";
+// import "@uppy/dashboard/dist/style.css";
 import AwsS3 from "@uppy/aws-s3";
 import type { UploadResult } from "@uppy/core";
 import { Button } from "@/components/ui/button";
