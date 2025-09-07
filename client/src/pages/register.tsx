@@ -50,7 +50,7 @@ export default function RegisterPage() {
     try {
       // For email registration
       if (data.authMethod === AUTH_METHODS.EMAIL) {
-        await apiRequest('POST', '/api/register', {
+        await apiRequest('POST', '/api/auth/register', {
           username: data.username,
           email: data.email,
           password: data.password,
