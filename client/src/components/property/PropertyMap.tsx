@@ -28,14 +28,44 @@ interface PropertyMapProps {
   interactive?: boolean;
 }
 
+// Street coordinates and names for markers
+const tbilisiStreets: { [key: string]: { coords: [number, number], name: string } } = {
+  'rustaveli-avenue': { coords: [41.6941, 44.8337], name: 'Rustaveli Avenue' },
+  'kostava-street': { coords: [41.7151, 44.7737], name: 'Kostava Street' },
+  'chavchavadze-avenue': { coords: [41.7086, 44.7739], name: 'Chavchavadze Avenue' },
+  'pekini-avenue': { coords: [41.7297, 44.7514], name: 'Pekini Avenue' },
+  'aghmashenebeli-avenue': { coords: [41.6928, 44.8086], name: 'Aghmashenebeli Avenue' },
+  'vazha-pshavela-avenue': { coords: [41.7225, 44.7806], name: 'Vazha-Pshavela Avenue' },
+  'tsereteli-avenue': { coords: [41.7136, 44.7472], name: 'Tsereteli Avenue' },
+  'kazbegi-avenue': { coords: [41.7297, 44.7514], name: 'Kazbegi Avenue' },
+  'varketili-street': { coords: [41.6547, 44.8947], name: 'Varketili Street' },
+  'gldani-street': { coords: [41.7736, 44.8072], name: 'Gldani Street' },
+  'saburtalo-street': { coords: [41.7428, 44.7264], name: 'Saburtalo Street' },
+  'nutsubidze-street': { coords: [41.7300, 44.7200], name: 'Nutsubidze Street' },
+  'vake-street': { coords: [41.7086, 44.7639], name: 'Vake Street' },
+  'mtatsminda-street': { coords: [41.6886, 44.7917], name: 'Mtatsminda Street' },
+  'didube-street': { coords: [41.7319, 44.7792], name: 'Didube Street' },
+  'isani-street': { coords: [41.6886, 44.8317], name: 'Isani Street' },
+  'samgori-street': { coords: [41.7086, 44.8639], name: 'Samgori Street' },
+  'chugureti-street': { coords: [41.6997, 44.8222], name: 'Chugureti Street' },
+  'vera-street': { coords: [41.7019, 44.7906], name: 'Vera Street' },
+  'sololaki-street': { coords: [41.6911, 44.8081], name: 'Sololaki Street' },
+  'avlabari-street': { coords: [41.6889, 44.8194], name: 'Avlabari Street' },
+  'ortachala-street': { coords: [41.6747, 44.8389], name: 'Ortachala Street' },
+  'krtsanisi-street': { coords: [41.6747, 44.8239], name: 'Krtsanisi Street' },
+  'digomi-street': { coords: [41.7619, 44.7556], name: 'Digomi Street' },
+  'temka-street': { coords: [41.7486, 44.8111], name: 'Temka Street' },
+  'lilo-street': { coords: [41.6519, 44.9056], name: 'Lilo Street' }
+};
+
 // Helper function to convert location address to approximate coordinates
 // In a real app, this would be replaced with a geocoding service
 const getCoordinates = (location: string): [number, number] => {
-  // Default to Batumi, Georgia coordinates
-  const defaultCoords: [number, number] = [41.6168, 41.6367];
+  // Default to Tbilisi, Georgia coordinates
+  const defaultCoords: [number, number] = [41.7151, 44.8271];
   
   // Check if location matches any street
-  for (const [streetKey, streetData] of Object.entries(batumiStreets)) {
+  for (const [streetKey, streetData] of Object.entries(tbilisiStreets)) {
     if (location.toLowerCase().includes(streetKey) || location.toLowerCase().includes(streetKey.replace('-', ' '))) {
       return streetData.coords;
     }
@@ -59,36 +89,12 @@ const MapClickHandler = ({ onLocationSelect }: { onLocationSelect?: (lat: number
   return null;
 };
 
-// Street coordinates and names for markers
-const batumiStreets: { [key: string]: { coords: [number, number], name: string } } = {
-  'rustaveli-avenue': { coords: [41.6177, 41.6350], name: 'Rustaveli Avenue' },
-  'chavchavadze-avenue': { coords: [41.6165, 41.6380], name: 'Chavchavadze Avenue' },
-  'gogebashvili-street': { coords: [41.6155, 41.6340], name: 'Gogebashvili Street' },
-  'baratashvili-street': { coords: [41.6170, 41.6360], name: 'Baratashvili Street' },
-  'agmashenebeli-street': { coords: [41.6160, 41.6370], name: 'Agmashenebeli Street' },
-  'pushkin-street': { coords: [41.6180, 41.6330], name: 'Pushkin Street' },
-  'gorgiladze-street': { coords: [41.6150, 41.6350], name: 'Gorgiladze Street' },
-  'takaishvili-street': { coords: [41.6175, 41.6340], name: 'Takaishvili Street' },
-  'ninoshvili-street': { coords: [41.6145, 41.6360], name: 'Ninoshvili Street' },
-  'mazniashvili-street': { coords: [41.6185, 41.6375], name: 'Mazniashvili Street' },
-  'lermontov-street': { coords: [41.6140, 41.6345], name: 'Lermontov Street' },
-  'vazha-pshavela-avenue': { coords: [41.6190, 41.6320], name: 'Vazha-Pshavela Avenue' },
-  'aghmashenebeli-avenue': { coords: [41.6135, 41.6355], name: 'Aghmashenebeli Avenue' },
-  'sherif-khimshiashvili-street': { coords: [41.6195, 41.6385], name: 'Sherif Khimshiashvili Street' },
-  'grishashvili-street': { coords: [41.6130, 41.6365], name: 'Grishashvili Street' },
-  'kostava-street': { coords: [41.6200, 41.6340], name: 'Kostava Street' },
-  'parnavaz-mepe-street': { coords: [41.6125, 41.6375], name: 'Parnavaz Mepe Street' },
-  'zurab-gorgiladze-street': { coords: [41.6205, 41.6350], name: 'Zurab Gorgiladze Street' },
-  'batumi-boulevard': { coords: [41.6220, 41.6400], name: 'Batumi Boulevard' },
-  'europe-square': { coords: [41.6180, 41.6390], name: 'Europe Square' }
-};
-
 // Helper function to find closest street to clicked coordinates
 const getClosestStreet = (lat: number, lng: number): string => {
-  let closestStreet = 'batumi-boulevard';
+  let closestStreet = 'rustaveli-avenue';
   let minDistance = Infinity;
 
-  for (const [streetKey, streetData] of Object.entries(batumiStreets)) {
+  for (const [streetKey, streetData] of Object.entries(tbilisiStreets)) {
     const [streetLat, streetLng] = streetData.coords;
     const distance = Math.sqrt(Math.pow(lat - streetLat, 2) + Math.pow(lng - streetLng, 2));
     if (distance < minDistance) {
@@ -138,7 +144,7 @@ const PropertyMap = ({
         {interactive && <MapClickHandler onLocationSelect={handleLocationSelect} />}
         
         {/* Street markers with names */}
-        {Object.entries(batumiStreets).map(([streetKey, streetData]) => (
+        {Object.entries(tbilisiStreets).map(([streetKey, streetData]) => (
           <Marker key={streetKey} position={streetData.coords as L.LatLngExpression}>
             <Popup>
               <div className="text-center">
