@@ -38,7 +38,16 @@ const PropertyForm = () => {
     features: [] as string[],
     amenities: [] as string[],
     purpose: 'buy',
-    coordinates: { lat: 0, lng: 0 }
+    coordinates: { lat: 0, lng: 0 },
+    // Rental-specific fields
+    rentalPeriod: '',
+    furnished: '',
+    securityDeposit: '',
+    availableFrom: '',
+    utilitiesIncluded: [] as string[],
+    petPolicy: '',
+    leaseDuration: '',
+    rentalTerms: ''
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -105,7 +114,7 @@ const PropertyForm = () => {
   const removeFeature = (feature: string) => {
     setFormData(prev => ({
       ...prev,
-      features: prev.features.filter(f => f !== feature)
+      features: prev.features.filter((f: string) => f !== feature)
     }));
   };
 
@@ -124,7 +133,7 @@ const PropertyForm = () => {
   const removeAmenity = (amenity: string) => {
     setFormData(prev => ({
       ...prev,
-      amenities: prev.amenities.filter(a => a !== amenity)
+      amenities: prev.amenities.filter((a: string) => a !== amenity)
     }));
   };
 
@@ -178,18 +187,16 @@ const PropertyForm = () => {
   // Handle location selection from map (multi-select)
   const handleMapLocationSelect = (lat: number, lng: number, address: string) => {
     setFormData(prev => {
-      // Parse existing locations and coordinates
-      const currentLocations = Array.isArray(prev.location) ? prev.location : (prev.location ? prev.location.split(',') : []);
-      const currentCoords = Array.isArray(prev.coordinates) ? prev.coordinates : (prev.coordinates ? [prev.coordinates] : []);
+      // Parse existing locations
+      const currentLocations = prev.location ? prev.location.split(',') : [];
       
       // Add new location
       const newLocations = [...currentLocations, address];
-      const newCoords = [...currentCoords, { lat, lng }];
       
       return {
         ...prev,
         location: newLocations.join(','),
-        coordinates: newCoords
+        coordinates: { lat, lng }
       };
     });
   };
@@ -1045,7 +1052,7 @@ const PropertyForm = () => {
                                     if (e.target.checked) {
                                       newUtilities = [...currentUtilities, utility];
                                     } else {
-                                      newUtilities = currentUtilities.filter(u => u !== utility);
+                                      newUtilities = currentUtilities.filter((u: string) => u !== utility);
                                     }
                                     setFormData(prev => ({ ...prev, utilitiesIncluded: newUtilities }));
                                   }}
@@ -1228,7 +1235,7 @@ const PropertyForm = () => {
                             if (e.target.checked) {
                               newFacilities = [...currentFacilities, facility];
                             } else {
-                              newFacilities = currentFacilities.filter(f => f !== facility);
+                              newFacilities = currentFacilities.filter((f: string) => f !== facility);
                             }
                             setFormData(prev => ({ ...prev, features: newFacilities }));
                           }}
@@ -1243,14 +1250,14 @@ const PropertyForm = () => {
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="text-xs text-gray-500 mb-2">Selected facilities:</div>
                     <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(formData.features) ? formData.features : formData.features.toString().split(',')).filter(feature => feature).map((feature) => (
+                      {(Array.isArray(formData.features) ? formData.features : formData.features.toString().split(',')).filter((feature: string) => feature).map((feature: string) => (
                         <Badge key={feature} variant="secondary" className="text-xs flex items-center space-x-1">
                           <span>{feature}</span>
                           <button
                             type="button"
                             onClick={() => {
                               const currentFacilities = Array.isArray(formData.features) ? formData.features : formData.features.toString().split(',');
-                              const newFacilities = currentFacilities.filter(f => f !== feature);
+                              const newFacilities = currentFacilities.filter((f: string) => f !== feature);
                               setFormData(prev => ({ ...prev, features: newFacilities }));
                             }}
                             className="ml-1 hover:text-red-500"
@@ -1362,7 +1369,7 @@ const PropertyForm = () => {
                             if (e.target.checked) {
                               newAmenities = [...currentAmenities, amenity];
                             } else {
-                              newAmenities = currentAmenities.filter(a => a !== amenity);
+                              newAmenities = currentAmenities.filter((a: string) => a !== amenity);
                             }
                             setFormData(prev => ({ ...prev, amenities: newAmenities }));
                           }}
@@ -1377,14 +1384,14 @@ const PropertyForm = () => {
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="text-xs text-gray-500 mb-2">Selected amenities:</div>
                     <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(formData.amenities) ? formData.amenities : formData.amenities.toString().split(',')).filter(amenity => amenity).map((amenity) => (
+                      {(Array.isArray(formData.amenities) ? formData.amenities : formData.amenities.toString().split(',')).filter((amenity: string) => amenity).map((amenity: string) => (
                         <Badge key={amenity} variant="secondary" className="text-xs flex items-center space-x-1">
                           <span>{amenity}</span>
                           <button
                             type="button"
                             onClick={() => {
                               const currentAmenities = Array.isArray(formData.amenities) ? formData.amenities : formData.amenities.toString().split(',');
-                              const newAmenities = currentAmenities.filter(a => a !== amenity);
+                              const newAmenities = currentAmenities.filter((a: string) => a !== amenity);
                               setFormData(prev => ({ ...prev, amenities: newAmenities }));
                             }}
                             className="ml-1 hover:text-red-500"
