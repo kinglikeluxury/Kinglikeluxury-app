@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { PROPERTY_TYPES } from "@shared/schema";
 import { Label } from "@/components/ui/label";
 import { Search } from "lucide-react";
+import PropertyMap from "./PropertyMap";
 
 interface SearchFiltersProps {
   initialFilters?: {
@@ -141,6 +142,17 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
             </Button>
           </div>
         </div>
+      </CardContent>
+    </Card>
+    
+    {/* Map Section */}
+    <Card className="w-full mt-4">
+      <CardContent className="p-0">
+        <PropertyMap 
+          location="Batumi, Georgia" 
+          title="Search Area" 
+          className="w-full"
+        />
       </CardContent>
     </Card>
   );
