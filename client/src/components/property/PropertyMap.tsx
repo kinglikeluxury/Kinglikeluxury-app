@@ -29,43 +29,43 @@ interface PropertyMapProps {
 }
 
 // Street coordinates and names for markers
-const sharjahStreets: { [key: string]: { coords: [number, number], name: string } } = {
-  'al-wahda-street': { coords: [25.3548, 55.3928], name: 'Al Wahda Street' },
-  'king-faisal-street': { coords: [25.3618, 55.3897], name: 'King Faisal Street' },
-  'al-arouba-street': { coords: [25.3435, 55.4037], name: 'Al Arouba Street' },
-  'corniche-road': { coords: [25.3697, 55.3867], name: 'Corniche Road' },
-  'al-khan-street': { coords: [25.3287, 55.3829], name: 'Al Khan Street' },
-  'al-qasimia-street': { coords: [25.3287, 55.4066], name: 'Al Qasimia Street' },
-  'al-taawun-street': { coords: [25.3408, 55.4008], name: 'Al Taawun Street' },
-  'al-majaz-waterfront': { coords: [25.3240, 55.3770], name: 'Al Majaz Waterfront' },
-  'rolla-street': { coords: [25.3548, 55.3897], name: 'Rolla Street' },
-  'al-nud-area': { coords: [25.3156, 55.3998], name: 'Al Nud Area' },
-  'al-nahda-sharjah': { coords: [25.3087, 55.3729], name: 'Al Nahda Sharjah' },
-  'university-city': { coords: [25.2957, 55.4827], name: 'University City' },
-  'muwailih': { coords: [25.2826, 55.4395], name: 'Muwailih' },
-  'al-ramtha': { coords: [25.2695, 55.4563], name: 'Al Ramtha' },
-  'al-ghubaiba': { coords: [25.2565, 55.4831], name: 'Al Ghubaiba' },
-  'al-mizhar': { coords: [25.2434, 55.4999], name: 'Al Mizhar' },
-  'kalba-road': { coords: [25.2174, 55.5667], name: 'Kalba Road' },
-  'mleiha-road': { coords: [25.1913, 55.7835], name: 'Mleiha Road' },
-  'industrial-area': { coords: [25.3287, 55.4266], name: 'Industrial Area' },
-  'al-jubail': { coords: [25.3697, 55.3667], name: 'Al Jubail' },
-  'al-layyah': { coords: [25.2043, 55.6334], name: 'Al Layyah' },
-  'al-dhaid-road': { coords: [25.2913, 55.8835], name: 'Al Dhaid Road' },
-  'al-sajaa': { coords: [25.3217, 55.6434], name: 'Al Sajaa' },
-  'al-rumaitha': { coords: [25.3478, 55.4466], name: 'Al Rumaitha' },
-  'al-fisht': { coords: [25.3826, 55.4334], name: 'Al Fisht' },
-  'al-darari': { coords: [25.4174, 55.4202], name: 'Al Darari' }
+const rasAlKhaimahStreets: { [key: string]: { coords: [number, number], name: string } } = {
+  'al-quwain-street': { coords: [25.7889, 55.9778], name: 'Al Quwain Street' },
+  'sheikh-khalifa-bin-zayed-street': { coords: [25.7951, 55.9643], name: 'Sheikh Khalifa Bin Zayed Street' },
+  'corniche-road': { coords: [25.7889, 55.9534], name: 'Corniche Road' },
+  'al-muntazah-street': { coords: [25.7826, 55.9712], name: 'Al Muntazah Street' },
+  'al-nakheel-district': { coords: [25.7764, 55.9845], name: 'Al Nakheel District' },
+  'al-rams-road': { coords: [25.8578, 56.0156], name: 'Al Rams Road' },
+  'al-jazirah-al-hamra': { coords: [25.6889, 55.7778], name: 'Al Jazirah Al Hamra' },
+  'ras-al-khaimah-mall-area': { coords: [25.7701, 55.9623], name: 'RAK Mall Area' },
+  'al-mamourah': { coords: [25.7639, 55.9756], name: 'Al Mamourah' },
+  'al-salam-street': { coords: [25.7764, 55.9578], name: 'Al Salam Street' },
+  'dafan-al-nakheel': { coords: [25.7639, 55.9912], name: 'Dafan Al Nakheel' },
+  'al-dhait': { coords: [25.2174, 56.0334], name: 'Al Dhait' },
+  'khuzam-road': { coords: [25.6826, 55.8445], name: 'Khuzam Road' },
+  'al-hamra-village': { coords: [25.6764, 55.7723], name: 'Al Hamra Village' },
+  'al-marjan-island': { coords: [25.6889, 55.7634], name: 'Al Marjan Island' },
+  'mina-al-arab': { coords: [25.6701, 55.7556], name: 'Mina Al Arab' },
+  'flamingo-villas': { coords: [25.6639, 55.7489], name: 'Flamingo Villas' },
+  'al-hulaylah': { coords: [25.9043, 56.0767], name: 'Al Hulaylah' },
+  'digdaga': { coords: [25.6174, 55.9334], name: 'Digdaga' },
+  'al-jeer': { coords: [25.5826, 55.6895], name: 'Al Jeer' },
+  'rak-free-zone': { coords: [25.6139, 55.9456], name: 'RAK Free Zone' },
+  'al-ghail': { coords: [25.5478, 55.7867], name: 'Al Ghail' },
+  'masafi-road': { coords: [25.3217, 56.1434], name: 'Masafi Road' },
+  'ras-al-khaimah-airport': { coords: [25.6139, 55.9389], name: 'RAK Airport Area' },
+  'al-hamidiyah': { coords: [25.8391, 56.0023], name: 'Al Hamidiyah' },
+  'al-uraibi': { coords: [25.7391, 55.9456], name: 'Al Uraibi' }
 };
 
 // Helper function to convert location address to approximate coordinates
 // In a real app, this would be replaced with a geocoding service
 const getCoordinates = (location: string): [number, number] => {
-  // Default to Sharjah, UAE coordinates
-  const defaultCoords: [number, number] = [25.3548, 55.3928];
+  // Default to Ras Al Khaimah, UAE coordinates
+  const defaultCoords: [number, number] = [25.7889, 55.9778];
   
   // Check if location matches any street
-  for (const [streetKey, streetData] of Object.entries(sharjahStreets)) {
+  for (const [streetKey, streetData] of Object.entries(rasAlKhaimahStreets)) {
     if (location.toLowerCase().includes(streetKey) || location.toLowerCase().includes(streetKey.replace('-', ' '))) {
       return streetData.coords;
     }
@@ -91,10 +91,10 @@ const MapClickHandler = ({ onLocationSelect }: { onLocationSelect?: (lat: number
 
 // Helper function to find closest street to clicked coordinates
 const getClosestStreet = (lat: number, lng: number): string => {
-  let closestStreet = 'al-wahda-street';
+  let closestStreet = 'al-quwain-street';
   let minDistance = Infinity;
 
-  for (const [streetKey, streetData] of Object.entries(sharjahStreets)) {
+  for (const [streetKey, streetData] of Object.entries(rasAlKhaimahStreets)) {
     const [streetLat, streetLng] = streetData.coords;
     const distance = Math.sqrt(Math.pow(lat - streetLat, 2) + Math.pow(lng - streetLng, 2));
     if (distance < minDistance) {
@@ -144,7 +144,7 @@ const PropertyMap = ({
         {interactive && <MapClickHandler onLocationSelect={handleLocationSelect} />}
         
         {/* Street markers with names */}
-        {Object.entries(sharjahStreets).map(([streetKey, streetData]) => (
+        {Object.entries(rasAlKhaimahStreets).map(([streetKey, streetData]) => (
           <Marker key={streetKey} position={streetData.coords as L.LatLngExpression}>
             <Popup>
               <div className="text-center">
