@@ -927,31 +927,124 @@ const PropertyForm = () => {
               <CardTitle>Facilities</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex space-x-2">
-                <Input
-                  value={newFeature}
-                  onChange={(e) => setNewFeature(e.target.value)}
-                  placeholder="Add a feature..."
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
-                />
-                <Button type="button" onClick={addFeature}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+              <div className="border border-gray-300 rounded-md p-3 bg-white">
+                <div className="text-sm text-gray-600 mb-3">Select multiple facilities:</div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+                  {[
+                    '🏊 Swimming Pool',
+                    '💪 Gym/Fitness Center',
+                    '🚗 Parking',
+                    '🌿 Balcony',
+                    '🌺 Garden',
+                    '❄️ Air Conditioning',
+                    '🔥 Heating',
+                    '🔒 Security System',
+                    '🛗 Elevator',
+                    '📶 WiFi',
+                    '👔 Laundry Room',
+                    '🍽️ Dishwasher',
+                    '🔥 Fireplace',
+                    '🌊 Sea View',
+                    '🏔️ Mountain View',
+                    '🏙️ City View',
+                    '☀️ Terrace',
+                    '🎾 Tennis Court',
+                    '🛡️ Gated Community',
+                    '🚿 Jacuzzi/Hot Tub',
+                    '🌳 Private Garden',
+                    '🚘 Garage',
+                    '⚡ Generator',
+                    '🔧 Storage Room',
+                    '👨‍💼 Concierge',
+                    '🎮 Game Room',
+                    '📚 Library',
+                    '🍸 Bar Area',
+                    '🍖 BBQ Area',
+                    '👶 Playground',
+                    '🎬 Cinema Room',
+                    '🍷 Wine Cellar',
+                    '🏠 Maid Room',
+                    '👮 24/7 Security',
+                    '📷 CCTV',
+                    '🚪 Smart Locks',
+                    '🌡️ Smart Home System',
+                    '🔌 Electric Car Charging',
+                    '☂️ Covered Parking',
+                    '🛁 Bathtub',
+                    '🚿 Walk-in Shower',
+                    '👔 Walk-in Closet',
+                    '🍳 Modern Kitchen',
+                    '🏢 Office Space',
+                    '🎨 Art Studio',
+                    '🧘 Yoga Room',
+                    '🛏️ Guest Room',
+                    '🌅 Rooftop Access',
+                    '🎪 Event Space'
+                  ].map((facility) => {
+                    const selectedFacilities = Array.isArray(formData.features) ? formData.features : (formData.features ? formData.features.toString().split(',') : []);
+                    const isSelected = selectedFacilities.includes(facility);
+                    
+                    return (
+                      <label key={facility} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const currentFacilities = Array.isArray(formData.features) ? formData.features : (formData.features ? formData.features.toString().split(',') : []);
+                            let newFacilities;
+                            if (e.target.checked) {
+                              newFacilities = [...currentFacilities, facility];
+                            } else {
+                              newFacilities = currentFacilities.filter(f => f !== facility);
+                            }
+                            setFormData(prev => ({ ...prev, features: newFacilities }));
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-xs font-medium">{facility}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {formData.features && formData.features.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-xs text-gray-500 mb-2">Selected facilities:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(Array.isArray(formData.features) ? formData.features : formData.features.toString().split(',')).filter(feature => feature).map((feature) => (
+                        <Badge key={feature} variant="secondary" className="text-xs flex items-center space-x-1">
+                          <span>{feature}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentFacilities = Array.isArray(formData.features) ? formData.features : formData.features.toString().split(',');
+                              const newFacilities = currentFacilities.filter(f => f !== feature);
+                              setFormData(prev => ({ ...prev, features: newFacilities }));
+                            }}
+                            className="ml-1 hover:text-red-500"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {formData.features.map((feature) => (
-                  <Badge key={feature} variant="secondary" className="flex items-center space-x-1">
-                    <span>{feature}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFeature(feature)}
-                      className="ml-1 hover:text-red-500"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
+
+              {/* Custom facility input */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="text-sm text-gray-600 mb-2">Add custom facility:</div>
+                <div className="flex space-x-2">
+                  <Input
+                    value={newFeature}
+                    onChange={(e) => setNewFeature(e.target.value)}
+                    placeholder="Add a custom facility..."
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                  />
+                  <Button type="button" onClick={addFeature}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
