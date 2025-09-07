@@ -142,8 +142,32 @@ const PropertyForm = () => {
     }
   };
 
+  const getBatumiStreets = () => {
+    return [
+      { value: "rustaveli-ave", label: "Rustaveli Avenue" },
+      { value: "gogebashvili-str", label: "Gogebashvili Street" },
+      { value: "chavchavadze-str", label: "Chavchavadze Street" },
+      { value: "parnavaz-mepe-str", label: "Parnavaz Mepe Street" },
+      { value: "agmashenebeli-str", label: "Agmashenebeli Street" },
+      { value: "ninoshvili-str", label: "Ninoshvili Street" },
+      { value: "lermontov-str", label: "Lermontov Street" },
+      { value: "pushkin-str", label: "Pushkin Street" },
+      { value: "tabidze-str", label: "Tabidze Street" },
+      { value: "vazha-pshavela-ave", label: "Vazha Pshavela Avenue" },
+      { value: "melikishvili-str", label: "Melikishvili Street" },
+      { value: "batumi-boulevard", label: "Batumi Boulevard" },
+      { value: "gorgiladze-str", label: "Gorgiladze Street" },
+      { value: "sherif-khimshiashvili-str", label: "Sherif Khimshiashvili Street" },
+      { value: "kostava-str", label: "Kostava Street" }
+    ];
+  };
+
   const handleCountryChange = (value: string) => {
-    setFormData(prev => ({ ...prev, country: value, city: '' }));
+    setFormData(prev => ({ ...prev, country: value, city: '', location: '' }));
+  };
+
+  const handleCityChange = (value: string) => {
+    setFormData(prev => ({ ...prev, city: value, location: '' }));
   };
 
   // Handle form submission
@@ -273,7 +297,7 @@ const PropertyForm = () => {
                   <Label htmlFor="city">City *</Label>
                   <Select 
                     value={formData.city} 
-                    onValueChange={(value) => handleInputChange('city', value)}
+                    onValueChange={handleCityChange}
                     disabled={!formData.country}
                   >
                     <SelectTrigger>
@@ -303,14 +327,34 @@ const PropertyForm = () => {
               </div>
 
               <div>
-                <Label htmlFor="location">Specific Location *</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  placeholder="Street address or area name"
-                  required
-                />
+                <Label htmlFor="location">
+                  {formData.city === 'batumi' ? 'Street *' : 'Specific Location *'}
+                </Label>
+                {formData.city === 'batumi' ? (
+                  <Select 
+                    value={formData.location} 
+                    onValueChange={(value) => handleInputChange('location', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Street" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getBatumiStreets().map((street) => (
+                        <SelectItem key={street.value} value={street.value}>
+                          {street.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="location"
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    placeholder="Street address or area name"
+                    required
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
