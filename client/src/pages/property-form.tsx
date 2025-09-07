@@ -501,29 +501,59 @@ const PropertyForm = () => {
                     </div>
                   </div>
                 ) : formData.city === 'batumi' ? (
-                  <Select 
-                    value={formData.location} 
-                    onValueChange={(value) => handleInputChange('location', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Street" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getBatumiStreets().map((street) => (
-                        <SelectItem key={street.value} value={street.value}>
-                          {street.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white">
+                    <div className="text-sm text-gray-600 mb-2">Select multiple Batumi locations:</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                      {getBatumiStreets().map((street) => {
+                        const selectedLocations = Array.isArray(formData.location) ? formData.location : (formData.location ? formData.location.split(',') : []);
+                        const isSelected = selectedLocations.includes(street.value);
+                        
+                        return (
+                          <label key={street.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentLocations = Array.isArray(formData.location) ? formData.location : (formData.location ? formData.location.split(',') : []);
+                                let newLocations;
+                                if (e.target.checked) {
+                                  newLocations = [...currentLocations, street.value];
+                                } else {
+                                  newLocations = currentLocations.filter(loc => loc !== street.value);
+                                }
+                                handleInputChange('location', newLocations.join(','));
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{street.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.location && (formData.location.includes(',') || formData.location.length > 0) && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="text-xs text-gray-500 mb-1">Selected locations:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(formData.location) ? formData.location : formData.location.split(',')).filter(loc => loc).map((locationValue) => {
+                            const streetData = getBatumiStreets().find(s => s.value === locationValue);
+                            return (
+                              <Badge key={locationValue} variant="secondary" className="text-xs">
+                                {streetData ? streetData.label : locationValue}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => handleInputChange('location', e.target.value)}
-                    placeholder="Street address or area name"
-                    required
-                  />
+                  <div className="border border-gray-300 rounded-md p-3 bg-gray-50">
+                    <div className="text-sm text-gray-500 text-center py-4">
+                      🏙️ Location selection is only available for Batumi
+                      <br />
+                      <span className="text-xs">Please select Batumi as your city to choose specific locations</span>
+                    </div>
+                  </div>
                 )}
               </div>
             </CardContent>
