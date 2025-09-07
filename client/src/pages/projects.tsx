@@ -453,6 +453,18 @@ const Projects = () => {
               </Badge>
             )}
           </div>
+          {/* Show Add Project button only for admin users */}
+          {user?.isAdmin && (
+            <div className="flex items-center space-x-2">
+              <Button 
+                onClick={() => window.location.href = '/submit-property'}
+                className="flex items-center space-x-2"
+              >
+                <span className="text-sm">➕</span>
+                <span>Add Project</span>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Projects Grid */}
