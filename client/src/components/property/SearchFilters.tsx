@@ -88,12 +88,34 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
           
           <div>
             <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              placeholder="Any location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
+            <Select value={location} onValueChange={setLocation}>
+              <SelectTrigger>
+                <SelectValue placeholder="Any location" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Any location</SelectItem>
+                <SelectItem value="rustaveli-avenue">Rustaveli Avenue</SelectItem>
+                <SelectItem value="chavchavadze-avenue">Chavchavadze Avenue</SelectItem>
+                <SelectItem value="gogebashvili-street">Gogebashvili Street</SelectItem>
+                <SelectItem value="baratashvili-street">Baratashvili Street</SelectItem>
+                <SelectItem value="agmashenebeli-street">Agmashenebeli Street</SelectItem>
+                <SelectItem value="pushkin-street">Pushkin Street</SelectItem>
+                <SelectItem value="gorgiladze-street">Gorgiladze Street</SelectItem>
+                <SelectItem value="takaishvili-street">Takaishvili Street</SelectItem>
+                <SelectItem value="ninoshvili-street">Ninoshvili Street</SelectItem>
+                <SelectItem value="mazniashvili-street">Mazniashvili Street</SelectItem>
+                <SelectItem value="lermontov-street">Lermontov Street</SelectItem>
+                <SelectItem value="vazha-pshavela-avenue">Vazha-Pshavela Avenue</SelectItem>
+                <SelectItem value="aghmashenebeli-avenue">Aghmashenebeli Avenue</SelectItem>
+                <SelectItem value="sherif-khimshiashvili-street">Sherif Khimshiashvili Street</SelectItem>
+                <SelectItem value="grishashvili-street">Grishashvili Street</SelectItem>
+                <SelectItem value="kostava-street">Kostava Street</SelectItem>
+                <SelectItem value="parnavaz-mepe-street">Parnavaz Mepe Street</SelectItem>
+                <SelectItem value="zurab-gorgiladze-street">Zurab Gorgiladze Street</SelectItem>
+                <SelectItem value="batumi-boulevard">Batumi Boulevard</SelectItem>
+                <SelectItem value="europe-square">Europe Square</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div>
