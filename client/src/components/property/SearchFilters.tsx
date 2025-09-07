@@ -95,31 +95,25 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
               <SelectContent>
                 <SelectItem value="any">Any location</SelectItem>
                 <SelectItem value="rustaveli-avenue">Rustaveli Avenue</SelectItem>
-                <SelectItem value="kostava-street">Kostava Street</SelectItem>
                 <SelectItem value="chavchavadze-avenue">Chavchavadze Avenue</SelectItem>
-                <SelectItem value="pekini-avenue">Pekini Avenue</SelectItem>
-                <SelectItem value="aghmashenebeli-avenue">Aghmashenebeli Avenue</SelectItem>
+                <SelectItem value="gogebashvili-street">Gogebashvili Street</SelectItem>
+                <SelectItem value="baratashvili-street">Baratashvili Street</SelectItem>
+                <SelectItem value="agmashenebeli-street">Agmashenebeli Street</SelectItem>
+                <SelectItem value="pushkin-street">Pushkin Street</SelectItem>
+                <SelectItem value="gorgiladze-street">Gorgiladze Street</SelectItem>
+                <SelectItem value="takaishvili-street">Takaishvili Street</SelectItem>
+                <SelectItem value="ninoshvili-street">Ninoshvili Street</SelectItem>
+                <SelectItem value="mazniashvili-street">Mazniashvili Street</SelectItem>
+                <SelectItem value="lermontov-street">Lermontov Street</SelectItem>
                 <SelectItem value="vazha-pshavela-avenue">Vazha-Pshavela Avenue</SelectItem>
-                <SelectItem value="tsereteli-avenue">Tsereteli Avenue</SelectItem>
-                <SelectItem value="kazbegi-avenue">Kazbegi Avenue</SelectItem>
-                <SelectItem value="varketili-street">Varketili Street</SelectItem>
-                <SelectItem value="gldani-street">Gldani Street</SelectItem>
-                <SelectItem value="saburtalo-street">Saburtalo Street</SelectItem>
-                <SelectItem value="nutsubidze-street">Nutsubidze Street</SelectItem>
-                <SelectItem value="vake-street">Vake Street</SelectItem>
-                <SelectItem value="mtatsminda-street">Mtatsminda Street</SelectItem>
-                <SelectItem value="didube-street">Didube Street</SelectItem>
-                <SelectItem value="isani-street">Isani Street</SelectItem>
-                <SelectItem value="samgori-street">Samgori Street</SelectItem>
-                <SelectItem value="chugureti-street">Chugureti Street</SelectItem>
-                <SelectItem value="vera-street">Vera Street</SelectItem>
-                <SelectItem value="sololaki-street">Sololaki Street</SelectItem>
-                <SelectItem value="avlabari-street">Avlabari Street</SelectItem>
-                <SelectItem value="ortachala-street">Ortachala Street</SelectItem>
-                <SelectItem value="krtsanisi-street">Krtsanisi Street</SelectItem>
-                <SelectItem value="digomi-street">Digomi Street</SelectItem>
-                <SelectItem value="temka-street">Temka Street</SelectItem>
-                <SelectItem value="lilo-street">Lilo Street</SelectItem>
+                <SelectItem value="aghmashenebeli-avenue">Aghmashenebeli Avenue</SelectItem>
+                <SelectItem value="sherif-khimshiashvili-street">Sherif Khimshiashvili Street</SelectItem>
+                <SelectItem value="grishashvili-street">Grishashvili Street</SelectItem>
+                <SelectItem value="kostava-street">Kostava Street</SelectItem>
+                <SelectItem value="parnavaz-mepe-street">Parnavaz Mepe Street</SelectItem>
+                <SelectItem value="zurab-gorgiladze-street">Zurab Gorgiladze Street</SelectItem>
+                <SelectItem value="batumi-boulevard">Batumi Boulevard</SelectItem>
+                <SelectItem value="europe-square">Europe Square</SelectItem>
               </SelectContent>
             </Select>
           </div>
