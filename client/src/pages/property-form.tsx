@@ -487,14 +487,22 @@ const PropertyForm = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="bedrooms">Bedrooms</Label>
-                    <Input
-                      id="bedrooms"
-                      type="number"
-                      value={formData.bedrooms}
-                      onChange={(e) => handleInputChange('bedrooms', e.target.value)}
-                      placeholder="Number of bedrooms"
-                    />
+                    <Label htmlFor="bedrooms">Property Type</Label>
+                    <Select 
+                      value={formData.bedrooms} 
+                      onValueChange={(value) => handleInputChange('bedrooms', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select property type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Studio</SelectItem>
+                        <SelectItem value="1">One Bedroom</SelectItem>
+                        <SelectItem value="2">Two Bedrooms</SelectItem>
+                        <SelectItem value="3">Three Bedrooms</SelectItem>
+                        <SelectItem value="penthouse">Penthouse</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
