@@ -18,7 +18,7 @@ import { processImages } from "./utils/imageProcessing";
 //   ObjectNotFoundError,
 // } from "./objectStorage";
 import multer from "multer";
-import { fileStorage } from "./simpleFileStorage";
+import { ObjectStorageService } from "./objectStorage";
 import path from "path";
 
 // Configure multer for unlimited file uploads (videos, audio, any duration)
@@ -480,8 +480,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Photo upload routes
   app.post("/api/photos/upload", isAuthenticated, async (req, res) => {
     try {
-      const { uploadUrl, fileId } = fileStorage.generateUploadUrl("photo");
-      res.json({ uploadURL: uploadUrl, fileId });
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
     } catch (error) {
       console.error("Error getting photo upload URL:", error);
       res.status(500).json({ error: "Failed to get upload URL" });
@@ -496,19 +497,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "photoURL is required" });
       }
 
-      // Return the path for local storage
-      res.status(200).json({ objectPath: photoURL });
+      // Get authenticated user ID
+      const userId = req.user?.claims?.sub || req.user?.id || '1';
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        photoURL,
+        {
+          owner: userId.toString(),
+          visibility: "public", // Property images should be publicly viewable
+        }
+      );
+
+      res.status(200).json({ objectPath });
     } catch (error) {
       console.error("Error processing photo:", error);
       res.status(500).json({ error: "Failed to process photo" });
     }
   });
 
-  // Video upload routes - supports unlimited duration
+  // Route to serve uploaded images
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      return res.status(404).json({ error: "Object not found" });
+    }
+  });
+
+  // Video upload routes - supports unlimited duration  
   app.post("/api/videos/upload", isAuthenticated, async (req, res) => {
     try {
-      const { uploadUrl, fileId } = fileStorage.generateUploadUrl("video");
-      res.json({ uploadURL: uploadUrl, fileId });
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
     } catch (error) {
       console.error("Error getting video upload URL:", error);
       res.status(500).json({ error: "Failed to get upload URL" });
