@@ -25,6 +25,11 @@ const PropertyForm = () => {
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const propertyType = urlParams.get('type') || '';
   
+  // Debug URL parsing
+  console.log('Current location:', location);
+  console.log('URL params:', urlParams.toString());
+  console.log('Property type from URL:', propertyType);
+  
   // Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -247,7 +252,8 @@ const PropertyForm = () => {
     try {
       // Validate required fields before submission
       if (!propertyType) {
-        alert('Property type is required. Please go back and select a property type.');
+        console.error('Property type missing. Location:', location, 'Parsed type:', propertyType);
+        alert(`Property type is required. Current URL: ${location}. Please go back and select a property type.`);
         return;
       }
       
