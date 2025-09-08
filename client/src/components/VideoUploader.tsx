@@ -23,6 +23,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
         const uploadResponse = await fetch("/api/videos/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
         });
         
         if (!uploadResponse.ok) {
