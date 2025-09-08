@@ -24,6 +24,7 @@ export function PhotoUploader({
     const response = await fetch("/api/photos/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
     });
     
     if (!response.ok) {
@@ -44,6 +45,7 @@ export function PhotoUploader({
         const response = await fetch("/api/photos/process", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             photoURL: file.uploadURL,
           }),

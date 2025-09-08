@@ -192,6 +192,27 @@ const PropertyDetail = () => {
                 )}
               </div>
             </div>
+
+            {/* Video Section */}
+            {property.videos && property.videos.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold mb-4">Property Videos</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {property.videos.map((video, idx) => (
+                    <div key={idx} className="rounded-lg overflow-hidden">
+                      <video 
+                        controls 
+                        className="w-full h-64 object-cover rounded-lg"
+                        preload="metadata"
+                      >
+                        <source src={video} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2">
