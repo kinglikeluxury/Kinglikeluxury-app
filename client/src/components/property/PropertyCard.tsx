@@ -84,8 +84,8 @@ const PropertyCard = ({
     <Card className="overflow-hidden h-full flex flex-col">
       <div className="relative">
         <img
-          src={images[0] || "https://via.placeholder.com/800x600?text=No+Image"}
-          alt={title}
+          src={images && images.length > 0 ? images[0] : "https://via.placeholder.com/800x600?text=No+Image"}
+          alt={title || 'Property image'}
           className="w-full h-56 object-cover"
         />
         <div className="absolute top-2 left-2">
@@ -102,10 +102,10 @@ const PropertyCard = ({
       <CardContent className="p-4 flex-1 flex flex-col">
         <div className="flex justify-between items-start mb-1">
           <div>
-            <h3 className="text-lg font-medium text-gray-900 line-clamp-1">{title}</h3>
-            <p className="text-gray-500 text-sm">{location}</p>
+            <h3 className="text-lg font-medium text-gray-900 line-clamp-1">{title || 'Untitled Property'}</h3>
+            <p className="text-gray-500 text-sm">{location || 'Location not specified'}</p>
           </div>
-          <p className="text-lg font-bold text-primary-600">{formatPrice(price)}</p>
+          <p className="text-lg font-bold text-primary-600">{formatPrice(price || 0)}</p>
         </div>
         
         {getStatusBadge()}
@@ -113,7 +113,7 @@ const PropertyCard = ({
         <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
           <div className="flex items-center">
             <Home className="h-4 w-4 mr-1" />
-            <span>{area} sqft</span>
+            <span>{area || 0} sqft</span>
           </div>
           
           {bedrooms != null && (
