@@ -94,7 +94,13 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
             <ObjectUploader
               maxNumberOfFiles={50} // Allow batch upload
               maxFileSize={undefined} // No size limit for videos
-              allowedFileTypes={["video/*"]}
+              allowedFileTypes={[
+                ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", 
+                ".webm", ".m4v", ".3gp", ".ogv", ".ts", ".mts",
+                "video/mp4", "video/quicktime", "video/x-msvideo",
+                "video/x-matroska", "video/x-ms-wmv", "video/x-flv",
+                "video/webm", "video/x-m4v", "video/3gpp", "video/ogg"
+              ]}
               onGetUploadParameters={handleGetUploadParameters}
               onComplete={handleUploadComplete}
               buttonClassName="w-full"
