@@ -24,7 +24,7 @@
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 60 9.1% 97.8%;
   --ring: 198 100% 23%;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 .dark {
@@ -49,7 +49,7 @@
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
   --ring: 177 53% 52%;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 @layer base {
@@ -59,22 +59,36 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: -0.025em;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply text-[#005476] font-medium;
+    @apply text-[#005476] font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-3xl md:text-4xl lg:text-5xl;
+  }
+  
+  h2 {
+    @apply text-2xl md:text-3xl lg:text-4xl;
+  }
+  
+  h3 {
+    @apply text-xl md:text-2xl;
   }
   
   p {
-    @apply text-[#005476];
+    @apply text-[#005476] leading-relaxed;
   }
   
   label {
-    @apply text-[#005476] !important;
+    @apply text-[#005476] font-medium !important;
   }
   
   a {
-    @apply text-[#005476] hover:text-[#3bcac4] transition-colors;
+    @apply text-[#005476] hover:text-[#3bcac4] transition-all duration-200;
   }
   
   span {
@@ -96,11 +110,11 @@
 
 /* Custom luxury styles for the application */
 .luxury-gradient {
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+  background: linear-gradient(135deg, #3bcac4 0%, #005476 100%);
 }
 
 .luxury-text-gradient {
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+  background: linear-gradient(135deg, #3bcac4 0%, #005476 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -145,8 +159,8 @@
 }
 
 .luxury-price {
-  @apply text-primary font-bold text-2xl tracking-tight;
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
+  @apply text-[#3bcac4] font-bold text-2xl tracking-tight;
+  background: linear-gradient(135deg, #3bcac4 0%, #3bcac4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -159,8 +173,8 @@
 
 /* Enhanced buttons */
 .btn-primary {
-  @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl;
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
+  @apply bg-[#3bcac4] text-white hover:bg-[#3bcac4]/90 shadow-lg hover:shadow-xl;
+  background: linear-gradient(135deg, #3bcac4 0%, #3bcac4 100%);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -169,7 +183,7 @@
 }
 
 .btn-secondary {
-  @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-md hover:shadow-lg;
+  @apply bg-[#005476] text-white hover:bg-[#005476]/90 shadow-md hover:shadow-lg;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
