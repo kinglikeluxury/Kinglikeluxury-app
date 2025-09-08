@@ -251,24 +251,37 @@ const PropertyForm = () => {
         propertyType,
         price: parseInt(formData.price),
         area: parseInt(formData.area),
-        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
-        bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
+        bedrooms: Array.isArray(formData.bedrooms) ? formData.bedrooms.join(', ') : formData.bedrooms,
+        bathrooms: Array.isArray(formData.bathrooms) ? formData.bathrooms.join(', ') : formData.bathrooms,
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
-        images: [], // TODO: Add image upload functionality
-        videos: []
+        images: formData.images || [],
+        videos: formData.videos || []
       };
 
-      // TODO: Submit to API
       console.log('Submitting property:', submissionData);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Submit to API
+      const response = await fetch('/api/properties', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submissionData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to create property: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Property created successfully:', result);
       
       // Redirect to success or properties page
       window.location.href = '/properties';
       
     } catch (error) {
       console.error('Error submitting property:', error);
+      alert('Failed to create property. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
