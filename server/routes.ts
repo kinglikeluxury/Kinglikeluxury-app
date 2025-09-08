@@ -296,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/properties/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const property = await storage.getProperty(id);
+      const property = await storage.getPropertyWithAgent(id);
       
       if (!property) {
         return res.status(404).json({ message: "Property not found" });

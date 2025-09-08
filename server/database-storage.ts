@@ -139,6 +139,55 @@ export class DatabaseStorage implements IStorage {
     return property;
   }
 
+  async getPropertyWithAgent(id: number): Promise<(Property & { agent: any }) | undefined> {
+    const [result] = await db
+      .select({
+        // Property fields
+        id: properties.id,
+        title: properties.title,
+        description: properties.description,
+        price: properties.price,
+        location: properties.location,
+        area: properties.area,
+        bedrooms: properties.bedrooms,
+        bathrooms: properties.bathrooms,
+        floorNumber: properties.floorNumber,
+        propertyType: properties.propertyType,
+        images: properties.images,
+        videos: properties.videos,
+        features: properties.features,
+        amenities: properties.amenities,
+        locationScore: properties.locationScore,
+        valueScore: properties.valueScore,
+        amenitiesScore: properties.amenitiesScore,
+        conditionScore: properties.conditionScore,
+        investmentScore: properties.investmentScore,
+        overallScore: properties.overallScore,
+        status: properties.status,
+        ownerId: properties.ownerId,
+        createdAt: properties.createdAt,
+        updatedAt: properties.updatedAt,
+        listingType: properties.listingType,
+        listingDuration: properties.listingDuration,
+        listingExpiresAt: properties.listingExpiresAt,
+        
+        // Agent fields
+        agent: {
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          phoneNumber: users.phoneNumber,
+          whatsappNumber: users.whatsappNumber,
+          authMethod: users.authMethod,
+        }
+      })
+      .from(properties)
+      .innerJoin(users, eq(properties.ownerId, users.id))
+      .where(eq(properties.id, id));
+    
+    return result;
+  }
+
   async getPropertyById(id: number): Promise<Property | undefined> {
     const [property] = await db.select().from(properties).where(eq(properties.id, id));
     return property;

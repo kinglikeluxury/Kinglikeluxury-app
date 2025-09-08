@@ -453,15 +453,30 @@ const PropertyDetail = () => {
                     
                     <Separator className="my-4" />
                     
+                    {/* Contact Agent Email */}
                     <Button className="w-full" asChild>
-                      <Link href={`mailto:info@realestatepro.com?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
-                        Contact Agent
+                      <Link href={`mailto:${property.agent?.email || 'info@kinglikeluxury.com'}?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
+                        Contact Agent: {property.agent?.username || 'Agent'}
                       </Link>
                     </Button>
                     
-                    <Button variant="outline" className="w-full mt-3">
-                      <a href={`tel:+1234567890`}>Call: +123 456 7890</a>
-                    </Button>
+                    {/* Phone/WhatsApp Contact - Show only if agent has phone number */}
+                    {(property.agent?.phoneNumber || property.agent?.whatsappNumber) && (
+                      <Button variant="outline" className="w-full mt-3">
+                        <a href={`tel:${property.agent?.phoneNumber || property.agent?.whatsappNumber}`}>
+                          Call: {property.agent?.phoneNumber || property.agent?.whatsappNumber}
+                        </a>
+                      </Button>
+                    )}
+                    
+                    {/* WhatsApp button if WhatsApp number exists */}
+                    {property.agent?.whatsappNumber && (
+                      <Button variant="outline" className="w-full mt-2">
+                        <a href={`https://wa.me/${property.agent.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer">
+                          WhatsApp: {property.agent.whatsappNumber}
+                        </a>
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
                 
