@@ -35,7 +35,7 @@ const PropertyForm = () => {
     city: '',
     area: '',
     bedrooms: '',
-    bathrooms: '',
+    bathrooms: [] as string[],
     floorNumber: '',
     features: [] as string[],
     amenities: [] as string[],
@@ -924,24 +924,48 @@ const PropertyForm = () => {
                   </div>
 
                   <div>
-                    <Label htmlFor="bathrooms">Bathrooms</Label>
-                    <Select value={formData.bathrooms} onValueChange={(value) => handleInputChange('bathrooms', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select number of bathrooms" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 bathroom</SelectItem>
-                        <SelectItem value="2">2 bathrooms</SelectItem>
-                        <SelectItem value="3">3 bathrooms</SelectItem>
-                        <SelectItem value="4">4 bathrooms</SelectItem>
-                        <SelectItem value="5">5 bathrooms</SelectItem>
-                        <SelectItem value="6">6 bathrooms</SelectItem>
-                        <SelectItem value="7">7 bathrooms</SelectItem>
-                        <SelectItem value="8">8 bathrooms</SelectItem>
-                        <SelectItem value="9">9 bathrooms</SelectItem>
-                        <SelectItem value="10">10+ bathrooms</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Bathroom Types</Label>
+                    <div className="border border-gray-300 rounded-md p-3 bg-white">
+                      <div className="text-sm text-gray-600 mb-2">Select multiple bathroom types:</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {[
+                          '🚿 Full Bathroom',
+                          '🚽 Half Bathroom',
+                          '🛁 Master Bathroom',
+                          '💄 Powder Room',
+                          '♨️ Guest Bathroom',
+                          '♿ Accessible Bathroom',
+                          '🧖 En-suite Bathroom',
+                          '🏊 Pool Bathroom',
+                          '🌿 Garden Bathroom',
+                          '⭐ Luxury Bathroom'
+                        ].map((bathroom) => {
+                          const selectedBathrooms = formData.bathrooms;
+                          const isSelected = selectedBathrooms.includes(bathroom);
+                          
+                          return (
+                            <label key={bathroom} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const currentBathrooms = formData.bathrooms;
+                                  let newBathrooms;
+                                  if (e.target.checked) {
+                                    newBathrooms = [...currentBathrooms, bathroom];
+                                  } else {
+                                    newBathrooms = currentBathrooms.filter((b: string) => b !== bathroom);
+                                  }
+                                  setFormData(prev => ({ ...prev, bathrooms: newBathrooms }));
+                                }}
+                                className="rounded border-gray-300"
+                              />
+                              <span className="text-xs font-medium">{bathroom}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   {propertyType === PROPERTY_TYPES.APARTMENT && (
