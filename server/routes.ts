@@ -266,6 +266,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (minPrice) filters.minPrice = parseInt(minPrice as string);
       if (maxPrice) filters.maxPrice = parseInt(maxPrice as string);
       
+      // Support country+city filtering for main feed (Hero search)
+      if (req.query.city && req.query.city !== 'any') {
+        const cityName = getCityFullName(req.query.city as string);
+        if (cityName) {
+          filters.location = cityName;
+        }
+      }
+      
       // If admin is requesting, allow getting all statuses
       if (req.session.isAdmin && req.query.status) {
         filters.status = req.query.status as string;
@@ -313,15 +321,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const propertyData = insertPropertySchema.parse(req.body);
       
-      // Validate property type - only admins can add projects
-      if (
-        propertyData.propertyType === PROPERTY_TYPES.PROJECT && 
-        !req.session.isAdmin
-      ) {
-        return res.status(403).json({ 
-          message: "Only administrators can add construction projects" 
-        });
-      }
+      // Allow regular users to submit projects, but they need admin approval
+      // Projects are always created with pending status unless user is admin
       
       // Add watermark to all property images
       try {
@@ -338,10 +339,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ownerId: req.session.userId!
       });
       
-      // If this is a project and user is admin, create project details
+      // If this is a project, create project details (for both admin and regular users)
       if (
         propertyData.propertyType === PROPERTY_TYPES.PROJECT && 
-        req.session.isAdmin && 
         req.body.projectDetails
       ) {
         const projectData = insertProjectSchema.parse({
@@ -386,8 +386,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Project routes
   app.get("/api/projects", async (req, res) => {
     try {
-      const projects = await storage.getProjects();
-      res.json(projects);
+      // Get both dedicated projects and project-type properties
+      const [dedicatedProjects, projectProperties] = await Promise.all([
+        storage.getProjects(),
+        storage.getPropertiesByType(PROPERTY_TYPES.PROJECT)
+      ]);
+      
+      // Transform project-type properties to project format for display
+      const propertyProjects = projectProperties.map(property => ({
+        id: property.id,
+        propertyId: property.id,
+        developer: property.title, // Use title as developer
+        completionDate: 'Q4 2024', // Default completion
+        projectStatus: 'Now Selling', // Default status
+        createdAt: property.createdAt,
+        property: property
+      }));
+      
+      // Combine and return all projects
+      const allProjects = [...dedicatedProjects, ...propertyProjects];
+      res.json(allProjects);
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }
@@ -594,6 +612,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // TODO: Implement public object serving after fixing Google Cloud Storage issues
     res.status(503).json({ error: "Public object serving temporarily unavailable" });
   });
+
+  // Helper function to convert city codes to full names for filtering
+  function getCityFullName(cityCode: string): string | null {
+    const cityMap: Record<string, string> = {
+      'batumi': 'Batumi',
+      'tbilisi': 'Tbilisi', 
+      'dubai': 'Dubai',
+      'sharjah': 'Sharjah',
+      'ras-al-khaimah': 'Ras Al Khaimah'
+    };
+    return cityMap[cityCode] || null;
+  }
 
   return httpServer;
 }

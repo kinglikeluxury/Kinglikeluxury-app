@@ -139,6 +139,19 @@ export class DatabaseStorage implements IStorage {
     return property;
   }
 
+  async getPropertiesByType(propertyType: string): Promise<Property[]> {
+    try {
+      const result = await db.select()
+        .from(properties)
+        .where(eq(properties.propertyType, propertyType))
+        .orderBy(desc(properties.createdAt));
+      return result;
+    } catch (error) {
+      console.error('Error fetching properties by type:', error);
+      throw error;
+    }
+  }
+
   async createProperty(propertyData: InsertProperty): Promise<Property> {
     const now = new Date();
     
