@@ -42,8 +42,15 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           throw new Error(`Upload failed: ${fileUploadResponse.statusText}`);
         }
         
-        // Use the upload URL as the video URL (cloud storage doesn't return JSON)
-        uploadedVideos.push(uploadURL);
+        // Convert upload URL to object path for serving
+        const urlParts = uploadURL.split('/');
+        const bucketIndex = urlParts.findIndex(part => part.includes('objstore'));
+        if (bucketIndex !== -1 && urlParts[bucketIndex + 1]) {
+          const objectPath = `/objects/${urlParts.slice(bucketIndex + 1).join('/').split('?')[0]}`;
+          uploadedVideos.push(objectPath);
+        } else {
+          uploadedVideos.push(uploadURL);
+        }
       }
       
       const newVideos = [...videos, ...uploadedVideos];
