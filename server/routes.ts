@@ -361,6 +361,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update property (PATCH)
+  app.patch("/api/properties/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const propertyData = insertPropertySchema.parse(req.body);
+      
+      // Get existing property to check ownership
+      const existingProperty = await storage.getPropertyById(id);
+      if (!existingProperty) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      // Check ownership - only allow property owner or admin to edit
+      const isOwner = existingProperty.ownerId === req.session.userId;
+      const isAdmin = req.session.isAdmin;
+      
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: "You can only edit your own properties" });
+      }
+      
+      // Add watermark to all property images if they've changed
+      try {
+        const watermarkedImages = await processImages(propertyData.images);
+        propertyData.images = watermarkedImages;
+      } catch (err) {
+        console.error('Error adding watermarks to images:', err);
+        // Continue with original images if watermarking fails
+      }
+      
+      // Update property (preserve original owner)
+      const property = await storage.updateProperty(id, {
+        ...propertyData,
+        ownerId: existingProperty.ownerId // Keep original owner
+      });
+      
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      res.json(property);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error('Error updating property:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Admin routes for property approval
   app.patch("/api/properties/:id/status", isAdmin, async (req, res) => {
     try {

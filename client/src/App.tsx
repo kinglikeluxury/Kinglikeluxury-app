@@ -35,6 +35,7 @@ function Router() {
           <Route path="/property/:id" component={PropertyDetail} />
           <Route path="/submit-property" component={SubmitProperty} />
           <Route path="/submit-property/form" component={PropertyForm} />
+          <Route path="/property/:id/edit" component={PropertyForm} />
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
           <Route path="/admin/dashboard" component={AdminDashboard} />

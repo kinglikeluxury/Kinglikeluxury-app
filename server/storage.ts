@@ -32,7 +32,9 @@ export interface IStorage {
     maxPrice?: number;
   }): Promise<Property[]>;
   getProperty(id: number): Promise<Property | undefined>;
+  getPropertyById(id: number): Promise<Property | undefined>;
   createProperty(property: InsertProperty): Promise<Property>;
+  updateProperty(id: number, property: Partial<InsertProperty>): Promise<Property | undefined>;
   updatePropertyStatus(id: number, status: string): Promise<Property | undefined>;
   deleteProperty(id: number): Promise<boolean>;
   
@@ -157,6 +159,10 @@ export class MemStorage implements IStorage {
     return this.properties.get(id);
   }
 
+  async getPropertyById(id: number): Promise<Property | undefined> {
+    return this.properties.get(id);
+  }
+
   async createProperty(propertyData: InsertProperty): Promise<Property> {
     const id = this.propertyIdCounter++;
     const now = new Date();
@@ -173,6 +179,20 @@ export class MemStorage implements IStorage {
     
     this.properties.set(id, property);
     return property;
+  }
+
+  async updateProperty(id: number, propertyData: Partial<InsertProperty>): Promise<Property | undefined> {
+    const property = this.properties.get(id);
+    if (!property) return undefined;
+    
+    const updatedProperty = { 
+      ...property, 
+      ...propertyData,
+      updatedAt: new Date() 
+    };
+    
+    this.properties.set(id, updatedProperty);
+    return updatedProperty;
   }
 
   async updatePropertyStatus(id: number, status: string): Promise<Property | undefined> {

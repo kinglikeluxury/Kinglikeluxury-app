@@ -139,6 +139,11 @@ export class DatabaseStorage implements IStorage {
     return property;
   }
 
+  async getPropertyById(id: number): Promise<Property | undefined> {
+    const [property] = await db.select().from(properties).where(eq(properties.id, id));
+    return property;
+  }
+
   async getPropertiesByType(propertyType: string): Promise<Property[]> {
     try {
       const result = await db.select()
@@ -171,6 +176,19 @@ export class DatabaseStorage implements IStorage {
     };
     
     const [property] = await db.insert(properties).values(propertyToInsert).returning();
+    return property;
+  }
+
+  async updateProperty(id: number, propertyData: Partial<InsertProperty>): Promise<Property | undefined> {
+    const [property] = await db
+      .update(properties)
+      .set({ 
+        ...propertyData,
+        updatedAt: new Date() 
+      })
+      .where(eq(properties.id, id))
+      .returning();
+      
     return property;
   }
 

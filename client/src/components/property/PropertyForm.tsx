@@ -4,8 +4,9 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { useLocation } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation, useRoute } from "wouter";
 import { insertPropertySchema, PROPERTY_TYPES } from "@shared/schema";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,9 @@ const PropertyForm = ({ isAdmin = false }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [, params] = useRoute("/property/:id/edit");
+  const propertyId = params?.id ? parseInt(params.id) : null;
+  const isEditMode = !!propertyId;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showProjectFields, setShowProjectFields] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -87,6 +91,12 @@ const PropertyForm = ({ isAdmin = false }) => {
   const [feature, setFeature] = useState("");
   const [floorNumber, setFloorNumber] = useState<number | null>(null);
   const [pricePerSqft, setPricePerSqft] = useState<number | null>(null);
+
+  // Fetch existing property data if editing
+  const { data: existingProperty, isLoading: isLoadingProperty } = useQuery({
+    queryKey: [`/api/properties/${propertyId}`],
+    enabled: isEditMode && !!propertyId,
+  });
 
   // Property type options based on user role
   const propertyTypeOptions = isAdmin
@@ -122,6 +132,46 @@ const PropertyForm = ({ isAdmin = false }) => {
       ownerId: user?.id || 0,
     },
   });
+
+  // Update form with existing property data when in edit mode
+  useEffect(() => {
+    if (isEditMode && existingProperty) {
+      // Check ownership - only allow editing if user is owner or admin
+      if (!user?.isAdmin && existingProperty.ownerId !== user?.id) {
+        toast({
+          variant: "destructive",
+          title: "Access denied",
+          description: "You can only edit your own properties.",
+        });
+        navigate("/properties");
+        return;
+      }
+
+      form.reset({
+        title: existingProperty.title || "",
+        description: existingProperty.description || "",
+        price: existingProperty.price || 0,
+        area: existingProperty.area || 0,
+        location: existingProperty.location || "",
+        propertyType: existingProperty.propertyType || PROPERTY_TYPES.APARTMENT,
+        images: existingProperty.images || [],
+        videos: existingProperty.videos || [],
+        features: existingProperty.features || [],
+        amenities: existingProperty.amenities || [],
+        floorNumber: existingProperty.floorNumber || null,
+        bedrooms: existingProperty.bedrooms || null,
+        bathrooms: existingProperty.bathrooms || null,
+        ownerId: existingProperty.ownerId || user?.id || 0,
+      });
+
+      // Set state variables
+      setImageUrls(existingProperty.images || []);
+      setVideoUrls(existingProperty.videos || []);
+      setFeatures(existingProperty.features || []);
+      setFloorNumber(existingProperty.floorNumber || null);
+      setShowProjectFields(existingProperty.propertyType === PROPERTY_TYPES.PROJECT);
+    }
+  }, [existingProperty, isEditMode, form, user?.id, user?.isAdmin, navigate, toast]);
 
   const propertyType = form.watch("propertyType");
   const price = form.watch("price");
@@ -233,28 +283,50 @@ const PropertyForm = ({ isAdmin = false }) => {
         return;
       }
 
-      // Submit the property
-      const response = await apiRequest("POST", "/api/properties", data);
-      const result = await response.json();
+      // Submit the property (create or update)
+      let response;
+      let result;
 
-      toast({
-        title: "Property submitted successfully",
-        description: data.propertyType === PROPERTY_TYPES.PROJECT 
-          ? "Your project has been added" 
-          : "Your property will be reviewed for approval",
-      });
+      if (isEditMode && propertyId) {
+        // Update existing property
+        response = await apiRequest("PATCH", `/api/properties/${propertyId}`, data);
+        result = await response.json();
+        
+        // Invalidate cache for the updated property
+        queryClient.invalidateQueries({ queryKey: [`/api/properties/${propertyId}`] });
+        queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
+        
+        toast({
+          title: "Property updated successfully",
+          description: "Your changes have been saved.",
+        });
 
-      // Redirect to the property page or my properties page
-      if (data.propertyType === PROPERTY_TYPES.PROJECT) {
-        navigate(`/property/${result.id}`);
+        // Redirect to the property page
+        navigate(`/property/${propertyId}`);
       } else {
-        navigate("/properties?myProperties=true");
+        // Create new property
+        response = await apiRequest("POST", "/api/properties", data);
+        result = await response.json();
+
+        toast({
+          title: "Property submitted successfully",
+          description: data.propertyType === PROPERTY_TYPES.PROJECT 
+            ? "Your project has been added" 
+            : "Your property will be reviewed for approval",
+        });
+
+        // Redirect to the property page or my properties page
+        if (data.propertyType === PROPERTY_TYPES.PROJECT) {
+          navigate(`/property/${result.id}`);
+        } else {
+          navigate("/properties?myProperties=true");
+        }
       }
     } catch (error) {
       console.error("Error submitting property:", error);
       toast({
         variant: "destructive",
-        title: "Submission failed",
+        title: isEditMode ? "Update failed" : "Submission failed",
         description: error instanceof Error ? error.message : "Please try again later",
       });
     } finally {
@@ -305,12 +377,19 @@ const PropertyForm = ({ isAdmin = false }) => {
     <Card className="w-full">
       <CardHeader>
         <CardTitle>
-          {showProjectFields ? "Add Construction Project" : "Submit Property"}
+          {isEditMode 
+            ? "Edit Property" 
+            : (showProjectFields ? "Add Construction Project" : "Submit Property")
+          }
         </CardTitle>
         <CardDescription>
-          {showProjectFields
-            ? "Fill in the details about your new construction project."
-            : "Fill in the details about your property. All submissions require approval."}
+          {isEditMode
+            ? "Update your property details below."
+            : (showProjectFields
+                ? "Fill in the details about your new construction project."
+                : "Fill in the details about your property. All submissions require approval."
+              )
+          }
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -769,8 +848,11 @@ const PropertyForm = ({ isAdmin = false }) => {
             )}
 
             <CardFooter className="flex justify-end px-0">
-              <Button type="submit" disabled={isSubmitting || !user}>
-                {isSubmitting ? "Submitting..." : "Submit Property"}
+              <Button type="submit" disabled={isSubmitting || !user || (isEditMode && isLoadingProperty)}>
+                {isSubmitting 
+                  ? (isEditMode ? "Updating..." : "Submitting...") 
+                  : (isEditMode ? "Update Property" : "Submit Property")
+                }
               </Button>
             </CardFooter>
           </form>
