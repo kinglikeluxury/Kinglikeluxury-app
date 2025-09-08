@@ -3,53 +3,53 @@
 @tailwind utilities;
 
 :root {
-  --background: 35 20% 98%; /* Warm cream background */
-  --foreground: 225 15% 20%; /* Deep charcoal for text */
-  --muted: 35 10% 94%;
-  --muted-foreground: 225 8% 45%;
+  --background: 0 0% 100%;
+  --foreground: 198 100% 23%; /* Kinglike Luxury blue color #005476 */
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 198 40% 40%;
   --popover: 0 0% 100%;
-  --popover-foreground: 225 15% 20%;
+  --popover-foreground: 198 100% 23%;
   --card: 0 0% 100%;
-  --card-foreground: 225 15% 20%;
-  --border: 35 8% 88%;
-  --input: 35 8% 92%;
-  /* Luxury gold primary color */
-  --primary: 45 90% 60%;
-  --primary-foreground: 225 15% 20%;
-  /* Deep navy secondary color */
-  --secondary: 225 25% 25%;
+  --card-foreground: 198 100% 23%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  /* Kinglike Luxury primary teal color: #3bcac4 */
+  --primary: 177 53% 52%;
+  --primary-foreground: 0 0% 100%;
+  /* Kinglike Luxury secondary deep blue color: #005476 */
+  --secondary: 198 100% 23%;
   --secondary-foreground: 0 0% 100%;
-  --accent: 45 25% 92%;
-  --accent-foreground: 225 15% 20%;
-  --destructive: 0 75% 55%;
-  --destructive-foreground: 0 0% 100%;
-  --ring: 45 90% 60%;
-  --radius: 0.75rem;
+  --accent: 177 53% 95%;
+  --accent-foreground: 198 100% 23%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 60 9.1% 97.8%;
+  --ring: 198 100% 23%;
+  --radius: 0.5rem;
 }
 
 .dark {
-  --background: 225 25% 8%;
-  --foreground: 45 25% 85%;
-  --muted: 225 20% 12%;
+  --background: 198 30% 10%;
+  --foreground: 177 53% 90%;
+  --muted: 198 20% 15%;
   --muted-foreground: 240 5% 64.9%;
-  --popover: 225 30% 6%;
+  --popover: 198 35% 8%;
   --popover-foreground: 0 0% 98%;
-  --card: 225 30% 6%;
+  --card: 198 35% 8%;
   --card-foreground: 0 0% 98%;
-  --border: 225 20% 15%;
-  --input: 225 20% 15%;
-  /* Luxury gold primary color */
-  --primary: 45 85% 55%;
-  --primary-foreground: 225 25% 8%;
-  /* Deep navy secondary color */
-  --secondary: 225 25% 25%;
+  --border: 198 20% 18%;
+  --input: 198 20% 18%;
+  /* Kinglike Luxury primary teal color: #3bcac4 */
+  --primary: 177 53% 52%;
+  --primary-foreground: 0 0% 100%;
+  /* Kinglike Luxury secondary deep blue color: #005476 */
+  --secondary: 198 100% 23%;
   --secondary-foreground: 0 0% 100%;
-  --accent: 45 15% 20%;
+  --accent: 177 53% 30%;
   --accent-foreground: 0 0% 98%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
-  --ring: 45 85% 55%;
-  --radius: 0.75rem;
+  --ring: 177 53% 52%;
+  --radius: 0.5rem;
 }
 
 @layer base {
@@ -59,52 +59,38 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    letter-spacing: -0.025em;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply text-foreground font-semibold tracking-tight;
-  }
-  
-  h1 {
-    @apply text-3xl md:text-4xl lg:text-5xl;
-  }
-  
-  h2 {
-    @apply text-2xl md:text-3xl lg:text-4xl;
-  }
-  
-  h3 {
-    @apply text-xl md:text-2xl;
+    @apply text-[#005476] font-medium;
   }
   
   p {
-    @apply text-foreground/90 leading-relaxed;
+    @apply text-[#005476];
   }
   
   label {
-    @apply text-foreground font-medium !important;
+    @apply text-[#005476] !important;
   }
   
   a {
-    @apply text-primary hover:text-primary/80 transition-all duration-200;
+    @apply text-[#005476] hover:text-[#3bcac4] transition-colors;
   }
   
   span {
-    @apply text-foreground;
+    @apply text-[#005476];
   }
   
   .text-gray-700, .text-gray-800, .text-gray-900 {
-    @apply text-foreground !important;
+    @apply text-[#005476] !important;
   }
   
   .text-gray-500, .text-gray-600 {
-    @apply text-muted-foreground !important;
+    @apply text-[#005476]/80 !important;
   }
   
   .text-black {
-    @apply text-foreground !important;
+    @apply text-[#005476] !important;
   }
 }
 
