@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useTranslation } from "react-i18next";
-import { User } from "@/lib/auth";
+import { User, useAuth } from "@/lib/auth";
 import { Property, Project } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, BarChart3 } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, BarChart3, Edit } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 import PropertyScoreChart from "@/components/property/PropertyScoreChart";
 import { PropertyScoreBadge } from "@/components/property/PropertyScoreBadge";
 
 const PropertyDetail = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [, params] = useRoute("/property/:id");
   const propertyId = params?.id ? parseInt(params.id) : null;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -128,7 +129,17 @@ const PropertyDetail = () => {
             <div className="mb-6">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
+                    {user && (user.id === property.ownerId || user.isAdmin) && (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/property/${property.id}/edit`}>
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-gray-600 flex items-center mt-1">
                     <MapPin className="h-4 w-4 mr-1 text-gray-400" />
                     {property.location}
