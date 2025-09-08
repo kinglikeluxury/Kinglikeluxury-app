@@ -29,13 +29,13 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           throw new Error("Failed to get upload URL");
         }
         
-        const { uploadUrl, fileId } = await uploadResponse.json();
+        const { uploadURL, fileId } = await uploadResponse.json();
         
         // Upload the file
         const formData = new FormData();
         formData.append('file', file);
         
-        const fileUploadResponse = await fetch(uploadUrl, {
+        const fileUploadResponse = await fetch(uploadURL, {
           method: 'POST',
           body: formData,
         });
