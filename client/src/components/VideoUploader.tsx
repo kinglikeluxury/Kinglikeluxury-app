@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { ObjectUploader } from "./ObjectUploader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Video, X, Play, Upload } from "lucide-react";
-import type { UploadResult } from "@uppy/core";
 
 interface VideoUploaderProps {
   onVideosChange: (videos: string[]) => void;
@@ -15,48 +13,47 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
   const [videos, setVideos] = useState<string[]>(initialVideos);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleGetUploadParameters = async () => {
-    const response = await fetch("/api/videos/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    
-    if (!response.ok) {
-      throw new Error("Failed to get upload URL");
-    }
-    
-    const { uploadURL } = await response.json();
-    return { method: "PUT" as const, url: uploadURL };
-  };
-
-  const handleUploadComplete = async (result: UploadResult<any, any>) => {
+  const handleFileUpload = async (files: File[]) => {
     setIsUploading(true);
     try {
       const uploadedVideos = [];
       
-      for (const file of result.successful) {
-        // Process uploaded video (set ACL)
-        const response = await fetch("/api/videos/process", {
+      for (const file of files) {
+        // Get upload URL first
+        const uploadResponse = await fetch("/api/videos/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            videoURL: file.uploadURL,
-            originalName: file.name,
-            fileSize: file.size,
-          }),
         });
         
-        if (response.ok) {
-          const { objectPath } = await response.json();
-          uploadedVideos.push(objectPath);
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to get upload URL");
         }
+        
+        const { uploadUrl, fileId } = await uploadResponse.json();
+        
+        // Upload the file
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const fileUploadResponse = await fetch(uploadUrl, {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!fileUploadResponse.ok) {
+          throw new Error(`Upload failed: ${fileUploadResponse.statusText}`);
+        }
+        
+        const { url } = await fileUploadResponse.json();
+        uploadedVideos.push(url);
       }
       
       const newVideos = [...videos, ...uploadedVideos];
       setVideos(newVideos);
       onVideosChange(newVideos);
     } catch (error) {
-      console.error("Error processing videos:", error);
+      console.error("Error uploading videos:", error);
+      alert('Failed to upload videos. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -91,25 +88,30 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
         <div className="space-y-4">
           {/* Upload Button */}
           {!isUploading && (
-            <ObjectUploader
-              maxNumberOfFiles={50} // Allow batch upload
-              maxFileSize={undefined} // No size limit for videos
-              allowedFileTypes={[
-                ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", 
-                ".webm", ".m4v", ".3gp", ".ogv", ".ts", ".mts",
-                "video/mp4", "video/quicktime", "video/x-msvideo",
-                "video/x-matroska", "video/x-ms-wmv", "video/x-flv",
-                "video/webm", "video/x-m4v", "video/3gpp", "video/ogg"
-              ]}
-              onGetUploadParameters={handleGetUploadParameters}
-              onComplete={handleUploadComplete}
-              buttonClassName="w-full"
-            >
-              <div className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Upload 4K Videos (No Size Limit)
-              </div>
-            </ObjectUploader>
+            <div className="space-y-4">
+              <input
+                type="file"
+                id="video-upload"
+                multiple
+                accept=".mp4,.mov,.avi,.mkv,.wmv,.flv,.webm,.m4v,.3gp,.ogv,.ts,.mts,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/x-ms-wmv,video/x-flv,video/webm,video/x-m4v,video/3gpp,video/ogg"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleFileUpload(Array.from(e.target.files));
+                  }
+                }}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                onClick={() => document.getElementById('video-upload')?.click()}
+                className="w-full"
+              >
+                <div className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Upload 4K Videos (No Size Limit)
+                </div>
+              </Button>
+            </div>
           )}
 
           {isUploading && (
