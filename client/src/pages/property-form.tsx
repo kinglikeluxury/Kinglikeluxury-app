@@ -34,7 +34,7 @@ const PropertyForm = () => {
     country: '',
     city: '',
     area: '',
-    bedrooms: '',
+    bedrooms: [] as string[],
     bathrooms: [] as string[],
     floorNumber: '',
     features: [] as string[],
@@ -905,22 +905,52 @@ const PropertyForm = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="bedrooms">Property Type</Label>
-                    <Select 
-                      value={formData.bedrooms} 
-                      onValueChange={(value) => handleInputChange('bedrooms', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select property type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">Studio</SelectItem>
-                        <SelectItem value="1">One Bedroom</SelectItem>
-                        <SelectItem value="2">Two Bedrooms</SelectItem>
-                        <SelectItem value="3">Three Bedrooms</SelectItem>
-                        <SelectItem value="penthouse">Penthouse</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Property Configuration</Label>
+                    <div className="border border-gray-300 rounded-md p-3 bg-white">
+                      <div className="text-sm text-gray-600 mb-2">Select property types/configurations:</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {
+                          [
+                            '🏠 Studio Apartment',
+                            '🛏️ One Bedroom',
+                            '🛏️ Two Bedrooms', 
+                            '🛏️ Three Bedrooms',
+                            '🛏️ Four Bedrooms',
+                            '🛏️ Five+ Bedrooms',
+                            '🏰 Penthouse',
+                            '🏡 Duplex',
+                            '🏘️ Townhouse',
+                            '🏛️ Loft',
+                            '🌿 Garden Apartment',
+                            '🏢 High-rise Unit'
+                          ].map((bedroomType) => {
+                            const selectedBedrooms = formData.bedrooms;
+                            const isSelected = selectedBedrooms.includes(bedroomType);
+                            
+                            return (
+                              <label key={bedroomType} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const currentBedrooms = formData.bedrooms;
+                                    let newBedrooms;
+                                    if (e.target.checked) {
+                                      newBedrooms = [...currentBedrooms, bedroomType];
+                                    } else {
+                                      newBedrooms = currentBedrooms.filter((b: string) => b !== bedroomType);
+                                    }
+                                    setFormData(prev => ({ ...prev, bedrooms: newBedrooms }));
+                                  }}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className="text-xs font-medium">{bedroomType}</span>
+                              </label>
+                            );
+                          })
+                        }
+                      </div>
+                    </div>
                   </div>
 
                   <div>
