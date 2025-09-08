@@ -455,9 +455,9 @@ const PropertyDetail = () => {
                     
                     {/* Contact Agent Email */}
                     <Button className="w-full" asChild>
-                      <Link href={`mailto:${property.agent?.email || 'info@kinglikeluxury.com'}?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
+                      <a href={`mailto:${property.agent?.email || 'info@kinglikeluxury.com'}?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
                         Contact Agent: {property.agent?.username || 'Agent'}
-                      </Link>
+                      </a>
                     </Button>
                     
                     {/* Phone/WhatsApp Contact - Show only if agent has phone number */}
