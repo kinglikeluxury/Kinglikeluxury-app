@@ -12,7 +12,6 @@ import { PROPERTY_TYPES, type Property } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List } from "lucide-react";
 import { Link } from "wouter";
-import PropertyMap from "@/components/property/PropertyMap";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { VideoUploader } from "@/components/VideoUploader";
 import { useQuery } from "@tanstack/react-query";
@@ -685,14 +684,12 @@ const PropertyForm = () => {
                           ✨ Global 3D View ✨
                         </div>
 
-                        <div className="h-[300px] rounded-xl overflow-hidden border-4 border-white/30 shadow-inner bg-white/10 backdrop-blur-sm">
-                          <PropertyMap
-                            location="global"
-                            title="Select City/Country"
-                            interactive={true}
-                            onLocationSelect={handleCityMapSelect}
-                            className="h-full w-full rounded-lg"
-                          />
+                        <div className="h-[300px] rounded-xl overflow-hidden border-4 border-white/30 shadow-inner bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                          <div className="text-center text-white">
+                            <MapPin className="h-12 w-12 mx-auto mb-4" />
+                            <p className="text-lg font-medium">Location Selector</p>
+                            <p className="text-sm opacity-80">Manual location input available</p>
+                          </div>
                         </div>
                         
                         {/* City Map Controls Info */}
@@ -934,13 +931,12 @@ const PropertyForm = () => {
                       </div>
 
                       <div className="h-[500px] rounded-2xl overflow-hidden border-4 border-white/30 shadow-inner bg-white/10 backdrop-blur-sm transform transition-all duration-500 hover:scale-[1.005] hover:shadow-3xl">
-                        <PropertyMap
-                          location={formData.location || 'batumi'}
-                          title="Select Location"
-                          interactive={true}
-                          onLocationSelect={handleMapLocationSelect}
-                          className="h-full w-full rounded-xl"
-                        />
+                        <div className="h-full w-full rounded-xl bg-gray-100 flex items-center justify-center">
+                          <div className="text-center text-gray-600">
+                            <MapPin className="h-8 w-8 mx-auto mb-2" />
+                            <p className="font-medium">Location: {formData.location || "Not selected"}</p>
+                          </div>
+                        </div>
                       </div>
                       
                       {/* Map Controls Info */}

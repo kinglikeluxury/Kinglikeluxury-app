@@ -8,7 +8,6 @@ import { Slider } from "@/components/ui/slider";
 import { PROPERTY_TYPES } from "@shared/schema";
 import { Label } from "@/components/ui/label";
 import { Search } from "lucide-react";
-import PropertyMap from "./PropertyMap";
 
 interface SearchFiltersProps {
   initialFilters?: {
@@ -150,22 +149,6 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
         </CardContent>
       </Card>
       
-      {/* Interactive Map Section */}
-      <Card className="w-full mt-4">
-        <CardContent className="p-4">
-          <div className="mb-2">
-            <h3 className="text-lg font-semibold">Select Location on Map</h3>
-            <p className="text-sm text-gray-600">Click anywhere on the map to select your preferred location</p>
-          </div>
-          <PropertyMap 
-            location={location || "Ras Al Khaimah, UAE"} 
-            title="Search Area" 
-            className="w-full"
-            interactive={true}
-            onLocationSelect={handleLocationSelect}
-          />
-        </CardContent>
-      </Card>
     </>
   );
 };

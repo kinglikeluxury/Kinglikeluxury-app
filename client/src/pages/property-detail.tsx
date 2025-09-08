@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, BarChart3, Edit } from "lucide-react";
-import PropertyMap from "@/components/property/PropertyMap";
 import PropertyScoreChart from "@/components/property/PropertyScoreChart";
 import { PropertyScoreBadge } from "@/components/property/PropertyScoreBadge";
 
@@ -446,7 +445,10 @@ const PropertyDetail = () => {
                     
                     <div className="mt-4 mb-4">
                       <h3 className="text-lg font-semibold mb-2">Location</h3>
-                      <PropertyMap location={property.location} title={property.title} className="mt-2" />
+                      <div className="bg-gray-100 rounded-lg p-4 text-center text-gray-600">
+                        <MapPin className="h-6 w-6 mx-auto mb-2" />
+                        <p className="text-sm">{property.location}</p>
+                      </div>
                     </div>
                     
                     <Separator className="my-4" />
@@ -464,8 +466,11 @@ const PropertyDetail = () => {
                 </Card>
                 
                 <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-3">Location Map</h3>
-                  <PropertyMap location={property.location} title={property.title} />
+                  <h3 className="text-lg font-semibold mb-3">Location</h3>
+                  <div className="bg-gray-100 rounded-lg p-4 text-center text-gray-600">
+                    <MapPin className="h-8 w-8 mx-auto mb-2" />
+                    <p className="text-lg font-medium">{property.location}</p>
+                  </div>
                 </div>
               </div>
             </div>
