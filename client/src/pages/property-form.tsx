@@ -262,11 +262,44 @@ const PropertyForm = () => {
         return;
       }
       
+      // Transform location data: combine country+city into location format for database
+      const getLocationString = () => {
+        const cities = formData.city ? formData.city.split(',') : [];
+        const countries = formData.country ? formData.country.split(',') : [];
+        
+        if (cities.length === 0 || countries.length === 0) {
+          return formData.location || 'Not specified';
+        }
+
+        // Map city codes to full names
+        const cityNames = cities.map(city => {
+          switch (city) {
+            case 'batumi': return 'Batumi';
+            case 'tbilisi': return 'Tbilisi'; 
+            case 'dubai': return 'Dubai';
+            default: return city;
+          }
+        });
+
+        // Map country codes to full names
+        const countryNames = countries.map(country => {
+          switch (country) {
+            case 'georgia': return 'Georgia';
+            case 'uae': return 'UAE';
+            default: return country;
+          }
+        });
+
+        // Combine city and country (e.g., "Batumi, Georgia" or "Dubai, UAE")
+        return `${cityNames.join(', ')}, ${countryNames.join(', ')}`;
+      };
+      
       // Prepare submission data
       const submissionData = {
         ...formData,
         propertyType,
         ownerId: user.id,
+        location: getLocationString(), // Transform country+city to location string
         price: parseInt(formData.price),
         area: parseInt(formData.area),
         bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : formData.bedrooms,
@@ -275,7 +308,15 @@ const PropertyForm = () => {
         images: formData.images || [],
         videos: formData.videos || [],
         features: formData.features || [],
-        amenities: formData.amenities || []
+        amenities: formData.amenities || [],
+        // For project types, add project details
+        ...(propertyType === 'project' ? {
+          projectDetails: {
+            developer: formData.title, // Use title as developer name
+            completionDate: 'Q4 2024', // Default completion
+            projectStatus: 'Now Selling' // Default status
+          }
+        } : {})
       };
 
       console.log('Submitting property:', submissionData);
