@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { Redirect, useLocation } from "wouter";
+import { Redirect, useLocation, useRoute } from "wouter";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,18 +8,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { PROPERTY_TYPES } from "@shared/schema";
+import { PROPERTY_TYPES, type Property } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List } from "lucide-react";
 import { Link } from "wouter";
 import PropertyMap from "@/components/property/PropertyMap";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { VideoUploader } from "@/components/VideoUploader";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const PropertyForm = () => {
   const { user, isLoading } = useAuth();
   const { t } = useTranslation();
   const [location] = useLocation();
+  const { toast } = useToast();
+  
+  // Check if we're in edit mode
+  const [, params] = useRoute("/property/:id/edit");
+  const propertyId = params?.id ? parseInt(params.id) : null;
+  const isEditMode = !!propertyId;
   
   // Get property type from URL params
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
@@ -28,11 +36,15 @@ const PropertyForm = () => {
   // Property type state (can be set from URL or form selection)
   const [propertyType, setPropertyType] = useState(urlPropertyType);
   
-  // Debug URL parsing
-  console.log('Current location:', location);
-  console.log('URL params:', urlParams.toString());
-  console.log('Property type from URL:', urlPropertyType);
-  console.log('Current property type state:', propertyType);
+  // Fetch existing property data if editing
+  const { data: existingProperty, isLoading: isLoadingProperty } = useQuery<Property>({
+    queryKey: [`/api/properties/${propertyId}`],
+    enabled: isEditMode && !!propertyId,
+  });
+
+  console.log('🔍 DEBUG EditMode:', isEditMode, 'PropertyID:', propertyId);
+  console.log('📄 Existing property:', existingProperty);
+  console.log('⏳ Loading:', isLoadingProperty);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -69,6 +81,68 @@ const PropertyForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useMapSelection, setUseMapSelection] = useState(false);
   const [useCityMapSelection, setUseCityMapSelection] = useState(false);
+
+  // Load existing property data when in edit mode
+  useEffect(() => {
+    if (isEditMode && existingProperty && !isLoadingProperty) {
+      console.log('✅ Loading existing property data:', existingProperty);
+      
+      // Check ownership
+      if (!user?.isAdmin && existingProperty.ownerId !== user?.id) {
+        toast({
+          variant: "destructive",
+          title: "Access denied",
+          description: "You can only edit your own properties.",
+        });
+        window.location.href = '/properties';
+        return;
+      }
+
+      // Parse location into country/city
+      const location = existingProperty.location || '';
+      let country = '';
+      let city = '';
+      if (location.includes('Georgia')) {
+        country = 'georgia';
+        if (location.includes('Batumi')) city = 'batumi';
+        else if (location.includes('Tbilisi')) city = 'tbilisi';
+      } else if (location.includes('UAE')) {
+        country = 'uae';
+        if (location.includes('Dubai')) city = 'dubai';
+      }
+
+      // Update all form data
+      setFormData({
+        title: existingProperty.title || '',
+        description: existingProperty.description || '',
+        price: existingProperty.price?.toString() || '',
+        location: existingProperty.location || '',
+        country,
+        city,
+        area: existingProperty.area?.toString() || '',
+        bedrooms: existingProperty.bedrooms ? [existingProperty.bedrooms.toString()] : [],
+        bathrooms: existingProperty.bathrooms ? [existingProperty.bathrooms.toString()] : [],
+        floorNumber: existingProperty.floorNumber?.toString() || '',
+        features: existingProperty.features || [],
+        amenities: existingProperty.amenities || [],
+        purpose: 'buy',
+        coordinates: { lat: 0, lng: 0 },
+        rentalPeriod: '',
+        furnished: '',
+        securityDeposit: '',
+        availableFrom: '',
+        utilitiesIncluded: [],
+        petPolicy: '',
+        leaseDuration: '',
+        rentalTerms: '',
+        images: existingProperty.images || [],
+        videos: existingProperty.videos || []
+      });
+      
+      // Set property type
+      setPropertyType(existingProperty.propertyType || '');
+    }
+  }, [existingProperty, isEditMode, isLoadingProperty, user?.id, user?.isAdmin, toast]);
   
   // Show loading state while checking authentication
   if (isLoading) {
@@ -326,8 +400,10 @@ const PropertyForm = () => {
       console.log('Submitting property:', submissionData);
       
       // Submit to API
-      const response = await fetch('/api/properties', {
-        method: 'POST',
+      const apiUrl = isEditMode ? `/api/properties/${propertyId}` : '/api/properties';
+      const method = isEditMode ? 'PATCH' : 'POST';
+      const response = await fetch(apiUrl, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -342,10 +418,17 @@ const PropertyForm = () => {
       }
       
       const result = await response.json();
-      console.log('Property created successfully:', result);
+      console.log(`Property ${isEditMode ? 'updated' : 'created'} successfully:`, result);
       
-      // Redirect to success or properties page
-      window.location.href = '/properties';
+      // Show success message
+      toast({
+        title: `Property ${isEditMode ? 'Updated' : 'Created'}`,
+        description: `Your property has been ${isEditMode ? 'updated' : 'created'} successfully.`,
+      });
+      
+      // Redirect to property detail page or properties page
+      const redirectUrl = isEditMode ? `/property/${propertyId}` : '/properties';
+      window.location.href = redirectUrl;
       
     } catch (error) {
       console.error('Error submitting property:', error);
@@ -369,10 +452,10 @@ const PropertyForm = () => {
           
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Add {getPropertyTypeTitle(propertyType)}
+              {isEditMode ? 'Edit' : 'Add'} {getPropertyTypeTitle(propertyType)}
             </h1>
             <p className="text-lg text-gray-600">
-              Fill in the details for your {getPropertyTypeTitle(propertyType).toLowerCase()}
+              {isEditMode ? 'Update the details for your' : 'Fill in the details for your'} {getPropertyTypeTitle(propertyType).toLowerCase()}
             </p>
           </div>
         </div>
