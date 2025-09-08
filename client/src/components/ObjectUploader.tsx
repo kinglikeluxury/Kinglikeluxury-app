@@ -45,7 +45,7 @@ export function ObjectUploader({
     try {
       for (const file of selectedFiles) {
         // Get upload URL from server
-        const urlResponse = await apiRequest(`/api/${type}s/upload`, 'POST');
+        const urlResponse = await apiRequest('POST', `/api/${type}s/upload`);
         const { uploadURL } = (urlResponse as any).uploadURL ? urlResponse as { uploadURL: string } : { uploadURL: (urlResponse as any) };
 
         // Extract fileId from URL
