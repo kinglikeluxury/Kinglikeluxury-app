@@ -81,6 +81,7 @@ export function ObjectUploader({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Button 
+          type="button"
           onClick={() => document.getElementById('file-input')?.click()}
           className={buttonClassName}
           disabled={isUploading}
@@ -98,7 +99,7 @@ export function ObjectUploader({
         />
         
         {selectedFiles.length > 0 && (
-          <Button onClick={uploadFiles} disabled={isUploading}>
+          <Button type="button" onClick={uploadFiles} disabled={isUploading}>
             {isUploading ? 'Uploading...' : `Upload ${selectedFiles.length} file(s)`}
           </Button>
         )}

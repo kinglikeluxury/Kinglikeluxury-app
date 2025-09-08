@@ -129,6 +129,7 @@ export function PhotoUploader({
                     />
                   </div>
                   <Button
+                    type="button"
                     size="sm"
                     variant="destructive"
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"

@@ -131,6 +131,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
                       HD/4K
                     </Badge>
                     <Button
+                      type="button"
                       size="sm"
                       variant="ghost"
                       onClick={() => removeVideo(index)}
