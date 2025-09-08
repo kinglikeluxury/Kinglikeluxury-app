@@ -135,7 +135,7 @@ const PropertyForm = ({ isAdmin = false }) => {
 
   // Update form with existing property data when in edit mode
   useEffect(() => {
-    if (isEditMode && existingProperty) {
+    if (isEditMode && existingProperty && !isLoadingProperty) {
       // Check ownership - only allow editing if user is owner or admin
       if (!user?.isAdmin && existingProperty.ownerId !== user?.id) {
         toast({
@@ -147,6 +147,16 @@ const PropertyForm = ({ isAdmin = false }) => {
         return;
       }
 
+      console.log('Loading existing property data:', existingProperty);
+
+      // Set state variables first
+      setImageUrls(existingProperty.images || []);
+      setVideoUrls(existingProperty.videos || []);
+      setFeatures(existingProperty.features || []);
+      setFloorNumber(existingProperty.floorNumber || null);
+      setShowProjectFields(existingProperty.propertyType === PROPERTY_TYPES.PROJECT);
+
+      // Reset form with existing data
       form.reset({
         title: existingProperty.title || "",
         description: existingProperty.description || "",
@@ -164,14 +174,9 @@ const PropertyForm = ({ isAdmin = false }) => {
         ownerId: existingProperty.ownerId || user?.id || 0,
       });
 
-      // Set state variables
-      setImageUrls(existingProperty.images || []);
-      setVideoUrls(existingProperty.videos || []);
-      setFeatures(existingProperty.features || []);
-      setFloorNumber(existingProperty.floorNumber || null);
-      setShowProjectFields(existingProperty.propertyType === PROPERTY_TYPES.PROJECT);
+      console.log('Form values after reset:', form.getValues());
     }
-  }, [existingProperty, isEditMode, form, user?.id, user?.isAdmin, navigate, toast]);
+  }, [existingProperty, isEditMode, isLoadingProperty, form, user?.id, user?.isAdmin, navigate, toast]);
 
   const propertyType = form.watch("propertyType");
   const price = form.watch("price");
@@ -418,7 +423,7 @@ const PropertyForm = ({ isAdmin = false }) => {
                     <FormLabel>Property Type</FormLabel>
                     <Select
                       onValueChange={handlePropertyTypeChange}
-                      defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
