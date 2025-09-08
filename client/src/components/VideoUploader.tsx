@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +10,24 @@ interface VideoUploaderProps {
 }
 
 export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploaderProps) {
-  const [videos, setVideos] = useState<string[]>(initialVideos);
+  const [videos, setVideos] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Convert any storage URLs to object paths and update videos when initialVideos changes
+  useEffect(() => {
+    const convertedVideos = initialVideos.map(video => {
+      if (video.includes('storage.googleapis.com') && video.includes('.private/uploads/')) {
+        const urlParts = video.split('/');
+        const bucketIndex = urlParts.findIndex(part => part.includes('objstore'));
+        if (bucketIndex !== -1 && urlParts[bucketIndex + 1]) {
+          const objectPath = `/objects/${urlParts.slice(bucketIndex + 1).join('/').split('?')[0]}`;
+          return objectPath;
+        }
+      }
+      return video;
+    });
+    setVideos(convertedVideos);
+  }, [initialVideos]);
 
   const handleFileUpload = async (files: File[]) => {
     setIsUploading(true);
