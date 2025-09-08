@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
-import { insertPropertySchema, PROPERTY_TYPES } from "@shared/schema";
+import { insertPropertySchema, PROPERTY_TYPES, type Property } from "@shared/schema";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -93,10 +93,15 @@ const PropertyForm = ({ isAdmin = false }) => {
   const [pricePerSqft, setPricePerSqft] = useState<number | null>(null);
 
   // Fetch existing property data if editing
-  const { data: existingProperty, isLoading: isLoadingProperty } = useQuery({
+  const { data: existingProperty, isLoading: isLoadingProperty } = useQuery<Property>({
     queryKey: [`/api/properties/${propertyId}`],
     enabled: isEditMode && !!propertyId,
   });
+
+  console.log('Edit mode:', isEditMode);
+  console.log('Property ID:', propertyId);
+  console.log('Loading property:', isLoadingProperty);
+  console.log('Existing property:', existingProperty);
 
   // Property type options based on user role
   const propertyTypeOptions = isAdmin
