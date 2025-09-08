@@ -394,7 +394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Transform project-type properties to project format for display
       const propertyProjects = projectProperties.map(property => ({
-        id: property.id,
+        id: `property-${property.id}`, // Unique ID to avoid conflicts with dedicated projects
         propertyId: property.id,
         developer: property.title, // Use title as developer
         completionDate: 'Q4 2024', // Default completion

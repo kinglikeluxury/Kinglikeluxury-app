@@ -89,25 +89,26 @@ const Projects = () => {
       return false;
     }
 
-    // Country filter
-    if (selectedCountry && selectedCountry !== 'all' && project.country !== selectedCountry) {
-      return false;
+    // Location filter (checking if location contains country/city info)
+    if (selectedCountry && selectedCountry !== 'all') {
+      const countryName = selectedCountry === 'georgia' ? 'Georgia' : 
+                         selectedCountry === 'uae' ? 'UAE' : selectedCountry;
+      if (!project.location?.toLowerCase().includes(countryName.toLowerCase())) {
+        return false;
+      }
     }
 
-    // City filter
-    if (selectedCity && selectedCity !== 'all' && project.city !== selectedCity) {
-      return false;
+    // City filter (checking if location contains city info)
+    if (selectedCity && selectedCity !== 'all') {
+      const cityName = selectedCity === 'batumi' ? 'Batumi' : 
+                      selectedCity === 'tbilisi' ? 'Tbilisi' : 
+                      selectedCity === 'dubai' ? 'Dubai' : selectedCity;
+      if (!project.location?.toLowerCase().includes(cityName.toLowerCase())) {
+        return false;
+      }
     }
 
-    // Type filter
-    if (selectedType && selectedType !== 'all' && project.type !== selectedType) {
-      return false;
-    }
-
-    // Purpose filter
-    if (selectedPurpose && selectedPurpose !== 'all' && project.purpose !== selectedPurpose) {
-      return false;
-    }
+    // Skip type and purpose filters for now since they're not relevant for projects
 
     // Price range filter
     if (priceRange.min && project.price < parseInt(priceRange.min)) {
