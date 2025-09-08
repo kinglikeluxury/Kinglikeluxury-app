@@ -245,10 +245,22 @@ const PropertyForm = () => {
     setIsSubmitting(true);
     
     try {
+      // Validate required fields before submission
+      if (!propertyType) {
+        alert('Property type is required. Please go back and select a property type.');
+        return;
+      }
+      
+      if (!user?.id) {
+        alert('User authentication required. Please log in again.');
+        return;
+      }
+      
       // Prepare submission data
       const submissionData = {
         ...formData,
         propertyType,
+        ownerId: user.id,
         price: parseInt(formData.price),
         area: parseInt(formData.area),
         bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : formData.bedrooms,
