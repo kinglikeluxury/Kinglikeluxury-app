@@ -23,12 +23,16 @@ const PropertyForm = () => {
   
   // Get property type from URL params
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
-  const propertyType = urlParams.get('type') || '';
+  const urlPropertyType = urlParams.get('type') || '';
+  
+  // Property type state (can be set from URL or form selection)
+  const [propertyType, setPropertyType] = useState(urlPropertyType);
   
   // Debug URL parsing
   console.log('Current location:', location);
   console.log('URL params:', urlParams.toString());
-  console.log('Property type from URL:', propertyType);
+  console.log('Property type from URL:', urlPropertyType);
+  console.log('Current property type state:', propertyType);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -374,6 +378,49 @@ const PropertyForm = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Property Type Selection - Show if not provided via URL */}
+          {!propertyType && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Select Property Type</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={propertyType === value ? "default" : "outline"}
+                      onClick={() => setPropertyType(value)}
+                      className="h-12 text-sm"
+                    >
+                      {value.charAt(0).toUpperCase() + value.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Show selected property type */}
+          {propertyType && (
+            <div className="p-3 bg-green-50 rounded-lg">
+              <Badge variant="secondary" className="text-green-700 bg-green-100">
+                Property Type: {propertyType.charAt(0).toUpperCase() + propertyType.slice(1)}
+              </Badge>
+              {!urlPropertyType && (
+                <Button 
+                  type="button"
+                  variant="link" 
+                  onClick={() => setPropertyType('')}
+                  className="ml-2 h-auto p-0 text-green-600 hover:text-green-700"
+                >
+                  Change
+                </Button>
+              )}
+            </div>
+          )}
+
           {/* Basic Information */}
           <Card>
             <CardHeader>
