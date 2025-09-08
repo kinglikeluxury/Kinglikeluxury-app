@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Upload, X, Plus, Map, List } from "lucide-react";
+import { ArrowLeft, Upload, X, Plus, Map, List, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { VideoUploader } from "@/components/VideoUploader";
@@ -72,7 +72,13 @@ const PropertyForm = () => {
     rentalTerms: '',
     // Media files
     images: [] as string[],
-    videos: [] as string[]
+    videos: [] as string[],
+    // Project details for project type properties
+    projectDetails: {
+      developer: '',
+      completionDate: '',
+      projectStatus: 'Now Selling'
+    }
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -1986,7 +1992,7 @@ const PropertyForm = () => {
                     '🎪 Automated Home Features',
                     '📱 Smart Home Integration'
                   ].map((amenity) => {
-                    const selectedAmenities = Array.isArray(formData.amenities) ? formData.amenities : (formData.amenities ? formData.amenities.toString().split(',') : []);
+                    const selectedAmenities = formData.amenities || [];
                     const isSelected = selectedAmenities.includes(amenity);
                     
                     return (
@@ -1995,7 +2001,7 @@ const PropertyForm = () => {
                           type="checkbox"
                           checked={isSelected}
                           onChange={(e) => {
-                            const currentAmenities = Array.isArray(formData.amenities) ? formData.amenities : (formData.amenities ? formData.amenities.toString().split(',') : []);
+                            const currentAmenities = formData.amenities || [];
                             let newAmenities;
                             if (e.target.checked) {
                               newAmenities = [...currentAmenities, amenity];
@@ -2015,7 +2021,7 @@ const PropertyForm = () => {
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="text-xs text-gray-500 mb-2">Selected amenities:</div>
                     <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(formData.amenities) ? formData.amenities : formData.amenities.toString().split(',')).filter((amenity: string) => amenity).map((amenity: string) => (
+                      {(formData.amenities || []).filter((amenity: string) => amenity).map((amenity: string) => (
                         <Badge key={amenity} variant="secondary" className="text-xs flex items-center space-x-1">
                           <span>{amenity}</span>
                           <button
