@@ -251,8 +251,8 @@ const PropertyForm = () => {
         propertyType,
         price: parseInt(formData.price),
         area: parseInt(formData.area),
-        bedrooms: Array.isArray(formData.bedrooms) ? formData.bedrooms.join(', ') : formData.bedrooms,
-        bathrooms: Array.isArray(formData.bathrooms) ? formData.bathrooms.join(', ') : formData.bathrooms,
+        bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : formData.bedrooms,
+        bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : formData.bathrooms,
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
         images: formData.images || [],
         videos: formData.videos || []
