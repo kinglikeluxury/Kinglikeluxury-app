@@ -30,23 +30,20 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           throw new Error("Failed to get upload URL");
         }
         
-        const { uploadURL, fileId } = await uploadResponse.json();
+        const { uploadURL } = await uploadResponse.json();
         
-        // Upload the file
-        const formData = new FormData();
-        formData.append('file', file);
-        
+        // Upload the file directly to cloud storage using PUT
         const fileUploadResponse = await fetch(uploadURL, {
-          method: 'POST',
-          body: formData,
+          method: 'PUT',
+          body: file,
         });
         
         if (!fileUploadResponse.ok) {
           throw new Error(`Upload failed: ${fileUploadResponse.statusText}`);
         }
         
-        const { url } = await fileUploadResponse.json();
-        uploadedVideos.push(url);
+        // Use the upload URL as the video URL (cloud storage doesn't return JSON)
+        uploadedVideos.push(uploadURL);
       }
       
       const newVideos = [...videos, ...uploadedVideos];
