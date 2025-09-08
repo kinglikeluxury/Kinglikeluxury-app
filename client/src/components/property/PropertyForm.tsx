@@ -98,10 +98,13 @@ const PropertyForm = ({ isAdmin = false }) => {
     enabled: isEditMode && !!propertyId,
   });
 
-  console.log('Edit mode:', isEditMode);
-  console.log('Property ID:', propertyId);
-  console.log('Loading property:', isLoadingProperty);
-  console.log('Existing property:', existingProperty);
+  console.log('🔍 DEBUG PropertyForm:');
+  console.log('📍 Current URL:', window.location.pathname);
+  console.log('✏️ Edit mode:', isEditMode);
+  console.log('🆔 Property ID:', propertyId);
+  console.log('⏳ Loading property:', isLoadingProperty);
+  console.log('📄 Existing property:', existingProperty);
+  console.log('👤 User:', user);
 
   // Property type options based on user role
   const propertyTypeOptions = isAdmin
