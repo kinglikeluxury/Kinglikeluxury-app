@@ -255,7 +255,9 @@ const PropertyForm = () => {
         bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : formData.bathrooms,
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
         images: formData.images || [],
-        videos: formData.videos || []
+        videos: formData.videos || [],
+        features: formData.features || [],
+        amenities: formData.amenities || []
       };
 
       console.log('Submitting property:', submissionData);
@@ -270,6 +272,9 @@ const PropertyForm = () => {
       });
       
       if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Validation errors:', errorData);
+        alert(`Failed to create property: ${JSON.stringify(errorData.errors || errorData.message)}`);
         throw new Error(`Failed to create property: ${response.statusText}`);
       }
       
