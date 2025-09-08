@@ -394,7 +394,7 @@ const PropertyForm = () => {
                       onClick={() => setPropertyType(value)}
                       className="h-12 text-sm"
                     >
-                      {value.charAt(0).toUpperCase() + value.slice(1)}
+                      {value === 'project' ? 'Off-Plan Projects' : value.charAt(0).toUpperCase() + value.slice(1)}
                     </Button>
                   ))}
                 </div>
@@ -406,7 +406,7 @@ const PropertyForm = () => {
           {propertyType && (
             <div className="p-3 bg-green-50 rounded-lg">
               <Badge variant="secondary" className="text-green-700 bg-green-100">
-                Property Type: {propertyType.charAt(0).toUpperCase() + propertyType.slice(1)}
+                Property Type: {propertyType === 'project' ? 'Off-Plan Projects' : propertyType.charAt(0).toUpperCase() + propertyType.slice(1)}
               </Badge>
               {!urlPropertyType && (
                 <Button 
