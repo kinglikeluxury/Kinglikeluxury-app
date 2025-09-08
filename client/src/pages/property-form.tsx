@@ -389,9 +389,9 @@ const PropertyForm = () => {
         // For project types, add project details
         ...(propertyType === 'project' ? {
           projectDetails: {
-            developer: formData.title, // Use title as developer name
-            completionDate: 'Q4 2024', // Default completion
-            projectStatus: 'Now Selling' // Default status
+            developer: formData.projectDetails?.developer || formData.title, // Use developer name from form or title as fallback
+            completionDate: formData.projectDetails?.completionDate || 'Q4 2024', // Use user-entered completion date or fallback
+            projectStatus: formData.projectDetails?.projectStatus || 'Now Selling' // Use user-selected status or fallback
           }
         } : {})
       };
