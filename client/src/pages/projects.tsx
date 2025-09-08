@@ -547,7 +547,7 @@ const Projects = () => {
                   )}
 
                   {/* Features */}
-                  {project.features.length > 0 && (
+                  {project.features && project.features.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {project.features.slice(0, 3).map((feature, index) => (
                         <Badge key={index} variant="outline" className="text-xs">

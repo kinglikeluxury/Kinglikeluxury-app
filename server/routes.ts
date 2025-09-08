@@ -400,7 +400,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completionDate: 'Q4 2024', // Default completion
         projectStatus: 'Now Selling', // Default status
         createdAt: property.createdAt,
-        property: property
+        property: property,
+        // Include property fields for backward compatibility
+        title: property.title,
+        description: property.description,
+        price: property.price,
+        location: property.location,
+        area: property.area,
+        bedrooms: property.bedrooms,
+        bathrooms: property.bathrooms,
+        features: property.features || [],
+        amenities: property.amenities || [],
+        images: property.images || [],
+        videos: property.videos || [],
+        status: property.status,
+        ownerId: property.ownerId
       }));
       
       // Combine and return all projects
