@@ -18,10 +18,11 @@
     "language": "Language"
   },
   "propertyTypes": {
-    "apartment": "Apartment",
-    "villa": "Villa",
-    "land": "Land",
-    "project": "Project"
+    "apartment": "Apartments",
+    "villa": "Villas",
+    "land": "Lands",
+    "commercial": "Commercial Spaces",
+    "project": "Off Plan Projects"
   },
   "propertyStatus": {
     "pending": "Pending",
@@ -152,7 +153,7 @@
     "close": "Close",
     "yes": "Yes",
     "no": "No",
-    "all": "All",
+    "all": "All Types",
     "more": "More",
     "less": "Less",
     "description": "Description",
@@ -161,14 +162,45 @@
     "inDevelopment": "In Development",
     "comingSoon": "Coming Soon",
     "contactUs": "Contact Us",
-    "aboutUs": "About Us"
+    "aboutUs": "About Us",
+    "exclusive": "KINGLIKE EXCLUSIVE",
+    "category": "category"
   },
+  "common.loading": "Loading...",
   "footer": {
     "copyright": "© {{year}} Kinglike Luxury. All rights reserved.",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "contactUs": "Contact Us",
     "followUs": "Follow Us"
+  },
+  "property": {
+    "heroTitle": "Find Your Perfect Property",
+    "heroSubtitle": "Discover apartments, villas, lands and construction projects that match your needs",
+    "anyLocation": "Any location",
+    "type": "Property Type",
+    "priceRange": "Price Range",
+    "anyPrice": "Any Price",
+    "listings": "120+ Listings",
+    "listings2": "85+ Listings",
+    "listings3": "63+ Listings",
+    "listings4": "42+ Listings",
+    "uploadProperties": "Upload your properties",
+    "submit": "Add Property",
+    "myProperties": "My Properties"
+  },
+  "categories": {
+    "title": "Browse by category"
+  },
+  "favorites": {
+    "title": "Favorites",
+    "empty": "No favorites yet"
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "approvals": "Property Approvals",
+    "createProject": "Add Project",
+    "onlyListings": "Admin-only listings"
   },
   "errors": {
     "notFound": "Page not found",

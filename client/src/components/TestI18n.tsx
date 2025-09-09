@@ -12,7 +12,7 @@ export function TestI18n() {
       console.log('Available namespaces:', i18n.options.ns);
       console.log('Default namespace:', i18n.options.defaultNS);
       console.log('Available languages:', i18n.options.supportedLngs);
-      console.log('t function test:', t('common.loading', 'Loading...'));
+      console.log('t function test:', t('loading', 'Loading...'));
       setLang(i18n.language);
     }, 1000);
     

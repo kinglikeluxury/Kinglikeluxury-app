@@ -18,10 +18,11 @@
     "language": "اللغة"
   },
   "propertyTypes": {
-    "apartment": "شقة",
-    "villa": "فيلا",
-    "land": "أرض",
-    "project": "مشروع"
+    "apartment": "شقق",
+    "villa": "فلل",
+    "land": "أراضي",
+    "commercial": "مساحات تجارية",
+    "project": "المشاريع قيد الإنشاء"
   },
   "propertyStatus": {
     "pending": "قيد الانتظار",
@@ -152,7 +153,7 @@
     "close": "إغلاق",
     "yes": "نعم",
     "no": "لا",
-    "all": "الكل",
+    "all": "جميع الأنواع",
     "more": "المزيد",
     "less": "أقل",
     "description": "الوصف",
@@ -161,14 +162,45 @@
     "inDevelopment": "قيد التطوير",
     "comingSoon": "قريباً",
     "contactUs": "اتصل بنا",
-    "aboutUs": "من نحن"
+    "aboutUs": "من نحن",
+    "exclusive": "كينغلايك حصري",
+    "category": "فئة"
   },
+  "common.loading": "جاري التحميل...",
   "footer": {
     "copyright": "© {{year}} كينغلايك لكجري. جميع الحقوق محفوظة.",
     "privacyPolicy": "سياسة الخصوصية",
     "termsOfService": "شروط الخدمة",
     "contactUs": "اتصل بنا",
     "followUs": "تابعنا"
+  },
+  "property": {
+    "heroTitle": "ابحث عن عقارك المثالي",
+    "heroSubtitle": "اكتشف الشقق والفلل والأراضي ومشاريع البناء التي تناسب احتياجاتك",
+    "anyLocation": "أي موقع",
+    "type": "نوع العقار",
+    "priceRange": "نطاق السعر",
+    "anyPrice": "أي سعر",
+    "listings": "120+ إعلان",
+    "listings2": "85+ إعلان",
+    "listings3": "63+ إعلان",
+    "listings4": "42+ إعلان",
+    "uploadProperties": "ارفع عقاراتك",
+    "submit": "أضف عقار",
+    "myProperties": "عقاراتي"
+  },
+  "categories": {
+    "title": "تصفح حسب الفئة"
+  },
+  "favorites": {
+    "title": "المفضلة",
+    "empty": "لا توجد مفضلات بعد"
+  },
+  "admin": {
+    "dashboard": "لوحة تحكم المسؤول",
+    "approvals": "موافقات العقارات",
+    "createProject": "أضف مشروع",
+    "onlyListings": "قوائم المسؤول فقط"
   },
   "errors": {
     "notFound": "الصفحة غير موجودة",
