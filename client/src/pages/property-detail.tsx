@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, BarChart3, Edit } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, BarChart3, Edit, ChevronLeft, ChevronRight, X } from "lucide-react";
 import PropertyScoreChart from "@/components/property/PropertyScoreChart";
 import { PropertyScoreBadge } from "@/components/property/PropertyScoreBadge";
 
@@ -20,6 +20,8 @@ const PropertyDetail = () => {
   const [, params] = useRoute("/property/:id");
   const propertyId = params?.id ? parseInt(params.id) : null;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [modalImageIndex, setModalImageIndex] = useState(0);
 
   // Fetch property data
   const { data: property, isLoading: isLoadingProperty } = useQuery<Property>({
@@ -37,6 +39,58 @@ const PropertyDetail = () => {
   const project = projectData?.find(p => p.propertyId === propertyId);
 
   const isLoading = isLoadingProperty || (property?.propertyType === 'project' && isLoadingProject);
+
+  // Image modal functions
+  const openImageModal = (index: number) => {
+    setModalImageIndex(index);
+    setIsImageModalOpen(true);
+  };
+
+  const closeImageModal = () => {
+    setIsImageModalOpen(false);
+  };
+
+  const nextImage = () => {
+    if (property?.images && modalImageIndex < property.images.length - 1) {
+      setModalImageIndex(modalImageIndex + 1);
+    }
+  };
+
+  const prevImage = () => {
+    if (modalImageIndex > 0) {
+      setModalImageIndex(modalImageIndex - 1);
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isImageModalOpen) return;
+      
+      if (e.key === 'Escape') {
+        closeImageModal();
+      } else if (e.key === 'ArrowLeft') {
+        prevImage();
+      } else if (e.key === 'ArrowRight') {
+        nextImage();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isImageModalOpen, modalImageIndex, property?.images]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isImageModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isImageModalOpen]);
 
   const formatPrice = (price?: number) => {
     if (!price) return "";
@@ -168,7 +222,8 @@ const PropertyDetail = () => {
                 <img 
                   src={property.images[activeImageIndex] || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80"}
                   alt={property.title}
-                  className="w-full h-96 object-cover rounded-lg"
+                  className="w-full h-96 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => openImageModal(activeImageIndex)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -178,13 +233,19 @@ const PropertyDetail = () => {
                     src={image}
                     alt={`${property.title} ${idx + 1}`}
                     className={`w-full h-44 object-cover rounded-lg cursor-pointer transition-opacity ${activeImageIndex === idx ? 'ring-4 ring-primary-500' : 'hover:opacity-80'}`}
-                    onClick={() => setActiveImageIndex(idx)}
+                    onClick={() => {
+                      setActiveImageIndex(idx);
+                      openImageModal(idx);
+                    }}
                   />
                 ))}
                 {property.images.length > 4 && (
                   <div 
-                    className="w-full h-44 bg-black bg-opacity-50 rounded-lg flex items-center justify-center cursor-pointer"
-                    onClick={() => setActiveImageIndex(4)}
+                    className="w-full h-44 bg-black bg-opacity-50 rounded-lg flex items-center justify-center cursor-pointer hover:bg-opacity-60 transition-all"
+                    onClick={() => {
+                      setActiveImageIndex(4);
+                      openImageModal(4);
+                    }}
                   >
                     <span className="text-white text-lg font-medium">+{property.images.length - 4} more</span>
                   </div>
@@ -504,6 +565,60 @@ const PropertyDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Image Modal */}
+      {isImageModalOpen && property && property.images && property.images.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+          {/* Close button */}
+          <button
+            onClick={closeImageModal}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-10"
+          >
+            <X className="h-8 w-8" />
+          </button>
+
+          {/* Previous button */}
+          {modalImageIndex > 0 && (
+            <button
+              onClick={prevImage}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 transition-colors z-10"
+            >
+              <ChevronLeft className="h-10 w-10" />
+            </button>
+          )}
+
+          {/* Next button */}
+          {modalImageIndex < property.images.length - 1 && (
+            <button
+              onClick={nextImage}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 transition-colors z-10"
+            >
+              <ChevronRight className="h-10 w-10" />
+            </button>
+          )}
+
+          {/* Image */}
+          <div className="max-w-screen-lg max-h-screen w-full h-full flex items-center justify-center">
+            <img
+              src={property.images[modalImageIndex]}
+              alt={`${property.title} - Image ${modalImageIndex + 1}`}
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+
+          {/* Image counter */}
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black bg-opacity-50 px-4 py-2 rounded-full">
+            {modalImageIndex + 1} / {property.images.length}
+          </div>
+
+          {/* Click outside to close */}
+          <div
+            className="absolute inset-0 -z-10"
+            onClick={closeImageModal}
+          />
+        </div>
+      )}
     </div>
   );
 };
