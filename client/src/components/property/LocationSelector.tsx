@@ -24,8 +24,8 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "" }
   const [isMapReady, setIsMapReady] = useState(false);
 
   useEffect(() => {
-    // Add a small delay to ensure the DOM element is fully rendered
-    const initializeMap = () => {
+    const initializeMap = async () => {
+      // Wait for DOM element to be available
       if (!mapRef.current) {
         console.log('Map container not available yet');
         return;
@@ -34,7 +34,7 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "" }
       try {
         console.log('Initializing map...');
         
-        // Initialize map centered on Batumi, Georgia
+        // Initialize map centered on Batumi, Georgia  
         const map = L.map(mapRef.current).setView([41.6168, 41.6367], 13);
 
         // Add tile layer
@@ -42,6 +42,7 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "" }
           attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
+        // Store map reference
         leafletMapRef.current = map;
 
         // Handle map clicks
@@ -86,20 +87,21 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "" }
           }
         });
         
-        // Set map ready after a short delay to ensure tiles load
+        // Set map ready after tiles load
         setTimeout(() => {
           setIsMapReady(true);
           console.log('Map initialized successfully');
-        }, 100);
+        }, 200);
+
       } catch (error) {
         console.error('Error initializing map:', error);
         // Still set as ready to avoid infinite loading
-        setIsMapReady(true);
+        setTimeout(() => setIsMapReady(true), 100);
       }
     };
 
-    // Use setTimeout to ensure DOM is ready
-    const timeoutId = setTimeout(initializeMap, 50);
+    // Initialize map with delay to ensure DOM is ready
+    const timeoutId = setTimeout(initializeMap, 100);
 
     // Cleanup function
     return () => {
