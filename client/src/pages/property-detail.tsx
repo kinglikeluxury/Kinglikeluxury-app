@@ -597,19 +597,46 @@ const PropertyDetail = () => {
             </button>
           )}
 
-          {/* Image */}
+          {/* Image with slide animation */}
           <div className="max-w-screen-lg max-h-screen w-full h-full flex items-center justify-center">
-            <img
-              src={property.images[modalImageIndex]}
-              alt={`${property.title} - Image ${modalImageIndex + 1}`}
-              className="max-w-full max-h-full object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="relative w-full h-full flex items-center justify-center">
+              <img
+                key={modalImageIndex} // Force re-render for animation
+                src={property.images[modalImageIndex]}
+                alt={`${property.title} - Image ${modalImageIndex + 1}`}
+                className="max-w-full max-h-full object-contain rounded-lg transition-all duration-300 ease-in-out"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  animation: 'slideIn 0.3s ease-in-out'
+                }}
+              />
+            </div>
           </div>
 
-          {/* Image counter */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black bg-opacity-50 px-4 py-2 rounded-full">
-            {modalImageIndex + 1} / {property.images.length}
+          {/* Bottom navigation */}
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-4">
+            {/* Previous button */}
+            <button
+              onClick={prevImage}
+              disabled={modalImageIndex === 0}
+              className={`image-nav-button ${modalImageIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:scale-110'}`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            
+            {/* Image counter */}
+            <div className="text-white bg-black bg-opacity-50 px-4 py-2 rounded-full backdrop-blur-sm">
+              {modalImageIndex + 1} / {property.images.length}
+            </div>
+            
+            {/* Next button */}
+            <button
+              onClick={nextImage}
+              disabled={modalImageIndex === property.images.length - 1}
+              className={`image-nav-button ${modalImageIndex === property.images.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:scale-110'}`}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Click outside to close */}
