@@ -21,7 +21,6 @@ import NotFound from "@/pages/not-found";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { getLanguageDirection } from "./lib/i18n";
-import { TestI18n } from "@/components/TestI18n";
 
 function Router() {
   return (
@@ -64,7 +63,6 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
-          <TestI18n />
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
