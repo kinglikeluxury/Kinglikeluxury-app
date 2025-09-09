@@ -165,7 +165,14 @@ export class ObjectStorageService {
       throw new ObjectNotFoundError();
     }
 
-    const entityId = parts.slice(1).join("/");
+    let entityId = parts.slice(1).join("/");
+    
+    // Handle paths that already include .private directory
+    if (entityId.startsWith(".private/")) {
+      // Remove .private/ prefix and use directly with private object dir
+      entityId = entityId.substring(9); // Remove ".private/"
+    }
+    
     let entityDir = this.getPrivateObjectDir();
     if (!entityDir.endsWith("/")) {
       entityDir = `${entityDir}/`;
