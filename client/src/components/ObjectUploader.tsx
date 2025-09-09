@@ -63,7 +63,7 @@ export function ObjectUploader({
 
         // Process the uploaded file on server
         const processResponse = await apiRequest('POST', `/api/${type}s/process`, {
-          [`${type}URL`]: uploadURL
+          [`${type}URL`]: uploadURL.split('?')[0] // Remove query parameters to get clean URL
         });
         const { objectPath } = processResponse as unknown as { objectPath: string };
 
