@@ -44,10 +44,21 @@ export function ObjectUploader({
 
     try {
       for (const file of selectedFiles) {
-        // Get upload URL from server
-        const urlResponse = await apiRequest('POST', `/api/${type}s/upload`);
+        // Get upload URL from server - using fetch directly to debug
+        const response = await fetch(`/api/${type}s/upload`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to get upload URL: ${response.statusText}`);
+        }
+        
+        const urlResponse = await response.json();
         console.log('URL Response:', urlResponse);
-        const { uploadURL } = urlResponse as unknown as { uploadURL: string };
+        const { uploadURL } = urlResponse;
         console.log('Upload URL:', uploadURL);
         
         if (!uploadURL) {
@@ -72,10 +83,24 @@ export function ObjectUploader({
         console.log('Clean URL for processing:', cleanURL);
         console.log('Sending to process endpoint:', { [`${type}URL`]: cleanURL });
         
-        const processResponse = await apiRequest('POST', `/api/${type}s/process`, {
-          [`${type}URL`]: cleanURL
+        const processResponse = await fetch(`/api/${type}s/process`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            [`${type}URL`]: cleanURL
+          }),
         });
-        const { objectPath } = processResponse as unknown as { objectPath: string };
+        
+        if (!processResponse.ok) {
+          const errorText = await processResponse.text();
+          throw new Error(`Process failed: ${processResponse.status}: ${errorText}`);
+        }
+        
+        const processResult = await processResponse.json();
+        console.log('Process result:', processResult);
+        const { objectPath } = processResult;
 
         uploadedUrls.push(objectPath);
       }
