@@ -45,6 +45,9 @@ i18n
     },
     backend: {
       loadPath: './locales/{{lng}}/{{ns}}.json',
+      requestOptions: {
+        cache: 'no-cache',
+      },
     },
     react: {
       useSuspense: false, // react-i18next suspense not currently needed 
