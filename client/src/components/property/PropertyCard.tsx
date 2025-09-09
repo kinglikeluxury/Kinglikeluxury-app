@@ -91,7 +91,7 @@ const PropertyCard = ({
         </div>
         {isFeatured && (
           <div className="absolute top-2 right-2">
-            <Badge className="bg-amber-500 hover:bg-amber-600">Featured</Badge>
+            <Badge className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white">Featured</Badge>
           </div>
         )}
       </div>
