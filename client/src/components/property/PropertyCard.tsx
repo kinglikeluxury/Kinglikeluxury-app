@@ -33,18 +33,8 @@ const PropertyCard = ({
   isFeatured = false,
 }: PropertyCardProps) => {
   const getPropertyTypeColor = () => {
-    switch (propertyType) {
-      case PROPERTY_TYPES.APARTMENT:
-        return "bg-primary-500";
-      case PROPERTY_TYPES.VILLA:
-        return "bg-secondary-500";
-      case PROPERTY_TYPES.LAND:
-        return "bg-amber-600";
-      case PROPERTY_TYPES.PROJECT:
-        return "bg-purple-500";
-      default:
-        return "bg-gray-500";
-    }
+    // Use consistent Kinglike blue color (#005476) for all property types
+    return "bg-[#005476] text-white";
   };
 
   const getPropertyTypeName = () => {

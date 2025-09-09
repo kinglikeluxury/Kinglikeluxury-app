@@ -114,13 +114,8 @@ const PropertyDetail = () => {
 
   const getPropertyTypeColor = (type?: string) => {
     if (!type) return "";
-    switch (type) {
-      case "apartment": return "bg-primary-500";
-      case "villa": return "bg-secondary-500";
-      case "land": return "bg-amber-600";
-      case "project": return "bg-purple-500";
-      default: return "bg-gray-500";
-    }
+    // Use consistent Kinglike blue color (#005476) for all property types
+    return "bg-[#005476] text-white";
   };
 
   // Load sample amenities icons
