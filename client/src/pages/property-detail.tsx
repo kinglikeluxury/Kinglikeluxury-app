@@ -597,7 +597,7 @@ const PropertyDetail = () => {
             </button>
           )}
 
-          {/* Image with slide animation */}
+          {/* Image with slide animation and click zones */}
           <div className="max-w-screen-lg max-h-screen w-full h-full flex items-center justify-center">
             <div className="relative w-full h-full flex items-center justify-center">
               <img
@@ -605,11 +605,34 @@ const PropertyDetail = () => {
                 src={property.images[modalImageIndex]}
                 alt={`${property.title} - Image ${modalImageIndex + 1}`}
                 className="max-w-full max-h-full object-contain rounded-lg transition-all duration-300 ease-in-out"
-                onClick={(e) => e.stopPropagation()}
                 style={{
                   animation: 'slideIn 0.3s ease-in-out'
                 }}
               />
+              
+              {/* Left click zone - for previous image */}
+              {modalImageIndex > 0 && (
+                <div
+                  className="absolute left-0 top-0 w-1/2 h-full cursor-pointer z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prevImage();
+                  }}
+                  style={{ background: 'transparent' }}
+                />
+              )}
+              
+              {/* Right click zone - for next image */}
+              {modalImageIndex < property.images.length - 1 && (
+                <div
+                  className="absolute right-0 top-0 w-1/2 h-full cursor-pointer z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextImage();
+                  }}
+                  style={{ background: 'transparent' }}
+                />
+              )}
             </div>
           </div>
 
