@@ -24,63 +24,86 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "" }
   const [isMapReady, setIsMapReady] = useState(false);
 
   useEffect(() => {
-    if (!mapRef.current) return;
-
-    // Initialize map centered on Batumi, Georgia
-    const map = L.map(mapRef.current).setView([41.6168, 41.6367], 13);
-
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    leafletMapRef.current = map;
-    setIsMapReady(true);
-
-    // Handle map clicks
-    map.on('click', async (e) => {
-      const { lat, lng } = e.latlng;
-      
-      // Remove existing marker
-      if (markerRef.current) {
-        markerRef.current.remove();
+    // Add a small delay to ensure the DOM element is fully rendered
+    const initializeMap = () => {
+      if (!mapRef.current) {
+        console.log('Map container not available yet');
+        return;
       }
-      
-      // Add new marker
-      const marker = L.marker([lat, lng]).addTo(map);
-      markerRef.current = marker;
-      
-      // Reverse geocoding to get address
+
       try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`
-        );
-        const data = await response.json();
+        console.log('Initializing map...');
         
-        let locationName = 'Selected Location';
-        if (data && data.display_name) {
-          // Extract a more readable location name
-          const parts = data.display_name.split(',');
-          if (parts.length >= 2) {
-            locationName = `${parts[0].trim()}, ${parts[1].trim()}`;
-          } else {
-            locationName = parts[0].trim();
+        // Initialize map centered on Batumi, Georgia
+        const map = L.map(mapRef.current).setView([41.6168, 41.6367], 13);
+
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        leafletMapRef.current = map;
+
+        // Handle map clicks
+        map.on('click', async (e) => {
+          const { lat, lng } = e.latlng;
+          
+          // Remove existing marker
+          if (markerRef.current) {
+            markerRef.current.remove();
           }
-        }
+          
+          // Add new marker
+          const marker = L.marker([lat, lng]).addTo(map);
+          markerRef.current = marker;
+          
+          // Reverse geocoding to get address
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`
+            );
+            const data = await response.json();
+            
+            let locationName = 'Selected Location';
+            if (data && data.display_name) {
+              // Extract a more readable location name
+              const parts = data.display_name.split(',');
+              if (parts.length >= 2) {
+                locationName = `${parts[0].trim()}, ${parts[1].trim()}`;
+              } else {
+                locationName = parts[0].trim();
+              }
+            }
+            
+            marker.bindPopup(locationName).openPopup();
+            onLocationSelect(locationName, { lat, lng });
+            
+          } catch (error) {
+            console.error('Error getting location name:', error);
+            const locationName = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+            marker.bindPopup(locationName).openPopup();
+            onLocationSelect(locationName, { lat, lng });
+          }
+        });
         
-        marker.bindPopup(locationName).openPopup();
-        onLocationSelect(locationName, { lat, lng });
-        
+        // Set map ready after a short delay to ensure tiles load
+        setTimeout(() => {
+          setIsMapReady(true);
+          console.log('Map initialized successfully');
+        }, 100);
       } catch (error) {
-        console.error('Error getting location name:', error);
-        const locationName = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
-        marker.bindPopup(locationName).openPopup();
-        onLocationSelect(locationName, { lat, lng });
+        console.error('Error initializing map:', error);
+        // Still set as ready to avoid infinite loading
+        setIsMapReady(true);
       }
-    });
+    };
+
+    // Use setTimeout to ensure DOM is ready
+    const timeoutId = setTimeout(initializeMap, 50);
 
     // Cleanup function
     return () => {
+      clearTimeout(timeoutId);
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
