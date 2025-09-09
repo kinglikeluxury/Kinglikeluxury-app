@@ -204,7 +204,9 @@ const PropertyDetail = () => {
                         controlsList="nodownload"
                         onContextMenu={(e) => e.preventDefault()}
                         className="w-full h-64 object-cover rounded-lg"
-                        preload="metadata"
+                        preload="auto"
+                        playsInline
+                        style={{ objectFit: 'cover' }}
                       >
                         <source src={video} type="video/mp4" />
                         Your browser does not support the video tag.
