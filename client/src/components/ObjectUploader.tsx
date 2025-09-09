@@ -74,6 +74,8 @@ export function ObjectUploader({
       setSelectedFiles([]);
     } catch (error) {
       console.error('Upload error:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      alert(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
