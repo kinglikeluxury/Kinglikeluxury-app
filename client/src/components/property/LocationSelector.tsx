@@ -37,9 +37,10 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "" }
         // Initialize map centered on Batumi, Georgia  
         const map = L.map(mapRef.current).setView([41.6168, 41.6367], 13);
 
-        // Add tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
+        // Add tile layer - Google Maps style
+        L.tileLayer('https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}', {
+          attribution: '© Google Maps',
+          maxZoom: 20
         }).addTo(map);
 
         // Store map reference
