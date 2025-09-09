@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X } from "lucide-react";
+import PropertyMap from "@/components/property/PropertyMap";
 
 const PropertyDetail = () => {
   const { t } = useTranslation();
@@ -459,6 +460,12 @@ const PropertyDetail = () => {
                 
                 <div className="mt-6">
                   <h3 className="text-lg font-semibold mb-3">Location</h3>
+                  <PropertyMap 
+                    latitude={property.latitude} 
+                    longitude={property.longitude}
+                    location={property.location}
+                    className="mb-4"
+                  />
                   <div className="bg-gray-100 rounded-lg p-4 text-center text-gray-600">
                     <MapPin className="h-8 w-8 mx-auto mb-2" />
                     <p className="text-lg font-medium">{property.location}</p>

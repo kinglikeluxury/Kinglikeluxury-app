@@ -103,6 +103,8 @@ export const properties = pgTable("properties", {
   description: text("description").notNull(),
   price: integer("price").notNull(),
   location: text("location").notNull(),
+  latitude: text("latitude"), // Store latitude as text for precision
+  longitude: text("longitude"), // Store longitude as text for precision
   area: integer("area").notNull(), // in sq ft
   bedrooms: integer("bedrooms"), // nullable for land
   bathrooms: integer("bathrooms"), // nullable for land
