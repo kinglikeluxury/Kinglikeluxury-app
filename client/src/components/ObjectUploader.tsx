@@ -49,6 +49,10 @@ export function ObjectUploader({
         console.log('URL Response:', urlResponse);
         const { uploadURL } = urlResponse as unknown as { uploadURL: string };
         console.log('Upload URL:', uploadURL);
+        
+        if (!uploadURL) {
+          throw new Error('No upload URL received from server');
+        }
 
         // Upload file directly to storage using PUT
         const uploadResponse = await fetch(uploadURL, {
@@ -64,8 +68,10 @@ export function ObjectUploader({
         }
 
         // Process the uploaded file on server
-        const cleanURL = uploadURL ? uploadURL.split('?')[0] : uploadURL;
-        console.log('Clean URL:', cleanURL);
+        const cleanURL = uploadURL.split('?')[0]; // Remove query parameters
+        console.log('Clean URL for processing:', cleanURL);
+        console.log('Sending to process endpoint:', { [`${type}URL`]: cleanURL });
+        
         const processResponse = await apiRequest('POST', `/api/${type}s/process`, {
           [`${type}URL`]: cleanURL
         });
