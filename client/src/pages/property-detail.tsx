@@ -100,6 +100,52 @@ const PropertyDetail = () => {
     }).format(price);
   };
 
+  const getPriceRange = (price?: number) => {
+    if (!price) return "";
+    
+    // Convert stored price value back to the range format used in the form
+    const priceRanges: { [key: number]: string } = {
+      25000: "$0 - $25,000",
+      50000: "$25,000 - $50,000", 
+      75000: "$50,000 - $75,000",
+      100000: "$75,000 - $100,000",
+      125000: "$100,000 - $125,000",
+      150000: "$125,000 - $150,000",
+      175000: "$150,000 - $175,000",
+      200000: "$175,000 - $200,000",
+      225000: "$200,000 - $225,000",
+      250000: "$225,000 - $250,000",
+      275000: "$250,000 - $275,000",
+      300000: "$275,000 - $300,000",
+      325000: "$300,000 - $325,000",
+      350000: "$325,000 - $350,000",
+      375000: "$350,000 - $375,000",
+      400000: "$375,000 - $400,000",
+      425000: "$400,000 - $425,000",
+      450000: "$425,000 - $450,000",
+      475000: "$450,000 - $475,000",
+      500000: "$475,000 - $500,000",
+      600000: "$500,000 - $600,000",
+      700000: "$600,000 - $700,000",
+      800000: "$700,000 - $800,000",
+      900000: "$800,000 - $900,000",
+      1000000: "$900,000 - $1,000,000",
+      1100000: "$1,000,000 - $1,100,000",
+      1200000: "$1,100,000 - $1,200,000",
+      1300000: "$1,200,000 - $1,300,000",
+      1400000: "$1,300,000 - $1,400,000",
+      1500000: "$1,400,000 - $1,500,000",
+      1600000: "$1,500,000 - $1,600,000",
+      1700000: "$1,600,000 - $1,700,000",
+      1800000: "$1,700,000 - $1,800,000",
+      1900000: "$1,800,000 - $1,900,000",
+      2000000: "$1,900,000 - $2,000,000"
+    };
+    
+    // Return the range if found, otherwise fall back to single price format
+    return priceRanges[price] || formatPrice(price);
+  };
+
   const getPropertyTypeName = (type?: string) => {
     if (!type) return "";
     switch (type) {
@@ -193,7 +239,7 @@ const PropertyDetail = () => {
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-0">
-                  <span className="text-3xl font-bold text-primary-600">{formatPrice(property.price)}</span>
+                  <span className="text-3xl font-bold text-primary-600">{getPriceRange(property.price)}</span>
                 </div>
               </div>
               
@@ -391,7 +437,7 @@ const PropertyDetail = () => {
                     <div className="space-y-4">
                       <div className="flex justify-between">
                         <span className="text-gray-500">Price between:</span>
-                        <span className="font-medium">{formatPrice(property.price)}</span>
+                        <span className="font-medium">{getPriceRange(property.price)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Property Type:</span>
