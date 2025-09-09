@@ -46,26 +46,28 @@ export function ObjectUploader({
       for (const file of selectedFiles) {
         // Get upload URL from server
         const urlResponse = await apiRequest('POST', `/api/${type}s/upload`);
-        const { uploadURL } = (urlResponse as any).uploadURL ? urlResponse as { uploadURL: string } : { uploadURL: (urlResponse as any) };
+        const { uploadURL } = urlResponse as unknown as { uploadURL: string };
 
-        // Extract fileId from URL
-        const fileId = uploadURL.split('/').pop();
-
-        // Upload file using FormData
-        const formData = new FormData();
-        formData.append('file', file);
-
+        // Upload file directly to storage using PUT
         const uploadResponse = await fetch(uploadURL, {
-          method: 'POST',
-          body: formData,
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
         });
 
         if (!uploadResponse.ok) {
           throw new Error(`Upload failed: ${uploadResponse.statusText}`);
         }
 
-        const { url } = await uploadResponse.json();
-        uploadedUrls.push(url);
+        // Process the uploaded file on server
+        const processResponse = await apiRequest('POST', `/api/${type}s/process`, {
+          [`${type}URL`]: uploadURL
+        });
+        const { objectPath } = processResponse as unknown as { objectPath: string };
+
+        uploadedUrls.push(objectPath);
       }
 
       onComplete?.(uploadedUrls);
