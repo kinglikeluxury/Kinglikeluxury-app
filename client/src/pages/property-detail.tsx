@@ -201,6 +201,8 @@ const PropertyDetail = () => {
                     <div key={idx} className="rounded-lg overflow-hidden">
                       <video 
                         controls 
+                        controlsList="nodownload"
+                        onContextMenu={(e) => e.preventDefault()}
                         className="w-full h-64 object-cover rounded-lg"
                         preload="metadata"
                       >
