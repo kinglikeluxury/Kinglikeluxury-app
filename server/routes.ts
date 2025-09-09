@@ -571,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error serving object:", error);
       // Instead of returning JSON error, redirect to placeholder image for property cards
       if (error.name === 'ObjectNotFoundError') {
@@ -640,65 +640,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // File upload handlers supporting all media types
-  app.post("/api/files/upload/photo/:fileId", isAuthenticated, upload.single('file'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-      
-      const { fileId } = req.params;
-      const publicUrl = await fileStorage.saveFile("photo", fileId, req.file.buffer, req.file.originalname);
-      
-      res.json({ success: true, url: publicUrl });
-    } catch (error) {
-      console.error("Error uploading photo:", error);
-      res.status(500).json({ error: "Failed to upload file" });
-    }
-  });
 
-  app.post("/api/files/upload/video/:fileId", isAuthenticated, upload.single('file'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-      
-      const { fileId } = req.params;
-      const publicUrl = await fileStorage.saveFile("video", fileId, req.file.buffer, req.file.originalname);
-      
-      res.json({ success: true, url: publicUrl });
-    } catch (error) {
-      console.error("Error uploading video:", error);
-      res.status(500).json({ error: "Failed to upload file" });
-    }
-  });
 
-  // Audio upload handler for MP3 and other audio formats
-  app.post("/api/files/upload/audio/:fileId", isAuthenticated, upload.single('file'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-      
-      const { fileId } = req.params;
-      const publicUrl = await fileStorage.saveFile("audio", fileId, req.file.buffer, req.file.originalname);
-      
-      res.json({ success: true, url: publicUrl });
-    } catch (error) {
-      console.error("Error uploading audio:", error);
-      res.status(500).json({ error: "Failed to upload file" });
-    }
-  });
 
-  // Legacy route for object serving
-  app.get("/objects/:objectPath(*)", async (req, res) => {
-    const filePath = req.params.objectPath;
-    const exists = await fileStorage.fileExists(`/uploads/${filePath}`);
-    if (!exists) {
-      return res.status(404).json({ error: "File not found" });
-    }
-    res.redirect(`/uploads/${filePath}`);
-  });
 
   // Serve public objects - temporarily disabled until object storage is fixed
   app.get("/public-objects/:filePath(*)", async (req, res) => {
