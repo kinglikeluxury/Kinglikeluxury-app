@@ -360,7 +360,7 @@ const PropertyDetail = () => {
                               <Tag className="h-5 w-5 text-gray-400 mt-0.5" />
                               <div>
                                 <p className="font-medium">Project Status</p>
-                                <p className="text-gray-600">{project.projectStatus}</p>
+                                <p className="text-gray-600">Under Construction</p>
                               </div>
                             </div>
                           </div>
