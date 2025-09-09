@@ -40,7 +40,7 @@ export function PhotoUploader({
     try {
       const uploadedPhotos = [];
       
-      for (const file of result.successful) {
+      for (const file of result.successful || []) {
         // Process uploaded photo (add watermark and set ACL)
         const response = await fetch("/api/photos/process", {
           method: "POST",
@@ -94,7 +94,6 @@ export function PhotoUploader({
             <ObjectUploader
               maxNumberOfFiles={Math.min(remainingSlots, 10)} // Allow batch upload up to 10 at once
               maxFileSize={50 * 1024 * 1024} // 50MB per image
-              allowedFileTypes={["image/*"]}
               onGetUploadParameters={handleGetUploadParameters}
               onComplete={handleUploadComplete}
               buttonClassName="w-full"

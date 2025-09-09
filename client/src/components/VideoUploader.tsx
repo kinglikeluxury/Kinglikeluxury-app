@@ -18,7 +18,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
     const convertedVideos = initialVideos.map(video => {
       if (video.includes('storage.googleapis.com') && video.includes('.private/uploads/')) {
         const urlParts = video.split('/');
-        const bucketIndex = urlParts.findIndex(part => part.includes('objstore'));
+        const bucketIndex = urlParts.findIndex((part: string) => part.includes('objstore'));
         if (bucketIndex !== -1 && urlParts[bucketIndex + 1]) {
           const objectPath = `/objects/${urlParts.slice(bucketIndex + 1).join('/').split('?')[0]}`;
           return objectPath;
@@ -60,7 +60,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
         
         // Convert upload URL to object path for serving
         const urlParts = uploadURL.split('/');
-        const bucketIndex = urlParts.findIndex(part => part.includes('objstore'));
+        const bucketIndex = urlParts.findIndex((part: string) => part.includes('objstore'));
         if (bucketIndex !== -1 && urlParts[bucketIndex + 1]) {
           const objectPath = `/objects/${urlParts.slice(bucketIndex + 1).join('/').split('?')[0]}`;
           uploadedVideos.push(objectPath);
