@@ -470,7 +470,7 @@ const PropertyDetail = () => {
                     <h3 className="text-lg font-semibold mb-4">Property Overview</h3>
                     <div className="space-y-4">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Price:</span>
+                        <span className="text-gray-500">Price between:</span>
                         <span className="font-medium">{formatPrice(property.price)}</span>
                       </div>
                       <div className="flex justify-between">
