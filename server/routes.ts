@@ -546,8 +546,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "photoURL is required" });
       }
 
-      // Get authenticated user ID
-      const userId = req.user?.claims?.sub || req.user?.id || '1';
+      // Get authenticated user ID from session
+      const userId = req.session.userId || 1;
 
       const objectStorageService = new ObjectStorageService();
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
@@ -608,8 +608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Audio upload routes - supports unlimited duration MP3, MP4 audio, etc.
   app.post("/api/audios/upload", isAuthenticated, async (req, res) => {
     try {
-      const { uploadUrl, fileId } = fileStorage.generateUploadUrl("audio");
-      res.json({ uploadURL: uploadUrl, fileId });
+      const objectStorageService = new ObjectStorageService();
+      const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL: uploadUrl });
     } catch (error) {
       console.error("Error getting audio upload URL:", error);
       res.status(500).json({ error: "Failed to get upload URL" });
