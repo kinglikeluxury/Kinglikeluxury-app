@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import LocationSelector from "@/components/property/LocationSelector";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List, MapPin } from "lucide-react";
@@ -937,12 +938,17 @@ const PropertyForm = () => {
                       </div>
 
                       <div className="h-[500px] rounded-2xl overflow-hidden border-4 border-white/30 shadow-inner bg-white/10 backdrop-blur-sm transform transition-all duration-500 hover:scale-[1.005] hover:shadow-3xl">
-                        <div className="h-full w-full rounded-xl bg-gray-100 flex items-center justify-center">
-                          <div className="text-center text-gray-600">
-                            <MapPin className="h-8 w-8 mx-auto mb-2" />
-                            <p className="font-medium">Location: {formData.location || "Not selected"}</p>
-                          </div>
-                        </div>
+                        <LocationSelector
+                          onLocationSelect={(location, coordinates) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              location: location,
+                              coordinates: coordinates
+                            }));
+                          }}
+                          selectedLocation={formData.location}
+                          className="h-full w-full rounded-xl"
+                        />
                       </div>
                       
                       {/* Map Controls Info */}
