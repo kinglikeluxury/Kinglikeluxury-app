@@ -274,153 +274,151 @@ const PropertyDetail = () => {
             )}
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
-                <Tabs defaultValue="details">
-                  <TabsList className="mb-6">
-                    <TabsTrigger value="details">Details</TabsTrigger>
-                    <TabsTrigger value="features">Features</TabsTrigger>
-                    <TabsTrigger value="score">
-                      <BarChart3 className="h-4 w-4 mr-1" />
-                      {t('score.propertyScore')}
-                    </TabsTrigger>
-                    {property.propertyType === 'project' && (
-                      <TabsTrigger value="project">Project Info</TabsTrigger>
-                    )}
-                  </TabsList>
+              <div className="lg:col-span-2 space-y-8">
+                {/* Details Section */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4">Description</h3>
+                    <p className="text-gray-700 whitespace-pre-line">{property.description}</p>
+                  </div>
                   
-                  <TabsContent value="details" className="space-y-6">
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">Description</h3>
-                      <p className="text-gray-700 whitespace-pre-line">{property.description}</p>
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4">Property Details</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-500 text-sm">Property ID</span>
+                        <span className="font-medium">{property.id}</span>
+                      </div>
+                      <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-500 text-sm">Property Type</span>
+                        <span className="font-medium">{getPropertyTypeName(property.propertyType)}</span>
+                      </div>
+                      <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-500 text-sm">Area</span>
+                        <span className="font-medium">{property.area} sqft</span>
+                      </div>
+                      {property.bedrooms !== null && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">Bedrooms</span>
+                          <span className="font-medium">{property.bedrooms}</span>
+                        </div>
+                      )}
+                      {property.bathrooms !== null && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">Bathrooms</span>
+                          <span className="font-medium">{property.bathrooms}</span>
+                        </div>
+                      )}
                     </div>
-                    
-                    <Separator />
-                    
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">Property Details</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">Property ID</span>
-                          <span className="font-medium">{property.id}</span>
-                        </div>
-                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">Property Type</span>
-                          <span className="font-medium">{getPropertyTypeName(property.propertyType)}</span>
-                        </div>
-                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">Area</span>
-                          <span className="font-medium">{property.area} sqft</span>
-                        </div>
-                        {property.bedrooms !== null && (
-                          <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                            <span className="text-gray-500 text-sm">Bedrooms</span>
-                            <span className="font-medium">{property.bedrooms}</span>
-                          </div>
-                        )}
-                        {property.bathrooms !== null && (
-                          <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                            <span className="text-gray-500 text-sm">Bathrooms</span>
-                            <span className="font-medium">{property.bathrooms}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="features">
-                    <h3 className="text-xl font-semibold mb-4">Features & Amenities</h3>
-                    {property.features.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {property.features.map((feature, idx) => (
-                          <div key={idx} className="flex items-center">
-                            {getFeatureIcon(feature)}
-                            <span>{feature}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500">No features listed for this property.</p>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="score">
-                    <div className="space-y-6">
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                        <div>
-                          <h3 className="text-xl font-semibold mb-2">{t('score.propertyScore')}</h3>
-                          <p className="text-gray-600">{t('score.overallScoreDetails')}</p>
-                        </div>
-                        <div className="mt-4 md:mt-0">
-                          <PropertyScoreBadge 
-                            score={property.overallScore || 0}
-                            size="large"
-                            showLabel={true}
-                          />
-                        </div>
-                      </div>
+                  </div>
+                </div>
 
-                      <Separator />
+                <Separator />
+
+                {/* Features Section */}
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Features & Amenities</h3>
+                  {property.features.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {property.features.map((feature, idx) => (
+                        <div key={idx} className="flex items-center">
+                          {getFeatureIcon(feature)}
+                          <span>{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No features listed for this property.</p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Property Score Section */}
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2 flex items-center">
+                        <BarChart3 className="h-5 w-5 mr-2" />
+                        {t('score.propertyScore')}
+                      </h3>
+                      <p className="text-gray-600">{t('score.overallScoreDetails')}</p>
+                    </div>
+                    <div className="mt-4 md:mt-0">
+                      <PropertyScoreBadge 
+                        score={property.overallScore || 0}
+                        size="large"
+                        showLabel={true}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <PropertyScoreChart
+                        scores={{
+                          location: property.locationScore || 0,
+                          value: property.valueScore || 0,
+                          amenities: property.amenitiesScore || 0,
+                          condition: property.conditionScore || 0,
+                          investment: property.investmentScore || 0
+                        }}
+                        size={300}
+                      />
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <h4 className="font-medium">{t('score.location')}</h4>
+                          <PropertyScoreBadge score={property.locationScore || 0} />
+                        </div>
+                        <p className="text-sm text-gray-600">{t('score.locationDetails')}</p>
+                      </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                          <PropertyScoreChart
-                            scores={{
-                              location: property.locationScore || 0,
-                              value: property.valueScore || 0,
-                              amenities: property.amenitiesScore || 0,
-                              condition: property.conditionScore || 0,
-                              investment: property.investmentScore || 0
-                            }}
-                            size={300}
-                          />
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <h4 className="font-medium">{t('score.value')}</h4>
+                          <PropertyScoreBadge score={property.valueScore || 0} />
                         </div>
-                        <div className="space-y-4">
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <h4 className="font-medium">{t('score.location')}</h4>
-                              <PropertyScoreBadge score={property.locationScore || 0} />
-                            </div>
-                            <p className="text-sm text-gray-600">{t('score.locationDetails')}</p>
-                          </div>
-                          
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <h4 className="font-medium">{t('score.value')}</h4>
-                              <PropertyScoreBadge score={property.valueScore || 0} />
-                            </div>
-                            <p className="text-sm text-gray-600">{t('score.valueDetails')}</p>
-                          </div>
-                          
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <h4 className="font-medium">{t('score.amenities')}</h4>
-                              <PropertyScoreBadge score={property.amenitiesScore || 0} />
-                            </div>
-                            <p className="text-sm text-gray-600">{t('score.amenitiesDetails')}</p>
-                          </div>
-                          
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <h4 className="font-medium">{t('score.condition')}</h4>
-                              <PropertyScoreBadge score={property.conditionScore || 0} />
-                            </div>
-                            <p className="text-sm text-gray-600">{t('score.conditionDetails')}</p>
-                          </div>
-                          
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <h4 className="font-medium">{t('score.investment')}</h4>
-                              <PropertyScoreBadge score={property.investmentScore || 0} />
-                            </div>
-                            <p className="text-sm text-gray-600">{t('score.investmentDetails')}</p>
-                          </div>
+                        <p className="text-sm text-gray-600">{t('score.valueDetails')}</p>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <h4 className="font-medium">{t('score.amenities')}</h4>
+                          <PropertyScoreBadge score={property.amenitiesScore || 0} />
                         </div>
+                        <p className="text-sm text-gray-600">{t('score.amenitiesDetails')}</p>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <h4 className="font-medium">{t('score.condition')}</h4>
+                          <PropertyScoreBadge score={property.conditionScore || 0} />
+                        </div>
+                        <p className="text-sm text-gray-600">{t('score.conditionDetails')}</p>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <h4 className="font-medium">{t('score.investment')}</h4>
+                          <PropertyScoreBadge score={property.investmentScore || 0} />
+                        </div>
+                        <p className="text-sm text-gray-600">{t('score.investmentDetails')}</p>
                       </div>
                     </div>
-                  </TabsContent>
-                  
-                  {property.propertyType === 'project' && (
-                    <TabsContent value="project">
+                  </div>
+                </div>
+
+                {/* Project Information Section */}
+                {property.propertyType === 'project' && (
+                  <>
+                    <Separator />
+                    <div>
                       <h3 className="text-xl font-semibold mb-4">Project Information</h3>
                       {project ? (
                         <div className="space-y-6">
@@ -461,9 +459,9 @@ const PropertyDetail = () => {
                       ) : (
                         <p className="text-gray-500">Project information not available.</p>
                       )}
-                    </TabsContent>
-                  )}
-                </Tabs>
+                    </div>
+                  </>
+                )}
               </div>
               
               <div>
