@@ -573,6 +573,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
       console.error("Error serving object:", error);
+      // Instead of returning JSON error, redirect to placeholder image for property cards
+      if (error.name === 'ObjectNotFoundError') {
+        return res.redirect('https://via.placeholder.com/800x600?text=Image+Not+Found');
+      }
       return res.status(404).json({ error: "Object not found" });
     }
   });
