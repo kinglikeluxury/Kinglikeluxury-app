@@ -88,12 +88,12 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "" }
     };
   }, [onLocationSelect]);
 
-  if (!isMapReady || !selectedLocation) {
+  if (!isMapReady) {
     return (
       <div className={`w-full h-[400px] rounded-lg border flex items-center justify-center bg-gray-50 ${className}`}>
         <div className="text-center text-gray-600">
           <MapPin className="h-8 w-8 mx-auto mb-2" />
-          <p className="font-medium">Click on the map to select a location</p>
+          <p className="font-medium">Loading map...</p>
           <p className="text-sm">Location: {selectedLocation || "Not selected"}</p>
         </div>
       </div>
