@@ -88,7 +88,6 @@ const PropertyForm = () => {
   const [newAmenity, setNewAmenity] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useMapSelection, setUseMapSelection] = useState(false);
-  const [useCityMapSelection, setUseCityMapSelection] = useState(false);
 
   // Load existing property data when in edit mode
   useEffect(() => {
@@ -651,196 +650,92 @@ const PropertyForm = () => {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="mb-2">
                     <Label htmlFor="city">City *</Label>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => setUseCityMapSelection(false)}
-                        className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                          !useCityMapSelection 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
-                      >
-                        📋 List View
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setUseCityMapSelection(true)}
-                        className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                          useCityMapSelection 
-                            ? 'bg-emerald-500 text-white' 
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
-                      >
-                        🌍 3D Map View
-                      </button>
-                    </div>
                   </div>
 
-                  {useCityMapSelection ? (
-                    <div className="space-y-4">
-                      {/* Enhanced City Map Header */}
-                      <div className="text-center bg-gradient-to-r from-purple-50 to-pink-50 p-3 rounded-lg border border-purple-100">
-                        <h4 className="text-sm font-semibold text-purple-900 mb-1">🌍 Global City Selector</h4>
-                        <p className="text-xs text-purple-700">Click on Georgia or UAE regions to select cities</p>
-                      </div>
-
-                      {/* Premium City Map Container */}
-                      <div className="relative bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-900 p-4 rounded-xl shadow-xl">
-                        <div className="absolute top-4 left-4 z-[1000] bg-gradient-to-r from-pink-500 to-purple-600 text-white px-3 py-2 rounded-full text-xs font-bold shadow-lg animate-pulse">
-                          ✨ Global 3D View ✨
-                        </div>
-
-                        <div className="h-[300px] rounded-xl overflow-hidden border-4 border-white/30 shadow-inner bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                          <div className="text-center text-white">
-                            <MapPin className="h-12 w-12 mx-auto mb-4" />
-                            <p className="text-lg font-medium">Location Selector</p>
-                            <p className="text-sm opacity-80">Manual location input available</p>
-                          </div>
-                        </div>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white">
+                    <div className="text-sm text-gray-600 mb-2">Select cities:</div>
+                    <div className="space-y-2">
+                      {[
+                        { value: 'batumi', label: '🇬🇪 Batumi, Georgia' },
+                        { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
+                        { value: 'dubai', label: '🇦🇪 Dubai, UAE' }
+                      ].filter((cityOption) => {
+                        // Hide Dubai if any Georgian city is selected
+                        const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
+                        const hasGeorgianCity = currentCities.some(city => city === 'batumi' || city === 'tbilisi');
                         
-                        {/* City Map Controls Info */}
-                        <div className="absolute bottom-4 left-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-white/50">
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-purple-600 font-medium">🖱️ Click regions</span>
-                              <span className="text-pink-600 font-medium">🔄 Zoom</span>
-                            </div>
-                            <div className="text-gray-500 font-medium">Global View</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* City Selection Confirmation */}
-                      {formData.city && (
-                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-3 shadow-lg">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              🏙️
-                            </div>
-                            <p className="text-sm text-purple-800 font-bold">
-                              {(formData.city.split(',').length)} Cit{formData.city.split(',').length > 1 ? 'ies' : 'y'} Selected
-                            </p>
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-1">
-                            {formData.city.split(',').map((city, index) => {
-                              const cityName = city === 'batumi' ? 'Batumi, Georgia' : 
-                                              city === 'tbilisi' ? 'Tbilisi, Georgia' : 
-                                              city === 'dubai' ? 'Dubai, UAE' : city;
-                              return (
-                                <div key={index} className="bg-white/70 rounded px-2 py-1 flex items-center space-x-1">
-                                  <span className="text-xs text-purple-800 font-medium">{cityName}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const currentCities = formData.city.split(',');
-                                      const newCities = currentCities.filter((_, i) => i !== index);
-                                      
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        city: newCities.join(','),
-                                        location: '',
-                                        coordinates: { lat: 0, lng: 0 }
-                                      }));
-                                    }}
-                                    className="text-red-500 hover:text-red-700 text-xs"
-                                  >
-                                    ❌
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="border border-gray-300 rounded-md p-3 bg-white">
-                      <div className="text-sm text-gray-600 mb-2">Select cities:</div>
-                      <div className="space-y-2">
-                        {[
-                          { value: 'batumi', label: '🇬🇪 Batumi, Georgia' },
-                          { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
-                          { value: 'dubai', label: '🇦🇪 Dubai, UAE' }
-                        ].filter((cityOption) => {
-                          // Hide Dubai if any Georgian city is selected
-                          const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                          const hasGeorgianCity = currentCities.some(city => city === 'batumi' || city === 'tbilisi');
-                          
-                          if (cityOption.value === 'dubai' && hasGeorgianCity) {
-                            return false; // Hide Dubai option
-                          }
-                          
-                          // Hide Georgian cities if Dubai is selected
-                          const hasDubai = currentCities.includes('dubai');
-                          if ((cityOption.value === 'batumi' || cityOption.value === 'tbilisi') && hasDubai) {
-                            return false; // Hide Georgian options
-                          }
-                          
-                          return true; // Show the option
-                        }).map((cityOption) => {
-                          const isSelected = Array.isArray(formData.city) 
-                            ? formData.city.includes(cityOption.value)
-                            : formData.city ? formData.city.split(',').includes(cityOption.value) : false;
-                          
-                          return (
-                            <label key={cityOption.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                  let newCities;
-                                  
-                                  if (e.target.checked) {
-                                    // If selecting a Georgian city, remove Dubai
-                                    if (cityOption.value === 'batumi' || cityOption.value === 'tbilisi') {
-                                      newCities = [...currentCities.filter(c => c !== 'dubai'), cityOption.value];
-                                    }
-                                    // If selecting Dubai, remove Georgian cities
-                                    else if (cityOption.value === 'dubai') {
-                                      newCities = [...currentCities.filter(c => c !== 'batumi' && c !== 'tbilisi'), cityOption.value];
-                                    }
-                                    // For other cities (future expansion)
-                                    else {
-                                      newCities = [...currentCities, cityOption.value];
-                                    }
-                                  } else {
-                                    newCities = currentCities.filter(c => c !== cityOption.value);
+                        if (cityOption.value === 'dubai' && hasGeorgianCity) {
+                          return false; // Hide Dubai option
+                        }
+                        
+                        // Hide Georgian cities if Dubai is selected
+                        const hasDubai = currentCities.includes('dubai');
+                        if ((cityOption.value === 'batumi' || cityOption.value === 'tbilisi') && hasDubai) {
+                          return false; // Hide Georgian options
+                        }
+                        
+                        return true; // Show the option
+                      }).map((cityOption) => {
+                        const isSelected = Array.isArray(formData.city) 
+                          ? formData.city.includes(cityOption.value)
+                          : formData.city ? formData.city.split(',').includes(cityOption.value) : false;
+                        
+                        return (
+                          <label key={cityOption.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
+                                let newCities;
+                                
+                                if (e.target.checked) {
+                                  // If selecting a Georgian city, remove Dubai
+                                  if (cityOption.value === 'batumi' || cityOption.value === 'tbilisi') {
+                                    newCities = [...currentCities.filter(c => c !== 'dubai'), cityOption.value];
                                   }
-                                  
-                                  handleInputChange('city', newCities.join(','));
-                                  setUseMapSelection(false); // Reset location map when city changes
-                                }}
-                                className="rounded border-gray-300"
-                              />
-                              <span className="text-sm font-medium">{cityOption.label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      {formData.city && (formData.city.includes(',') || formData.city.length > 0) && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
-                          <div className="flex flex-wrap gap-1">
-                            {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
-                              const cityName = cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : 
-                                              cityValue === 'tbilisi' ? '🇬🇪 Tbilisi, Georgia' : 
-                                              cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' : cityValue;
-                              return (
-                                <Badge key={cityValue} variant="secondary" className="text-xs">
-                                  {cityName}
-                                </Badge>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                                  // If selecting Dubai, remove Georgian cities
+                                  else if (cityOption.value === 'dubai') {
+                                    newCities = [...currentCities.filter(c => c !== 'batumi' && c !== 'tbilisi'), cityOption.value];
+                                  }
+                                  // For other cities (future expansion)
+                                  else {
+                                    newCities = [...currentCities, cityOption.value];
+                                  }
+                                } else {
+                                  newCities = currentCities.filter(c => c !== cityOption.value);
+                                }
+                                
+                                handleInputChange('city', newCities.join(','));
+                                setUseMapSelection(false); // Reset location map when city changes
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm font-medium">{cityOption.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
-                  )}
+                    {formData.city && (formData.city.includes(',') || formData.city.length > 0) && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
+                            const cityName = cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : 
+                                            cityValue === 'tbilisi' ? '🇬🇪 Tbilisi, Georgia' : 
+                                            cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' : cityValue;
+                            return (
+                              <Badge key={cityValue} variant="secondary" className="text-xs">
+                                {cityName}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
