@@ -46,7 +46,7 @@ const PropertyCard = ({
       case PROPERTY_TYPES.LAND:
         return "Land";
       case PROPERTY_TYPES.PROJECT:
-        return "Project";
+        return "New off-plan project";
       default:
         return propertyType;
     }
