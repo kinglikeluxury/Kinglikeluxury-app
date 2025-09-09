@@ -54,7 +54,7 @@ const PropertyCard = ({
 
   const getStatusBadge = () => {
     if (status === PROPERTY_STATUS.PENDING) {
-      return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Pending Approval</Badge>;
+      return <Badge variant="outline" className="bg-[#3bcac4] text-white border-[#3bcac4]">Pending Approval</Badge>;
     }
     if (status === PROPERTY_STATUS.REJECTED) {
       return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Rejected</Badge>;
@@ -128,7 +128,7 @@ const PropertyCard = ({
         </div>
         
         <div className="mt-4 mt-auto">
-          <Button variant="secondary" className="w-full" asChild>
+          <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
             <Link href={`/property/${id}`}>
               <span className="flex items-center justify-center">
                 View Details

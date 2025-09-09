@@ -180,7 +180,7 @@ const PropertyDetail = () => {
                   <div className="flex items-center gap-3">
                     <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
                     {user && (user.id === property.ownerId || user.isAdmin) && (
-                      <Button variant="outline" size="sm" asChild>
+                      <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
                         <Link href={`/property/${property.id}/edit`}>
                           <Edit className="h-4 w-4 mr-1" />
                           Edit
@@ -204,7 +204,7 @@ const PropertyDetail = () => {
                 </Badge>
                 
                 {project && (
-                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                  <Badge variant="outline" className="bg-[#3bcac4] text-white border-[#3bcac4]">
                     {project.projectStatus}
                   </Badge>
                 )}
@@ -514,7 +514,7 @@ const PropertyDetail = () => {
                     <Separator className="my-4" />
                     
                     {/* Contact Agent Email */}
-                    <Button className="w-full" asChild>
+                    <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
                       <a href={`mailto:${property.agent?.email || 'info@kinglikeluxury.com'}?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
                         Contact Agent: {property.agent?.username || 'Agent'}
                       </a>
@@ -522,7 +522,7 @@ const PropertyDetail = () => {
                     
                     {/* Phone/WhatsApp Contact - Show only if agent has phone number */}
                     {(property.agent?.phoneNumber || property.agent?.whatsappNumber) && (
-                      <Button variant="outline" className="w-full mt-3">
+                      <Button variant="outline" className="w-full mt-3 border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white">
                         <a href={`tel:${property.agent?.phoneNumber || property.agent?.whatsappNumber}`}>
                           Call: {property.agent?.phoneNumber || property.agent?.whatsappNumber}
                         </a>
@@ -531,7 +531,7 @@ const PropertyDetail = () => {
                     
                     {/* WhatsApp button if WhatsApp number exists */}
                     {property.agent?.whatsappNumber && (
-                      <Button variant="outline" className="w-full mt-2">
+                      <Button variant="outline" className="w-full mt-2 border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white">
                         <a href={`https://wa.me/${property.agent.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer">
                           WhatsApp: {property.agent.whatsappNumber}
                         </a>
@@ -554,7 +554,7 @@ const PropertyDetail = () => {
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold mb-2">Property Not Found</h2>
             <p className="text-gray-500 mb-6">The property you're looking for doesn't exist or has been removed.</p>
-            <Button asChild>
+            <Button className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
               <Link href="/properties">Browse All Properties</Link>
             </Button>
           </div>
