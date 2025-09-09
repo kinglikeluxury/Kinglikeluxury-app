@@ -79,7 +79,9 @@ const PropertyForm = () => {
       developer: '',
       completionDate: '',
       projectStatus: 'Now Selling'
-    }
+    },
+    // Delivery date
+    deliveryDate: ''
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -1524,6 +1526,41 @@ const PropertyForm = () => {
                   💡 <strong>Tip:</strong> Include utilities, parking, or other costs in the description if they're separate from the base rent.
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Delivery Date Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Delivery Date</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="deliveryDate">Expected Delivery Date</Label>
+                <Select 
+                  value={formData.deliveryDate || ''} 
+                  onValueChange={(value) => handleInputChange('deliveryDate', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select delivery quarter..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64 overflow-y-auto">
+                    {/* Generate quarters for years 2024-2035 */}
+                    {Array.from({ length: 12 }, (_, yearIndex) => {
+                      const year = 2024 + yearIndex;
+                      return ['Q1', 'Q2', 'Q3', 'Q4'].map(quarter => (
+                        <SelectItem key={`${quarter} ${year}`} value={`${quarter} ${year}`}>
+                          {quarter} {year}
+                        </SelectItem>
+                      ));
+                    }).flat()}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                💡 <strong>Info:</strong> This represents the expected completion and delivery date for the property.
+              </div>
             </CardContent>
           </Card>
 
