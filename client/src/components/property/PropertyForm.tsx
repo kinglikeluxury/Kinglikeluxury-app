@@ -106,19 +106,13 @@ const PropertyForm = ({ isAdmin = false }) => {
   console.log('📄 Existing property:', existingProperty);
   console.log('👤 User:', user);
 
-  // Property type options based on user role
-  const propertyTypeOptions = isAdmin
-    ? [
-        { value: PROPERTY_TYPES.APARTMENT, label: "Apartment" },
-        { value: PROPERTY_TYPES.VILLA, label: "Villa" },
-        { value: PROPERTY_TYPES.LAND, label: "Land" },
-        { value: PROPERTY_TYPES.PROJECT, label: "Construction Project" },
-      ]
-    : [
-        { value: PROPERTY_TYPES.APARTMENT, label: "Apartment" },
-        { value: PROPERTY_TYPES.VILLA, label: "Villa" },
-        { value: PROPERTY_TYPES.LAND, label: "Land" },
-      ];
+  // Property type options - all users can now create off-plan properties
+  const propertyTypeOptions = [
+    { value: PROPERTY_TYPES.APARTMENT, label: "Apartment" },
+    { value: PROPERTY_TYPES.VILLA, label: "Villa" },
+    { value: PROPERTY_TYPES.LAND, label: "Land" },
+    { value: PROPERTY_TYPES.PROJECT, label: "Off-Plan Project" },
+  ];
 
   // Initialize the form
   const form = useForm<z.infer<typeof formSchema>>({
