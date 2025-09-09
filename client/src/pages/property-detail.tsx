@@ -434,7 +434,7 @@ const PropertyDetail = () => {
                     {/* Contact Agent Email */}
                     <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
                       <a href={`mailto:${property.agent?.email || 'info@kinglikeluxury.com'}?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
-                        Contact Agent: {property.agent?.username || 'Agent'}
+                        WhatsApp
                       </a>
                     </Button>
                     
