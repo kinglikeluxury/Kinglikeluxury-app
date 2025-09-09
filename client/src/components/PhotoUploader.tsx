@@ -20,51 +20,11 @@ export function PhotoUploader({
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleGetUploadParameters = async () => {
-    const response = await fetch("/api/photos/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    });
-    
-    if (!response.ok) {
-      throw new Error("Failed to get upload URL");
-    }
-    
-    const { uploadURL } = await response.json();
-    return { method: "PUT" as const, url: uploadURL };
-  };
 
-  const handleUploadComplete = async (result: UploadResult<any, any>) => {
-    setIsUploading(true);
-    try {
-      const uploadedPhotos = [];
-      
-      for (const file of result.successful || []) {
-        // Process uploaded photo (add watermark and set ACL)
-        const response = await fetch("/api/photos/process", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            photoURL: file.uploadURL,
-          }),
-        });
-        
-        if (response.ok) {
-          const { objectPath } = await response.json();
-          uploadedPhotos.push(objectPath);
-        }
-      }
-      
-      const newPhotos = [...photos, ...uploadedPhotos];
-      setPhotos(newPhotos);
-      onPhotosChange(newPhotos);
-    } catch (error) {
-      console.error("Error processing photos:", error);
-    } finally {
-      setIsUploading(false);
-    }
+  const handleUploadComplete = (fileUrls: string[]) => {
+    const newPhotos = [...photos, ...fileUrls];
+    setPhotos(newPhotos);
+    onPhotosChange(newPhotos);
   };
 
   const removePhoto = (index: number) => {
@@ -94,7 +54,8 @@ export function PhotoUploader({
             <ObjectUploader
               maxNumberOfFiles={Math.min(remainingSlots, 10)} // Allow batch upload up to 10 at once
               maxFileSize={50 * 1024 * 1024} // 50MB per image
-              onGetUploadParameters={handleGetUploadParameters}
+              allowedFileTypes={["image/*"]}
+              type="photo"
               onComplete={handleUploadComplete}
               buttonClassName="w-full"
             >
