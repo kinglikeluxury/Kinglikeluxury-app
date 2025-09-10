@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Video, X, Play, Upload, Loader2 } from "lucide-react";
 import { videoCompressor, CompressionProgress } from "@/lib/videoCompression";
 
@@ -15,6 +16,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
   const [videos, setVideos] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState<CompressionProgress | null>(null);
+  const [showPatientPopup, setShowPatientPopup] = useState(false);
 
   // Convert any storage URLs to object paths and update videos when initialVideos changes
   useEffect(() => {
@@ -31,6 +33,18 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
     });
     setVideos(convertedVideos);
   }, [initialVideos]);
+
+  // Show patient popup when compression starts and hide after 3 seconds
+  useEffect(() => {
+    if (compressionProgress?.phase === 'loading') {
+      setShowPatientPopup(true);
+      const timer = setTimeout(() => {
+        setShowPatientPopup(false);
+      }, 3000); // Hide after 3 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [compressionProgress?.phase]);
 
   const handleFileUpload = async (files: File[]) => {
     setIsUploading(true);
@@ -181,6 +195,23 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
               )}
             </div>
           )}
+
+          {/* Patient Popup */}
+          <AlertDialog open={showPatientPopup}>
+            <AlertDialogContent className="sm:max-w-md">
+              <div className="flex flex-col items-center text-center space-y-4 p-6">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                </div>
+                <AlertDialogTitle className="text-lg font-semibold text-gray-900">
+                  be patient ! your videos will be uploaded soon
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm text-gray-600">
+                  We're preparing your videos for optimal quality and fast loading
+                </AlertDialogDescription>
+              </div>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Video List */}
           {videos.length > 0 && (
