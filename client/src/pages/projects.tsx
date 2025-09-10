@@ -480,16 +480,16 @@ const Projects = () => {
         </Card>
 
         {/* Promotion Banner */}
-        <Card className="mb-6 bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200 cursor-pointer hover:shadow-lg transition-shadow duration-300" onClick={handlePromotionClick}>
+        <Card className="mb-6 bg-[#005476] border-[#005476] cursor-pointer hover:shadow-lg transition-shadow duration-300" onClick={handlePromotionClick}>
           <CardContent className="py-8 px-8">
             <div className="flex items-center justify-center space-x-6">
               <div className="flex items-center space-x-4">
                 <span className="text-3xl">🎉</span>
                 <div className="text-center">
-                  <p className="text-xl font-semibold text-gray-800 mb-2">
+                  <p className="text-xl font-semibold text-white mb-2">
                     Special Promotion: 2% Less Than Construction Company Prices!
                   </p>
-                  <p className="text-base text-gray-600 mb-1 underline">
+                  <p className="text-base text-white mb-1 underline">
                     Save more on your off-plan property investment with our exclusive pricing
                   </p>
                   <p className="text-sm text-[#3bcac4] font-medium">
