@@ -1,5 +1,5 @@
 import { eq, and, like, gte, lte, desc, or, isNull, sql } from "drizzle-orm";
-import { db } from "./db";
+import { db, withRetry } from "./db";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -37,19 +37,25 @@ export class DatabaseStorage implements IStorage {
 
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    return await withRetry(async () => {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user;
+    });
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+    return await withRetry(async () => {
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user;
+    });
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     if (!email) return undefined;
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    return await withRetry(async () => {
+      const [user] = await db.select().from(users).where(eq(users.email, email));
+      return user;
+    });
   }
 
   async getUserByField(field: string, value: string): Promise<User | undefined> {
@@ -82,8 +88,10 @@ export class DatabaseStorage implements IStorage {
       isVerified: userData.isVerified ?? false,
     };
     
-    const [user] = await db.insert(users).values(userDataWithDefaults).returning();
-    return user;
+    return await withRetry(async () => {
+      const [user] = await db.insert(users).values(userDataWithDefaults).returning();
+      return user;
+    });
   }
 
   // Property operations
@@ -97,46 +105,50 @@ export class DatabaseStorage implements IStorage {
     phoneNumber?: string;
     whatsappNumber?: string;
   }): Promise<Property[]> {
-    let query = db.select().from(properties);
-    
-    if (filters) {
-      const conditions = [];
+    return await withRetry(async () => {
+      let query = db.select().from(properties);
       
-      if (filters.type) {
-        conditions.push(eq(properties.propertyType, filters.type));
+      if (filters) {
+        const conditions = [];
+        
+        if (filters.type) {
+          conditions.push(eq(properties.propertyType, filters.type));
+        }
+        
+        if (filters.status) {
+          conditions.push(eq(properties.status, filters.status));
+        }
+        
+        if (filters.ownerId) {
+          conditions.push(eq(properties.ownerId, filters.ownerId));
+        }
+        
+        if (filters.location) {
+          conditions.push(like(properties.location, `%${filters.location}%`));
+        }
+        
+        if (filters.minPrice) {
+          conditions.push(gte(properties.price, filters.minPrice));
+        }
+        
+        if (filters.maxPrice) {
+          conditions.push(lte(properties.price, filters.maxPrice));
+        }
+        
+        if (conditions.length > 0) {
+          query = query.where(and(...conditions));
+        }
       }
       
-      if (filters.status) {
-        conditions.push(eq(properties.status, filters.status));
-      }
-      
-      if (filters.ownerId) {
-        conditions.push(eq(properties.ownerId, filters.ownerId));
-      }
-      
-      if (filters.location) {
-        conditions.push(like(properties.location, `%${filters.location}%`));
-      }
-      
-      if (filters.minPrice) {
-        conditions.push(gte(properties.price, filters.minPrice));
-      }
-      
-      if (filters.maxPrice) {
-        conditions.push(lte(properties.price, filters.maxPrice));
-      }
-      
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
-      }
-    }
-    
-    return await query.orderBy(desc(properties.createdAt));
+      return await query.orderBy(desc(properties.createdAt));
+    });
   }
 
   async getProperty(id: number): Promise<Property | undefined> {
-    const [property] = await db.select().from(properties).where(eq(properties.id, id));
-    return property;
+    return await withRetry(async () => {
+      const [property] = await db.select().from(properties).where(eq(properties.id, id));
+      return property;
+    });
   }
 
   async getPropertyWithAgent(id: number): Promise<(Property & { agent: any }) | undefined> {
@@ -188,8 +200,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPropertyById(id: number): Promise<Property | undefined> {
-    const [property] = await db.select().from(properties).where(eq(properties.id, id));
-    return property;
+    return await withRetry(async () => {
+      const [property] = await db.select().from(properties).where(eq(properties.id, id));
+      return property;
+    });
   }
 
   async getPropertiesByType(propertyType: string): Promise<Property[]> {
@@ -223,8 +237,10 @@ export class DatabaseStorage implements IStorage {
       listingExpiresAt,
     };
     
-    const [property] = await db.insert(properties).values(propertyToInsert).returning();
-    return property;
+    return await withRetry(async () => {
+      const [property] = await db.insert(properties).values(propertyToInsert).returning();
+      return property;
+    });
   }
 
   async updateProperty(id: number, propertyData: Partial<InsertProperty>): Promise<Property | undefined> {
