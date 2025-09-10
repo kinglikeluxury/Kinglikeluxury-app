@@ -489,7 +489,7 @@ const Projects = () => {
                 <span className="text-3xl">🎉</span>
                 <div className="text-center">
                   <p className="text-xl font-semibold text-white mb-2">
-                    Special promotion: Get a special discount for the property you purchase
+                    Special promotion : Choose your property & Get a special discount !
                   </p>
                   <p className="text-base text-white mb-1 underline">
                     Save more on your off-plan property investment with our exclusive pricing
