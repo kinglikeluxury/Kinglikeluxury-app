@@ -25,15 +25,21 @@ import {
   DollarSign,
   Eye,
   Heart,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ArrowRight,
+  User
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { Link } from "wouter";
 
 interface Project {
-  id: number;
+  id: number | string;
+  propertyId: number;
+  developer?: string;
+  completionDate?: string;
+  projectStatus?: string;
   title: string;
-  type: string;
-  purpose: string;
+  description: string;
   price: number;
   location: string;
   area: number;
@@ -41,12 +47,22 @@ interface Project {
   bathrooms?: number;
   features: string[];
   amenities: string[];
-  country: string;
-  city: string;
+  images: string[];
+  videos?: string[];
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
-  updatedAt: string;
-  userId: number;
+  property?: {
+    id: number;
+    title: string;
+    description: string;
+    price: number;
+    location: string;
+    area: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    images: string[];
+    status: 'pending' | 'approved' | 'rejected';
+  };
 }
 
 const Projects = () => {
@@ -532,7 +548,90 @@ const Projects = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Project cards will be displayed here */}
+            {filteredProjects.map((project) => {
+              // Get the actual property data - use property field if available, otherwise use project fields directly
+              const propertyData = project.property || project;
+              const projectImage = propertyData.images?.[0] || "https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+              
+              return (
+                <Card key={project.id} className="overflow-hidden flex flex-col">
+                  <div className="flex-shrink-0">
+                    <img 
+                      className="h-64 w-full object-cover" 
+                      src={projectImage}
+                      alt={propertyData.title}
+                      data-testid={`img-project-${project.id}`}
+                    />
+                  </div>
+                  <CardContent className="p-6 flex-1 flex flex-col justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center flex-wrap gap-2 mb-3">
+                        {project.projectStatus && (
+                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                            {project.projectStatus}
+                          </Badge>
+                        )}
+                        {project.completionDate && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                            Completion: {project.completionDate}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300">
+                          {getPriceRange(propertyData.price)}
+                        </Badge>
+                      </div>
+                      
+                      <Link href={`/property/${project.propertyId}`}>
+                        <a className="block" data-testid={`link-project-${project.id}`}>
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
+                            {propertyData.title}
+                          </h3>
+                          <p className="text-base text-gray-600 mb-4 line-clamp-2">
+                            {propertyData.description?.slice(0, 120)}...
+                          </p>
+                        </a>
+                      </Link>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center text-sm text-gray-500">
+                          <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                          {propertyData.location}
+                        </div>
+                        {project.developer && (
+                          <div className="flex items-center text-sm text-gray-500">
+                            <User className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                            Developer: {project.developer}
+                          </div>
+                        )}
+                        {propertyData.area && (
+                          <div className="flex items-center text-sm text-gray-500">
+                            <Home className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                            {propertyData.area} sqm
+                          </div>
+                        )}
+                        {propertyData.bedrooms && (
+                          <div className="flex items-center text-sm text-gray-500">
+                            <Building className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                            {propertyData.bedrooms} bed, {propertyData.bathrooms || 0} bath
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 pt-4 border-t border-gray-100">
+                      <Button asChild className="w-full" data-testid={`button-view-project-${project.id}`}>
+                        <Link href={`/property/${project.propertyId}`}>
+                          <span className="flex items-center justify-center">
+                            View Project Details
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </span>
+                        </Link>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
