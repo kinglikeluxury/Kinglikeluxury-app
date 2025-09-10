@@ -92,20 +92,34 @@ const PropertyDetail = () => {
     };
   }, [isImageModalOpen]);
 
-  // Auto-pause videos when user scrolls
+  // Auto-pause videos when they go out of view
   useEffect(() => {
-    const handleScroll = () => {
-      // Pause all videos when scrolling
-      videoRefs.current.forEach(video => {
-        if (video && !video.paused) {
-          video.pause();
-        }
-      });
-    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target as HTMLVideoElement;
+          if (!entry.isIntersecting && !video.paused) {
+            video.pause();
+          }
+        });
+      },
+      {
+        threshold: 0.5, // Pause when less than 50% of video is visible
+        rootMargin: '0px'
+      }
+    );
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    // Observe all videos
+    videoRefs.current.forEach(video => {
+      if (video) {
+        observer.observe(video);
+      }
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [property?.videos]);
 
   const formatPrice = (price?: number) => {
     if (!price) return "";
