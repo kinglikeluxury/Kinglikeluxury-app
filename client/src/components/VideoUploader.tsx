@@ -126,7 +126,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           Property Videos ({videos.length} uploaded)
         </CardTitle>
         <p className="text-sm text-gray-600">
-          Upload unlimited 4K videos with no size restrictions. Perfect for virtual tours and detailed property showcases.
+          Upload videos with automatic 1080p HD compression for optimal quality and fast loading. Perfect for virtual tours and detailed property showcases.
         </p>
       </CardHeader>
       <CardContent>
