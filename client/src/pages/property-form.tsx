@@ -615,29 +615,47 @@ const PropertyForm = () => {
                 <div>
                   <Label htmlFor="country">Country *</Label>
                   <div className="border border-gray-300 rounded-md p-3 bg-white">
-                    <div className="text-sm text-gray-600 mb-2">Select multiple countries:</div>
+                    <div className="text-sm text-gray-600 mb-2">Select a country:</div>
                     <div className="grid grid-cols-1 gap-2">
                       {[
                         { value: 'georgia', label: '🇬🇪 Georgia' },
                         { value: 'uae', label: '🇦🇪 United Arab Emirates' }
                       ].map((countryOption) => {
-                        const selectedCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
-                        const isSelected = selectedCountries.includes(countryOption.value);
+                        const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
+                        const isSelected = currentCountries.includes(countryOption.value);
+                        
+                        // Disable UAE if Georgia is selected, and vice versa
+                        const hasGeorgia = currentCountries.includes('georgia');
+                        const hasUAE = currentCountries.includes('uae');
+                        const isDisabled = (countryOption.value === 'uae' && hasGeorgia) || (countryOption.value === 'georgia' && hasUAE);
                         
                         return (
-                          <label key={countryOption.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                          <label key={countryOption.value} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                             <input
                               type="checkbox"
                               checked={isSelected}
+                              disabled={isDisabled}
                               onChange={(e) => {
-                                const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
-                                let newCountries;
                                 if (e.target.checked) {
-                                  newCountries = [...currentCountries, countryOption.value];
+                                  // When selecting a country, replace any existing country selection
+                                  handleInputChange('country', countryOption.value);
+                                  
+                                  // Clear cities when switching countries
+                                  if (countryOption.value === 'georgia') {
+                                    // Clear Dubai if switching to Georgia
+                                    const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
+                                    const newCities = currentCities.filter(city => city !== 'dubai');
+                                    handleInputChange('city', newCities.join(','));
+                                  } else if (countryOption.value === 'uae') {
+                                    // Clear Georgian cities if switching to UAE
+                                    const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
+                                    const newCities = currentCities.filter(city => city !== 'batumi' && city !== 'tbilisi');
+                                    handleInputChange('city', newCities.join(','));
+                                  }
                                 } else {
-                                  newCountries = currentCountries.filter(country => country !== countryOption.value);
+                                  // When unchecking, just remove this country
+                                  handleInputChange('country', '');
                                 }
-                                handleInputChange('country', newCountries.join(','));
                               }}
                               className="rounded border-gray-300"
                             />
