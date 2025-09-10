@@ -567,7 +567,7 @@ const Projects = () => {
                     <div className="flex-1">
                       <div className="flex items-center flex-wrap gap-2 mb-3">
                         {project.projectStatus && (
-                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                          <Badge variant="outline" className="border-[#3bcac4] text-[#3bcac4] bg-[#3bcac4]/10">
                             {project.projectStatus}
                           </Badge>
                         )}
