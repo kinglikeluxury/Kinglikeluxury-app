@@ -214,5 +214,15 @@ export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 
 export type PropertyWithOwner = Property & { owner: User };
+export type PropertyWithAgent = Property & { 
+  agent: {
+    id: number;
+    username: string;
+    email: string | null;
+    phoneNumber: string | null;
+    whatsappNumber: string | null;
+    authMethod: string;
+  };
+};
 export type ProjectWithProperty = Project & { property: Property };
 export type BlogPostWithAuthor = BlogPost & { author: User };

@@ -379,9 +379,10 @@ const PropertyForm = () => {
         return `${cityNames.join(', ')}, ${countryNames.join(', ')}`;
       };
       
-      // Prepare submission data
-      const submissionData = {
-        ...formData,
+      // Prepare property data (excluding non-property fields)
+      const propertyData = {
+        title: formData.title,
+        description: formData.description,
         propertyType,
         ownerId: user.id,
         location: getLocationString(), // Transform country+city to location string
@@ -393,12 +394,17 @@ const PropertyForm = () => {
         images: formData.images || [],
         videos: formData.videos || [],
         features: formData.features || [],
-        amenities: formData.amenities || [],
-        // For project types, add project details
+        amenities: formData.amenities || []
+      };
+
+      // Prepare submission data with project details as separate field
+      const submissionData = {
+        ...propertyData,
+        // For project types, add project details as separate field
         ...(propertyType === 'project' ? {
           projectDetails: {
             developer: formData.projectDetails?.developer || formData.title, // Use developer name from form or title as fallback
-            completionDate: formData.projectDetails?.completionDate || 'Q4 2024', // Use user-entered completion date or fallback
+            completionDate: formData.projectDetails?.completionDate || formData.deliveryDate || 'Q4 2024', // Use user-entered completion date or fallback
             projectStatus: formData.projectDetails?.projectStatus || 'Now Selling' // Use user-selected status or fallback
           }
         } : {})

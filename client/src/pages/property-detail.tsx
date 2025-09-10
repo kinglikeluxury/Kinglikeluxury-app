@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { User, useAuth } from "@/lib/auth";
-import { Property, Project } from "@shared/schema";
+import { Property, PropertyWithAgent, Project } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +25,7 @@ const PropertyDetail = () => {
   const wasPlayingBeforePause = useRef<Set<number>>(new Set());
 
   // Fetch property data
-  const { data: property, isLoading: isLoadingProperty } = useQuery<Property>({
+  const { data: property, isLoading: isLoadingProperty } = useQuery<PropertyWithAgent>({
     queryKey: [`/api/properties/${propertyId}`],
     enabled: !!propertyId,
   });
