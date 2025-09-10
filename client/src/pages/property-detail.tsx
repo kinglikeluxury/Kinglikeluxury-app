@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useTranslation } from "react-i18next";
@@ -21,6 +21,7 @@ const PropertyDetail = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
+  const videoRefs = useRef<HTMLVideoElement[]>([]);
 
   // Fetch property data
   const { data: property, isLoading: isLoadingProperty } = useQuery<Property>({
@@ -90,6 +91,21 @@ const PropertyDetail = () => {
       document.body.style.overflow = 'unset';
     };
   }, [isImageModalOpen]);
+
+  // Auto-pause videos when user scrolls
+  useEffect(() => {
+    const handleScroll = () => {
+      // Pause all videos when scrolling
+      videoRefs.current.forEach(video => {
+        if (video && !video.paused) {
+          video.pause();
+        }
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const formatPrice = (price?: number) => {
     if (!price) return "";
@@ -323,6 +339,11 @@ const PropertyDetail = () => {
                   {property.videos.map((video, idx) => (
                     <div key={idx} className="rounded-lg overflow-hidden">
                       <video 
+                        ref={el => {
+                          if (el) {
+                            videoRefs.current[idx] = el;
+                          }
+                        }}
                         controls 
                         controlsList="nodownload"
                         onContextMenu={(e) => e.preventDefault()}
