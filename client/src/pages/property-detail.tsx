@@ -477,11 +477,21 @@ const PropertyDetail = () => {
                     
                     <Separator className="my-4" />
                     
-                    {/* Contact Agent Email */}
+                    {/* Contact Agent - WhatsApp for off-plan projects, Email for others */}
                     <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
-                      <a href={`mailto:${property.agent?.email || 'info@kinglikeluxury.com'}?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
-                        WhatsApp
-                      </a>
+                      {property.propertyType === 'project' ? (
+                        <a 
+                          href={`https://wa.me/995591000058?text=Hi%20Kinglike%20luxury,%0AI%20found%20this%20project%20on%20your%20App,%20may%20i%20have%20more%20information%20about%20it%20?`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                        >
+                          WhatsApp
+                        </a>
+                      ) : (
+                        <a href={`mailto:${property.agent?.email || 'info@kinglikeluxury.com'}?subject=Inquiry about ${property.title} (ID: ${property.id})`}>
+                          Email Agent
+                        </a>
+                      )}
                     </Button>
                     
                     {/* Phone/WhatsApp Contact - Show only if agent has phone number */}
