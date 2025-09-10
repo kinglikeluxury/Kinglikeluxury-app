@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Video, X, Play, Upload, Loader2 } from "lucide-react";
 import { videoCompressor, CompressionProgress } from "@/lib/videoCompression";
+import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 
 interface VideoUploaderProps {
   onVideosChange: (videos: string[]) => void;
@@ -196,19 +197,48 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
             </div>
           )}
 
-          {/* Patient Popup */}
+          {/* Patient Popup with 3D Effect */}
           <AlertDialog open={showPatientPopup}>
-            <AlertDialogContent className="sm:max-w-md">
-              <div className="flex flex-col items-center text-center space-y-4 p-6">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+            <AlertDialogContent className="sm:max-w-md border-0 shadow-2xl bg-gradient-to-br from-white via-blue-50 to-indigo-100">
+              <div className="flex flex-col items-center text-center space-y-6 p-8 relative overflow-hidden">
+                {/* 3D Background Effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-400/10 to-pink-400/10 transform rotate-12 scale-110"></div>
+                
+                {/* 3D Logo Container */}
+                <div className="relative z-10">
+                  <div className="w-24 h-24 relative transform-gpu perspective-1000">
+                    {/* 3D Logo with floating animation */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full opacity-20 blur-xl animate-pulse"></div>
+                    <div className="relative w-full h-full transform-gpu transition-transform duration-1000 hover:scale-110 animate-float">
+                      <div className="absolute inset-0 bg-white rounded-full shadow-2xl transform rotate-6 scale-105 opacity-30"></div>
+                      <div className="absolute inset-0 bg-white rounded-full shadow-xl transform -rotate-3 scale-95 opacity-50"></div>
+                      <div className="relative w-full h-full bg-white rounded-full shadow-lg flex items-center justify-center transform-gpu hover:rotate-y-12 transition-transform duration-500">
+                        <img 
+                          src={logoPath} 
+                          alt="Kinglike Luxury" 
+                          className="w-16 h-16 object-contain transform-gpu hover:scale-110 transition-transform duration-300 drop-shadow-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <AlertDialogTitle className="text-lg font-semibold text-gray-900">
-                  Be patient !<br />your videos will be uploaded soon
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-sm text-gray-600">
+                
+                {/* 3D Text */}
+                <div className="relative z-10">
+                  <AlertDialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent transform-gpu hover:scale-105 transition-transform duration-300 drop-shadow-lg">
+                    Be patient !<br />your videos will be uploaded soon
+                  </AlertDialogTitle>
+                </div>
+                
+                <AlertDialogDescription className="text-sm text-gray-600 relative z-10 font-medium">
                   We're preparing your videos for optimal quality and fast loading
                 </AlertDialogDescription>
+                
+                {/* Floating Particles Effect */}
+                <div className="absolute top-4 left-4 w-2 h-2 bg-blue-400 rounded-full opacity-60 animate-bounce"></div>
+                <div className="absolute top-8 right-6 w-1 h-1 bg-purple-400 rounded-full opacity-40 animate-ping"></div>
+                <div className="absolute bottom-6 left-8 w-1.5 h-1.5 bg-indigo-400 rounded-full opacity-50 animate-pulse"></div>
+                <div className="absolute bottom-4 right-4 w-1 h-1 bg-pink-400 rounded-full opacity-30 animate-bounce"></div>
               </div>
             </AlertDialogContent>
           </AlertDialog>
@@ -269,3 +299,4 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
     </Card>
   );
 }
+
