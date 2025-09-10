@@ -491,10 +491,10 @@ const Projects = () => {
                   <p className="text-xl font-semibold text-white mb-2">
                     Special promotion : Choose your property & Get a special discount !
                   </p>
-                  <p className="text-base text-white mb-1 underline">
+                  <p className="text-base text-white mb-2 underline">
                     Save more on your off-plan property investment with our exclusive pricing
                   </p>
-                  <p className="text-sm text-[#3bcac4] font-medium">
+                  <p className="text-sm text-[#3bcac4] font-medium mb-2">
                     Click to contact us via WhatsApp 💬
                   </p>
                 </div>
