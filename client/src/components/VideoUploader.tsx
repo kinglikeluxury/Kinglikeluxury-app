@@ -18,6 +18,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
   const [isUploading, setIsUploading] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState<CompressionProgress | null>(null);
   const [showPatientPopup, setShowPatientPopup] = useState(false);
+  const [uploadController, setUploadController] = useState<AbortController | null>(null);
 
   // Convert any storage URLs to object paths and update videos when initialVideos changes
   useEffect(() => {
@@ -47,7 +48,20 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
     }
   }, [compressionProgress?.phase]);
 
+  const cancelUpload = () => {
+    if (uploadController) {
+      uploadController.abort();
+      setUploadController(null);
+    }
+    setIsUploading(false);
+    setCompressionProgress(null);
+    setShowPatientPopup(false);
+  };
+
   const handleFileUpload = async (files: File[]) => {
+    // Create abort controller for this upload session
+    const controller = new AbortController();
+    setUploadController(controller);
     setIsUploading(true);
     setCompressionProgress(null);
     
@@ -55,6 +69,11 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
       const uploadedVideos = [];
       
       for (let i = 0; i < files.length; i++) {
+        // Check if upload was cancelled
+        if (controller.signal.aborted) {
+          throw new Error('Upload cancelled');
+        }
+
         const file = files[i];
         let processedFile = file;
         
@@ -68,17 +87,31 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           
           try {
             processedFile = await videoCompressor.compressVideo(file, setCompressionProgress);
-          } catch (compressionError) {
+            
+            // Check if cancelled during compression
+            if (controller.signal.aborted) {
+              throw new Error('Upload cancelled');
+            }
+          } catch (compressionError: unknown) {
+            if (compressionError instanceof Error && compressionError.message === 'Upload cancelled') {
+              throw compressionError;
+            }
             console.warn('Video compression failed, uploading original:', compressionError);
             // Continue with original file if compression fails
           }
         }
         
+        // Check if cancelled before getting upload URL
+        if (controller.signal.aborted) {
+          throw new Error('Upload cancelled');
+        }
+
         // Get upload URL first
         const uploadResponse = await fetch("/api/videos/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
+          signal: controller.signal,
         });
         
         if (!uploadResponse.ok) {
@@ -87,10 +120,11 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
         
         const { uploadURL } = await uploadResponse.json();
         
-        // Upload the processed file directly to cloud storage using PUT
+        // Upload the processed file directly to cloud storage using PUT with abort signal
         const fileUploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: processedFile,
+          signal: controller.signal,
         });
         
         if (!fileUploadResponse.ok) {
@@ -111,11 +145,19 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
       const newVideos = [...videos, ...uploadedVideos];
       setVideos(newVideos);
       onVideosChange(newVideos);
-    } catch (error) {
-      console.error("Error uploading videos:", error);
-      alert('Failed to upload videos. Please try again.');
+    } catch (error: unknown) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Upload cancelled')) {
+        console.log('Upload cancelled by user');
+        // Don't show error for cancelled uploads
+      } else {
+        console.error("Error uploading videos:", error);
+        alert('Failed to upload videos. Please try again.');
+      }
     } finally {
       setIsUploading(false);
+      setCompressionProgress(null);
+      setShowPatientPopup(false);
+      setUploadController(null);
     }
   };
 
@@ -194,6 +236,19 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
               {isUploading && !compressionProgress && (
                 <p className="text-sm text-gray-500">Uploading videos...</p>
               )}
+              
+              {/* Cancel Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={cancelUpload}
+                className="mt-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                data-testid="button-cancel-upload"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Cancel Upload
+              </Button>
             </div>
           )}
 
@@ -233,6 +288,19 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
                 <AlertDialogDescription className="text-sm text-gray-600 relative z-10 font-medium">
                   We're preparing your videos for optimal quality and fast loading
                 </AlertDialogDescription>
+                
+                {/* Cancel Button in Popup */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelUpload}
+                  className="relative z-10 mt-4 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 bg-white/80 backdrop-blur-sm"
+                  data-testid="button-cancel-popup"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
                 
                 {/* Floating Particles Effect */}
                 <div className="absolute top-4 left-4 w-2 h-2 bg-blue-400 rounded-full opacity-60 animate-bounce"></div>

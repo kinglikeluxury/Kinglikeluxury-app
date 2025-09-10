@@ -10,21 +10,55 @@ export interface CompressionProgress {
 export class VideoCompressor {
   private ffmpeg: FFmpeg | null = null;
   private isLoaded = false;
+  private isLoading = false;
+  private loadPromise: Promise<void> | null = null;
+  private initTimeout = 15000; // 15 seconds timeout
 
   async initialize(onProgress?: (progress: CompressionProgress) => void): Promise<void> {
     if (this.isLoaded) return;
+    if (this.isLoading && this.loadPromise) {
+      return this.loadPromise;
+    }
 
+    this.isLoading = true;
+    
+    this.loadPromise = this.doInitialize(onProgress);
+    try {
+      await this.loadPromise;
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private async doInitialize(onProgress?: (progress: CompressionProgress) => void): Promise<void> {
     onProgress?.({
       phase: 'loading',
-      progress: 0,
-      message: 'Initializing video compression engine...'
+      progress: 10,
+      message: 'Starting compression engine...'
     });
 
     try {
       this.ffmpeg = new FFmpeg();
       
-      // Load FFmpeg WebAssembly files from local node_modules (safer than CDN)
-      await this.ffmpeg.load();
+      onProgress?.({
+        phase: 'loading',
+        progress: 30,
+        message: 'Loading WebAssembly modules...'
+      });
+
+      // Add timeout to initialization
+      const loadPromise = this.ffmpeg.load();
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Initialization timeout')), this.initTimeout)
+      );
+
+      onProgress?.({
+        phase: 'loading',
+        progress: 60,
+        message: 'Almost ready...'
+      });
+
+      await Promise.race([loadPromise, timeoutPromise]);
 
       this.isLoaded = true;
       
@@ -35,25 +69,51 @@ export class VideoCompressor {
       });
     } catch (error) {
       console.error('Failed to initialize FFmpeg:', error);
+      this.isLoaded = false;
+      this.isLoading = false;
       onProgress?.({
         phase: 'error',
         progress: 0,
-        message: 'Failed to initialize compression engine'
+        message: 'Compression engine unavailable - uploads will proceed without compression'
       });
       throw error;
     }
   }
 
+  // Pre-load in background without blocking UI
+  preload(): void {
+    if (!this.isLoaded && !this.isLoading) {
+      setTimeout(() => {
+        this.initialize().catch(() => {
+          // Silently fail preload, user can still upload without compression
+        });
+      }, 100);
+    }
+  }
+
   async compressVideo(
     file: File,
-    onProgress?: (progress: CompressionProgress) => void
+    onProgress?: (progress: CompressionProgress) => void,
+    allowSkip: boolean = true
   ): Promise<File> {
-    if (!this.isLoaded || !this.ffmpeg) {
-      await this.initialize(onProgress);
-    }
+    try {
+      if (!this.isLoaded || !this.ffmpeg) {
+        await this.initialize(onProgress);
+      }
 
-    if (!this.ffmpeg) {
-      throw new Error('FFmpeg not initialized');
+      if (!this.ffmpeg) {
+        throw new Error('FFmpeg not initialized');
+      }
+    } catch (error) {
+      if (allowSkip) {
+        onProgress?.({
+          phase: 'error',
+          progress: 100,
+          message: 'Skipping compression - uploading original video'
+        });
+        return file; // Return original file if compression fails
+      }
+      throw error;
     }
 
     const inputFileName = 'input.mp4';
@@ -154,11 +214,22 @@ export class VideoCompressor {
   }
 
   shouldCompress(file: File): boolean {
-    // Compress if file is larger than 50MB or likely not optimized
-    const isLargeFile = file.size > 50 * 1024 * 1024; // 50MB
+    // Only compress if engine is ready and file needs compression
+    if (!this.isLoaded) return false;
+    
+    // Compress if file is larger than 30MB or likely not optimized
+    const isLargeFile = file.size > 30 * 1024 * 1024; // 30MB
     const isNotOptimalFormat = !file.type.includes('mp4');
     
     return isLargeFile || isNotOptimalFormat;
+  }
+
+  isReady(): boolean {
+    return this.isLoaded;
+  }
+
+  isInitializing(): boolean {
+    return this.isLoading;
   }
 
   private formatFileSize(bytes: number): string {
