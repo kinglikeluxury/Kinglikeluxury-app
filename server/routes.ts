@@ -276,7 +276,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If admin is requesting, allow getting all statuses
       if (req.session.isAdmin && req.query.status) {
-        filters.status = req.query.status as string;
+        // If admin requests status=all, don't filter by status at all
+        if (req.query.status === 'all') {
+          delete filters.status;
+        } else {
+          filters.status = req.query.status as string;
+        }
       }
       
       // If regular user is requesting their own properties, include their pending ones
