@@ -186,6 +186,35 @@ export type InsertProperty = z.infer<typeof insertPropertySchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+
+// Payment tracking table
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  propertyId: integer("property_id")
+    .notNull()
+    .references(() => properties.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  amount: integer("amount").notNull(), // Amount in cents
+  currency: text("currency").notNull().default("USD"),
+  paymentMethod: text("payment_method").notNull(), // 'stripe', 'paypal'
+  paymentIntentId: text("payment_intent_id"), // Stripe payment intent ID
+  paypalOrderId: text("paypal_order_id"), // PayPal order ID
+  status: text("status").notNull().default("pending"), // 'pending', 'completed', 'failed'
+  durationDays: integer("duration_days").notNull(), // 7, 14, or 30 days
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Extended types (combining related data)
 // Blog post schema
 export const blogPosts = pgTable("blog_posts", {

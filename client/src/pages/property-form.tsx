@@ -15,6 +15,8 @@ import { ArrowLeft, Upload, X, Plus, Map, List, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { VideoUploader } from "@/components/VideoUploader";
+import ListingTypePopup from "@/components/ListingTypePopup";
+import PaymentPopup from "@/components/PaymentPopup";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -88,6 +90,11 @@ const PropertyForm = () => {
   const [newAmenity, setNewAmenity] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useMapSelection, setUseMapSelection] = useState(false);
+  
+  // Popup states for payment flow
+  const [showListingTypePopup, setShowListingTypePopup] = useState(false);
+  const [showPaymentPopup, setShowPaymentPopup] = useState(false);
+  const [selectedListingType, setSelectedListingType] = useState<'free' | 'featured'>('free');
 
   // Load existing property data when in edit mode
   useEffect(() => {
@@ -452,6 +459,100 @@ const PropertyForm = () => {
     } catch (error) {
       console.error('Error submitting property:', error);
       alert('Failed to create property. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handle free listing submission
+  const handleFreeListingSubmit = async () => {
+    setSelectedListingType('free');
+    setShowListingTypePopup(false);
+    
+    // Create the form event for original handleSubmit
+    const fakeEvent = { preventDefault: () => {} } as React.FormEvent<HTMLFormElement>;
+    await handleSubmit(fakeEvent);
+  };
+  
+  // Handle featured listing selection - show payment popup
+  const handleFeaturedListingSelect = () => {
+    setSelectedListingType('featured');
+    setShowListingTypePopup(false);
+    setShowPaymentPopup(true);
+  };
+  
+  // Handle payment processing
+  const handlePayment = async (amount: number, days: number, method: string) => {
+    setShowPaymentPopup(false);
+    setIsSubmitting(true);
+    
+    try {
+      // Calculate expiration date
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + days);
+      
+      // First create the property with featured listing type
+      const submissionData = {
+        ...formData,
+        propertyType,
+        ownerId: user.id,
+        // Convert arrays and clean data
+        bedrooms: formData.bedrooms.join(','),
+        bathrooms: formData.bathrooms.join(','),
+        features: formData.features,
+        amenities: formData.amenities,
+        images: formData.images,
+        videos: formData.videos,
+        price: parseInt(formData.price),
+        area: formData.area ? formData.area.split(',').map(Number) : [parseInt(formData.area) || 0],
+        floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
+        listingType: 'vip', // Featured listing
+        listingExpiresAt: expirationDate.toISOString(),
+      };
+      
+      // Submit property
+      const response = await apiRequest(
+        isEditMode ? `/api/properties/${propertyId}` : '/api/properties',
+        {
+          method: isEditMode ? 'PATCH' : 'POST',
+          body: submissionData,
+        }
+      );
+      
+      const property = response as Property;
+      
+      // Create payment record
+      const paymentData = {
+        propertyId: property.id,
+        userId: user.id,
+        amount: amount * 100, // Convert to cents
+        currency: 'USD',
+        paymentMethod: method,
+        status: 'completed', // For demo, mark as completed
+        durationDays: days,
+      };
+      
+      await apiRequest('/api/payments', {
+        method: 'POST',
+        body: paymentData,
+      });
+      
+      toast({
+        title: 'Featured Listing Created!',
+        description: `Your property is now featured for ${days} days. Payment of $${amount} processed successfully.`,
+      });
+      
+      // Redirect to property detail page
+      const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${property.id}`;
+      window.location.href = redirectUrl;
+      
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      toast({
+        title: 'Payment Failed',
+        description: 'Unable to process payment. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -2049,11 +2150,33 @@ const PropertyForm = () => {
                 Cancel
               </Button>
             </Link>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="button" 
+              disabled={isSubmitting}
+              onClick={() => setShowListingTypePopup(true)}
+              data-testid="button-submit-property"
+            >
               {isSubmitting ? 'Submitting...' : `Submit ${getPropertyTypeTitle(propertyType)}`}
             </Button>
           </div>
         </form>
+        
+        {/* Listing Type Selection Popup */}
+        <ListingTypePopup
+          open={showListingTypePopup}
+          onClose={() => setShowListingTypePopup(false)}
+          onSelectFree={handleFreeListingSubmit}
+          onSelectFeatured={handleFeaturedListingSelect}
+          propertyType={getPropertyTypeTitle(propertyType)}
+        />
+        
+        {/* Payment Popup */}
+        <PaymentPopup
+          open={showPaymentPopup}
+          onClose={() => setShowPaymentPopup(false)}
+          onPayment={handlePayment}
+          propertyType={getPropertyTypeTitle(propertyType)}
+        />
       </div>
     </div>
   );
