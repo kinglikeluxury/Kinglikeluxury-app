@@ -18,6 +18,7 @@ import { VideoUploader } from "@/components/VideoUploader";
 import ListingTypePopup from "@/components/ListingTypePopup";
 import PaymentPopup from "@/components/PaymentPopup";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const PropertyForm = () => {
@@ -512,14 +513,12 @@ const PropertyForm = () => {
       
       // Submit property
       const response = await apiRequest(
+        isEditMode ? 'PATCH' : 'POST',
         isEditMode ? `/api/properties/${propertyId}` : '/api/properties',
-        {
-          method: isEditMode ? 'PATCH' : 'POST',
-          body: submissionData,
-        }
+        submissionData
       );
       
-      const property = response as Property;
+      const property = await response.json() as Property;
       
       // Create payment record
       const paymentData = {
@@ -532,10 +531,7 @@ const PropertyForm = () => {
         durationDays: days,
       };
       
-      await apiRequest('/api/payments', {
-        method: 'POST',
-        body: paymentData,
-      });
+      await apiRequest('POST', '/api/payments', paymentData);
       
       toast({
         title: 'Featured Listing Created!',

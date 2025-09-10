@@ -228,6 +228,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Logged out successfully" });
     });
   });
+  
+  // Payment routes
+  app.post("/api/payments", isAuthenticated, async (req, res) => {
+    try {
+      // Check if user is authenticated
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const paymentData = req.body;
+      
+      // Validate required fields
+      if (!paymentData.propertyId || !paymentData.amount || !paymentData.paymentMethod) {
+        return res.status(400).json({ message: "Missing required payment fields" });
+      }
+      
+      // For demo, we'll just create the payment record
+      // In production, you would integrate with actual payment processors
+      const payment = {
+        id: Math.floor(Math.random() * 1000000), // Demo ID
+        ...paymentData,
+        userId: req.session.userId,
+        status: 'completed', // For demo purposes
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      // Log payment for demo
+      console.log('💳 Payment processed:', payment);
+      
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error('Payment error:', error);
+      res.status(500).json({ message: "Payment processing failed" });
+    }
+  });
 
   app.get("/api/auth/me", async (req, res) => {
     if (!req.session.userId) {
