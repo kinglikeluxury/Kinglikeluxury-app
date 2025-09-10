@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2 } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 
 const PropertyDetail = () => {
@@ -24,6 +24,27 @@ const PropertyDetail = () => {
   const videoRefs = useRef<HTMLVideoElement[]>([]);
   const wasPlayingBeforePause = useRef<Set<number>>(new Set());
   const [videoOrientations, setVideoOrientations] = useState<('vertical' | 'horizontal')[]>([]);
+
+
+  const handleWhatsAppShare = () => {
+    if (!property) return;
+    
+    // Get current domain for the property link
+    const currentDomain = window.location.origin;
+    const propertyLink = `${currentDomain}/property/${property.id}`;
+    
+    // Create formatted WhatsApp message with more details for property page
+    const message = `🏠 *${property.title}*\n\n💰 *Price:* ${getPriceRange(property.price)}\n📍 *Location:* ${property.location}\n🏡 *Type:* ${getPropertyTypeName(property.propertyType)}\n📐 *Area:* ${property.area} m²${property.bedrooms ? `\n🛏️ *Bedrooms:* ${property.bedrooms}` : ''}${property.bathrooms ? `\n🚿 *Bathrooms:* ${property.bathrooms}` : ''}${property.floorNumber ? `\n🏢 *Floor:* ${property.floorNumber}` : ''}\n\n📸 *Images:* ${property.images?.length || 0} photos${property.videos?.length ? `\n🎥 *Videos:* ${property.videos.length} property videos` : ''}\n\n✨ Check out this amazing property!\n\n🔗 ${propertyLink}\n\n🏢 *Kinglike Luxury Real Estate*`;
+    
+    // Encode message for URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Create WhatsApp URL
+    const whatsappURL = `https://wa.me/?text=${encodedMessage}`;
+    
+    // Open WhatsApp
+    window.open(whatsappURL, '_blank');
+  };
 
   // Fetch property data
   const { data: property, isLoading: isLoadingProperty } = useQuery<PropertyWithAgent>({
@@ -607,6 +628,21 @@ const PropertyDetail = () => {
                         <p className="text-sm">{property.location}</p>
                       </div>
                     </div>
+                    
+                    <Separator className="my-4" />
+                    
+                    {/* Share Property Button */}
+                    <Button 
+                      onClick={handleWhatsAppShare}
+                      variant="outline" 
+                      className="w-full mb-3 border-green-500 text-green-600 hover:bg-green-50 hover:border-green-600"
+                      data-testid="button-share-property-whatsapp"
+                    >
+                      <span className="flex items-center justify-center">
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Share Property on WhatsApp
+                      </span>
+                    </Button>
                     
                     <Separator className="my-4" />
                     
