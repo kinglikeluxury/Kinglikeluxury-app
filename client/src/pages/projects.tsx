@@ -576,7 +576,7 @@ const Projects = () => {
                             Completion: {project.completionDate}
                           </Badge>
                         )}
-                        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300">
+                        <Badge variant="outline" className="bg-[#005476] text-white border-[#005476]">
                           {getPriceRange(propertyData.price)}
                         </Badge>
                       </div>
