@@ -692,21 +692,21 @@ const PropertyForm = () => {
                         { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
                         { value: 'dubai', label: '🇦🇪 Dubai, UAE' }
                       ].filter((cityOption) => {
-                        // Hide Dubai if any Georgian city is selected
-                        const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                        const hasGeorgianCity = currentCities.some(city => city === 'batumi' || city === 'tbilisi');
+                        // Filter cities based on selected country
+                        const selectedCountry = formData.country;
                         
-                        if (cityOption.value === 'dubai' && hasGeorgianCity) {
-                          return false; // Hide Dubai option
+                        // If Georgia is selected, only show Georgian cities
+                        if (selectedCountry === 'georgia') {
+                          return cityOption.value === 'batumi' || cityOption.value === 'tbilisi';
                         }
                         
-                        // Hide Georgian cities if Dubai is selected
-                        const hasDubai = currentCities.includes('dubai');
-                        if ((cityOption.value === 'batumi' || cityOption.value === 'tbilisi') && hasDubai) {
-                          return false; // Hide Georgian options
+                        // If UAE is selected, only show UAE cities
+                        if (selectedCountry === 'uae') {
+                          return cityOption.value === 'dubai';
                         }
                         
-                        return true; // Show the option
+                        // If no country is selected, show all cities
+                        return true;
                       }).map((cityOption) => {
                         const isSelected = Array.isArray(formData.city) 
                           ? formData.city.includes(cityOption.value)
