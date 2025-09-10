@@ -467,7 +467,7 @@ const PropertyDetail = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Area:</span>
-                        <span>{getAreaDisplay(property.area)} sqft</span>
+                        <span>{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {property.bedrooms !== null && (
                         <div className="flex justify-between">
