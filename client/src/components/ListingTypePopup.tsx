@@ -80,16 +80,16 @@ export default function ListingTypePopup({
           </Card>
 
           {/* Featured Listing Option */}
-          <Card className="border-2 border-yellow-300 hover:border-yellow-400 transition-colors cursor-pointer relative" onClick={onSelectFeatured} data-testid="card-featured-listing">
+          <Card className="border-2 border-primary hover:border-primary/80 transition-colors cursor-pointer relative" onClick={onSelectFeatured} data-testid="card-featured-listing">
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <Badge className="bg-yellow-500 text-black font-bold px-4 py-1">
+              <Badge className="bg-primary text-white font-bold px-4 py-1">
                 <Crown className="w-4 h-4 mr-1" />
                 RECOMMENDED
               </Badge>
             </div>
             
             <CardHeader className="text-center pb-4 pt-6">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mb-4">
                 <Star className="w-8 h-8 text-white" />
               </div>
               <CardTitle className="text-xl">Featured Listing</CardTitle>
@@ -97,7 +97,7 @@ export default function ListingTypePopup({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-yellow-600">PAID</div>
+                <div className="text-3xl font-bold text-primary">PAID</div>
                 <p className="text-sm text-gray-500">Starting from $5</p>
               </div>
               
@@ -115,13 +115,13 @@ export default function ListingTypePopup({
                   All free features included
                 </div>
                 <div className="flex items-center text-sm">
-                  <span className="text-yellow-500 mr-2">⭐</span>
+                  <span className="text-primary mr-2">⭐</span>
                   <strong>3x more visibility</strong>
                 </div>
               </div>
               
               <Button 
-                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600" 
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90" 
                 onClick={onSelectFeatured}
                 data-testid="button-select-featured"
               >

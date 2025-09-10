@@ -8,6 +8,12 @@ The system supports multiple authentication methods, multilingual content (9 lan
 
 Preferred communication style: Simple, everyday language.
 
+**Brand Color Usage**: Always use Kinglike Luxury brand colors for all UI components and features:
+- Primary Teal: #3bcac4 (HSL: 177 53% 52%)
+- Secondary Deep Blue: #005476 (HSL: 198 100% 23%)
+- Never use generic colors like yellow, orange, red, etc. - always default to the brand color scheme
+- Use gradients from primary to secondary for premium features and call-to-action buttons
+
 # System Architecture
 
 ## Frontend Architecture

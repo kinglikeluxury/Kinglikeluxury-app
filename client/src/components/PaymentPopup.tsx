@@ -45,7 +45,7 @@ export default function PaymentPopup({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-payment">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
-            <Crown className="w-6 h-6 inline mr-2 text-yellow-500" />
+            <Crown className="w-6 h-6 inline mr-2 text-primary" />
             Featured Listing Payment
           </DialogTitle>
           <p className="text-center text-gray-600">
@@ -62,25 +62,25 @@ export default function PaymentPopup({
                 key={option.days}
                 className={`border-2 cursor-pointer transition-all hover:shadow-lg relative ${
                   selectedOption?.days === option.days 
-                    ? 'border-yellow-500 bg-yellow-50' 
+                    ? 'border-primary bg-primary/5' 
                     : 'border-gray-200 hover:border-gray-300'
-                } ${option.popular ? 'ring-2 ring-yellow-300' : ''}`}
+                } ${option.popular ? 'ring-2 ring-primary/30' : ''}`}
                 onClick={() => setSelectedOption(option)}
                 data-testid={`card-pricing-${option.days}days`}
               >
                 {option.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-yellow-500 text-black font-bold px-3 py-1">
+                    <Badge className="bg-primary text-white font-bold px-3 py-1">
                       MOST POPULAR
                     </Badge>
                   </div>
                 )}
                 
                 <CardHeader className="text-center pb-2">
-                  <div className="mx-auto w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-2">
+                  <div className="mx-auto w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mb-2">
                     <Calendar className="w-6 h-6 text-white" />
                   </div>
-                  <CardTitle className="text-2xl font-bold text-yellow-600">
+                  <CardTitle className="text-2xl font-bold text-primary">
                     ${option.amount}
                   </CardTitle>
                   <CardDescription className="font-medium">
@@ -102,7 +102,7 @@ export default function PaymentPopup({
                       Premium badge
                     </div>
                     <div className="flex items-center">
-                      <span className="text-yellow-500 mr-2">⭐</span>
+                      <span className="text-primary mr-2">⭐</span>
                       <strong>3x more views</strong>
                     </div>
                   </div>
@@ -127,7 +127,7 @@ export default function PaymentPopup({
               <Card 
                 className={`border-2 cursor-pointer transition-all hover:shadow-lg ${
                   selectedPaymentMethod === 'stripe' 
-                    ? 'border-blue-500 bg-blue-50' 
+                    ? 'border-primary bg-primary/5' 
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
                 onClick={() => setSelectedPaymentMethod('stripe')}
@@ -150,7 +150,7 @@ export default function PaymentPopup({
               <Card 
                 className={`border-2 cursor-pointer transition-all hover:shadow-lg ${
                   selectedPaymentMethod === 'paypal' 
-                    ? 'border-blue-500 bg-blue-50' 
+                    ? 'border-primary bg-primary/5' 
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
                 onClick={() => setSelectedPaymentMethod('paypal')}
@@ -174,7 +174,7 @@ export default function PaymentPopup({
         
         {/* Payment Summary & Action */}
         {selectedOption && selectedPaymentMethod && (
-          <div className="mt-8 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg p-6 border border-yellow-200">
+          <div className="mt-8 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-6 border border-primary/20">
             <h3 className="text-lg font-semibold mb-4 text-center">Payment Summary</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
@@ -185,10 +185,10 @@ export default function PaymentPopup({
                 <span className="text-gray-600">Payment method:</span>
                 <span className="font-semibold capitalize">{selectedPaymentMethod}</span>
               </div>
-              <div className="border-t border-yellow-300 pt-3">
+              <div className="border-t border-primary/20 pt-3">
                 <div className="flex justify-between items-center text-lg">
                   <span className="font-bold">Total:</span>
-                  <span className="font-bold text-yellow-600">${selectedOption.amount}</span>
+                  <span className="font-bold text-primary">${selectedOption.amount}</span>
                 </div>
               </div>
             </div>
@@ -204,7 +204,7 @@ export default function PaymentPopup({
               </Button>
               <Button 
                 onClick={handlePayment}
-                className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+                className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
                 data-testid="button-proceed-payment"
               >
                 Proceed to Payment
