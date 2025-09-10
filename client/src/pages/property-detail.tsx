@@ -22,6 +22,7 @@ const PropertyDetail = () => {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
   const videoRefs = useRef<HTMLVideoElement[]>([]);
+  const wasPlayingBeforePause = useRef<Set<number>>(new Set());
 
   // Fetch property data
   const { data: property, isLoading: isLoadingProperty } = useQuery<Property>({
@@ -92,19 +93,34 @@ const PropertyDetail = () => {
     };
   }, [isImageModalOpen]);
 
-  // Auto-pause videos when they go out of view
+  // Auto-pause/resume videos based on visibility
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           const video = entry.target as HTMLVideoElement;
-          if (!entry.isIntersecting && !video.paused) {
-            video.pause();
+          const videoIndex = videoRefs.current.indexOf(video);
+          
+          if (!entry.isIntersecting) {
+            // Video is going out of view
+            if (!video.paused) {
+              wasPlayingBeforePause.current.add(videoIndex);
+              video.pause();
+            }
+          } else {
+            // Video is coming into view
+            if (video.paused && wasPlayingBeforePause.current.has(videoIndex)) {
+              video.play().catch(() => {
+                // Auto-play failed, which is normal for most browsers
+                // The user will need to manually play the video
+              });
+              wasPlayingBeforePause.current.delete(videoIndex);
+            }
           }
         });
       },
       {
-        threshold: 0.5, // Pause when less than 50% of video is visible
+        threshold: 0.5, // Pause/resume when less than 50% of video is visible
         rootMargin: '0px'
       }
     );
