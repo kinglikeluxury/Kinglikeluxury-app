@@ -343,24 +343,37 @@ const PropertyForm = () => {
     });
   };
 
-  // Handle form submission
+  // Handle form submission - Show listing type popup first
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields before showing popup
+    if (!propertyType) {
+      console.error('Property type missing. Location:', location, 'Parsed type:', propertyType);
+      alert(`Property type is required. Current URL: ${location}. Please go back and select a property type.`);
+      return;
+    }
+    
+    if (!user?.id) {
+      alert('User authentication required. Please log in again.');
+      return;
+    }
+
+    // Validate basic required fields
+    if (!formData.title || !formData.description || !formData.price) {
+      alert('Please fill in all required fields (title, description, price).');
+      return;
+    }
+    
+    // Show listing type popup to let user choose before publishing
+    setShowListingTypePopup(true);
+  };
+
+  // Handle actual property submission (called after listing type is chosen)
+  const submitProperty = async (listingType: 'free' | 'featured' = 'free', expirationDate?: string) => {
     setIsSubmitting(true);
     
     try {
-      // Validate required fields before submission
-      if (!propertyType) {
-        console.error('Property type missing. Location:', location, 'Parsed type:', propertyType);
-        alert(`Property type is required. Current URL: ${location}. Please go back and select a property type.`);
-        return;
-      }
-      
-      if (!user?.id) {
-        alert('User authentication required. Please log in again.');
-        return;
-      }
-      
       // Transform location data: combine country+city into location format for database
       const getLocationString = () => {
         const cities = formData.city ? formData.city.split(',') : [];
@@ -393,13 +406,13 @@ const PropertyForm = () => {
         return `${cityNames.join(', ')}, ${countryNames.join(', ')}`;
       };
       
-      // Prepare property data (excluding non-property fields)
+      // Prepare property data
       const propertyData = {
         title: formData.title,
         description: formData.description,
         propertyType,
         ownerId: user.id,
-        location: getLocationString(), // Transform country+city to location string
+        location: getLocationString(),
         price: parseInt(formData.price),
         area: parseInt(formData.area),
         bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : formData.bedrooms,
@@ -408,18 +421,20 @@ const PropertyForm = () => {
         images: formData.images || [],
         videos: formData.videos || [],
         features: formData.features || [],
-        amenities: formData.amenities || []
+        amenities: formData.amenities || [],
+        // Set listing type and expiration
+        listingType: listingType === 'featured' ? 'vip' : 'regular',
+        listingExpiresAt: expirationDate || null
       };
 
-      // Prepare submission data with project details as separate field
+      // Add project details if it's a project type
       const submissionData = {
         ...propertyData,
-        // For project types, add project details as separate field
         ...(propertyType === 'project' ? {
           projectDetails: {
-            developer: formData.projectDetails?.developer || formData.title, // Use developer name from form or title as fallback
-            completionDate: formData.projectDetails?.completionDate || formData.deliveryDate || 'Q4 2024', // Use user-entered completion date or fallback
-            projectStatus: formData.projectDetails?.projectStatus || 'Now Selling' // Use user-selected status or fallback
+            developer: formData.projectDetails?.developer || formData.title,
+            completionDate: formData.projectDetails?.completionDate || formData.deliveryDate || 'Q4 2024',
+            projectStatus: formData.projectDetails?.projectStatus || 'Now Selling'
           }
         } : {})
       };
@@ -448,13 +463,14 @@ const PropertyForm = () => {
       console.log(`Property ${isEditMode ? 'updated' : 'created'} successfully:`, result);
       
       // Show success message
+      const listingTypeMessage = listingType === 'featured' ? 'as Featured Listing' : '';
       toast({
         title: `Property ${isEditMode ? 'Updated' : 'Created'}`,
-        description: `Your property has been ${isEditMode ? 'updated' : 'created'} successfully.`,
+        description: `Your property has been ${isEditMode ? 'updated' : 'created'} successfully ${listingTypeMessage}.`,
       });
       
-      // Redirect to property detail page or properties page
-      const redirectUrl = isEditMode ? `/property/${propertyId}` : '/properties';
+      // Redirect to property detail page
+      const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
       window.location.href = redirectUrl;
       
     } catch (error) {
@@ -470,9 +486,8 @@ const PropertyForm = () => {
     setSelectedListingType('free');
     setShowListingTypePopup(false);
     
-    // Create the form event for original handleSubmit
-    const fakeEvent = { preventDefault: () => {} } as React.FormEvent<HTMLFormElement>;
-    await handleSubmit(fakeEvent);
+    // Submit as free listing
+    await submitProperty('free');
   };
   
   // Handle featured listing selection - show payment popup
@@ -485,44 +500,18 @@ const PropertyForm = () => {
   // Handle payment processing
   const handlePayment = async (amount: number, days: number, method: string) => {
     setShowPaymentPopup(false);
-    setIsSubmitting(true);
     
     try {
       // Calculate expiration date
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + days);
       
-      // First create the property with featured listing type
-      const submissionData = {
-        ...formData,
-        propertyType,
-        ownerId: user.id,
-        // Convert arrays and clean data
-        bedrooms: formData.bedrooms.join(','),
-        bathrooms: formData.bathrooms.join(','),
-        features: formData.features,
-        amenities: formData.amenities,
-        images: formData.images,
-        videos: formData.videos,
-        price: parseInt(formData.price),
-        area: formData.area ? formData.area.split(',').map(Number) : [parseInt(formData.area) || 0],
-        floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
-        listingType: 'vip', // Featured listing
-        listingExpiresAt: expirationDate.toISOString(),
-      };
+      // Submit property as featured listing
+      await submitProperty('featured', expirationDate.toISOString());
       
-      // Submit property
-      const response = await apiRequest(
-        isEditMode ? 'PATCH' : 'POST',
-        isEditMode ? `/api/properties/${propertyId}` : '/api/properties',
-        submissionData
-      );
-      
-      const property = await response.json() as Property;
-      
-      // Create payment record
+      // Create payment record (this is for demo purposes)
       const paymentData = {
-        propertyId: property.id,
+        propertyId: Date.now(), // Use temporary ID for demo
         userId: user.id,
         amount: amount * 100, // Convert to cents
         currency: 'USD',
@@ -538,10 +527,6 @@ const PropertyForm = () => {
         description: `Your property is now featured for ${days} days. Payment of $${amount} processed successfully.`,
       });
       
-      // Redirect to property detail page
-      const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${property.id}`;
-      window.location.href = redirectUrl;
-      
     } catch (error) {
       console.error('Error processing payment:', error);
       toast({
@@ -549,8 +534,6 @@ const PropertyForm = () => {
         description: 'Unable to process payment. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
