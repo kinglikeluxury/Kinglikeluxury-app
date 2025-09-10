@@ -87,45 +87,53 @@ export class VideoCompressor {
       
       this.ffmpeg.on('progress', progressHandler);
 
-      // Compression settings for 1080p HD with good quality
-      await this.ffmpeg.exec([
-        '-i', inputFileName,
-        // Video settings
-        '-vf', 'scale=min(iw\\,1920):min(ih\\,1080)', // Cap at 1080p without upscaling
-        '-c:v', 'libx264', // H.264 codec
-        '-crf', '23', // Good quality (18-28 range, lower = better quality)
-        '-preset', 'medium', // Balance between speed and compression
-        '-pix_fmt', 'yuv420p', // Ensure compatibility
-        '-movflags', '+faststart', // Enable fast start for web
-        // Audio settings
-        '-c:a', 'aac', // AAC audio codec
-        '-b:a', '128k', // Audio bitrate
-        '-ac', '2', // Stereo audio
-        // Output
-        outputFileName
-      ]);
-
-      onProgress?.({
-        phase: 'compressing',
-        progress: 95,
-        message: 'Finalizing compressed video...'
-      });
-
-      // Read the output file
-      const data = await this.ffmpeg.readFile(outputFileName);
-      const compressedBlob = new Blob([data], { type: 'video/mp4' });
+      let compressedFile: File;
       
-      // Create a new File object with the original name but compressed content
-      const compressedFile = new File(
-        [compressedBlob], 
-        file.name.replace(/\.[^/.]+$/, '.mp4'), // Ensure .mp4 extension
-        { type: 'video/mp4' }
-      );
+      try {
+        // Compression settings for 1080p HD with good quality
+        await this.ffmpeg.exec([
+          '-i', inputFileName,
+          // Video settings
+          '-vf', 'scale=-2:1080', // Scale to 1080p maintaining aspect ratio with even dimensions
+          '-c:v', 'libx264', // H.264 codec
+          '-crf', '23', // Good quality (18-28 range, lower = better quality)
+          '-preset', 'medium', // Balance between speed and compression
+          '-pix_fmt', 'yuv420p', // Ensure compatibility
+          '-movflags', '+faststart', // Enable fast start for web
+          // Audio settings
+          '-c:a', 'aac', // AAC audio codec
+          '-b:a', '128k', // Audio bitrate
+          '-ac', '2', // Stereo audio
+          // Output
+          outputFileName
+        ]);
 
-      // Clean up
-      this.ffmpeg.off('progress', progressHandler);
-      await this.ffmpeg.deleteFile(inputFileName);
-      await this.ffmpeg.deleteFile(outputFileName);
+        onProgress?.({
+          phase: 'compressing',
+          progress: 95,
+          message: 'Finalizing compressed video...'
+        });
+
+        // Read the output file
+        const data = await this.ffmpeg.readFile(outputFileName);
+        const compressedBlob = new Blob([data], { type: 'video/mp4' });
+        
+        // Create a new File object with the original name but compressed content
+        compressedFile = new File(
+          [compressedBlob], 
+          file.name.replace(/\.[^/.]+$/, '.mp4'), // Ensure .mp4 extension
+          { type: 'video/mp4' }
+        );
+      } finally {
+        // Always clean up listeners and temp files
+        this.ffmpeg.off('progress', progressHandler);
+        try {
+          await this.ffmpeg.deleteFile(inputFileName);
+          await this.ffmpeg.deleteFile(outputFileName);
+        } catch (cleanupError) {
+          console.warn('Cleanup failed:', cleanupError);
+        }
+      }
 
       onProgress?.({
         phase: 'complete',
