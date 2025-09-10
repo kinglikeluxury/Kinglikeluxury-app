@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 
 const PropertyDetail = () => {
@@ -23,6 +23,7 @@ const PropertyDetail = () => {
   const [modalImageIndex, setModalImageIndex] = useState(0);
   const videoRefs = useRef<HTMLVideoElement[]>([]);
   const wasPlayingBeforePause = useRef<Set<number>>(new Set());
+  const [videoOrientations, setVideoOrientations] = useState<('vertical' | 'horizontal')[]>([]);
 
   // Fetch property data
   const { data: property, isLoading: isLoadingProperty } = useQuery<PropertyWithAgent>({
@@ -371,27 +372,81 @@ const PropertyDetail = () => {
               <div className="mb-8">
                 <h3 className="text-xl font-semibold mb-4">Property Videos</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {property.videos.map((video, idx) => (
-                    <div key={idx} className="rounded-lg overflow-hidden">
-                      <video 
-                        ref={el => {
-                          if (el) {
-                            videoRefs.current[idx] = el;
-                          }
-                        }}
-                        controls 
-                        controlsList="nodownload"
-                        onContextMenu={(e) => e.preventDefault()}
-                        className="w-full h-64 object-cover rounded-lg"
-                        preload="auto"
-                        playsInline
-                        style={{ objectFit: 'cover' }}
+                  {property.videos.map((video, idx) => {
+                    const isVertical = videoOrientations[idx] === 'vertical';
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`rounded-lg overflow-hidden relative ${
+                          isVertical ? 'md:col-span-1 mx-auto max-w-sm' : 'col-span-1'
+                        }`}
                       >
-                        <source src={video} type="video/mp4" />
-                        Your browser does not support the video tag.
-                      </video>
-                    </div>
-                  ))}
+                        {/* Video Orientation Badge */}
+                        <div className="absolute top-2 right-2 z-10">
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-black/70 text-white border-none text-xs flex items-center gap-1"
+                          >
+                            {isVertical ? (
+                              <>
+                                <Smartphone className="h-3 w-3" />
+                                Vertical
+                              </>
+                            ) : (
+                              <>
+                                <Monitor className="h-3 w-3" />
+                                Horizontal
+                              </>
+                            )}
+                          </Badge>
+                        </div>
+                        
+                        <video 
+                          ref={el => {
+                            if (el) {
+                              videoRefs.current[idx] = el;
+                            }
+                          }}
+                          controls 
+                          controlsList="nodownload"
+                          onContextMenu={(e) => e.preventDefault()}
+                          className={`w-full rounded-lg ${
+                            isVertical 
+                              ? 'h-96 object-contain bg-black' 
+                              : 'h-64 object-cover'
+                          }`}
+                          preload="metadata"
+                          playsInline
+                          onLoadedMetadata={(e) => {
+                            const video = e.target as HTMLVideoElement;
+                            const isVideoVertical = video.videoHeight > video.videoWidth;
+                            
+                            setVideoOrientations(prev => {
+                              const newOrientations = [...prev];
+                              newOrientations[idx] = isVideoVertical ? 'vertical' : 'horizontal';
+                              return newOrientations;
+                            });
+                          }}
+                          style={{ 
+                            objectFit: isVertical ? 'contain' : 'cover'
+                          }}
+                        >
+                          <source src={video} type="video/mp4" />
+                          Your browser does not support the video tag.
+                        </video>
+                        
+                        {/* Video Type Info */}
+                        <div className="absolute bottom-2 left-2 z-10">
+                          <Badge 
+                            variant="outline" 
+                            className="bg-white/90 text-black border-white/50 text-xs"
+                          >
+                            {isVertical ? 'Mobile Format' : 'Landscape Format'}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
