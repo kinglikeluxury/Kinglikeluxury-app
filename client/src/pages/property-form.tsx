@@ -406,17 +406,26 @@ const PropertyForm = () => {
         return `${cityNames.join(', ')}, ${countryNames.join(', ')}`;
       };
       
+      // Validate required fields
+      if (!propertyType) {
+        throw new Error('Property type is required');
+      }
+      
+      if (!formData.area && !formData.price) {
+        throw new Error('Area or price range must be specified');
+      }
+
       // Prepare property data
       const propertyData = {
         title: formData.title,
         description: formData.description,
-        propertyType,
+        propertyType: propertyType, // Ensure propertyType is set
         ownerId: user.id,
         location: getLocationString(),
-        price: parseInt(formData.price),
-        area: parseInt(formData.area),
-        bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : formData.bedrooms,
-        bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : formData.bathrooms,
+        price: parseInt(formData.price) || 0,
+        area: formData.area ? parseInt(formData.area) : parseInt(formData.price) || 100, // Use area or fallback to price range or default
+        bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : (formData.bedrooms || 1),
+        bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : (formData.bathrooms || 1),
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
         images: formData.images || [],
         videos: formData.videos || [],
@@ -439,7 +448,13 @@ const PropertyForm = () => {
         } : {})
       };
 
-      console.log('Submitting property:', submissionData);
+      console.log('🚀 Submitting property with data:', {
+        propertyType: submissionData.propertyType,
+        area: submissionData.area,
+        price: submissionData.price,
+        title: submissionData.title,
+        listingType: submissionData.listingType
+      });
       
       // Submit to API
       const apiUrl = isEditMode ? `/api/properties/${propertyId}` : '/api/properties';
