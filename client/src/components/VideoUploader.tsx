@@ -204,7 +204,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
                   <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
                 </div>
                 <AlertDialogTitle className="text-lg font-semibold text-gray-900">
-                  be patient ! your videos will be uploaded soon
+                  Be patient !<br />your videos will be uploaded soon
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-sm text-gray-600">
                   We're preparing your videos for optimal quality and fast loading
