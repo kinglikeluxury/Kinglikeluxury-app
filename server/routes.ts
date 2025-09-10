@@ -653,6 +653,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+  // Blog routes
+  app.get("/api/blog", async (req, res) => {
+    try {
+      const { published = true, authorId, category } = req.query;
+      
+      const filters: any = {};
+      if (published !== undefined) filters.published = published === 'true';
+      if (authorId) filters.authorId = parseInt(authorId as string);
+      if (category) filters.category = category as string;
+      
+      const blogPosts = await storage.getBlogPosts(filters);
+      res.json(blogPosts);
+    } catch (error) {
+      console.error('Error fetching blog posts:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/blog/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const blogPost = await storage.getBlogPostById(id);
+      
+      if (!blogPost) {
+        return res.status(404).json({ message: "Blog post not found" });
+      }
+      
+      res.json(blogPost);
+    } catch (error) {
+      console.error('Error fetching blog post:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
 
 
 

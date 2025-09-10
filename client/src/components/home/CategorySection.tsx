@@ -45,8 +45,7 @@ const CategorySection = () => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {categories.map((category, index) => (
-          <Link key={index} href={category.path}>
-            <a className="relative rounded-lg overflow-hidden group h-48">
+          <Link key={index} href={category.path} className="relative rounded-lg overflow-hidden group h-48 block">
               <img
                 src={category.image}
                 alt={`${category.name} ${t('common.category', 'category')}`}
@@ -81,7 +80,6 @@ const CategorySection = () => {
                 <h3 className="text-xl font-bold text-white">{category.name}</h3>
                 <p className="text-sm text-white/80">{category.count}</p>
               </div>
-            </a>
           </Link>
         ))}
       </div>

@@ -260,6 +260,55 @@ export class MemStorage implements IStorage {
     this.projects.set(id, project);
     return project;
   }
+
+  // Blog operations (stub implementations for interface compliance)
+  async getBlogPosts(filters?: { 
+    published?: boolean;
+    authorId?: number;
+    category?: string;
+  }): Promise<(BlogPost & { author: User })[]> {
+    // Return empty array for now since this is a stub implementation
+    return [];
+  }
+  
+  async getBlogPostById(id: number): Promise<(BlogPost & { author: User }) | undefined> {
+    return undefined;
+  }
+  
+  async getBlogPostBySlug(slug: string): Promise<(BlogPost & { author: User }) | undefined> {
+    return undefined;
+  }
+  
+  async createBlogPost(post: InsertBlogPost): Promise<BlogPost> {
+    const id = this.blogPostIdCounter++;
+    const blogPost: BlogPost = {
+      ...post,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.blogPosts.set(id, blogPost);
+    return blogPost;
+  }
+  
+  async updateBlogPost(id: number, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined> {
+    const blogPost = this.blogPosts.get(id);
+    if (!blogPost) return undefined;
+    
+    const updatedPost = { 
+      ...blogPost, 
+      ...post,
+      updatedAt: new Date() 
+    };
+    
+    this.blogPosts.set(id, updatedPost);
+    return updatedPost;
+  }
+  
+  async deleteBlogPost(id: number): Promise<boolean> {
+    return this.blogPosts.delete(id);
+  }
 }
 
 // Import the DatabaseStorage class
