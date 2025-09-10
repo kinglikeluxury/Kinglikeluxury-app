@@ -18,6 +18,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import Approvals from "@/pages/admin/approvals";
 import AddProject from "@/pages/admin/add-project";
 import NotFound from "@/pages/not-found";
+import Blog from "@/pages/blog";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { getLanguageDirection } from "./lib/i18n";
@@ -31,6 +32,7 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/properties" component={Properties} />
           <Route path="/projects" component={Projects} />
+          <Route path="/blog" component={Blog} />
           <Route path="/property/:id" component={PropertyDetail} />
           <Route path="/submit-property" component={SubmitProperty} />
           <Route path="/submit-property/form" component={PropertyForm} />
