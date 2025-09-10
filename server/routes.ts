@@ -441,8 +441,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getPropertiesByType(PROPERTY_TYPES.PROJECT)
       ]);
       
-      // Transform project-type properties to project format for display
-      const propertyProjects = projectProperties.map(property => ({
+      // Get property IDs that already have dedicated project records to avoid duplicates
+      const dedicatedPropertyIds = new Set(dedicatedProjects.map(project => project.propertyId));
+      
+      // Filter out properties that already have dedicated project records
+      const standaloneProjectProperties = projectProperties.filter(
+        property => !dedicatedPropertyIds.has(property.id)
+      );
+      
+      // Transform standalone project-type properties to project format for display
+      const propertyProjects = standaloneProjectProperties.map(property => ({
         id: `property-${property.id}`, // Unique ID to avoid conflicts with dedicated projects
         propertyId: property.id,
         developer: property.title, // Use title as developer
@@ -466,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ownerId: property.ownerId
       }));
       
-      // Combine and return all projects
+      // Combine and return all projects (dedicated projects + standalone project properties)
       const allProjects = [...dedicatedProjects, ...propertyProjects];
       res.json(allProjects);
     } catch (error) {
