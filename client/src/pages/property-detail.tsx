@@ -100,6 +100,28 @@ const PropertyDetail = () => {
     }).format(price);
   };
 
+  const getAreaDisplay = (area: number | string) => {
+    if (!area) return "0";
+    
+    // Convert area to string to handle both number and string inputs
+    const areaStr = String(area);
+    
+    // Check if area contains comma-separated values (multiple selections)
+    if (areaStr.includes(',')) {
+      const areaValues = areaStr.split(',').map(val => parseInt(val.trim())).filter(val => !isNaN(val));
+      if (areaValues.length > 1) {
+        const minArea = Math.min(...areaValues);
+        const maxArea = Math.max(...areaValues);
+        return `${minArea} - ${maxArea}`;
+      } else if (areaValues.length === 1) {
+        return String(areaValues[0]);
+      }
+    }
+    
+    // Single value - return as is
+    return areaStr;
+  };
+
   const getPriceRange = (price?: number) => {
     if (!price) return "";
     
@@ -445,7 +467,7 @@ const PropertyDetail = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Area:</span>
-                        <span>{property.area} sqft</span>
+                        <span>{getAreaDisplay(property.area)} sqft</span>
                       </div>
                       {property.bedrooms !== null && (
                         <div className="flex justify-between">
