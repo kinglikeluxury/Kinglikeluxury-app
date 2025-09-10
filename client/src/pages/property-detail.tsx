@@ -364,7 +364,7 @@ const PropertyDetail = () => {
                       </div>
                       <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                         <span className="text-gray-500 text-sm">Area</span>
-                        <span className="font-medium">{property.area} sqft</span>
+                        <span className="font-medium">{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {property.bedrooms !== null && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
