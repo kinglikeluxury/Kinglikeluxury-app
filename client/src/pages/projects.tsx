@@ -95,7 +95,9 @@ const Projects = () => {
   // Filter projects based on criteria
   const filteredProjects = projects.filter((project: Project) => {
     // Only show approved projects to regular users
-    if (!user?.isAdmin && project.status !== 'approved') {
+    // Check status in both project.status and project.property.status
+    const projectStatus = project.property?.status || project.status;
+    if (!user?.isAdmin && projectStatus !== 'approved') {
       return false;
     }
 
@@ -487,7 +489,7 @@ const Projects = () => {
                 <span className="text-3xl">🎉</span>
                 <div className="text-center">
                   <p className="text-xl font-semibold text-white mb-2">
-                    Special Promotion: 2% Less Than Construction Company Prices!
+                    Special promotion: Get a special discount for the property you purchase
                   </p>
                   <p className="text-base text-white mb-1 underline">
                     Save more on your off-plan property investment with our exclusive pricing
