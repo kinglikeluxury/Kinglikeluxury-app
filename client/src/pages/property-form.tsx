@@ -17,6 +17,7 @@ import { PhotoUploader } from "@/components/PhotoUploader";
 import { VideoUploader } from "@/components/VideoUploader";
 import ListingTypePopup from "@/components/ListingTypePopup";
 import PaymentPopup from "@/components/PaymentPopup";
+import { PostPaymentChoicesPopup } from "@/components/PostPaymentChoicesPopup";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -95,7 +96,14 @@ const PropertyForm = () => {
   // Popup states for payment flow
   const [showListingTypePopup, setShowListingTypePopup] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
+  const [showPostPaymentChoices, setShowPostPaymentChoices] = useState(false);
   const [selectedListingType, setSelectedListingType] = useState<'free' | 'featured'>('free');
+  const [paymentSuccessDetails, setPaymentSuccessDetails] = useState<{
+    propertyId: string;
+    propertyTitle: string;
+    durationDays: number;
+    amount: number;
+  } | null>(null);
 
   // Load existing property data when in edit mode
   useEffect(() => {
@@ -484,13 +492,19 @@ const PropertyForm = () => {
         description: `Your property has been ${isEditMode ? 'updated' : 'created'} successfully ${listingTypeMessage}.`,
       });
       
-      // Redirect to property detail page
+      // For featured listings, return the result for payment processing
+      if (listingType === 'featured') {
+        return result;
+      }
+      
+      // For free listings, redirect immediately
       const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
       window.location.href = redirectUrl;
       
     } catch (error) {
       console.error('Error submitting property:', error);
       alert('Failed to create property. Please try again.');
+      throw error; // Re-throw for payment handler to catch
     } finally {
       setIsSubmitting(false);
     }
@@ -522,11 +536,12 @@ const PropertyForm = () => {
       expirationDate.setDate(expirationDate.getDate() + days);
       
       // Submit property as featured listing
-      await submitProperty('featured', expirationDate.toISOString());
+      const propertyResult = await submitProperty('featured', expirationDate.toISOString());
       
       // Create payment record (this is for demo purposes)
+      const propertyId = propertyResult?.id || Date.now();
       const paymentData = {
-        propertyId: Date.now(), // Use temporary ID for demo
+        propertyId: propertyId,
         userId: user.id,
         amount: amount * 100, // Convert to cents
         currency: 'USD',
@@ -537,10 +552,15 @@ const PropertyForm = () => {
       
       await apiRequest('POST', '/api/payments', paymentData);
       
-      toast({
-        title: 'Featured Listing Created!',
-        description: `Your property is now featured for ${days} days. Payment of $${amount} processed successfully.`,
+      // Set payment success details and show choices popup
+      setPaymentSuccessDetails({
+        propertyId: propertyId.toString(),
+        propertyTitle: formData.title,
+        durationDays: days,
+        amount: amount
       });
+      
+      setShowPostPaymentChoices(true);
       
     } catch (error) {
       console.error('Error processing payment:', error);
@@ -2171,6 +2191,21 @@ const PropertyForm = () => {
           onPayment={handlePayment}
           propertyType={getPropertyTypeTitle(propertyType)}
         />
+
+        {/* Post-Payment Choices Popup */}
+        {paymentSuccessDetails && (
+          <PostPaymentChoicesPopup
+            open={showPostPaymentChoices}
+            onClose={() => {
+              setShowPostPaymentChoices(false);
+              setPaymentSuccessDetails(null);
+            }}
+            propertyId={paymentSuccessDetails.propertyId}
+            propertyTitle={paymentSuccessDetails.propertyTitle}
+            durationDays={paymentSuccessDetails.durationDays}
+            amount={paymentSuccessDetails.amount}
+          />
+        )}
       </div>
     </div>
   );
