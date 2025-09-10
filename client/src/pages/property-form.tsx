@@ -143,7 +143,13 @@ const PropertyForm = () => {
         leaseDuration: '',
         rentalTerms: '',
         images: existingProperty.images || [],
-        videos: existingProperty.videos || []
+        videos: existingProperty.videos || [],
+        projectDetails: {
+          developer: '',
+          completionDate: '',
+          projectStatus: 'Now Selling'
+        },
+        deliveryDate: ''
       });
       
       // Set property type
@@ -1971,7 +1977,7 @@ const PropertyForm = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              const currentAmenities = Array.isArray(formData.amenities) ? formData.amenities : formData.amenities.toString().split(',');
+                              const currentAmenities = formData.amenities || [];
                               const newAmenities = currentAmenities.filter((a: string) => a !== amenity);
                               setFormData(prev => ({ ...prev, amenities: newAmenities }));
                             }}
