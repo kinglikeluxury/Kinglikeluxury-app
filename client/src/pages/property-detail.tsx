@@ -41,6 +41,11 @@ const PropertyDetail = () => {
 
   const isLoading = isLoadingProperty || (property?.propertyType === 'project' && isLoadingProject);
 
+  // Scroll to top when component mounts or property changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [propertyId]);
+
   // Image modal functions
   const openImageModal = (index: number) => {
     setModalImageIndex(index);
