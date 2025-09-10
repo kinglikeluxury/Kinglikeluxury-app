@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bed, Bath, Home, ArrowRight, Share2 } from "lucide-react";
+import { Bed, Bath, Home, ArrowRight } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 
 interface PropertyCardProps {
@@ -114,23 +114,6 @@ const PropertyCard = ({
     return priceRanges[price] || formatPrice(price);
   };
 
-  const handleWhatsAppShare = () => {
-    // Get current domain for the property link
-    const currentDomain = window.location.origin;
-    const propertyLink = `${currentDomain}/property/${id}`;
-    
-    // Create formatted WhatsApp message
-    const message = `🏠 *${title}*\n\n💰 *Price:* ${getPriceRange(price)}\n📍 *Location:* ${location}\n🏡 *Type:* ${getPropertyTypeName()}\n📐 *Area:* ${area} sqft${bedrooms ? `\n🛏️ *Bedrooms:* ${bedrooms}` : ''}${bathrooms ? `\n🚿 *Bathrooms:* ${bathrooms}` : ''}\n\n✨ Check out this amazing property!\n\n🔗 ${propertyLink}\n\n🏢 *Kinglike Luxury Real Estate*`;
-    
-    // Encode message for URL
-    const encodedMessage = encodeURIComponent(message);
-    
-    // Create WhatsApp URL - using the general WhatsApp share without specific number
-    const whatsappURL = `https://wa.me/?text=${encodedMessage}`;
-    
-    // Open WhatsApp
-    window.open(whatsappURL, '_blank');
-  };
 
   return (
     <Card className="overflow-hidden h-full flex flex-col">
@@ -191,7 +174,7 @@ const PropertyCard = ({
           )}
         </div>
         
-        <div className="mt-4 mt-auto space-y-2">
+        <div className="mt-4 mt-auto">
           <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
             <Link href={`/property/${id}`}>
               <span className="flex items-center justify-center">
@@ -199,18 +182,6 @@ const PropertyCard = ({
                 <ArrowRight className="ml-2 h-4 w-4" />
               </span>
             </Link>
-          </Button>
-          
-          <Button 
-            onClick={handleWhatsAppShare}
-            variant="outline" 
-            className="w-full border-green-500 text-green-600 hover:bg-green-50 hover:border-green-600"
-            data-testid={`button-share-whatsapp-${id}`}
-          >
-            <span className="flex items-center justify-center">
-              <Share2 className="mr-2 h-4 w-4" />
-              Share on WhatsApp
-            </span>
           </Button>
         </div>
       </CardContent>
