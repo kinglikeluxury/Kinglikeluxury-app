@@ -23,13 +23,8 @@ export class VideoCompressor {
     try {
       this.ffmpeg = new FFmpeg();
       
-      // Load FFmpeg WebAssembly files
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-      
-      await this.ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
+      // Load FFmpeg WebAssembly files from local node_modules (safer than CDN)
+      await this.ffmpeg.load();
 
       this.isLoaded = true;
       
@@ -81,20 +76,22 @@ export class VideoCompressor {
       });
 
       // Set up progress monitoring
-      this.ffmpeg.on('progress', ({ progress }) => {
+      const progressHandler = ({ progress }: { progress: number }) => {
         const percent = Math.round(progress * 100);
         onProgress?.({
           phase: 'compressing',
           progress: 25 + (percent * 0.7), // 25% to 95%
           message: `Compressing video: ${percent}%`
         });
-      });
+      };
+      
+      this.ffmpeg.on('progress', progressHandler);
 
       // Compression settings for 1080p HD with good quality
       await this.ffmpeg.exec([
         '-i', inputFileName,
         // Video settings
-        '-vf', 'scale=-2:1080', // Scale to 1080p, maintain aspect ratio
+        '-vf', 'scale=min(iw\\,1920):min(ih\\,1080)', // Cap at 1080p without upscaling
         '-c:v', 'libx264', // H.264 codec
         '-crf', '23', // Good quality (18-28 range, lower = better quality)
         '-preset', 'medium', // Balance between speed and compression
@@ -126,6 +123,7 @@ export class VideoCompressor {
       );
 
       // Clean up
+      this.ffmpeg.off('progress', progressHandler);
       await this.ffmpeg.deleteFile(inputFileName);
       await this.ffmpeg.deleteFile(outputFileName);
 
@@ -148,11 +146,11 @@ export class VideoCompressor {
   }
 
   shouldCompress(file: File): boolean {
-    // Only compress if file is larger than 50MB or if it's not already optimized
-    const shouldCompressBySize = file.size > 50 * 1024 * 1024; // 50MB
+    // Compress if file is larger than 50MB or likely not optimized
+    const isLargeFile = file.size > 50 * 1024 * 1024; // 50MB
+    const isNotOptimalFormat = !file.type.includes('mp4');
     
-    // Always compress to ensure 1080p standard and optimal codec
-    return true;
+    return isLargeFile || isNotOptimalFormat;
   }
 
   private formatFileSize(bytes: number): string {

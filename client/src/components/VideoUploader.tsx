@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Video, X, Play, Upload } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Video, X, Play, Upload, Loader2 } from "lucide-react";
+import { videoCompressor, CompressionProgress } from "@/lib/videoCompression";
 
 interface VideoUploaderProps {
   onVideosChange: (videos: string[]) => void;
@@ -12,6 +14,7 @@ interface VideoUploaderProps {
 export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploaderProps) {
   const [videos, setVideos] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState<CompressionProgress | null>(null);
 
   // Convert any storage URLs to object paths and update videos when initialVideos changes
   useEffect(() => {
@@ -31,10 +34,31 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
 
   const handleFileUpload = async (files: File[]) => {
     setIsUploading(true);
+    setCompressionProgress(null);
+    
     try {
       const uploadedVideos = [];
       
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        let processedFile = file;
+        
+        // Compress video if needed
+        if (videoCompressor.shouldCompress(file)) {
+          setCompressionProgress({
+            phase: 'loading',
+            progress: 0,
+            message: `Compressing video ${i + 1} of ${files.length}...`
+          });
+          
+          try {
+            processedFile = await videoCompressor.compressVideo(file, setCompressionProgress);
+          } catch (compressionError) {
+            console.warn('Video compression failed, uploading original:', compressionError);
+            // Continue with original file if compression fails
+          }
+        }
+        
         // Get upload URL first
         const uploadResponse = await fetch("/api/videos/upload", {
           method: "POST",
@@ -48,10 +72,10 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
         
         const { uploadURL } = await uploadResponse.json();
         
-        // Upload the file directly to cloud storage using PUT
+        // Upload the processed file directly to cloud storage using PUT
         const fileUploadResponse = await fetch(uploadURL, {
           method: 'PUT',
-          body: file,
+          body: processedFile,
         });
         
         if (!fileUploadResponse.ok) {
@@ -129,15 +153,32 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
               >
                 <div className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
-                  Upload 4K Videos (No Size Limit)
+                  Upload 1080p HD (Optimized Size)
                 </div>
               </Button>
             </div>
           )}
 
-          {isUploading && (
-            <div className="text-center py-4">
-              <p className="text-sm text-gray-500">Processing videos...</p>
+          {(isUploading || compressionProgress) && (
+            <div className="text-center py-4 space-y-3">
+              {compressionProgress && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <p className="text-sm text-gray-600">{compressionProgress.message}</p>
+                  </div>
+                  <Progress value={compressionProgress.progress} className="w-full max-w-md mx-auto" />
+                  <p className="text-xs text-gray-500">
+                    {compressionProgress.phase === 'loading' && 'Initializing compression engine...'}
+                    {compressionProgress.phase === 'compressing' && 'Compressing to 1080p HD...'}
+                    {compressionProgress.phase === 'complete' && 'Compression complete! Uploading...'}
+                    {compressionProgress.phase === 'error' && 'Compression failed, uploading original...'}
+                  </p>
+                </div>
+              )}
+              {isUploading && !compressionProgress && (
+                <p className="text-sm text-gray-500">Uploading videos...</p>
+              )}
             </div>
           )}
 
@@ -152,12 +193,12 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
                     </div>
                     <div>
                       <p className="font-medium text-sm">Property Video {index + 1}</p>
-                      <p className="text-xs text-gray-500">4K Quality Video</p>
+                      <p className="text-xs text-gray-500">1080p HD Video</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-xs">
-                      HD/4K
+1080p HD
                     </Badge>
                     <Button
                       type="button"
@@ -178,7 +219,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
               <Video className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <p className="text-gray-500">No videos uploaded yet</p>
-              <p className="text-sm text-gray-400">Upload unlimited 4K videos to showcase your property</p>
+              <p className="text-sm text-gray-400">Upload videos optimized to 1080p HD for faster loading</p>
             </div>
           )}
 
@@ -186,9 +227,9 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           <div className="bg-blue-50 p-4 rounded-lg">
             <h4 className="font-medium text-blue-900 mb-2">Video Upload Benefits:</h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Unlimited file size - Upload full 4K quality videos</li>
+              <li>• Automatic 1080p HD compression for optimal quality and size</li>
               <li>• No quantity restrictions - Add as many videos as needed</li>
-              <li>• Automatic cloud storage and streaming optimization</li>
+              <li>• Smart compression - only processes large or unoptimized files</li>
               <li>• Perfect for virtual tours, drone footage, and walkthroughs</li>
             </ul>
           </div>
