@@ -328,7 +328,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const properties = await storage.getProperties(filters);
-      res.json(properties);
+      
+      // Sort properties to prioritize featured listings (VIP and Super VIP)
+      const sortedProperties = properties.sort((a, b) => {
+        // First, check if listings are still active (not expired)
+        const now = new Date();
+        const aIsActive = !a.listingExpiresAt || new Date(a.listingExpiresAt) > now;
+        const bIsActive = !b.listingExpiresAt || new Date(b.listingExpiresAt) > now;
+        
+        // If listing is expired, treat it as regular
+        const aListingType = aIsActive ? a.listingType : 'regular';
+        const bListingType = bIsActive ? b.listingType : 'regular';
+        
+        // Prioritization order: super_vip > vip > regular
+        const priorities = { 'super_vip': 3, 'vip': 2, 'regular': 1 };
+        const aPriority = priorities[aListingType as keyof typeof priorities] || 1;
+        const bPriority = priorities[bListingType as keyof typeof priorities] || 1;
+        
+        if (aPriority !== bPriority) {
+          return bPriority - aPriority; // Higher priority first
+        }
+        
+        // If same priority, sort by creation date (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      res.json(sortedProperties);
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }
