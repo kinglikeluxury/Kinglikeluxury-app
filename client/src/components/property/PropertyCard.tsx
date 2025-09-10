@@ -150,7 +150,7 @@ const PropertyCard = ({
         
         {getStatusBadge()}
         
-        <div className="mt-1 flex items-center justify-between text-sm text-gray-500">
+        <div className="-mt-1 flex items-center justify-between text-sm text-gray-500">
           <div className="flex items-center">
             <Home className="h-4 w-4 mr-1" />
             <span>{area || 0} sqft</span>
