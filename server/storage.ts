@@ -107,6 +107,14 @@ export class MemStorage implements IStorage {
     const user: User = {
       ...userData,
       id,
+      password: userData.password ?? null,
+      email: userData.email ?? null,
+      phoneNumber: userData.phoneNumber ?? null,
+      whatsappNumber: userData.whatsappNumber ?? null,
+      facebookId: userData.facebookId ?? null,
+      authMethod: userData.authMethod ?? 'email',
+      isVerified: userData.isVerified ?? false,
+      isAdmin: userData.isAdmin ?? false,
       createdAt: new Date(),
     };
     this.users.set(id, user);
@@ -173,6 +181,12 @@ export class MemStorage implements IStorage {
       status: propertyData.propertyType === PROPERTY_TYPES.PROJECT 
         ? PROPERTY_STATUS.APPROVED 
         : PROPERTY_STATUS.PENDING,
+      latitude: propertyData.latitude ?? null,
+      longitude: propertyData.longitude ?? null,
+      bedrooms: propertyData.bedrooms ?? null,
+      bathrooms: propertyData.bathrooms ?? null,
+      floorNumber: propertyData.floorNumber ?? null,
+      listingExpiresAt: null,
       createdAt: now,
       updatedAt: now,
     };
