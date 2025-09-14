@@ -78,10 +78,7 @@ const Properties = () => {
       params.append("myProperties", "true");
     }
     
-    const url = `/api/properties${params.size > 0 ? `?${params.toString()}` : ""}`;
-    console.log("Properties API URL:", url);
-    console.log("Current filters:", filters);
-    return url;
+    return `/api/properties${params.size > 0 ? `?${params.toString()}` : ""}`;
   };
 
   // Fetch properties based on filters

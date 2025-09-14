@@ -298,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let filters: any = { status };
       
       if (type) filters.type = type as string;
-      if (location) filters.location = location as string;
+      if (location && location !== 'any') filters.location = location as string;
       if (minPrice) filters.minPrice = parseInt(minPrice as string);
       if (maxPrice) filters.maxPrice = parseInt(maxPrice as string);
       
