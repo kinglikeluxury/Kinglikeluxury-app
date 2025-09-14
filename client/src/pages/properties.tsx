@@ -78,13 +78,16 @@ const Properties = () => {
       params.append("myProperties", "true");
     }
     
-    return `/api/properties${params.size > 0 ? `?${params.toString()}` : ""}`;
+    const url = `/api/properties${params.size > 0 ? `?${params.toString()}` : ""}`;
+    console.log("Properties API URL:", url);
+    console.log("Current filters:", filters);
+    return url;
   };
 
   // Fetch properties based on filters
   const { data: properties, isLoading } = useQuery<Property[]>({
     queryKey: [getQueryUrl()],
-    staleTime: 60000, // 1 minute
+    staleTime: 0, // Don't use cached data
   });
 
   // Convert filters for the search component
