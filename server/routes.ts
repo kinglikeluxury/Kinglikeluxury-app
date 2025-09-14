@@ -304,9 +304,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Support country+city filtering for main feed (Hero search)
       if (req.query.city && req.query.city !== 'any') {
-        const cityName = getCityFullName(req.query.city as string);
-        if (cityName) {
-          filters.location = cityName;
+        const locationFilter = getLocationFilter(req.query.city as string);
+        if (locationFilter) {
+          filters.locationContains = locationFilter;
         }
       }
       
@@ -758,8 +758,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(503).json({ error: "Public object serving temporarily unavailable" });
   });
 
-  // Helper function to convert city codes to full names for filtering
-  function getCityFullName(cityCode: string): string | null {
+  // Helper function to get location filter for country/city selection
+  function getLocationFilter(cityCode: string): string | null {
+    // Handle country-level filtering
+    const countryMap: Record<string, string> = {
+      'georgia': 'Georgia',
+      'uae': 'UAE'
+    };
+    
+    // Handle city-level filtering  
     const cityMap: Record<string, string> = {
       'batumi': 'Batumi',
       'tbilisi': 'Tbilisi', 
@@ -767,7 +774,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'sharjah': 'Sharjah',
       'ras-al-khaimah': 'Ras Al Khaimah'
     };
-    return cityMap[cityCode] || null;
+    
+    // Return country filter or city filter
+    return countryMap[cityCode] || cityMap[cityCode] || null;
   }
 
   return httpServer;

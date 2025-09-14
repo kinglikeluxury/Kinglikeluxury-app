@@ -127,6 +127,10 @@ export class DatabaseStorage implements IStorage {
           conditions.push(like(properties.location, `%${filters.location}%`));
         }
         
+        if (filters.locationContains) {
+          conditions.push(like(properties.location, `%${filters.locationContains}%`));
+        }
+        
         if (filters.minPrice) {
           conditions.push(gte(properties.price, filters.minPrice));
         }
