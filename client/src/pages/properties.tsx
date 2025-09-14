@@ -62,6 +62,10 @@ const Properties = () => {
       params.append("location", filters.location);
     }
     
+    if (filters.city) {
+      params.append("city", filters.city);
+    }
+    
     if (filters.minPrice) {
       params.append("minPrice", filters.minPrice);
     }
