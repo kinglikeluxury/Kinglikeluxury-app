@@ -27,7 +27,7 @@ const Hero = () => {
         return [
           { value: "dubai", label: "Dubai" },
           { value: "sharjah", label: "Sharjah" },
-          { value: "ras-al-khaimah", label: "Ras Al Khaimah" }
+          { value: "rasAlKhaimah", label: "Ras Al Khaimah" }
         ];
       default:
         return [];
@@ -102,21 +102,21 @@ const Hero = () => {
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('home.hero.country', 'Country')}</label>
                     <Select value={city} onValueChange={handleCountryChange}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Any Country" />
+                        <SelectValue placeholder={t('home.hero.anyCountry', 'Any Country')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="any">Any Country</SelectItem>
-                        <SelectItem value="georgia">Georgia</SelectItem>
-                        <SelectItem value="uae">United Arab Emirates</SelectItem>
+                        <SelectItem value="any">{t('home.hero.anyCountry', 'Any Country')}</SelectItem>
+                        <SelectItem value="georgia">{t('countries.georgia', 'Georgia')}</SelectItem>
+                        <SelectItem value="uae">{t('countries.uae', 'United Arab Emirates')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">المدينة</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('home.hero.city', 'City')}</label>
                     <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger>
                         <SelectValue placeholder={t('property.anyLocation', 'Any location')} />
@@ -125,7 +125,7 @@ const Hero = () => {
                         <SelectItem value="any">{t('property.anyLocation', 'Any location')}</SelectItem>
                         {getCitiesForCountry(city).map((cityOption) => (
                           <SelectItem key={cityOption.value} value={cityOption.value}>
-                            {cityOption.label}
+                            {t(`cities.${cityOption.value}`, cityOption.label)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -150,15 +150,15 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">الغرض</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('home.hero.purpose', 'What for')}</label>
                     <Select value={purpose} onValueChange={setPurpose}>
                       <SelectTrigger>
-                        <SelectValue placeholder="أي غرض" />
+                        <SelectValue placeholder={t('home.hero.anyPurpose', 'Any Purpose')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="any">أي غرض</SelectItem>
-                        <SelectItem value="buy">للشراء</SelectItem>
-                        <SelectItem value="rent">للإيجار</SelectItem>
+                        <SelectItem value="any">{t('home.hero.anyPurpose', 'Any Purpose')}</SelectItem>
+                        <SelectItem value="buy">{t('home.hero.toBuy', 'To buy')}</SelectItem>
+                        <SelectItem value="rent">{t('home.hero.forRent', 'For rent')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

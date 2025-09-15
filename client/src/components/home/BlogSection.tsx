@@ -5,6 +5,7 @@ import { BlogPost } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, Calendar, User, Tag } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Sample blog images for initial development
 const SAMPLE_IMAGES = [
@@ -15,6 +16,7 @@ const SAMPLE_IMAGES = [
 ];
 
 export const BlogSection = () => {
+  const { t } = useTranslation();
   const [blogPosts, setBlogPosts] = useState<(BlogPost & { author: { username: string } })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -43,7 +45,7 @@ export const BlogSection = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(t('app.locale', 'en-US'), {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -92,11 +94,11 @@ export const BlogSection = () => {
       <div className="container mx-auto px-4">
         <div className="flex flex-col items-center text-center mb-12">
           <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-[#005476] to-[#3bcac4] bg-clip-text text-transparent">
-            Real Estate Insights
+{t('home.insights.title', 'Real Estate Insights')}
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-[#005476] to-[#3bcac4] rounded-full mb-4"></div>
           <p className="text-gray-600 max-w-2xl text-center">
-            Expert advice, market trends, and design inspirations from our real estate specialists to help you make informed decisions
+            {t('home.insights.subtitle', 'Expert advice, market trends, and design inspirations from our real estate specialists to help you make informed decisions')}
           </p>
         </div>
         
@@ -164,7 +166,7 @@ export const BlogSection = () => {
                   </p>
                   
                   <div className="inline-flex items-center text-[#3bcac4] hover:text-[#005476] font-medium cursor-pointer" onClick={() => window.location.href = `/blog/${post.slug}`}>
-                    Read Article
+                    {t('home.insights.readArticle', 'Read Article')}
                     <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </div>
                 </div>
@@ -178,7 +180,7 @@ export const BlogSection = () => {
             className="bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white hover:from-[#004966] hover:to-[#2ab9b4] px-8 py-6 text-lg font-medium"
             onClick={() => window.location.href = '/blog'}
           >
-            View All Articles
+{t('home.insights.viewAllButton', 'View All Articles')}
           </Button>
         </div>
       </div>

@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Property } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
 
 const FeaturedProperties = () => {
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 3;
 
@@ -35,7 +37,7 @@ const FeaturedProperties = () => {
     <div className="bg-gray-50 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Featured Properties</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('home.featured.title', 'Featured Properties')}</h2>
           <div className="flex space-x-2">
             <Button 
               onClick={goToPrevPage} 
@@ -76,7 +78,7 @@ const FeaturedProperties = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredProperties.length === 0 ? (
-              <p className="text-gray-500 col-span-3 text-center py-12">No properties found</p>
+              <p className="text-gray-500 col-span-3 text-center py-12">{t('home.featured.noResults', 'No properties found')}</p>
             ) : (
               paginatedProperties().map((property) => (
                 <PropertyCard

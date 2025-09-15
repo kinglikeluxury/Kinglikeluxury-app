@@ -1,21 +1,23 @@
 import { PenLine, Upload, CheckCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const HowItWorks = () => {
+  const { t } = useTranslation();
   const steps = [
     {
       icon: <PenLine className="h-8 w-8" />,
-      title: "1. Create Account",
-      description: "Sign up for a free account to access all our platform features.",
+      title: `1. ${t('home.howItWorks.createAccount.title', 'Create Account')}`,
+      description: t('home.howItWorks.createAccount.description', 'Sign up for a free account to access all our platform features.'),
     },
     {
       icon: <Upload className="h-8 w-8" />,
-      title: "2. Submit Property",
-      description: "Fill out the property details form and upload high-quality photos.",
+      title: `2. ${t('home.howItWorks.submitProperty.title', 'Submit Property')}`,
+      description: t('home.howItWorks.submitProperty.description', 'Fill out the property details form and upload high-quality photos.'),
     },
     {
       icon: <CheckCircle className="h-8 w-8" />,
-      title: "3. Get Approved",
-      description: "Once reviewed and approved, your property will be listed on our platform.",
+      title: `3. ${t('home.howItWorks.getApproved.title', 'Get Approved')}`,
+      description: t('home.howItWorks.getApproved.description', 'Once reviewed and approved, your property will be listed on our platform.'),
     },
   ];
 
@@ -23,9 +25,9 @@ const HowItWorks = () => {
     <div className="bg-white py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">How It Works</h2>
+          <h2 className="text-3xl font-bold text-gray-900">{t('home.howItWorks.title', 'How It Works')}</h2>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-            Easy steps to list your property on our platform
+            {t('home.howItWorks.subtitle', 'Easy steps to list your property on our platform')}
           </p>
         </div>
 

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { Project, Property } from "@shared/schema";
 type ProjectWithProperty = Project & { property: Property };
 
 const LatestProjects = () => {
+  const { t } = useTranslation();
   const { data: projects, isLoading } = useQuery<ProjectWithProperty[]>({
     queryKey: ['/api/projects'],
     staleTime: 60000, // 1 minute
@@ -22,9 +24,9 @@ const LatestProjects = () => {
     <div className="bg-gray-50 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Latest Construction Projects</h2>
+          <h2 className="text-3xl font-bold text-gray-900">{t('home.projects.title', 'Latest Construction Projects')}</h2>
           <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500">
-            Exclusive projects currently under development
+            {t('home.projects.subtitle', 'Exclusive projects currently under development')}
           </p>
         </div>
 
@@ -54,7 +56,7 @@ const LatestProjects = () => {
         ) : (
           <div className="mt-12 grid gap-8 grid-cols-1 lg:grid-cols-2">
             {latestProjects.length === 0 ? (
-              <p className="text-gray-500 col-span-2 text-center py-12">No projects found</p>
+              <p className="text-gray-500 col-span-2 text-center py-12">{t('home.projects.noResults', 'No projects found')}</p>
             ) : (
               latestProjects.map((project) => (
                 <Card key={project.id} className="overflow-hidden flex flex-col">
@@ -72,7 +74,7 @@ const LatestProjects = () => {
                           {project.projectStatus}
                         </Badge>
                         <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                          Completion: {project.completionDate}
+                          {t('home.projects.completion', 'Completion:')} {project.completionDate}
                         </Badge>
                       </div>
                       <Link href={`/property/${project.propertyId}`}>
@@ -88,7 +90,7 @@ const LatestProjects = () => {
                         </div>
                         <div className="mt-2 flex items-center text-sm text-gray-500">
                           <User className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
-                          Developer: {project.developer}
+                          {t('home.projects.developer', 'Developer:')} {project.developer}
                         </div>
                       </div>
                     </div>

@@ -213,5 +213,67 @@
     "serverError": "Server Error",
     "serverErrorMessage": "An error occurred on the server.",
     "formError": "Please check your input and try again."
+  },
+  "home": {
+    "hero": {
+      "country": "Country",
+      "anyCountry": "Any Country",
+      "city": "City",
+      "purpose": "What for",
+      "anyPurpose": "Any Purpose",
+      "toBuy": "To buy",
+      "forRent": "For rent"
+    },
+    "featured": {
+      "title": "Featured Properties",
+      "noResults": "No properties found"
+    },
+    "cta": {
+      "title": "Have a property to sell or rent?",
+      "subtitle": "List it on our platform for free.",
+      "description": "Reach thousands of potential buyers and tenants by uploading your property today.",
+      "uploadButton": "Upload Property",
+      "browseButton": "Browse Listings"
+    },
+    "projects": {
+      "title": "Latest Construction Projects",
+      "subtitle": "Exclusive projects currently under development",
+      "noResults": "No projects found",
+      "completion": "Completion:",
+      "developer": "Developer:"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "Easy steps to list your property on our platform",
+      "createAccount": {
+        "title": "Create Account",
+        "description": "Sign up for a free account to access all our platform features."
+      },
+      "submitProperty": {
+        "title": "Submit Property",
+        "description": "Fill out the property details form and upload high-quality photos."
+      },
+      "getApproved": {
+        "title": "Get Approved",
+        "description": "Once reviewed and approved, your property will be listed on our platform."
+      }
+    },
+    "insights": {
+      "title": "Real Estate Insights",
+      "subtitle": "Expert advice, market trends, and design inspirations from our real estate specialists to help you make informed decisions",
+      "viewAllButton": "View All Articles",
+      "readArticle": "Read Article"
+    }
+  },
+  "countries": {
+    "georgia": "Georgia",
+    "uae": "United Arab Emirates"
+  },
+  "cities": {
+    "batumi": "Batumi",
+    "tbilisi": "Tbilisi",
+    "dubai": "Dubai",
+    "sharjah": "Sharjah",
+    "rasAlKhaimah": "Ras Al Khaimah"
   }
 }
