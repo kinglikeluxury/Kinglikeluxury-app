@@ -116,7 +116,7 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">المدينة</label>
                     <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger>
                         <SelectValue placeholder={t('property.anyLocation', 'Any location')} />
@@ -150,15 +150,15 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">What for</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">الغرض</label>
                     <Select value={purpose} onValueChange={setPurpose}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Any Purpose" />
+                        <SelectValue placeholder="أي غرض" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="any">Any Purpose</SelectItem>
-                        <SelectItem value="buy">To buy</SelectItem>
-                        <SelectItem value="rent">For rent</SelectItem>
+                        <SelectItem value="any">أي غرض</SelectItem>
+                        <SelectItem value="buy">للشراء</SelectItem>
+                        <SelectItem value="rent">للإيجار</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
