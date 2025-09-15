@@ -1,7 +1,8 @@
 {
   "app": {
-    "name": "Kinglike Luxury",
-    "description": "Premium Gayrimenkul Pazarı"
+    "name": "Kinglike Luxury", 
+    "description": "Premium Emlak Pazaryeri",
+    "locale": "tr-TR"
   },
   "nav": {
     "home": "Ana Sayfa",
@@ -18,10 +19,11 @@
     "language": "Dil"
   },
   "propertyTypes": {
-    "apartment": "Daire",
-    "villa": "Villa",
-    "land": "Arsa",
-    "project": "Proje"
+    "apartment": "Daireler",
+    "villa": "Villalar", 
+    "land": "Araziler",
+    "commercial": "Ticari Alanlar",
+    "project": "İnşaat Projeleri"
   },
   "propertyStatus": {
     "pending": "Beklemede",
@@ -66,7 +68,23 @@
     "minPrice": "Min Fiyat",
     "maxPrice": "Max Fiyat",
     "seeMore": "Daha Fazla",
-    "contact": "Sahibiyle İletişime Geç"
+    "contact": "Sahibiyle İletişime Geç",
+    "heroTitle": "Mükemmel Mülkünüzü Bulun",
+    "heroSubtitle": "İhtiyaçlarınıza uygun daireler, villalar, araziler ve inşaat projelerini keşfedin",
+    "anyLocation": "Herhangi bir konum",
+    "type": "Emlak Türü",
+    "priceRange": "Fiyat Aralığı", 
+    "anyPrice": "Herhangi bir fiyat",
+    "listings": "120+ İlan",
+    "listings2": "85+ İlan",
+    "listings3": "63+ İlan",
+    "listings4": "42+ İlan",
+    "uploadProperties": "Mülklerinizi yükleyin",
+    "myProperties": "Emlakların",
+    "viewDetails": "Detayları görüntüle",
+    "viewProject": "Proje detaylarını görüntüle", 
+    "viewAllProjects": "Tüm projeleri görüntüle",
+    "tryAdjustingFilters": "Arama filtrelerinizi ayarlamayı deneyin veya daha sonra tekrar kontrol edin."
   },
   "project": {
     "title": "Proje Başlığı",
@@ -113,7 +131,8 @@
     "approve": "Onayla",
     "reject": "Reddet",
     "pendingProperties": "Bekleyen Mülkler",
-    "createProject": "Proje Oluştur"
+    "createProject": "Proje Oluştur",
+    "onlyListings": "Yalnızca yönetici ilanları"
   },
   "blog": {
     "title": "Blog Başlığı",
@@ -152,7 +171,7 @@
     "close": "Kapat",
     "yes": "Evet",
     "no": "Hayır",
-    "all": "Tümü",
+    "all": "Tüm türler",
     "more": "Daha Fazla",
     "less": "Daha Az",
     "description": "Açıklama",
@@ -161,7 +180,9 @@
     "inDevelopment": "Geliştirme Aşamasında",
     "comingSoon": "Çok Yakında",
     "contactUs": "Bize Ulaşın",
-    "aboutUs": "Hakkımızda"
+    "aboutUs": "Hakkımızda",
+    "exclusive": "KINGLIKE ÖZEL",
+    "category": "kategori"
   },
   "footer": {
     "copyright": "© {{year}} Kinglike Luxury. Tüm hakları saklıdır.",
@@ -181,5 +202,76 @@
     "serverError": "Sunucu Hatası",
     "serverErrorMessage": "Sunucuda bir hata oluştu.",
     "formError": "Lütfen girişlerinizi kontrol edin ve tekrar deneyin."
+  },
+  "home": {
+    "hero": {
+      "country": "Ülke",
+      "anyCountry": "Herhangi bir ülke", 
+      "city": "Şehir",
+      "purpose": "Ne için",
+      "anyPurpose": "Herhangi bir amaç",
+      "toBuy": "Satın almak için",
+      "forRent": "Kiralamak için"
+    },
+    "featured": {
+      "title": "Öne çıkan emlaklar",
+      "noResults": "Emlak bulunamadı"
+    },
+    "cta": {
+      "title": "Satılık veya kiralık mülkünüz var mı?",
+      "subtitle": "Platformumuzda ücretsiz olarak listeleyin.",
+      "description": "Mülkünüzü bugün yükleyerek binlerce potansiyel alıcı ve kiracıya ulaşın.",
+      "uploadButton": "Mülk yükle",
+      "browseButton": "Listeleri göz at"
+    },
+    "projects": {
+      "title": "En son inşaat projeleri",
+      "subtitle": "Şu anda geliştirilmekte olan özel projeler",
+      "noResults": "Proje bulunamadı",
+      "completion": "Tamamlanma:",
+      "developer": "Geliştirici:"
+    },
+    "howItWorks": {
+      "title": "Nasıl çalışır",
+      "subtitle": "Mülkünüzü platformumuzda listelemeniz için kolay adımlar",
+      "createAccount": {
+        "title": "Hesap oluştur",
+        "description": "Platformumuzun tüm özelliklerine erişmek için ücretsiz hesap oluşturun."
+      },
+      "submitProperty": {
+        "title": "Mülk gönder",
+        "description": "Mülk detayları formunu doldurun ve yüksek kaliteli fotoğraflar yükleyin."
+      },
+      "getApproved": {
+        "title": "Onay alın",
+        "description": "İncelendikten ve onaylandıktan sonra mülkünüz platformumuzda listelenir."
+      }
+    },
+    "insights": {
+      "title": "Emlak makaleleri",
+      "subtitle": "Bilinçli kararlar vermenize yardımcı olacak emlak uzmanlarından uzman tavsiyeleri, pazar trendleri ve tasarım ilhamları",
+      "viewAllButton": "Tüm makaleleri görüntüle",
+      "readArticle": "Makaleyi oku"
+    }
+  },
+  "countries": {
+    "georgia": "Gürcistan",
+    "uae": "Birleşik Arap Emirlikleri"
+  },
+  "cities": {
+    "batumi": "Batumi",
+    "tbilisi": "Tiflis",
+    "dubai": "Dubai", 
+    "sharjah": "Sharjah",
+    "rasAlKhaimah": "Ras Al Khaimah"
+  },
+  "categories": {
+    "title": "Kategoriye göre gözat"
+  },
+  "favorites": {
+    "title": "Favoriler",
+    "empty": "Henüz favori yok",
+    "viewAll": "Tüm favorileri görüntüle",
+    "remove": "Favorilerden kaldır"
   }
 }
