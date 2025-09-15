@@ -197,7 +197,13 @@
     "listings4": "42+ إعلان",
     "uploadProperties": "ارفع عقاراتك",
     "submit": "أضف عقار",
-    "myProperties": "عقاراتي"
+    "myProperties": "عقاراتي",
+    "viewDetails": "عرض التفاصيل",
+    "viewProject": "عرض تفاصيل المشروع",
+    "viewAllProjects": "عرض جميع المشاريع",
+    "viewAll": "عرض جميع العقارات",
+    "tryAdjustingFilters": "حاول تعديل مرشحات البحث أو تحقق مرة أخرى لاحقاً.",
+    "noResults": "لم يتم العثور على عقارات"
   },
   "categories": {
     "title": "تصفح حسب الفئة"
