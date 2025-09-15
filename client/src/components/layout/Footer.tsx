@@ -10,7 +10,7 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-xl font-bold mb-4">{t('app.name')}</h3>
+            <h3 className="text-xl font-bold mb-4">KINGLIKE LUXURY</h3>
             <p className="text-gray-400">
               {t('footer.companyDescription')}
             </p>
@@ -121,7 +121,7 @@ const Footer = () => {
 
         <div className="mt-8 pt-8 border-t border-gray-700">
           <p className="text-gray-400 text-sm text-center">
-            &copy; {new Date().getFullYear()} <span className="text-[#3bcac4]">{t('app.name').toUpperCase()}</span>. {t('footer.allRightsReserved')}
+            &copy; {new Date().getFullYear()} <span className="text-[#3bcac4]">KINGLIKE LUXURY</span>. {t('footer.allRightsReserved')}
           </p>
         </div>
       </div>
