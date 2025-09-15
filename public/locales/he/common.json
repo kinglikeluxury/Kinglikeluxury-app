@@ -18,10 +18,11 @@
     "language": "שפה"
   },
   "propertyTypes": {
-    "apartment": "דירה",
-    "villa": "וילה",
-    "land": "קרקע",
-    "project": "פרויקט"
+    "apartment": "דירות",
+    "villa": "וילות",
+    "land": "קרקעות",
+    "commercial": "מגזר מסחרי",
+    "project": "פרויקטי בנייה"
   },
   "propertyStatus": {
     "pending": "ממתין",
@@ -34,6 +35,19 @@
     "super_vip": "סופר VIP"
   },
   "property": {
+    "heroTitle": "מצא את הנכס המושלם שלך",
+    "heroSubtitle": "גלה דירות, וילות, קרקעות ופרויקטי בנייה שמתאימים לצרכים שלך",
+    "anyLocation": "כל מיקום",
+    "type": "סוג נכס",
+    "priceRange": "טווח מחירים",
+    "anyPrice": "כל מחיר",
+    "listings": "120+ נכסים",
+    "listings2": "85+ נכסים",
+    "listings3": "63+ נכסים",
+    "listings4": "42+ נכסים",
+    "uploadProperties": "העלה את הנכסים שלך",
+    "submit": "הוסף נכס",
+    "myProperties": "הנכסים שלי",
     "title": "כותרת",
     "description": "תיאור",
     "price": "מחיר",
@@ -41,7 +55,6 @@
     "area": "שטח",
     "bedrooms": "חדרי שינה",
     "bathrooms": "חדרי אמבטיה",
-    "type": "סוג",
     "features": "מאפיינים",
     "images": "תמונות",
     "owner": "בעלים",
@@ -60,13 +73,15 @@
     "results": "{{count}} תוצאה נמצאה",
     "results_plural": "{{count}} תוצאות נמצאו",
     "noResults": "לא נמצאו נכסים",
-    "submit": "הוסף נכס",
     "uploadImages": "העלה תמונות",
     "removeImage": "הסר תמונה",
     "minPrice": "מחיר מינימלי",
     "maxPrice": "מחיר מקסימלי",
     "seeMore": "ראה עוד",
-    "contact": "צור קשר עם הבעלים"
+    "contact": "צור קשר עם הבעלים",
+    "viewDetails": "צפה בפרטים",
+    "viewProject": "צפה בפרטי הפרויקט",
+    "viewAllProjects": "צפה בכל הפרויקטים"
   },
   "project": {
     "title": "שם הפרויקט",
@@ -113,7 +128,8 @@
     "approve": "אשר",
     "reject": "דחה",
     "pendingProperties": "נכסים ממתינים",
-    "createProject": "צור פרויקט"
+    "createProject": "צור פרויקט",
+    "onlyListings": "רישומי מנהל בלבד"
   },
   "blog": {
     "title": "כותרת הבלוג",
@@ -152,7 +168,7 @@
     "close": "סגור",
     "yes": "כן",
     "no": "לא",
-    "all": "הכל",
+    "all": "כל הסוגים",
     "more": "עוד",
     "less": "פחות",
     "description": "תיאור",
@@ -161,7 +177,9 @@
     "inDevelopment": "בפיתוח",
     "comingSoon": "בקרוב",
     "contactUs": "צור קשר",
-    "aboutUs": "אודותינו"
+    "aboutUs": "אודותינו",
+    "exclusive": "קינגלייק בלעדי",
+    "category": "קטגוריה"
   },
   "footer": {
     "copyright": "© {{year}} קינגלייק יוקרה. כל הזכויות שמורות.",
@@ -169,6 +187,77 @@
     "termsOfService": "תנאי שימוש",
     "contactUs": "צור קשר",
     "followUs": "עקבו אחרינו"
+  },
+  "home": {
+    "hero": {
+      "country": "מדינה",
+      "anyCountry": "כל מדינה", 
+      "city": "עיר",
+      "purpose": "למטרה",
+      "anyPurpose": "כל מטרה",
+      "toBuy": "לקנייה",
+      "forRent": "להשכרה"
+    },
+    "featured": {
+      "title": "נכסים מומלצים",
+      "noResults": "לא נמצאו נכסים"
+    },
+    "cta": {
+      "title": "יש לך נכס למכירה או השכרה?",
+      "subtitle": "פרסם אותו בפלטפורמה שלנו בחינם.",
+      "description": "הגע לאלפי קונים ושוכרים פוטנציאליים על ידי העלאת הנכס שלך היום.",
+      "uploadButton": "העלה נכס",
+      "browseButton": "דפדף ברישומים"
+    },
+    "projects": {
+      "title": "פרויקטי בנייה אחרונים",
+      "subtitle": "פרויקטים בלעדיים הנמצאים כעת בפיתוח",
+      "noResults": "לא נמצאו פרויקטים",
+      "completion": "השלמה:",
+      "developer": "יזם:"
+    },
+    "howItWorks": {
+      "title": "איך זה עובד",
+      "subtitle": "שלבים קלים לרישום הנכס שלך בפלטפורמה שלנו",
+      "createAccount": {
+        "title": "צור חשבון",
+        "description": "הירשם לחשבון חינם כדי לגשת לכל תכונות הפלטפורמה שלנו."
+      },
+      "submitProperty": {
+        "title": "שלח נכס",
+        "description": "מלא את טופס פרטי הנכס והעלה תמונות באיכות גבוהה."
+      },
+      "getApproved": {
+        "title": "קבל אישור",
+        "description": "לאחר בדיקה ואישור, הנכס שלך ירשם בפלטפורמה שלנו."
+      }
+    },
+    "insights": {
+      "title": "מאמרי נדל\"ן",
+      "subtitle": "עצות מומחים, מגמות שוק והשראות עיצוב מאנשי הנדל\"ן שלנו כדי לעזור לך לקבל החלטות מושכלות",
+      "viewAllButton": "צפה בכל המאמרים",
+      "readArticle": "קרא מאמר"
+    }
+  },
+  "countries": {
+    "georgia": "גאורגיה",
+    "uae": "איחוד האמירויות הערביות"
+  },
+  "cities": {
+    "batumi": "באטומי",
+    "tbilisi": "טביליסי",
+    "dubai": "דובאי", 
+    "sharjah": "שארג'ה",
+    "rasAlKhaimah": "ראס אל חיימה"
+  },
+  "categories": {
+    "title": "דפדף לפי קטגוריה"
+  },
+  "favorites": {
+    "title": "מועדפים",
+    "empty": "עדיין אין מועדפים",
+    "viewAll": "צפה בכל המועדפים",
+    "remove": "הסר מהמועדפים"
   },
   "errors": {
     "notFound": "הדף לא נמצא",

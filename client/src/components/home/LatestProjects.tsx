@@ -98,7 +98,7 @@ const LatestProjects = () => {
                       <Button asChild>
                         <Link href={`/property/${project.propertyId}`}>
                           <span className="flex items-center">
-                            View Project Details
+                            {t('property.viewProject', 'View Project Details')}
                             <ArrowRight className="ml-2 h-4 w-4" />
                           </span>
                         </Link>
@@ -115,7 +115,7 @@ const LatestProjects = () => {
           <Button variant="outline" size="lg" asChild>
             <Link href="/properties?type=project">
               <span className="flex items-center">
-                View All Projects
+                {t('property.viewAllProjects', 'View All Projects')}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </span>
             </Link>

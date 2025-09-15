@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bed, Bath, Home, ArrowRight } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
+import { useTranslation } from "react-i18next";
 
 interface PropertyCardProps {
   id: number;
@@ -32,6 +33,7 @@ const PropertyCard = ({
   status,
   isFeatured = false,
 }: PropertyCardProps) => {
+  const { t } = useTranslation();
   const getPropertyTypeColor = () => {
     // Use consistent Kinglike blue color (#005476) for all property types
     return "bg-[#005476] text-white";
@@ -178,7 +180,7 @@ const PropertyCard = ({
           <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
             <Link href={`/property/${id}`}>
               <span className="flex items-center justify-center">
-                View Details
+                {t('property.viewDetails', 'View Details')}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </span>
             </Link>
