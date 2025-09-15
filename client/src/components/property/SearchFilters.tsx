@@ -73,34 +73,34 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
 
   return (
     <>
-      <Card className="w-full" dir="rtl">
+      <Card className="w-full">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="property-type">نوع العقار</Label>
+              <Label htmlFor="property-type">{t('property.type', 'Property Type')}</Label>
               <Select value={propertyType} onValueChange={setPropertyType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="جميع الأنواع" />
+                  <SelectValue placeholder={t('common.all', 'All Types')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">جميع الأنواع</SelectItem>
-                  <SelectItem value="studio">استوديو</SelectItem>
-                  <SelectItem value="one-bedroom">غرفة نوم واحدة</SelectItem>
-                  <SelectItem value="two-bedrooms">غرفتان نوم</SelectItem>
-                  <SelectItem value="three-bedrooms">ثلاث غرف نوم</SelectItem>
-                  <SelectItem value="doublex">دوبلكس</SelectItem>
+                  <SelectItem value="all">{t('common.all', 'All Types')}</SelectItem>
+                  <SelectItem value={PROPERTY_TYPES.APARTMENT}>{t('propertyTypes.apartment', 'Apartments')}</SelectItem>
+                  <SelectItem value={PROPERTY_TYPES.VILLA}>{t('propertyTypes.villa', 'Villas')}</SelectItem>
+                  <SelectItem value={PROPERTY_TYPES.LAND}>{t('propertyTypes.land', 'Lands')}</SelectItem>
+                  <SelectItem value={PROPERTY_TYPES.COMMERCIAL}>{t('propertyTypes.commercial', 'Commercial')}</SelectItem>
+                  <SelectItem value={PROPERTY_TYPES.PROJECT}>{t('propertyTypes.project', 'Projects')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             <div>
-              <Label htmlFor="location">الموقع</Label>
+              <Label htmlFor="location">{t('property.location', 'Location')}</Label>
               <Select value={location} onValueChange={setLocation}>
                 <SelectTrigger>
-                  <SelectValue placeholder="أي موقع" />
+                  <SelectValue placeholder={t('property.anyLocation', 'Any location')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="any">أي موقع</SelectItem>
+                  <SelectItem value="any">{t('property.anyLocation', 'Any location')}</SelectItem>
                   <SelectItem value="rustaveli-avenue">Rustaveli Avenue</SelectItem>
                   <SelectItem value="chavchavadze-avenue">Chavchavadze Avenue</SelectItem>
                   <SelectItem value="gogebashvili-street">Gogebashvili Street</SelectItem>
@@ -126,7 +126,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
             </div>
             
             <div>
-              <Label htmlFor="price-range">نطاق السعر</Label>
+              <Label htmlFor="price-range">{t('property.priceRange', 'Price Range')}</Label>
               <div className="mt-6">
                 <Slider
                   id="price-range"
@@ -144,7 +144,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
             <div className="flex items-end">
               <Button className="w-full" onClick={handleSearch}>
                 <Search className="mr-2 h-4 w-4" />
-                بحث
+                {t('common.search', 'Search')}
               </Button>
             </div>
           </div>
