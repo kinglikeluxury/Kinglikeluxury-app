@@ -734,15 +734,20 @@ const PropertyForm = () => {
                     <div className="grid grid-cols-1 gap-2">
                       {[
                         { value: 'georgia', label: '🇬🇪 Georgia' },
-                        { value: 'uae', label: '🇦🇪 United Arab Emirates' }
+                        { value: 'uae', label: '🇦🇪 United Arab Emirates' },
+                        { value: 'syria', label: '🇸🇾 Syria' }
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
                         
-                        // Disable UAE if Georgia is selected, and vice versa
+                        // Disable other countries when one is selected
                         const hasGeorgia = currentCountries.includes('georgia');
                         const hasUAE = currentCountries.includes('uae');
-                        const isDisabled = (countryOption.value === 'uae' && hasGeorgia) || (countryOption.value === 'georgia' && hasUAE);
+                        const hasSyria = currentCountries.includes('syria');
+                        const isDisabled = 
+                          (countryOption.value === 'uae' && (hasGeorgia || hasSyria)) || 
+                          (countryOption.value === 'georgia' && (hasUAE || hasSyria)) ||
+                          (countryOption.value === 'syria' && (hasGeorgia || hasUAE));
                         
                         return (
                           <label key={countryOption.value} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -757,14 +762,19 @@ const PropertyForm = () => {
                                   
                                   // Clear cities when switching countries
                                   if (countryOption.value === 'georgia') {
-                                    // Clear Dubai if switching to Georgia
+                                    // Clear non-Georgian cities if switching to Georgia
                                     const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                    const newCities = currentCities.filter(city => city !== 'dubai');
+                                    const newCities = currentCities.filter(city => ['batumi', 'tbilisi'].includes(city));
                                     handleInputChange('city', newCities.join(','));
                                   } else if (countryOption.value === 'uae') {
-                                    // Clear Georgian cities if switching to UAE
+                                    // Clear non-UAE cities if switching to UAE
                                     const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                    const newCities = currentCities.filter(city => city !== 'batumi' && city !== 'tbilisi');
+                                    const newCities = currentCities.filter(city => ['dubai', 'sharjah', 'rasAlKhaimah'].includes(city));
+                                    handleInputChange('city', newCities.join(','));
+                                  } else if (countryOption.value === 'syria') {
+                                    // Clear non-Syrian cities if switching to Syria
+                                    const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
+                                    const newCities = currentCities.filter(city => ['damascus', 'aleppo', 'lattakia'].includes(city));
                                     handleInputChange('city', newCities.join(','));
                                   }
                                 } else {
@@ -785,7 +795,7 @@ const PropertyForm = () => {
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.country) ? formData.country : formData.country?.split(',') || []).map((country) => (
                             <Badge key={country} variant="secondary" className="text-xs">
-                              {country === 'georgia' ? '🇬🇪 Georgia' : '🇦🇪 UAE'}
+                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'syria' ? '🇸🇾 Syria' : country}
                             </Badge>
                           ))}
                         </div>
@@ -805,7 +815,12 @@ const PropertyForm = () => {
                       {[
                         { value: 'batumi', label: '🇬🇪 Batumi, Georgia' },
                         { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
-                        { value: 'dubai', label: '🇦🇪 Dubai, UAE' }
+                        { value: 'dubai', label: '🇦🇪 Dubai, UAE' },
+                        { value: 'sharjah', label: '🇦🇪 Sharjah, UAE' },
+                        { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE' },
+                        { value: 'damascus', label: '🇸🇾 Damascus, Syria' },
+                        { value: 'aleppo', label: '🇸🇾 Aleppo, Syria' },
+                        { value: 'lattakia', label: '🇸🇾 Lattakia, Syria' }
                       ].filter((cityOption) => {
                         // Filter cities based on selected country
                         const selectedCountry = formData.country;
@@ -817,7 +832,12 @@ const PropertyForm = () => {
                         
                         // If UAE is selected, only show UAE cities
                         if (selectedCountry === 'uae') {
-                          return cityOption.value === 'dubai';
+                          return ['dubai', 'sharjah', 'rasAlKhaimah'].includes(cityOption.value);
+                        }
+                        
+                        // If Syria is selected, only show Syrian cities
+                        if (selectedCountry === 'syria') {
+                          return ['damascus', 'aleppo', 'lattakia'].includes(cityOption.value);
                         }
                         
                         // If no country is selected, show all cities
@@ -837,13 +857,21 @@ const PropertyForm = () => {
                                 let newCities;
                                 
                                 if (e.target.checked) {
-                                  // If selecting a Georgian city, remove Dubai
-                                  if (cityOption.value === 'batumi' || cityOption.value === 'tbilisi') {
-                                    newCities = [...currentCities.filter(c => c !== 'dubai'), cityOption.value];
+                                  const georgianCities = ['batumi', 'tbilisi'];
+                                  const uaeCities = ['dubai', 'sharjah', 'rasAlKhaimah'];
+                                  const syrianCities = ['damascus', 'aleppo', 'lattakia'];
+                                  
+                                  // If selecting a Georgian city, remove UAE and Syrian cities
+                                  if (georgianCities.includes(cityOption.value)) {
+                                    newCities = [...currentCities.filter(c => !uaeCities.includes(c) && !syrianCities.includes(c)), cityOption.value];
                                   }
-                                  // If selecting Dubai, remove Georgian cities
-                                  else if (cityOption.value === 'dubai') {
-                                    newCities = [...currentCities.filter(c => c !== 'batumi' && c !== 'tbilisi'), cityOption.value];
+                                  // If selecting a UAE city, remove Georgian and Syrian cities
+                                  else if (uaeCities.includes(cityOption.value)) {
+                                    newCities = [...currentCities.filter(c => !georgianCities.includes(c) && !syrianCities.includes(c)), cityOption.value];
+                                  }
+                                  // If selecting a Syrian city, remove Georgian and UAE cities
+                                  else if (syrianCities.includes(cityOption.value)) {
+                                    newCities = [...currentCities.filter(c => !georgianCities.includes(c) && !uaeCities.includes(c)), cityOption.value];
                                   }
                                   // For other cities (future expansion)
                                   else {
@@ -868,9 +896,16 @@ const PropertyForm = () => {
                         <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
-                            const cityName = cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : 
-                                            cityValue === 'tbilisi' ? '🇬🇪 Tbilisi, Georgia' : 
-                                            cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' : cityValue;
+                            const cityName = 
+                              cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : 
+                              cityValue === 'tbilisi' ? '🇬🇪 Tbilisi, Georgia' : 
+                              cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' :
+                              cityValue === 'sharjah' ? '🇦🇪 Sharjah, UAE' :
+                              cityValue === 'rasAlKhaimah' ? '🇦🇪 Ras Al Khaimah, UAE' :
+                              cityValue === 'damascus' ? '🇸🇾 Damascus, Syria' :
+                              cityValue === 'aleppo' ? '🇸🇾 Aleppo, Syria' :
+                              cityValue === 'lattakia' ? '🇸🇾 Lattakia, Syria' :
+                              cityValue;
                             return (
                               <Badge key={cityValue} variant="secondary" className="text-xs">
                                 {cityName}
