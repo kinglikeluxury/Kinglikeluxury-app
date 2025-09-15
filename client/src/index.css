@@ -2,14 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Arabic Font - Arslan Wessam */
-@font-face {
-  font-family: 'ArslanWessam';
-  src: url('@assets/fonts/ArslanWessam.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
+/* Import Google Fonts - Best Arabic fonts for websites */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&display=swap');
 
 :root {
   --background: 0 0% 100%;
@@ -72,18 +69,34 @@
     letter-spacing: -0.025em;
   }
 
-  /* Arabic Font Styles */
+  /* Arabic Font Styles - Professional Web Typography */
   :lang(ar) {
-    font-family: 'ArslanWessam', 'Noto Sans Arabic', 'Cairo', Tahoma, sans-serif !important;
+    font-family: 'Cairo', 'Noto Sans Arabic', 'Tajawal', 'Almarai', 'Geeza Pro', 'Al Bayan', 'Arabic Typesetting', 'Tahoma', sans-serif !important;
   }
 
   [dir="rtl"] {
-    font-family: 'ArslanWessam', 'Noto Sans Arabic', 'Cairo', Tahoma, sans-serif;
+    font-family: 'Cairo', 'Noto Sans Arabic', 'Tajawal', 'Almarai', 'Geeza Pro', 'Al Bayan', 'Arabic Typesetting', 'Tahoma', sans-serif;
   }
 
-  /* Apply Arabic font to elements with Arabic text */
+  /* Arabic text classes for different purposes */
   .arabic-text {
-    font-family: 'ArslanWessam', 'Noto Sans Arabic', 'Cairo', Tahoma, sans-serif;
+    font-family: 'Cairo', 'Noto Sans Arabic', 'Tajawal', 'Almarai', 'Tahoma', sans-serif;
+  }
+
+  /* Arabic headings - Use Cairo for better readability */
+  :lang(ar) h1, :lang(ar) h2, :lang(ar) h3, :lang(ar) h4, :lang(ar) h5, :lang(ar) h6 {
+    font-family: 'Cairo', 'Noto Sans Arabic', 'Tajawal', sans-serif !important;
+    font-weight: 600;
+  }
+
+  /* Arabic body text - Use Tajawal for excellent readability */
+  :lang(ar) p, :lang(ar) li, :lang(ar) span {
+    font-family: 'Tajawal', 'Noto Sans Arabic', 'Cairo', 'Tahoma', sans-serif !important;
+  }
+
+  /* Arabic buttons and UI elements - Use Almarai for friendly interface */
+  :lang(ar) button, :lang(ar) .btn, :lang(ar) input, :lang(ar) select {
+    font-family: 'Almarai', 'Cairo', 'Noto Sans Arabic', sans-serif !important;
   }
   
   h1, h2, h3, h4, h5, h6 {
