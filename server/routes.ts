@@ -297,7 +297,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let filters: any = { status };
       
-      if (type) filters.type = type as string;
+      // Handle apartment subtypes (studio, one-bedroom, etc.) by converting to proper filters
+      if (type) {
+        switch (type) {
+          case 'studio':
+            filters.type = 'apartment';
+            filters.bedrooms = 0; // Studio = 0 bedrooms
+            break;
+          case 'one-bedroom':
+            filters.type = 'apartment';
+            filters.bedrooms = 1;
+            break;
+          case 'two-bedrooms':
+            filters.type = 'apartment';
+            filters.bedrooms = 2;
+            break;
+          case 'three-bedrooms':
+            filters.type = 'apartment';
+            filters.bedrooms = 3;
+            break;
+          case 'doublex':
+            filters.type = 'apartment';
+            // Doublex can have various bedroom counts, so no bedroom filter
+            break;
+          default:
+            // Handle regular property types (apartment, villa, land, project)
+            filters.type = type as string;
+            break;
+        }
+      }
+      
       if (location && location !== 'any') filters.location = location as string;
       if (minPrice) filters.minPrice = parseInt(minPrice as string);
       if (maxPrice) filters.maxPrice = parseInt(maxPrice as string);

@@ -100,8 +100,10 @@ export class DatabaseStorage implements IStorage {
     status?: string;
     ownerId?: number;
     location?: string;
+    locationContains?: string;
     minPrice?: number;
     maxPrice?: number;
+    bedrooms?: number;
     phoneNumber?: string;
     whatsappNumber?: string;
   }): Promise<Property[]> {
@@ -137,6 +139,15 @@ export class DatabaseStorage implements IStorage {
         
         if (filters.maxPrice) {
           conditions.push(lte(properties.price, filters.maxPrice));
+        }
+        
+        if (filters.bedrooms !== undefined) {
+          // Handle bedroom filtering - for studio apartments, bedrooms might be null or 0
+          if (filters.bedrooms === 0) {
+            conditions.push(or(eq(properties.bedrooms, 0), isNull(properties.bedrooms)));
+          } else {
+            conditions.push(eq(properties.bedrooms, filters.bedrooms));
+          }
         }
         
         if (conditions.length > 0) {
