@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Property, PROPERTY_TYPES } from "@shared/schema";
 import PropertyCard from "@/components/property/PropertyCard";
 import SearchFilters from "@/components/property/SearchFilters";
@@ -9,18 +10,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
 const Properties = () => {
+  const { t } = useTranslation();
   const [location] = useLocation();
   const [filters, setFilters] = useState<Record<string, string | null>>({});
-  const [title, setTitle] = useState("All Properties");
+  const [title, setTitle] = useState(t('property.viewAll', 'All Properties'));
 
   // Parse URL parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const newFilters: Record<string, string | null> = {};
     
-    for (const [key, value] of params.entries()) {
+    params.forEach((value, key) => {
       newFilters[key] = value;
-    }
+    });
     
     setFilters(newFilters);
     
@@ -29,24 +31,24 @@ const Properties = () => {
       const type = params.get("type");
       switch (type) {
         case PROPERTY_TYPES.APARTMENT:
-          setTitle("Apartments");
+          setTitle(t('propertyTypes.apartment', 'Apartments'));
           break;
         case PROPERTY_TYPES.VILLA:
-          setTitle("Villas");
+          setTitle(t('propertyTypes.villa', 'Villas'));
           break;
         case PROPERTY_TYPES.LAND:
-          setTitle("Land Plots");
+          setTitle(t('propertyTypes.land', 'Lands'));
           break;
         case PROPERTY_TYPES.PROJECT:
-          setTitle("Construction Projects");
+          setTitle(t('propertyTypes.project', 'Projects'));
           break;
         default:
-          setTitle("All Properties");
+          setTitle(t('property.viewAll', 'All Properties'));
       }
     } else if (params.has("myProperties")) {
-      setTitle("My Properties");
+      setTitle(t('property.myProperties', 'My Properties'));
     } else {
-      setTitle("All Properties");
+      setTitle(t('property.viewAll', 'All Properties'));
     }
   }, [location]);
 
@@ -101,7 +103,7 @@ const Properties = () => {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
           {filters.myProperties && (
-            <Badge variant="outline" className="mt-2">My Listings</Badge>
+            <Badge variant="outline" className="mt-2">{t('property.myProperties', 'My Listings')}</Badge>
           )}
           <div className="mt-4">
             <SearchFilters initialFilters={searchFilters} />
@@ -145,10 +147,10 @@ const Properties = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No properties found</h3>
-                <p className="text-gray-500 mb-6">Try adjusting your search filters or check back later.</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('property.noResults', 'No properties found')}</h3>
+                <p className="text-gray-500 mb-6">{t('property.tryAdjustingFilters', 'Try adjusting your search filters or check back later.')}</p>
                 <Button variant="outline" asChild>
-                  <a href="/properties">View All Properties</a>
+                  <a href="/properties">{t('property.viewAll', 'View All Properties')}</a>
                 </Button>
               </div>
             )}

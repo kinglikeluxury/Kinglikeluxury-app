@@ -80,8 +80,9 @@
     "seeMore": "ראה עוד",
     "contact": "צור קשר עם הבעלים",
     "viewDetails": "צפה בפרטים",
-    "viewProject": "צפה בפרטי הפרויקט",
-    "viewAllProjects": "צפה בכל הפרויקטים"
+    "viewProject": "צפה בפרטי הפרויקט", 
+    "viewAllProjects": "צפה בכל הפרויקטים",
+    "tryAdjustingFilters": "נסה להתאים את המסננים שלך או חזור מאוחר יותר."
   },
   "project": {
     "title": "שם הפרויקט",
