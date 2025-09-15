@@ -45,7 +45,8 @@ export const BlogSection = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat(t('app.locale', 'en-US'), {
+    // Always use Gregorian calendar (English locale) for dates
+    return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'

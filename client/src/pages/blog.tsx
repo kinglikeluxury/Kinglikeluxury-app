@@ -80,7 +80,7 @@ export default function Blog() {
                       <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4" />
                         <span>
-                          {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : "Recently"}
+                          {post.createdAt ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(post.createdAt)) : "Recently"}
                         </span>
                       </div>
                     </div>
