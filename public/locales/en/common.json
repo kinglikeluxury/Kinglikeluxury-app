@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Kinglike Luxury",
-    "description": "Premium Real Estate Marketplace"
+    "description": "Premium Real Estate Marketplace",
+    "locale": "en-US"
   },
   "nav": {
     "home": "Home",
