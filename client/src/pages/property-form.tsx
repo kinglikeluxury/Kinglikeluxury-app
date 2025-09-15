@@ -774,7 +774,7 @@ const PropertyForm = () => {
                                   } else if (countryOption.value === 'syria') {
                                     // Clear non-Syrian cities if switching to Syria
                                     const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                    const newCities = currentCities.filter(city => ['damascus', 'aleppo', 'lattakia'].includes(city));
+                                    const newCities = currentCities.filter(city => ['damascus', 'aleppo', 'lattakia', 'solunfeh', 'kasab', 'homs', 'hama'].includes(city));
                                     handleInputChange('city', newCities.join(','));
                                   }
                                 } else {
@@ -820,7 +820,11 @@ const PropertyForm = () => {
                         { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE' },
                         { value: 'damascus', label: '🇸🇾 Damascus, Syria' },
                         { value: 'aleppo', label: '🇸🇾 Aleppo, Syria' },
-                        { value: 'lattakia', label: '🇸🇾 Lattakia, Syria' }
+                        { value: 'lattakia', label: '🇸🇾 Lattakia, Syria' },
+                        { value: 'solunfeh', label: '🇸🇾 Solunfeh, Syria' },
+                        { value: 'kasab', label: '🇸🇾 Kasab, Syria' },
+                        { value: 'homs', label: '🇸🇾 Homs, Syria' },
+                        { value: 'hama', label: '🇸🇾 Hama, Syria' }
                       ].filter((cityOption) => {
                         // Filter cities based on selected country
                         const selectedCountry = formData.country;
@@ -837,7 +841,7 @@ const PropertyForm = () => {
                         
                         // If Syria is selected, only show Syrian cities
                         if (selectedCountry === 'syria') {
-                          return ['damascus', 'aleppo', 'lattakia'].includes(cityOption.value);
+                          return ['damascus', 'aleppo', 'lattakia', 'solunfeh', 'kasab', 'homs', 'hama'].includes(cityOption.value);
                         }
                         
                         // If no country is selected, show all cities
@@ -859,7 +863,7 @@ const PropertyForm = () => {
                                 if (e.target.checked) {
                                   const georgianCities = ['batumi', 'tbilisi'];
                                   const uaeCities = ['dubai', 'sharjah', 'rasAlKhaimah'];
-                                  const syrianCities = ['damascus', 'aleppo', 'lattakia'];
+                                  const syrianCities = ['damascus', 'aleppo', 'lattakia', 'solunfeh', 'kasab', 'homs', 'hama'];
                                   
                                   // If selecting a Georgian city, remove UAE and Syrian cities
                                   if (georgianCities.includes(cityOption.value)) {
@@ -905,6 +909,10 @@ const PropertyForm = () => {
                               cityValue === 'damascus' ? '🇸🇾 Damascus, Syria' :
                               cityValue === 'aleppo' ? '🇸🇾 Aleppo, Syria' :
                               cityValue === 'lattakia' ? '🇸🇾 Lattakia, Syria' :
+                              cityValue === 'solunfeh' ? '🇸🇾 Solunfeh, Syria' :
+                              cityValue === 'kasab' ? '🇸🇾 Kasab, Syria' :
+                              cityValue === 'homs' ? '🇸🇾 Homs, Syria' :
+                              cityValue === 'hama' ? '🇸🇾 Hama, Syria' :
                               cityValue;
                             return (
                               <Badge key={cityValue} variant="secondary" className="text-xs">

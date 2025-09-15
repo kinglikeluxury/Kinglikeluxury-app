@@ -33,7 +33,11 @@ const Hero = () => {
         return [
           { value: "damascus", label: "Damascus" },
           { value: "aleppo", label: "Aleppo" },
-          { value: "lattakia", label: "Lattakia" }
+          { value: "lattakia", label: "Lattakia" },
+          { value: "solunfeh", label: "Solunfeh" },
+          { value: "kasab", label: "Kasab" },
+          { value: "homs", label: "Homs" },
+          { value: "hama", label: "Hama" }
         ];
       default:
         return [];
