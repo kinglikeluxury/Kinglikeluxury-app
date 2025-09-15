@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { PROPERTY_TYPES } from "@shared/schema";
 import { Label } from "@/components/ui/label";
 import { Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface SearchFiltersProps {
   initialFilters?: {
@@ -19,6 +20,7 @@ interface SearchFiltersProps {
 }
 
 const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
   const [propertyType, setPropertyType] = useState<string>(initialFilters?.type || "");
   const [location, setLocation] = useState<string>(initialFilters?.location || "");
@@ -71,34 +73,34 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
 
   return (
     <>
-      <Card className="w-full">
+      <Card className="w-full" dir="rtl">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="property-type">Property Type</Label>
+              <Label htmlFor="property-type">نوع العقار</Label>
               <Select value={propertyType} onValueChange={setPropertyType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Types" />
+                  <SelectValue placeholder="جميع الأنواع" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="studio">Studio</SelectItem>
-                  <SelectItem value="one-bedroom">One bedroom</SelectItem>
-                  <SelectItem value="two-bedrooms">Two bedrooms</SelectItem>
-                  <SelectItem value="three-bedrooms">Three bedrooms</SelectItem>
-                  <SelectItem value="doublex">Doublex</SelectItem>
+                  <SelectItem value="all">جميع الأنواع</SelectItem>
+                  <SelectItem value="studio">استوديو</SelectItem>
+                  <SelectItem value="one-bedroom">غرفة نوم واحدة</SelectItem>
+                  <SelectItem value="two-bedrooms">غرفتان نوم</SelectItem>
+                  <SelectItem value="three-bedrooms">ثلاث غرف نوم</SelectItem>
+                  <SelectItem value="doublex">دوبلكس</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             <div>
-              <Label htmlFor="location">Location</Label>
+              <Label htmlFor="location">الموقع</Label>
               <Select value={location} onValueChange={setLocation}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Any location" />
+                  <SelectValue placeholder="أي موقع" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="any">Any location</SelectItem>
+                  <SelectItem value="any">أي موقع</SelectItem>
                   <SelectItem value="rustaveli-avenue">Rustaveli Avenue</SelectItem>
                   <SelectItem value="chavchavadze-avenue">Chavchavadze Avenue</SelectItem>
                   <SelectItem value="gogebashvili-street">Gogebashvili Street</SelectItem>
@@ -124,7 +126,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
             </div>
             
             <div>
-              <Label htmlFor="price-range">Price Range</Label>
+              <Label htmlFor="price-range">نطاق السعر</Label>
               <div className="mt-6">
                 <Slider
                   id="price-range"
@@ -142,7 +144,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
             <div className="flex items-end">
               <Button className="w-full" onClick={handleSearch}>
                 <Search className="mr-2 h-4 w-4" />
-                Search
+                بحث
               </Button>
             </div>
           </div>
