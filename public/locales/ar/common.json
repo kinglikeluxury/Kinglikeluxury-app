@@ -134,6 +134,15 @@
     "delete": "حذف المقال",
     "noResults": "لم يتم العثور على مقالات"
   },
+  "footer": {
+    "companyDescription": "المنصة الرائدة لعرض وإيجاد العقارات من جميع الأنواع.",
+    "propertyTypesTitle": "أنواع العقارات",
+    "quickLinksTitle": "روابط سريعة",
+    "contactTitle": "اتصل بنا",
+    "addProperty": "أضف عقار",
+    "allRightsReserved": "جميع الحقوق محفوظة.",
+    "location": "تبليسي، جورجيا"
+  },
   "common": {
     "loading": "جاري التحميل...",
     "error": "حدث خطأ",

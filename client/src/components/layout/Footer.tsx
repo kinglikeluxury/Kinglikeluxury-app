@@ -1,15 +1,18 @@
 import { Link } from "wouter";
 import { Mail, MapPin, Phone } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
+  const { t } = useTranslation();
+  
   return (
     <footer className="bg-gray-800 text-white">
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-xl font-bold mb-4">RealEstatePro</h3>
+            <h3 className="text-xl font-bold mb-4">{t('app.name')}</h3>
             <p className="text-gray-400">
-              The premier platform for listing and finding properties of all types.
+              {t('footer.companyDescription')}
             </p>
             <div className="mt-4 flex space-x-4">
               <a href="https://www.facebook.com/profile.php?id=61551081395180" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">
@@ -41,27 +44,27 @@ const Footer = () => {
           
           <div>
             <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
-              Property Types
+              {t('footer.propertyTypesTitle')}
             </h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/properties?type=apartment">
-                  <a className="text-gray-400 hover:text-white">Apartments</a>
+                  <a className="text-gray-400 hover:text-white">{t('propertyTypes.apartment')}</a>
                 </Link>
               </li>
               <li>
                 <Link href="/properties?type=villa">
-                  <a className="text-gray-400 hover:text-white">Villas</a>
+                  <a className="text-gray-400 hover:text-white">{t('propertyTypes.villa')}</a>
                 </Link>
               </li>
               <li>
                 <Link href="/properties?type=land">
-                  <a className="text-gray-400 hover:text-white">Lands</a>
+                  <a className="text-gray-400 hover:text-white">{t('propertyTypes.land')}</a>
                 </Link>
               </li>
               <li>
                 <Link href="/properties?type=project">
-                  <a className="text-gray-400 hover:text-white">Projects</a>
+                  <a className="text-gray-400 hover:text-white">{t('propertyTypes.project')}</a>
                 </Link>
               </li>
             </ul>
@@ -69,27 +72,27 @@ const Footer = () => {
 
           <div>
             <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
-              Quick Links
+              {t('footer.quickLinksTitle')}
             </h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/">
-                  <a className="text-gray-400 hover:text-white">Home</a>
+                  <a className="text-gray-400 hover:text-white">{t('nav.home')}</a>
                 </Link>
               </li>
               <li>
                 <Link href="/submit-property">
-                  <a className="text-gray-400 hover:text-white">Add Property</a>
+                  <a className="text-gray-400 hover:text-white">{t('footer.addProperty')}</a>
                 </Link>
               </li>
               <li>
                 <Link href="/login">
-                  <a className="text-gray-400 hover:text-white">Login</a>
+                  <a className="text-gray-400 hover:text-white">{t('auth.login')}</a>
                 </Link>
               </li>
               <li>
                 <Link href="/register">
-                  <a className="text-gray-400 hover:text-white">Register</a>
+                  <a className="text-gray-400 hover:text-white">{t('auth.register')}</a>
                 </Link>
               </li>
             </ul>
@@ -97,12 +100,12 @@ const Footer = () => {
 
           <div>
             <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
-              Contact Us
+              {t('footer.contactTitle')}
             </h3>
             <ul className="space-y-2 text-gray-400">
               <li className="flex items-start">
                 <MapPin className="h-5 w-5 mr-2 mt-0.5" />
-                <a href="https://g.co/kgs/GfvpWW8" target="_blank" rel="noopener noreferrer" className="hover:text-white">Tbilisi, Georgia</a>
+                <a href="https://g.co/kgs/GfvpWW8" target="_blank" rel="noopener noreferrer" className="hover:text-white">{t('footer.location')}</a>
               </li>
               <li className="flex items-start">
                 <Mail className="h-5 w-5 mr-2 mt-0.5" />
@@ -118,7 +121,7 @@ const Footer = () => {
 
         <div className="mt-8 pt-8 border-t border-gray-700">
           <p className="text-gray-400 text-sm text-center">
-            &copy; {new Date().getFullYear()} <span className="text-[#3bcac4]">KINGLIKE LUXURY</span>. All rights reserved.
+            &copy; {new Date().getFullYear()} <span className="text-[#3bcac4]">{t('app.name').toUpperCase()}</span>. {t('footer.allRightsReserved')}
           </p>
         </div>
       </div>

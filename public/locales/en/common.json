@@ -134,6 +134,15 @@
     "delete": "Delete Post",
     "noResults": "No blog posts found"
   },
+  "footer": {
+    "companyDescription": "The premier platform for listing and finding properties of all types.",
+    "propertyTypesTitle": "Property Types",
+    "quickLinksTitle": "Quick Links",
+    "contactTitle": "Contact Us",
+    "addProperty": "Add Property",
+    "allRightsReserved": "All rights reserved.",
+    "location": "Tbilisi, Georgia"
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
