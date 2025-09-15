@@ -256,14 +256,18 @@
   },
   "countries": {
     "georgia": "Gürcistan",
-    "uae": "Birleşik Arap Emirlikleri"
+    "uae": "Birleşik Arap Emirlikleri",
+    "syria": "Suriye"
   },
   "cities": {
     "batumi": "Batumi",
     "tbilisi": "Tiflis",
     "dubai": "Dubai", 
     "sharjah": "Sharjah",
-    "rasAlKhaimah": "Ras Al Khaimah"
+    "rasAlKhaimah": "Ras Al Khaimah",
+    "damascus": "Şam",
+    "aleppo": "Halep",
+    "lattakia": "Lazkiye"
   },
   "categories": {
     "title": "Kategoriye göre gözat"

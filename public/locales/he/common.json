@@ -242,14 +242,18 @@
   },
   "countries": {
     "georgia": "גאורגיה",
-    "uae": "איחוד האמירויות הערביות"
+    "uae": "איחוד האמירויות הערביות",
+    "syria": "סוריה"
   },
   "cities": {
     "batumi": "באטומי",
     "tbilisi": "טביליסי",
     "dubai": "דובאי", 
     "sharjah": "שארג'ה",
-    "rasAlKhaimah": "ראס אל חיימה"
+    "rasAlKhaimah": "ראס אל חיימה",
+    "damascus": "דמשק",
+    "aleppo": "חלב",
+    "lattakia": "לטקיה"
   },
   "categories": {
     "title": "דפדף לפי קטגוריה"

@@ -283,13 +283,17 @@
   },
   "countries": {
     "georgia": "جورجيا",
-    "uae": "الإمارات العربية المتحدة"
+    "uae": "الإمارات العربية المتحدة",
+    "syria": "سوريا"
   },
   "cities": {
     "batumi": "باتومي",
     "tbilisi": "تبليسي",
     "dubai": "دبي",
     "sharjah": "الشارقة",
-    "rasAlKhaimah": "رأس الخيمة"
+    "rasAlKhaimah": "رأس الخيمة",
+    "damascus": "دمشق",
+    "aleppo": "حلب",
+    "lattakia": "اللاذقية"
   }
 }

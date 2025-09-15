@@ -277,13 +277,17 @@
   },
   "countries": {
     "georgia": "Georgia",
-    "uae": "United Arab Emirates"
+    "uae": "United Arab Emirates",
+    "syria": "Syria"
   },
   "cities": {
     "batumi": "Batumi",
     "tbilisi": "Tbilisi",
     "dubai": "Dubai",
     "sharjah": "Sharjah",
-    "rasAlKhaimah": "Ras Al Khaimah"
+    "rasAlKhaimah": "Ras Al Khaimah",
+    "damascus": "Damascus",
+    "aleppo": "Aleppo",
+    "lattakia": "Lattakia"
   }
 }
