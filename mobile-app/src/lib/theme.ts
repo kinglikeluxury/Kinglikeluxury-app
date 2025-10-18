@@ -9,7 +9,8 @@ export const COLORS = {
   black: '#000000',
   
   // Grays
-  gray: {
+  gray: '#868e96',
+  grayShades: {
     50: '#f8f9fa',
     100: '#f1f3f5',
     200: '#e9ecef',
@@ -57,6 +58,13 @@ export const SPACING = {
   large: 24,
   xlarge: 32,
   xxlarge: 48,
+  // Add shorter aliases for convenience
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
 };
 
 // Border radius

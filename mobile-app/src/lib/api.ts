@@ -122,6 +122,39 @@ export const getBlogPost = async (id: number) => {
   }
 };
 
+// Submit property
+export const submitProperty = async (propertyData: any) => {
+  try {
+    const response = await api.post('/properties', propertyData);
+    return response.data;
+  } catch (error) {
+    console.error('Error submitting property:', error);
+    throw error;
+  }
+};
+
+// Update property status (admin only)
+export const updatePropertyStatus = async (id: number, status: string) => {
+  try {
+    const response = await api.patch(`/properties/${id}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating property status:', error);
+    throw error;
+  }
+};
+
+// Submit project (admin only)
+export const submitProject = async (projectData: any) => {
+  try {
+    const response = await api.post('/projects', projectData);
+    return response.data;
+  } catch (error) {
+    console.error('Error submitting project:', error);
+    throw error;
+  }
+};
+
 // Add request interceptor to handle authentication
 api.interceptors.response.use(
   (response) => response,
