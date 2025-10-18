@@ -28,7 +28,7 @@ import {
   ViroConstants,
   ViroARPlaneSelector,
   Viro3DObject,
-} from 'viro-react-native';
+} from '@viro-community/react-viro';
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window');
