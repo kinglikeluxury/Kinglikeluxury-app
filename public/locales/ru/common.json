@@ -1,4 +1,12 @@
 {
+  "projectStatus": {
+    "nowSelling": "Продается",
+    "underConstruction": "Строится",
+    "preLaunch": "Предзапуск",
+    "completed": "Завершен",
+    "comingSoon": "Скоро",
+    "soldOut": "Распродано"
+  },
   "app": {
     "name": "Kinglike Luxury",
     "description": "Элитная недвижимость",

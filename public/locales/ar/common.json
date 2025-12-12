@@ -1,4 +1,12 @@
 {
+  "projectStatus": {
+    "nowSelling": "للبيع الآن",
+    "underConstruction": "قيد الإنشاء",
+    "preLaunch": "قبل الإطلاق",
+    "completed": "مكتمل",
+    "comingSoon": "قريباً",
+    "soldOut": "نفذت الكمية"
+  },
   "app": {
     "name": "كينغلايك لكجري",
     "description": "سوق العقارات الفاخرة",

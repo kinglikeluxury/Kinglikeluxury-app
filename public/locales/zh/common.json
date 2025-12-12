@@ -1,4 +1,12 @@
 {
+  "projectStatus": {
+    "nowSelling": "正在销售",
+    "underConstruction": "建设中",
+    "preLaunch": "预售",
+    "completed": "已完成",
+    "comingSoon": "即将推出",
+    "soldOut": "已售罄"
+  },
   "app": {
     "name": "Kinglike Luxury",
     "description": "高端房地产市场"

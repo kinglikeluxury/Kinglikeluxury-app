@@ -10,6 +10,18 @@ import { Project, Property } from "@shared/schema";
 
 type ProjectWithProperty = Project & { property: Property };
 
+const getTranslatedStatus = (status: string, t: (key: string, fallback: string) => string): string => {
+  const statusMap: Record<string, string> = {
+    'Now Selling': t('projectStatus.nowSelling', 'Now Selling'),
+    'Under Construction': t('projectStatus.underConstruction', 'Under Construction'),
+    'Pre-Launch': t('projectStatus.preLaunch', 'Pre-Launch'),
+    'Completed': t('projectStatus.completed', 'Completed'),
+    'Coming Soon': t('projectStatus.comingSoon', 'Coming Soon'),
+    'Sold Out': t('projectStatus.soldOut', 'Sold Out'),
+  };
+  return statusMap[status] || status;
+};
+
 const LatestProjects = () => {
   const { t } = useTranslation();
   const { data: projects, isLoading } = useQuery<ProjectWithProperty[]>({
@@ -71,7 +83,7 @@ const LatestProjects = () => {
                     <div className="flex-1">
                       <div className="flex items-center">
                         <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 mr-2">
-                          {project.projectStatus}
+                          {getTranslatedStatus(project.projectStatus, t)}
                         </Badge>
                         <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
                           {t('home.projects.completion', 'Completion:')} {project.completionDate}

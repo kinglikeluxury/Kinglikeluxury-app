@@ -1,4 +1,12 @@
 {
+  "projectStatus": {
+    "nowSelling": "W sprzedaży",
+    "underConstruction": "W budowie",
+    "preLaunch": "Przedsprzedaż",
+    "completed": "Ukończony",
+    "comingSoon": "Wkrótce",
+    "soldOut": "Wyprzedane"
+  },
   "app": {
     "name": "Kinglike Luxury",
     "description": "Premium Rynek Nieruchomości"

@@ -1,4 +1,12 @@
 {
+  "projectStatus": {
+    "nowSelling": "İndi satılır",
+    "underConstruction": "Tikintidədir",
+    "preLaunch": "Ön satış",
+    "completed": "Tamamlandı",
+    "comingSoon": "Tezliklə",
+    "soldOut": "Satıldı"
+  },
   "app": {
     "name": "Kinglike Luxury",
     "description": "Premium Daşınmaz Əmlak Bazarı"

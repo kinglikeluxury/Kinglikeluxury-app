@@ -1,4 +1,12 @@
 {
+  "projectStatus": {
+    "nowSelling": "למכירה עכשיו",
+    "underConstruction": "בבנייה",
+    "preLaunch": "לפני השקה",
+    "completed": "הושלם",
+    "comingSoon": "בקרוב",
+    "soldOut": "אזל מהמלאי"
+  },
   "app": {
     "name": "קינגלייק יוקרה",
     "description": "שוק הנדל\"ן היוקרתי"

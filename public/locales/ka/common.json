@@ -1,4 +1,12 @@
 {
+  "projectStatus": {
+    "nowSelling": "იყიდება",
+    "underConstruction": "მშენებარე",
+    "preLaunch": "წინასწარი გაშვება",
+    "completed": "დასრულებული",
+    "comingSoon": "მალე",
+    "soldOut": "გაყიდულია"
+  },
   "app": {
     "name": "Kinglike Luxury",
     "description": "პრემიუმ უძრავი ქონების ბაზარი"
