@@ -53,37 +53,37 @@ export const BlogSection = () => {
     }).format(date);
   };
 
-  // For development purposes - sample blog posts
+  // For development purposes - sample blog posts with translations
   const samplePosts = [
     {
       id: 1,
-      title: "5 Tips for Buying Your First Luxury Villa",
+      title: t('home.insights.posts.post1.title', '5 Tips for Buying Your First Luxury Villa'),
       slug: "tips-buying-first-luxury-villa",
-      excerpt: "Discover essential advice for first-time luxury homebuyers looking to make a sound investment in premium real estate.",
+      excerpt: t('home.insights.posts.post1.excerpt', 'Discover essential advice for first-time luxury homebuyers looking to make a sound investment in premium real estate.'),
       coverImage: SAMPLE_IMAGES[0],
-      categories: ["Luxury Homes", "Buying Guide"],
+      categories: [t('home.insights.categories.luxuryHomes', 'Luxury Homes'), t('home.insights.categories.buyingGuide', 'Buying Guide')],
       createdAt: new Date().toISOString(),
-      author: { username: "Sarah Johnson" }
+      author: { username: t('home.insights.posts.post1.author', 'Sarah Johnson') }
     },
     {
       id: 2,
-      title: "2023 Market Trends: Middle East Luxury Real Estate",
-      slug: "2023-market-trends-middle-east",
-      excerpt: "An in-depth analysis of current luxury property market trends across Dubai, Abu Dhabi, and emerging locations.",
+      title: t('home.insights.posts.post2.title', '2024 Market Trends: Middle East Luxury Real Estate'),
+      slug: "2024-market-trends-middle-east",
+      excerpt: t('home.insights.posts.post2.excerpt', 'An in-depth analysis of current luxury property market trends across Dubai, Abu Dhabi, and emerging locations.'),
       coverImage: SAMPLE_IMAGES[1],
-      categories: ["Market Analysis", "Investment"],
+      categories: [t('home.insights.categories.marketAnalysis', 'Market Analysis'), t('home.insights.categories.investment', 'Investment')],
       createdAt: new Date().toISOString(),
-      author: { username: "Ahmad Al-Farsi" }
+      author: { username: t('home.insights.posts.post2.author', 'Ahmad Al-Farsi') }
     },
     {
       id: 3,
-      title: "Creating the Perfect Outdoor Space for Your Property",
+      title: t('home.insights.posts.post3.title', 'Creating the Perfect Outdoor Space for Your Property'),
       slug: "perfect-outdoor-space-property",
-      excerpt: "Landscape design tips that can increase your property value while creating stunning exterior living areas.",
+      excerpt: t('home.insights.posts.post3.excerpt', 'Landscape design tips that can increase your property value while creating stunning exterior living areas.'),
       coverImage: SAMPLE_IMAGES[2],
-      categories: ["Design", "Property Value"],
+      categories: [t('home.insights.categories.design', 'Design'), t('home.insights.categories.propertyValue', 'Property Value')],
       createdAt: new Date().toISOString(),
-      author: { username: "Michael Chen" }
+      author: { username: t('home.insights.posts.post3.author', 'Michael Chen') }
     }
   ];
 

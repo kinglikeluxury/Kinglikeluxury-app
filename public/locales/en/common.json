@@ -272,7 +272,32 @@
       "title": "Real Estate Insights",
       "subtitle": "Expert advice, market trends, and design inspirations from our real estate specialists to help you make informed decisions",
       "viewAllButton": "View All Articles",
-      "readArticle": "Read Article"
+      "readArticle": "Read Article",
+      "posts": {
+        "post1": {
+          "title": "5 Tips for Buying Your First Luxury Villa",
+          "excerpt": "Discover essential advice for first-time luxury homebuyers looking to make a sound investment in premium real estate.",
+          "author": "Sarah Johnson"
+        },
+        "post2": {
+          "title": "2024 Market Trends: Middle East Luxury Real Estate",
+          "excerpt": "An in-depth analysis of current luxury property market trends across Dubai, Abu Dhabi, and emerging locations.",
+          "author": "Ahmad Al-Farsi"
+        },
+        "post3": {
+          "title": "Creating the Perfect Outdoor Space for Your Property",
+          "excerpt": "Landscape design tips that can increase your property value while creating stunning exterior living areas.",
+          "author": "Michael Chen"
+        }
+      },
+      "categories": {
+        "luxuryHomes": "Luxury Homes",
+        "buyingGuide": "Buying Guide",
+        "marketAnalysis": "Market Analysis",
+        "investment": "Investment",
+        "design": "Design",
+        "propertyValue": "Property Value"
+      }
     }
   },
   "countries": {
