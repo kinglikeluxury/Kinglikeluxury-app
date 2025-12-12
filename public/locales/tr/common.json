@@ -251,7 +251,32 @@
       "title": "Emlak makaleleri",
       "subtitle": "Bilinçli kararlar vermenize yardımcı olacak emlak uzmanlarından uzman tavsiyeleri, pazar trendleri ve tasarım ilhamları",
       "viewAllButton": "Tüm makaleleri görüntüle",
-      "readArticle": "Makaleyi oku"
+      "readArticle": "Makaleyi oku",
+      "posts": {
+        "post1": {
+          "title": "İlk lüks villanızı satın almak için 5 ipucu",
+          "excerpt": "Premium gayrimenkule sağlam bir yatırım yapmak isteyen ilk kez lüks ev alıcıları için önemli tavsiyeleri keşfedin.",
+          "author": "Sarah Johnson"
+        },
+        "post2": {
+          "title": "2024 Pazar Trendleri: Orta Doğu Lüks Gayrimenkul",
+          "excerpt": "Dubai, Abu Dabi ve gelişen bölgelerdeki mevcut lüks gayrimenkul piyasası trendlerinin derinlemesine analizi.",
+          "author": "Ahmad Al-Farsi"
+        },
+        "post3": {
+          "title": "Mülkünüz için mükemmel açık alan yaratma",
+          "excerpt": "Mülk değerinizi artırabilecek ve muhteşem dış mekan yaşam alanları oluşturabilecek peyzaj tasarım ipuçları.",
+          "author": "Michael Chen"
+        }
+      },
+      "categories": {
+        "luxuryHomes": "Lüks Evler",
+        "buyingGuide": "Satın Alma Rehberi",
+        "marketAnalysis": "Pazar Analizi",
+        "investment": "Yatırım",
+        "design": "Tasarım",
+        "propertyValue": "Mülk Değeri"
+      }
     }
   },
   "countries": {

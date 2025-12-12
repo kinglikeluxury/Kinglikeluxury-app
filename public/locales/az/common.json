@@ -181,5 +181,38 @@
     "serverError": "Server xətası",
     "serverErrorMessage": "Serverdə xəta baş verdi.",
     "formError": "Zəhmət olmasa, daxil etdiyiniz məlumatları yoxlayın və yenidən cəhd edin."
+  },
+  "home": {
+    "insights": {
+      "title": "Daşınmaz əmlak məqalələri",
+      "subtitle": "Məlumatlı qərarlar verməyinizə kömək etmək üçün daşınmaz əmlak mütəxəssislərindən ekspert məsləhətləri, bazar tendensiyaları və dizayn ilhamları",
+      "viewAllButton": "Bütün məqalələri göstər",
+      "readArticle": "Məqaləni oxu",
+      "posts": {
+        "post1": {
+          "title": "İlk lüks villanızı almaq üçün 5 məsləhət",
+          "excerpt": "Premium daşınmaz əmlakda sağlam investisiya etmək istəyən ilk dəfə lüks ev alıcıları üçün vacib məsləhətləri kəşf edin.",
+          "author": "Sara Conson"
+        },
+        "post2": {
+          "title": "2024 Bazar Tendensiyaları: Yaxın Şərq Lüks Daşınmaz Əmlakı",
+          "excerpt": "Dubay, Abu Dabi və inkişaf edən bölgələrdəki cari lüks daşınmaz əmlak bazarı tendensiyalarının dərin təhlili.",
+          "author": "Əhməd Əl-Farsi"
+        },
+        "post3": {
+          "title": "Mülkünüz üçün mükəmməl açıq məkan yaratmaq",
+          "excerpt": "Mülkünüzün dəyərini artıra biləcək və heyrətamiz xarici yaşayış sahələri yarada biləcək landşaft dizayn məsləhətləri.",
+          "author": "Maykl Çen"
+        }
+      },
+      "categories": {
+        "luxuryHomes": "Lüks Evlər",
+        "buyingGuide": "Alış Bələdçisi",
+        "marketAnalysis": "Bazar Təhlili",
+        "investment": "İnvestisiya",
+        "design": "Dizayn",
+        "propertyValue": "Mülk Dəyəri"
+      }
+    }
   }
 }

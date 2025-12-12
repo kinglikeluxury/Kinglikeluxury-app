@@ -181,5 +181,38 @@
     "serverError": "服务器错误",
     "serverErrorMessage": "服务器发生错误。",
     "formError": "请检查您的输入并重试。"
+  },
+  "home": {
+    "insights": {
+      "title": "房地产资讯",
+      "subtitle": "来自房地产专家的专业建议、市场趋势和设计灵感，帮助您做出明智决策",
+      "viewAllButton": "查看所有文章",
+      "readArticle": "阅读文章",
+      "posts": {
+        "post1": {
+          "title": "购买首套豪华别墅的5个技巧",
+          "excerpt": "为首次购买豪华住宅的买家发现重要建议，帮助您在高端房地产中进行可靠投资。",
+          "author": "莎拉·约翰逊"
+        },
+        "post2": {
+          "title": "2024市场趋势：中东豪华房地产",
+          "excerpt": "深入分析迪拜、阿布扎比及新兴地区当前豪华房地产市场趋势。",
+          "author": "艾哈迈德·法尔西"
+        },
+        "post3": {
+          "title": "为您的房产打造完美的户外空间",
+          "excerpt": "景观设计技巧，可以提升您的房产价值，同时创造令人惊叹的户外生活区域。",
+          "author": "迈克尔·陈"
+        }
+      },
+      "categories": {
+        "luxuryHomes": "豪华住宅",
+        "buyingGuide": "购买指南",
+        "marketAnalysis": "市场分析",
+        "investment": "投资",
+        "design": "设计",
+        "propertyValue": "房产价值"
+      }
+    }
   }
 }

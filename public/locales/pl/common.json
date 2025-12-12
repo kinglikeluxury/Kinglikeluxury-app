@@ -181,5 +181,38 @@
     "serverError": "Błąd serwera",
     "serverErrorMessage": "Wystąpił błąd na serwerze.",
     "formError": "Sprawdź wprowadzone dane i spróbuj ponownie."
+  },
+  "home": {
+    "insights": {
+      "title": "Artykuły o nieruchomościach",
+      "subtitle": "Porady ekspertów, trendy rynkowe i inspiracje projektowe od naszych specjalistów ds. nieruchomości, które pomogą Ci podejmować świadome decyzje",
+      "viewAllButton": "Zobacz wszystkie artykuły",
+      "readArticle": "Czytaj artykuł",
+      "posts": {
+        "post1": {
+          "title": "5 wskazówek przy zakupie pierwszej luksusowej willi",
+          "excerpt": "Odkryj niezbędne porady dla kupujących luksusowe domy po raz pierwszy, szukających solidnej inwestycji w nieruchomości premium.",
+          "author": "Sarah Johnson"
+        },
+        "post2": {
+          "title": "Trendy rynkowe 2024: Luksusowe nieruchomości na Bliskim Wschodzie",
+          "excerpt": "Dogłębna analiza aktualnych trendów na rynku luksusowych nieruchomości w Dubaju, Abu Zabi i rozwijających się lokalizacjach.",
+          "author": "Ahmad Al-Farsi"
+        },
+        "post3": {
+          "title": "Tworzenie idealnej przestrzeni zewnętrznej dla Twojej nieruchomości",
+          "excerpt": "Wskazówki dotyczące projektowania krajobrazu, które mogą zwiększyć wartość Twojej nieruchomości i stworzyć wspaniałe zewnętrzne strefy życia.",
+          "author": "Michael Chen"
+        }
+      },
+      "categories": {
+        "luxuryHomes": "Luksusowe Domy",
+        "buyingGuide": "Przewodnik Kupującego",
+        "marketAnalysis": "Analiza Rynku",
+        "investment": "Inwestycja",
+        "design": "Projektowanie",
+        "propertyValue": "Wartość Nieruchomości"
+      }
+    }
   }
 }
