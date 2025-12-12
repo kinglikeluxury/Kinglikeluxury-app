@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { login as apiLogin, register as apiRegister, logout as apiLogout, getCurrentUser } from '@lib/api';
+import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import { login as apiLogin, register as apiRegister, logout as apiLogout, getCurrentUser, loginWithPhone as apiLoginWithPhone, loginWithFacebook as apiLoginWithFacebook } from '../lib/api';
 
 export interface User {
   id: number;
@@ -17,6 +17,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
+  loginWithPhone: (phoneNumber: string, password: string) => Promise<void>;
+  loginWithFacebook: () => Promise<void>;
   register: (userData: {
     username: string;
     password: string;
@@ -52,6 +54,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string) => {
     const userData = await apiLogin(username, password);
+    setUser(userData);
+  };
+
+  const loginWithPhone = async (phoneNumber: string, password: string) => {
+    const userData = await apiLoginWithPhone(phoneNumber, password);
+    setUser(userData);
+  };
+
+  const loginWithFacebook = async () => {
+    const userData = await apiLoginWithFacebook();
     setUser(userData);
   };
 
@@ -91,6 +103,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         loading,
         login,
+        loginWithPhone,
+        loginWithFacebook,
         register,
         logout,
         refreshUser,

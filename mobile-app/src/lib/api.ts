@@ -1,16 +1,14 @@
 import axios from 'axios';
 import { API_URL } from '../config/api.config';
 
-// Create an axios instance
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 seconds
+  timeout: 10000,
 });
 
-// Get properties with optional filters
 export const getProperties = async (filters = {}) => {
   try {
     const response = await api.get('/properties', { params: filters });
@@ -21,7 +19,6 @@ export const getProperties = async (filters = {}) => {
   }
 };
 
-// Get a single property by ID
 export const getProperty = async (id: number) => {
   try {
     const response = await api.get(`/properties/${id}`);
@@ -32,7 +29,6 @@ export const getProperty = async (id: number) => {
   }
 };
 
-// Get projects
 export const getProjects = async () => {
   try {
     const response = await api.get('/projects');
@@ -43,7 +39,6 @@ export const getProjects = async () => {
   }
 };
 
-// Get a single project by ID
 export const getProject = async (id: number) => {
   try {
     const response = await api.get(`/projects/${id}`);
@@ -54,7 +49,6 @@ export const getProject = async (id: number) => {
   }
 };
 
-// Authentication functions
 export const login = async (username: string, password: string) => {
   try {
     const response = await api.post('/auth/login', { username, password });
@@ -65,10 +59,30 @@ export const login = async (username: string, password: string) => {
   }
 };
 
+export const loginWithPhone = async (phoneNumber: string, password: string) => {
+  try {
+    const response = await api.post('/auth/login', { phoneNumber, password });
+    return response.data;
+  } catch (error) {
+    console.error('Phone login error:', error);
+    throw error;
+  }
+};
+
+export const loginWithFacebook = async () => {
+  try {
+    const response = await api.get('/auth/facebook');
+    return response.data;
+  } catch (error) {
+    console.error('Facebook login error:', error);
+    throw error;
+  }
+};
+
 export const register = async (userData: {
   username: string;
   password: string;
-  email: string;
+  email?: string;
   phoneNumber?: string;
   whatsappNumber?: string;
 }) => {
@@ -101,7 +115,6 @@ export const getCurrentUser = async () => {
   }
 };
 
-// Blog posts
 export const getBlogPosts = async (filters = {}) => {
   try {
     const response = await api.get('/blog', { params: filters });
@@ -122,7 +135,6 @@ export const getBlogPost = async (id: number) => {
   }
 };
 
-// Submit property
 export const submitProperty = async (propertyData: any) => {
   try {
     const response = await api.post('/properties', propertyData);
@@ -133,7 +145,6 @@ export const submitProperty = async (propertyData: any) => {
   }
 };
 
-// Update property status (admin only)
 export const updatePropertyStatus = async (id: number, status: string) => {
   try {
     const response = await api.patch(`/properties/${id}/status`, { status });
@@ -144,7 +155,6 @@ export const updatePropertyStatus = async (id: number, status: string) => {
   }
 };
 
-// Submit project (admin only)
 export const submitProject = async (projectData: any) => {
   try {
     const response = await api.post('/projects', projectData);
@@ -155,13 +165,34 @@ export const submitProject = async (projectData: any) => {
   }
 };
 
-// Add request interceptor to handle authentication
+export const createPaymentIntent = async (paymentData: {
+  amount: number;
+  listingType: string;
+  propertyType: string;
+}) => {
+  try {
+    const response = await api.post('/payments/create-intent', paymentData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    throw error;
+  }
+};
+
+export const getAdminStats = async () => {
+  try {
+    const response = await api.get('/admin/stats');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    throw error;
+  }
+};
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 errors (unauthorized)
     if (error.response && error.response.status === 401) {
-      // You might want to redirect to login or refresh token
       console.log('User is not authenticated');
     }
     return Promise.reject(error);
