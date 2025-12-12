@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '@contexts/AuthContext';
+import { useLanguage } from '@contexts/LanguageContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@navigation/AppNavigator';
@@ -21,6 +23,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 const LoginScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { t } = useTranslation();
+  const { isRTL } = useLanguage();
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -29,17 +33,17 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t('common.error'), t('auth.required'));
       return;
     }
 
     if (username.length < 3) {
-      Alert.alert('Error', 'Username must be at least 3 characters');
+      Alert.alert(t('common.error'), t('auth.required'));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert(t('common.error'), t('auth.required'));
       return;
     }
 
@@ -48,7 +52,7 @@ const LoginScreen = () => {
       await login(username, password);
       navigation.navigate('Home');
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      Alert.alert(t('auth.loginError'), error.message || t('auth.loginError'));
     } finally {
       setLoading(false);
     }
@@ -61,36 +65,40 @@ const LoginScreen = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Log in to your account</Text>
+          <Text style={[styles.title, isRTL && styles.rtlText]}>{t('auth.welcomeBack')}</Text>
+          <Text style={[styles.subtitle, isRTL && styles.rtlText]}>{t('auth.signInToContinue')}</Text>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Username</Text>
+            <Text style={[styles.label, isRTL && styles.rtlText]}>{t('auth.username')}</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Enter your username"
+              style={[styles.input, isRTL && styles.rtlInput]}
+              placeholder={t('auth.username')}
               placeholderTextColor={COLORS.gray}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
               editable={!loading}
+              textAlign={isRTL ? 'right' : 'left'}
+              data-testid="input-username"
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
+            <Text style={[styles.label, isRTL && styles.rtlText]}>{t('auth.password')}</Text>
+            <View style={[styles.passwordContainer, isRTL && styles.rtlRow]}>
               <TextInput
-                style={styles.passwordInput}
-                placeholder="Enter your password"
+                style={[styles.passwordInput, isRTL && styles.rtlInput]}
+                placeholder={t('auth.password')}
                 placeholderTextColor={COLORS.gray}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 editable={!loading}
+                textAlign={isRTL ? 'right' : 'left'}
+                data-testid="input-password"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -105,18 +113,19 @@ const LoginScreen = () => {
             style={[styles.loginButton, loading && styles.loginButtonDisabled]}
             onPress={handleLogin}
             disabled={loading}
+            data-testid="button-login"
           >
             {loading ? (
               <ActivityIndicator color={COLORS.white} />
             ) : (
-              <Text style={styles.loginButtonText}>Log In</Text>
+              <Text style={styles.loginButtonText}>{t('auth.login')}</Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLink}>Sign Up</Text>
+          <View style={[styles.registerContainer, isRTL && styles.rtlRow]}>
+            <Text style={styles.registerText}>{t('auth.noAccount')} </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')} data-testid="link-register">
+              <Text style={styles.registerLink}>{t('auth.register')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -170,6 +179,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     color: COLORS.text,
   },
+  rtlInput: {
+    textAlign: 'right',
+  },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -218,6 +230,12 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  rtlText: {
+    textAlign: 'right',
+  },
+  rtlRow: {
+    flexDirection: 'row-reverse',
   },
 });
 

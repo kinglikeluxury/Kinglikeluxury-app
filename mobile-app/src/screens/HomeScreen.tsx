@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,15 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import { RootStackParamList } from '@navigation/AppNavigator';
 import { getProperties } from '@lib/api';
 import { COLORS, FONTS, SPACING } from '@lib/theme';
+import { useLanguage } from '@contexts/LanguageContext';
 
 type PropertyItem = {
   id: number;
@@ -30,9 +33,25 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 const HomeScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { t } = useTranslation();
+  const { isRTL } = useLanguage();
   const [properties, setProperties] = useState<PropertyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings')}
+          style={styles.headerButton}
+          data-testid="button-settings"
+        >
+          <Text style={styles.headerButtonText}>⚙️</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const fetchProperties = async () => {
     try {
@@ -56,10 +75,21 @@ const HomeScreen = () => {
     fetchProperties();
   }, []);
 
+  const renderNavButton = (label: string, screen: keyof RootStackParamList) => (
+    <TouchableOpacity
+      style={styles.navButton}
+      onPress={() => navigation.navigate(screen as any)}
+      data-testid={`nav-${screen.toLowerCase()}`}
+    >
+      <Text style={styles.navButtonText}>{label}</Text>
+    </TouchableOpacity>
+  );
+
   const renderProperty = ({ item }: { item: PropertyItem }) => (
     <TouchableOpacity
       style={styles.propertyCard}
       onPress={() => navigation.navigate('PropertyDetails', { propertyId: item.id })}
+      data-testid={`property-card-${item.id}`}
     >
       <Image
         source={{ uri: item.images?.[0] || 'https://via.placeholder.com/300x200' }}
@@ -67,17 +97,17 @@ const HomeScreen = () => {
         resizeMode="cover"
       />
       <View style={styles.propertyInfo}>
-        <Text style={styles.propertyTitle}>{item.title}</Text>
-        <Text style={styles.propertyLocation}>{item.location}</Text>
-        <Text style={styles.propertyPrice}>
+        <Text style={[styles.propertyTitle, isRTL && styles.rtlText]}>{item.title}</Text>
+        <Text style={[styles.propertyLocation, isRTL && styles.rtlText]}>{item.location}</Text>
+        <Text style={[styles.propertyPrice, isRTL && styles.rtlText]}>
           ${item.price.toLocaleString()}
         </Text>
-        <View style={styles.propertyDetails}>
+        <View style={[styles.propertyDetails, isRTL && styles.rtlRow]}>
           {item.bedrooms != null && (
-            <Text style={styles.propertyDetail}>{item.bedrooms} Beds</Text>
+            <Text style={styles.propertyDetail}>{item.bedrooms} {t('property.beds')}</Text>
           )}
           {item.bathrooms != null && (
-            <Text style={styles.propertyDetail}>{item.bathrooms} Baths</Text>
+            <Text style={styles.propertyDetail}>{item.bathrooms} {t('property.baths')}</Text>
           )}
           <Text style={styles.propertyType}>{item.propertyType}</Text>
         </View>
@@ -89,12 +119,30 @@ const HomeScreen = () => {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.navContainer}
+        contentContainerStyle={styles.navContent}
+      >
+        {renderNavButton(t('nav.properties'), 'Properties')}
+        {renderNavButton(t('nav.projects'), 'Projects')}
+        {renderNavButton(t('nav.blog'), 'Blog')}
+        {renderNavButton(t('nav.submit'), 'SubmitProperty')}
+        {renderNavButton(t('nav.login'), 'Login')}
+      </ScrollView>
+
+      <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+        {t('property.featured')}
+      </Text>
+
       <FlatList
         data={properties}
         keyExtractor={(item) => item.id.toString()}
@@ -106,7 +154,9 @@ const HomeScreen = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No properties available</Text>
+            <Text style={[styles.emptyText, isRTL && styles.rtlText]}>
+              {t('property.noResults')}
+            </Text>
           </View>
         }
       />
@@ -124,13 +174,56 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: SPACING.md,
+    color: COLORS.textLight,
+    fontSize: FONTS.sizes.medium,
+  },
+  headerButton: {
+    paddingHorizontal: SPACING.md,
+  },
+  headerButtonText: {
+    fontSize: 22,
+  },
+  navContainer: {
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    maxHeight: 60,
+  },
+  navContent: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  navButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: 20,
+    marginRight: SPACING.sm,
+  },
+  navButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.small,
+    fontWeight: 'bold',
+  },
+  sectionTitle: {
+    fontSize: FONTS.sizes.xlarge,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.sm,
+  },
   listContainer: {
-    padding: SPACING.medium,
+    padding: SPACING.md,
   },
   propertyCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 10,
-    marginBottom: SPACING.medium,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -143,7 +236,7 @@ const styles = StyleSheet.create({
     height: 180,
   },
   propertyInfo: {
-    padding: SPACING.medium,
+    padding: SPACING.md,
   },
   propertyTitle: {
     fontSize: FONTS.sizes.large,
@@ -157,7 +250,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   propertyPrice: {
-    fontSize: FONTS.sizes.medium,
+    fontSize: FONTS.sizes.large,
     fontWeight: 'bold',
     color: COLORS.primary,
     marginBottom: 8,
@@ -182,6 +275,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: FONTS.sizes.medium,
     color: COLORS.textLight,
+  },
+  rtlText: {
+    textAlign: 'right',
+  },
+  rtlRow: {
+    flexDirection: 'row-reverse',
   },
 });
 
