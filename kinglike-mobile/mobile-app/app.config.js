@@ -54,7 +54,7 @@ export default {
   ],
   extra: {
     eas: {
-      projectId: 'REPLACE_WITH_YOUR_PROJECT_ID'
+      projectId: '8de7107a-580d-404c-afbe-370b8c4c9f17'
     }
   }
 };
