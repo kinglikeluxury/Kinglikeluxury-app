@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Kinglike Luxury",
+    "slug": "kinglike-luxury",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/LUXURY_20230822_234540_0000-removebg.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./src/assets/LUXURY_20230822_234540_0000-removebg.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#005476"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kinglikeluxury.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/LUXURY_20230822_234540_0000-removebg.png",
+        "backgroundColor": "#005476"
+      },
+      "package": "com.kinglikeluxury.app",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./src/assets/LUXURY_20230822_234540_0000-removebg.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Kinglike Luxury to access your camera for AR features."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Kinglike Luxury to use your location to show nearby properties."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Kinglike Luxury to access your photos to upload property images."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "kinglike-luxury"
+      }
+    }
+  }
+}
