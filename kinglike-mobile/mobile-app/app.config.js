@@ -1,6 +1,6 @@
 export default {
-  name: 'Kinglike Luxury',
-  slug: 'kinglike-luxury',
+  name: 'Kinglike Luxury Real Estate',
+  slug: 'kinglike-realestate-app',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './src/assets/LUXURY_20230822_234540_0000-removebg.png',
@@ -13,14 +13,14 @@ export default {
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.kinglikeluxury.app'
+    bundleIdentifier: 'com.kinglikeluxury.realestate'
   },
   android: {
     adaptiveIcon: {
       foregroundImage: './src/assets/LUXURY_20230822_234540_0000-removebg.png',
       backgroundColor: '#005476'
     },
-    package: 'com.kinglikeluxury.app',
+    package: 'com.kinglikeluxury.realestate',
     permissions: [
       'CAMERA',
       'ACCESS_FINE_LOCATION',
