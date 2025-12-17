@@ -19,6 +19,7 @@ import Approvals from "@/pages/admin/approvals";
 import AddProject from "@/pages/admin/add-project";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
+import InstallPWA from "@/components/InstallPWA";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { getLanguageDirection } from "./lib/i18n";
@@ -64,6 +65,7 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
+          <InstallPWA />
           <Router />
         </TooltipProvider>
       </AuthProvider>
