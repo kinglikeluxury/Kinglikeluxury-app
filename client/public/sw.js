@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinglike-v1';
+const CACHE_NAME = 'kinglike-v2';
 const urlsToCache = [
   '/',
   '/index.html'
@@ -29,6 +29,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/locales/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   
   event.respondWith(
     fetch(event.request)
