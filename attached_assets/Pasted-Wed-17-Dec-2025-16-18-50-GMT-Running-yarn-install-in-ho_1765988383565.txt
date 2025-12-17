@@ -1,0 +1,246 @@
+Wed, 17 Dec 2025 16:18:50 GMT
+
+Running "yarn install" in /home/expo/workingdir/build/ directory
+Wed, 17 Dec 2025 16:18:50 GMT
+
+yarn install v1.22.19
+Wed, 17 Dec 2025 16:18:50 GMT
+
+info No lockfile found.
+Wed, 17 Dec 2025 16:18:50 GMT
+
+[1/4] Resolving packages...
+Wed, 17 Dec 2025 16:18:53 GMT
+
+[stderr] 
+
+warning react-native > @react-native/codegen > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:18:53 GMT
+
+[stderr] 
+
+warning react-native > @react-native-community/cli-platform-ios > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:18:53 GMT
+
+[stderr] 
+
+warning react-native > @react-native-community/cli-platform-android > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:18:53 GMT
+
+[stderr] 
+
+warning react-native > @react-native-community/cli > @react-native-community/cli-config > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:18:54 GMT
+
+[stderr] 
+
+warning react-native > @react-native-community/cli > @react-native-community/cli-tools > sudo-prompt@9.2.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+Wed, 17 Dec 2025 16:18:54 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native-community/cli-tools > sudo-prompt@9.2.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+Wed, 17 Dec 2025 16:18:54 GMT
+
+[stderr] 
+
+warning react-native > @react-native/codegen > glob > inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+Wed, 17 Dec 2025 16:18:54 GMT
+
+[stderr] 
+
+warning react-native > @react-native/codegen > jscodeshift > @babel/plugin-proposal-class-properties@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-class-properties instead.
+Wed, 17 Dec 2025 16:18:54 GMT
+
+[stderr] 
+
+warning react-native > @react-native/codegen > jscodeshift > @babel/plugin-proposal-optional-chaining@7.21.0: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional-chaining instead.
+Wed, 17 Dec 2025 16:18:54 GMT
+
+[stderr] 
+
+warning react-native > @react-native/codegen > jscodeshift > @babel/plugin-proposal-nullish-coalescing-operator@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-nullish-coalescing-operator instead.
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/metro-babel-transformer > @react-native/babel-preset > @babel/plugin-proposal-class-properties@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-class-properties instead.
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/metro-babel-transformer > @react-native/babel-preset > @babel/plugin-proposal-optional-chaining@7.21.0: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional-chaining instead.
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/metro-babel-transformer > @react-native/babel-preset > @babel/plugin-proposal-nullish-coalescing-operator@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-nullish-coalescing-operator instead.
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/codegen > jscodeshift > temp > rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/dev-middleware > chromium-edge-launcher > rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/codegen > jscodeshift > temp > rimraf > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/dev-middleware > chromium-edge-launcher > rimraf > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/metro-babel-transformer > @react-native/babel-preset > @babel/plugin-proposal-numeric-separator@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-numeric-separator instead.
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/metro-babel-transformer > @react-native/babel-preset > @babel/plugin-proposal-object-rest-spread@7.20.7: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-object-rest-spread instead.
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/metro-babel-transformer > @react-native/babel-preset > @babel/plugin-proposal-optional-catch-binding@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional-catch-binding instead.
+Wed, 17 Dec 2025 16:18:55 GMT
+
+[stderr] 
+
+warning react-native > @react-native/community-cli-plugin > @react-native/metro-babel-transformer > @react-native/babel-preset > @babel/plugin-proposal-async-generator-functions@7.20.7: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-async-generator-functions instead.
+Wed, 17 Dec 2025 16:18:57 GMT
+
+[stderr] 
+
+warning react-native-image-slider-box > react-native-snap-carousel > react-addons-shallow-compare > fbjs > core-js@1.2.7: core-js@<3.23.3 is no longer maintained and not recommended for usage due to the number of issues. Because of the V8 engine whims, feature detection in old core-js versions could cause a slowdown up to 100x even if nothing is polyfilled. Some versions have web compatibility issues. Please, upgrade your dependencies to the actual version of core-js.
+Wed, 17 Dec 2025 16:18:57 GMT
+
+[stderr] 
+
+warning react-native-vector-icons@10.3.0: react-native-vector-icons package has moved to a new model of per-icon-family packages. See the https://github.com/oblador/react-native-vector-icons/blob/master/MIGRATION.md on how to migrate
+Wed, 17 Dec 2025 16:18:58 GMT
+
+[stderr] 
+
+warning @viro-community/react-viro@2.41.1: Package no longer supported. Use @reactvision/react-viro instead.
+Wed, 17 Dec 2025 16:18:58 GMT
+
+[stderr] 
+
+warning @viro-community/react-viro > @expo/config-plugins > glob@7.1.6: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:18:58 GMT
+
+[stderr] 
+
+warning @viro-community/react-viro > @expo/config-plugins > glob > inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+Wed, 17 Dec 2025 16:18:58 GMT
+
+[stderr] 
+
+warning @viro-community/react-viro > @expo/config-plugins > @expo/plist > @xmldom/xmldom@0.7.13: this version is no longer supported, please update to at least 0.8.*
+Wed, 17 Dec 2025 16:19:02 GMT
+
+[stderr] 
+
+warning babel-jest > babel-plugin-istanbul > test-exclude > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:19:02 GMT
+
+[stderr] 
+
+warning eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+Wed, 17 Dec 2025 16:19:02 GMT
+
+[stderr] 
+
+warning eslint > @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+Wed, 17 Dec 2025 16:19:02 GMT
+
+[stderr] 
+
+warning eslint > file-entry-cache > flat-cache > rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+Wed, 17 Dec 2025 16:19:02 GMT
+
+[stderr] 
+
+warning eslint > @humanwhocodes/config-array > @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning jest > jest-cli > jest-config > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning jest > @jest/core > jest-runtime > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning jest > @jest/core > @jest/reporters > glob@7.2.3: Glob versions prior to v9 are no longer supported
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset@0.77.0: Use @react-native/babel-preset instead
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset > @babel/plugin-proposal-class-properties@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-class-properties instead.
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset > @babel/plugin-proposal-numeric-separator@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-numeric-separator instead.
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset > @babel/plugin-proposal-optional-chaining@7.21.0: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional-chaining instead.
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset > @babel/plugin-proposal-object-rest-spread@7.20.7: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-object-rest-spread instead.
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset > @babel/plugin-proposal-optional-catch-binding@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional-catch-binding instead.
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset > @babel/plugin-proposal-async-generator-functions@7.20.7: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-async-generator-functions instead.
+Wed, 17 Dec 2025 16:19:03 GMT
+
+[stderr] 
+
+warning metro-react-native-babel-preset > @babel/plugin-proposal-nullish-coalescing-operator@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-nullish-coalescing-operator instead.
+Wed, 17 Dec 2025 16:19:04 GMT
+
+[2/4] Fetching packages...
+Wed, 17 Dec 2025 16:19:15 GMT
+
+[stderr] 
+
+error react-native-maps@1.26.20: The engine "node" is incompatible with this module. Expected version ">= 20.19.4". Got "18.18.0"
+Wed, 17 Dec 2025 16:19:15 GMT
+
+[stderr] 
+
+error Found incompatible module.
+Wed, 17 Dec 2025 16:19:15 GMT
+
+info Visit https://yarnpkg.com/en/docs/cli/install for documentation about this command.
+Wed, 17 Dec 2025 16:19:15 GMT
+
+Error: Unknown error. See logs of the Install dependencies build phase for more information.
