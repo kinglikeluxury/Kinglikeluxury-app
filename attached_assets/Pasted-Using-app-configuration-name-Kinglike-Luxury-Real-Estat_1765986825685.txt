@@ -1,0 +1,73 @@
+Using app configuration:
+{
+  "name": "Kinglike Luxury Real Estate",
+  "slug": "kinglike-realestate-app",
+  "version": "1.0.0",
+  "orientation": "portrait",
+  "icon": "./src/assets/LUXURY_20230822_234540_0000-removebg.png",
+  "userInterfaceStyle": "light",
+  "splash": {
+    "image": "./src/assets/LUXURY_20230822_234540_0000-removebg.png",
+    "resizeMode": "contain",
+    "backgroundColor": "#005476"
+  },
+  "assetBundlePatterns": [
+    "**/*"
+  ],
+  "ios": {
+    "supportsTablet": true,
+    "bundleIdentifier": "com.kinglikeluxury.realestate"
+  },
+  "android": {
+    "adaptiveIcon": {
+      "foregroundImage": "./src/assets/LUXURY_20230822_234540_0000-removebg.png",
+      "backgroundColor": "#005476"
+    },
+    "package": "com.kinglikeluxury.realestate",
+    "permissions": [
+      "android.permission.CAMERA",
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.CAMERA",
+      "android.permission.RECORD_AUDIO",
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_FINE_LOCATION"
+    ]
+  },
+  "web": {
+    "favicon": "./src/assets/LUXURY_20230822_234540_0000-removebg.png"
+  },
+  "plugins": [
+    [
+      "expo-camera",
+      {
+        "cameraPermission": "Allow Kinglike Luxury to access your camera for AR features."
+      }
+    ],
+    [
+      "expo-location",
+      {
+        "locationAlwaysAndWhenInUsePermission": "Allow Kinglike Luxury to use your location to show nearby properties."
+      }
+    ],
+    [
+      "expo-image-picker",
+      {
+        "photosPermission": "Allow Kinglike Luxury to access your photos to upload property images."
+      }
+    ]
+  ],
+  "extra": {
+    "eas": {
+      "projectId": "d466aa57-de4c-4e04-b9ec-03c5ca9a1108"
+    }
+  },
+  "sdkVersion": "50.0.0",
+  "platforms": [
+    "ios",
+    "android"
+  ]
+}
+Error: The value of the "extra.eas.projectId" field (d466aa57-de4c-4e04-b9ec-03c5ca9a1108) in the app config does not match the current project id (a34d2113-ccae-417a-84b6-0143bfea9145). Make sure you connected your GitHub repository to the correct Expo project and if you are using environment variables to switch between projects in app.config.js/app.config.ts remember to set those variables in eas.json too. Learn more: https://expo.fyi/eas-config-mismatch.
