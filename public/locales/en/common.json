@@ -70,13 +70,24 @@
     "results": "{{count}} result found",
     "results_plural": "{{count}} results found",
     "noResults": "No properties found",
-    "submit": "Submit Property",
+    "submit": "Add Property",
     "uploadImages": "Upload Images",
     "removeImage": "Remove Image",
     "minPrice": "Min Price",
     "maxPrice": "Max Price",
     "seeMore": "See More",
-    "contact": "Contact Owner"
+    "contact": "Contact Owner",
+    "heroTitle": "Find Your Perfect Property",
+    "heroSubtitle": "Discover apartments, villas, lands and construction projects that match your needs",
+    "anyLocation": "Any location",
+    "priceRange": "Price Range",
+    "anyPrice": "Any Price",
+    "listings": "120+ Listings",
+    "listings2": "85+ Listings",
+    "listings3": "63+ Listings",
+    "listings4": "42+ Listings",
+    "uploadProperties": "Upload your properties",
+    "myProperties": "My Properties"
   },
   "project": {
     "title": "Project Title",
@@ -123,7 +134,8 @@
     "approve": "Approve",
     "reject": "Reject",
     "pendingProperties": "Pending Properties",
-    "createProject": "Create Project"
+    "createProject": "Add Project",
+    "onlyListings": "Admin-only listings"
   },
   "blog": {
     "title": "Blog Title",
@@ -149,7 +161,12 @@
     "contactTitle": "Contact Us",
     "addProperty": "Add Property",
     "allRightsReserved": "All rights reserved.",
-    "location": "Tbilisi, Georgia"
+    "location": "Tbilisi, Georgia",
+    "copyright": "© {{year}} Kinglike Luxury. All rights reserved.",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "contactUs": "Contact Us",
+    "followUs": "Follow Us"
   },
   "common": {
     "loading": "Loading...",
@@ -184,41 +201,12 @@
     "exclusive": "KINGLIKE EXCLUSIVE",
     "category": "category"
   },
-  "common.loading": "Loading...",
-  "footer": {
-    "copyright": "© {{year}} Kinglike Luxury. All rights reserved.",
-    "privacyPolicy": "Privacy Policy",
-    "termsOfService": "Terms of Service",
-    "contactUs": "Contact Us",
-    "followUs": "Follow Us"
-  },
-  "property": {
-    "heroTitle": "Find Your Perfect Property",
-    "heroSubtitle": "Discover apartments, villas, lands and construction projects that match your needs",
-    "anyLocation": "Any location",
-    "type": "Property Type",
-    "priceRange": "Price Range",
-    "anyPrice": "Any Price",
-    "listings": "120+ Listings",
-    "listings2": "85+ Listings",
-    "listings3": "63+ Listings",
-    "listings4": "42+ Listings",
-    "uploadProperties": "Upload your properties",
-    "submit": "Add Property",
-    "myProperties": "My Properties"
-  },
   "categories": {
     "title": "Browse by category"
   },
   "favorites": {
     "title": "Favorites",
     "empty": "No favorites yet"
-  },
-  "admin": {
-    "dashboard": "Admin Dashboard",
-    "approvals": "Property Approvals",
-    "createProject": "Add Project",
-    "onlyListings": "Admin-only listings"
   },
   "errors": {
     "notFound": "Page not found",
