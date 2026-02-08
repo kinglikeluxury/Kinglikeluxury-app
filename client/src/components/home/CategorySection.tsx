@@ -213,7 +213,6 @@ const CategorySection = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
-                  <SelectItem value="rent">{t('home.hero.forRent', 'For Rent')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
