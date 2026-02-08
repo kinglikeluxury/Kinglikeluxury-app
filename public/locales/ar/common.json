@@ -52,6 +52,12 @@
     "bedrooms": "غرف النوم",
     "bathrooms": "الحمامات",
     "type": "النوع",
+    "types": {
+      "apartment": "شقة",
+      "villa": "فيلا",
+      "land": "أرض",
+      "project": "مشاريع قيد الإنشاء"
+    },
     "features": "المميزات",
     "images": "الصور",
     "owner": "المالك",

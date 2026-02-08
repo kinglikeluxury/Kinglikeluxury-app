@@ -52,6 +52,12 @@
     "bedrooms": "Bedrooms",
     "bathrooms": "Bathrooms",
     "type": "Type",
+    "types": {
+      "apartment": "Apartment",
+      "villa": "Villa",
+      "land": "Land",
+      "project": "Off-Plan Projects"
+    },
     "features": "Features",
     "images": "Images",
     "owner": "Owner",
