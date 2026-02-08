@@ -368,7 +368,7 @@ const Projects = () => {
 
               {/* Country - Required */}
               <div>
-                <Label htmlFor="country" className="flex items-center">
+                <Label htmlFor="country" className={`flex items-center ${filterErrors.country ? 'text-red-500' : ''}`}>
                   {t('home.hero.country', 'Country')} <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <Select value={selectedCountry} onValueChange={setSelectedCountry}>
@@ -387,7 +387,7 @@ const Projects = () => {
 
               {/* City - Required */}
               <div>
-                <Label htmlFor="city" className="flex items-center">
+                <Label htmlFor="city" className={`flex items-center ${filterErrors.city ? 'text-red-500' : ''}`}>
                   {t('home.hero.city', 'City')} <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <Select 
@@ -433,7 +433,7 @@ const Projects = () => {
 
               {/* Purpose - Required */}
               <div>
-                <Label htmlFor="purpose" className="flex items-center">
+                <Label htmlFor="purpose" className={`flex items-center ${filterErrors.purpose ? 'text-red-500' : ''}`}>
                   {t('home.hero.purpose', 'Purpose')} <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <Select value={selectedPurpose} onValueChange={setSelectedPurpose}>
