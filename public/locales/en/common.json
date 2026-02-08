@@ -328,8 +328,6 @@
     "hideFilters": "Hide",
     "showFilters": "Show",
     "filters": "Filters",
-    "searchProjects": "Search Projects",
-    "searchPlaceholder": "Search by title or location...",
     "allCountries": "All Countries",
     "allCities": "All Cities",
     "minPrice": "Min Price ($)",
