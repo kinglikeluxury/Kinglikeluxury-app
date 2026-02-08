@@ -94,7 +94,7 @@
     "seeMore": "ראה עוד",
     "contact": "צור קשר עם הבעלים",
     "viewDetails": "צפה בפרטים",
-    "viewProject": "צפה בפרטי הפרויקט", 
+    "viewProject": "צפה בפרטי הפרויקט",
     "viewAllProjects": "צפה בכל הפרויקטים",
     "tryAdjustingFilters": "נסה להתאים את המסננים שלך או חזור מאוחר יותר."
   },
@@ -206,7 +206,7 @@
   "home": {
     "hero": {
       "country": "מדינה",
-      "anyCountry": "כל מדינה", 
+      "anyCountry": "כל מדינה",
       "city": "עיר",
       "purpose": "למטרה",
       "anyPurpose": "כל מטרה",
@@ -287,7 +287,7 @@
   "cities": {
     "batumi": "באטומי",
     "tbilisi": "טביליסי",
-    "dubai": "דובאי", 
+    "dubai": "דובאי",
     "sharjah": "שארג'ה",
     "rasAlKhaimah": "ראס אל חיימה",
     "damascus": "דמשק",
@@ -299,7 +299,8 @@
     "hama": "חמא"
   },
   "categories": {
-    "title": "דפדף לפי קטגוריה"
+    "title": "דפדף לפי קטגוריה",
+    "selectFilters": "בחר את ההעדפות שלך"
   },
   "favorites": {
     "title": "מועדפים",

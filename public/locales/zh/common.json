@@ -228,5 +228,9 @@
         "propertyValue": "房产价值"
       }
     }
+  },
+  "categories": {
+    "title": "按类别浏览",
+    "selectFilters": "选择您的偏好"
   }
 }

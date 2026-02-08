@@ -8,7 +8,7 @@
     "soldOut": "Tükendi"
   },
   "app": {
-    "name": "Kinglike Luxury", 
+    "name": "Kinglike Luxury",
     "description": "Premium Emlak Pazaryeri",
     "locale": "tr-TR"
   },
@@ -28,7 +28,7 @@
   },
   "propertyTypes": {
     "apartment": "Daireler",
-    "villa": "Villalar", 
+    "villa": "Villalar",
     "land": "Araziler",
     "commercial": "Ticari Alanlar",
     "project": "İnşaat Projeleri"
@@ -51,7 +51,7 @@
     "area": "Alan",
     "bedrooms": "Yatak Odaları",
     "bathrooms": "Banyolar",
-    "type": "Tür",
+    "type": "Emlak Türü",
     "types": {
       "apartment": "Daire",
       "villa": "Villa",
@@ -86,8 +86,7 @@
     "heroTitle": "Mükemmel Mülkünüzü Bulun",
     "heroSubtitle": "İhtiyaçlarınıza uygun daireler, villalar, araziler ve inşaat projelerini keşfedin",
     "anyLocation": "Herhangi bir konum",
-    "type": "Emlak Türü",
-    "priceRange": "Fiyat Aralığı", 
+    "priceRange": "Fiyat Aralığı",
     "anyPrice": "Herhangi bir fiyat",
     "listings": "120+ İlan",
     "listings2": "85+ İlan",
@@ -96,7 +95,7 @@
     "uploadProperties": "Mülklerinizi yükleyin",
     "myProperties": "Emlakların",
     "viewDetails": "Detayları görüntüle",
-    "viewProject": "Proje detaylarını görüntüle", 
+    "viewProject": "Proje detaylarını görüntüle",
     "viewAllProjects": "Tüm projeleri görüntüle",
     "tryAdjustingFilters": "Arama filtrelerinizi ayarlamayı deneyin veya daha sonra tekrar kontrol edin."
   },
@@ -220,7 +219,7 @@
   "home": {
     "hero": {
       "country": "Ülke",
-      "anyCountry": "Herhangi bir ülke", 
+      "anyCountry": "Herhangi bir ülke",
       "city": "Şehir",
       "purpose": "Ne için",
       "anyPurpose": "Herhangi bir amaç",
@@ -301,7 +300,7 @@
   "cities": {
     "batumi": "Batumi",
     "tbilisi": "Tiflis",
-    "dubai": "Dubai", 
+    "dubai": "Dubai",
     "sharjah": "Sharjah",
     "rasAlKhaimah": "Ras Al Khaimah",
     "damascus": "Şam",
@@ -313,7 +312,8 @@
     "hama": "Hama"
   },
   "categories": {
-    "title": "Kategoriye göre gözat"
+    "title": "Kategoriye göre gözat",
+    "selectFilters": "Tercihlerinizi seçin"
   },
   "favorites": {
     "title": "Favoriler",

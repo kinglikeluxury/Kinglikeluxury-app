@@ -228,5 +228,9 @@
         "propertyValue": "Wartość Nieruchomości"
       }
     }
+  },
+  "categories": {
+    "title": "Przeglądaj według kategorii",
+    "selectFilters": "Wybierz swoje preferencje"
   }
 }

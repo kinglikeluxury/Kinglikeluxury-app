@@ -228,5 +228,9 @@
         "propertyValue": "Mülk Dəyəri"
       }
     }
+  },
+  "categories": {
+    "title": "Kateqoriyaya görə baxın",
+    "selectFilters": "Seçimlərinizi edin"
   }
 }

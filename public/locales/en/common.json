@@ -211,7 +211,8 @@
     "category": "category"
   },
   "categories": {
-    "title": "Browse by category"
+    "title": "Browse by category",
+    "selectFilters": "Select your preferences"
   },
   "favorites": {
     "title": "Favorites",
