@@ -293,10 +293,12 @@
     "cityRequired": "Proszę wybrać miasto",
     "purposeRequired": "Proszę wybrać cel",
     "selectRequired": "Proszę wybrać wymagane filtry",
-    "selectRequiredHint": "Wybierz kraj, miasto i przedział cenowy, aby zobaczyć dostępne projekty.",
+    "selectRequiredHint": "Wybierz kraj, miasto, typ nieruchomości i przedział cenowy, aby zobaczyć dostępne projekty.",
     "searchButton": "Szukaj",
     "price": "Cena",
     "fromPrice": "Od",
-    "priceRequired": "Proszę wybrać przedział cenowy"
+    "priceRequired": "Proszę wybrać przedział cenowy",
+    "typeRequired": "Proszę wybrać typ nieruchomości",
+    "selectType": "Wybierz typ"
   }
 }

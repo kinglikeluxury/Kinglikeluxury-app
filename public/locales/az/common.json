@@ -293,10 +293,12 @@
     "cityRequired": "Zəhmət olmasa şəhər seçin",
     "purposeRequired": "Zəhmət olmasa məqsəd seçin",
     "selectRequired": "Zəhmət olmasa tələb olunan filtrləri seçin",
-    "selectRequiredHint": "Mövcud layihələri görmək üçün ölkə, şəhər və qiymət aralığı seçin.",
+    "selectRequiredHint": "Mövcud layihələri görmək üçün ölkə, şəhər, əmlak növü və qiymət aralığı seçin.",
     "searchButton": "Axtar",
     "price": "Qiymət",
     "fromPrice": "Dan",
-    "priceRequired": "Zəhmət olmasa qiymət aralığını seçin"
+    "priceRequired": "Zəhmət olmasa qiymət aralığını seçin",
+    "typeRequired": "Zəhmət olmasa əmlak növünü seçin",
+    "selectType": "Növ Seçin"
   }
 }

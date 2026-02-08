@@ -94,6 +94,12 @@ const Projects = () => {
   }, [selectedCity]);
 
   useEffect(() => {
+    if (selectedType && selectedType !== "" && selectedType !== "all") {
+      setFilterErrors(prev => ({ ...prev, type: false }));
+    }
+  }, [selectedType]);
+
+  useEffect(() => {
     if (selectedPriceRange && selectedPriceRange !== "" && selectedPriceRange !== "any") {
       setFilterErrors(prev => ({ ...prev, priceRange: false }));
     }
@@ -107,6 +113,7 @@ const Projects = () => {
 
   const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
     selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
+    selectedType && selectedType !== '' && selectedType !== 'all' &&
     selectedPriceRange && selectedPriceRange !== '' && selectedPriceRange !== 'any';
 
   // Filter projects based on criteria
@@ -414,21 +421,25 @@ const Projects = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               
-              {/* Property Type */}
+              {/* Property Type - Required */}
               <div>
-                <Label htmlFor="type">{t('property.type', 'Property Type')}</Label>
+                <Label htmlFor="type" className={`flex items-center ${filterErrors.type ? 'text-red-500' : ''}`}>
+                  {t('property.type', 'Property Type')} <span className="text-red-500 ml-1">*</span>
+                </Label>
                 <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('common.all', 'All Types')} />
+                  <SelectTrigger className={filterErrors.type ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
+                    <SelectValue placeholder={t('projects.selectType', 'Select Type')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('common.all', 'All Types')}</SelectItem>
                     <SelectItem value="apartment">🏢 {t('propertyTypes.apartment', 'Apartments')}</SelectItem>
                     <SelectItem value="villa">🏡 {t('propertyTypes.villa', 'Villas')}</SelectItem>
                     <SelectItem value="land">🌳 {t('propertyTypes.land', 'Land')}</SelectItem>
                     <SelectItem value="commercial">🏬 {t('propertyTypes.commercial', 'Commercial')}</SelectItem>
                   </SelectContent>
                 </Select>
+                {filterErrors.type && (
+                  <p className="text-red-500 text-xs mt-1">{t('projects.typeRequired', 'Please select a property type')}</p>
+                )}
               </div>
 
               {/* Purpose */}
@@ -496,6 +507,7 @@ const Projects = () => {
                   const errors: Record<string, boolean> = {};
                   if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
                   if (!selectedCity || selectedCity === '' || selectedCity === 'all') errors.city = true;
+                  if (!selectedType || selectedType === '' || selectedType === 'all') errors.type = true;
                   if (!selectedPriceRange || selectedPriceRange === '' || selectedPriceRange === 'any') errors.priceRange = true;
                   setFilterErrors(errors);
                 }}

@@ -361,10 +361,12 @@
     "cityRequired": "Lütfen bir şehir seçin",
     "purposeRequired": "Lütfen bir amaç seçin",
     "selectRequired": "Lütfen gerekli filtreleri seçin",
-    "selectRequiredHint": "Mevcut projeleri görüntülemek için ülke, şehir ve fiyat aralığı seçin.",
+    "selectRequiredHint": "Mevcut projeleri görüntülemek için ülke, şehir, mülk türü ve fiyat aralığı seçin.",
     "searchButton": "Ara",
     "price": "Fiyat",
     "fromPrice": "İtibaren",
-    "priceRequired": "Lütfen bir fiyat aralığı seçin"
+    "priceRequired": "Lütfen bir fiyat aralığı seçin",
+    "typeRequired": "Lütfen bir mülk türü seçin",
+    "selectType": "Tür Seçin"
   }
 }

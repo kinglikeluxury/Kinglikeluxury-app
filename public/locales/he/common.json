@@ -360,10 +360,12 @@
     "cityRequired": "אנא בחר עיר",
     "purposeRequired": "אנא בחר מטרה",
     "selectRequired": "אנא בחר את המסננים הנדרשים",
-    "selectRequiredHint": "בחר מדינה, עיר וטווח מחירים כדי לצפות בפרויקטים זמינים.",
+    "selectRequiredHint": "בחר מדינה, עיר, סוג נכס וטווח מחירים כדי לצפות בפרויקטים זמינים.",
     "searchButton": "חיפוש",
     "price": "מחיר",
     "fromPrice": "מ",
-    "priceRequired": "אנא בחר טווח מחירים"
+    "priceRequired": "אנא בחר טווח מחירים",
+    "typeRequired": "אנא בחר סוג נכס",
+    "selectType": "בחר סוג"
   }
 }

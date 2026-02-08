@@ -293,10 +293,12 @@
     "cityRequired": "请选择城市",
     "purposeRequired": "请选择目的",
     "selectRequired": "请选择必填筛选项",
-    "selectRequiredHint": "选择国家、城市和价格范围以查看可用项目。",
+    "selectRequiredHint": "选择国家、城市、房产类型和价格范围以查看可用项目。",
     "searchButton": "搜索",
     "price": "价格",
     "fromPrice": "从",
-    "priceRequired": "请选择价格范围"
+    "priceRequired": "请选择价格范围",
+    "typeRequired": "请选择房产类型",
+    "selectType": "选择类型"
   }
 }

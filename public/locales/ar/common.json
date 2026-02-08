@@ -319,10 +319,12 @@
     "cityRequired": "يرجى اختيار المدينة",
     "purposeRequired": "يرجى اختيار الغرض",
     "selectRequired": "يرجى تحديد الفلاتر المطلوبة",
-    "selectRequiredHint": "اختر الدولة والمدينة ونطاق السعر لعرض المشاريع المتاحة.",
+    "selectRequiredHint": "اختر الدولة والمدينة ونوع العقار ونطاق السعر لعرض المشاريع المتاحة.",
     "searchButton": "بحث",
     "price": "السعر",
     "fromPrice": "من",
-    "priceRequired": "يرجى اختيار نطاق السعر"
+    "priceRequired": "يرجى اختيار نطاق السعر",
+    "typeRequired": "يرجى اختيار نوع العقار",
+    "selectType": "اختر النوع"
   }
 }
