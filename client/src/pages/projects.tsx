@@ -347,21 +347,6 @@ const Projects = () => {
           </CardHeader>
           <CardContent className={`${showFilters ? 'block' : 'hidden'} sm:block`}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              
-              {/* Search */}
-              <div className="lg:col-span-2">
-                <Label htmlFor="search">{t('projects.searchProjects', 'Search Projects')}</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder={t('projects.searchPlaceholder', 'Search by title or location...')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
 
               {/* Country */}
               <div>
