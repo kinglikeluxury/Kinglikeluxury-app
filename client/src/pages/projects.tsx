@@ -94,50 +94,51 @@ const Projects = () => {
 
   // Filter projects based on criteria
   const filteredProjects = projects.filter((project: Project) => {
-    // Only show approved projects to regular users
-    // Check status in both project.status and project.property.status
-    const projectStatus = project.property?.status || project.status;
+    const propertyData = project.property || project;
+    const projectStatus = propertyData.status || project.status;
     if (!user?.isAdmin && projectStatus !== 'approved') {
       return false;
     }
 
-    // Text search
-    if (searchTerm && !project.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !project.location.toLowerCase().includes(searchTerm.toLowerCase())) {
+    const projectLocation = (propertyData.location || project.location || '').toLowerCase();
+    const projectTitle = (propertyData.title || project.title || '').toLowerCase();
+
+    if (searchTerm && !projectTitle.includes(searchTerm.toLowerCase()) &&
+        !projectLocation.includes(searchTerm.toLowerCase())) {
       return false;
     }
 
-    // Location filter (checking if location contains country/city info)
     if (selectedCountry && selectedCountry !== 'all') {
-      const countryName = selectedCountry === 'georgia' ? 'Georgia' : 
-                         selectedCountry === 'uae' ? 'UAE' : selectedCountry;
-      if (!project.location?.toLowerCase().includes(countryName.toLowerCase())) {
+      const countryName = selectedCountry === 'georgia' ? 'georgia' : 
+                         selectedCountry === 'uae' ? 'uae' : selectedCountry;
+      if (!projectLocation.includes(countryName)) {
         return false;
       }
     }
 
-    // City filter (checking if location contains city info)
     if (selectedCity && selectedCity !== 'all') {
-      const cityName = selectedCity === 'batumi' ? 'Batumi' : 
-                      selectedCity === 'tbilisi' ? 'Tbilisi' : 
-                      selectedCity === 'dubai' ? 'Dubai' : selectedCity;
-      if (!project.location?.toLowerCase().includes(cityName.toLowerCase())) {
+      const cityMap: Record<string, string> = {
+        'batumi': 'batumi', 'tbilisi': 'tbilisi',
+        'dubai': 'dubai', 'sharjah': 'sharjah',
+        'rasAlKhaimah': 'ras al khaimah', 'ras-al-khaimah': 'ras al khaimah',
+        'abu-dhabi': 'abu dhabi'
+      };
+      const cityName = cityMap[selectedCity] || selectedCity.toLowerCase();
+      if (!projectLocation.includes(cityName)) {
         return false;
       }
     }
 
-    // Skip type and purpose filters for now since they're not relevant for projects
-
-    // Price range filter
-    if (priceRange.min && project.price < parseInt(priceRange.min)) {
+    const projectPrice = propertyData.price || project.price || 0;
+    if (priceRange.min && projectPrice < parseInt(priceRange.min)) {
       return false;
     }
-    if (priceRange.max && project.price > parseInt(priceRange.max)) {
+    if (priceRange.max && projectPrice > parseInt(priceRange.max)) {
       return false;
     }
 
-    // Bedroom count filter
-    if (bedroomCount && bedroomCount !== 'any' && project.bedrooms !== parseInt(bedroomCount)) {
+    const projectBedrooms = propertyData.bedrooms || project.bedrooms;
+    if (bedroomCount && bedroomCount !== 'any' && projectBedrooms !== parseInt(bedroomCount)) {
       return false;
     }
 
