@@ -282,7 +282,7 @@ const Projects = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="mt-2 text-gray-600">Loading off-plan projects...</p>
+            <p className="mt-2 text-gray-600">{t('projects.loading', 'Loading off-plan projects...')}</p>
           </div>
         </div>
       </div>
@@ -294,7 +294,7 @@ const Projects = () => {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <p className="text-red-600">Error loading projects. Please try again later.</p>
+            <p className="text-red-600">{t('projects.error', 'Error loading projects. Please try again later.')}</p>
           </div>
         </div>
       </div>
@@ -308,11 +308,10 @@ const Projects = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🏗️ Off-Plan Projects
+            🏗️ {t('projects.title', 'Off-Plan Projects')}
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Discover exclusive off-plan luxury properties in Georgia and UAE. 
-            Filter by location, price, and features to find your perfect investment.
+            {t('projects.subtitle', 'Discover exclusive off-plan luxury properties in Georgia and UAE. Filter by location, price, and features to find your perfect investment.')}
           </p>
         </div>
 
@@ -322,17 +321,17 @@ const Projects = () => {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold flex items-center">
                 <SlidersHorizontal className="h-5 w-5 mr-2" />
-                Smart Filters
+                {t('projects.smartFilters', 'Smart Filters')}
                 {activeFiltersCount > 0 && (
                   <Badge variant="secondary" className="ml-2">
-                    {activeFiltersCount} active
+                    {activeFiltersCount} {t('projects.active', 'active')}
                   </Badge>
                 )}
               </CardTitle>
               <div className="flex items-center space-x-2">
                 {activeFiltersCount > 0 && (
                   <Button variant="outline" size="sm" onClick={clearFilters}>
-                    Clear All
+                    {t('projects.clearAll', 'Clear All')}
                   </Button>
                 )}
                 <Button
@@ -342,7 +341,7 @@ const Projects = () => {
                   className="sm:hidden"
                 >
                   <Filter className="h-4 w-4 mr-1" />
-                  {showFilters ? 'Hide' : 'Show'} Filters
+                  {showFilters ? t('projects.hideFilters', 'Hide') : t('projects.showFilters', 'Show')} {t('projects.filters', 'Filters')}
                 </Button>
               </div>
             </div>
@@ -352,12 +351,12 @@ const Projects = () => {
               
               {/* Search */}
               <div className="lg:col-span-2">
-                <Label htmlFor="search">Search Projects</Label>
+                <Label htmlFor="search">{t('projects.searchProjects', 'Search Projects')}</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="search"
-                    placeholder="Search by title or location..."
+                    placeholder={t('projects.searchPlaceholder', 'Search by title or location...')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -367,35 +366,35 @@ const Projects = () => {
 
               {/* Country */}
               <div>
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country">{t('home.hero.country', 'Country')}</Label>
                 <Select value={selectedCountry} onValueChange={setSelectedCountry}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Countries" />
+                    <SelectValue placeholder={t('projects.allCountries', 'All Countries')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Countries</SelectItem>
-                    <SelectItem value="georgia">🇬🇪 Georgia</SelectItem>
-                    <SelectItem value="uae">🇦🇪 UAE</SelectItem>
+                    <SelectItem value="all">{t('projects.allCountries', 'All Countries')}</SelectItem>
+                    <SelectItem value="georgia">🇬🇪 {t('countries.georgia', 'Georgia')}</SelectItem>
+                    <SelectItem value="uae">🇦🇪 {t('countries.uae', 'UAE')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* City */}
               <div>
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="city">{t('home.hero.city', 'City')}</Label>
                 <Select 
                   value={selectedCity} 
                   onValueChange={setSelectedCity}
                   disabled={!selectedCountry}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="All Cities" />
+                    <SelectValue placeholder={t('projects.allCities', 'All Cities')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Cities</SelectItem>
+                    <SelectItem value="all">{t('projects.allCities', 'All Cities')}</SelectItem>
                     {getCitiesForCountry(selectedCountry).map((city) => (
                       <SelectItem key={city.value} value={city.value}>
-                        {city.label}
+                        {t(`cities.${city.value}`, city.label)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -407,39 +406,39 @@ const Projects = () => {
               
               {/* Property Type */}
               <div>
-                <Label htmlFor="type">Property Type</Label>
+                <Label htmlFor="type">{t('property.type', 'Property Type')}</Label>
                 <Select value={selectedType} onValueChange={setSelectedType}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Types" />
+                    <SelectValue placeholder={t('common.all', 'All Types')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="apartment">🏢 Apartments</SelectItem>
-                    <SelectItem value="villa">🏡 Villas</SelectItem>
-                    <SelectItem value="land">🌳 Land</SelectItem>
-                    <SelectItem value="commercial">🏬 Commercial</SelectItem>
+                    <SelectItem value="all">{t('common.all', 'All Types')}</SelectItem>
+                    <SelectItem value="apartment">🏢 {t('propertyTypes.apartment', 'Apartments')}</SelectItem>
+                    <SelectItem value="villa">🏡 {t('propertyTypes.villa', 'Villas')}</SelectItem>
+                    <SelectItem value="land">🌳 {t('propertyTypes.land', 'Land')}</SelectItem>
+                    <SelectItem value="commercial">🏬 {t('propertyTypes.commercial', 'Commercial')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Purpose */}
               <div>
-                <Label htmlFor="purpose">Purpose</Label>
+                <Label htmlFor="purpose">{t('home.hero.purpose', 'Purpose')}</Label>
                 <Select value={selectedPurpose} onValueChange={setSelectedPurpose}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All" />
+                    <SelectValue placeholder={t('common.all', 'All')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="buy">For Sale</SelectItem>
-                    <SelectItem value="rent">For Rent</SelectItem>
+                    <SelectItem value="all">{t('common.all', 'All')}</SelectItem>
+                    <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
+                    <SelectItem value="rent">{t('home.hero.forRent', 'For Rent')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Min Price */}
               <div>
-                <Label htmlFor="minPrice">Min Price ($)</Label>
+                <Label htmlFor="minPrice">{t('projects.minPrice', 'Min Price ($)')}</Label>
                 <Input
                   id="minPrice"
                   type="number"
@@ -451,11 +450,11 @@ const Projects = () => {
 
               {/* Max Price */}
               <div>
-                <Label htmlFor="maxPrice">Max Price ($)</Label>
+                <Label htmlFor="maxPrice">{t('projects.maxPrice', 'Max Price ($)')}</Label>
                 <Input
                   id="maxPrice"
                   type="number"
-                  placeholder="Any"
+                  placeholder={t('projects.any', 'Any')}
                   value={priceRange.max}
                   onChange={(e) => setPriceRange({...priceRange, max: e.target.value})}
                 />
@@ -463,13 +462,13 @@ const Projects = () => {
 
               {/* Bedrooms */}
               <div>
-                <Label htmlFor="bedrooms">Bedrooms</Label>
+                <Label htmlFor="bedrooms">{t('property.bedrooms', 'Bedrooms')}</Label>
                 <Select value={bedroomCount} onValueChange={setBedroomCount}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Any" />
+                    <SelectValue placeholder={t('projects.any', 'Any')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
+                    <SelectItem value="any">{t('projects.any', 'Any')}</SelectItem>
                     <SelectItem value="1">1</SelectItem>
                     <SelectItem value="2">2</SelectItem>
                     <SelectItem value="3">3</SelectItem>
@@ -490,13 +489,13 @@ const Projects = () => {
                 <span className="text-3xl">🎉</span>
                 <div className="text-center">
                   <p className="text-xl font-semibold text-white mb-2">
-                    Special promotion : Choose your property & Get a special discount !
+                    {t('projects.promoTitle', 'Special promotion: Choose your property & Get a special discount!')}
                   </p>
                   <p className="text-base text-white mb-2 underline">
-                    Save more on your off-plan property investment with our exclusive pricing
+                    {t('projects.promoSubtitle', 'Save more on your off-plan property investment with our exclusive pricing')}
                   </p>
                   <p className="text-sm text-[#3bcac4] font-medium mb-2">
-                    Click to contact us via WhatsApp 💬
+                    {t('projects.promoWhatsapp', 'Click to contact us via WhatsApp')} 💬
                   </p>
                 </div>
                 <span className="text-3xl">💰</span>
@@ -509,11 +508,11 @@ const Projects = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <h2 className="text-xl font-semibold text-gray-900">
-              {filteredProjects.length} Projects Found
+              {filteredProjects.length} {t('projects.projectsFound', 'Projects Found')}
             </h2>
             {activeFiltersCount > 0 && (
               <Badge variant="outline">
-                {activeFiltersCount} filter{activeFiltersCount > 1 ? 's' : ''} applied
+                {activeFiltersCount} {t('projects.filtersApplied', 'filter(s) applied')}
               </Badge>
             )}
           </div>
@@ -525,7 +524,7 @@ const Projects = () => {
                 className="flex items-center space-x-2"
               >
                 <span className="text-sm">➕</span>
-                <span>Add Project</span>
+                <span>{t('projects.addProject', 'Add Project')}</span>
               </Button>
             </div>
           )}
@@ -538,14 +537,14 @@ const Projects = () => {
               <Search className="h-16 w-16 mx-auto mb-4" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No projects found
+              {t('projects.noProjects', 'No projects found')}
             </h3>
             <p className="text-gray-600 mb-4">
-              Try adjusting your filters or search terms to find more projects.
+              {t('projects.noProjectsHint', 'Try adjusting your filters or search terms to find more projects.')}
             </p>
             {activeFiltersCount > 0 && (
               <Button variant="outline" onClick={clearFilters}>
-                Clear All Filters
+                {t('projects.clearAllFilters', 'Clear All Filters')}
               </Button>
             )}
           </Card>
@@ -576,7 +575,7 @@ const Projects = () => {
                         )}
                         {project.completionDate && (
                           <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                            Completion: {project.completionDate}
+                            {t('projects.completion', 'Completion')}: {project.completionDate}
                           </Badge>
                         )}
                         <Badge variant="outline" className="bg-[#005476] text-white border-[#005476]">
@@ -603,7 +602,7 @@ const Projects = () => {
                         {project.developer && (
                           <div className="flex items-center text-sm text-gray-500">
                             <User className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                            Developer: {project.developer}
+                            {t('projects.developer', 'Developer')}: {project.developer}
                           </div>
                         )}
                         {propertyData.area && (
@@ -625,7 +624,7 @@ const Projects = () => {
                       <Button asChild className="w-full" data-testid={`button-view-project-${project.id}`}>
                         <Link href={`/property/${project.propertyId}`}>
                           <span className="flex items-center justify-center">
-                            View Project Details
+                            {t('projects.viewDetails', 'View Project Details')}
                             <ArrowRight className="ml-2 h-4 w-4" />
                           </span>
                         </Link>
