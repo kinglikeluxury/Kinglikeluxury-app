@@ -363,6 +363,7 @@
     "selectRequired": "Lütfen gerekli filtreleri seçin",
     "selectRequiredHint": "Mevcut projeleri görüntülemek için ülke ve şehir seçin.",
     "searchButton": "Ara",
-    "price": "Fiyat"
+    "price": "Fiyat",
+    "fromPrice": "İtibaren"
   }
 }

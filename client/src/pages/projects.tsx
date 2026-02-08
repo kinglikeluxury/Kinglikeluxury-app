@@ -443,10 +443,10 @@ const Projects = () => {
                 <Label htmlFor="priceRange">{t('projects.price', 'Price')}</Label>
                 <Select value={selectedPriceRange} onValueChange={setSelectedPriceRange}>
                   <SelectTrigger>
-                    <SelectValue placeholder={t('projects.any', 'Any')} />
+                    <SelectValue placeholder={t('projects.fromPrice', 'From')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">{t('projects.any', 'Any')}</SelectItem>
+                    <SelectItem value="any">{t('projects.fromPrice', 'From')}</SelectItem>
                     <SelectItem value="50000-80000">$50,000 - $80,000</SelectItem>
                     <SelectItem value="81000-100000">$81,000 - $100,000</SelectItem>
                     <SelectItem value="101000-125000">$101,000 - $125,000</SelectItem>

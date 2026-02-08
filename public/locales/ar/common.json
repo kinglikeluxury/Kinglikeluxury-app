@@ -321,6 +321,7 @@
     "selectRequired": "يرجى تحديد الفلاتر المطلوبة",
     "selectRequiredHint": "اختر الدولة والمدينة لعرض المشاريع المتاحة.",
     "searchButton": "بحث",
-    "price": "السعر"
+    "price": "السعر",
+    "fromPrice": "من"
   }
 }

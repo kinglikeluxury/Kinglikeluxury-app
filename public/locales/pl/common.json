@@ -295,6 +295,7 @@
     "selectRequired": "Proszę wybrać wymagane filtry",
     "selectRequiredHint": "Wybierz kraj i miasto, aby zobaczyć dostępne projekty.",
     "searchButton": "Szukaj",
-    "price": "Cena"
+    "price": "Cena",
+    "fromPrice": "Od"
   }
 }
