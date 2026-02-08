@@ -346,6 +346,11 @@
     "clearAllFilters": "Clear All Filters",
     "completion": "Completion",
     "developer": "Developer",
-    "viewDetails": "View Project Details"
+    "viewDetails": "View Project Details",
+    "whatsappMessage": "special Promotion 2% for the project|",
+    "selectCountryFirst": "Please select a country first to contact the appropriate office.",
+    "sqm": "sqm",
+    "bed": "bed",
+    "bath": "bath"
   }
 }

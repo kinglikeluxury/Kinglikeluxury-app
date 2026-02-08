@@ -282,6 +282,11 @@
     "clearAllFilters": "清除所有筛选",
     "completion": "完工",
     "developer": "开发商",
-    "viewDetails": "查看项目详情"
+    "viewDetails": "查看项目详情",
+    "whatsappMessage": "项目特别促销2%|",
+    "selectCountryFirst": "请先选择国家以联系相应的办公室。",
+    "sqm": "平方米",
+    "bed": "卧室",
+    "bath": "浴室"
   }
 }

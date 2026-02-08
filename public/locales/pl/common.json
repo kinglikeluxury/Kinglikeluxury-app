@@ -282,6 +282,11 @@
     "clearAllFilters": "Wyczyść Wszystkie Filtry",
     "completion": "Ukończenie",
     "developer": "Deweloper",
-    "viewDetails": "Zobacz Szczegóły Projektu"
+    "viewDetails": "Zobacz Szczegóły Projektu",
+    "whatsappMessage": "Specjalna promocja 2% na projekt|",
+    "selectCountryFirst": "Proszę najpierw wybrać kraj, aby skontaktować się z odpowiednim biurem.",
+    "sqm": "m²",
+    "bed": "sypialnia",
+    "bath": "łazienka"
   }
 }

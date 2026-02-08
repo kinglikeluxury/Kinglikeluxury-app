@@ -308,6 +308,11 @@
     "clearAllFilters": "مسح جميع الفلاتر",
     "completion": "الانتهاء",
     "developer": "المطوّر",
-    "viewDetails": "عرض تفاصيل المشروع"
+    "viewDetails": "عرض تفاصيل المشروع",
+    "whatsappMessage": "عرض خاص 2% على المشروع|",
+    "selectCountryFirst": "يرجى اختيار الدولة أولاً للتواصل مع المكتب المناسب.",
+    "sqm": "م²",
+    "bed": "غرفة نوم",
+    "bath": "حمام"
   }
 }

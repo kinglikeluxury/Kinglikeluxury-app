@@ -255,14 +255,13 @@ const Projects = () => {
   // Handle promotion banner click
   const handlePromotionClick = () => {
     let whatsappNumber = "";
-    let message = "special Promotion 2% for the project|";
+    let message = t('projects.whatsappMessage', 'special Promotion 2% for the project|');
 
     // Set WhatsApp number based on selected country
     if (selectedCountry === 'georgia') {
       whatsappNumber = "995591000058";
     } else {
-      // Default number or show alert if no country selected
-      alert("Please select a country first to contact the appropriate office.");
+      alert(t('projects.selectCountryFirst', 'Please select a country first to contact the appropriate office.'));
       return;
     }
 
@@ -608,13 +607,13 @@ const Projects = () => {
                         {propertyData.area && (
                           <div className="flex items-center text-sm text-gray-500">
                             <Home className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                            {propertyData.area} sqm
+                            {propertyData.area} {t('projects.sqm', 'sqm')}
                           </div>
                         )}
                         {propertyData.bedrooms && (
                           <div className="flex items-center text-sm text-gray-500">
                             <Building className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                            {propertyData.bedrooms} bed, {propertyData.bathrooms || 0} bath
+                            {propertyData.bedrooms} {t('projects.bed', 'bed')}, {propertyData.bathrooms || 0} {t('projects.bath', 'bath')}
                           </div>
                         )}
                       </div>

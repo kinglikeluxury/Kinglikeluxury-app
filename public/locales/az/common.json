@@ -282,6 +282,11 @@
     "clearAllFilters": "Bütün Filtrləri Təmizlə",
     "completion": "Tamamlanma",
     "developer": "İnkişaf etdirici",
-    "viewDetails": "Layihə Detallarına Baxın"
+    "viewDetails": "Layihə Detallarına Baxın",
+    "whatsappMessage": "Layihə üçün xüsusi 2% promosyon|",
+    "selectCountryFirst": "Müvafiq ofislə əlaqə saxlamaq üçün əvvəlcə ölkə seçin.",
+    "sqm": "m²",
+    "bed": "yataq otağı",
+    "bath": "hamam"
   }
 }

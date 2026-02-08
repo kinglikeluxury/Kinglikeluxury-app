@@ -350,6 +350,11 @@
     "clearAllFilters": "Tüm Filtreleri Temizle",
     "completion": "Tamamlanma",
     "developer": "Geliştirici",
-    "viewDetails": "Proje Detaylarını Görüntüle"
+    "viewDetails": "Proje Detaylarını Görüntüle",
+    "whatsappMessage": "Proje için özel %2 promosyon|",
+    "selectCountryFirst": "Lütfen uygun ofisle iletişime geçmek için önce bir ülke seçin.",
+    "sqm": "m²",
+    "bed": "yatak odası",
+    "bath": "banyo"
   }
 }

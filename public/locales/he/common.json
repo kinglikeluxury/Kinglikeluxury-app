@@ -349,6 +349,11 @@
     "clearAllFilters": "נקה את כל המסננים",
     "completion": "השלמה",
     "developer": "יזם",
-    "viewDetails": "צפה בפרטי הפרויקט"
+    "viewDetails": "צפה בפרטי הפרויקט",
+    "whatsappMessage": "מבצע מיוחד 2% לפרויקט|",
+    "selectCountryFirst": "אנא בחר מדינה תחילה ליצירת קשר עם המשרד המתאים.",
+    "sqm": "מ\"ר",
+    "bed": "חדר שינה",
+    "bath": "חדר רחצה"
   }
 }
