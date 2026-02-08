@@ -46,7 +46,6 @@ const Hero = () => {
     const newErrors: Record<string, boolean> = {};
     
     if (!city || city === "any") newErrors.country = true;
-    if (!location || location === "any") newErrors.city = true;
     if (!propertyType || propertyType === "all") newErrors.propertyType = true;
     if (!purpose || purpose === "any") newErrors.purpose = true;
 
@@ -129,9 +128,9 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${errors.city ? 'text-red-500' : 'text-gray-700'}`}>{t('home.hero.city', 'City')}</label>
-                    <Select value={location} onValueChange={(v) => { setLocation(v); setErrors(prev => ({ ...prev, city: false })); }}>
-                      <SelectTrigger className={errors.city ? 'border-red-500 ring-red-500' : ''}>
+                    <label className="block text-sm font-medium mb-1 text-gray-700">{t('home.hero.city', 'City')}</label>
+                    <Select value={location} onValueChange={setLocation}>
+                      <SelectTrigger>
                         <SelectValue placeholder={t('property.anyLocation', 'Any location')} />
                       </SelectTrigger>
                       <SelectContent>
