@@ -227,10 +227,30 @@
         "design": "Dizayn",
         "propertyValue": "Mülk Dəyəri"
       }
+    },
+    "hero": {
+      "country": "Ölkə",
+      "city": "Şəhər",
+      "purpose": "Məqsəd",
+      "toBuy": "Satın almaq üçün",
+      "forRent": "Kirayə üçün",
+      "anyCountry": "İstənilən ölkə",
+      "anyPurpose": "İstənilən məqsəd"
     }
   },
   "categories": {
     "title": "Kateqoriyaya görə baxın",
     "selectFilters": "Seçimlərinizi edin"
+  },
+  "countries": {
+    "georgia": "Gürcüstan",
+    "uae": "Birləşmiş Ərəb Əmirlikləri"
+  },
+  "cities": {
+    "batumi": "Batumi",
+    "tbilisi": "Tbilisi",
+    "dubai": "Dubay",
+    "sharjah": "Şarja",
+    "rasAlKhaimah": "Ras əl-Xeymə"
   }
 }

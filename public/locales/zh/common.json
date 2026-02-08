@@ -227,10 +227,30 @@
         "design": "设计",
         "propertyValue": "房产价值"
       }
+    },
+    "hero": {
+      "country": "国家",
+      "city": "城市",
+      "purpose": "用途",
+      "toBuy": "购买",
+      "forRent": "出租",
+      "anyCountry": "任意国家",
+      "anyPurpose": "任意用途"
     }
   },
   "categories": {
     "title": "按类别浏览",
     "selectFilters": "选择您的偏好"
+  },
+  "countries": {
+    "georgia": "格鲁吉亚",
+    "uae": "阿联酋"
+  },
+  "cities": {
+    "batumi": "巴统",
+    "tbilisi": "第比利斯",
+    "dubai": "迪拜",
+    "sharjah": "沙迦",
+    "rasAlKhaimah": "哈伊马角"
   }
 }

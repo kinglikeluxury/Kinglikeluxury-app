@@ -227,10 +227,30 @@
         "design": "Projektowanie",
         "propertyValue": "Wartość Nieruchomości"
       }
+    },
+    "hero": {
+      "country": "Kraj",
+      "city": "Miasto",
+      "purpose": "Cel",
+      "toBuy": "Na sprzedaż",
+      "forRent": "Do wynajęcia",
+      "anyCountry": "Dowolny kraj",
+      "anyPurpose": "Dowolny cel"
     }
   },
   "categories": {
     "title": "Przeglądaj według kategorii",
     "selectFilters": "Wybierz swoje preferencje"
+  },
+  "countries": {
+    "georgia": "Gruzja",
+    "uae": "Zjednoczone Emiraty Arabskie"
+  },
+  "cities": {
+    "batumi": "Batumi",
+    "tbilisi": "Tbilisi",
+    "dubai": "Dubaj",
+    "sharjah": "Szardża",
+    "rasAlKhaimah": "Ras al-Chajma"
   }
 }
