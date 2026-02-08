@@ -49,7 +49,7 @@
     "price": "Fiyat",
     "location": "Konum",
     "area": "Alan",
-    "bedrooms": "Yatak Odaları",
+    "bedrooms": "Yatak Odası",
     "bathrooms": "Banyolar",
     "type": "Emlak Türü",
     "types": {
