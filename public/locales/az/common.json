@@ -293,6 +293,7 @@
     "cityRequired": "Zəhmət olmasa şəhər seçin",
     "purposeRequired": "Zəhmət olmasa məqsəd seçin",
     "selectRequired": "Zəhmət olmasa tələb olunan filtrləri seçin",
-    "selectRequiredHint": "Mövcud layihələri görmək üçün ölkə, şəhər və məqsəd seçin."
+    "selectRequiredHint": "Mövcud layihələri görmək üçün ölkə, şəhər və məqsəd seçin.",
+    "searchButton": "Axtar"
   }
 }

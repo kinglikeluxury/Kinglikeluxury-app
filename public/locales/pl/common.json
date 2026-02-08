@@ -293,6 +293,7 @@
     "cityRequired": "Proszę wybrać miasto",
     "purposeRequired": "Proszę wybrać cel",
     "selectRequired": "Proszę wybrać wymagane filtry",
-    "selectRequiredHint": "Wybierz kraj, miasto i cel, aby zobaczyć dostępne projekty."
+    "selectRequiredHint": "Wybierz kraj, miasto i cel, aby zobaczyć dostępne projekty.",
+    "searchButton": "Szukaj"
   }
 }

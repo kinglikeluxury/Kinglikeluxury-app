@@ -360,6 +360,7 @@
     "cityRequired": "אנא בחר עיר",
     "purposeRequired": "אנא בחר מטרה",
     "selectRequired": "אנא בחר את המסננים הנדרשים",
-    "selectRequiredHint": "בחר מדינה, עיר ומטרה כדי לצפות בפרויקטים זמינים."
+    "selectRequiredHint": "בחר מדינה, עיר ומטרה כדי לצפות בפרויקטים זמינים.",
+    "searchButton": "חיפוש"
   }
 }

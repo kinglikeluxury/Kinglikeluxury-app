@@ -492,6 +492,22 @@ const Projects = () => {
                 </Select>
               </div>
             </div>
+
+            <div className="mt-4 flex justify-center">
+              <Button 
+                className="w-full md:w-auto px-8 bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4] text-white font-semibold"
+                onClick={() => {
+                  const errors: Record<string, boolean> = {};
+                  if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
+                  if (!selectedCity || selectedCity === '' || selectedCity === 'all') errors.city = true;
+                  if (!selectedPurpose || selectedPurpose === '' || selectedPurpose === 'all') errors.purpose = true;
+                  setFilterErrors(errors);
+                }}
+              >
+                <Search className="h-4 w-4 mr-2" />
+                {t('projects.searchButton', 'Search')}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
