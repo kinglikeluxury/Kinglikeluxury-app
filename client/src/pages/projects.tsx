@@ -93,6 +93,11 @@ const Projects = () => {
     }
   }, [selectedCity]);
 
+  useEffect(() => {
+    if (selectedPriceRange && selectedPriceRange !== "" && selectedPriceRange !== "any") {
+      setFilterErrors(prev => ({ ...prev, priceRange: false }));
+    }
+  }, [selectedPriceRange]);
 
   // Fetch projects data
   const { data: projects = [], isLoading, error } = useQuery<Project[]>({
@@ -101,7 +106,8 @@ const Projects = () => {
   });
 
   const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
-    selectedCity && selectedCity !== '' && selectedCity !== 'all';
+    selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
+    selectedPriceRange && selectedPriceRange !== '' && selectedPriceRange !== 'any';
 
   // Filter projects based on criteria
   const filteredProjects = !requiredFieldsFilled ? [] : projects.filter((project: Project) => {
@@ -440,13 +446,14 @@ const Projects = () => {
 
               {/* Price Range */}
               <div>
-                <Label htmlFor="priceRange">{t('projects.price', 'Price')}</Label>
+                <Label htmlFor="priceRange" className={`flex items-center ${filterErrors.priceRange ? 'text-red-500' : ''}`}>
+                  {t('projects.price', 'Price')} <span className="text-red-500 ml-1">*</span>
+                </Label>
                 <Select value={selectedPriceRange} onValueChange={setSelectedPriceRange}>
-                  <SelectTrigger>
+                  <SelectTrigger className={filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
                     <SelectValue placeholder={t('projects.fromPrice', 'From')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">{t('projects.fromPrice', 'From')}</SelectItem>
                     <SelectItem value="50000-80000">$50,000 - $80,000</SelectItem>
                     <SelectItem value="81000-100000">$81,000 - $100,000</SelectItem>
                     <SelectItem value="101000-125000">$101,000 - $125,000</SelectItem>
@@ -458,6 +465,9 @@ const Projects = () => {
                     <SelectItem value="350000-400000">$350,000 - $400,000</SelectItem>
                   </SelectContent>
                 </Select>
+                {filterErrors.priceRange && (
+                  <p className="text-red-500 text-xs mt-1">{t('projects.priceRequired', 'Please select a price range')}</p>
+                )}
               </div>
 
               {/* Bedrooms */}
@@ -486,6 +496,7 @@ const Projects = () => {
                   const errors: Record<string, boolean> = {};
                   if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
                   if (!selectedCity || selectedCity === '' || selectedCity === 'all') errors.city = true;
+                  if (!selectedPriceRange || selectedPriceRange === '' || selectedPriceRange === 'any') errors.priceRange = true;
                   setFilterErrors(errors);
                 }}
               >

@@ -293,9 +293,10 @@
     "cityRequired": "Proszę wybrać miasto",
     "purposeRequired": "Proszę wybrać cel",
     "selectRequired": "Proszę wybrać wymagane filtry",
-    "selectRequiredHint": "Wybierz kraj i miasto, aby zobaczyć dostępne projekty.",
+    "selectRequiredHint": "Wybierz kraj, miasto i przedział cenowy, aby zobaczyć dostępne projekty.",
     "searchButton": "Szukaj",
     "price": "Cena",
-    "fromPrice": "Od"
+    "fromPrice": "Od",
+    "priceRequired": "Proszę wybrać przedział cenowy"
   }
 }

@@ -293,9 +293,10 @@
     "cityRequired": "请选择城市",
     "purposeRequired": "请选择目的",
     "selectRequired": "请选择必填筛选项",
-    "selectRequiredHint": "选择国家和城市以查看可用项目。",
+    "selectRequiredHint": "选择国家、城市和价格范围以查看可用项目。",
     "searchButton": "搜索",
     "price": "价格",
-    "fromPrice": "从"
+    "fromPrice": "从",
+    "priceRequired": "请选择价格范围"
   }
 }
