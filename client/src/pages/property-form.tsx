@@ -734,20 +734,16 @@ const PropertyForm = () => {
                     <div className="grid grid-cols-1 gap-2">
                       {[
                         { value: 'georgia', label: '🇬🇪 Georgia' },
-                        { value: 'uae', label: '🇦🇪 United Arab Emirates' },
-                        { value: 'syria', label: '🇸🇾 Syria' }
+                        { value: 'uae', label: '🇦🇪 United Arab Emirates' }
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
                         
-                        // Disable other countries when one is selected
                         const hasGeorgia = currentCountries.includes('georgia');
                         const hasUAE = currentCountries.includes('uae');
-                        const hasSyria = currentCountries.includes('syria');
                         const isDisabled = 
-                          (countryOption.value === 'uae' && (hasGeorgia || hasSyria)) || 
-                          (countryOption.value === 'georgia' && (hasUAE || hasSyria)) ||
-                          (countryOption.value === 'syria' && (hasGeorgia || hasUAE));
+                          (countryOption.value === 'uae' && hasGeorgia) || 
+                          (countryOption.value === 'georgia' && hasUAE);
                         
                         return (
                           <label key={countryOption.value} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -771,11 +767,6 @@ const PropertyForm = () => {
                                     const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
                                     const newCities = currentCities.filter(city => ['dubai', 'sharjah', 'rasAlKhaimah'].includes(city));
                                     handleInputChange('city', newCities.join(','));
-                                  } else if (countryOption.value === 'syria') {
-                                    // Clear non-Syrian cities if switching to Syria
-                                    const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                    const newCities = currentCities.filter(city => ['damascus', 'aleppo', 'lattakia', 'solunfeh', 'kasab', 'homs', 'hama'].includes(city));
-                                    handleInputChange('city', newCities.join(','));
                                   }
                                 } else {
                                   // When unchecking, just remove this country
@@ -795,7 +786,7 @@ const PropertyForm = () => {
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.country) ? formData.country : formData.country?.split(',') || []).map((country) => (
                             <Badge key={country} variant="secondary" className="text-xs">
-                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'syria' ? '🇸🇾 Syria' : country}
+                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country}
                             </Badge>
                           ))}
                         </div>
@@ -817,14 +808,7 @@ const PropertyForm = () => {
                         { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
                         { value: 'dubai', label: '🇦🇪 Dubai, UAE' },
                         { value: 'sharjah', label: '🇦🇪 Sharjah, UAE' },
-                        { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE' },
-                        { value: 'damascus', label: '🇸🇾 Damascus, Syria' },
-                        { value: 'aleppo', label: '🇸🇾 Aleppo, Syria' },
-                        { value: 'lattakia', label: '🇸🇾 Lattakia, Syria' },
-                        { value: 'solunfeh', label: '🇸🇾 Solunfeh, Syria' },
-                        { value: 'kasab', label: '🇸🇾 Kasab, Syria' },
-                        { value: 'homs', label: '🇸🇾 Homs, Syria' },
-                        { value: 'hama', label: '🇸🇾 Hama, Syria' }
+                        { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE' }
                       ].filter((cityOption) => {
                         // Filter cities based on selected country
                         const selectedCountry = formData.country;
@@ -837,11 +821,6 @@ const PropertyForm = () => {
                         // If UAE is selected, only show UAE cities
                         if (selectedCountry === 'uae') {
                           return ['dubai', 'sharjah', 'rasAlKhaimah'].includes(cityOption.value);
-                        }
-                        
-                        // If Syria is selected, only show Syrian cities
-                        if (selectedCountry === 'syria') {
-                          return ['damascus', 'aleppo', 'lattakia', 'solunfeh', 'kasab', 'homs', 'hama'].includes(cityOption.value);
                         }
                         
                         // If no country is selected, show all cities
@@ -863,21 +842,13 @@ const PropertyForm = () => {
                                 if (e.target.checked) {
                                   const georgianCities = ['batumi', 'tbilisi'];
                                   const uaeCities = ['dubai', 'sharjah', 'rasAlKhaimah'];
-                                  const syrianCities = ['damascus', 'aleppo', 'lattakia', 'solunfeh', 'kasab', 'homs', 'hama'];
                                   
-                                  // If selecting a Georgian city, remove UAE and Syrian cities
                                   if (georgianCities.includes(cityOption.value)) {
-                                    newCities = [...currentCities.filter(c => !uaeCities.includes(c) && !syrianCities.includes(c)), cityOption.value];
+                                    newCities = [...currentCities.filter(c => !uaeCities.includes(c)), cityOption.value];
                                   }
-                                  // If selecting a UAE city, remove Georgian and Syrian cities
                                   else if (uaeCities.includes(cityOption.value)) {
-                                    newCities = [...currentCities.filter(c => !georgianCities.includes(c) && !syrianCities.includes(c)), cityOption.value];
+                                    newCities = [...currentCities.filter(c => !georgianCities.includes(c)), cityOption.value];
                                   }
-                                  // If selecting a Syrian city, remove Georgian and UAE cities
-                                  else if (syrianCities.includes(cityOption.value)) {
-                                    newCities = [...currentCities.filter(c => !georgianCities.includes(c) && !uaeCities.includes(c)), cityOption.value];
-                                  }
-                                  // For other cities (future expansion)
                                   else {
                                     newCities = [...currentCities, cityOption.value];
                                   }
@@ -906,13 +877,6 @@ const PropertyForm = () => {
                               cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' :
                               cityValue === 'sharjah' ? '🇦🇪 Sharjah, UAE' :
                               cityValue === 'rasAlKhaimah' ? '🇦🇪 Ras Al Khaimah, UAE' :
-                              cityValue === 'damascus' ? '🇸🇾 Damascus, Syria' :
-                              cityValue === 'aleppo' ? '🇸🇾 Aleppo, Syria' :
-                              cityValue === 'lattakia' ? '🇸🇾 Lattakia, Syria' :
-                              cityValue === 'solunfeh' ? '🇸🇾 Solunfeh, Syria' :
-                              cityValue === 'kasab' ? '🇸🇾 Kasab, Syria' :
-                              cityValue === 'homs' ? '🇸🇾 Homs, Syria' :
-                              cityValue === 'hama' ? '🇸🇾 Hama, Syria' :
                               cityValue;
                             return (
                               <Badge key={cityValue} variant="secondary" className="text-xs">

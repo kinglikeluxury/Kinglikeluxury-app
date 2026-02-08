@@ -29,16 +29,6 @@ const Hero = () => {
           { value: "sharjah", label: "Sharjah" },
           { value: "rasAlKhaimah", label: "Ras Al Khaimah" }
         ];
-      case "syria":
-        return [
-          { value: "damascus", label: "Damascus" },
-          { value: "aleppo", label: "Aleppo" },
-          { value: "lattakia", label: "Lattakia" },
-          { value: "solunfeh", label: "Solunfeh" },
-          { value: "kasab", label: "Kasab" },
-          { value: "homs", label: "Homs" },
-          { value: "hama", label: "Hama" }
-        ];
       default:
         return [];
     }
@@ -121,7 +111,6 @@ const Hero = () => {
                         <SelectItem value="any">{t('home.hero.anyCountry', 'Any Country')}</SelectItem>
                         <SelectItem value="georgia">{t('countries.georgia', 'Georgia')}</SelectItem>
                         <SelectItem value="uae">{t('countries.uae', 'United Arab Emirates')}</SelectItem>
-                        <SelectItem value="syria">{t('countries.syria', 'Syria')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
