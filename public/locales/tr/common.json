@@ -52,6 +52,12 @@
     "bedrooms": "Yatak Odaları",
     "bathrooms": "Banyolar",
     "type": "Tür",
+    "types": {
+      "apartment": "Daire",
+      "villa": "Villa",
+      "land": "Arsa",
+      "project": "İnşaat Halindeki Projeler"
+    },
     "features": "Özellikler",
     "images": "Görseller",
     "owner": "Sahibi",

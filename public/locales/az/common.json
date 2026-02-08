@@ -50,6 +50,12 @@
     "bedrooms": "Yataq otaqları",
     "bathrooms": "Hamam otaqları",
     "type": "Növ",
+    "types": {
+      "apartment": "Mənzil",
+      "villa": "Villa",
+      "land": "Torpaq",
+      "project": "Tikinti layihələri"
+    },
     "features": "Xüsusiyyətlər",
     "images": "Şəkillər",
     "owner": "Sahibi",

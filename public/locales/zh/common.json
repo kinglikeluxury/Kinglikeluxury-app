@@ -50,6 +50,12 @@
     "bedrooms": "卧室",
     "bathrooms": "浴室",
     "type": "类型",
+    "types": {
+      "apartment": "公寓",
+      "villa": "别墅",
+      "land": "土地",
+      "project": "在建项目"
+    },
     "features": "特点",
     "images": "图片",
     "owner": "业主",

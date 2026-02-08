@@ -50,6 +50,12 @@
     "bedrooms": "Sypialnie",
     "bathrooms": "Łazienki",
     "type": "Typ",
+    "types": {
+      "apartment": "Mieszkanie",
+      "villa": "Willa",
+      "land": "Działka",
+      "project": "Projekty w budowie"
+    },
     "features": "Funkcje",
     "images": "Zdjęcia",
     "owner": "Właściciel",
