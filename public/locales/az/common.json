@@ -285,6 +285,14 @@
     "selectCountryFirst": "Müvafiq ofislə əlaqə saxlamaq üçün əvvəlcə ölkə seçin.",
     "sqm": "m²",
     "bed": "yataq otağı",
-    "bath": "hamam"
+    "bath": "hamam",
+    "selectCountry": "Ölkə Seçin",
+    "selectCity": "Şəhər Seçin",
+    "selectPurpose": "Məqsəd Seçin",
+    "countryRequired": "Zəhmət olmasa ölkə seçin",
+    "cityRequired": "Zəhmət olmasa şəhər seçin",
+    "purposeRequired": "Zəhmət olmasa məqsəd seçin",
+    "selectRequired": "Zəhmət olmasa tələb olunan filtrləri seçin",
+    "selectRequiredHint": "Mövcud layihələri görmək üçün ölkə, şəhər və məqsəd seçin."
   }
 }

@@ -78,13 +78,27 @@ const Projects = () => {
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
 
   // Reset city when country changes
   useEffect(() => {
     if (selectedCountry !== "") {
       setSelectedCity("");
+      setFilterErrors(prev => ({ ...prev, country: false }));
     }
   }, [selectedCountry]);
+
+  useEffect(() => {
+    if (selectedCity && selectedCity !== "") {
+      setFilterErrors(prev => ({ ...prev, city: false }));
+    }
+  }, [selectedCity]);
+
+  useEffect(() => {
+    if (selectedPurpose && selectedPurpose !== "" && selectedPurpose !== "all") {
+      setFilterErrors(prev => ({ ...prev, purpose: false }));
+    }
+  }, [selectedPurpose]);
 
   // Fetch projects data
   const { data: projects = [], isLoading, error } = useQuery<Project[]>({
@@ -92,8 +106,12 @@ const Projects = () => {
     refetchOnWindowFocus: false,
   });
 
+  const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
+    selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
+    selectedPurpose && selectedPurpose !== '' && selectedPurpose !== 'all';
+
   // Filter projects based on criteria
-  const filteredProjects = projects.filter((project: Project) => {
+  const filteredProjects = !requiredFieldsFilled ? [] : projects.filter((project: Project) => {
     const propertyData = project.property || project;
     const projectStatus = propertyData.status || project.status;
     if (!user?.isAdmin && projectStatus !== 'approved') {
@@ -348,34 +366,39 @@ const Projects = () => {
           <CardContent className={`${showFilters ? 'block' : 'hidden'} sm:block`}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
 
-              {/* Country */}
+              {/* Country - Required */}
               <div>
-                <Label htmlFor="country">{t('home.hero.country', 'Country')}</Label>
+                <Label htmlFor="country" className="flex items-center">
+                  {t('home.hero.country', 'Country')} <span className="text-red-500 ml-1">*</span>
+                </Label>
                 <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('projects.allCountries', 'All Countries')} />
+                  <SelectTrigger className={filterErrors.country ? 'border-red-500 ring-1 ring-red-500' : ''}>
+                    <SelectValue placeholder={t('projects.selectCountry', 'Select Country')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('projects.allCountries', 'All Countries')}</SelectItem>
                     <SelectItem value="georgia">🇬🇪 {t('countries.georgia', 'Georgia')}</SelectItem>
                     <SelectItem value="uae">🇦🇪 {t('countries.uae', 'UAE')}</SelectItem>
                   </SelectContent>
                 </Select>
+                {filterErrors.country && (
+                  <p className="text-red-500 text-xs mt-1">{t('projects.countryRequired', 'Please select a country')}</p>
+                )}
               </div>
 
-              {/* City */}
+              {/* City - Required */}
               <div>
-                <Label htmlFor="city">{t('home.hero.city', 'City')}</Label>
+                <Label htmlFor="city" className="flex items-center">
+                  {t('home.hero.city', 'City')} <span className="text-red-500 ml-1">*</span>
+                </Label>
                 <Select 
                   value={selectedCity} 
                   onValueChange={setSelectedCity}
-                  disabled={!selectedCountry}
+                  disabled={!selectedCountry || selectedCountry === 'all'}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('projects.allCities', 'All Cities')} />
+                  <SelectTrigger className={filterErrors.city ? 'border-red-500 ring-1 ring-red-500' : ''}>
+                    <SelectValue placeholder={t('projects.selectCity', 'Select City')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('projects.allCities', 'All Cities')}</SelectItem>
                     {getCitiesForCountry(selectedCountry).map((city) => (
                       <SelectItem key={city.value} value={city.value}>
                         {t(`cities.${city.value}`, city.label)}
@@ -383,6 +406,9 @@ const Projects = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {filterErrors.city && (
+                  <p className="text-red-500 text-xs mt-1">{t('projects.cityRequired', 'Please select a city')}</p>
+                )}
               </div>
             </div>
 
@@ -405,19 +431,23 @@ const Projects = () => {
                 </Select>
               </div>
 
-              {/* Purpose */}
+              {/* Purpose - Required */}
               <div>
-                <Label htmlFor="purpose">{t('home.hero.purpose', 'Purpose')}</Label>
+                <Label htmlFor="purpose" className="flex items-center">
+                  {t('home.hero.purpose', 'Purpose')} <span className="text-red-500 ml-1">*</span>
+                </Label>
                 <Select value={selectedPurpose} onValueChange={setSelectedPurpose}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('common.all', 'All')} />
+                  <SelectTrigger className={filterErrors.purpose ? 'border-red-500 ring-1 ring-red-500' : ''}>
+                    <SelectValue placeholder={t('projects.selectPurpose', 'Select Purpose')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('common.all', 'All')}</SelectItem>
                     <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
                     <SelectItem value="rent">{t('home.hero.forRent', 'For Rent')}</SelectItem>
                   </SelectContent>
                 </Select>
+                {filterErrors.purpose && (
+                  <p className="text-red-500 text-xs mt-1">{t('projects.purposeRequired', 'Please select a purpose')}</p>
+                )}
               </div>
 
               {/* Min Price */}
@@ -515,7 +545,19 @@ const Projects = () => {
         </div>
 
         {/* Projects Grid */}
-        {filteredProjects.length === 0 ? (
+        {!requiredFieldsFilled ? (
+          <Card className="p-12 text-center">
+            <div className="text-gray-400 mb-4">
+              <Filter className="h-16 w-16 mx-auto mb-4" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {t('projects.selectRequired', 'Please select the required filters')}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {t('projects.selectRequiredHint', 'Select a country, city, and purpose to view available projects.')}
+            </p>
+          </Card>
+        ) : filteredProjects.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="text-gray-400 mb-4">
               <Search className="h-16 w-16 mx-auto mb-4" />

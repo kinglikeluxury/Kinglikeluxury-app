@@ -285,6 +285,14 @@
     "selectCountryFirst": "Proszę najpierw wybrać kraj, aby skontaktować się z odpowiednim biurem.",
     "sqm": "m²",
     "bed": "sypialnia",
-    "bath": "łazienka"
+    "bath": "łazienka",
+    "selectCountry": "Wybierz Kraj",
+    "selectCity": "Wybierz Miasto",
+    "selectPurpose": "Wybierz Cel",
+    "countryRequired": "Proszę wybrać kraj",
+    "cityRequired": "Proszę wybrać miasto",
+    "purposeRequired": "Proszę wybrać cel",
+    "selectRequired": "Proszę wybrać wymagane filtry",
+    "selectRequiredHint": "Wybierz kraj, miasto i cel, aby zobaczyć dostępne projekty."
   }
 }

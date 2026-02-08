@@ -285,6 +285,14 @@
     "selectCountryFirst": "请先选择国家以联系相应的办公室。",
     "sqm": "平方米",
     "bed": "卧室",
-    "bath": "浴室"
+    "bath": "浴室",
+    "selectCountry": "选择国家",
+    "selectCity": "选择城市",
+    "selectPurpose": "选择目的",
+    "countryRequired": "请选择国家",
+    "cityRequired": "请选择城市",
+    "purposeRequired": "请选择目的",
+    "selectRequired": "请选择必填筛选项",
+    "selectRequiredHint": "选择国家、城市和目的以查看可用项目。"
   }
 }

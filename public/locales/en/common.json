@@ -349,6 +349,14 @@
     "selectCountryFirst": "Please select a country first to contact the appropriate office.",
     "sqm": "sqm",
     "bed": "bed",
-    "bath": "bath"
+    "bath": "bath",
+    "selectCountry": "Select Country",
+    "selectCity": "Select City",
+    "selectPurpose": "Select Purpose",
+    "countryRequired": "Please select a country",
+    "cityRequired": "Please select a city",
+    "purposeRequired": "Please select a purpose",
+    "selectRequired": "Please select the required filters",
+    "selectRequiredHint": "Select a country, city, and purpose to view available projects."
   }
 }

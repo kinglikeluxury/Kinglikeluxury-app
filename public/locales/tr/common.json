@@ -353,6 +353,14 @@
     "selectCountryFirst": "Lütfen uygun ofisle iletişime geçmek için önce bir ülke seçin.",
     "sqm": "m²",
     "bed": "yatak odası",
-    "bath": "banyo"
+    "bath": "banyo",
+    "selectCountry": "Ülke Seçin",
+    "selectCity": "Şehir Seçin",
+    "selectPurpose": "Amaç Seçin",
+    "countryRequired": "Lütfen bir ülke seçin",
+    "cityRequired": "Lütfen bir şehir seçin",
+    "purposeRequired": "Lütfen bir amaç seçin",
+    "selectRequired": "Lütfen gerekli filtreleri seçin",
+    "selectRequiredHint": "Mevcut projeleri görüntülemek için ülke, şehir ve amaç seçin."
   }
 }

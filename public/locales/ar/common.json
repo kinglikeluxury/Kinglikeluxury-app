@@ -311,6 +311,14 @@
     "selectCountryFirst": "يرجى اختيار الدولة أولاً للتواصل مع المكتب المناسب.",
     "sqm": "م²",
     "bed": "غرفة نوم",
-    "bath": "حمام"
+    "bath": "حمام",
+    "selectCountry": "اختر الدولة",
+    "selectCity": "اختر المدينة",
+    "selectPurpose": "اختر الغرض",
+    "countryRequired": "يرجى اختيار الدولة",
+    "cityRequired": "يرجى اختيار المدينة",
+    "purposeRequired": "يرجى اختيار الغرض",
+    "selectRequired": "يرجى تحديد الفلاتر المطلوبة",
+    "selectRequiredHint": "اختر الدولة والمدينة والغرض لعرض المشاريع المتاحة."
   }
 }
