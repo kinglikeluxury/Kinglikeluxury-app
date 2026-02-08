@@ -43,16 +43,14 @@ const Hero = () => {
   const handleSearch = () => {
     const params = new URLSearchParams();
     
-    if (city && city !== "any") {
+    if (location && location !== "any") {
+      params.append("city", location);
+    } else if (city && city !== "any") {
       params.append("city", city);
     }
     
     if (propertyType && propertyType !== "all") {
       params.append("type", propertyType);
-    }
-    
-    if (location) {
-      params.append("location", location);
     }
     
     if (priceRange && priceRange !== "any") {

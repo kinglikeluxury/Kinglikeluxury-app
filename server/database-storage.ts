@@ -1,4 +1,4 @@
-import { eq, and, like, gte, lte, desc, or, isNull, sql } from "drizzle-orm";
+import { eq, and, like, ilike, gte, lte, desc, or, isNull, sql } from "drizzle-orm";
 import { db, withRetry } from "./db";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -126,11 +126,11 @@ export class DatabaseStorage implements IStorage {
         }
         
         if (filters.location) {
-          conditions.push(like(properties.location, `%${filters.location}%`));
+          conditions.push(ilike(properties.location, `%${filters.location}%`));
         }
         
         if (filters.locationContains) {
-          conditions.push(like(properties.location, `%${filters.locationContains}%`));
+          conditions.push(ilike(properties.location, `%${filters.locationContains}%`));
         }
         
         if (filters.minPrice) {

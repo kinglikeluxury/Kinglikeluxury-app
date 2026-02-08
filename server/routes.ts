@@ -801,6 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'tbilisi': 'Tbilisi', 
       'dubai': 'Dubai',
       'sharjah': 'Sharjah',
+      'rasAlKhaimah': 'Ras Al Khaimah',
       'ras-al-khaimah': 'Ras Al Khaimah'
     };
     
