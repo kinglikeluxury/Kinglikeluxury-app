@@ -372,7 +372,7 @@ const Projects = () => {
                   {t('home.hero.country', 'Country')} <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                  <SelectTrigger className={filterErrors.country ? 'border-red-500 ring-1 ring-red-500' : ''}>
+                  <SelectTrigger className={filterErrors.country ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
                     <SelectValue placeholder={t('projects.selectCountry', 'Select Country')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -395,7 +395,7 @@ const Projects = () => {
                   onValueChange={setSelectedCity}
                   disabled={!selectedCountry || selectedCountry === 'all'}
                 >
-                  <SelectTrigger className={filterErrors.city ? 'border-red-500 ring-1 ring-red-500' : ''}>
+                  <SelectTrigger className={filterErrors.city ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
                     <SelectValue placeholder={t('projects.selectCity', 'Select City')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -437,7 +437,7 @@ const Projects = () => {
                   {t('home.hero.purpose', 'Purpose')} <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <Select value={selectedPurpose} onValueChange={setSelectedPurpose}>
-                  <SelectTrigger className={filterErrors.purpose ? 'border-red-500 ring-1 ring-red-500' : ''}>
+                  <SelectTrigger className={filterErrors.purpose ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
                     <SelectValue placeholder={t('projects.selectPurpose', 'Select Purpose')} />
                   </SelectTrigger>
                   <SelectContent>
