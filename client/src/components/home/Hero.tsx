@@ -15,6 +15,7 @@ const Hero = () => {
   const [location, setLocation] = useState<string>("any");
   const [priceRange, setPriceRange] = useState<string>("any");
   const [purpose, setPurpose] = useState<string>("any");
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   const getCitiesForCountry = (country: string) => {
     switch (country) {
@@ -37,10 +38,24 @@ const Hero = () => {
 
   const handleCountryChange = (value: string) => {
     setCity(value);
-    setLocation("any"); // Reset city when country changes
+    setLocation("any");
+    setErrors(prev => ({ ...prev, country: false, city: false }));
   };
 
   const handleSearch = () => {
+    const newErrors: Record<string, boolean> = {};
+    
+    if (!city || city === "any") newErrors.country = true;
+    if (!location || location === "any") newErrors.city = true;
+    if (!propertyType || propertyType === "all") newErrors.propertyType = true;
+    if (!purpose || purpose === "any") newErrors.purpose = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     const params = new URLSearchParams();
     
     if (location && location !== "any") {
@@ -100,9 +115,9 @@ const Hero = () => {
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('home.hero.country', 'Country')}</label>
+                    <label className={`block text-sm font-medium mb-1 ${errors.country ? 'text-red-500' : 'text-gray-700'}`}>{t('home.hero.country', 'Country')}</label>
                     <Select value={city} onValueChange={handleCountryChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className={errors.country ? 'border-red-500 ring-red-500' : ''}>
                         <SelectValue placeholder={t('home.hero.anyCountry', 'Any Country')} />
                       </SelectTrigger>
                       <SelectContent>
@@ -114,9 +129,9 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('home.hero.city', 'City')}</label>
-                    <Select value={location} onValueChange={setLocation}>
-                      <SelectTrigger>
+                    <label className={`block text-sm font-medium mb-1 ${errors.city ? 'text-red-500' : 'text-gray-700'}`}>{t('home.hero.city', 'City')}</label>
+                    <Select value={location} onValueChange={(v) => { setLocation(v); setErrors(prev => ({ ...prev, city: false })); }}>
+                      <SelectTrigger className={errors.city ? 'border-red-500 ring-red-500' : ''}>
                         <SelectValue placeholder={t('property.anyLocation', 'Any location')} />
                       </SelectTrigger>
                       <SelectContent>
@@ -131,9 +146,9 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('property.type', 'Property Type')}</label>
-                    <Select value={propertyType} onValueChange={setPropertyType}>
-                      <SelectTrigger>
+                    <label className={`block text-sm font-medium mb-1 ${errors.propertyType ? 'text-red-500' : 'text-gray-700'}`}>{t('property.type', 'Property Type')}</label>
+                    <Select value={propertyType} onValueChange={(v) => { setPropertyType(v); setErrors(prev => ({ ...prev, propertyType: false })); }}>
+                      <SelectTrigger className={errors.propertyType ? 'border-red-500 ring-red-500' : ''}>
                         <SelectValue placeholder={t('common.all', 'All Types')} />
                       </SelectTrigger>
                       <SelectContent>
@@ -148,9 +163,9 @@ const Hero = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('home.hero.purpose', 'What for')}</label>
-                    <Select value={purpose} onValueChange={setPurpose}>
-                      <SelectTrigger>
+                    <label className={`block text-sm font-medium mb-1 ${errors.purpose ? 'text-red-500' : 'text-gray-700'}`}>{t('home.hero.purpose', 'What for')}</label>
+                    <Select value={purpose} onValueChange={(v) => { setPurpose(v); setErrors(prev => ({ ...prev, purpose: false })); }}>
+                      <SelectTrigger className={errors.purpose ? 'border-red-500 ring-red-500' : ''}>
                         <SelectValue placeholder={t('home.hero.anyPurpose', 'Any Purpose')} />
                       </SelectTrigger>
                       <SelectContent>
