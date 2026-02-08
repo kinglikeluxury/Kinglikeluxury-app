@@ -358,6 +358,7 @@
     "purposeRequired": "Please select a purpose",
     "selectRequired": "Please select the required filters",
     "selectRequiredHint": "Select a country and city to view available projects.",
-    "searchButton": "Search"
+    "searchButton": "Search",
+    "price": "Price"
   }
 }

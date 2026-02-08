@@ -294,6 +294,7 @@
     "purposeRequired": "请选择目的",
     "selectRequired": "请选择必填筛选项",
     "selectRequiredHint": "选择国家和城市以查看可用项目。",
-    "searchButton": "搜索"
+    "searchButton": "搜索",
+    "price": "价格"
   }
 }

@@ -294,6 +294,7 @@
     "purposeRequired": "გთხოვთ აირჩიოთ მიზანი",
     "selectRequired": "გთხოვთ აირჩიოთ სავალდებულო ფილტრები",
     "selectRequiredHint": "აირჩიეთ ქვეყანა და ქალაქი ხელმისაწვდომი პროექტების სანახავად.",
-    "searchButton": "ძიება"
+    "searchButton": "ძიება",
+    "price": "ფასი"
   }
 }

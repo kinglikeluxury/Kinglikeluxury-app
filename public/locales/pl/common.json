@@ -294,6 +294,7 @@
     "purposeRequired": "Proszę wybrać cel",
     "selectRequired": "Proszę wybrać wymagane filtry",
     "selectRequiredHint": "Wybierz kraj i miasto, aby zobaczyć dostępne projekty.",
-    "searchButton": "Szukaj"
+    "searchButton": "Szukaj",
+    "price": "Cena"
   }
 }

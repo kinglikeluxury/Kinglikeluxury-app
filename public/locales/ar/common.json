@@ -320,6 +320,7 @@
     "purposeRequired": "يرجى اختيار الغرض",
     "selectRequired": "يرجى تحديد الفلاتر المطلوبة",
     "selectRequiredHint": "اختر الدولة والمدينة لعرض المشاريع المتاحة.",
-    "searchButton": "بحث"
+    "searchButton": "بحث",
+    "price": "السعر"
   }
 }

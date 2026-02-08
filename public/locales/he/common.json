@@ -361,6 +361,7 @@
     "purposeRequired": "אנא בחר מטרה",
     "selectRequired": "אנא בחר את המסננים הנדרשים",
     "selectRequiredHint": "בחר מדינה ועיר כדי לצפות בפרויקטים זמינים.",
-    "searchButton": "חיפוש"
+    "searchButton": "חיפוש",
+    "price": "מחיר"
   }
 }

@@ -294,6 +294,7 @@
     "purposeRequired": "Zəhmət olmasa məqsəd seçin",
     "selectRequired": "Zəhmət olmasa tələb olunan filtrləri seçin",
     "selectRequiredHint": "Mövcud layihələri görmək üçün ölkə və şəhər seçin.",
-    "searchButton": "Axtar"
+    "searchButton": "Axtar",
+    "price": "Qiymət"
   }
 }

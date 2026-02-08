@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -75,7 +74,7 @@ const Projects = () => {
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedPurpose, setSelectedPurpose] = useState("");
-  const [priceRange, setPriceRange] = useState({ min: "", max: "" });
+  const [selectedPriceRange, setSelectedPriceRange] = useState("");
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
@@ -142,11 +141,13 @@ const Projects = () => {
     }
 
     const projectPrice = propertyData.price || project.price || 0;
-    if (priceRange.min && projectPrice < parseInt(priceRange.min)) {
-      return false;
-    }
-    if (priceRange.max && projectPrice > parseInt(priceRange.max)) {
-      return false;
+    if (selectedPriceRange && selectedPriceRange !== 'any') {
+      const [minStr, maxStr] = selectedPriceRange.split('-');
+      const min = parseInt(minStr);
+      const max = parseInt(maxStr);
+      if (projectPrice < min || projectPrice > max) {
+        return false;
+      }
     }
 
     const projectBedrooms = propertyData.bedrooms || project.bedrooms;
@@ -248,7 +249,7 @@ const Projects = () => {
     setSelectedCity("all");
     setSelectedType("all");
     setSelectedPurpose("all");
-    setPriceRange({ min: "", max: "" });
+    setSelectedPriceRange("");
     setBedroomCount("any");
   };
 
@@ -259,8 +260,7 @@ const Projects = () => {
     selectedCity,
     selectedType,
     selectedPurpose,
-    priceRange.min,
-    priceRange.max,
+    selectedPriceRange,
     bedroomCount
   ].filter(Boolean).length;
 
@@ -438,28 +438,26 @@ const Projects = () => {
                 </Select>
               </div>
 
-              {/* Min Price */}
+              {/* Price Range */}
               <div>
-                <Label htmlFor="minPrice">{t('projects.minPrice', 'Min Price ($)')}</Label>
-                <Input
-                  id="minPrice"
-                  type="number"
-                  placeholder="0"
-                  value={priceRange.min}
-                  onChange={(e) => setPriceRange({...priceRange, min: e.target.value})}
-                />
-              </div>
-
-              {/* Max Price */}
-              <div>
-                <Label htmlFor="maxPrice">{t('projects.maxPrice', 'Max Price ($)')}</Label>
-                <Input
-                  id="maxPrice"
-                  type="number"
-                  placeholder={t('projects.any', 'Any')}
-                  value={priceRange.max}
-                  onChange={(e) => setPriceRange({...priceRange, max: e.target.value})}
-                />
+                <Label htmlFor="priceRange">{t('projects.price', 'Price')}</Label>
+                <Select value={selectedPriceRange} onValueChange={setSelectedPriceRange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('projects.any', 'Any')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">{t('projects.any', 'Any')}</SelectItem>
+                    <SelectItem value="50000-80000">$50,000 - $80,000</SelectItem>
+                    <SelectItem value="81000-100000">$81,000 - $100,000</SelectItem>
+                    <SelectItem value="101000-125000">$101,000 - $125,000</SelectItem>
+                    <SelectItem value="126000-135000">$126,000 - $135,000</SelectItem>
+                    <SelectItem value="136000-150000">$136,000 - $150,000</SelectItem>
+                    <SelectItem value="151000-200000">$151,000 - $200,000</SelectItem>
+                    <SelectItem value="201000-250000">$201,000 - $250,000</SelectItem>
+                    <SelectItem value="251000-300000">$251,000 - $300,000</SelectItem>
+                    <SelectItem value="350000-400000">$350,000 - $400,000</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Bedrooms */}
