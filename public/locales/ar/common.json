@@ -319,7 +319,7 @@
     "cityRequired": "يرجى اختيار المدينة",
     "purposeRequired": "يرجى اختيار الغرض",
     "selectRequired": "يرجى تحديد الفلاتر المطلوبة",
-    "selectRequiredHint": "اختر الدولة والمدينة والغرض لعرض المشاريع المتاحة.",
+    "selectRequiredHint": "اختر الدولة والمدينة لعرض المشاريع المتاحة.",
     "searchButton": "بحث"
   }
 }

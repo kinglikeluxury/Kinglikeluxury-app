@@ -94,11 +94,6 @@ const Projects = () => {
     }
   }, [selectedCity]);
 
-  useEffect(() => {
-    if (selectedPurpose && selectedPurpose !== "" && selectedPurpose !== "all") {
-      setFilterErrors(prev => ({ ...prev, purpose: false }));
-    }
-  }, [selectedPurpose]);
 
   // Fetch projects data
   const { data: projects = [], isLoading, error } = useQuery<Project[]>({
@@ -107,8 +102,7 @@ const Projects = () => {
   });
 
   const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
-    selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
-    selectedPurpose && selectedPurpose !== '' && selectedPurpose !== 'all';
+    selectedCity && selectedCity !== '' && selectedCity !== 'all';
 
   // Filter projects based on criteria
   const filteredProjects = !requiredFieldsFilled ? [] : projects.filter((project: Project) => {
@@ -431,23 +425,17 @@ const Projects = () => {
                 </Select>
               </div>
 
-              {/* Purpose - Required */}
+              {/* Purpose */}
               <div>
-                <Label htmlFor="purpose" className={`flex items-center ${filterErrors.purpose ? 'text-red-500' : ''}`}>
-                  {t('home.hero.purpose', 'Purpose')} <span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Select value={selectedPurpose} onValueChange={setSelectedPurpose}>
-                  <SelectTrigger className={filterErrors.purpose ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
-                    <SelectValue placeholder={t('projects.selectPurpose', 'Select Purpose')} />
+                <Label htmlFor="purpose">{t('home.hero.purpose', 'Purpose')}</Label>
+                <Select value="buy" disabled>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('home.hero.toBuy', 'For Sale')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
-                    <SelectItem value="rent">{t('home.hero.forRent', 'For Rent')}</SelectItem>
                   </SelectContent>
                 </Select>
-                {filterErrors.purpose && (
-                  <p className="text-red-500 text-xs mt-1">{t('projects.purposeRequired', 'Please select a purpose')}</p>
-                )}
               </div>
 
               {/* Min Price */}
@@ -500,7 +488,6 @@ const Projects = () => {
                   const errors: Record<string, boolean> = {};
                   if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
                   if (!selectedCity || selectedCity === '' || selectedCity === 'all') errors.city = true;
-                  if (!selectedPurpose || selectedPurpose === '' || selectedPurpose === 'all') errors.purpose = true;
                   setFilterErrors(errors);
                 }}
               >

@@ -361,7 +361,7 @@
     "cityRequired": "Lütfen bir şehir seçin",
     "purposeRequired": "Lütfen bir amaç seçin",
     "selectRequired": "Lütfen gerekli filtreleri seçin",
-    "selectRequiredHint": "Mevcut projeleri görüntülemek için ülke, şehir ve amaç seçin.",
+    "selectRequiredHint": "Mevcut projeleri görüntülemek için ülke ve şehir seçin.",
     "searchButton": "Ara"
   }
 }
