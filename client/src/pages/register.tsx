@@ -11,11 +11,11 @@ import { z } from 'zod';
 import { AUTH_METHODS, insertUserSchema } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
-import { MailIcon, Phone } from 'lucide-react';
+import { MailIcon, Phone, Facebook } from 'lucide-react';
 
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.PHONE]),
+  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.PHONE, AUTH_METHODS.FACEBOOK]),
   email: z.string().optional(),
   password: z.string().optional(),
   phoneNumber: z.string().optional(),
@@ -62,6 +62,9 @@ export default function RegisterPage() {
     form.clearErrors();
   };
   
+  const handleFacebookLogin = () => {
+    window.location.href = '/api/auth/facebook';
+  };
   
   const onSubmit = async (data: RegisterFormValues) => {
     try {
@@ -115,101 +118,121 @@ export default function RegisterPage() {
         </CardHeader>
         
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid grid-cols-2 mb-4 mx-4">
+          <TabsList className="grid grid-cols-3 mb-4 mx-4">
             <TabsTrigger value={AUTH_METHODS.EMAIL}>
-              <MailIcon className="h-4 w-4 mr-2" />
+              <MailIcon className="h-4 w-4 mr-1" />
               Email
             </TabsTrigger>
             <TabsTrigger value={AUTH_METHODS.PHONE}>
-              <Phone className="h-4 w-4 mr-2" />
+              <Phone className="h-4 w-4 mr-1" />
               Mobile
+            </TabsTrigger>
+            <TabsTrigger value={AUTH_METHODS.FACEBOOK}>
+              <Facebook className="h-4 w-4 mr-1" />
+              Facebook
             </TabsTrigger>
           </TabsList>
           
           <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input placeholder="username" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                {activeTab === AUTH_METHODS.EMAIL && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="email@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="******" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-                
-                {activeTab === AUTH_METHODS.PHONE && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="phoneNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mobile Number</FormLabel>
-                          <FormControl>
-                            <Input type="tel" placeholder="+971 50 123 4567" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="******" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-                
-                <Button type="submit" className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]">
-                  Sign Up
+            {activeTab === AUTH_METHODS.FACEBOOK ? (
+              <div className="flex flex-col items-center py-6 space-y-4">
+                <p className="text-center text-sm text-muted-foreground">
+                  Click the button below to sign up with your Facebook account
+                </p>
+                <Button 
+                  type="button" 
+                  className="w-full bg-[#1877F2] hover:bg-[#166FE5]"
+                  onClick={handleFacebookLogin}
+                >
+                  <Facebook className="h-5 w-5 mr-2" />
+                  Continue with Facebook
                 </Button>
-              </form>
-            </Form>
+              </div>
+            ) : (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {activeTab === AUTH_METHODS.EMAIL && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="email@example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="******" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+                  
+                  {activeTab === AUTH_METHODS.PHONE && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="phoneNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Mobile Number</FormLabel>
+                            <FormControl>
+                              <Input type="tel" placeholder="+971 50 123 4567" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="******" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+                  
+                  <Button type="submit" className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]">
+                    Sign Up
+                  </Button>
+                </form>
+              </Form>
+            )}
           </CardContent>
         </Tabs>
         
