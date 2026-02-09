@@ -76,7 +76,7 @@ const Projects = () => {
   const [selectedType, setSelectedType] = useState("");
   const [selectedPurpose, setSelectedPurpose] = useState("");
   const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
-  const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
+  const [priceExpanded, setPriceExpanded] = useState(false);
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
@@ -492,48 +492,39 @@ const Projects = () => {
               </div>
 
               {/* Price Range - Multi Select */}
-              <div className="relative">
+              <div>
                 <Label htmlFor="priceRange" className={`flex items-center ${filterErrors.priceRange ? 'text-red-500' : ''}`}>
                   {t('projects.price', 'Price')} <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <div
                   className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer ${filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
-                  onClick={() => setPriceDropdownOpen(o => !o)}
+                  onClick={() => setPriceExpanded(prev => !prev)}
                 >
                   <span className={selectedPriceRanges.length === 0 ? 'text-muted-foreground' : 'text-foreground truncate'}>
                     {getPriceDisplayText()}
                   </span>
-                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                  <ChevronDown className={`h-4 w-4 opacity-50 shrink-0 transition-transform ${priceExpanded ? 'rotate-180' : ''}`} />
                 </div>
-                {priceDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setPriceDropdownOpen(false)} />
-                    <div 
-                      className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {priceRangeOptions.map(option => {
-                        const isChecked = selectedPriceRanges.includes(option.value);
-                        return (
-                          <label
-                            key={option.value}
-                            className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
-                          >
-                            <input
-                              type="checkbox"
-                              className="sr-only"
-                              checked={isChecked}
-                              onChange={() => togglePriceRange(option.value)}
-                            />
-                            <div className={`mr-2 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-[#3bcac4] border-[#3bcac4]' : 'border-gray-300'}`}>
-                              {isChecked && <span className="text-white text-xs">✓</span>}
-                            </div>
-                            {option.label}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </>
+                {priceExpanded && (
+                  <div className="mt-1 w-full rounded-md border bg-white shadow-sm max-h-60 overflow-auto">
+                    {priceRangeOptions.map(option => {
+                      const isChecked = selectedPriceRanges.includes(option.value);
+                      return (
+                        <label
+                          key={option.value}
+                          className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => togglePriceRange(option.value)}
+                            className="h-4 w-4 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4] mr-2 shrink-0 accent-[#3bcac4]"
+                          />
+                          {option.label}
+                        </label>
+                      );
+                    })}
+                  </div>
                 )}
                 {filterErrors.priceRange && (
                   <p className="text-red-500 text-xs mt-1">{t('projects.priceRequired', 'Please select a price range')}</p>
