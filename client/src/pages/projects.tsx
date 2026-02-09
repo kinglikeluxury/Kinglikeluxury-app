@@ -517,21 +517,29 @@ const Projects = () => {
                   <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
                 </button>
                 {priceDropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
-                    {priceRangeOptions.map(option => (
-                      <label
-                        key={option.value}
-                        className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedPriceRanges.includes(option.value)}
-                          onChange={() => togglePriceRange(option.value)}
-                          className="mr-2 h-4 w-4 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
-                        />
-                        {option.label}
-                      </label>
-                    ))}
+                  <div 
+                    className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {priceRangeOptions.map(option => {
+                      const isChecked = selectedPriceRanges.includes(option.value);
+                      return (
+                        <div
+                          key={option.value}
+                          className={`flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            togglePriceRange(option.value);
+                          }}
+                        >
+                          <div className={`mr-2 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-[#3bcac4] border-[#3bcac4]' : 'border-gray-300'}`}>
+                            {isChecked && <span className="text-white text-xs">✓</span>}
+                          </div>
+                          {option.label}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {filterErrors.priceRange && (
