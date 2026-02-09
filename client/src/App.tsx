@@ -19,6 +19,7 @@ import Approvals from "@/pages/admin/approvals";
 import AddProject from "@/pages/admin/add-project";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
+import Favorites from "@/pages/favorites";
 import InstallPWA from "@/components/InstallPWA";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
@@ -43,6 +44,7 @@ function Router() {
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/approvals" component={Approvals} />
           <Route path="/admin/add-project" component={AddProject} />
+          <Route path="/favorites" component={Favorites} />
           <Route component={NotFound} />
         </Switch>
       </main>
