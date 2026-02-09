@@ -510,18 +510,24 @@ const Projects = () => {
                     {priceRangeOptions.map(option => {
                       const isChecked = selectedPriceRanges.includes(option.value);
                       return (
-                        <label
+                        <div
                           key={option.value}
                           className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedPriceRanges(prev => 
+                              prev.includes(option.value) 
+                                ? prev.filter(v => v !== option.value) 
+                                : [...prev, option.value]
+                            );
+                          }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => togglePriceRange(option.value)}
-                            className="h-4 w-4 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4] mr-2 shrink-0 accent-[#3bcac4]"
-                          />
+                          <div className={`mr-2 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-[#3bcac4] border-[#3bcac4]' : 'border-gray-300'}`}>
+                            {isChecked && <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          </div>
                           {option.label}
-                        </label>
+                        </div>
                       );
                     })}
                   </div>
