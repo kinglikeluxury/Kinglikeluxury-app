@@ -2,9 +2,10 @@ import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bed, Bath, Home, ArrowRight } from "lucide-react";
+import { Bed, Bath, Home, ArrowRight, Heart } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 import { useTranslation } from "react-i18next";
+import { useFavorites } from "@/hooks/use-favorites";
 
 interface PropertyCardProps {
   id: number;
@@ -34,6 +35,8 @@ const PropertyCard = ({
   isFeatured = false,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const favorited = isFavorite(id);
   const getPropertyTypeColor = () => {
     // Use consistent Kinglike blue color (#005476) for all property types
     return "bg-[#005476] text-white";
@@ -143,8 +146,19 @@ const PropertyCard = ({
             {getPropertyTypeName()}
           </Badge>
         </div>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite({ id, title, price, type: propertyType });
+          }}
+          className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md"
+          aria-label={favorited ? t('favorites.remove', 'Remove from favorites') : t('favorites.add', 'Add to favorites')}
+        >
+          <Heart className={`h-5 w-5 transition-colors ${favorited ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
+        </button>
         {isFeatured && (
-          <div className="absolute top-2 right-2">
+          <div className="absolute top-2 right-12">
             <Badge className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white">Featured</Badge>
           </div>
         )}

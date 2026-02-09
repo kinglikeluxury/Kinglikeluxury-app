@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
+import { useFavorites } from "@/hooks/use-favorites";
 
 interface Project {
   id: number | string;
@@ -68,6 +69,7 @@ interface Project {
 const Projects = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { toggleFavorite, isFavorite } = useFavorites();
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -673,6 +675,16 @@ const Projects = () => {
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
                     </div>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleFavorite({ id: project.propertyId, title: propertyData.title, price: propertyData.price, type: (propertyData as any).propertyType || 'project' });
+                      }}
+                      className={`absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md`}
+                    >
+                      <Heart className={`h-5 w-5 transition-colors ${isFavorite(project.propertyId) ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
+                    </button>
                   </div>
                   <CardContent className="p-6 flex-1 flex flex-col justify-between">
                     <div className="flex-1">

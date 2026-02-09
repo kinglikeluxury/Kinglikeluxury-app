@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,38 +14,14 @@ import { Menu, X, User, Heart } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "react-i18next";
-
-type FavoriteProperty = {
-  id: number;
-  title: string;
-  price: number;
-  type: string;
-};
+import { useFavorites } from "@/hooks/use-favorites";
 
 const Navbar = () => {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [favorites, setFavorites] = useState<FavoriteProperty[]>([]);
+  const { favorites, removeFromFavorites } = useFavorites();
   const { t } = useTranslation();
-
-  // Load favorites from localStorage on component mount
-  useEffect(() => {
-    const storedFavorites = localStorage.getItem('favorites');
-    if (storedFavorites) {
-      try {
-        setFavorites(JSON.parse(storedFavorites));
-      } catch (error) {
-        console.error('Error parsing favorites from localStorage:', error);
-        localStorage.removeItem('favorites');
-      }
-    }
-  }, []);
-  
-  // Save favorites to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-  }, [favorites]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -53,18 +29,6 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     await logout();
-  };
-  
-  // Add a property to favorites
-  const addToFavorites = (property: FavoriteProperty) => {
-    if (!favorites.some(fav => fav.id === property.id)) {
-      setFavorites([...favorites, property]);
-    }
-  };
-  
-  // Remove a property from favorites
-  const removeFromFavorites = (propertyId: number) => {
-    setFavorites(favorites.filter(fav => fav.id !== propertyId));
   };
 
   const navLinks: Array<{name: string; path: string; isSpecial?: boolean}> = [

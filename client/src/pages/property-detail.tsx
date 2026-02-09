@@ -10,12 +10,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2 } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
+import { useFavorites } from "@/hooks/use-favorites";
 
 const PropertyDetail = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { toggleFavorite, isFavorite } = useFavorites();
   const [, params] = useRoute("/property/:id");
   const propertyId = params?.id ? parseInt(params.id) : null;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -319,6 +321,13 @@ const PropertyDetail = () => {
                 <div>
                   <div className="flex items-center gap-3">
                     <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
+                    <button
+                      onClick={() => toggleFavorite({ id: property.id, title: property.title, price: property.price, type: property.propertyType })}
+                      className={`p-2 rounded-full border-2 transition-all ${isFavorite(property.id) ? 'border-red-400 bg-red-50 hover:bg-red-100' : 'border-gray-300 bg-white hover:bg-gray-50'}`}
+                      aria-label={isFavorite(property.id) ? t('favorites.remove', 'Remove from favorites') : t('favorites.add', 'Add to favorites')}
+                    >
+                      <Heart className={`h-5 w-5 transition-colors ${isFavorite(property.id) ? 'text-red-500 fill-red-500' : 'text-gray-400'}`} />
+                    </button>
                     {user && (user.id === property.ownerId || user.isAdmin) && (
                       <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
                         <Link href={`/property/${property.id}/edit`}>
