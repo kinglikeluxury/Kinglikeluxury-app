@@ -663,13 +663,16 @@ const Projects = () => {
               
               return (
                 <Card key={project.id} className="overflow-hidden flex flex-col">
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 relative">
                     <img 
                       className="h-64 w-full object-cover" 
                       src={projectImage}
                       alt={propertyData.title}
                       data-testid={`img-project-${project.id}`}
                     />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
+                    </div>
                   </div>
                   <CardContent className="p-6 flex-1 flex flex-col justify-between">
                     <div className="flex-1">

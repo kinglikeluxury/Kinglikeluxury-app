@@ -121,17 +121,22 @@ const PropertyCard = ({
     <Card className="overflow-hidden h-full flex flex-col">
       <div className="relative">
         <Link href={`/property/${id}`} className="block">
-          <img
-            src={images && images.length > 0 ? images[0] : "https://via.placeholder.com/800x600?text=No+Image"}
-            alt={title || 'Property image'}
-            className="w-full h-56 object-cover cursor-pointer hover:opacity-95 transition-opacity"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              if (target.src !== "https://via.placeholder.com/800x600?text=Image+Not+Available") {
-                target.src = "https://via.placeholder.com/800x600?text=Image+Not+Available";
-              }
-            }}
-          />
+          <div className="relative">
+            <img
+              src={images && images.length > 0 ? images[0] : "https://via.placeholder.com/800x600?text=No+Image"}
+              alt={title || 'Property image'}
+              className="w-full h-56 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src !== "https://via.placeholder.com/800x600?text=Image+Not+Available") {
+                  target.src = "https://via.placeholder.com/800x600?text=Image+Not+Available";
+                }
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
+            </div>
+          </div>
         </Link>
         <div className="absolute top-2 left-2">
           <Badge className={`${getPropertyTypeColor()} hover:${getPropertyTypeColor()}`}>

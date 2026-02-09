@@ -354,25 +354,29 @@ const PropertyDetail = () => {
             {/* Image Gallery */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <div className="md:col-span-2">
-                <img 
-                  src={property.images[activeImageIndex] || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80"}
-                  alt={property.title}
-                  className="w-full h-96 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => openImageModal(activeImageIndex)}
-                />
+                <div className="relative rounded-lg overflow-hidden cursor-pointer" onClick={() => openImageModal(activeImageIndex)}>
+                  <img 
+                    src={property.images[activeImageIndex] || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80"}
+                    alt={property.title}
+                    className="w-full h-96 object-cover hover:opacity-90 transition-opacity"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-30" draggable={false} />
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {property.images.slice(0, 4).map((image, idx) => (
-                  <img 
-                    key={idx}
-                    src={image}
-                    alt={`${property.title} ${idx + 1}`}
-                    className={`w-full h-44 object-cover rounded-lg cursor-pointer transition-opacity ${activeImageIndex === idx ? 'ring-4 ring-primary-500' : 'hover:opacity-80'}`}
-                    onClick={() => {
-                      setActiveImageIndex(idx);
-                      openImageModal(idx);
-                    }}
-                  />
+                  <div key={idx} className="relative rounded-lg overflow-hidden cursor-pointer" onClick={() => { setActiveImageIndex(idx); openImageModal(idx); }}>
+                    <img 
+                      src={image}
+                      alt={`${property.title} ${idx + 1}`}
+                      className={`w-full h-44 object-cover transition-opacity ${activeImageIndex === idx ? 'ring-4 ring-primary-500' : 'hover:opacity-80'}`}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <img src="/watermark-logo.png" alt="" className="w-1/3 opacity-30" draggable={false} />
+                    </div>
+                  </div>
                 ))}
                 {property.images.length > 4 && (
                   <div 
@@ -455,6 +459,9 @@ const PropertyDetail = () => {
                           <source src={video} type="video/mp4" />
                           Your browser does not support the video tag.
                         </video>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
+                          <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
+                        </div>
                         
                         {/* Video Type Info */}
                         <div className="absolute bottom-2 left-2 z-10">
@@ -745,7 +752,7 @@ const PropertyDetail = () => {
           <div className="max-w-screen-lg max-h-screen w-full h-full flex items-center justify-center">
             <div className="relative w-full h-full flex items-center justify-center">
               <img
-                key={modalImageIndex} // Force re-render for animation
+                key={modalImageIndex}
                 src={property.images[modalImageIndex]}
                 alt={`${property.title} - Image ${modalImageIndex + 1}`}
                 className="max-w-full max-h-full object-contain rounded-lg transition-all duration-300 ease-in-out"
@@ -753,6 +760,9 @@ const PropertyDetail = () => {
                   animation: 'slideIn 0.3s ease-in-out'
                 }}
               />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <img src="/watermark-logo.png" alt="" className="w-1/5 opacity-30" draggable={false} />
+              </div>
               
               {/* Left click zone - for previous image */}
               {modalImageIndex > 0 && (
