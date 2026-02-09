@@ -3,7 +3,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,14 +11,14 @@ import { z } from 'zod';
 import { AUTH_METHODS, insertUserSchema } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
-import { FacebookIcon, MailIcon } from 'lucide-react';
+import { MailIcon, Phone } from 'lucide-react';
 
-// Create a simplified version of the schema for the client-side
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.FACEBOOK]),
+  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.PHONE]),
   email: z.string().email().optional(),
   password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  phoneNumber: z.string().min(8, "Enter a valid phone number").optional(),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -36,10 +35,10 @@ export default function RegisterPage() {
       authMethod: AUTH_METHODS.EMAIL,
       email: '',
       password: '',
+      phoneNumber: '',
     },
   });
   
-  // When tab changes, update the auth method
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     form.setValue('authMethod', value as any);
@@ -48,7 +47,6 @@ export default function RegisterPage() {
   
   const onSubmit = async (data: RegisterFormValues) => {
     try {
-      // For email registration
       if (data.authMethod === AUTH_METHODS.EMAIL) {
         await apiRequest('POST', '/api/auth/register', {
           username: data.username,
@@ -64,15 +62,20 @@ export default function RegisterPage() {
         
         setLocation('/login');
       } 
-      // For Facebook registration
-      else if (data.authMethod === AUTH_METHODS.FACEBOOK) {
-        // In a real app, this would redirect to Facebook OAuth
-        // Instead, we'll just show a message about it being a demo
+      else if (data.authMethod === AUTH_METHODS.PHONE) {
+        await apiRequest('POST', '/api/auth/register', {
+          username: data.username,
+          phoneNumber: data.phoneNumber,
+          password: data.password,
+          authMethod: AUTH_METHODS.PHONE,
+        });
         
         toast({
-          title: "Facebook login demo",
-          description: "In a production app, this would connect to Facebook OAuth",
+          title: "Registration successful",
+          description: "You can now log in with your phone number and password",
         });
+        
+        setLocation('/login');
       }
     } catch (error: any) {
       toast({
@@ -99,9 +102,9 @@ export default function RegisterPage() {
               <MailIcon className="h-4 w-4 mr-2" />
               Email
             </TabsTrigger>
-            <TabsTrigger value={AUTH_METHODS.FACEBOOK}>
-              <FacebookIcon className="h-4 w-4 mr-2" />
-              Facebook
+            <TabsTrigger value={AUTH_METHODS.PHONE}>
+              <Phone className="h-4 w-4 mr-2" />
+              Mobile
             </TabsTrigger>
           </TabsList>
           
@@ -122,7 +125,6 @@ export default function RegisterPage() {
                   )}
                 />
                 
-                {/* Email Tab Content */}
                 {activeTab === AUTH_METHODS.EMAIL && (
                   <>
                     <FormField
@@ -154,29 +156,40 @@ export default function RegisterPage() {
                   </>
                 )}
                 
-                
-                {/* Facebook Tab Content */}
-                {activeTab === AUTH_METHODS.FACEBOOK && (
-                  <div className="flex flex-col items-center py-4 space-y-4">
-                    <p className="text-center text-sm text-muted-foreground">
-                      Click the button below to sign up with your Facebook account
-                    </p>
-                    <Button 
-                      type="button" 
-                      className="w-full bg-[#1877F2] hover:bg-[#166FE5]"
-                      onClick={() => form.handleSubmit(onSubmit)()}
-                    >
-                      <FacebookIcon className="h-5 w-5 mr-2" />
-                      Continue with Facebook
-                    </Button>
-                  </div>
+                {activeTab === AUTH_METHODS.PHONE && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mobile Number</FormLabel>
+                          <FormControl>
+                            <Input type="tel" placeholder="+971 50 123 4567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="******" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
                 )}
                 
-                {activeTab === AUTH_METHODS.EMAIL && (
-                  <Button type="submit" className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]">
-                    Sign Up
-                  </Button>
-                )}
+                <Button type="submit" className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]">
+                  Sign Up
+                </Button>
               </form>
             </Form>
           </CardContent>
