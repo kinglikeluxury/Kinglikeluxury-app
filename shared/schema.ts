@@ -46,31 +46,11 @@ export const insertUserSchema = createInsertSchema(users)
     isVerified: true,
   })
   .extend({
-    // Make certain fields conditional based on auth method
-    password: z
-      .string()
-      .optional()
-      .refine(
-        (val) => val !== undefined && val.length > 0,
-        { message: "Password is required for email authentication" },
-      ),
-    email: z
-      .string()
-      .email()
-      .optional()
-      .refine(
-        (val) => val !== undefined && val.length > 0,
-        { message: "Email is required for email authentication" },
-      ),
-    phoneNumber: z
-      .string()
-      .optional(),
-    whatsappNumber: z
-      .string()
-      .optional(),
-    facebookId: z
-      .string()
-      .optional(),
+    password: z.string().optional(),
+    email: z.string().email().optional().or(z.literal("")),
+    phoneNumber: z.string().optional(),
+    whatsappNumber: z.string().optional(),
+    facebookId: z.string().optional(),
   });
 
 // Property types
