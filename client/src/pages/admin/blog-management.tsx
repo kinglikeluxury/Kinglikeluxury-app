@@ -332,17 +332,6 @@ const BlogManagement = () => {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="categories">Categories (comma-separated)</Label>
-                  <Input
-                    id="categories"
-                    value={categories}
-                    onChange={(e) => setCategories(e.target.value)}
-                    placeholder="Real Estate, Luxury, Dubai"
-                    className="mt-1"
-                  />
-                </div>
-
                 <div className="flex items-center gap-3">
                   <Switch
                     id="published"
