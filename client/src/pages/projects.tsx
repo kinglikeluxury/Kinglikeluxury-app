@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import {
   Heart,
   SlidersHorizontal,
   ArrowRight,
-  User
+  User,
+  ChevronDown
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
@@ -74,7 +75,9 @@ const Projects = () => {
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedPurpose, setSelectedPurpose] = useState("");
-  const [selectedPriceRange, setSelectedPriceRange] = useState("");
+  const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
+  const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
@@ -100,10 +103,52 @@ const Projects = () => {
   }, [selectedType]);
 
   useEffect(() => {
-    if (selectedPriceRange && selectedPriceRange !== "" && selectedPriceRange !== "any") {
+    if (selectedPriceRanges.length > 0) {
       setFilterErrors(prev => ({ ...prev, priceRange: false }));
     }
-  }, [selectedPriceRange]);
+  }, [selectedPriceRanges]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (priceDropdownRef.current && !priceDropdownRef.current.contains(event.target as Node)) {
+        setPriceDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const priceRangeOptions = [
+    { value: "50000-80000", label: "$50,000 - $80,000" },
+    { value: "81000-100000", label: "$81,000 - $100,000" },
+    { value: "101000-125000", label: "$101,000 - $125,000" },
+    { value: "126000-135000", label: "$126,000 - $135,000" },
+    { value: "136000-150000", label: "$136,000 - $150,000" },
+    { value: "151000-200000", label: "$151,000 - $200,000" },
+    { value: "201000-250000", label: "$201,000 - $250,000" },
+    { value: "251000-300000", label: "$251,000 - $300,000" },
+    { value: "350000-400000", label: "$350,000 - $400,000" },
+  ];
+
+  const togglePriceRange = (value: string) => {
+    setSelectedPriceRanges(prev => 
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    );
+  };
+
+  const getPriceDisplayText = () => {
+    if (selectedPriceRanges.length === 0) return t('projects.fromPrice', 'From');
+    const allMins: number[] = [];
+    const allMaxs: number[] = [];
+    selectedPriceRanges.forEach(range => {
+      const [min, max] = range.split('-').map(Number);
+      allMins.push(min);
+      allMaxs.push(max);
+    });
+    const globalMin = Math.min(...allMins);
+    const globalMax = Math.max(...allMaxs);
+    return `$${globalMin.toLocaleString()} - $${globalMax.toLocaleString()}`;
+  };
 
   // Fetch projects data
   const { data: projects = [], isLoading, error } = useQuery<Project[]>({
@@ -114,7 +159,7 @@ const Projects = () => {
   const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
     selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
     selectedType && selectedType !== '' && selectedType !== 'all' &&
-    selectedPriceRange && selectedPriceRange !== '' && selectedPriceRange !== 'any';
+    selectedPriceRanges.length > 0;
 
   // Filter projects based on criteria
   const filteredProjects = !requiredFieldsFilled ? [] : projects.filter((project: Project) => {
@@ -154,11 +199,12 @@ const Projects = () => {
     }
 
     const projectPrice = propertyData.price || project.price || 0;
-    if (selectedPriceRange && selectedPriceRange !== 'any') {
-      const [minStr, maxStr] = selectedPriceRange.split('-');
-      const min = parseInt(minStr);
-      const max = parseInt(maxStr);
-      if (projectPrice < min || projectPrice > max) {
+    if (selectedPriceRanges.length > 0) {
+      const allMins = selectedPriceRanges.map(r => parseInt(r.split('-')[0]));
+      const allMaxs = selectedPriceRanges.map(r => parseInt(r.split('-')[1]));
+      const globalMin = Math.min(...allMins);
+      const globalMax = Math.max(...allMaxs);
+      if (projectPrice < globalMin || projectPrice > globalMax) {
         return false;
       }
     }
@@ -262,7 +308,7 @@ const Projects = () => {
     setSelectedCity("all");
     setSelectedType("all");
     setSelectedPurpose("all");
-    setSelectedPriceRange("");
+    setSelectedPriceRanges([]);
     setBedroomCount("any");
   };
 
@@ -273,7 +319,7 @@ const Projects = () => {
     selectedCity,
     selectedType,
     selectedPurpose,
-    selectedPriceRange,
+    selectedPriceRanges.length > 0 ? 'has-price' : '',
     bedroomCount
   ].filter(Boolean).length;
 
@@ -455,27 +501,39 @@ const Projects = () => {
                 </Select>
               </div>
 
-              {/* Price Range */}
-              <div>
+              {/* Price Range - Multi Select */}
+              <div ref={priceDropdownRef} className="relative">
                 <Label htmlFor="priceRange" className={`flex items-center ${filterErrors.priceRange ? 'text-red-500' : ''}`}>
                   {t('projects.price', 'Price')} <span className="text-red-500 ml-1">*</span>
                 </Label>
-                <Select value={selectedPriceRange} onValueChange={setSelectedPriceRange}>
-                  <SelectTrigger className={filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
-                    <SelectValue placeholder={t('projects.fromPrice', 'From')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="50000-80000">$50,000 - $80,000</SelectItem>
-                    <SelectItem value="81000-100000">$81,000 - $100,000</SelectItem>
-                    <SelectItem value="101000-125000">$101,000 - $125,000</SelectItem>
-                    <SelectItem value="126000-135000">$126,000 - $135,000</SelectItem>
-                    <SelectItem value="136000-150000">$136,000 - $150,000</SelectItem>
-                    <SelectItem value="151000-200000">$151,000 - $200,000</SelectItem>
-                    <SelectItem value="201000-250000">$201,000 - $250,000</SelectItem>
-                    <SelectItem value="251000-300000">$251,000 - $300,000</SelectItem>
-                    <SelectItem value="350000-400000">$350,000 - $400,000</SelectItem>
-                  </SelectContent>
-                </Select>
+                <button
+                  type="button"
+                  onClick={() => setPriceDropdownOpen(!priceDropdownOpen)}
+                  className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
+                >
+                  <span className={selectedPriceRanges.length === 0 ? 'text-muted-foreground' : 'text-foreground truncate'}>
+                    {getPriceDisplayText()}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                </button>
+                {priceDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
+                    {priceRangeOptions.map(option => (
+                      <label
+                        key={option.value}
+                        className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedPriceRanges.includes(option.value)}
+                          onChange={() => togglePriceRange(option.value)}
+                          className="mr-2 h-4 w-4 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
                 {filterErrors.priceRange && (
                   <p className="text-red-500 text-xs mt-1">{t('projects.priceRequired', 'Please select a price range')}</p>
                 )}
@@ -508,7 +566,7 @@ const Projects = () => {
                   if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
                   if (!selectedCity || selectedCity === '' || selectedCity === 'all') errors.city = true;
                   if (!selectedType || selectedType === '' || selectedType === 'all') errors.type = true;
-                  if (!selectedPriceRange || selectedPriceRange === '' || selectedPriceRange === 'any') errors.priceRange = true;
+                  if (selectedPriceRanges.length === 0) errors.priceRange = true;
                   setFilterErrors(errors);
                 }}
               >
