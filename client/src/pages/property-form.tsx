@@ -355,7 +355,8 @@ const PropertyForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate required fields before showing popup
+    if (isSubmitting) return;
+    
     if (!propertyType) {
       console.error('Property type missing. Location:', location, 'Parsed type:', propertyType);
       alert(`Property type is required. Current URL: ${location}. Please go back and select a property type.`);
@@ -367,18 +368,16 @@ const PropertyForm = () => {
       return;
     }
 
-    // Validate basic required fields
     if (!formData.title || !formData.description || !formData.price) {
       alert('Please fill in all required fields (title, description, price).');
       return;
     }
     
-    // Show listing type popup to let user choose before publishing
     setShowListingTypePopup(true);
   };
 
-  // Handle actual property submission (called after listing type is chosen)
   const submitProperty = async (listingType: 'free' | 'featured' = 'free', expirationDate?: string) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     
     try {
@@ -2174,8 +2173,9 @@ const PropertyForm = () => {
             <Button 
               type="button" 
               disabled={isSubmitting}
-              onClick={() => setShowListingTypePopup(true)}
+              onClick={() => { if (!isSubmitting) setShowListingTypePopup(true); }}
               data-testid="button-submit-property"
+              className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
             >
               {isSubmitting ? 'Submitting...' : `Submit ${getPropertyTypeTitle(propertyType)}`}
             </Button>

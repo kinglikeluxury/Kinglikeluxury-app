@@ -412,12 +412,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const recentSubmissions = new Map<string, number>();
+  
   app.post("/api/properties", isAuthenticated, async (req, res) => {
     try {
       const propertyData = insertPropertySchema.parse(req.body);
       
-      // Allow regular users to submit projects, but they need admin approval
-      // Projects are always created with pending status unless user is admin
+      const dedupeKey = `${req.session.userId}-${propertyData.title}-${propertyData.propertyType}`;
+      const lastSubmission = recentSubmissions.get(dedupeKey);
+      const now = Date.now();
+      if (lastSubmission && now - lastSubmission < 10000) {
+        return res.status(429).json({ message: "Duplicate submission detected. Please wait a few seconds." });
+      }
+      recentSubmissions.set(dedupeKey, now);
+      setTimeout(() => recentSubmissions.delete(dedupeKey), 15000);
       
       // Add watermark to all property images
       try {
@@ -425,7 +433,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         propertyData.images = watermarkedImages;
       } catch (err) {
         console.error('Error adding watermarks to images:', err);
-        // Continue with original images if watermarking fails
       }
       
       // Set current user as owner
@@ -594,20 +601,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects", isAdmin, async (req, res) => {
     try {
-      // First create the property
       const propertyData = insertPropertySchema.parse({
         ...req.body.property,
         propertyType: PROPERTY_TYPES.PROJECT,
         ownerId: req.session.userId!
       });
       
-      // Add watermark to all project images
+      const dedupeKey = `project-${req.session.userId}-${propertyData.title}`;
+      const lastSubmission = recentSubmissions.get(dedupeKey);
+      const now = Date.now();
+      if (lastSubmission && now - lastSubmission < 10000) {
+        return res.status(429).json({ message: "Duplicate submission detected. Please wait a few seconds." });
+      }
+      recentSubmissions.set(dedupeKey, now);
+      setTimeout(() => recentSubmissions.delete(dedupeKey), 15000);
+      
       try {
         const watermarkedImages = await processImages(propertyData.images);
         propertyData.images = watermarkedImages;
       } catch (err) {
         console.error('Error adding watermarks to project images:', err);
-        // Continue with original images if watermarking fails
       }
       
       const property = await storage.createProperty(propertyData);
