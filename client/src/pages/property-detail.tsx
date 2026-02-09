@@ -722,8 +722,8 @@ const PropertyDetail = () => {
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
           {/* Close button */}
           <button
-            onClick={closeImageModal}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-10"
+            onClick={(e) => { e.stopPropagation(); closeImageModal(); }}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-50"
           >
             <X className="h-8 w-8" />
           </button>
@@ -732,7 +732,7 @@ const PropertyDetail = () => {
           {modalImageIndex > 0 && (
             <button
               onClick={prevImage}
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 transition-colors z-10"
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 transition-colors z-30"
             >
               <ChevronLeft className="h-10 w-10" />
             </button>
@@ -742,7 +742,7 @@ const PropertyDetail = () => {
           {modalImageIndex < property.images.length - 1 && (
             <button
               onClick={nextImage}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 transition-colors z-10"
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 transition-colors z-30"
             >
               <ChevronRight className="h-10 w-10" />
             </button>
@@ -767,24 +767,24 @@ const PropertyDetail = () => {
               {/* Left click zone - for previous image */}
               {modalImageIndex > 0 && (
                 <div
-                  className="absolute left-0 top-0 w-1/2 h-full cursor-pointer z-10"
+                  className="absolute left-0 top-16 w-1/2 cursor-pointer z-10"
                   onClick={(e) => {
                     e.stopPropagation();
                     prevImage();
                   }}
-                  style={{ background: 'transparent' }}
+                  style={{ background: 'transparent', bottom: '5rem' }}
                 />
               )}
               
               {/* Right click zone - for next image */}
               {modalImageIndex < property.images.length - 1 && (
                 <div
-                  className="absolute right-0 top-0 w-1/2 h-full cursor-pointer z-10"
+                  className="absolute right-0 top-16 w-1/2 cursor-pointer z-10"
                   onClick={(e) => {
                     e.stopPropagation();
                     nextImage();
                   }}
-                  style={{ background: 'transparent' }}
+                  style={{ background: 'transparent', bottom: '5rem' }}
                 />
               )}
             </div>
