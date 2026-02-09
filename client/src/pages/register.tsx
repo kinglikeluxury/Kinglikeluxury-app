@@ -16,9 +16,26 @@ import { MailIcon, Phone } from 'lucide-react';
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.PHONE]),
-  email: z.string().email().optional(),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
-  phoneNumber: z.string().min(8, "Enter a valid phone number").optional(),
+  email: z.string().optional(),
+  password: z.string().optional(),
+  phoneNumber: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.authMethod === AUTH_METHODS.EMAIL) {
+    if (!data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter a valid email", path: ["email"] });
+    }
+    if (!data.password || data.password.length < 6) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Password must be at least 6 characters", path: ["password"] });
+    }
+  }
+  if (data.authMethod === AUTH_METHODS.PHONE) {
+    if (!data.phoneNumber || data.phoneNumber.length < 8) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter a valid phone number", path: ["phoneNumber"] });
+    }
+    if (!data.password || data.password.length < 6) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Password must be at least 6 characters", path: ["password"] });
+    }
+  }
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -42,6 +59,7 @@ export default function RegisterPage() {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     form.setValue('authMethod', value as any);
+    form.clearErrors();
   };
   
   
