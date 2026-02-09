@@ -508,20 +508,28 @@ const Projects = () => {
                 {priceDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setPriceDropdownOpen(false)} />
-                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
+                    <div 
+                      className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {priceRangeOptions.map(option => {
                         const isChecked = selectedPriceRanges.includes(option.value);
                         return (
-                          <div
+                          <label
                             key={option.value}
                             className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
-                            onClick={() => togglePriceRange(option.value)}
                           >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={isChecked}
+                              onChange={() => togglePriceRange(option.value)}
+                            />
                             <div className={`mr-2 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-[#3bcac4] border-[#3bcac4]' : 'border-gray-300'}`}>
                               {isChecked && <span className="text-white text-xs">✓</span>}
                             </div>
                             {option.label}
-                          </div>
+                          </label>
                         );
                       })}
                     </div>
