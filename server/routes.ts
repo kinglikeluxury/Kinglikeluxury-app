@@ -6,6 +6,7 @@ import {
   insertUserSchema, 
   insertPropertySchema, 
   insertProjectSchema,
+  insertBlogPostSchema,
   PROPERTY_TYPES,
   PROPERTY_STATUS
 } from "@shared/schema";
@@ -759,10 +760,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Blog routes
   app.get("/api/blog", async (req, res) => {
     try {
-      const { published = true, authorId, category } = req.query;
+      const { published, authorId, category } = req.query;
       
       const filters: any = {};
-      if (published !== undefined) filters.published = published === 'true';
+      const isAdmin = req.session?.userId ? (await storage.getUser(req.session.userId))?.isAdmin : false;
+      if (published === 'all' && isAdmin) {
+        // Admin can see all posts - don't filter by published
+      } else {
+        filters.published = true;
+      }
       if (authorId) filters.authorId = parseInt(authorId as string);
       if (category) filters.category = category as string;
       
@@ -806,9 +812,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { title, content, excerpt, coverImage, categories, published } = req.body;
+      
+      if (!title || !content) {
+        return res.status(400).json({ message: "Title and content are required" });
+      }
+      
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-      const blogPost = await storage.createBlogPost({
+      const postData = {
         title,
         slug,
         content,
@@ -817,7 +828,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authorId: user.id,
         categories: categories || [],
         published: published !== false,
-      });
+      };
+
+      const validated = insertBlogPostSchema.safeParse(postData);
+      if (!validated.success) {
+        return res.status(400).json({ message: "Invalid blog post data", errors: validated.error.errors });
+      }
+
+      const blogPost = await storage.createBlogPost(validated.data);
 
       res.status(201).json(blogPost);
     } catch (error) {

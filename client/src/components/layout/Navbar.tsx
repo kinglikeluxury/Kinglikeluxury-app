@@ -168,6 +168,9 @@ const Navbar = () => {
                         <DropdownMenuItem asChild>
                           <Link href="/admin/add-project">{t('admin.createProject', 'Add Project')}</Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/blog">{t('admin.blogManagement', 'Blog Management')}</Link>
+                        </DropdownMenuItem>
                       </>
                     )}
                     <DropdownMenuSeparator />
@@ -287,6 +290,11 @@ const Navbar = () => {
                   <Link href="/admin/add-project">
                     <span className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer">
                       {t('admin.createProject', 'Add Project')}
+                    </span>
+                  </Link>
+                  <Link href="/admin/blog">
+                    <span className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer">
+                      {t('admin.blogManagement', 'Blog Management')}
                     </span>
                   </Link>
                 </>

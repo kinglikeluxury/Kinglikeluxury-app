@@ -17,6 +17,7 @@ import Register from "@/pages/register";
 import AdminDashboard from "@/pages/admin/dashboard";
 import Approvals from "@/pages/admin/approvals";
 import AddProject from "@/pages/admin/add-project";
+import BlogManagement from "@/pages/admin/blog-management";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
 import Favorites from "@/pages/favorites";
@@ -44,6 +45,7 @@ function Router() {
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/approvals" component={Approvals} />
           <Route path="/admin/add-project" component={AddProject} />
+          <Route path="/admin/blog" component={BlogManagement} />
           <Route path="/favorites" component={Favorites} />
           <Route component={NotFound} />
         </Switch>
