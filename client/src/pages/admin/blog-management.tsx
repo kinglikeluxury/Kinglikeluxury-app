@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X } from "lucide-react";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
 
@@ -29,6 +29,42 @@ const BlogManagement = () => {
   const [coverImage, setCoverImage] = useState("");
   const [categories, setCategories] = useState("");
   const [published, setPublished] = useState(true);
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast({ title: "يرجى اختيار صورة بصيغة JPG, PNG, WEBP أو GIF", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "حجم الصورة يجب أن يكون أقل من 10 ميغابايت", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch('/api/blog/upload-image', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+      setCoverImage(url);
+      toast({ title: "تم رفع الصورة بنجاح" });
+    } catch {
+      toast({ title: "فشل رفع الصورة", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) {
@@ -190,14 +226,52 @@ const BlogManagement = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="coverImage">Cover Image URL</Label>
-                  <Input
-                    id="coverImage"
-                    value={coverImage}
-                    onChange={(e) => setCoverImage(e.target.value)}
-                    placeholder="https://example.com/image.jpg"
-                    className="mt-1"
-                  />
+                  <Label>Cover Image</Label>
+                  <p className="text-xs text-gray-400 mb-2">Recommended: 1200 × 630 px (16:9) — JPG, PNG, WEBP — Max 10MB</p>
+                  {coverImage ? (
+                    <div className="relative mt-1 rounded-lg overflow-hidden border border-gray-200">
+                      <img
+                        src={coverImage}
+                        alt="Cover preview"
+                        className="w-full h-48 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCoverImage("")}
+                        className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="coverImageFile"
+                      className={`mt-1 flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer transition ${
+                        uploading ? 'border-[#3bcac4] bg-[#3bcac4]/5' : 'border-gray-300 hover:border-[#3bcac4] hover:bg-gray-50'
+                      }`}
+                    >
+                      {uploading ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-8 h-8 border-3 border-[#3bcac4] border-t-transparent rounded-full animate-spin" />
+                          <span className="text-sm text-[#3bcac4]">Uploading...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-gray-400">
+                          <ImageIcon className="w-10 h-10" />
+                          <span className="text-sm font-medium">Click to upload cover image</span>
+                          <span className="text-xs">or drag and drop</span>
+                        </div>
+                      )}
+                      <input
+                        id="coverImageFile"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                    </label>
+                  )}
                 </div>
 
                 <div>

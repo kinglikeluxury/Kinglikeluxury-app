@@ -800,6 +800,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // Blog image upload route
+  app.post("/api/blog/upload-image", upload.single('image'), async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+
+      const fs = await import("fs/promises");
+      const blogUploadDir = path.join(process.cwd(), "uploads", "blog");
+      await fs.mkdir(blogUploadDir, { recursive: true });
+
+      const ext = path.extname(req.file.originalname) || '.jpg';
+      const filename = `blog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}${ext}`;
+      const filePath = path.join(blogUploadDir, filename);
+
+      await fs.writeFile(filePath, req.file.buffer);
+
+      const imageUrl = `/uploads/blog/${filename}`;
+      res.json({ url: imageUrl });
+    } catch (error) {
+      console.error('Error uploading blog image:', error);
+      res.status(500).json({ message: "Failed to upload image" });
+    }
+  });
+
   // Blog CRUD routes (admin only)
   app.post("/api/blog", async (req, res) => {
     try {
