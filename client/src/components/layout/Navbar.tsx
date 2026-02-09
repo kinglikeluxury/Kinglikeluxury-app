@@ -78,7 +78,7 @@ const Navbar = () => {
                     aria-label={t('favorites.title', 'Favorites')}
                   >
                     <Heart
-                      className={`h-5 w-5 ${favorites.length > 0 ? 'text-[#005476] fill-[#005476]' : 'text-gray-400'}`}
+                      className={`h-5 w-5 ${favorites.length > 0 ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-400'}`}
                     />
                     {favorites.length > 0 && (
                       <span className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
@@ -109,7 +109,7 @@ const Navbar = () => {
                             e.stopPropagation();
                             removeFromFavorites(property.id);
                           }}
-                          className="ml-2 text-gray-400 hover:text-[#005476]"
+                          className="ml-2 text-gray-400 hover:text-[#3bcac4]"
                           aria-label={t('favorites.remove', 'Remove from favorites')}
                         >
                           <Heart className="h-4 w-4 fill-current" />
@@ -250,7 +250,7 @@ const Navbar = () => {
                   aria-label={t('favorites.title', 'Favorites')}
                 >
                   <Heart
-                    className={`h-5 w-5 ${favorites.length > 0 ? 'text-[#005476] fill-[#005476]' : 'text-gray-400'}`}
+                    className={`h-5 w-5 ${favorites.length > 0 ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-400'}`}
                   />
                   {favorites.length > 0 && (
                     <span className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
@@ -308,7 +308,7 @@ const Navbar = () => {
                 onClick={() => {}}
               >
                 <Heart
-                  className={`h-5 w-5 ${favorites.length > 0 ? 'text-[#005476] fill-[#005476]' : 'text-gray-400'}`}
+                  className={`h-5 w-5 ${favorites.length > 0 ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-400'}`}
                 />
                 {favorites.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
