@@ -13,6 +13,7 @@ import {
 import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
+import { translateBlogPost } from "./translate";
 // TODO: Fix Google Cloud Storage TypeScript compatibility issues
 // import {
 //   ObjectStorageService,
@@ -760,7 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Blog routes
   app.get("/api/blog", async (req, res) => {
     try {
-      const { published, authorId, category } = req.query;
+      const { published, authorId, category, lang, country: countryFilter } = req.query;
       
       const filters: any = {};
       const isAdmin = req.session?.userId ? (await storage.getUser(req.session.userId))?.isAdmin : false;
@@ -772,7 +773,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (authorId) filters.authorId = parseInt(authorId as string);
       if (category) filters.category = category as string;
       
-      const blogPosts = await storage.getBlogPosts(filters);
+      let blogPosts = await storage.getBlogPosts(filters);
+      
+      if (countryFilter && countryFilter !== 'all') {
+        blogPosts = blogPosts.filter((p: any) => p.country === countryFilter);
+      }
+
+      if (lang && lang !== 'en') {
+        blogPosts = blogPosts.map((post: any) => {
+          const t = post.translations?.[lang as string];
+          if (t) {
+            return { ...post, title: t.title, content: t.content, excerpt: t.excerpt };
+          }
+          return post;
+        });
+      }
+      
       res.json(blogPosts);
     } catch (error) {
       console.error('Error fetching blog posts:', error);
@@ -783,12 +799,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/blog/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { lang } = req.query;
       const blogPost = await storage.getBlogPostById(id);
       
       if (!blogPost) {
         return res.status(404).json({ message: "Blog post not found" });
       }
       
+      if (lang && lang !== 'en') {
+        const t = (blogPost as any).translations?.[lang as string];
+        if (t) {
+          return res.json({ ...blogPost, title: t.title, content: t.content, excerpt: t.excerpt });
+        }
+      }
+
       res.json(blogPost);
     } catch (error) {
       console.error('Error fetching blog post:', error);
@@ -844,22 +868,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const { title, content, excerpt, coverImage, categories, published } = req.body;
+      const { title, content, excerpt, coverImage, categories, published, country } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ message: "Title and content are required" });
       }
       
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const finalExcerpt = excerpt || content.substring(0, 200);
 
       const postData = {
         title,
         slug,
         content,
-        excerpt: excerpt || content.substring(0, 200),
+        excerpt: finalExcerpt,
         coverImage: coverImage || '',
         authorId: user.id,
         categories: categories || [],
+        country: country || 'georgia',
         published: published !== false,
       };
 
@@ -871,6 +897,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const blogPost = await storage.createBlogPost(validated.data);
 
       res.status(201).json(blogPost);
+
+      translateBlogPost(title, content, finalExcerpt).then(async (translations) => {
+        try {
+          await storage.updateBlogPost(blogPost.id, { translations } as any);
+          console.log(`Translations saved for blog post ${blogPost.id}`);
+        } catch (err) {
+          console.error(`Failed to save translations for blog post ${blogPost.id}:`, err);
+        }
+      }).catch(err => console.error('Translation failed:', err));
     } catch (error) {
       console.error('Error creating blog post:', error);
       res.status(500).json({ message: "Server error" });
@@ -888,7 +923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const id = parseInt(req.params.id);
-      const { title, content, excerpt, coverImage, categories, published } = req.body;
+      const { title, content, excerpt, coverImage, categories, published, country } = req.body;
       
       const updates: any = {};
       if (title !== undefined) {
@@ -900,6 +935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (coverImage !== undefined) updates.coverImage = coverImage;
       if (categories !== undefined) updates.categories = categories;
       if (published !== undefined) updates.published = published;
+      if (country !== undefined) updates.country = country;
 
       const blogPost = await storage.updateBlogPost(id, updates);
       if (!blogPost) {
@@ -907,6 +943,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(blogPost);
+
+      if (title !== undefined || content !== undefined || excerpt !== undefined) {
+        const finalTitle = title || blogPost.title;
+        const finalContent = content || blogPost.content;
+        const finalExcerpt = excerpt || blogPost.excerpt;
+        translateBlogPost(finalTitle, finalContent, finalExcerpt).then(async (translations) => {
+          try {
+            await storage.updateBlogPost(id, { translations } as any);
+            console.log(`Translations updated for blog post ${id}`);
+          } catch (err) {
+            console.error(`Failed to update translations for blog post ${id}:`, err);
+          }
+        }).catch(err => console.error('Translation update failed:', err));
+      }
     } catch (error) {
       console.error('Error updating blog post:', error);
       res.status(500).json({ message: "Server error" });

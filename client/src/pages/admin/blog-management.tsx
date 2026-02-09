@@ -28,6 +28,7 @@ const BlogManagement = () => {
   const [excerpt, setExcerpt] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [categories, setCategories] = useState("");
+  const [country, setCountry] = useState("georgia");
   const [published, setPublished] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -129,6 +130,7 @@ const BlogManagement = () => {
     setExcerpt("");
     setCoverImage("");
     setCategories("");
+    setCountry("georgia");
     setPublished(true);
     setEditingPost(null);
     setShowForm(false);
@@ -141,6 +143,7 @@ const BlogManagement = () => {
     setExcerpt(post.excerpt);
     setCoverImage(post.coverImage);
     setCategories(Array.isArray(post.categories) ? post.categories.join(", ") : "");
+    setCountry((post as any).country || "georgia");
     setPublished(post.published);
     setShowForm(true);
   };
@@ -158,6 +161,7 @@ const BlogManagement = () => {
       excerpt: excerpt.trim() || content.trim().substring(0, 200),
       coverImage: coverImage.trim(),
       categories: categories.split(",").map(c => c.trim()).filter(Boolean),
+      country,
       published,
     };
 
@@ -223,6 +227,36 @@ const BlogManagement = () => {
                     placeholder="Enter blog post title"
                     className="mt-1"
                   />
+                </div>
+
+                <div>
+                  <Label>Country / Region *</Label>
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCountry("georgia")}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                        country === "georgia"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
+                      }`}
+                    >
+                      <span className="text-xl">🇬🇪</span>
+                      Georgia
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCountry("uae")}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                        country === "uae"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
+                      }`}
+                    >
+                      <span className="text-xl">🇦🇪</span>
+                      Dubai / UAE
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -359,6 +393,9 @@ const BlogManagement = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-lg font-semibold text-[#005476] truncate">{post.title}</h3>
+                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                        {(post as any).country === 'uae' ? '🇦🇪 UAE' : '🇬🇪 Georgia'}
+                      </span>
                       {post.published ? (
                         <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                           <Eye className="w-3 h-3" /> Published
