@@ -309,18 +309,6 @@ const BlogManagement = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="excerpt">Excerpt</Label>
-                  <Textarea
-                    id="excerpt"
-                    value={excerpt}
-                    onChange={(e) => setExcerpt(e.target.value)}
-                    placeholder="Brief summary of the post (auto-generated from content if empty)"
-                    rows={2}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
                   <Label htmlFor="content">Content *</Label>
                   <Textarea
                     id="content"
