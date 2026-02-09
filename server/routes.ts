@@ -794,6 +794,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // Blog CRUD routes (admin only)
+  app.post("/api/blog", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { title, content, excerpt, coverImage, categories, published } = req.body;
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      const blogPost = await storage.createBlogPost({
+        title,
+        slug,
+        content,
+        excerpt: excerpt || content.substring(0, 200),
+        coverImage: coverImage || '',
+        authorId: user.id,
+        categories: categories || [],
+        published: published !== false,
+      });
+
+      res.status(201).json(blogPost);
+    } catch (error) {
+      console.error('Error creating blog post:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.put("/api/blog/:id", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const { title, content, excerpt, coverImage, categories, published } = req.body;
+      
+      const updates: any = {};
+      if (title !== undefined) {
+        updates.title = title;
+        updates.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+      if (content !== undefined) updates.content = content;
+      if (excerpt !== undefined) updates.excerpt = excerpt;
+      if (coverImage !== undefined) updates.coverImage = coverImage;
+      if (categories !== undefined) updates.categories = categories;
+      if (published !== undefined) updates.published = published;
+
+      const blogPost = await storage.updateBlogPost(id, updates);
+      if (!blogPost) {
+        return res.status(404).json({ message: "Blog post not found" });
+      }
+
+      res.json(blogPost);
+    } catch (error) {
+      console.error('Error updating blog post:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.delete("/api/blog/:id", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteBlogPost(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Blog post not found" });
+      }
+
+      res.json({ message: "Blog post deleted" });
+    } catch (error) {
+      console.error('Error deleting blog post:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Serve public objects - temporarily disabled until object storage is fixed
   app.get("/public-objects/:filePath(*)", async (req, res) => {
     // TODO: Implement public object serving after fixing Google Cloud Storage issues
