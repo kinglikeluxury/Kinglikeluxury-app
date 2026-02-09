@@ -779,7 +779,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         blogPosts = blogPosts.filter((p: any) => p.country === countryFilter);
       }
 
-      if (lang && lang !== 'en') {
+      if (lang) {
         blogPosts = blogPosts.map((post: any) => {
           const t = post.translations?.[lang as string];
           if (t) {
@@ -806,7 +806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Blog post not found" });
       }
       
-      if (lang && lang !== 'en') {
+      if (lang) {
         const t = (blogPost as any).translations?.[lang as string];
         if (t) {
           return res.json({ ...blogPost, title: t.title, content: t.content, excerpt: t.excerpt });
@@ -983,6 +983,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Blog post deleted" });
     } catch (error) {
       console.error('Error deleting blog post:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/blog/retranslate-all", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const posts = await storage.getBlogPosts({});
+      res.json({ message: `Re-translating ${posts.length} posts in background` });
+
+      for (const post of posts) {
+        try {
+          const postExcerpt = post.excerpt || post.content.substring(0, 200);
+          const translations = await translateBlogPost(post.title, post.content, postExcerpt);
+          await storage.updateBlogPost(post.id, { translations } as any);
+          console.log(`Re-translated blog post ${post.id}: ${post.title}`);
+        } catch (err) {
+          console.error(`Failed to re-translate post ${post.id}:`, err);
+        }
+      }
+    } catch (error) {
+      console.error('Error re-translating:', error);
       res.status(500).json({ message: "Server error" });
     }
   });

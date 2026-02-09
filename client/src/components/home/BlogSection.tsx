@@ -16,32 +16,34 @@ const SAMPLE_IMAGES = [
 ];
 
 export const BlogSection = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [blogPosts, setBlogPosts] = useState<(BlogPost & { author: { username: string } })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const lang = i18n.language;
 
   useEffect(() => {
     const fetchBlogPosts = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/blog');
+        const params = new URLSearchParams();
+        if (lang) params.set("lang", lang);
+        const response = await fetch(`/api/blog?${params.toString()}`);
         if (!response.ok) {
-          // If we don't have blog posts yet, set empty array (we'll show placeholder)
           setBlogPosts([]);
           return;
         }
         const data = await response.json();
-        setBlogPosts(data.slice(0, 3)); // Get the 3 most recent posts
+        setBlogPosts(data.slice(0, 3));
       } catch (error) {
         console.error('Error fetching blog posts:', error);
-        setBlogPosts([]); // Show placeholder if error
+        setBlogPosts([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchBlogPosts();
-  }, []);
+  }, [lang]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

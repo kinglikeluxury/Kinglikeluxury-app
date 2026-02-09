@@ -14,7 +14,7 @@ export default function Blog() {
     queryKey: ["/api/blog", lang, countryFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (lang && lang !== "en") params.set("lang", lang);
+      if (lang) params.set("lang", lang);
       if (countryFilter !== "all") params.set("country", countryFilter);
       const res = await fetch(`/api/blog?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch blog posts");

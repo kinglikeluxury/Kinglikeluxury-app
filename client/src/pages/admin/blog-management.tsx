@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw } from "lucide-react";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
 
@@ -195,12 +195,29 @@ const BlogManagement = () => {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold text-[#005476]">Blog Management</h1>
           {!showForm && (
-            <Button
-              onClick={() => { resetForm(); setShowForm(true); }}
-              className="bg-[#3bcac4] hover:bg-[#2fb8b2] text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" /> New Post
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    toast({ title: "جارٍ إعادة ترجمة جميع المقالات..." });
+                    await apiRequest("POST", "/api/blog/retranslate-all");
+                    toast({ title: "تمت إعادة الترجمة بنجاح! قد تستغرق دقائق." });
+                  } catch {
+                    toast({ title: "فشلت إعادة الترجمة", variant: "destructive" });
+                  }
+                }}
+                className="border-[#3bcac4] text-[#005476]"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Re-translate All
+              </Button>
+              <Button
+                onClick={() => { resetForm(); setShowForm(true); }}
+                className="bg-[#3bcac4] hover:bg-[#2fb8b2] text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" /> New Post
+              </Button>
+            </div>
           )}
         </div>
 
