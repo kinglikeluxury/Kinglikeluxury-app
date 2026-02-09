@@ -63,7 +63,7 @@ const Navbar = () => {
                     } inline-flex items-center ${link.isSpecial ? 'px-2' : 'px-1'} pt-1 border-b-2 text-sm font-medium cursor-pointer`}
                   >
                     {link.name}
-                    {link.isSpecial && <span className="ml-1 text-primary font-bold">+</span>}
+                    {link.isSpecial && <span className="ml-1 text-[#005476] font-bold">+</span>}
                   </span>
                 </Link>
               ))}
@@ -219,7 +219,7 @@ const Navbar = () => {
                 } block pl-3 pr-4 py-2 border-l-4 text-base font-medium cursor-pointer`}
               >
                 {link.name}
-                {link.isSpecial && <span className="ml-1 text-green-600 font-bold">+</span>}
+                {link.isSpecial && <span className="ml-1 text-[#005476] font-bold">+</span>}
               </span>
             </Link>
           ))}
