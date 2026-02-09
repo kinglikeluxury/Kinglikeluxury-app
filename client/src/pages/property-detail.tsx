@@ -323,10 +323,10 @@ const PropertyDetail = () => {
                     <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
                     <button
                       onClick={() => toggleFavorite({ id: property.id, title: property.title, price: property.price, type: property.propertyType })}
-                      className={`p-2 rounded-full border-2 transition-all ${isFavorite(property.id) ? 'border-red-400 bg-red-50 hover:bg-red-100' : 'border-gray-300 bg-white hover:bg-gray-50'}`}
+                      className={`p-2 rounded-full border-2 transition-all ${isFavorite(property.id) ? 'border-[#005476] bg-[#005476]/10 hover:bg-[#005476]/20' : 'border-gray-300 bg-white hover:bg-gray-50'}`}
                       aria-label={isFavorite(property.id) ? t('favorites.remove', 'Remove from favorites') : t('favorites.add', 'Add to favorites')}
                     >
-                      <Heart className={`h-5 w-5 transition-colors ${isFavorite(property.id) ? 'text-red-500 fill-red-500' : 'text-gray-400'}`} />
+                      <Heart className={`h-5 w-5 transition-colors ${isFavorite(property.id) ? 'text-[#005476] fill-[#005476]' : 'text-gray-400'}`} />
                     </button>
                     {user && (user.id === property.ownerId || user.isAdmin) && (
                       <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>

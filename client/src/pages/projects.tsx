@@ -683,7 +683,7 @@ const Projects = () => {
                       }}
                       className={`absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md`}
                     >
-                      <Heart className={`h-5 w-5 transition-colors ${isFavorite(project.propertyId) ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
+                      <Heart className={`h-5 w-5 transition-colors ${isFavorite(project.propertyId) ? 'text-[#005476] fill-[#005476]' : 'text-gray-600'}`} />
                     </button>
                   </div>
                   <CardContent className="p-6 flex-1 flex flex-col justify-between">

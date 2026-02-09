@@ -55,7 +55,7 @@ const Favorites = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center gap-3 mb-8">
-          <Heart className="h-8 w-8 text-red-500 fill-red-500" />
+          <Heart className="h-8 w-8 text-[#005476] fill-[#005476]" />
           <h1 className="text-3xl font-bold text-gray-900">
             {t("favorites.title", "Favorites")}
           </h1>
@@ -93,10 +93,10 @@ const Favorites = () => {
                     </div>
                     <button
                       onClick={() => removeFromFavorites(property.id)}
-                      className="p-2 rounded-full hover:bg-red-50 transition-colors ml-2 flex-shrink-0"
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors ml-2 flex-shrink-0"
                       aria-label={t("favorites.remove", "Remove from favorites")}
                     >
-                      <Trash2 className="h-5 w-5 text-red-400 hover:text-red-600" />
+                      <Trash2 className="h-5 w-5 text-gray-400 hover:text-[#005476]" />
                     </button>
                   </div>
 

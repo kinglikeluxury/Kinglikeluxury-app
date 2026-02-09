@@ -155,7 +155,7 @@ const PropertyCard = ({
           className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md"
           aria-label={favorited ? t('favorites.remove', 'Remove from favorites') : t('favorites.add', 'Add to favorites')}
         >
-          <Heart className={`h-5 w-5 transition-colors ${favorited ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
+          <Heart className={`h-5 w-5 transition-colors ${favorited ? 'text-[#005476] fill-[#005476]' : 'text-gray-600'}`} />
         </button>
         {isFeatured && (
           <div className="absolute top-2 right-12">
