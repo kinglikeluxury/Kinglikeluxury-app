@@ -857,6 +857,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const blogVideoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid video format. Use MP4, WEBM, MOV, or AVI.'));
+      }
+    }
+  });
+
+  app.post("/api/blog/upload-video", blogVideoUpload.single('video'), async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No video file provided" });
+      }
+
+      const fs = await import("fs/promises");
+      const blogUploadDir = path.join(process.cwd(), "uploads", "blog");
+      await fs.mkdir(blogUploadDir, { recursive: true });
+
+      const ext = path.extname(req.file.originalname) || '.mp4';
+      const filename = `blogvid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}${ext}`;
+      const filePath = path.join(blogUploadDir, filename);
+
+      await fs.writeFile(filePath, req.file.buffer);
+
+      const videoUrl = `/uploads/blog/${filename}`;
+      res.json({ url: videoUrl });
+    } catch (error: any) {
+      if (error.message?.includes('Invalid video format') || error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: error.message || "File too large (max 100MB)" });
+      }
+      console.error('Error uploading blog video:', error);
+      res.status(500).json({ message: "Failed to upload video" });
+    }
+  });
+
   // Blog CRUD routes (admin only)
   app.post("/api/blog", async (req, res) => {
     try {
@@ -868,7 +916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const { title, content, excerpt, coverImage, categories, published, country } = req.body;
+      const { title, content, excerpt, coverImage, coverVideo, categories, published, country } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ message: "Title and content are required" });
@@ -886,6 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content,
         excerpt: finalExcerpt,
         coverImage: coverImage || '',
+        coverVideo: coverVideo || null,
         authorId: user.id,
         categories: categories || [],
         country: country || 'georgia',
@@ -926,7 +975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const id = parseInt(req.params.id);
-      const { title, content, excerpt, coverImage, categories, published, country } = req.body;
+      const { title, content, excerpt, coverImage, coverVideo, categories, published, country } = req.body;
       
       const updates: any = {};
       if (title !== undefined) {
@@ -940,6 +989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (content !== undefined) updates.content = content;
       if (excerpt !== undefined) updates.excerpt = excerpt;
       if (coverImage !== undefined) updates.coverImage = coverImage;
+      if (coverVideo !== undefined) updates.coverVideo = coverVideo;
       if (categories !== undefined) updates.categories = categories;
       if (published !== undefined) updates.published = published;
       if (country !== undefined) updates.country = country;

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video } from "lucide-react";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
 
@@ -27,6 +27,8 @@ const BlogManagement = () => {
   const [content, setContent] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [coverVideo, setCoverVideo] = useState("");
+  const [coverType, setCoverType] = useState<"image" | "video">("image");
   const [categories, setCategories] = useState("");
   const [country, setCountry] = useState("georgia");
   const [published, setPublished] = useState(true);
@@ -62,6 +64,41 @@ const BlogManagement = () => {
       toast({ title: "تم رفع الصورة بنجاح" });
     } catch {
       toast({ title: "فشل رفع الصورة", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+    if (!validTypes.includes(file.type)) {
+      toast({ title: "يرجى اختيار فيديو بصيغة MP4, WEBM, MOV أو AVI", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      toast({ title: "حجم الفيديو يجب أن يكون أقل من 100 ميغابايت", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+      const res = await fetch('/api/blog/upload-video', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+      setCoverVideo(url);
+      toast({ title: "تم رفع الفيديو بنجاح" });
+    } catch {
+      toast({ title: "فشل رفع الفيديو", variant: "destructive" });
     } finally {
       setUploading(false);
     }
@@ -129,6 +166,8 @@ const BlogManagement = () => {
     setContent("");
     setExcerpt("");
     setCoverImage("");
+    setCoverVideo("");
+    setCoverType("image");
     setCategories("");
     setCountry("georgia");
     setPublished(true);
@@ -142,6 +181,8 @@ const BlogManagement = () => {
     setContent(post.content);
     setExcerpt(post.excerpt);
     setCoverImage(post.coverImage);
+    setCoverVideo((post as any).coverVideo || "");
+    setCoverType((post as any).coverVideo ? "video" : "image");
     setCategories(Array.isArray(post.categories) ? post.categories.join(", ") : "");
     setCountry((post as any).country || "georgia");
     setPublished(post.published);
@@ -160,6 +201,7 @@ const BlogManagement = () => {
       content: content.trim(),
       excerpt: excerpt.trim() || content.trim().substring(0, 200),
       coverImage: coverImage.trim(),
+      coverVideo: coverVideo.trim() || null,
       categories: categories.split(",").map(c => c.trim()).filter(Boolean),
       country,
       published,
@@ -277,51 +319,131 @@ const BlogManagement = () => {
                 </div>
 
                 <div>
-                  <Label>Cover Image</Label>
-                  <p className="text-xs text-gray-400 mb-2">Recommended: 1200 × 630 px (16:9) — JPG, PNG, WEBP — Max 10MB</p>
-                  {coverImage ? (
-                    <div className="relative mt-1 rounded-lg overflow-hidden border border-gray-200">
-                      <img
-                        src={coverImage}
-                        alt="Cover preview"
-                        className="w-full h-48 object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setCoverImage("")}
-                        className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <label
-                      htmlFor="coverImageFile"
-                      className={`mt-1 flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer transition ${
-                        uploading ? 'border-[#3bcac4] bg-[#3bcac4]/5' : 'border-gray-300 hover:border-[#3bcac4] hover:bg-gray-50'
+                  <Label>Cover Media</Label>
+                  <div className="flex gap-2 mt-1 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => { setCoverType("image"); setCoverVideo(""); }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border-2 transition font-medium text-sm ${
+                        coverType === "image"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
                       }`}
                     >
-                      {uploading ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="w-8 h-8 border-3 border-[#3bcac4] border-t-transparent rounded-full animate-spin" />
-                          <span className="text-sm text-[#3bcac4]">Uploading...</span>
+                      <ImageIcon className="w-4 h-4" />
+                      Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCoverType("video"); setCoverImage(""); }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border-2 transition font-medium text-sm ${
+                        coverType === "video"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
+                      }`}
+                    >
+                      <Video className="w-4 h-4" />
+                      Video
+                    </button>
+                  </div>
+
+                  {coverType === "image" ? (
+                    <>
+                      <p className="text-xs text-gray-400 mb-2">Recommended: 1200 × 630 px (16:9) — JPG, PNG, WEBP — Max 10MB</p>
+                      {coverImage ? (
+                        <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={coverImage}
+                            alt="Cover preview"
+                            className="w-full h-48 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCoverImage("")}
+                            className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-2 text-gray-400">
-                          <ImageIcon className="w-10 h-10" />
-                          <span className="text-sm font-medium">Click to upload cover image</span>
-                          <span className="text-xs">or drag and drop</span>
-                        </div>
+                        <label
+                          htmlFor="coverImageFile"
+                          className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer transition ${
+                            uploading ? 'border-[#3bcac4] bg-[#3bcac4]/5' : 'border-gray-300 hover:border-[#3bcac4] hover:bg-gray-50'
+                          }`}
+                        >
+                          {uploading ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-8 h-8 border-3 border-[#3bcac4] border-t-transparent rounded-full animate-spin" />
+                              <span className="text-sm text-[#3bcac4]">Uploading...</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-gray-400">
+                              <ImageIcon className="w-10 h-10" />
+                              <span className="text-sm font-medium">Click to upload cover image</span>
+                              <span className="text-xs">or drag and drop</span>
+                            </div>
+                          )}
+                          <input
+                            id="coverImageFile"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            disabled={uploading}
+                          />
+                        </label>
                       )}
-                      <input
-                        id="coverImageFile"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        disabled={uploading}
-                      />
-                    </label>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-gray-400 mb-2">MP4, WEBM, MOV, AVI — Max 100MB</p>
+                      {coverVideo ? (
+                        <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                          <video
+                            src={coverVideo}
+                            className="w-full h-48 object-cover"
+                            controls
+                            muted
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCoverVideo("")}
+                            className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="coverVideoFile"
+                          className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer transition ${
+                            uploading ? 'border-[#3bcac4] bg-[#3bcac4]/5' : 'border-gray-300 hover:border-[#3bcac4] hover:bg-gray-50'
+                          }`}
+                        >
+                          {uploading ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-8 h-8 border-3 border-[#3bcac4] border-t-transparent rounded-full animate-spin" />
+                              <span className="text-sm text-[#3bcac4]">Uploading...</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-gray-400">
+                              <Video className="w-10 h-10" />
+                              <span className="text-sm font-medium">Click to upload cover video</span>
+                              <span className="text-xs">or drag and drop</span>
+                            </div>
+                          )}
+                          <input
+                            id="coverVideoFile"
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
+                            onChange={handleVideoUpload}
+                            className="hidden"
+                            disabled={uploading}
+                          />
+                        </label>
+                      )}
+                    </>
                   )}
                 </div>
 

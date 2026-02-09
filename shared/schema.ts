@@ -224,6 +224,7 @@ export const blogPosts = pgTable("blog_posts", {
   content: text("content").notNull(),
   excerpt: text("excerpt").notNull(),
   coverImage: text("cover_image").notNull(),
+  coverVideo: text("cover_video"),
   authorId: integer("author_id")
     .notNull()
     .references(() => users.id),
