@@ -874,7 +874,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Title and content are required" });
       }
       
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      let slug = title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF\u0590-\u05FF\u10A0-\u10FF\u4E00-\u9FFF\u0400-\u04FF]+/g, '-').replace(/(^-|-$)/g, '');
+      if (!slug || slug === '-') {
+        slug = `post-${Date.now()}`;
+      }
       const finalExcerpt = excerpt || content.substring(0, 200);
 
       const postData = {
@@ -928,7 +931,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates: any = {};
       if (title !== undefined) {
         updates.title = title;
-        updates.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        let newSlug = title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF\u0590-\u05FF\u10A0-\u10FF\u4E00-\u9FFF\u0400-\u04FF]+/g, '-').replace(/(^-|-$)/g, '');
+        if (!newSlug || newSlug === '-') {
+          newSlug = `post-${Date.now()}`;
+        }
+        updates.slug = newSlug;
       }
       if (content !== undefined) updates.content = content;
       if (excerpt !== undefined) updates.excerpt = excerpt;
