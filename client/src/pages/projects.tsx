@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,6 @@ const Projects = () => {
   const [selectedPurpose, setSelectedPurpose] = useState("");
   const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
   const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
-  const priceDropdownRef = useRef<HTMLDivElement>(null);
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
@@ -108,15 +107,6 @@ const Projects = () => {
     }
   }, [selectedPriceRanges]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (priceDropdownRef.current && !priceDropdownRef.current.contains(event.target as Node)) {
-        setPriceDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const priceRangeOptions = [
     { value: "50000-80000", label: "$50,000 - $80,000" },
@@ -502,19 +492,13 @@ const Projects = () => {
               </div>
 
               {/* Price Range - Multi Select */}
-              <div ref={priceDropdownRef} className="relative">
+              <div className="relative">
                 <Label htmlFor="priceRange" className={`flex items-center ${filterErrors.priceRange ? 'text-red-500' : ''}`}>
                   {t('projects.price', 'Price')} <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <div
-                  role="button"
-                  tabIndex={0}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setPriceDropdownOpen(prev => !prev);
-                  }}
-                  className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background cursor-pointer ${filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
+                  className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer ${filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
+                  onClick={() => setPriceDropdownOpen(o => !o)}
                 >
                   <span className={selectedPriceRanges.length === 0 ? 'text-muted-foreground' : 'text-foreground truncate'}>
                     {getPriceDisplayText()}
@@ -522,29 +506,26 @@ const Projects = () => {
                   <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
                 </div>
                 {priceDropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
-                    {priceRangeOptions.map(option => {
-                      const isChecked = selectedPriceRanges.includes(option.value);
-                      return (
-                        <div
-                          key={option.value}
-                          role="button"
-                          tabIndex={0}
-                          className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            togglePriceRange(option.value);
-                          }}
-                        >
-                          <div className={`mr-2 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-[#3bcac4] border-[#3bcac4]' : 'border-gray-300'}`}>
-                            {isChecked && <span className="text-white text-xs">✓</span>}
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setPriceDropdownOpen(false)} />
+                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
+                      {priceRangeOptions.map(option => {
+                        const isChecked = selectedPriceRanges.includes(option.value);
+                        return (
+                          <div
+                            key={option.value}
+                            className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
+                            onClick={() => togglePriceRange(option.value)}
+                          >
+                            <div className={`mr-2 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-[#3bcac4] border-[#3bcac4]' : 'border-gray-300'}`}>
+                              {isChecked && <span className="text-white text-xs">✓</span>}
+                            </div>
+                            {option.label}
                           </div>
-                          {option.label}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
                 {filterErrors.priceRange && (
                   <p className="text-red-500 text-xs mt-1">{t('projects.priceRequired', 'Please select a price range')}</p>
