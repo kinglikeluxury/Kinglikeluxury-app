@@ -506,28 +506,32 @@ const Projects = () => {
                 <Label htmlFor="priceRange" className={`flex items-center ${filterErrors.priceRange ? 'text-red-500' : ''}`}>
                   {t('projects.price', 'Price')} <span className="text-red-500 ml-1">*</span>
                 </Label>
-                <button
-                  type="button"
-                  onClick={() => setPriceDropdownOpen(!priceDropdownOpen)}
-                  className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPriceDropdownOpen(prev => !prev);
+                  }}
+                  className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background cursor-pointer ${filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
                 >
                   <span className={selectedPriceRanges.length === 0 ? 'text-muted-foreground' : 'text-foreground truncate'}>
                     {getPriceDisplayText()}
                   </span>
                   <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-                </button>
+                </div>
                 {priceDropdownOpen && (
-                  <div 
-                    className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto"
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
                     {priceRangeOptions.map(option => {
                       const isChecked = selectedPriceRanges.includes(option.value);
                       return (
                         <div
                           key={option.value}
-                          className={`flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
-                          onClick={(e) => {
+                          role="button"
+                          tabIndex={0}
+                          className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
+                          onMouseDown={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             togglePriceRange(option.value);
