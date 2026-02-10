@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PROPERTY_TYPES } from "@shared/schema";
-import { Search } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const Hero = () => {
@@ -13,9 +14,48 @@ const Hero = () => {
   const [city, setCity] = useState<string>("any");
   const [propertyType, setPropertyType] = useState<string>("all");
   const [location, setLocation] = useState<string>("any");
-  const [priceRange, setPriceRange] = useState<string>("any");
+  const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
+  const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
   const [purpose, setPurpose] = useState<string>("any");
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+  const priceRangeOptions = [
+    { value: "0-100000", label: "$0 - $100K", min: 0, max: 100000 },
+    { value: "100000-200000", label: "$100K - $200K", min: 100000, max: 200000 },
+    { value: "200000-500000", label: "$200K - $500K", min: 200000, max: 500000 },
+    { value: "500000-1000000", label: "$500K - $1M", min: 500000, max: 1000000 },
+    { value: "1000000+", label: "$1M+", min: 1000000, max: null },
+  ];
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (priceDropdownRef.current && !priceDropdownRef.current.contains(event.target as Node)) {
+        setPriceDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const togglePriceRange = (value: string) => {
+    setSelectedPriceRanges(prev =>
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    );
+  };
+
+  const getSelectedPriceSummary = () => {
+    if (selectedPriceRanges.length === 0) return t('property.anyPrice', 'Any Price');
+    const selected = priceRangeOptions.filter(o => selectedPriceRanges.includes(o.value));
+    const allMins = selected.map(o => o.min);
+    const allMaxes = selected.filter(o => o.max !== null).map(o => o.max as number);
+    const hasUnlimited = selected.some(o => o.max === null);
+    const minPrice = Math.min(...allMins);
+    const formatPrice = (p: number) => p >= 1000000 ? `$${(p / 1000000).toFixed(1)}M` : p >= 1000 ? `$${(p / 1000).toFixed(0)}K` : `$${p}`;
+    if (hasUnlimited) return `${formatPrice(minPrice)}+`;
+    const maxPrice = Math.max(...allMaxes);
+    return `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}`;
+  };
 
   const getCitiesForCountry = (country: string) => {
     switch (country) {
@@ -67,10 +107,16 @@ const Hero = () => {
       params.append("type", propertyType);
     }
     
-    if (priceRange && priceRange !== "any") {
-      const [min, max] = getPriceRangeValues(priceRange);
-      if (min) params.append("minPrice", min.toString());
-      if (max) params.append("maxPrice", max.toString());
+    if (selectedPriceRanges.length > 0) {
+      const selected = priceRangeOptions.filter(o => selectedPriceRanges.includes(o.value));
+      const allMins = selected.map(o => o.min);
+      const allMaxes = selected.filter(o => o.max !== null).map(o => o.max as number);
+      const hasUnlimited = selected.some(o => o.max === null);
+      const minPrice = Math.min(...allMins);
+      if (minPrice > 0) params.append("minPrice", minPrice.toString());
+      if (!hasUnlimited && allMaxes.length > 0) {
+        params.append("maxPrice", Math.max(...allMaxes).toString());
+      }
     }
     
     if (purpose && purpose !== "any") {
@@ -80,22 +126,6 @@ const Hero = () => {
     navigate(`/properties?${params.toString()}`);
   };
 
-  const getPriceRangeValues = (range: string): [number | null, number | null] => {
-    switch (range) {
-      case "0-100000":
-        return [0, 100000];
-      case "100000-200000":
-        return [100000, 200000];
-      case "200000-500000":
-        return [200000, 500000];
-      case "500000-1000000":
-        return [500000, 1000000];
-      case "1000000+":
-        return [1000000, null];
-      default:
-        return [null, null];
-    }
-  };
 
   return (
     <div className="relative bg-primary-600">
@@ -175,21 +205,41 @@ const Hero = () => {
                     </Select>
                   </div>
                   
-                  <div>
+                  <div className="relative" ref={priceDropdownRef}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('property.priceRange', 'Price Range')}</label>
-                    <Select value={priceRange} onValueChange={setPriceRange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('property.anyPrice', 'Any Price')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">{t('property.anyPrice', 'Any Price')}</SelectItem>
-                        <SelectItem value="0-100000">$0 - $100K</SelectItem>
-                        <SelectItem value="100000-200000">$100K - $200K</SelectItem>
-                        <SelectItem value="200000-500000">$200K - $500K</SelectItem>
-                        <SelectItem value="500000-1000000">$500K - $1M</SelectItem>
-                        <SelectItem value="1000000+">$1M+</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => setPriceDropdownOpen(!priceDropdownOpen)}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <span className={selectedPriceRanges.length === 0 ? "text-muted-foreground" : "text-foreground truncate"}>
+                        {getSelectedPriceSummary()}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                    </button>
+                    {priceDropdownOpen && (
+                      <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg p-2">
+                        {priceRangeOptions.map((option) => (
+                          <label
+                            key={option.value}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm"
+                          >
+                            <Checkbox
+                              checked={selectedPriceRanges.includes(option.value)}
+                              onCheckedChange={() => togglePriceRange(option.value)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        ))}
+                        {selectedPriceRanges.length > 0 && (
+                          <div className="border-t mt-1 pt-1.5 px-2">
+                            <div className="text-xs font-medium text-[#005476]">
+                              {t('property.selectedRange', 'Selected')}: {getSelectedPriceSummary()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex items-end">
