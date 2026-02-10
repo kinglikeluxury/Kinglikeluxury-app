@@ -142,6 +142,7 @@ const Properties = () => {
                     propertyType={property.propertyType}
                     images={property.images}
                     status={property.status}
+                    topRated={property.topRated}
                   />
                 ))}
               </div>

@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, Video } from "lucide-react";
+import { AlertCircle, Video, Star } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +132,7 @@ const PropertyForm = ({ isAdmin = false }) => {
       bedrooms: null,
       bathrooms: null,
       ownerId: user?.id || 0,
+      topRated: false,
     },
   });
 
@@ -174,6 +175,7 @@ const PropertyForm = ({ isAdmin = false }) => {
         bedrooms: existingProperty.bedrooms || null,
         bathrooms: existingProperty.bathrooms || null,
         ownerId: existingProperty.ownerId || user?.id || 0,
+        topRated: existingProperty.topRated || false,
       });
 
       console.log('Form values after reset:', form.getValues());
@@ -208,6 +210,7 @@ const PropertyForm = ({ isAdmin = false }) => {
     } else {
       setShowProjectFields(false);
       form.setValue("projectDetails", undefined);
+      form.setValue("topRated", false);
     }
     
     // Reset bedroom/bathroom fields based on property type
@@ -837,6 +840,36 @@ const PropertyForm = ({ isAdmin = false }) => {
                           </SelectContent>
                         </Select>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="mt-6">
+                  <FormField
+                    control={form.control}
+                    name="topRated"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value || false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormLabel className="font-medium cursor-pointer mb-0">
+                            Top Rated Project
+                          </FormLabel>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]"
+                              />
+                            ))}
+                          </div>
+                        </div>
                       </FormItem>
                     )}
                   />

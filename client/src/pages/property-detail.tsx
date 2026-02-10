@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart, Star } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
 
@@ -355,6 +355,17 @@ const PropertyDetail = () => {
                 {project && (
                   <Badge variant="outline" className="bg-[#3bcac4] text-white border-[#3bcac4]">
                     {project.projectStatus}
+                  </Badge>
+                )}
+                
+                {property.topRated && (
+                  <Badge className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white flex items-center gap-1 px-3 py-1">
+                    <span className="font-semibold">Top Rated</span>
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className="h-3.5 w-3.5 fill-white text-white" />
+                      ))}
+                    </div>
                   </Badge>
                 )}
               </div>

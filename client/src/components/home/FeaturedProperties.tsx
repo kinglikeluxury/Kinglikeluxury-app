@@ -94,6 +94,7 @@ const FeaturedProperties = () => {
                   images={property.images}
                   status={property.status}
                   isFeatured={true}
+                  topRated={property.topRated}
                 />
               ))
             )}

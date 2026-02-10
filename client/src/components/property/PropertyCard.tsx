@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bed, Bath, Home, ArrowRight, Heart } from "lucide-react";
+import { Bed, Bath, Home, ArrowRight, Heart, Star } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -19,6 +19,7 @@ interface PropertyCardProps {
   images: string[];
   status: string;
   isFeatured?: boolean;
+  topRated?: boolean | null;
 }
 
 const PropertyCard = ({
@@ -33,6 +34,7 @@ const PropertyCard = ({
   images,
   status,
   isFeatured = false,
+  topRated = false,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -160,6 +162,18 @@ const PropertyCard = ({
         {isFeatured && (
           <div className="absolute top-2 right-12">
             <Badge className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white">Featured</Badge>
+          </div>
+        )}
+        {topRated && (
+          <div className="absolute bottom-2 left-2">
+            <Badge className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white flex items-center gap-1 px-2 py-1">
+              <span className="text-xs font-semibold">Top Rated</span>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} className="h-3 w-3 fill-white text-white" />
+                ))}
+              </div>
+            </Badge>
           </div>
         )}
       </div>

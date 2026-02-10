@@ -109,6 +109,7 @@ export const properties = pgTable("properties", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   listingType: text("listing_type").notNull().default(LISTING_TYPES.REGULAR),
   listingExpiresAt: timestamp("listing_expires_at"),
+  topRated: boolean("top_rated").default(false),
 });
 
 export const insertPropertySchema = createInsertSchema(properties)
