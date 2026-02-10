@@ -82,7 +82,7 @@ const PropertyForm = ({ isAdmin = false }) => {
   const propertyId = params?.id ? parseInt(params.id) : null;
   const isEditMode = !!propertyId;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showProjectFields, setShowProjectFields] = useState(false);
+  const [showProjectFields, setShowProjectFields] = useState(isAdmin);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
@@ -123,7 +123,7 @@ const PropertyForm = ({ isAdmin = false }) => {
       price: 0,
       area: 0,
       location: "",
-      propertyType: PROPERTY_TYPES.APARTMENT,
+      propertyType: isAdmin ? PROPERTY_TYPES.PROJECT : PROPERTY_TYPES.APARTMENT,
       images: [],
       videos: [],
       features: [],
