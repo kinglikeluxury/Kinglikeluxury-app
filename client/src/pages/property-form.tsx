@@ -1693,7 +1693,8 @@ const PropertyForm = () => {
             </CardContent>
           </Card>
 
-          {/* Delivery Date Section */}
+          {/* Delivery Date Section - Only for Off-Plan Projects */}
+          {formData.propertyType === 'project' && (
           <Card>
             <CardHeader>
               <CardTitle>Delivery Date</CardTitle>
@@ -1727,6 +1728,7 @@ const PropertyForm = () => {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Facilities */}
           <Card>
