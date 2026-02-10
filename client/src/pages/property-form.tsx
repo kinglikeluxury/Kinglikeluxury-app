@@ -1006,10 +1006,8 @@ const PropertyForm = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="location">
-                    {formData.city === 'batumi' ? 'Street *' : 'Specific Location *'}
-                  </Label>
-                  {formData.city === 'batumi' && (
+                  <Label htmlFor="location">Location / Street *</Label>
+                  {formData.city && (
                     <div className="flex items-center space-x-2">
                       <Button
                         type="button"
@@ -1029,31 +1027,21 @@ const PropertyForm = () => {
                         className="h-8"
                       >
                         <Map className="h-4 w-4 mr-1" />
-                        Map
+                        📍 Pin from Map
                       </Button>
                     </div>
                   )}
                 </div>
                 
-                {formData.city === 'batumi' && useMapSelection ? (
-                  <div className="space-y-6">
-                    {/* Enhanced Map Header */}
-                    <div className="text-center bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-100">
-                      <h3 className="text-lg font-semibold text-blue-900 mb-2">🌍 Multi-Location Selector</h3>
-                      <p className="text-sm text-blue-700">Click multiple points on the map to select all relevant property locations</p>
+                {formData.city && useMapSelection ? (
+                  <div className="space-y-4">
+                    <div className="text-center bg-gradient-to-r from-[#005476]/10 to-[#3bcac4]/10 p-3 rounded-lg border border-[#3bcac4]/30">
+                      <h3 className="text-lg font-semibold text-[#005476] mb-1">📍 Pin Location on Map</h3>
+                      <p className="text-sm text-gray-600">Click on the map to pin the exact property location</p>
                     </div>
 
-                    {/* Premium Map Container */}
-                    <div className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-cyan-900 p-6 rounded-2xl shadow-2xl">
-                      <div className="absolute top-6 left-6 z-[1000] bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-3 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                        ✨ Premium 3D Satellite View ✨
-                      </div>
-                      
-                      <div className="absolute top-6 right-6 z-[1000] bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-gray-700 font-medium shadow-md">
-                        🔍 Zoom & Click to Select
-                      </div>
-
-                      <div className="h-[500px] rounded-2xl overflow-hidden border-4 border-white/30 shadow-inner bg-white/10 backdrop-blur-sm transform transition-all duration-500 hover:scale-[1.005] hover:shadow-3xl">
+                    <div className="relative rounded-xl overflow-hidden border-2 border-[#005476]/20 shadow-lg">
+                      <div className="h-[450px]">
                         <LocationSelector
                           onLocationSelect={(location, coordinates) => {
                             setFormData(prev => ({
@@ -1063,112 +1051,48 @@ const PropertyForm = () => {
                             }));
                           }}
                           selectedLocation={formData.location}
-                          className="h-full w-full rounded-xl"
+                          city={formData.city}
+                          className="h-full w-full"
                         />
                       </div>
                       
-                      {/* Map Controls Info */}
-                      <div className="absolute bottom-6 left-6 right-6 z-[1000] bg-white/95 backdrop-blur-sm rounded-xl p-3 shadow-lg border border-white/50">
+                      <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg p-2 shadow-md">
                         <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center space-x-4">
-                            <span className="text-blue-600 font-medium">🖱️ Click multiple points</span>
-                            <span className="text-purple-600 font-medium">🔄 Scroll to zoom</span>
-                            <span className="text-green-600 font-medium">🖐️ Drag to explore</span>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-[#005476] font-medium">🖱️ Click to pin</span>
+                            <span className="text-[#3bcac4] font-medium">🔄 Scroll to zoom</span>
+                            <span className="text-gray-600 font-medium">🖐️ Drag to move</span>
                           </div>
-                          <div className="text-gray-500 font-medium">Multi-Location Satellite View</div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Enhanced Multi-Location Confirmation */}
                     {formData.location && (
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 shadow-lg">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
-                            📍
-                          </div>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-green-600 text-lg">📍</span>
                           <div className="flex-1">
-                            <p className="text-lg text-green-800 font-bold">
-                              Perfect! {(formData.location.split(',').length)} Location{formData.location.split(',').length > 1 ? 's' : ''} Selected
+                            <p className="text-sm text-green-800 font-semibold">
+                              Location pinned: {formData.location}
                             </p>
-                            <p className="text-sm text-green-700 font-medium">
-                              🎯 Click more points to add additional locations
-                            </p>
+                            {formData.coordinates && (formData.coordinates as any).lat !== 0 && (
+                              <p className="text-xs text-green-600 mt-1 font-mono">
+                                {(formData.coordinates as any).lat?.toFixed(6)}, {(formData.coordinates as any).lng?.toFixed(6)}
+                              </p>
+                            )}
                           </div>
-                          <div className="text-2xl">✅</div>
-                        </div>
-                        
-                        {/* List of Selected Locations */}
-                        <div className="space-y-2">
-                          {formData.location.split(',').map((location, index) => {
-                            const coords = Array.isArray(formData.coordinates) ? formData.coordinates[index] : formData.coordinates;
-                            return (
-                              <div key={index} className="bg-white/70 rounded-lg p-3 flex items-center justify-between">
-                                <div className="flex-1">
-                                  <p className="text-sm text-green-800 font-medium">
-                                    📌 Location {index + 1}: {location}
-                                  </p>
-                                  {coords && coords.lat !== 0 && (
-                                    <p className="text-xs text-green-600 mt-1 font-mono bg-green-100 px-2 py-1 rounded inline-block">
-                                      📊 {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
-                                    </p>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const currentLocations = formData.location.split(',');
-                                    const currentCoords = Array.isArray(formData.coordinates) ? formData.coordinates : [formData.coordinates];
-                                    
-                                    const newLocations = currentLocations.filter((_, i) => i !== index);
-                                    const newCoords = currentCoords.filter((_, i) => i !== index);
-                                    
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      location: newLocations.join(','),
-                                      coordinates: newCoords.length === 1 ? newCoords[0] : newCoords
-                                    }));
-                                  }}
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-full transition-colors"
-                                >
-                                  ❌
-                                </button>
-                              </div>
-                            );
-                          })}
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, location: '', coordinates: { lat: 0, lng: 0 } }))}
+                            className="text-red-500 hover:text-red-700 p-1 rounded"
+                          >
+                            ❌
+                          </button>
                         </div>
                       </div>
                     )}
-
-                    {/* Interactive Guide */}
-                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5 shadow-lg">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
-                          💡
-                        </div>
-                        <h4 className="text-lg font-bold text-indigo-900">Quick Guide</h4>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
-                          <span className="text-lg">🎯</span>
-                          <span className="text-sm text-indigo-800 font-medium">Click multiple points to select areas</span>
-                        </div>
-                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
-                          <span className="text-lg">🔍</span>
-                          <span className="text-sm text-indigo-800 font-medium">Zoom for precise positioning</span>
-                        </div>
-                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
-                          <span className="text-lg">❌</span>
-                          <span className="text-sm text-indigo-800 font-medium">Remove unwanted locations easily</span>
-                        </div>
-                        <div className="flex items-center space-x-2 bg-white/70 rounded-lg p-3">
-                          <span className="text-lg">⚡</span>
-                          <span className="text-sm text-indigo-800 font-medium">Real-time satellite imagery</span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
-                ) : formData.city === 'batumi' ? (
+                ) : formData.city && formData.city.split(',').some(c => c === 'batumi') ? (
                   <div className="border border-gray-300 rounded-md p-3 bg-white">
                     <div className="text-sm text-gray-600 mb-2">Select multiple Batumi locations:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
@@ -1214,12 +1138,19 @@ const PropertyForm = () => {
                       </div>
                     )}
                   </div>
+                ) : formData.city ? (
+                  <div>
+                    <Input
+                      value={formData.location}
+                      onChange={(e) => handleInputChange('location', e.target.value)}
+                      placeholder="Enter specific location or address..."
+                    />
+                    <p className="text-xs text-gray-500 mt-1">💡 You can also use the "📍 Pin from Map" button above to select a location on the map</p>
+                  </div>
                 ) : (
                   <div className="border border-gray-300 rounded-md p-3 bg-gray-50">
                     <div className="text-sm text-gray-500 text-center py-4">
-                      🏙️ Location selection is only available for Batumi
-                      <br />
-                      <span className="text-xs">Please select Batumi as your city to choose specific locations</span>
+                      🏙️ Please select a city first to choose a location
                     </div>
                   </div>
                 )}
@@ -1694,7 +1625,7 @@ const PropertyForm = () => {
           </Card>
 
           {/* Delivery Date Section - Only for Off-Plan Projects */}
-          {formData.propertyType === 'project' && (
+          {propertyType === 'project' && (
           <Card>
             <CardHeader>
               <CardTitle>Delivery Date</CardTitle>
