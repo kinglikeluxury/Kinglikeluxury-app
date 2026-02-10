@@ -443,7 +443,7 @@ const PropertyForm = () => {
         description: formData.description,
         propertyType: propertyType, // Ensure propertyType is set
         ownerId: user.id,
-        location: getLocationString(),
+        location: getLocationString() || (isEditMode && existingProperty ? existingProperty.location : 'Not specified'),
         price: parseInt(formData.price) || 0,
         area: formData.area || String(parseInt(formData.price) || 100),
         bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : (formData.bedrooms || 1),
@@ -453,9 +453,8 @@ const PropertyForm = () => {
         videos: formData.videos || [],
         features: formData.features || [],
         amenities: formData.amenities || [],
-        // Set listing type and expiration
-        listingType: listingType === 'featured' ? 'vip' : 'regular',
-        listingExpiresAt: expirationDate || null
+        listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
+        listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null)
       };
 
       // Add project details if it's a project type
