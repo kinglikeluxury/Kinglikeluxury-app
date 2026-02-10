@@ -902,8 +902,13 @@ const PropertyForm = () => {
                   <Label htmlFor="area">Area (m²) *</Label>
                   <div className="border border-gray-300 rounded-md p-3 bg-white">
                     <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto">
-                      {Array.from({length: 96}, (_, i) => String(25 + i)).map((areaValue) => {
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                      {[
+                        ...Array.from({length: 76}, (_, i) => 25 + i),
+                        ...Array.from({length: 40}, (_, i) => 100 + (i + 1) * 10),
+                        ...Array.from({length: 10}, (_, i) => 500 + (i + 1) * 50),
+                        ...Array.from({length: 40}, (_, i) => 1000 + (i + 1) * 100),
+                      ].map((num) => String(num)).map((areaValue) => {
                         const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
                         const isSelected = selectedAreas.includes(areaValue);
                         
