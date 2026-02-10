@@ -297,25 +297,167 @@ const PropertyForm = () => {
     }
   };
 
-  const getBatumiStreets = () => {
-    return [
-      { value: "rustaveli-ave", label: "Rustaveli Avenue" },
-      { value: "gogebashvili-str", label: "Gogebashvili Street" },
-      { value: "chavchavadze-str", label: "Chavchavadze Street" },
-      { value: "parnavaz-mepe-str", label: "Parnavaz Mepe Street" },
-      { value: "agmashenebeli-str", label: "Agmashenebeli Street" },
-      { value: "ninoshvili-str", label: "Ninoshvili Street" },
-      { value: "lermontov-str", label: "Lermontov Street" },
-      { value: "pushkin-str", label: "Pushkin Street" },
-      { value: "tabidze-str", label: "Tabidze Street" },
-      { value: "vazha-pshavela-ave", label: "Vazha Pshavela Avenue" },
-      { value: "melikishvili-str", label: "Melikishvili Street" },
-      { value: "batumi-boulevard", label: "Batumi Boulevard" },
-      { value: "gorgiladze-str", label: "Gorgiladze Street" },
-      { value: "sherif-khimshiashvili-str", label: "Sherif Khimshiashvili Street" },
-      { value: "kostava-str", label: "Kostava Street" }
-    ];
+  const getCityLocations = (cityKey: string): { value: string; label: string }[] => {
+    const locations: Record<string, { value: string; label: string }[]> = {
+      batumi: [
+        { value: "batumi-boulevard", label: "Batumi Boulevard" },
+        { value: "old-boulevard", label: "Old Boulevard" },
+        { value: "new-boulevard", label: "New Boulevard" },
+        { value: "rustaveli-ave", label: "Rustaveli Avenue" },
+        { value: "gogebashvili-str", label: "Gogebashvili Street" },
+        { value: "chavchavadze-str", label: "Chavchavadze Street" },
+        { value: "parnavaz-mepe-str", label: "Parnavaz Mepe Street" },
+        { value: "agmashenebeli-str", label: "Agmashenebeli Street" },
+        { value: "ninoshvili-str", label: "Ninoshvili Street" },
+        { value: "lermontov-str", label: "Lermontov Street" },
+        { value: "pushkin-str", label: "Pushkin Street" },
+        { value: "tabidze-str", label: "Tabidze Street" },
+        { value: "vazha-pshavela-ave", label: "Vazha Pshavela Avenue" },
+        { value: "melikishvili-str", label: "Melikishvili Street" },
+        { value: "gorgiladze-str", label: "Gorgiladze Street" },
+        { value: "sherif-khimshiashvili-str", label: "Sherif Khimshiashvili Street" },
+        { value: "kostava-str", label: "Kostava Street" },
+        { value: "javakhishvili-str", label: "Javakhishvili Street" },
+        { value: "batumi-old-town", label: "Old Town (Batumi)" },
+        { value: "batumi-port", label: "Batumi Port Area" },
+        { value: "batumi-airport-area", label: "Airport Area" },
+        { value: "gonio", label: "Gonio" },
+        { value: "kvariati", label: "Kvariati" },
+        { value: "makhinjauri", label: "Makhinjauri" },
+        { value: "green-cape", label: "Green Cape (Mtsvane Kontskhi)" },
+        { value: "chakvi", label: "Chakvi" },
+        { value: "kobuleti", label: "Kobuleti" },
+        { value: "sarpi", label: "Sarpi" },
+        { value: "alphabetic-tower", label: "Alphabetic Tower Area" },
+        { value: "ardagani-lake", label: "Ardagani Lake Area" },
+        { value: "batumi-central-park", label: "Central Park Area" },
+        { value: "university-area", label: "University Area" },
+        { value: "bagrationi-str", label: "Bagrationi Street" },
+        { value: "inasaridze-str", label: "Inasaridze Street" },
+        { value: "kobaladze-str", label: "Kobaladze Street" },
+        { value: "zubalashvili-str", label: "Zubalashvili Street" },
+      ],
+      tbilisi: [
+        { value: "vake", label: "Vake" },
+        { value: "saburtalo", label: "Saburtalo" },
+        { value: "old-tbilisi", label: "Old Tbilisi" },
+        { value: "mtatsminda", label: "Mtatsminda" },
+        { value: "vera", label: "Vera" },
+        { value: "sololaki", label: "Sololaki" },
+        { value: "avlabari", label: "Avlabari" },
+        { value: "didube", label: "Didube" },
+        { value: "nadzaladevi", label: "Nadzaladevi" },
+        { value: "gldani", label: "Gldani" },
+        { value: "isani", label: "Isani" },
+        { value: "samgori", label: "Samgori" },
+        { value: "varketili", label: "Varketili" },
+        { value: "dighomi", label: "Dighomi" },
+        { value: "ortachala", label: "Ortachala" },
+        { value: "chugureti", label: "Chugureti" },
+        { value: "krtsanisi", label: "Krtsanisi" },
+        { value: "temqa", label: "Temqa" },
+        { value: "didi-dighomi", label: "Didi Dighomi" },
+        { value: "lisi-lake", label: "Lisi Lake Area" },
+        { value: "turtle-lake", label: "Turtle Lake Area" },
+        { value: "tbilisi-hills", label: "Tbilisi Hills" },
+        { value: "rustaveli-ave-tbilisi", label: "Rustaveli Avenue" },
+        { value: "marjanishvili", label: "Marjanishvili" },
+        { value: "aghmashenebeli-ave-tbilisi", label: "Aghmashenebeli Avenue" },
+        { value: "freedom-square", label: "Freedom Square Area" },
+        { value: "heroes-square", label: "Heroes Square Area" },
+        { value: "tbilisi-airport-area", label: "Airport Area" },
+      ],
+      dubai: [
+        { value: "downtown-dubai", label: "Downtown Dubai" },
+        { value: "dubai-marina", label: "Dubai Marina" },
+        { value: "palm-jumeirah", label: "Palm Jumeirah" },
+        { value: "jumeirah-beach", label: "Jumeirah Beach Residence (JBR)" },
+        { value: "business-bay", label: "Business Bay" },
+        { value: "dubai-hills", label: "Dubai Hills Estate" },
+        { value: "arabian-ranches", label: "Arabian Ranches" },
+        { value: "emirates-living", label: "Emirates Living" },
+        { value: "springs", label: "The Springs" },
+        { value: "meadows", label: "The Meadows" },
+        { value: "lakes", label: "The Lakes" },
+        { value: "greens", label: "The Greens" },
+        { value: "views", label: "The Views" },
+        { value: "jumeirah-lake-towers", label: "Jumeirah Lake Towers (JLT)" },
+        { value: "jumeirah-village", label: "Jumeirah Village Circle (JVC)" },
+        { value: "dubai-creek-harbour", label: "Dubai Creek Harbour" },
+        { value: "dubai-south", label: "Dubai South" },
+        { value: "damac-hills", label: "DAMAC Hills" },
+        { value: "al-barsha", label: "Al Barsha" },
+        { value: "al-quoz", label: "Al Quoz" },
+        { value: "al-sufouh", label: "Al Sufouh" },
+        { value: "difc", label: "DIFC" },
+        { value: "city-walk", label: "City Walk" },
+        { value: "dubai-sports-city", label: "Dubai Sports City" },
+        { value: "motor-city", label: "Motor City" },
+        { value: "silicon-oasis", label: "Dubai Silicon Oasis" },
+        { value: "international-city", label: "International City" },
+        { value: "mirdif", label: "Mirdif" },
+        { value: "deira", label: "Deira" },
+        { value: "bur-dubai", label: "Bur Dubai" },
+        { value: "al-nahda-dubai", label: "Al Nahda" },
+        { value: "dubai-land", label: "Dubailand" },
+        { value: "dubai-world-central", label: "Dubai World Central" },
+        { value: "emaar-beachfront", label: "Emaar Beachfront" },
+        { value: "bluewaters-island", label: "Bluewaters Island" },
+        { value: "tilal-al-ghaf", label: "Tilal Al Ghaf" },
+        { value: "town-square", label: "Town Square" },
+        { value: "sobha-hartland", label: "Sobha Hartland" },
+        { value: "mohammed-bin-rashid-city", label: "Mohammed Bin Rashid City" },
+        { value: "pearl-jumeirah", label: "Pearl Jumeirah" },
+      ],
+      sharjah: [
+        { value: "al-majaz", label: "Al Majaz" },
+        { value: "al-khan", label: "Al Khan" },
+        { value: "al-taawun", label: "Al Taawun" },
+        { value: "al-nahda-sharjah", label: "Al Nahda" },
+        { value: "al-qasimia", label: "Al Qasimia" },
+        { value: "al-mamzar-sharjah", label: "Al Mamzar" },
+        { value: "muwaileh", label: "Muwaileh" },
+        { value: "university-city-sharjah", label: "University City" },
+        { value: "sharjah-waterfront", label: "Sharjah Waterfront City" },
+        { value: "al-jada", label: "Aljada" },
+        { value: "al-zahia", label: "Al Zahia" },
+        { value: "tilal-city", label: "Tilal City" },
+        { value: "al-raha-sharjah", label: "Al Raha" },
+        { value: "al-tai", label: "Al Tai" },
+        { value: "al-suyoh", label: "Al Suyoh" },
+        { value: "sharjah-old-city", label: "Old City / Heritage Area" },
+        { value: "al-khaledia", label: "Al Khaledia" },
+        { value: "al-bu-daniq", label: "Al Bu Daniq" },
+        { value: "industrial-area-sharjah", label: "Industrial Area" },
+        { value: "al-mujarrah", label: "Al Mujarrah" },
+        { value: "halwan", label: "Halwan" },
+        { value: "al-ghaphia", label: "Al Ghaphia" },
+      ],
+      rasAlKhaimah: [
+        { value: "al-hamra-village", label: "Al Hamra Village" },
+        { value: "al-marjan-island", label: "Al Marjan Island" },
+        { value: "mina-al-arab", label: "Mina Al Arab" },
+        { value: "rak-downtown", label: "RAK Downtown" },
+        { value: "rak-corniche", label: "RAK Corniche" },
+        { value: "al-nakheel", label: "Al Nakheel" },
+        { value: "al-dhait", label: "Al Dhait" },
+        { value: "khuzam", label: "Khuzam" },
+        { value: "yasmin-village", label: "Yasmin Village" },
+        { value: "al-jazeera-rak", label: "Al Jazeera Al Hamra" },
+        { value: "julphar", label: "Julphar" },
+        { value: "rak-tower-area", label: "RAK Tower Area" },
+        { value: "al-qurm", label: "Al Qurm" },
+        { value: "al-seer", label: "Al Seer" },
+        { value: "ghalilah", label: "Ghalilah" },
+        { value: "seih-al-uraibi", label: "Seih Al Uraibi" },
+        { value: "al-rams", label: "Al Rams" },
+        { value: "dafan-al-khor", label: "Dafan Al Khor" },
+      ],
+    };
+    return locations[cityKey] || [];
   };
+
+  const getBatumiStreets = () => getCityLocations('batumi');
 
   const handleCountryChange = (value: string) => {
     setFormData(prev => ({ ...prev, country: value, city: '', location: '' }));
@@ -1092,60 +1234,62 @@ const PropertyForm = () => {
                       </div>
                     )}
                   </div>
-                ) : formData.city && formData.city.split(',').some(c => c === 'batumi') ? (
+                ) : formData.city ? (
                   <div className="border border-gray-300 rounded-md p-3 bg-white">
-                    <div className="text-sm text-gray-600 mb-2">Select multiple Batumi locations:</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                      {getBatumiStreets().map((street) => {
-                        const selectedLocations = Array.isArray(formData.location) ? formData.location : (formData.location ? formData.location.split(',') : []);
-                        const isSelected = selectedLocations.includes(street.value);
-                        
-                        return (
-                          <label key={street.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                const currentLocations = Array.isArray(formData.location) ? formData.location : (formData.location ? formData.location.split(',') : []);
-                                let newLocations;
-                                if (e.target.checked) {
-                                  newLocations = [...currentLocations, street.value];
-                                } else {
-                                  newLocations = currentLocations.filter(loc => loc !== street.value);
-                                }
-                                handleInputChange('location', newLocations.join(','));
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm">{street.label}</span>
-                          </label>
-                        );
-                      })}
+                    <div className="text-sm text-gray-600 mb-2">Select locations:</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                      {(() => {
+                        const cities = formData.city.split(',').filter(c => c);
+                        const allLocations: { value: string; label: string; city: string }[] = [];
+                        cities.forEach(c => {
+                          getCityLocations(c).forEach(loc => allLocations.push({ ...loc, city: c }));
+                        });
+                        return allLocations.map((loc) => {
+                          const selectedLocations = formData.location ? formData.location.split(',') : [];
+                          const isSelected = selectedLocations.includes(loc.value);
+                          return (
+                            <label key={loc.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const currentLocations = formData.location ? formData.location.split(',').filter(l => l) : [];
+                                  let newLocations;
+                                  if (e.target.checked) {
+                                    newLocations = [...currentLocations, loc.value];
+                                  } else {
+                                    newLocations = currentLocations.filter(l => l !== loc.value);
+                                  }
+                                  handleInputChange('location', newLocations.join(','));
+                                }}
+                                className="rounded border-gray-300"
+                              />
+                              <span className="text-sm">{loc.label}</span>
+                            </label>
+                          );
+                        });
+                      })()}
                     </div>
-                    {formData.location && (formData.location.includes(',') || formData.location.length > 0) && (
+                    {formData.location && formData.location.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-gray-200">
                         <div className="text-xs text-gray-500 mb-1">Selected locations:</div>
                         <div className="flex flex-wrap gap-1">
-                          {(Array.isArray(formData.location) ? formData.location : formData.location.split(',')).filter(loc => loc).map((locationValue) => {
-                            const streetData = getBatumiStreets().find(s => s.value === locationValue);
+                          {formData.location.split(',').filter(loc => loc).map((locationValue) => {
+                            const cities = formData.city.split(',').filter(c => c);
+                            let label = locationValue;
+                            for (const c of cities) {
+                              const found = getCityLocations(c).find(s => s.value === locationValue);
+                              if (found) { label = found.label; break; }
+                            }
                             return (
                               <Badge key={locationValue} variant="secondary" className="text-xs">
-                                {streetData ? streetData.label : locationValue}
+                                {label}
                               </Badge>
                             );
                           })}
                         </div>
                       </div>
                     )}
-                  </div>
-                ) : formData.city ? (
-                  <div>
-                    <Input
-                      value={formData.location}
-                      onChange={(e) => handleInputChange('location', e.target.value)}
-                      placeholder="Enter specific location or address..."
-                    />
-                    <p className="text-xs text-gray-500 mt-1">💡 You can also use the "📍 Pin from Map" button above to select a location on the map</p>
                   </div>
                 ) : (
                   <div className="border border-gray-300 rounded-md p-3 bg-gray-50">
