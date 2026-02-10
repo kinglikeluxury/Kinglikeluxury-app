@@ -117,7 +117,7 @@ export default function Blog() {
                         </Badge>
                       ))}
                     </div>
-                    <CardTitle className="text-xl font-bold leading-tight text-[#005476] group-hover:text-[#3bcac4] transition-colors">
+                    <CardTitle className="text-xl font-bold leading-relaxed text-[#005476] group-hover:text-[#3bcac4] transition-colors">
                       {post.title}
                     </CardTitle>
                   </CardHeader>
