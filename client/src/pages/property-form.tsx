@@ -178,13 +178,7 @@ const PropertyForm = () => {
 
   useEffect(() => {
     if (!isEditMode) {
-      const saved = localStorage.getItem('propertyFormDraft');
-      if (saved) {
-        try {
-          const draft = JSON.parse(saved);
-          if (draft.formData) setFormData(prev => ({ ...prev, ...draft.formData }));
-        } catch (e) {}
-      }
+      localStorage.removeItem('propertyFormDraft');
     }
   }, [isEditMode]);
   
@@ -2215,23 +2209,6 @@ const PropertyForm = () => {
                 Cancel
               </Button>
             </Link>
-            {!isEditMode && (
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={() => {
-                  localStorage.setItem('propertyFormDraft', JSON.stringify({ formData, propertyType }));
-                  const toastEl = document.createElement('div');
-                  toastEl.textContent = 'Draft saved successfully!';
-                  toastEl.className = 'fixed bottom-4 right-4 bg-[#3bcac4] text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-bottom-4';
-                  document.body.appendChild(toastEl);
-                  setTimeout(() => toastEl.remove(), 3000);
-                }}
-                className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4]/10"
-              >
-                Save Draft
-              </Button>
-            )}
             {isEditMode ? (
               <Button 
                 type="button" 
