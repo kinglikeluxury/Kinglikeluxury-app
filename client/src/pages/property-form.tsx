@@ -1706,6 +1706,7 @@ const PropertyForm = () => {
                   {[
                     // Basic Amenities
                     '🏊 Swimming Pool',
+                    '🎰 Casino',
                     '💪 Gym/Fitness Center',
                     '🚗 Parking',
                     '🌿 Balcony',
