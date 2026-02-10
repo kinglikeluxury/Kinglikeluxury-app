@@ -1209,7 +1209,8 @@ const PropertyForm = () => {
                             '🏘️ Townhouse',
                             '🏛️ Loft',
                             '🌿 Garden Apartment',
-                            '🏢 High-rise Unit'
+                            '🏢 High-rise Unit',
+                            '🏡 Villa'
                           ].map((bedroomType) => {
                             const selectedBedrooms = formData.bedrooms;
                             const isSelected = selectedBedrooms.includes(bedroomType);
