@@ -1421,18 +1421,24 @@ const PropertyForm = () => {
 
                 <div>
                   <Label htmlFor="purpose">Purpose *</Label>
-                  <Select 
-                    value={formData.purpose} 
-                    onValueChange={(value) => handleInputChange('purpose', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select purpose" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="buy">🏠 For Sale</SelectItem>
-                      <SelectItem value="rent">🏡 For Rent</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {propertyType === PROPERTY_TYPES.PROJECT || propertyType === PROPERTY_TYPES.LAND ? (
+                    <div className="border border-gray-300 rounded-md p-3 bg-gray-50">
+                      <span className="text-sm font-medium">🏠 For Buy</span>
+                    </div>
+                  ) : (
+                    <Select 
+                      value={formData.purpose} 
+                      onValueChange={(value) => handleInputChange('purpose', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select purpose" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="buy">🏠 For Buy</SelectItem>
+                        <SelectItem value="rent">🏡 For Rent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {/* Rental-specific fields */}
