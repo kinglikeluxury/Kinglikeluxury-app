@@ -123,7 +123,7 @@ export const BlogSection = () => {
             ))
           ) : (
             displayPosts.map((post) => (
-              <div key={post.id} className="bg-white rounded-lg overflow-hidden shadow-lg transition-all duration-300 hover:shadow-xl group">
+              <a key={post.id} href={`/blog/${post.slug}`} className="bg-white rounded-lg overflow-hidden shadow-lg transition-all duration-300 hover:shadow-xl group block cursor-pointer">
                 <div className="relative h-64 overflow-hidden">
                   <img
                     src={post.coverImage}
@@ -168,12 +168,12 @@ export const BlogSection = () => {
                     {post.excerpt}
                   </p>
                   
-                  <div className="inline-flex items-center text-[#3bcac4] hover:text-[#005476] font-medium cursor-pointer" onClick={() => window.location.href = `/blog/${post.slug}`}>
+                  <div className="inline-flex items-center text-[#3bcac4] hover:text-[#005476] font-medium">
                     {t('home.insights.readArticle', 'Read Article')}
                     <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </div>
                 </div>
-              </div>
+              </a>
             ))
           )}
         </div>

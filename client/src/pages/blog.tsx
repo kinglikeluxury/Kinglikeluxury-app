@@ -92,55 +92,57 @@ export default function Blog() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {blogPosts.map((post: any) => (
-              <Card key={post.id} className="h-full hover:shadow-lg transition-shadow overflow-hidden">
-                {post.coverImage && (
-                  <div className="relative h-48 overflow-hidden">
-                    <img
-                      src={post.coverImage}
-                      alt={post.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 left-3">
-                      <span className="text-xs bg-white/90 backdrop-blur-sm text-[#005476] px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {post.country === 'uae' ? '🇦🇪 UAE' : '🇬🇪 Georgia'}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <CardHeader>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {Array.isArray(post.categories) && post.categories.map((cat: string, i: number) => (
-                      <Badge key={i} variant="secondary" className="text-xs bg-[#3bcac4]/10 text-[#005476]">
-                        {cat}
-                      </Badge>
-                    ))}
-                  </div>
-                  <CardTitle className="text-xl font-bold leading-tight text-[#005476]">
-                    {post.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      {post.excerpt || post.content?.substring(0, 150) + "..."}
-                    </p>
-                    
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>{post.author?.username || post.author?.email || "Admin"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4" />
-                        <span>
-                          {post.createdAt ? new Intl.DateTimeFormat(lang || 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(post.createdAt)) : "Recently"}
+              <a key={post.id} href={`/blog/${post.slug}`} className="block h-full">
+                <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden cursor-pointer group">
+                  {post.coverImage && (
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={post.coverImage}
+                        alt={post.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute top-3 left-3">
+                        <span className="text-xs bg-white/90 backdrop-blur-sm text-[#005476] px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {post.country === 'uae' ? '🇦🇪 UAE' : '🇬🇪 Georgia'}
                         </span>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                  <CardHeader>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {Array.isArray(post.categories) && post.categories.map((cat: string, i: number) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-[#3bcac4]/10 text-[#005476]">
+                          {cat}
+                        </Badge>
+                      ))}
+                    </div>
+                    <CardTitle className="text-xl font-bold leading-tight text-[#005476] group-hover:text-[#3bcac4] transition-colors">
+                      {post.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        {post.excerpt || post.content?.substring(0, 150) + "..."}
+                      </p>
+                      
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>{post.author?.username || post.author?.email || "Admin"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="h-4 w-4" />
+                          <span>
+                            {post.createdAt ? new Intl.DateTimeFormat(lang || 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(post.createdAt)) : "Recently"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </a>
             ))}
           </div>
         )}
