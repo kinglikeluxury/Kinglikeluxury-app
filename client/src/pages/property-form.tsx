@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { Redirect, useLocation, useRoute } from "wouter";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -543,8 +543,10 @@ const PropertyForm = () => {
     setShowListingTypePopup(true);
   };
 
+  const submitLockRef = useRef(false);
   const submitProperty = async (listingType: 'free' | 'featured' = 'free', expirationDate?: string) => {
-    if (isSubmitting) return;
+    if (isSubmitting || submitLockRef.current) return;
+    submitLockRef.current = true;
     setIsSubmitting(true);
     
     try {
@@ -678,6 +680,7 @@ const PropertyForm = () => {
       throw error; // Re-throw for payment handler to catch
     } finally {
       setIsSubmitting(false);
+      submitLockRef.current = false;
     }
   };
   
