@@ -54,7 +54,7 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
         const center = getCenter();
         const map = L.map(mapRef.current).setView([center.lat, center.lng], center.zoom);
 
-        L.tileLayer('https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           attribution: '© Google Maps',
           maxZoom: 20
         }).addTo(map);
