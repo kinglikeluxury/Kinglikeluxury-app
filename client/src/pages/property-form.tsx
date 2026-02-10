@@ -2210,35 +2210,55 @@ const PropertyForm = () => {
 
           {/* Submit Button */}
           <div className="flex justify-end space-x-4">
-            <Link href="/submit-property">
+            <Link href={isEditMode ? `/property/${propertyId}` : "/submit-property"}>
               <Button type="button" variant="outline">
                 Cancel
               </Button>
             </Link>
-            <Button 
-              type="button" 
-              variant="outline"
-              onClick={() => {
-                localStorage.setItem('propertyFormDraft', JSON.stringify({ formData, propertyType }));
-                const toast = document.createElement('div');
-                toast.textContent = 'Draft saved successfully!';
-                toast.className = 'fixed bottom-4 right-4 bg-[#3bcac4] text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-bottom-4';
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-              }}
-              className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4]/10"
-            >
-              Save Draft
-            </Button>
-            <Button 
-              type="button" 
-              disabled={isSubmitting}
-              onClick={() => { if (!isSubmitting) setShowListingTypePopup(true); }}
-              data-testid="button-submit-property"
-              className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
-            >
-              {isSubmitting ? 'Submitting...' : `Submit ${getPropertyTypeTitle(propertyType)}`}
-            </Button>
+            {!isEditMode && (
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => {
+                  localStorage.setItem('propertyFormDraft', JSON.stringify({ formData, propertyType }));
+                  const toastEl = document.createElement('div');
+                  toastEl.textContent = 'Draft saved successfully!';
+                  toastEl.className = 'fixed bottom-4 right-4 bg-[#3bcac4] text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-bottom-4';
+                  document.body.appendChild(toastEl);
+                  setTimeout(() => toastEl.remove(), 3000);
+                }}
+                className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4]/10"
+              >
+                Save Draft
+              </Button>
+            )}
+            {isEditMode ? (
+              <Button 
+                type="button" 
+                disabled={isSubmitting}
+                onClick={async () => {
+                  if (isSubmitting) return;
+                  if (!formData.title || !formData.description || !formData.price) {
+                    alert('Please fill in all required fields (title, description, price).');
+                    return;
+                  }
+                  await submitProperty('free');
+                }}
+                className={`bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
+              </Button>
+            ) : (
+              <Button 
+                type="button" 
+                disabled={isSubmitting}
+                onClick={() => { if (!isSubmitting) setShowListingTypePopup(true); }}
+                data-testid="button-submit-property"
+                className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
+              >
+                {isSubmitting ? 'Submitting...' : `Submit ${getPropertyTypeTitle(propertyType)}`}
+              </Button>
+            )}
           </div>
         </form>
         
