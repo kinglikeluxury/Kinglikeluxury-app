@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bed, Bath, Home, ArrowRight, Heart, Star } from "lucide-react";
+import { Bed, Bath, Home, ArrowRight, Heart, Star, Trash2 } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslateText } from "@/hooks/useAutoTranslate";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface PropertyCardProps {
   id: number;
@@ -21,6 +24,7 @@ interface PropertyCardProps {
   status: string;
   isFeatured?: boolean;
   topRated?: boolean | null;
+  showDelete?: boolean;
 }
 
 const PropertyCard = ({
@@ -36,11 +40,29 @@ const PropertyCard = ({
   status,
   isFeatured = false,
   topRated = false,
+  showDelete = true,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorited = isFavorite(id);
   const translatedTitle = useAutoTranslateText(title);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await apiRequest("DELETE", `/api/properties/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
+      toast({ title: t('property.deleted', 'Property deleted successfully') });
+    } catch (err: any) {
+      toast({ title: t('property.deleteError', 'Failed to delete property'), variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setShowConfirm(false);
+    }
+  };
   const getPropertyTypeColor = () => {
     // Use consistent Kinglike blue color (#005476) for all property types
     return "bg-[#005476] text-white";
@@ -150,19 +172,58 @@ const PropertyCard = ({
             {getPropertyTypeName()}
           </Badge>
         </div>
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleFavorite({ id, title, price, type: propertyType });
-          }}
-          className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md"
-          aria-label={favorited ? t('favorites.remove', 'Remove from favorites') : t('favorites.add', 'Add to favorites')}
-        >
-          <Heart className={`h-5 w-5 transition-colors ${favorited ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-600'}`} />
-        </button>
+        <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleFavorite({ id, title, price, type: propertyType });
+            }}
+            className="p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md"
+            aria-label={favorited ? t('favorites.remove', 'Remove from favorites') : t('favorites.add', 'Add to favorites')}
+          >
+            <Heart className={`h-5 w-5 transition-colors ${favorited ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-600'}`} />
+          </button>
+          {showDelete && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowConfirm(true);
+              }}
+              className="p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-red-50 transition-all shadow-md"
+              aria-label={t('property.delete', 'Delete property')}
+            >
+              <Trash2 className="h-5 w-5 text-red-500" />
+            </button>
+          )}
+        </div>
+        {showConfirm && (
+          <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center rounded-t-lg">
+            <div className="bg-white rounded-lg p-4 mx-4 text-center shadow-xl">
+              <p className="text-sm font-medium text-gray-900 mb-3">{t('property.confirmDelete', 'Delete this property?')}</p>
+              <div className="flex gap-2 justify-center">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(); }}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? '...' : t('common.delete', 'Delete')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowConfirm(false); }}
+                >
+                  {t('common.cancel', 'Cancel')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {isFeatured && (
-          <div className="absolute top-2 right-12">
+          <div className="absolute top-2 right-14">
             <Badge className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white">Featured</Badge>
           </div>
         )}

@@ -514,6 +514,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/properties/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      if (property.ownerId !== req.session.userId && !req.session.isAdmin) {
+        return res.status(403).json({ message: "Not authorized to delete this property" });
+      }
+      
+      const deleted = await storage.deleteProperty(id);
+      if (deleted) {
+        res.json({ message: "Property deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete property" });
+      }
+    } catch (error) {
+      console.error('Error deleting property:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Admin routes for property approval
   app.patch("/api/properties/:id/status", isAdmin, async (req, res) => {
     try {
