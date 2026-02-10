@@ -674,7 +674,7 @@ const PropertyDetail = () => {
                     <Separator className="my-4" />
                     
                     {/* Contact Agent via WhatsApp */}
-                    <Button className="w-full bg-[#25D366] hover:bg-[#25D366]/90 text-white" asChild>
+                    <Button className="w-full bg-[#005476] hover:bg-[#005476]/90 text-white" asChild>
                       <a 
                         href={`https://wa.me/995591000058?text=Hi%20Kinglike%20luxury,%0AI%20found%20this%20${encodeURIComponent(property.propertyType === 'project' ? 'project' : 'property')}%20"${encodeURIComponent(property.title)}"%20(ID:%20${property.id})%20on%20your%20App,%20may%20I%20have%20more%20information%20about%20it?`}
                         target="_blank" 
