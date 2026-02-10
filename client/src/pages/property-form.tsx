@@ -174,6 +174,18 @@ const PropertyForm = () => {
       setPropertyType(existingProperty.propertyType || '');
     }
   }, [existingProperty, isEditMode, isLoadingProperty, user?.id, user?.isAdmin, toast]);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      const saved = localStorage.getItem('propertyFormDraft');
+      if (saved) {
+        try {
+          const draft = JSON.parse(saved);
+          if (draft.formData) setFormData(prev => ({ ...prev, ...draft.formData }));
+        } catch (e) {}
+      }
+    }
+  }, [isEditMode]);
   
   // Show loading state while checking authentication
   if (isLoading) {
@@ -2203,6 +2215,21 @@ const PropertyForm = () => {
                 Cancel
               </Button>
             </Link>
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={() => {
+                localStorage.setItem('propertyFormDraft', JSON.stringify({ formData, propertyType }));
+                const toast = document.createElement('div');
+                toast.textContent = 'Draft saved successfully!';
+                toast.className = 'fixed bottom-4 right-4 bg-[#3bcac4] text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-bottom-4';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+              }}
+              className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4]/10"
+            >
+              Save Draft
+            </Button>
             <Button 
               type="button" 
               disabled={isSubmitting}
