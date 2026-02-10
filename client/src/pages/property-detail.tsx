@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart, Star } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useAutoTranslate, useAutoTranslateArray } from "@/hooks/useAutoTranslate";
 
 const PropertyDetail = () => {
   const { t } = useTranslation();
@@ -64,6 +65,12 @@ const PropertyDetail = () => {
   const project = projectData?.find(p => p.propertyId === propertyId);
 
   const isLoading = isLoadingProperty || (property?.propertyType === 'project' && isLoadingProject);
+
+  const translatedTexts = useAutoTranslate({
+    title: property?.title,
+    description: property?.description,
+  });
+  const translatedFeatures = useAutoTranslateArray(property?.features || []);
 
   // Scroll to top when component mounts or property changes
   useEffect(() => {
@@ -320,7 +327,7 @@ const PropertyDetail = () => {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">{translatedTexts.title || property.title}</h1>
                     <button
                       onClick={() => toggleFavorite({ id: property.id, title: property.title, price: property.price, type: property.propertyType })}
                       className={`p-2 rounded-full border-2 transition-all ${isFavorite(property.id) ? 'border-[#3bcac4] bg-[#3bcac4]/10 hover:bg-[#3bcac4]/20' : 'border-gray-300 bg-white hover:bg-gray-50'}`}
@@ -505,7 +512,7 @@ const PropertyDetail = () => {
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Description</h3>
-                    <p className="text-gray-700 whitespace-pre-line">{property.description}</p>
+                    <p className="text-gray-700 whitespace-pre-line">{translatedTexts.description || property.description}</p>
                   </div>
                   
                   <Separator />
@@ -559,9 +566,9 @@ const PropertyDetail = () => {
                   <h3 className="text-xl font-semibold mb-4">Features & Amenities</h3>
                   {property.features.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {property.features.map((feature, idx) => (
+                      {translatedFeatures.map((feature, idx) => (
                         <div key={idx} className="flex items-center">
-                          {getFeatureIcon(feature)}
+                          {getFeatureIcon(property.features[idx] || feature)}
                           <span>{feature}</span>
                         </div>
                       ))}

@@ -1125,5 +1125,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return countryMap[cityCode] || cityMap[cityCode] || null;
   }
 
+  const translationCache = new Map<string, { text: string; timestamp: number }>();
+  const TRANSLATION_CACHE_TTL = 24 * 60 * 60 * 1000;
+  const MAX_SERVER_CACHE = 1000;
+
+  function simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash.toString(36) + '_' + str.length;
+  }
+
+  let translateFn: any = null;
+
+  app.post("/api/translate", async (req, res) => {
+    try {
+      const { texts, targetLang } = req.body;
+      
+      if (!texts || !targetLang || !Array.isArray(texts)) {
+        return res.status(400).json({ message: "texts (array) and targetLang are required" });
+      }
+
+      if (texts.length > 20) {
+        return res.status(400).json({ message: "Maximum 20 texts per request" });
+      }
+
+      const langMap: Record<string, string> = {
+        en: 'en', ar: 'ar', he: 'iw', ru: 'ru', 
+        ka: 'ka', az: 'az', tr: 'tr', zh: 'zh-CN', pl: 'pl'
+      };
+      const target = langMap[targetLang] || targetLang;
+
+      if (!translateFn) {
+        const translateModule = await import('@vitalets/google-translate-api');
+        translateFn = translateModule.translate || translateModule.default;
+      }
+
+      if (translationCache.size > MAX_SERVER_CACHE) {
+        const entries = Array.from(translationCache.entries());
+        entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+        entries.slice(0, 200).forEach(([key]) => translationCache.delete(key));
+      }
+
+      const results: string[] = [];
+
+      for (const text of texts) {
+        if (!text || text.trim().length === 0) {
+          results.push(text || '');
+          continue;
+        }
+
+        const cacheKey = `${simpleHash(text)}_${target}`;
+        const cached = translationCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < TRANSLATION_CACHE_TTL) {
+          results.push(cached.text);
+          continue;
+        }
+
+        try {
+          const result = await translateFn(text, { to: target });
+          translationCache.set(cacheKey, { text: result.text, timestamp: Date.now() });
+          results.push(result.text);
+        } catch (err) {
+          console.error('Translation error:', err);
+          results.push(text);
+        }
+      }
+
+      res.json({ translations: results });
+    } catch (error) {
+      console.error('Translation endpoint error:', error);
+      res.status(500).json({ message: "Translation failed" });
+    }
+  });
+
   return httpServer;
 }

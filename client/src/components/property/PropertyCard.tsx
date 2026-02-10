@@ -6,6 +6,7 @@ import { Bed, Bath, Home, ArrowRight, Heart, Star } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useAutoTranslateText } from "@/hooks/useAutoTranslate";
 
 interface PropertyCardProps {
   id: number;
@@ -39,6 +40,7 @@ const PropertyCard = ({
   const { t } = useTranslation();
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorited = isFavorite(id);
+  const translatedTitle = useAutoTranslateText(title);
   const getPropertyTypeColor = () => {
     // Use consistent Kinglike blue color (#005476) for all property types
     return "bg-[#005476] text-white";
@@ -180,7 +182,7 @@ const PropertyCard = ({
       <CardContent className="p-4 flex-1 flex flex-col">
         <div className="flex justify-between items-start mb-1">
           <div>
-            <h3 className="text-lg font-medium text-gray-900 line-clamp-1">{title || 'Untitled Property'}</h3>
+            <h3 className="text-lg font-medium text-gray-900 line-clamp-1">{translatedTitle || title || 'Untitled Property'}</h3>
             <p className="text-gray-500 text-sm">{location || 'Location not specified'}</p>
           </div>
           <p className="text-lg font-bold text-primary-600">{getPriceRange(price || 0)}</p>
