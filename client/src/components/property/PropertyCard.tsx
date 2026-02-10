@@ -191,7 +191,15 @@ const PropertyCard = ({
         <div className="-mt-1 flex items-center justify-between text-sm text-gray-500">
           <div className="flex items-center">
             <Home className="h-4 w-4 mr-1" />
-            <span>{area || 0} sqft</span>
+            <span>{(() => {
+              const areaStr = String(area || 0);
+              if (areaStr.includes(',')) {
+                const vals = areaStr.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+                if (vals.length > 1) return `${Math.min(...vals)} - ${Math.max(...vals)} m²`;
+                if (vals.length === 1) return `${vals[0]} m²`;
+              }
+              return `${areaStr} m²`;
+            })()}</span>
           </div>
           
           {bedrooms != null && (

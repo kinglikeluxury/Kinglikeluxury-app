@@ -923,18 +923,28 @@ const PropertyForm = () => {
                         );
                       })}
                     </div>
-                    {formData.area && (formData.area.includes(',') || formData.area.length > 0) && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="text-xs text-gray-500 mb-1">Selected areas:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {(Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter(area => area).map((area) => (
-                            <Badge key={area} variant="secondary" className="text-xs">
-                              {area} m²
-                            </Badge>
-                          ))}
+                    {formData.area && (formData.area.includes(',') || formData.area.length > 0) && (() => {
+                      const selectedAreas = (Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter(a => a);
+                      const numericAreas = selectedAreas.map(v => parseInt(v)).filter(v => !isNaN(v));
+                      return (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          {numericAreas.length > 1 ? (
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-gray-500">Users will see:</div>
+                              <Badge variant="default" className="bg-[#005476] text-white text-sm">
+                                {Math.min(...numericAreas)} - {Math.max(...numericAreas)} m²
+                              </Badge>
+                              <span className="text-xs text-gray-400">({numericAreas.length} selected)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-gray-500">Selected:</div>
+                              <Badge variant="secondary" className="text-xs">{selectedAreas[0]} m²</Badge>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
