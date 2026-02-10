@@ -98,6 +98,8 @@ const PropertyForm = () => {
     },
     // Delivery date
     deliveryDate: '',
+    // Ready status
+    readyStatus: '',
     // Top rated for off-plan projects
     topRated: false
   });
@@ -181,6 +183,7 @@ const PropertyForm = () => {
           projectStatus: 'Now Selling'
         },
         deliveryDate: '',
+        readyStatus: (existingProperty as any).readyStatus || '',
         topRated: existingProperty.topRated || false
       });
       
@@ -444,6 +447,10 @@ const PropertyForm = () => {
         throw new Error('Area or price range must be specified');
       }
 
+      if (!formData.readyStatus) {
+        throw new Error('Ready status is required');
+      }
+
       // Prepare property data
       const propertyData = {
         title: formData.title,
@@ -461,7 +468,8 @@ const PropertyForm = () => {
         features: formData.features || [],
         amenities: formData.amenities || [],
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
-        listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null)
+        listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
+        readyStatus: formData.readyStatus || null
       };
 
       // Add project details if it's a project type
@@ -1656,6 +1664,32 @@ const PropertyForm = () => {
                   💡 <strong>Tip:</strong> Include utilities, parking, or other costs in the description if they're separate from the base rent.
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Ready Status Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('readyStatus.title', 'Ready Status')} *</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="readyStatus">{t('readyStatus.label', 'Select property ready status')} *</Label>
+                <Select 
+                  value={formData.readyStatus || ''} 
+                  onValueChange={(value) => handleInputChange('readyStatus', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('readyStatus.placeholder', 'Select ready status...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="turnkey">🔑 {t('readyStatus.turnkey', 'Ready to move in as Turnkey')}</SelectItem>
+                    <SelectItem value="white_frame">🏗️ {t('readyStatus.whiteFrame', 'Ready to move in as White Frame')}</SelectItem>
+                    <SelectItem value="green_frame">🌿 {t('readyStatus.greenFrame', 'Ready to move in as Green Frame')}</SelectItem>
+                    <SelectItem value="black_frame">⬛ {t('readyStatus.blackFrame', 'Ready to move in as Black Frame')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 
