@@ -715,6 +715,23 @@ const PropertyForm = () => {
               </div>
 
               <div>
+                <Label htmlFor="customPrice">Or enter price manually (USD)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                  <Input
+                    id="customPrice"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 350000"
+                    className="pl-7"
+                    value={formData.price && !['25000','50000','75000','100000','125000','150000','175000','200000','225000','250000','275000','300000','325000','350000','375000','400000','425000','450000','475000','500000','600000','700000','800000','900000','1000000','1100000','1200000','1300000','1400000','1500000','1600000','1700000','1800000','1900000','2000000'].includes(formData.price) ? formData.price : ''}
+                    onChange={(e) => handleInputChange('price', e.target.value)}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
+              </div>
+
+              <div>
                 <Label htmlFor="description">Description *</Label>
                 <Textarea
                   id="description"
