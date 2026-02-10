@@ -49,7 +49,7 @@ const formSchema = insertPropertySchema.extend({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(20, "Description must be at least 20 characters"),
   price: z.number().min(1, "Price must be greater than 0"),
-  area: z.number().min(1, "Area must be greater than 0"),
+  area: z.string().min(1, "Area is required"),
   location: z.string().min(3, "Location must be at least 3 characters"),
   images: z.array(z.string()).min(1, "At least one image URL is required"),
   videos: z.array(z.string()).optional().default([]), // Add videos array
@@ -121,7 +121,7 @@ const PropertyForm = ({ isAdmin = false }) => {
       title: "",
       description: "",
       price: 0,
-      area: 0,
+      area: "",
       location: "",
       propertyType: isAdmin ? PROPERTY_TYPES.PROJECT : PROPERTY_TYPES.APARTMENT,
       images: [],
@@ -164,9 +164,9 @@ const PropertyForm = ({ isAdmin = false }) => {
         title: existingProperty.title || "",
         description: existingProperty.description || "",
         price: existingProperty.price || 0,
-        area: existingProperty.area || 0,
+        area: existingProperty.area || "0",
         location: existingProperty.location || "",
-        propertyType: existingProperty.propertyType || PROPERTY_TYPES.APARTMENT,
+        propertyType: (existingProperty.propertyType as typeof PROPERTY_TYPES[keyof typeof PROPERTY_TYPES]) || PROPERTY_TYPES.APARTMENT,
         images: existingProperty.images || [],
         videos: existingProperty.videos || [],
         features: existingProperty.features || [],
@@ -188,8 +188,9 @@ const PropertyForm = ({ isAdmin = false }) => {
   
   // Calculate price per square foot whenever price or area changes
   useEffect(() => {
-    if (price && area && area > 0) {
-      setPricePerSqft(Number((price / area).toFixed(2)));
+    const areaNum = parseFloat(area);
+    if (price && areaNum && areaNum > 0) {
+      setPricePerSqft(Number((price / areaNum).toFixed(2)));
     } else {
       setPricePerSqft(null);
     }

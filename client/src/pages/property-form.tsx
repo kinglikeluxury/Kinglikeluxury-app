@@ -167,7 +167,8 @@ const PropertyForm = () => {
           completionDate: '',
           projectStatus: 'Now Selling'
         },
-        deliveryDate: ''
+        deliveryDate: '',
+        topRated: existingProperty.topRated || false
       });
       
       // Set property type
@@ -444,7 +445,7 @@ const PropertyForm = () => {
         ownerId: user.id,
         location: getLocationString(),
         price: parseInt(formData.price) || 0,
-        area: formData.area ? parseInt(formData.area) : parseInt(formData.price) || 100, // Use area or fallback to price range or default
+        area: formData.area || String(parseInt(formData.price) || 100),
         bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : (formData.bedrooms || 1),
         bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : (formData.bathrooms || 1),
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
