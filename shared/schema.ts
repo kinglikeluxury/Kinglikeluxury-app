@@ -101,7 +101,7 @@ export const properties = pgTable("properties", {
   conditionScore: integer("condition_score").default(75),
   investmentScore: integer("investment_score").default(68),
   overallScore: integer("overall_score").default(70),
-  status: text("status").notNull().default(PROPERTY_STATUS.PENDING),
+  status: text("status").notNull().default(PROPERTY_STATUS.APPROVED),
   ownerId: integer("owner_id")
     .notNull()
     .references(() => users.id),
