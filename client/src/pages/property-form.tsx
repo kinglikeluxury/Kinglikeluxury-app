@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import LocationSelector from "@/components/property/LocationSelector";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Upload, X, Plus, Map, List, MapPin } from "lucide-react";
+import { ArrowLeft, Upload, X, Plus, Map, List, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { VideoUploader } from "@/components/VideoUploader";
@@ -85,7 +85,9 @@ const PropertyForm = () => {
       projectStatus: 'Now Selling'
     },
     // Delivery date
-    deliveryDate: ''
+    deliveryDate: '',
+    // Top rated for off-plan projects
+    topRated: false
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -451,7 +453,8 @@ const PropertyForm = () => {
             developer: formData.projectDetails?.developer || formData.title,
             completionDate: formData.projectDetails?.completionDate || formData.deliveryDate || 'Q4 2024',
             projectStatus: formData.projectDetails?.projectStatus || 'Now Selling'
-          }
+          },
+          topRated: formData.topRated || false
         } : {})
       };
 
@@ -2162,6 +2165,26 @@ const PropertyForm = () => {
               initialVideos={formData.videos}
             />
           </div>
+
+          {/* Top Rated Option - Only for Off-Plan Projects */}
+          {propertyType === 'project' && (
+            <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.topRated}
+                  onChange={(e) => setFormData(prev => ({ ...prev, topRated: e.target.checked }))}
+                  className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
+                />
+                <span className="font-medium text-gray-900">Top Rated Project</span>
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]" />
+                  ))}
+                </div>
+              </label>
+            </div>
+          )}
 
           {/* Submit Button */}
           <div className="flex justify-end space-x-4">
