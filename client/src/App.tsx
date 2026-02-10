@@ -20,6 +20,7 @@ import AddProject from "@/pages/admin/add-project";
 import BlogManagement from "@/pages/admin/blog-management";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
+import BlogPost from "@/pages/blog-post";
 import Favorites from "@/pages/favorites";
 import InstallPWA from "@/components/InstallPWA";
 import { useTranslation } from "react-i18next";
@@ -36,6 +37,7 @@ function Router() {
           <Route path="/properties" component={Properties} />
           <Route path="/projects" component={Projects} />
           <Route path="/blog" component={Blog} />
+          <Route path="/blog/:slug" component={BlogPost} />
           <Route path="/property/:id" component={PropertyDetail} />
           <Route path="/submit-property" component={SubmitProperty} />
           <Route path="/submit-property/form" component={PropertyForm} />

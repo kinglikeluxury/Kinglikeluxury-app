@@ -796,6 +796,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/blog/slug/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const { lang } = req.query;
+      const blogPost = await storage.getBlogPostBySlug(slug);
+      
+      if (!blogPost) {
+        return res.status(404).json({ message: "Blog post not found" });
+      }
+      
+      if (lang) {
+        const t = (blogPost as any).translations?.[lang as string];
+        if (t) {
+          return res.json({ ...blogPost, title: t.title, content: t.content, excerpt: t.excerpt });
+        }
+      }
+
+      res.json(blogPost);
+    } catch (error) {
+      console.error('Error fetching blog post by slug:', error);
+      res.status(500).json({ message: "Failed to fetch blog post" });
+    }
+  });
+
   app.get("/api/blog/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
