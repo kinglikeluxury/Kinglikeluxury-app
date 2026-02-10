@@ -359,11 +359,11 @@ const PropertyDetail = () => {
                 )}
                 
                 {property.topRated && (
-                  <Badge className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white flex items-center gap-1 px-3 py-1">
-                    <span className="font-semibold">Top Rated</span>
+                  <Badge className="bg-white border border-white shadow-md flex items-center gap-1 px-3 py-1">
+                    <span className="font-semibold text-[#005476]">Top Rated</span>
                     <div className="flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map((star) => (
-                        <Star key={star} className="h-3.5 w-3.5 fill-white text-white" />
+                        <Star key={star} className="h-3.5 w-3.5 fill-[#3bcac4] text-[#3bcac4]" />
                       ))}
                     </div>
                   </Badge>
