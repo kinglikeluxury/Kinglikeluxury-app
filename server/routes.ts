@@ -423,11 +423,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dedupeKey = `${req.session.userId}-${propertyData.title}-${propertyData.propertyType}`;
       const lastSubmission = recentSubmissions.get(dedupeKey);
       const now = Date.now();
-      if (lastSubmission && now - lastSubmission < 10000) {
+      if (lastSubmission && now - lastSubmission < 3000) {
         return res.status(429).json({ message: "Duplicate submission detected. Please wait a few seconds." });
       }
       recentSubmissions.set(dedupeKey, now);
-      setTimeout(() => recentSubmissions.delete(dedupeKey), 15000);
+      setTimeout(() => recentSubmissions.delete(dedupeKey), 5000);
       
       // Add watermark to all property images
       try {
@@ -612,11 +612,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dedupeKey = `project-${req.session.userId}-${propertyData.title}`;
       const lastSubmission = recentSubmissions.get(dedupeKey);
       const now = Date.now();
-      if (lastSubmission && now - lastSubmission < 10000) {
+      if (lastSubmission && now - lastSubmission < 3000) {
         return res.status(429).json({ message: "Duplicate submission detected. Please wait a few seconds." });
       }
       recentSubmissions.set(dedupeKey, now);
-      setTimeout(() => recentSubmissions.delete(dedupeKey), 15000);
+      setTimeout(() => recentSubmissions.delete(dedupeKey), 5000);
       
       try {
         const watermarkedImages = await processImages(propertyData.images);
