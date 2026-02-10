@@ -22,6 +22,18 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+const toEnglishDigits = (str: string): string => {
+  const digitMaps: Record<string, string> = {
+    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
+    '०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9',
+    '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9',
+    '〇':'0','一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9',
+    '零':'0','壹':'1','贰':'2','叁':'3','肆':'4','伍':'5','陆':'6','柒':'7','捌':'8','玖':'9',
+  };
+  return str.replace(/[^\d.]/g, (ch) => digitMaps[ch] || '').replace(/[^0-9.]/g, '');
+};
+
 const PropertyForm = () => {
   const { user, isLoading } = useAuth();
   const { t } = useTranslation();
@@ -720,12 +732,12 @@ const PropertyForm = () => {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
                   <Input
                     id="customPrice"
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="e.g. 350000"
                     className="pl-7"
                     value={formData.price && !['25000','50000','75000','100000','125000','150000','175000','200000','225000','250000','275000','300000','325000','350000','375000','400000','425000','450000','475000','500000','600000','700000','800000','900000','1000000','1100000','1200000','1300000','1400000','1500000','1600000','1700000','1800000','1900000','2000000'].includes(formData.price) ? formData.price : ''}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
+                    onChange={(e) => handleInputChange('price', toEnglishDigits(e.target.value))}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
@@ -1615,12 +1627,12 @@ const PropertyForm = () => {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
                   <Input
                     id="customPrice2"
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="e.g. 350000"
                     className="pl-7"
                     value={formData.price && !['500','750','1000','1250','1500','1750','2000','2500','3000','3500','4000','4500','5000','6000','7000','8000','9000','10000','12500','15000','20000','25000','30000','35000','40000','45000','50000','60000','70000','80000','90000','100000','125000','150000','175000','200000','225000','250000','275000','300000','325000','350000','375000','400000','425000','450000','475000','500000','550000','600000','650000','700000','750000','800000','850000','900000','950000','1000000','1100000','1200000','1300000','1400000','1500000','1600000','1700000','1800000','1900000','2000000'].includes(formData.price) ? formData.price : ''}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
+                    onChange={(e) => handleInputChange('price', toEnglishDigits(e.target.value))}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
