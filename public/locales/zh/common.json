@@ -300,5 +300,14 @@
     "priceRequired": "请选择价格范围",
     "typeRequired": "请选择房产类型",
     "selectType": "选择类型"
+  },
+  "readyStatus": {
+    "title": "就绪状态",
+    "label": "选择房产就绪状态",
+    "placeholder": "选择就绪状态...",
+    "turnkey": "可拎包入住 - 精装交付",
+    "whiteFrame": "可入住 - 白坯交付",
+    "greenFrame": "可入住 - 绿色框架",
+    "blackFrame": "可入住 - 黑色框架"
   }
 }

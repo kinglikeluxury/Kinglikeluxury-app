@@ -300,5 +300,14 @@
     "priceRequired": "Proszę wybrać przedział cenowy",
     "typeRequired": "Proszę wybrać typ nieruchomości",
     "selectType": "Wybierz typ"
+  },
+  "readyStatus": {
+    "title": "Status gotowości",
+    "label": "Wybierz status gotowości nieruchomości",
+    "placeholder": "Wybierz status gotowości...",
+    "turnkey": "Gotowy do zamieszkania - Pod klucz",
+    "whiteFrame": "Gotowy do zamieszkania - Biały szkielet",
+    "greenFrame": "Gotowy do zamieszkania - Zielony szkielet",
+    "blackFrame": "Gotowy do zamieszkania - Czarny szkielet"
   }
 }

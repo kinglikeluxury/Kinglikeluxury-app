@@ -537,6 +537,17 @@ const PropertyDetail = () => {
                           <span className="font-medium">{property.bathrooms}</span>
                         </div>
                       )}
+                      {(property as any).readyStatus && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">Ready Status</span>
+                          <span className="font-medium">
+                            {(property as any).readyStatus === 'turnkey' && '🔑 Turnkey'}
+                            {(property as any).readyStatus === 'white_frame' && '🏗️ White Frame'}
+                            {(property as any).readyStatus === 'green_frame' && '🌿 Green Frame'}
+                            {(property as any).readyStatus === 'black_frame' && '⬛ Black Frame'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

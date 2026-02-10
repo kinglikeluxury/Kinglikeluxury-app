@@ -64,6 +64,7 @@ const formSchema = insertPropertySchema.extend({
     PROPERTY_TYPES.COMMERCIAL,
     PROPERTY_TYPES.PROJECT,
   ]),
+  readyStatus: z.string().optional().nullable(),
   bedrooms: z.number().optional().nullable(),
   bathrooms: z.number().optional().nullable(),
   // For projects only (optional fields)
@@ -131,6 +132,7 @@ const PropertyForm = ({ isAdmin = false }) => {
       floorNumber: null,
       bedrooms: null,
       bathrooms: null,
+      readyStatus: null,
       ownerId: user?.id || 0,
       topRated: false,
     },
@@ -174,6 +176,7 @@ const PropertyForm = ({ isAdmin = false }) => {
         floorNumber: existingProperty.floorNumber || null,
         bedrooms: existingProperty.bedrooms || null,
         bathrooms: existingProperty.bathrooms || null,
+        readyStatus: (existingProperty as any).readyStatus || null,
         ownerId: existingProperty.ownerId || user?.id || 0,
         topRated: existingProperty.topRated || false,
       });
@@ -736,6 +739,36 @@ const PropertyForm = ({ isAdmin = false }) => {
                 />
               </div>
             )}
+
+            {/* Ready Status */}
+            <div>
+              <FormField
+                control={form.control}
+                name="readyStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ready Status *</FormLabel>
+                    <Select
+                      value={field.value || ''}
+                      onValueChange={(value) => field.onChange(value)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select ready status..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="turnkey">🔑 Ready to move in as Turnkey</SelectItem>
+                        <SelectItem value="white_frame">🏗️ Ready to move in as White Frame</SelectItem>
+                        <SelectItem value="green_frame">🌿 Ready to move in as Green Frame</SelectItem>
+                        <SelectItem value="black_frame">⬛ Ready to move in as Black Frame</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Features */}
             <div>

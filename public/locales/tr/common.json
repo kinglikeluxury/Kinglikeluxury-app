@@ -368,5 +368,14 @@
     "priceRequired": "Lütfen bir fiyat aralığı seçin",
     "typeRequired": "Lütfen bir mülk türü seçin",
     "selectType": "Tür Seçin"
+  },
+  "readyStatus": {
+    "title": "Hazırlık Durumu",
+    "label": "Mülk hazırlık durumunu seçin",
+    "placeholder": "Hazırlık durumunu seçin...",
+    "turnkey": "Taşınmaya hazır - Anahtar teslim",
+    "whiteFrame": "Taşınmaya hazır - Beyaz karkas",
+    "greenFrame": "Taşınmaya hazır - Yeşil karkas",
+    "blackFrame": "Taşınmaya hazır - Siyah karkas"
   }
 }

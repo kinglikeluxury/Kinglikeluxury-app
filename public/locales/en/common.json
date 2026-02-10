@@ -364,5 +364,14 @@
     "priceRequired": "Please select a price range",
     "typeRequired": "Please select a property type",
     "selectType": "Select Type"
+  },
+  "readyStatus": {
+    "title": "Ready Status",
+    "label": "Select property ready status",
+    "placeholder": "Select ready status...",
+    "turnkey": "Ready to move in as Turnkey",
+    "whiteFrame": "Ready to move in as White Frame",
+    "greenFrame": "Ready to move in as Green Frame",
+    "blackFrame": "Ready to move in as Black Frame"
   }
 }
