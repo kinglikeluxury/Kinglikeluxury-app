@@ -103,6 +103,7 @@ const PropertyForm = () => {
   });
   
   const [newFeature, setNewFeature] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
   const [newAmenity, setNewAmenity] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useMapSelection, setUseMapSelection] = useState(false);
@@ -736,8 +737,14 @@ const PropertyForm = () => {
                     inputMode="numeric"
                     placeholder="e.g. 350000"
                     className="pl-7"
-                    value={formData.price && !['25000','50000','75000','100000','125000','150000','175000','200000','225000','250000','275000','300000','325000','350000','375000','400000','425000','450000','475000','500000','600000','700000','800000','900000','1000000','1100000','1200000','1300000','1400000','1500000','1600000','1700000','1800000','1900000','2000000'].includes(formData.price) ? formData.price : ''}
-                    onChange={(e) => handleInputChange('price', toEnglishDigits(e.target.value))}
+                    value={customPrice}
+                    onChange={(e) => {
+                      const converted = toEnglishDigits(e.target.value);
+                      setCustomPrice(converted);
+                      if (converted) {
+                        handleInputChange('price', converted);
+                      }
+                    }}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
@@ -1631,8 +1638,14 @@ const PropertyForm = () => {
                     inputMode="numeric"
                     placeholder="e.g. 350000"
                     className="pl-7"
-                    value={formData.price && !['500','750','1000','1250','1500','1750','2000','2500','3000','3500','4000','4500','5000','6000','7000','8000','9000','10000','12500','15000','20000','25000','30000','35000','40000','45000','50000','60000','70000','80000','90000','100000','125000','150000','175000','200000','225000','250000','275000','300000','325000','350000','375000','400000','425000','450000','475000','500000','550000','600000','650000','700000','750000','800000','850000','900000','950000','1000000','1100000','1200000','1300000','1400000','1500000','1600000','1700000','1800000','1900000','2000000'].includes(formData.price) ? formData.price : ''}
-                    onChange={(e) => handleInputChange('price', toEnglishDigits(e.target.value))}
+                    value={customPrice}
+                    onChange={(e) => {
+                      const converted = toEnglishDigits(e.target.value);
+                      setCustomPrice(converted);
+                      if (converted) {
+                        handleInputChange('price', converted);
+                      }
+                    }}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
