@@ -658,21 +658,30 @@ const PropertyForm = () => {
       const result = await response.json();
       console.log(`Property ${isEditMode ? 'updated' : 'created'} successfully:`, result);
       
-      // Show success message
-      const listingTypeMessage = listingType === 'featured' ? 'as Featured Listing' : '';
-      toast({
-        title: `Property ${isEditMode ? 'Updated' : 'Created'}`,
-        description: `Your property has been ${isEditMode ? 'updated' : 'created'} successfully ${listingTypeMessage}.`,
-      });
+      if (result.pendingReview) {
+        toast({
+          title: t('property.underReview', 'Property Under Review'),
+          description: t('property.underReviewMessage', 'Your property has been submitted successfully and is currently under review by the application management. It will be published once approved.'),
+          duration: 8000,
+        });
+      } else {
+        const listingTypeMessage = listingType === 'featured' ? 'as Featured Listing' : '';
+        toast({
+          title: `Property ${isEditMode ? 'Updated' : 'Created'}`,
+          description: `Your property has been ${isEditMode ? 'updated' : 'created'} successfully ${listingTypeMessage}.`,
+        });
+      }
       
-      // For featured listings, return the result for payment processing
       if (listingType === 'featured') {
         return result;
       }
       
-      // For free listings, redirect immediately
-      const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
-      window.location.href = redirectUrl;
+      if (result.pendingReview) {
+        window.location.href = '/properties';
+      } else {
+        const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
+        window.location.href = redirectUrl;
+      }
       
     } catch (error) {
       console.error('Error submitting property:', error);

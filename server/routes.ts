@@ -437,13 +437,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Error adding watermarks to images:', err);
       }
       
-      // Set current user as owner
+      const isAdminUser = req.session.isAdmin === true;
+      
       const property = await storage.createProperty({
         ...propertyData,
         ownerId: req.session.userId!
       });
       
-      // If this is a project, create project details (for both admin and regular users)
+      if (isAdminUser) {
+        await storage.updatePropertyStatus(property.id, PROPERTY_STATUS.APPROVED);
+        property.status = PROPERTY_STATUS.APPROVED;
+      }
+      
       if (
         propertyData.propertyType === PROPERTY_TYPES.PROJECT && 
         req.body.projectDetails
@@ -456,7 +461,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createProject(projectData);
       }
       
-      res.status(201).json(property);
+      res.status(201).json({
+        ...property,
+        pendingReview: !isAdminUser
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
