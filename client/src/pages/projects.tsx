@@ -666,15 +666,17 @@ const Projects = () => {
               return (
                 <Card key={project.id} className="overflow-hidden flex flex-col">
                   <div className="flex-shrink-0 relative">
-                    <img 
-                      className="h-64 w-full object-cover" 
-                      src={projectImage}
-                      alt={propertyData.title}
-                      data-testid={`img-project-${project.id}`}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
-                    </div>
+                    <Link href={`/property/${project.propertyId}`} className="block">
+                      <img 
+                        className="h-64 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity" 
+                        src={projectImage}
+                        alt={propertyData.title}
+                        data-testid={`img-project-${project.id}`}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
+                      </div>
+                    </Link>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
