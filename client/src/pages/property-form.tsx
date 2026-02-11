@@ -602,7 +602,7 @@ const PropertyForm = () => {
         propertyType: propertyType, // Ensure propertyType is set
         ownerId: user.id,
         location: getLocationString() || (isEditMode && existingProperty ? existingProperty.location : 'Not specified'),
-        price: parseInt(formData.price) || 0,
+        price: parseInt(String(formData.price).replace(/[^0-9]/g, '')) || 0,
         area: formData.area || String(parseInt(formData.price) || 100),
         bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : (formData.bedrooms || 1),
         bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : (formData.bathrooms || 1),
