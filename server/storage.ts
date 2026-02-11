@@ -178,9 +178,7 @@ export class MemStorage implements IStorage {
     const property: Property = {
       ...propertyData,
       id,
-      status: propertyData.propertyType === PROPERTY_TYPES.PROJECT 
-        ? PROPERTY_STATUS.APPROVED 
-        : PROPERTY_STATUS.PENDING,
+      status: PROPERTY_STATUS.APPROVED,
       latitude: propertyData.latitude ?? null,
       longitude: propertyData.longitude ?? null,
       bedrooms: propertyData.bedrooms ?? null,
