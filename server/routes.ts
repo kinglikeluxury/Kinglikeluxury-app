@@ -72,6 +72,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(403).json({ message: "Not authorized" });
   };
 
+  // IP-based country detection
+  app.get("/api/geo/detect", async (req, res) => {
+    try {
+      const forwarded = req.headers['x-forwarded-for'];
+      const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress || '';
+      const response = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`);
+      const data = await response.json() as any;
+      res.json({ countryCode: data.countryCode || 'US' });
+    } catch {
+      res.json({ countryCode: 'US' });
+    }
+  });
+
   // Twilio SMS client
   const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
     ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)

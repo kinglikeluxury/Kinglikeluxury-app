@@ -12,6 +12,7 @@ import { AUTH_METHODS, insertUserSchema } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
 import { MailIcon, Phone, Facebook, CheckCircle, Loader2 } from 'lucide-react';
+import { CountryCodePicker } from '@/components/ui/country-code-picker';
 
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -49,6 +50,8 @@ export default function RegisterPage() {
   const [verificationCode, setVerificationCode] = useState('');
   const [sendingCode, setSendingCode] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
+  const [dialCode, setDialCode] = useState('+971');
+  const [localNumber, setLocalNumber] = useState('');
   
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -68,18 +71,25 @@ export default function RegisterPage() {
     setPhoneVerified(false);
     setVerificationSent(false);
     setVerificationCode('');
+    setLocalNumber('');
   };
   
   const handleFacebookLogin = () => {
     window.location.href = '/api/auth/facebook';
   };
 
+  const getFullPhoneNumber = () => {
+    const cleaned = localNumber.replace(/\s+/g, '');
+    return `${dialCode}${cleaned}`;
+  };
+
   const handleSendCode = async () => {
-    const phoneNumber = form.getValues('phoneNumber');
-    if (!phoneNumber || phoneNumber.length < 8) {
-      toast({ title: "Invalid phone number", description: "Please enter a valid phone number with country code", variant: "destructive" });
+    if (!localNumber || localNumber.replace(/\s+/g, '').length < 4) {
+      toast({ title: "Invalid phone number", description: "Please enter a valid phone number", variant: "destructive" });
       return;
     }
+    const phoneNumber = getFullPhoneNumber();
+    form.setValue('phoneNumber', phoneNumber);
     setSendingCode(true);
     try {
       await apiRequest('POST', '/api/auth/send-verification', { phoneNumber });
@@ -93,7 +103,7 @@ export default function RegisterPage() {
   };
 
   const handleVerifyCode = async () => {
-    const phoneNumber = form.getValues('phoneNumber');
+    const phoneNumber = getFullPhoneNumber();
     if (!verificationCode || verificationCode.length !== 6) {
       toast({ title: "Invalid code", description: "Please enter the 6-digit verification code", variant: "destructive" });
       return;
@@ -127,7 +137,7 @@ export default function RegisterPage() {
       } else if (data.authMethod === AUTH_METHODS.PHONE) {
         await apiRequest('POST', '/api/auth/register', {
           username: data.username,
-          phoneNumber: data.phoneNumber,
+          phoneNumber: getFullPhoneNumber(),
           password: data.password,
           authMethod: AUTH_METHODS.PHONE,
         });
@@ -238,42 +248,43 @@ export default function RegisterPage() {
                   
                   {activeTab === AUTH_METHODS.PHONE && (
                     <>
-                      <FormField
-                        control={form.control}
-                        name="phoneNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Mobile Number</FormLabel>
-                            <div className="flex gap-2">
-                              <FormControl>
-                                <Input 
-                                  type="tel" 
-                                  placeholder="+971 50 123 4567" 
-                                  {...field} 
-                                  disabled={phoneVerified}
-                                />
-                              </FormControl>
-                              {!phoneVerified && (
-                                <Button 
-                                  type="button" 
-                                  variant="outline"
-                                  className="shrink-0 border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white"
-                                  onClick={handleSendCode}
-                                  disabled={sendingCode}
-                                >
-                                  {sendingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Code"}
-                                </Button>
-                              )}
-                              {phoneVerified && (
-                                <div className="flex items-center text-green-600 shrink-0">
-                                  <CheckCircle className="h-5 w-5" />
-                                </div>
-                              )}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Mobile Number</label>
+                        <div className="flex gap-2">
+                          <CountryCodePicker
+                            value={dialCode}
+                            onChange={setDialCode}
+                            disabled={phoneVerified}
+                          />
+                          <Input 
+                            type="tel" 
+                            placeholder="50 123 4567"
+                            value={localNumber}
+                            onChange={(e) => {
+                              setLocalNumber(e.target.value);
+                              form.setValue('phoneNumber', `${dialCode}${e.target.value.replace(/\s+/g, '')}`);
+                            }}
+                            disabled={phoneVerified}
+                            className="flex-1"
+                          />
+                          {!phoneVerified && (
+                            <Button 
+                              type="button" 
+                              variant="outline"
+                              className="shrink-0 border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white"
+                              onClick={handleSendCode}
+                              disabled={sendingCode}
+                            >
+                              {sendingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Code"}
+                            </Button>
+                          )}
+                          {phoneVerified && (
+                            <div className="flex items-center text-green-600 shrink-0">
+                              <CheckCircle className="h-5 w-5" />
                             </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          )}
+                        </div>
+                      </div>
 
                       {verificationSent && !phoneVerified && (
                         <div className="space-y-2">
