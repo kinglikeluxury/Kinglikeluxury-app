@@ -154,12 +154,7 @@ const Projects = () => {
     refetchOnWindowFocus: false,
   });
 
-  const cameFromCategorySearch = urlCountry !== '';
-  const requiredFieldsFilled = cameFromCategorySearch 
-    ? (selectedCountry && selectedCountry !== '' && selectedCountry !== 'all')
-    : (selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
-       selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
-       selectedPriceRanges.length > 0);
+  const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all';
 
   // Filter projects based on criteria
   const filteredProjects = !requiredFieldsFilled ? [] : projects.filter((project: Project) => {
@@ -320,23 +315,16 @@ const Projects = () => {
   // Clear all filters
   const clearFilters = () => {
     setSearchTerm("");
-    setSelectedCountry("all");
-    setSelectedCity("all");
-    setSelectedType("all");
-    setSelectedPurpose("all");
-    setSelectedPriceRanges([]);
-    setBedroomCount("any");
+    setSelectedCountry("");
+    setSelectedCity("");
+    setSelectedDeliveryYear("");
   };
 
   // Count active filters
   const activeFiltersCount = [
-    searchTerm,
     selectedCountry,
     selectedCity,
-    selectedType,
-    selectedPurpose,
-    selectedPriceRanges.length > 0 ? 'has-price' : '',
-    bedroomCount
+    selectedDeliveryYear && selectedDeliveryYear !== 'any' ? selectedDeliveryYear : '',
   ].filter(Boolean).length;
 
   // Handle promotion banner click
@@ -414,33 +402,22 @@ const Projects = () => {
                   </Badge>
                 )}
               </CardTitle>
-              <div className="flex items-center space-x-2">
-                {activeFiltersCount > 0 && (
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    {t('projects.clearAll', 'Clear All')}
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="sm:hidden"
-                >
-                  <Filter className="h-4 w-4 mr-1" />
-                  {showFilters ? t('projects.hideFilters', 'Hide') : t('projects.showFilters', 'Show')} {t('projects.filters', 'Filters')}
+              {activeFiltersCount > 0 && (
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  {t('projects.clearAll', 'Clear All')}
                 </Button>
-              </div>
+              )}
             </div>
           </CardHeader>
-          <CardContent className={`${showFilters ? 'block' : 'hidden'} sm:block`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 
-              {/* Country - Required */}
+              {/* Country */}
               <div>
                 <Label htmlFor="country" className={`flex items-center ${filterErrors.country ? 'text-red-500' : ''}`}>
                   {t('home.hero.country', 'Country')} <span className="text-red-500 ml-1">*</span>
                 </Label>
-                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                <Select value={selectedCountry} onValueChange={(v) => { setSelectedCountry(v); setSelectedCity(""); setFilterErrors(prev => ({ ...prev, country: false })); }}>
                   <SelectTrigger className={filterErrors.country ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
                     <SelectValue placeholder={t('projects.selectCountry', 'Select Country')} />
                   </SelectTrigger>
@@ -454,20 +431,21 @@ const Projects = () => {
                 )}
               </div>
 
-              {/* City - Required */}
+              {/* City */}
               <div>
-                <Label htmlFor="city" className={`flex items-center ${filterErrors.city ? 'text-red-500' : ''}`}>
-                  {t('home.hero.city', 'City')} <span className="text-red-500 ml-1">*</span>
+                <Label htmlFor="city">
+                  {t('home.hero.city', 'City')}
                 </Label>
                 <Select 
                   value={selectedCity} 
                   onValueChange={setSelectedCity}
                   disabled={!selectedCountry || selectedCountry === 'all'}
                 >
-                  <SelectTrigger className={filterErrors.city ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
-                    <SelectValue placeholder={t('projects.selectCity', 'Select City')} />
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('property.anyLocation', 'Any City')} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="any">{t('property.anyLocation', 'Any City')}</SelectItem>
                     {getCitiesForCountry(selectedCountry).map((city) => (
                       <SelectItem key={city.value} value={city.value}>
                         {t(`cities.${city.value}`, city.label)}
@@ -475,119 +453,35 @@ const Projects = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {filterErrors.city && (
-                  <p className="text-red-500 text-xs mt-1">{t('projects.cityRequired', 'Please select a city')}</p>
-                )}
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              
-              {/* Property Type - Optional */}
+              {/* Delivery Date */}
               <div>
-                <Label htmlFor="type">
-                  {t('property.type', 'Property Type')}
+                <Label htmlFor="deliveryDate">
+                  {t('projects.deliveryDate', 'Delivery Date')}
                 </Label>
-                <Select value={selectedType} onValueChange={setSelectedType}>
+                <Select value={selectedDeliveryYear} onValueChange={setSelectedDeliveryYear}>
                   <SelectTrigger>
-                    <SelectValue placeholder={t('projects.allTypes', 'All Types')} />
+                    <SelectValue placeholder={t('projects.selectDeliveryDate', 'Select delivery date...')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">🏗️ {t('projects.allTypes', 'All Types')}</SelectItem>
-                    <SelectItem value="apartment">🏢 {t('propertyTypes.apartment', 'Apartments')}</SelectItem>
-                    <SelectItem value="villa">🏡 {t('propertyTypes.villa', 'Villas')}</SelectItem>
-                    <SelectItem value="land">🌳 {t('propertyTypes.land', 'Land')}</SelectItem>
-                    <SelectItem value="commercial">🏬 {t('propertyTypes.commercial', 'Commercial')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Purpose */}
-              <div>
-                <Label htmlFor="purpose">{t('home.hero.purpose', 'Purpose')}</Label>
-                <Select value="buy" disabled>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('home.hero.toBuy', 'For Sale')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Price Range - Multi Select */}
-              <div>
-                <Label htmlFor="priceRange" className={`flex items-center ${filterErrors.priceRange ? 'text-red-500' : ''}`}>
-                  {t('projects.price', 'Price')} <span className="text-red-500 ml-1">*</span>
-                </Label>
-                <div
-                  className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer ${filterErrors.priceRange ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
-                  onClick={() => setPriceExpanded(prev => !prev)}
-                >
-                  <span className={selectedPriceRanges.length === 0 ? 'text-muted-foreground' : 'text-foreground truncate'}>
-                    {getPriceDisplayText()}
-                  </span>
-                  <ChevronDown className={`h-4 w-4 opacity-50 shrink-0 transition-transform ${priceExpanded ? 'rotate-180' : ''}`} />
-                </div>
-                {priceExpanded && (
-                  <div className="mt-1 w-full rounded-md border bg-white shadow-sm max-h-60 overflow-auto">
-                    {priceRangeOptions.map(option => {
-                      const isChecked = selectedPriceRanges.includes(option.value);
-                      return (
-                        <div
-                          key={option.value}
-                          className={`flex items-center px-3 py-2.5 hover:bg-gray-100 cursor-pointer text-sm select-none ${isChecked ? 'bg-[#3bcac4]/10' : ''}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setSelectedPriceRanges(prev => 
-                              prev.includes(option.value) 
-                                ? prev.filter(v => v !== option.value) 
-                                : [...prev, option.value]
-                            );
-                          }}
-                        >
-                          <div className={`mr-2 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-[#3bcac4] border-[#3bcac4]' : 'border-gray-300'}`}>
-                            {isChecked && <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                          </div>
-                          {option.label}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {filterErrors.priceRange && (
-                  <p className="text-red-500 text-xs mt-1">{t('projects.priceRequired', 'Please select a price range')}</p>
-                )}
-              </div>
-
-              {/* Bedrooms */}
-              <div>
-                <Label htmlFor="bedrooms">{t('property.bedrooms', 'Bedrooms')}</Label>
-                <Select value={bedroomCount} onValueChange={setBedroomCount}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('projects.any', 'Any')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">{t('projects.any', 'Any')}</SelectItem>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                    <SelectItem value="4">4</SelectItem>
-                    <SelectItem value="5">5+</SelectItem>
+                    <SelectItem value="any">{t('projects.allDate', 'All Date')}</SelectItem>
+                    <SelectItem value="2026-2027">2026 - 2027</SelectItem>
+                    <SelectItem value="2028-2029">2028 - 2029</SelectItem>
+                    <SelectItem value="2030-2031">2030 - 2031</SelectItem>
+                    <SelectItem value="2032-2033">2032 - 2033</SelectItem>
+                    <SelectItem value="2034-2035">2034 - 2035</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="mt-4 flex justify-center">
+            <div className="flex justify-center">
               <Button 
                 className="w-full md:w-auto px-8 bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4] text-white font-semibold"
                 onClick={() => {
                   const errors: Record<string, boolean> = {};
                   if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
-                  if (!selectedCity || selectedCity === '' || selectedCity === 'all') errors.city = true;
-                  if (selectedPriceRanges.length === 0) errors.priceRange = true;
                   setFilterErrors(errors);
                 }}
               >
@@ -657,7 +551,7 @@ const Projects = () => {
               {t('projects.selectRequired', 'Please select the required filters')}
             </h3>
             <p className="text-gray-600 mb-4">
-              {t('projects.selectRequiredHint', 'Select a country, city, and price range to view available projects.')}
+              {t('projects.selectRequiredHint', 'Select a country to view available projects.')}
             </p>
           </Card>
         ) : filteredProjects.length === 0 ? (
