@@ -172,7 +172,7 @@ const Projects = () => {
       return false;
     }
 
-    if (selectedCountry && selectedCountry !== 'all') {
+    if (selectedCountry && selectedCountry !== 'all' && selectedCountry !== 'any') {
       const countryName = selectedCountry === 'georgia' ? 'georgia' : 
                          selectedCountry === 'uae' ? 'uae' : selectedCountry;
       if (!projectLocation.includes(countryName)) {
@@ -180,7 +180,7 @@ const Projects = () => {
       }
     }
 
-    if (selectedCity && selectedCity !== 'all') {
+    if (selectedCity && selectedCity !== 'all' && selectedCity !== 'any') {
       const cityMap: Record<string, string> = {
         'batumi': 'batumi', 'tbilisi': 'tbilisi',
         'dubai': 'dubai', 'sharjah': 'sharjah',
