@@ -1181,8 +1181,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "texts (array) and targetLang are required" });
       }
 
-      if (texts.length > 20) {
-        return res.status(400).json({ message: "Maximum 20 texts per request" });
+      if (texts.length > 50) {
+        return res.status(400).json({ message: "Maximum 50 texts per request" });
       }
 
       const langMap: Record<string, string> = {
@@ -1192,8 +1192,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const target = langMap[targetLang] || targetLang;
 
       if (!translateFn) {
-        const translateModule = await import('@vitalets/google-translate-api');
-        translateFn = translateModule.translate || translateModule.default;
+        const translateModule = await import('google-translate-api-x');
+        translateFn = translateModule.default || translateModule.translate;
       }
 
       if (translationCache.size > MAX_SERVER_CACHE) {
@@ -1203,8 +1203,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const results: string[] = [];
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-      for (const text of texts) {
+      for (let idx = 0; idx < texts.length; idx++) {
+        const text = texts[idx];
         if (!text || text.trim().length === 0) {
           results.push(text || '');
           continue;
@@ -1217,12 +1219,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
-        try {
-          const result = await translateFn(text, { to: target });
-          translationCache.set(cacheKey, { text: result.text, timestamp: Date.now() });
-          results.push(result.text);
-        } catch (err) {
-          console.error('Translation error:', err);
+        let translated = false;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            if (idx > 0 || attempt > 0) {
+              await delay(500 * (attempt + 1));
+            }
+            const result = await translateFn(text, { to: target });
+            translationCache.set(cacheKey, { text: result.text, timestamp: Date.now() });
+            results.push(result.text);
+            translated = true;
+            break;
+          } catch (err: any) {
+            if (err?.name === 'TooManyRequestsError' || err?.message?.includes('Too Many Requests') || err?.message?.includes('429')) {
+              console.log(`Rate limited on attempt ${attempt + 1}, waiting ${3000 * (attempt + 1)}ms...`);
+              await delay(3000 * (attempt + 1));
+              continue;
+            }
+            console.error('Translation error:', err);
+            break;
+          }
+        }
+        if (!translated) {
           results.push(text);
         }
       }
