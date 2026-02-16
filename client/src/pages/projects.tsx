@@ -70,13 +70,19 @@ const Projects = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const { toggleFavorite, isFavorite } = useFavorites();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlCountry = urlParams.get('country') || '';
+  const urlCity = urlParams.get('city') || '';
+  const urlDeliveryYear = urlParams.get('deliveryYear') || '';
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
-  const [selectedCity, setSelectedCity] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState(urlCountry);
+  const [selectedCity, setSelectedCity] = useState(urlCity);
   const [selectedType, setSelectedType] = useState("");
   const [selectedPurpose, setSelectedPurpose] = useState("");
+  const [selectedDeliveryYear, setSelectedDeliveryYear] = useState(urlDeliveryYear);
   const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
   const [priceExpanded, setPriceExpanded] = useState(false);
   const [bedroomCount, setBedroomCount] = useState("");
@@ -148,9 +154,12 @@ const Projects = () => {
     refetchOnWindowFocus: false,
   });
 
-  const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
-    selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
-    selectedPriceRanges.length > 0;
+  const cameFromCategorySearch = urlCountry !== '';
+  const requiredFieldsFilled = cameFromCategorySearch 
+    ? (selectedCountry && selectedCountry !== '' && selectedCountry !== 'all')
+    : (selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
+       selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
+       selectedPriceRanges.length > 0);
 
   // Filter projects based on criteria
   const filteredProjects = !requiredFieldsFilled ? [] : projects.filter((project: Project) => {
@@ -203,6 +212,13 @@ const Projects = () => {
     const projectBedrooms = propertyData.bedrooms || project.bedrooms;
     if (bedroomCount && bedroomCount !== 'any' && projectBedrooms !== parseInt(bedroomCount)) {
       return false;
+    }
+
+    if (selectedDeliveryYear && selectedDeliveryYear !== 'any') {
+      const completionDate = (project.completionDate || '').toLowerCase();
+      if (!completionDate.includes(selectedDeliveryYear)) {
+        return false;
+      }
     }
 
     return true;

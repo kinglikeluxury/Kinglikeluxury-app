@@ -28,6 +28,7 @@ const CategorySection = () => {
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedPurpose, setSelectedPurpose] = useState<string>("");
+  const [selectedDeliveryYear, setSelectedDeliveryYear] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   const getCitiesForCountry = (country: string) => {
@@ -54,28 +55,39 @@ const CategorySection = () => {
     setSelectedCountry("");
     setSelectedCity("");
     setSelectedPurpose("");
+    setSelectedDeliveryYear("");
     setErrors({});
     setShowModal(true);
   };
 
+  const isProjectCategory = selectedCategory === PROPERTY_TYPES.PROJECT;
+
   const handleModalSearch = () => {
     const newErrors: Record<string, boolean> = {};
     if (!selectedCountry) newErrors.country = true;
-    if (!selectedPurpose) newErrors.purpose = true;
+    if (!isProjectCategory && !selectedPurpose) newErrors.purpose = true;
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    const params = new URLSearchParams();
-    params.append("type", selectedCategory);
-    if (selectedCountry) params.append("city", selectedCountry);
-    if (selectedCity) params.append("city", selectedCity);
-    if (selectedPurpose) params.append("purpose", selectedPurpose);
-
-    setShowModal(false);
-    navigate(`/properties?${params.toString()}`);
+    if (isProjectCategory) {
+      const params = new URLSearchParams();
+      if (selectedCountry) params.append("country", selectedCountry);
+      if (selectedCity) params.append("city", selectedCity);
+      if (selectedDeliveryYear && selectedDeliveryYear !== "any") params.append("deliveryYear", selectedDeliveryYear);
+      setShowModal(false);
+      navigate(`/projects?${params.toString()}`);
+    } else {
+      const params = new URLSearchParams();
+      params.append("type", selectedCategory);
+      if (selectedCountry) params.append("city", selectedCountry);
+      if (selectedCity) params.append("city", selectedCity);
+      if (selectedPurpose) params.append("purpose", selectedPurpose);
+      setShowModal(false);
+      navigate(`/properties?${params.toString()}`);
+    }
   };
 
   const categories = [
@@ -203,19 +215,45 @@ const CategorySection = () => {
               </Select>
             </div>
 
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${errors.purpose ? 'text-red-500' : 'text-gray-700'}`}>
-                {t('home.hero.purpose', 'Purpose')} *
-              </label>
-              <Select value={selectedPurpose} onValueChange={(v) => { setSelectedPurpose(v); setErrors(prev => ({ ...prev, purpose: false })); }}>
-                <SelectTrigger className={errors.purpose ? 'border-red-500 ring-red-500' : ''}>
-                  <SelectValue placeholder={t('home.hero.anyPurpose', 'Select Purpose')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {isProjectCategory ? (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  {t('projects.deliveryDate', 'Delivery Date')}
+                </label>
+                <Select value={selectedDeliveryYear} onValueChange={setSelectedDeliveryYear}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('projects.selectDeliveryDate', 'Select delivery date...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">{t('projects.anyDate', 'Any date')}</SelectItem>
+                    <SelectItem value="2026">2026</SelectItem>
+                    <SelectItem value="2027">2027</SelectItem>
+                    <SelectItem value="2028">2028</SelectItem>
+                    <SelectItem value="2029">2029</SelectItem>
+                    <SelectItem value="2030">2030</SelectItem>
+                    <SelectItem value="2031">2031</SelectItem>
+                    <SelectItem value="2032">2032</SelectItem>
+                    <SelectItem value="2033">2033</SelectItem>
+                    <SelectItem value="2034">2034</SelectItem>
+                    <SelectItem value="2035">2035</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${errors.purpose ? 'text-red-500' : 'text-gray-700'}`}>
+                  {t('home.hero.purpose', 'Purpose')} *
+                </label>
+                <Select value={selectedPurpose} onValueChange={(v) => { setSelectedPurpose(v); setErrors(prev => ({ ...prev, purpose: false })); }}>
+                  <SelectTrigger className={errors.purpose ? 'border-red-500 ring-red-500' : ''}>
+                    <SelectValue placeholder={t('home.hero.anyPurpose', 'Select Purpose')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <Button className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:opacity-90 text-white" onClick={handleModalSearch}>
               <Search className="mr-2 h-4 w-4" />
