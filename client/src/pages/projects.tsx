@@ -111,15 +111,15 @@ const Projects = () => {
 
 
   const priceRangeOptions = [
-    { value: "50000-80000", label: "$50,000 - $80,000" },
-    { value: "81000-100000", label: "$81,000 - $100,000" },
-    { value: "101000-125000", label: "$101,000 - $125,000" },
-    { value: "126000-135000", label: "$126,000 - $135,000" },
-    { value: "136000-150000", label: "$136,000 - $150,000" },
-    { value: "151000-200000", label: "$151,000 - $200,000" },
-    { value: "201000-250000", label: "$201,000 - $250,000" },
-    { value: "251000-300000", label: "$251,000 - $300,000" },
-    { value: "350000-400000", label: "$350,000 - $400,000" },
+    { value: "50000-100000", label: "$50,000 - $100,000" },
+    { value: "100001-150000", label: "$100,000 - $150,000" },
+    { value: "150001-200000", label: "$150,000 - $200,000" },
+    { value: "200001-300000", label: "$200,000 - $300,000" },
+    { value: "300001-400000", label: "$300,000 - $400,000" },
+    { value: "400001-500000", label: "$400,000 - $500,000" },
+    { value: "500001-750000", label: "$500,000 - $750,000" },
+    { value: "750001-1000000", label: "$750,000 - $1,000,000" },
+    { value: "1000001-2000000", label: "$1,000,000 - $2,000,000" },
   ];
 
   const togglePriceRange = (value: string) => {
@@ -150,7 +150,6 @@ const Projects = () => {
 
   const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all' &&
     selectedCity && selectedCity !== '' && selectedCity !== 'all' &&
-    selectedType && selectedType !== '' && selectedType !== 'all' &&
     selectedPriceRanges.length > 0;
 
   // Filter projects based on criteria
@@ -459,25 +458,23 @@ const Projects = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               
-              {/* Property Type - Required */}
+              {/* Property Type - Optional */}
               <div>
-                <Label htmlFor="type" className={`flex items-center ${filterErrors.type ? 'text-red-500' : ''}`}>
-                  {t('property.type', 'Property Type')} <span className="text-red-500 ml-1">*</span>
+                <Label htmlFor="type">
+                  {t('property.type', 'Property Type')}
                 </Label>
                 <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className={filterErrors.type ? 'border-2 !border-red-500 ring-2 ring-red-200 bg-red-50' : ''}>
-                    <SelectValue placeholder={t('projects.selectType', 'Select Type')} />
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('projects.allTypes', 'All Types')} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">🏗️ {t('projects.allTypes', 'All Types')}</SelectItem>
                     <SelectItem value="apartment">🏢 {t('propertyTypes.apartment', 'Apartments')}</SelectItem>
                     <SelectItem value="villa">🏡 {t('propertyTypes.villa', 'Villas')}</SelectItem>
                     <SelectItem value="land">🌳 {t('propertyTypes.land', 'Land')}</SelectItem>
                     <SelectItem value="commercial">🏬 {t('propertyTypes.commercial', 'Commercial')}</SelectItem>
                   </SelectContent>
                 </Select>
-                {filterErrors.type && (
-                  <p className="text-red-500 text-xs mt-1">{t('projects.typeRequired', 'Please select a property type')}</p>
-                )}
               </div>
 
               {/* Purpose */}
@@ -565,7 +562,6 @@ const Projects = () => {
                   const errors: Record<string, boolean> = {};
                   if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
                   if (!selectedCity || selectedCity === '' || selectedCity === 'all') errors.city = true;
-                  if (!selectedType || selectedType === '' || selectedType === 'all') errors.type = true;
                   if (selectedPriceRanges.length === 0) errors.priceRange = true;
                   setFilterErrors(errors);
                 }}
@@ -636,7 +632,7 @@ const Projects = () => {
               {t('projects.selectRequired', 'Please select the required filters')}
             </h3>
             <p className="text-gray-600 mb-4">
-              {t('projects.selectRequiredHint', 'Select a country, city, and purpose to view available projects.')}
+              {t('projects.selectRequiredHint', 'Select a country, city, and price range to view available projects.')}
             </p>
           </Card>
         ) : filteredProjects.length === 0 ? (
