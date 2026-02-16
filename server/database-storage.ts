@@ -8,6 +8,7 @@ import {
   properties,
   projects,
   blogPosts,
+  verificationCodes,
   type User,
   type InsertUser,
   type Property,
@@ -414,6 +415,43 @@ export class DatabaseStorage implements IStorage {
   
   async deleteBlogPost(id: number): Promise<boolean> {
     await db.delete(blogPosts).where(eq(blogPosts.id, id));
-    return true; // Assuming success if no error is thrown
+    return true;
+  }
+
+  async createVerificationCode(phoneNumber: string, code: string, expiresAt: Date): Promise<void> {
+    await db.delete(verificationCodes).where(eq(verificationCodes.phoneNumber, phoneNumber));
+    await db.insert(verificationCodes).values({ phoneNumber, code, expiresAt, verified: false });
+  }
+
+  async verifyCode(phoneNumber: string, code: string): Promise<boolean> {
+    const [record] = await db
+      .select()
+      .from(verificationCodes)
+      .where(
+        and(
+          eq(verificationCodes.phoneNumber, phoneNumber),
+          eq(verificationCodes.code, code),
+          gte(verificationCodes.expiresAt, new Date())
+        )
+      );
+    if (!record) return false;
+    await db
+      .update(verificationCodes)
+      .set({ verified: true })
+      .where(eq(verificationCodes.id, record.id));
+    return true;
+  }
+
+  async isPhoneVerified(phoneNumber: string): Promise<boolean> {
+    const [record] = await db
+      .select()
+      .from(verificationCodes)
+      .where(
+        and(
+          eq(verificationCodes.phoneNumber, phoneNumber),
+          eq(verificationCodes.verified, true)
+        )
+      );
+    return !!record;
   }
 }

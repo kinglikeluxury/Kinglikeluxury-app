@@ -22,6 +22,7 @@ import { translateBlogPost } from "./translate";
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
 import path from "path";
+import Twilio from "twilio";
 
 // Configure multer for unlimited file uploads (videos, audio, any duration)
 const upload = multer({ 
@@ -71,6 +72,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(403).json({ message: "Not authorized" });
   };
 
+  // Twilio SMS client
+  const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
+    ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+    : null;
+
+  // Send SMS verification code
+  app.post("/api/auth/send-verification", async (req, res) => {
+    try {
+      const { phoneNumber } = req.body;
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+
+      if (!twilioClient) {
+        return res.status(500).json({ message: "SMS service not configured" });
+      }
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await storage.createVerificationCode(phoneNumber, code, expiresAt);
+
+      await twilioClient.messages.create({
+        body: `Your Kinglike verification code is: ${code}`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phoneNumber,
+      });
+
+      res.json({ success: true, message: "Verification code sent" });
+    } catch (error: any) {
+      console.error("SMS send error:", error);
+      res.status(500).json({ message: error.message || "Failed to send verification code" });
+    }
+  });
+
+  // Verify SMS code
+  app.post("/api/auth/verify-code", async (req, res) => {
+    try {
+      const { phoneNumber, code } = req.body;
+      if (!phoneNumber || !code) {
+        return res.status(400).json({ message: "Phone number and code are required" });
+      }
+
+      const isValid = await storage.verifyCode(phoneNumber, code);
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid or expired verification code" });
+      }
+
+      res.json({ success: true, verified: true });
+    } catch (error) {
+      console.error("Verify code error:", error);
+      res.status(500).json({ message: "Verification failed" });
+    }
+  });
+
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
@@ -90,14 +146,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // For phone/WhatsApp/Facebook authentication methods, we'd check for duplicates here
-      // This would require additional storage methods we'd need to implement
-      
-      // For demo purposes, we'll mark users as verified immediately
-      // In a production app, email/SMS/WhatsApp verification would be implemented
+      // Check phone number verification for mobile signups
+      if (userData.authMethod === 'phone' && userData.phoneNumber) {
+        const isPhoneVerified = await storage.isPhoneVerified(userData.phoneNumber);
+        if (!isPhoneVerified) {
+          return res.status(400).json({ message: "Phone number must be verified before registration" });
+        }
+      }
+
       const userWithVerification = {
         ...userData,
-        isAdmin: false, // Ensure regular users can't register as admin
+        isAdmin: false,
         isVerified: true
       };
       

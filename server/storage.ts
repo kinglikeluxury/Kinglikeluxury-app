@@ -54,6 +54,11 @@ export interface IStorage {
   createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
   updateBlogPost(id: number, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined>;
   deleteBlogPost(id: number): Promise<boolean>;
+  
+  // Verification code operations
+  createVerificationCode(phoneNumber: string, code: string, expiresAt: Date): Promise<void>;
+  verifyCode(phoneNumber: string, code: string): Promise<boolean>;
+  isPhoneVerified(phoneNumber: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -306,6 +311,26 @@ export class MemStorage implements IStorage {
   
   async deleteBlogPost(id: number): Promise<boolean> {
     return this.blogPosts.delete(id);
+  }
+
+  private verificationCodes: Map<string, { code: string; expiresAt: Date; verified: boolean }> = new Map();
+
+  async createVerificationCode(phoneNumber: string, code: string, expiresAt: Date): Promise<void> {
+    this.verificationCodes.set(phoneNumber, { code, expiresAt, verified: false });
+  }
+
+  async verifyCode(phoneNumber: string, code: string): Promise<boolean> {
+    const record = this.verificationCodes.get(phoneNumber);
+    if (!record) return false;
+    if (record.code !== code) return false;
+    if (new Date() > record.expiresAt) return false;
+    record.verified = true;
+    return true;
+  }
+
+  async isPhoneVerified(phoneNumber: string): Promise<boolean> {
+    const record = this.verificationCodes.get(phoneNumber);
+    return record?.verified === true;
   }
 }
 
