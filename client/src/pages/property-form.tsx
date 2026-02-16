@@ -591,9 +591,6 @@ const PropertyForm = () => {
         throw new Error('Area or price range must be specified');
       }
 
-      if (!formData.readyStatus) {
-        throw new Error('Ready status is required');
-      }
 
       // Prepare property data
       const propertyData = {
@@ -1763,11 +1760,11 @@ const PropertyForm = () => {
           {/* Ready Status Section */}
           <Card>
             <CardHeader>
-              <CardTitle>{t('readyStatus.title', 'Ready Status')} *</CardTitle>
+              <CardTitle>{t('readyStatus.title', 'Ready Status')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="readyStatus">{t('readyStatus.label', 'Select property ready status')} *</Label>
+                <Label htmlFor="readyStatus">{t('readyStatus.label', 'Select property ready status')}</Label>
                 <Select 
                   value={formData.readyStatus || ''} 
                   onValueChange={(value) => handleInputChange('readyStatus', value)}
