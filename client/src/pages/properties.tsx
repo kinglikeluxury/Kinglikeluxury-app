@@ -12,12 +12,22 @@ import { Badge } from "@/components/ui/badge";
 const Properties = () => {
   const { t } = useTranslation();
   const [location] = useLocation();
+  const [searchString, setSearchString] = useState(window.location.search);
   const [filters, setFilters] = useState<Record<string, string | null>>({});
   const [title, setTitle] = useState(t('property.viewAll', 'All Properties'));
 
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setSearchString(window.location.search);
+    };
+    window.addEventListener('popstate', handleUrlChange);
+    setSearchString(window.location.search);
+    return () => window.removeEventListener('popstate', handleUrlChange);
+  }, [location]);
+
   // Parse URL parameters
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(searchString);
     const newFilters: Record<string, string | null> = {};
     
     params.forEach((value, key) => {
@@ -26,7 +36,6 @@ const Properties = () => {
     
     setFilters(newFilters);
     
-    // Set title based on property type
     if (params.has("type")) {
       const type = params.get("type");
       switch (type) {
@@ -50,7 +59,7 @@ const Properties = () => {
     } else {
       setTitle(t('property.viewAll', 'All Properties'));
     }
-  }, [location]);
+  }, [searchString]);
 
   // Construct API query URL with filters
   const getQueryUrl = () => {
@@ -136,7 +145,7 @@ const Properties = () => {
                     title={property.title}
                     location={property.location}
                     price={property.price}
-                    area={property.area}
+                    area={typeof property.area === 'string' ? parseInt(property.area) : property.area}
                     bedrooms={property.bedrooms}
                     bathrooms={property.bathrooms}
                     propertyType={property.propertyType}

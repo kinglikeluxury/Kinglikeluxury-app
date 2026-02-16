@@ -86,7 +86,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
       params.append("type", propertyType);
     }
     
-    if (location) {
+    if (location && location !== "any") {
       params.append("location", location);
     }
     
@@ -102,7 +102,10 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
       }
     }
     
-    navigate(`/properties?${params.toString()}`);
+    const url = `/properties?${params.toString()}`;
+    window.history.pushState({}, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    navigate(url);
   };
 
   return (
