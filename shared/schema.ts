@@ -227,6 +227,18 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 
+// SMS Verification Codes
+export const verificationCodes = pgTable("verification_codes", {
+  id: serial("id").primaryKey(),
+  phoneNumber: text("phone_number").notNull(),
+  code: text("code").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type VerificationCode = typeof verificationCodes.$inferSelect;
+
 export type PropertyWithOwner = Property & { owner: User };
 export type PropertyWithAgent = Property & { 
   agent: {
