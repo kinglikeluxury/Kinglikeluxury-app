@@ -215,8 +215,17 @@ const Projects = () => {
     }
 
     if (selectedDeliveryYear && selectedDeliveryYear !== 'any') {
-      const completionDate = (project.completionDate || '').toLowerCase();
-      if (!completionDate.includes(selectedDeliveryYear)) {
+      const completionDate = project.completionDate || '';
+      const yearMatch = completionDate.match(/\d{4}/);
+      if (yearMatch) {
+        const projectYear = parseInt(yearMatch[0]);
+        const [rangeStart, rangeEnd] = selectedDeliveryYear.split('-').map(Number);
+        if (rangeEnd) {
+          if (projectYear < rangeStart || projectYear > rangeEnd) return false;
+        } else {
+          if (projectYear !== rangeStart) return false;
+        }
+      } else {
         return false;
       }
     }

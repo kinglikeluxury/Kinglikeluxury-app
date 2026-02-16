@@ -225,17 +225,12 @@ const CategorySection = () => {
                     <SelectValue placeholder={t('projects.selectDeliveryDate', 'Select delivery date...')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">{t('projects.anyDate', 'Any date')}</SelectItem>
-                    <SelectItem value="2026">2026</SelectItem>
-                    <SelectItem value="2027">2027</SelectItem>
-                    <SelectItem value="2028">2028</SelectItem>
-                    <SelectItem value="2029">2029</SelectItem>
-                    <SelectItem value="2030">2030</SelectItem>
-                    <SelectItem value="2031">2031</SelectItem>
-                    <SelectItem value="2032">2032</SelectItem>
-                    <SelectItem value="2033">2033</SelectItem>
-                    <SelectItem value="2034">2034</SelectItem>
-                    <SelectItem value="2035">2035</SelectItem>
+                    <SelectItem value="any">{t('projects.allDate', 'All Date')}</SelectItem>
+                    <SelectItem value="2026-2027">2026 - 2027</SelectItem>
+                    <SelectItem value="2028-2029">2028 - 2029</SelectItem>
+                    <SelectItem value="2030-2031">2030 - 2031</SelectItem>
+                    <SelectItem value="2032-2033">2032 - 2033</SelectItem>
+                    <SelectItem value="2034-2035">2034 - 2035</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
