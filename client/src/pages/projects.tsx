@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,7 @@ const Projects = () => {
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   // Reset city when country changes
   useEffect(() => {
@@ -483,6 +484,11 @@ const Projects = () => {
                   const errors: Record<string, boolean> = {};
                   if (!selectedCountry || selectedCountry === '' || selectedCountry === 'all') errors.country = true;
                   setFilterErrors(errors);
+                  if (Object.keys(errors).length === 0) {
+                    setTimeout(() => {
+                      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }
                 }}
               >
                 <Search className="h-4 w-4 mr-2" />
@@ -516,7 +522,7 @@ const Projects = () => {
         </Card>
 
         {/* Results Summary */}
-        <div className="flex items-center justify-between mb-6">
+        <div ref={resultsRef} className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <h2 className="text-xl font-semibold text-gray-900">
               {filteredProjects.length} {t('projects.projectsFound', 'Projects Found')}
