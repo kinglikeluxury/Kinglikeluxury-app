@@ -11,12 +11,12 @@ import { z } from 'zod';
 import { AUTH_METHODS, insertUserSchema } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
-import { MailIcon, Phone, Facebook, CheckCircle, Loader2 } from 'lucide-react';
+import { MailIcon, Phone, CheckCircle, Loader2 } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.PHONE, AUTH_METHODS.FACEBOOK]),
+  authMethod: z.enum([AUTH_METHODS.EMAIL, AUTH_METHODS.PHONE]),
   email: z.string().optional(),
   password: z.string().optional(),
   phoneNumber: z.string().optional(),
@@ -74,10 +74,6 @@ export default function RegisterPage() {
     setLocalNumber('');
   };
   
-  const handleFacebookLogin = () => {
-    window.location.href = '/api/auth/facebook';
-  };
-
   const getFullPhoneNumber = () => {
     const cleaned = localNumber.replace(/\s+/g, '');
     return `${dialCode}${cleaned}`;
@@ -168,7 +164,7 @@ export default function RegisterPage() {
         </CardHeader>
         
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid grid-cols-3 mb-4 mx-4">
+          <TabsList className="grid grid-cols-2 mb-4 mx-4">
             <TabsTrigger value={AUTH_METHODS.EMAIL}>
               <MailIcon className="h-4 w-4 mr-1" />
               Email
@@ -177,28 +173,9 @@ export default function RegisterPage() {
               <Phone className="h-4 w-4 mr-1" />
               Mobile
             </TabsTrigger>
-            <TabsTrigger value={AUTH_METHODS.FACEBOOK}>
-              <Facebook className="h-4 w-4 mr-1" />
-              Facebook
-            </TabsTrigger>
           </TabsList>
           
           <CardContent>
-            {activeTab === AUTH_METHODS.FACEBOOK ? (
-              <div className="flex flex-col items-center py-6 space-y-4">
-                <p className="text-center text-sm text-muted-foreground">
-                  Click the button below to sign up with your Facebook account
-                </p>
-                <Button 
-                  type="button" 
-                  className="w-full bg-[#1877F2] hover:bg-[#166FE5]"
-                  onClick={handleFacebookLogin}
-                >
-                  <Facebook className="h-5 w-5 mr-2" />
-                  Continue with Facebook
-                </Button>
-              </div>
-            ) : (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
@@ -345,7 +322,6 @@ export default function RegisterPage() {
                   </Button>
                 </form>
               </Form>
-            )}
           </CardContent>
         </Tabs>
         
