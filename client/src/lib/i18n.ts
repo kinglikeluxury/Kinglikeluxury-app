@@ -5,16 +5,22 @@ import Backend from 'i18next-http-backend';
 
 // Define the language configuration
 export const languages = {
-  en: { name: 'English', dir: 'ltr', flag: '🇬🇧' },
-  ar: { name: 'العربية', dir: 'rtl', flag: '🇦🇪' },
-  he: { name: 'עברית', dir: 'rtl', flag: '🇮🇱' },
-  ru: { name: 'Русский', dir: 'ltr', flag: '🇷🇺' },
-  ka: { name: 'ქართული', dir: 'ltr', flag: '🇬🇪' }, // Georgian
-  az: { name: 'Azərbaycan', dir: 'ltr', flag: '🇦🇿' }, // Azerbaijani
-  tr: { name: 'Türkçe', dir: 'ltr', flag: '🇹🇷' }, // Turkish
-  zh: { name: '中文', dir: 'ltr', flag: '🇨🇳' }, // Chinese
-  pl: { name: 'Polski', dir: 'ltr', flag: '🇵🇱' }, // Polish
-  it: { name: 'Italiano', dir: 'ltr', flag: '🇮🇹' }, // Italian
+  en: { name: 'English', dir: 'ltr', flagCode: 'gb' },
+  ar: { name: 'العربية', dir: 'rtl', flagCode: 'ae' },
+  he: { name: 'עברית', dir: 'rtl', flagCode: 'il' },
+  ru: { name: 'Русский', dir: 'ltr', flagCode: 'ru' },
+  ka: { name: 'ქართული', dir: 'ltr', flagCode: 'ge' },
+  az: { name: 'Azərbaycan', dir: 'ltr', flagCode: 'az' },
+  tr: { name: 'Türkçe', dir: 'ltr', flagCode: 'tr' },
+  zh: { name: '中文', dir: 'ltr', flagCode: 'cn' },
+  pl: { name: 'Polski', dir: 'ltr', flagCode: 'pl' },
+  it: { name: 'Italiano', dir: 'ltr', flagCode: 'it' },
+};
+
+export const getFlagUrl = (code: string) => {
+  const lang = languages[code as keyof typeof languages];
+  if (!lang) return '';
+  return `https://flagcdn.com/w40/${lang.flagCode}.png`;
 };
 
 // Helper function to get the text direction of a language

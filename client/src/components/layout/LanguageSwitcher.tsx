@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { languages } from "@/lib/i18n";
+import { languages, getFlagUrl } from "@/lib/i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,13 +16,15 @@ export default function LanguageSwitcher() {
     i18n.changeLanguage(lng);
   };
 
-  const currentLanguage = languages[i18n.language as keyof typeof languages]?.name || "English";
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="h-8 flex items-center gap-1 px-2">
-          <span>{languages[i18n.language as keyof typeof languages]?.flag || 'En'}</span>
+          <img 
+            src={getFlagUrl(i18n.language)} 
+            alt="" 
+            className="w-5 h-4 object-cover rounded-sm"
+          />
           <Globe className="h-4 w-4" />
           <span className="sr-only">Switch language</span>
         </Button>
@@ -34,7 +36,11 @@ export default function LanguageSwitcher() {
             onClick={() => changeLanguage(code)}
             className={i18n.language === code ? "bg-accent font-semibold" : ""}
           >
-            <span className="mr-2">{languages[code as keyof typeof languages].flag}</span>
+            <img 
+              src={getFlagUrl(code)} 
+              alt="" 
+              className="w-5 h-4 object-cover rounded-sm mr-2"
+            />
             {name}
           </DropdownMenuItem>
         ))}
