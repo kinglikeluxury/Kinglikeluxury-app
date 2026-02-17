@@ -28,6 +28,36 @@ const PropertyDetail = () => {
   const wasPlayingBeforePause = useRef<Set<number>>(new Set());
   const [videoOrientations, setVideoOrientations] = useState<('vertical' | 'horizontal')[]>([]);
 
+  useEffect(() => {
+    const observers: IntersectionObserver[] = [];
+    const currentRefs = videoRefs.current;
+
+    const setupObservers = () => {
+      currentRefs.forEach((video) => {
+        if (!video) return;
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting && !video.paused) {
+                video.pause();
+              }
+            });
+          },
+          { threshold: 0.3 }
+        );
+        observer.observe(video);
+        observers.push(observer);
+      });
+    };
+
+    const timer = setTimeout(setupObservers, 500);
+
+    return () => {
+      clearTimeout(timer);
+      observers.forEach((obs) => obs.disconnect());
+    };
+  }, [videoOrientations]);
+
 
   const handleWhatsAppShare = () => {
     if (!property) return;
