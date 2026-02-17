@@ -1,0 +1,380 @@
+{
+  "projectStatus": {
+    "nowSelling": "In Vendita Ora",
+    "underConstruction": "In Costruzione",
+    "preLaunch": "Pre-Lancio",
+    "completed": "Completato",
+    "comingSoon": "Prossimamente",
+    "soldOut": "Esaurito"
+  },
+  "app": {
+    "name": "Kinglike Luxury",
+    "description": "Mercato Immobiliare Premium",
+    "locale": "it-IT"
+  },
+  "nav": {
+    "home": "Home",
+    "properties": "Immobili",
+    "projects": "Progetti",
+    "submit": "Pubblica Immobile",
+    "blog": "Blog",
+    "contact": "Contatti",
+    "login": "Accedi",
+    "register": "Registrati",
+    "logout": "Esci",
+    "dashboard": "Pannello di Controllo",
+    "admin": "Pannello Admin",
+    "language": "Lingua"
+  },
+  "propertyTypes": {
+    "apartment": "Appartamenti",
+    "villa": "Ville",
+    "land": "Terreni",
+    "commercial": "Spazi Commerciali",
+    "project": "Progetti in Costruzione"
+  },
+  "propertyStatus": {
+    "pending": "In Attesa",
+    "approved": "Approvato",
+    "rejected": "Rifiutato"
+  },
+  "listingTypes": {
+    "regular": "Standard",
+    "vip": "VIP",
+    "super_vip": "Super VIP"
+  },
+  "property": {
+    "title": "Titolo",
+    "description": "Descrizione",
+    "price": "Prezzo",
+    "location": "Posizione",
+    "area": "Superficie",
+    "bedrooms": "Camere da Letto",
+    "bathrooms": "Bagni",
+    "type": "Tipo",
+    "types": {
+      "apartment": "Appartamento",
+      "villa": "Villa",
+      "land": "Terreno",
+      "project": "Progetti in Costruzione"
+    },
+    "features": "Caratteristiche",
+    "images": "Immagini",
+    "owner": "Proprietario",
+    "status": "Stato",
+    "createdAt": "Creato Il",
+    "updatedAt": "Aggiornato Il",
+    "listingType": "Tipo di Annuncio",
+    "listingDuration": "Durata Annuncio",
+    "listingExpiresAt": "Scadenza Annuncio",
+    "details": "Dettagli Immobile",
+    "viewAll": "Vedi Tutti gli Immobili",
+    "featured": "Immobili in Evidenza",
+    "newest": "Immobili Più Recenti",
+    "search": "Cerca Immobili",
+    "filter": "Filtra",
+    "results": "{{count}} risultato trovato",
+    "results_plural": "{{count}} risultati trovati",
+    "noResults": "Nessun immobile trovato",
+    "submit": "Aggiungi Immobile",
+    "uploadImages": "Carica Immagini",
+    "removeImage": "Rimuovi Immagine",
+    "minPrice": "Prezzo Minimo",
+    "maxPrice": "Prezzo Massimo",
+    "seeMore": "Vedi di Più",
+    "contact": "Contatta il Proprietario",
+    "viewDetails": "Vedi Dettagli",
+    "viewProject": "Vedi Dettagli Progetto",
+    "viewAllProjects": "Vedi Tutti i Progetti",
+    "heroTitle": "Trova la Tua Proprietà Ideale",
+    "heroSubtitle": "Scopri appartamenti, ville, terreni e progetti di costruzione adatti alle tue esigenze",
+    "anyLocation": "Qualsiasi posizione",
+    "priceRange": "Fascia di Prezzo",
+    "anyPrice": "Qualsiasi Prezzo",
+    "listings": "120+ Annunci",
+    "listings2": "85+ Annunci",
+    "listings3": "63+ Annunci",
+    "listings4": "42+ Annunci",
+    "uploadProperties": "Carica i tuoi immobili",
+    "myProperties": "I Miei Immobili"
+  },
+  "project": {
+    "title": "Titolo Progetto",
+    "developer": "Sviluppatore",
+    "completionDate": "Data di Completamento",
+    "status": "Stato del Progetto",
+    "details": "Dettagli del Progetto",
+    "viewAll": "Vedi Tutti i Progetti",
+    "underConstruction": "In Costruzione",
+    "adminOnly": "Annunci solo per admin"
+  },
+  "auth": {
+    "login": "Accedi",
+    "register": "Registrati",
+    "logout": "Esci",
+    "username": "Nome Utente",
+    "password": "Password",
+    "email": "Email",
+    "phoneNumber": "Numero di Telefono",
+    "whatsappNumber": "Numero WhatsApp",
+    "facebookLogin": "Accedi con Facebook",
+    "forgotPassword": "Password Dimenticata?",
+    "noAccount": "Non hai un account?",
+    "hasAccount": "Hai già un account?",
+    "createAccount": "Crea Account",
+    "loginSuccess": "Accesso Effettuato",
+    "registerSuccess": "Registrazione Completata",
+    "logoutSuccess": "Disconnessione Effettuata",
+    "loginError": "Accesso Fallito",
+    "registerError": "Registrazione Fallita",
+    "logoutError": "Disconnessione Fallita",
+    "required": "Questo campo è obbligatorio",
+    "invalidEmail": "Indirizzo email non valido",
+    "passwordMismatch": "Le password non corrispondono",
+    "usernameExists": "Nome utente già esistente",
+    "emailExists": "Email già esistente"
+  },
+  "admin": {
+    "dashboard": "Pannello Admin",
+    "properties": "Immobili",
+    "projects": "Progetti",
+    "users": "Utenti",
+    "approvals": "Approvazioni in Attesa",
+    "approve": "Approva",
+    "reject": "Rifiuta",
+    "pendingProperties": "Immobili in Attesa",
+    "createProject": "Aggiungi Progetto",
+    "onlyListings": "Annunci solo per admin"
+  },
+  "blog": {
+    "title": "Titolo del Blog",
+    "content": "Contenuto",
+    "author": "Autore",
+    "category": "Categoria",
+    "categories": "Categorie",
+    "published": "Pubblicato",
+    "unpublished": "Non Pubblicato",
+    "createdAt": "Creato Il",
+    "updatedAt": "Aggiornato Il",
+    "readMore": "Leggi di Più",
+    "back": "Torna al Blog",
+    "create": "Crea Articolo",
+    "edit": "Modifica Articolo",
+    "delete": "Elimina Articolo",
+    "noResults": "Nessun articolo trovato"
+  },
+  "footer": {
+    "companyDescription": "La piattaforma principale per annunci e ricerca di immobili di ogni tipo.",
+    "propertyTypesTitle": "Tipi di Immobile",
+    "quickLinksTitle": "Link Rapidi",
+    "contactTitle": "Contattaci",
+    "addProperty": "Aggiungi Immobile",
+    "allRightsReserved": "Tutti i diritti riservati.",
+    "location": "Tbilisi, Georgia",
+    "copyright": "© {{year}} Kinglike Luxury. Tutti i diritti riservati.",
+    "privacyPolicy": "Politica sulla Privacy",
+    "termsOfService": "Termini di Servizio",
+    "contactUs": "Contattaci",
+    "followUs": "Seguici"
+  },
+  "common": {
+    "loading": "Caricamento...",
+    "error": "Si è verificato un errore",
+    "success": "Operazione riuscita",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "confirm": "Conferma",
+    "submit": "Invia",
+    "back": "Indietro",
+    "next": "Avanti",
+    "previous": "Precedente",
+    "search": "Cerca",
+    "filter": "Filtra",
+    "reset": "Ripristina",
+    "view": "Visualizza",
+    "close": "Chiudi",
+    "yes": "Sì",
+    "no": "No",
+    "all": "Tutti i Tipi",
+    "more": "Di Più",
+    "less": "Di Meno",
+    "description": "Descrizione",
+    "sqm": "m²",
+    "sqft": "ft²",
+    "inDevelopment": "In Sviluppo",
+    "comingSoon": "Prossimamente",
+    "contactUs": "Contattaci",
+    "aboutUs": "Chi Siamo",
+    "exclusive": "ESCLUSIVA KINGLIKE",
+    "category": "categoria"
+  },
+  "categories": {
+    "title": "Sfoglia per categoria",
+    "selectFilters": "Seleziona le tue preferenze"
+  },
+  "favorites": {
+    "title": "Preferiti",
+    "empty": "Nessun preferito ancora"
+  },
+  "errors": {
+    "notFound": "Pagina non trovata",
+    "notFoundMessage": "La pagina che stai cercando non esiste.",
+    "goHome": "Torna alla Home",
+    "unauthorized": "Non Autorizzato",
+    "unauthorizedMessage": "Non sei autorizzato ad accedere a questa pagina.",
+    "forbidden": "Accesso Negato",
+    "forbiddenMessage": "Non hai il permesso di accedere a questa risorsa.",
+    "serverError": "Errore del Server",
+    "serverErrorMessage": "Si è verificato un errore nel server.",
+    "formError": "Controlla i dati inseriti e riprova."
+  },
+  "home": {
+    "hero": {
+      "country": "Paese",
+      "anyCountry": "Qualsiasi Paese",
+      "city": "Città",
+      "purpose": "Scopo",
+      "anyPurpose": "Qualsiasi Scopo",
+      "toBuy": "Acquistare",
+      "forRent": "Affittare"
+    },
+    "featured": {
+      "title": "Immobili in Evidenza",
+      "noResults": "Nessun immobile trovato"
+    },
+    "cta": {
+      "title": "Hai un immobile da vendere o affittare?",
+      "subtitle": "Pubblicalo gratuitamente sulla nostra piattaforma.",
+      "description": "Raggiungi migliaia di potenziali acquirenti e inquilini caricando il tuo immobile oggi.",
+      "uploadButton": "Carica Immobile",
+      "browseButton": "Sfoglia Annunci"
+    },
+    "projects": {
+      "title": "Ultimi Progetti di Costruzione",
+      "subtitle": "Progetti esclusivi attualmente in fase di sviluppo",
+      "noResults": "Nessun progetto trovato",
+      "completion": "Completamento:",
+      "developer": "Sviluppatore:"
+    },
+    "howItWorks": {
+      "title": "Come Funziona",
+      "subtitle": "Passi semplici per pubblicare il tuo immobile sulla nostra piattaforma",
+      "createAccount": {
+        "title": "Crea un Account",
+        "description": "Registrati gratuitamente per accedere a tutte le funzionalità della piattaforma."
+      },
+      "submitProperty": {
+        "title": "Pubblica Immobile",
+        "description": "Compila il modulo con i dettagli dell'immobile e carica foto di alta qualità."
+      },
+      "getApproved": {
+        "title": "Ottieni l'Approvazione",
+        "description": "Una volta revisionato e approvato, il tuo immobile sarà pubblicato sulla nostra piattaforma."
+      }
+    },
+    "insights": {
+      "title": "Approfondimenti Immobiliari",
+      "subtitle": "Consigli degli esperti, tendenze di mercato e ispirazioni di design dai nostri specialisti immobiliari per aiutarti a prendere decisioni informate",
+      "viewAllButton": "Vedi Tutti gli Articoli",
+      "readArticle": "Leggi Articolo",
+      "posts": {
+        "post1": {
+          "title": "5 Consigli per Acquistare la Tua Prima Villa di Lusso",
+          "excerpt": "Scopri i consigli essenziali per chi acquista per la prima volta un immobile di lusso e vuole fare un investimento sicuro.",
+          "author": "Sarah Johnson"
+        },
+        "post2": {
+          "title": "Tendenze di Mercato 2024: Immobili di Lusso in Medio Oriente",
+          "excerpt": "Un'analisi approfondita delle tendenze attuali del mercato immobiliare di lusso a Dubai, Abu Dhabi e nelle località emergenti.",
+          "author": "Ahmad Al-Farsi"
+        },
+        "post3": {
+          "title": "Creare lo Spazio Esterno Perfetto per il Tuo Immobile",
+          "excerpt": "Consigli di design paesaggistico che possono aumentare il valore del tuo immobile creando splendide aree living esterne.",
+          "author": "Michael Chen"
+        }
+      },
+      "categories": {
+        "luxuryHomes": "Case di Lusso",
+        "buyingGuide": "Guida all'Acquisto",
+        "marketAnalysis": "Analisi di Mercato",
+        "investment": "Investimento",
+        "design": "Design",
+        "propertyValue": "Valore dell'Immobile"
+      }
+    }
+  },
+  "countries": {
+    "georgia": "Georgia",
+    "uae": "Emirati Arabi Uniti"
+  },
+  "cities": {
+    "batumi": "Batumi",
+    "tbilisi": "Tbilisi",
+    "dubai": "Dubai",
+    "sharjah": "Sharjah",
+    "rasAlKhaimah": "Ras Al Khaimah"
+  },
+  "projects": {
+    "title": "Progetti in Costruzione",
+    "subtitle": "Scopri immobili di lusso esclusivi in costruzione in Georgia e negli Emirati Arabi Uniti. Filtra per posizione, prezzo e caratteristiche per trovare il tuo investimento ideale.",
+    "loading": "Caricamento progetti in costruzione...",
+    "error": "Errore nel caricamento dei progetti. Riprova più tardi.",
+    "smartFilters": "Filtri Intelligenti",
+    "active": "attivi",
+    "clearAll": "Cancella Tutto",
+    "hideFilters": "Nascondi",
+    "showFilters": "Mostra",
+    "filters": "Filtri",
+    "allCountries": "Tutti i Paesi",
+    "allCities": "Tutte le Città",
+    "minPrice": "Prezzo Min ($)",
+    "maxPrice": "Prezzo Max ($)",
+    "any": "Qualsiasi",
+    "promoTitle": "Promozione speciale: Scegli il tuo immobile e ottieni uno sconto speciale!",
+    "promoSubtitle": "Risparmia di più sul tuo investimento immobiliare in costruzione con i nostri prezzi esclusivi",
+    "promoWhatsapp": "Clicca per contattarci via WhatsApp",
+    "projectsFound": "Progetti Trovati",
+    "filtersApplied": "filtri applicati",
+    "addProject": "Aggiungi Progetto",
+    "noProjects": "Nessun progetto trovato",
+    "noProjectsHint": "Prova a modificare i filtri o i termini di ricerca per trovare più progetti.",
+    "clearAllFilters": "Cancella Tutti i Filtri",
+    "completion": "Completamento",
+    "developer": "Sviluppatore",
+    "viewDetails": "Vedi Dettagli del Progetto",
+    "whatsappMessage": "Promozione speciale 2% per il progetto|",
+    "selectCountryFirst": "Seleziona prima un paese per contattare l'ufficio appropriato.",
+    "sqm": "mq",
+    "bed": "camera",
+    "bath": "bagno",
+    "selectCountry": "Seleziona Paese",
+    "selectCity": "Seleziona Città",
+    "selectPurpose": "Seleziona Scopo",
+    "countryRequired": "Seleziona un paese",
+    "cityRequired": "Seleziona una città",
+    "purposeRequired": "Seleziona uno scopo",
+    "selectRequired": "Seleziona i filtri richiesti",
+    "selectRequiredHint": "Seleziona un paese, una città, un tipo di immobile e una fascia di prezzo per visualizzare i progetti disponibili.",
+    "searchButton": "Cerca",
+    "price": "Prezzo",
+    "fromPrice": "Da",
+    "priceRequired": "Seleziona una fascia di prezzo",
+    "typeRequired": "Seleziona un tipo di immobile",
+    "selectType": "Seleziona Tipo",
+    "deliveryDate": "Data di Consegna",
+    "selectDeliveryDate": "Seleziona data di consegna...",
+    "allDate": "Tutte le Date"
+  },
+  "readyStatus": {
+    "title": "Stato di Prontezza",
+    "label": "Seleziona lo stato di prontezza dell'immobile",
+    "placeholder": "Seleziona stato di prontezza...",
+    "turnkey": "Pronto per trasferirsi - Chiavi in Mano",
+    "whiteFrame": "Pronto per trasferirsi - Struttura Bianca",
+    "greenFrame": "Pronto per trasferirsi - Struttura Verde",
+    "blackFrame": "Pronto per trasferirsi - Struttura Nera"
+  }
+}

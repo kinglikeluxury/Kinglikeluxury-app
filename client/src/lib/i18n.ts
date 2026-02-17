@@ -14,6 +14,7 @@ export const languages = {
   tr: { name: 'Türkçe', dir: 'ltr', flag: '🇹🇷' }, // Turkish
   zh: { name: '中文', dir: 'ltr', flag: '🇨🇳' }, // Chinese
   pl: { name: 'Polski', dir: 'ltr', flag: '🇵🇱' }, // Polish
+  it: { name: 'Italiano', dir: 'ltr', flag: '🇮🇹' }, // Italian
 };
 
 // Helper function to get the text direction of a language

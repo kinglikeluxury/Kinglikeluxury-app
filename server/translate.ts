@@ -10,6 +10,7 @@ const SUPPORTED_LANGS: Record<string, string> = {
   tr: "tr",
   zh: "zh-CN",
   pl: "pl",
+  it: "it",
 };
 
 export async function translateText(text: string, targetLang: string, sourceLang?: string): Promise<string> {

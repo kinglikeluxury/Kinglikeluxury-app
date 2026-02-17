@@ -1259,7 +1259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const langMap: Record<string, string> = {
         en: 'en', ar: 'ar', he: 'iw', ru: 'ru', 
-        ka: 'ka', az: 'az', tr: 'tr', zh: 'zh-CN', pl: 'pl'
+        ka: 'ka', az: 'az', tr: 'tr', zh: 'zh-CN', pl: 'pl', it: 'it'
       };
       const target = langMap[targetLang] || targetLang;
 
