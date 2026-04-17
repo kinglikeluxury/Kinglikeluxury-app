@@ -73,6 +73,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(403).json({ message: "Not authorized" });
   };
 
+  // Digital Asset Links for TWA (Trusted Web Activity) - Required for Google Play
+  app.get("/.well-known/assetlinks.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.json([{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.kinglikeluxury",
+        "sha256_cert_fingerprints": [
+          "A7:9B:9A:D6:7E:A3:E8:32:83:12:60:B6:F8:27:36:E8:3F:00:3D:89:6A:82:E4:6E:8B:20:73:F5:FB:84:AF:2F"
+        ]
+      }
+    }]);
+  });
+
   // IP-based country detection
   app.get("/api/geo/detect", async (req, res) => {
     try {
