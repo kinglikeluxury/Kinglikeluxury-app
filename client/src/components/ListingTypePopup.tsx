@@ -23,27 +23,27 @@ export default function ListingTypePopup({
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl" data-testid="dialog-listing-type">
+      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-4 sm:p-6" data-testid="dialog-listing-type">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-center">
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-center">
             Choose Your Listing Type
           </DialogTitle>
-          <p className="text-center text-gray-600">
+          <p className="text-center text-gray-600 text-sm">
             Select how you want to list your {propertyType.toLowerCase()}
           </p>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           {/* Free Listing Option */}
           <Card className="border-2 hover:border-gray-300 transition-colors cursor-pointer" onClick={onSelectFree} data-testid="card-free-listing">
-            <CardHeader className="text-center pb-4">
-              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <Upload className="w-8 h-8 text-blue-600" />
+            <CardHeader className="text-center pb-2 pt-4">
+              <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-2">
+                <Upload className="w-6 h-6 text-blue-600" />
               </div>
-              <CardTitle className="text-xl">Free Listing</CardTitle>
-              <CardDescription>Standard property listing</CardDescription>
+              <CardTitle className="text-lg">Free Listing</CardTitle>
+              <CardDescription className="text-xs">Standard property listing</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 pb-4">
               <div className="text-center">
                 <div className="text-3xl font-bold text-blue-600">FREE</div>
                 <p className="text-sm text-gray-500">No cost to list</p>
@@ -82,20 +82,20 @@ export default function ListingTypePopup({
           {/* Featured Listing Option */}
           <Card className="border-2 border-primary hover:border-primary/80 transition-colors cursor-pointer relative" onClick={onSelectFeatured} data-testid="card-featured-listing">
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <Badge className="bg-primary text-white font-bold px-4 py-1">
-                <Crown className="w-4 h-4 mr-1" />
+              <Badge className="bg-primary text-white font-bold px-3 py-0.5 text-xs">
+                <Crown className="w-3 h-3 mr-1" />
                 RECOMMENDED
               </Badge>
             </div>
             
-            <CardHeader className="text-center pb-4 pt-6">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mb-4">
-                <Star className="w-8 h-8 text-white" />
+            <CardHeader className="text-center pb-2 pt-5">
+              <div className="mx-auto w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mb-2">
+                <Star className="w-6 h-6 text-white" />
               </div>
-              <CardTitle className="text-xl">Featured Listing</CardTitle>
-              <CardDescription>Premium visibility and placement</CardDescription>
+              <CardTitle className="text-lg">Featured Listing</CardTitle>
+              <CardDescription className="text-xs">Premium visibility and placement</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 pb-4">
               <div className="text-center">
                 <div className="text-3xl font-bold text-primary">PAID</div>
                 <p className="text-sm text-gray-500">Starting from $5</p>
@@ -131,8 +131,8 @@ export default function ListingTypePopup({
           </Card>
         </div>
         
-        <div className="mt-6 text-center">
-          <Button variant="ghost" onClick={onClose} data-testid="button-cancel-popup">
+        <div className="mt-3 text-center">
+          <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-cancel-popup">
             Cancel
           </Button>
         </div>
