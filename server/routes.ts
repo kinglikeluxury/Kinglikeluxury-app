@@ -21,6 +21,7 @@ import { translateBlogPost } from "./translate";
 // } from "./objectStorage";
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
+import { uploadToCloudinary } from "./cloudinaryService";
 import path from "path";
 import Twilio from "twilio";
 
@@ -749,115 +750,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Photo upload routes
-  app.post("/api/photos/upload", isAuthenticated, async (req, res) => {
+  // Photo upload → Cloudinary
+  app.post("/api/photos/upload", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+      const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/photos", resourceType: "image" });
+      res.json({ url: result.secureUrl, objectPath: result.secureUrl });
     } catch (error) {
-      console.error("Error getting photo upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
+      console.error("Error uploading photo:", error);
+      res.status(500).json({ error: "Failed to upload photo" });
     }
   });
 
+  // Legacy process endpoint (kept for backward compatibility)
   app.post("/api/photos/process", isAuthenticated, async (req, res) => {
-    try {
-      const { photoURL } = req.body;
-      
-      if (!photoURL) {
-        return res.status(400).json({ error: "photoURL is required" });
-      }
-
-      // Get authenticated user ID from session
-      const userId = req.session.userId || 1;
-
-      const objectStorageService = new ObjectStorageService();
-      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-        photoURL,
-        {
-          owner: userId.toString(),
-          visibility: "public", // Property images should be publicly viewable
-        }
-      );
-
-      res.status(200).json({ objectPath });
-    } catch (error) {
-      console.error("Error processing photo:", error);
-      res.status(500).json({ error: "Failed to process photo" });
-    }
+    const { photoURL } = req.body;
+    res.status(200).json({ objectPath: photoURL || "" });
   });
 
-  // Route to serve uploaded images
+  // Route to serve uploaded images (legacy object storage - kept for old URLs)
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error: any) {
-      console.error("Error serving object:", error);
-      // Instead of returning JSON error, redirect to placeholder image for property cards
-      if (error.name === 'ObjectNotFoundError') {
-        return res.redirect('https://via.placeholder.com/800x600?text=Image+Not+Found');
+      if (error.name === "ObjectNotFoundError") {
+        return res.redirect("https://via.placeholder.com/800x600?text=Image+Not+Found");
       }
       return res.status(404).json({ error: "Object not found" });
     }
   });
 
-  // Video upload routes - supports unlimited duration  
-  app.post("/api/videos/upload", isAuthenticated, async (req, res) => {
+  // Video upload → Cloudinary
+  app.post("/api/videos/upload", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+      const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/videos", resourceType: "video" });
+      res.json({ url: result.secureUrl, objectPath: result.secureUrl });
     } catch (error) {
-      console.error("Error getting video upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
+      console.error("Error uploading video:", error);
+      res.status(500).json({ error: "Failed to upload video" });
     }
   });
 
   app.post("/api/videos/process", isAuthenticated, async (req, res) => {
-    try {
-      const { videoURL } = req.body;
-      
-      if (!videoURL) {
-        return res.status(400).json({ error: "videoURL is required" });
-      }
-
-      // Return the path for local storage
-      res.status(200).json({ objectPath: videoURL });
-    } catch (error) {
-      console.error("Error processing video:", error);
-      res.status(500).json({ error: "Failed to process video" });
-    }
+    const { videoURL } = req.body;
+    res.status(200).json({ objectPath: videoURL || "" });
   });
 
-  // Audio upload routes - supports unlimited duration MP3, MP4 audio, etc.
-  app.post("/api/audios/upload", isAuthenticated, async (req, res) => {
+  // Audio upload → Cloudinary
+  app.post("/api/audios/upload", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL: uploadUrl });
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+      const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/audio", resourceType: "video" });
+      res.json({ url: result.secureUrl, objectPath: result.secureUrl });
     } catch (error) {
-      console.error("Error getting audio upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
+      console.error("Error uploading audio:", error);
+      res.status(500).json({ error: "Failed to upload audio" });
     }
   });
 
   app.post("/api/audios/process", isAuthenticated, async (req, res) => {
-    try {
-      const { audioURL } = req.body;
-      
-      if (!audioURL) {
-        return res.status(400).json({ error: "audioURL is required" });
-      }
-
-      // Return the path for local storage
-      res.status(200).json({ objectPath: audioURL });
-    } catch (error) {
-      console.error("Error processing audio:", error);
-      res.status(500).json({ error: "Failed to process audio" });
-    }
+    const { audioURL } = req.body;
+    res.status(200).json({ objectPath: audioURL || "" });
   });
 
   // Serve uploaded files
@@ -968,18 +924,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No image file provided" });
       }
 
-      const fs = await import("fs/promises");
-      const blogUploadDir = path.join(process.cwd(), "uploads", "blog");
-      await fs.mkdir(blogUploadDir, { recursive: true });
-
-      const ext = path.extname(req.file.originalname) || '.jpg';
-      const filename = `blog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}${ext}`;
-      const filePath = path.join(blogUploadDir, filename);
-
-      await fs.writeFile(filePath, req.file.buffer);
-
-      const imageUrl = `/uploads/blog/${filename}`;
-      res.json({ url: imageUrl });
+      const result = await uploadToCloudinary(req.file.buffer, {
+        folder: "kinglike/blog",
+        resourceType: "image",
+      });
+      res.json({ url: result.secureUrl });
     } catch (error) {
       console.error('Error uploading blog image:', error);
       res.status(500).json({ message: "Failed to upload image" });
@@ -1013,18 +962,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No video file provided" });
       }
 
-      const fs = await import("fs/promises");
-      const blogUploadDir = path.join(process.cwd(), "uploads", "blog");
-      await fs.mkdir(blogUploadDir, { recursive: true });
-
-      const ext = path.extname(req.file.originalname) || '.mp4';
-      const filename = `blogvid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}${ext}`;
-      const filePath = path.join(blogUploadDir, filename);
-
-      await fs.writeFile(filePath, req.file.buffer);
-
-      const videoUrl = `/uploads/blog/${filename}`;
-      res.json({ url: videoUrl });
+      const result = await uploadToCloudinary(req.file.buffer, {
+        folder: "kinglike/blog",
+        resourceType: "video",
+      });
+      res.json({ url: result.secureUrl });
     } catch (error: any) {
       if (error.message?.includes('Invalid video format') || error.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ message: error.message || "File too large (max 100MB)" });

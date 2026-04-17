@@ -63,7 +63,10 @@ Complete internationalization with support for English, Arabic, Hebrew, Russian,
 
 ## Image Processing
 - **Canvas**: Server-side image manipulation for watermarking
-- **Image Upload**: File handling with automatic processing
+- **Cloudinary**: Cloud storage for all uploads (photos, videos, audio, blog media)
+  - All uploads go to Cloudinary via `server/cloudinaryService.ts`
+  - Folders: `kinglike/photos`, `kinglike/videos`, `kinglike/audio`, `kinglike/blog`
+  - Credentials stored as secrets: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
 
 ## Development Tools
 - **TypeScript**: Static type checking across the stack

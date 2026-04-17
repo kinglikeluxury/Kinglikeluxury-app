@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiRequest } from "@/lib/queryClient";
+import { Progress } from "@/components/ui/progress";
 
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
@@ -14,12 +14,9 @@ interface ObjectUploaderProps {
   type?: "photo" | "video" | "audio";
 }
 
-/**
- * Simple file upload component with drag-and-drop support
- */
 export function ObjectUploader({
-  maxNumberOfFiles = 10, // Allow multiple files
-  maxFileSize = Infinity, // No size limit for unlimited duration videos/audio
+  maxNumberOfFiles = 10,
+  maxFileSize = Infinity,
   allowedFileTypes = [],
   onComplete,
   buttonClassName,
@@ -28,11 +25,13 @@ export function ObjectUploader({
 }: ObjectUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [progress, setProgress] = useState(0);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files).slice(0, maxNumberOfFiles);
       setSelectedFiles(files);
+      setProgress(0);
     }
   };
 
@@ -40,113 +39,88 @@ export function ObjectUploader({
     if (selectedFiles.length === 0) return;
 
     setIsUploading(true);
+    setProgress(0);
     const uploadedUrls: string[] = [];
 
     try {
-      for (const file of selectedFiles) {
-        // Get upload URL from server - using fetch directly to debug
-        const response = await fetch(`/api/${type}s/upload`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const endpoint = type === "photo"
+          ? "/api/photos/upload"
+          : type === "video"
+          ? "/api/videos/upload"
+          : "/api/audios/upload";
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
         });
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to get upload URL: ${response.statusText}`);
-        }
-        
-        const urlResponse = await response.json();
-        console.log('URL Response:', urlResponse);
-        const { uploadURL } = urlResponse;
-        console.log('Upload URL:', uploadURL);
-        
-        if (!uploadURL) {
-          throw new Error('No upload URL received from server');
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err?.error || `Upload failed: ${response.statusText}`);
         }
 
-        // Upload file directly to storage using PUT
-        const uploadResponse = await fetch(uploadURL, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Upload failed: ${uploadResponse.statusText}`);
-        }
-
-        // Process the uploaded file on server
-        const cleanURL = uploadURL.split('?')[0]; // Remove query parameters
-        console.log('Clean URL for processing:', cleanURL);
-        console.log('Sending to process endpoint:', { [`${type}URL`]: cleanURL });
-        
-        const processResponse = await fetch(`/api/${type}s/process`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            [`${type}URL`]: cleanURL
-          }),
-        });
-        
-        if (!processResponse.ok) {
-          const errorText = await processResponse.text();
-          throw new Error(`Process failed: ${processResponse.status}: ${errorText}`);
-        }
-        
-        const processResult = await processResponse.json();
-        console.log('Process result:', processResult);
-        const { objectPath } = processResult;
-
-        uploadedUrls.push(objectPath);
+        const result = await response.json();
+        uploadedUrls.push(result.url);
+        setProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
       }
 
       onComplete?.(uploadedUrls);
       setSelectedFiles([]);
+      setProgress(0);
     } catch (error) {
-      console.error('Upload error:', error);
-      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
-      alert(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Upload error:", error);
+      alert(`Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsUploading(false);
     }
   };
 
+  const inputId = `file-input-${type}-${Math.random().toString(36).substr(2, 5)}`;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Button 
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <Button
           type="button"
-          onClick={() => document.getElementById('file-input')?.click()}
+          onClick={() => document.getElementById(inputId)?.click()}
           className={buttonClassName}
           disabled={isUploading}
         >
           {children}
         </Button>
-        
+
         <Input
-          id="file-input"
+          id={inputId}
           type="file"
           multiple={maxNumberOfFiles > 1}
-          accept={allowedFileTypes.join(',')}
+          accept={allowedFileTypes.join(",")}
           onChange={handleFileSelect}
           className="hidden"
         />
-        
-        {selectedFiles.length > 0 && (
-          <Button type="button" onClick={uploadFiles} disabled={isUploading}>
-            {isUploading ? 'Uploading...' : `Upload ${selectedFiles.length} file(s)`}
+
+        {selectedFiles.length > 0 && !isUploading && (
+          <Button type="button" onClick={uploadFiles} variant="default">
+            رفع {selectedFiles.length} ملف
           </Button>
         )}
       </div>
-      
+
       {selectedFiles.length > 0 && (
-        <div className="text-sm text-gray-600">
-          Selected: {selectedFiles.map(f => f.name).join(', ')}
+        <div className="text-sm text-gray-500">
+          المحدد: {selectedFiles.map((f) => f.name).join(", ")}
+        </div>
+      )}
+
+      {isUploading && (
+        <div className="space-y-1">
+          <Progress value={progress} className="h-2" />
+          <p className="text-xs text-gray-500">جارٍ الرفع... {progress}%</p>
         </div>
       )}
     </div>
