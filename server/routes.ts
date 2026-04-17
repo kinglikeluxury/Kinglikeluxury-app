@@ -25,13 +25,13 @@ import { uploadToCloudinary } from "./cloudinaryService";
 import path from "path";
 import Twilio from "twilio";
 
-// Configure multer for unlimited file uploads (videos, audio, any duration)
+// Configure multer for file uploads - memory storage for Cloudinary
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: { 
-    fileSize: Infinity, // No file size limit - unlimited duration videos/audio
-    fieldSize: Infinity, // No field size limit
-    files: Infinity // No file count limit
+    fileSize: 500 * 1024 * 1024, // 500MB max per file
+    fieldSize: 10 * 1024 * 1024, // 10MB field size
+    files: 20 // Max 20 files per request
   }
 });
 

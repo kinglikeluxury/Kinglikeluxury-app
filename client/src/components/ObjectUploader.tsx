@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 
 interface ObjectUploaderProps {
@@ -26,33 +25,37 @@ export function ObjectUploader({
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files).slice(0, maxNumberOfFiles);
       setSelectedFiles(files);
       setProgress(0);
+      // Auto-upload when files are selected
+      if (files.length > 0) {
+        uploadFilesDirectly(files);
+      }
     }
   };
 
-  const uploadFiles = async () => {
-    if (selectedFiles.length === 0) return;
-
+  const uploadFilesDirectly = async (files: File[]) => {
     setIsUploading(true);
     setProgress(0);
     const uploadedUrls: string[] = [];
 
     try {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const endpoint = type === "photo"
+      const endpoint =
+        type === "photo"
           ? "/api/photos/upload"
           : type === "video"
           ? "/api/videos/upload"
           : "/api/audios/upload";
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append("file", file);
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -67,12 +70,14 @@ export function ObjectUploader({
 
         const result = await response.json();
         uploadedUrls.push(result.url);
-        setProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+        setProgress(Math.round(((i + 1) / files.length) * 100));
       }
 
       onComplete?.(uploadedUrls);
       setSelectedFiles([]);
       setProgress(0);
+      // Reset the file input
+      if (inputRef.current) inputRef.current.value = "";
     } catch (error) {
       console.error("Upload error:", error);
       alert(`Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -81,46 +86,32 @@ export function ObjectUploader({
     }
   };
 
-  const inputId = `file-input-${type}-${Math.random().toString(36).substr(2, 5)}`;
-
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <Button
           type="button"
-          onClick={() => document.getElementById(inputId)?.click()}
+          onClick={() => inputRef.current?.click()}
           className={buttonClassName}
           disabled={isUploading}
         >
-          {children}
+          {isUploading ? "جارٍ الرفع..." : children}
         </Button>
 
-        <Input
-          id={inputId}
+        <input
+          ref={inputRef}
           type="file"
           multiple={maxNumberOfFiles > 1}
           accept={allowedFileTypes.join(",")}
           onChange={handleFileSelect}
-          className="hidden"
+          style={{ display: "none" }}
         />
-
-        {selectedFiles.length > 0 && !isUploading && (
-          <Button type="button" onClick={uploadFiles} variant="default">
-            رفع {selectedFiles.length} ملف
-          </Button>
-        )}
       </div>
-
-      {selectedFiles.length > 0 && (
-        <div className="text-sm text-gray-500">
-          المحدد: {selectedFiles.map((f) => f.name).join(", ")}
-        </div>
-      )}
 
       {isUploading && (
         <div className="space-y-1">
           <Progress value={progress} className="h-2" />
-          <p className="text-xs text-gray-500">جارٍ الرفع... {progress}%</p>
+          <p className="text-xs text-gray-500">جارٍ الرفع على Cloudinary... {progress}%</p>
         </div>
       )}
     </div>
