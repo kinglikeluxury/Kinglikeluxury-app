@@ -1,27 +1,41 @@
 {
   "name": "Kinglike Luxury Real Estate",
-  "short_name": "Kinglike",
+  "short_name": "Kinglike Luxury",
   "description": "Exclusive luxury properties - apartments, villas, lands, and construction projects",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#005476",
   "theme_color": "#3bcac4",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["business", "lifestyle"],
   "lang": "en",
-  "dir": "auto"
+  "dir": "auto",
+  "id": "kinglike-luxury-real-estate"
 }
