@@ -377,5 +377,15 @@
     "whiteFrame": "Taşınmaya hazır - Beyaz karkas",
     "greenFrame": "Taşınmaya hazır - Yeşil karkas",
     "blackFrame": "Taşınmaya hazır - Siyah karkas"
+  },
+  "submission": {
+    "successTitle": "Başarıyla Gönderildi!",
+    "successSubtitle": "Kinglike Luxury'ye güveniniz için teşekkürler",
+    "pendingMessage": "Mülkünüz çok yakında uygulama yönetiminin onayından sonra yayınlanacak",
+    "step1": "Yönetim ekibi mülkünüzü inceleyecek",
+    "step2": "Onay sonrasında bildirim alacaksınız",
+    "step3": "Mülkünüz potansiyel alıcılara görünecek",
+    "trustBadge": "Yönetim tarafından hızlı ve güvenli inceleme",
+    "understood": "Harika, teşekkürler!"
   }
 }

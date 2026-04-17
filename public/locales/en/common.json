@@ -373,5 +373,15 @@
     "whiteFrame": "Ready to move in as White Frame",
     "greenFrame": "Ready to move in as Green Frame",
     "blackFrame": "Ready to move in as Black Frame"
+  },
+  "submission": {
+    "successTitle": "Submitted Successfully!",
+    "successSubtitle": "Thank you for trusting Kinglike Luxury",
+    "pendingMessage": "Your property will be published very soon after the approval of the application management",
+    "step1": "The management team will review your property",
+    "step2": "You will receive a notification upon approval",
+    "step3": "Your property will appear to potential buyers",
+    "trustBadge": "Fast and secure review by management",
+    "understood": "Great, Thank you!"
   }
 }

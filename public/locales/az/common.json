@@ -309,5 +309,15 @@
     "whiteFrame": "Yaşamağa hazır - Ağ karkas",
     "greenFrame": "Yaşamağa hazır - Yaşıl karkas",
     "blackFrame": "Yaşamağa hazır - Qara karkas"
+  },
+  "submission": {
+    "successTitle": "Uğurla göndərildi!",
+    "successSubtitle": "Kinglike Luxury-ə etibarınız üçün təşəkkür edirik",
+    "pendingMessage": "Əmlakınız tezliklə tətbiq idarəçiliyinin təsdiqi sonra dərc ediləcək",
+    "step1": "İdarəetmə komandası əmlakınızı nəzərdən keçirəcək",
+    "step2": "Təsdiq zamanı bildiriş alacaqsınız",
+    "step3": "Əmlakınız potensial alıcılara görünəcək",
+    "trustBadge": "İdarəçilik tərəfindən sürətli və etibarlı yoxlama",
+    "understood": "Əla, təşəkkür edirik!"
   }
 }

@@ -18,6 +18,7 @@ import { VideoUploader } from "@/components/VideoUploader";
 import ListingTypePopup from "@/components/ListingTypePopup";
 import PaymentPopup from "@/components/PaymentPopup";
 import { PostPaymentChoicesPopup } from "@/components/PostPaymentChoicesPopup";
+import { SubmissionSuccessPopup } from "@/components/SubmissionSuccessPopup";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -114,6 +115,7 @@ const PropertyForm = () => {
   const [showListingTypePopup, setShowListingTypePopup] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [showPostPaymentChoices, setShowPostPaymentChoices] = useState(false);
+  const [showSubmissionSuccess, setShowSubmissionSuccess] = useState(false);
   const [selectedListingType, setSelectedListingType] = useState<'free' | 'featured'>('free');
   const [paymentSuccessDetails, setPaymentSuccessDetails] = useState<{
     propertyId: string;
@@ -656,11 +658,9 @@ const PropertyForm = () => {
       console.log(`Property ${isEditMode ? 'updated' : 'created'} successfully:`, result);
       
       if (result.pendingReview) {
-        toast({
-          title: t('property.underReview', 'Property Under Review'),
-          description: t('property.underReviewMessage', 'Your property has been submitted successfully and is currently under review by the application management. It will be published once approved.'),
-          duration: 8000,
-        });
+        // Show branded popup instead of toast
+        setShowSubmissionSuccess(true);
+        return result;
       } else {
         const listingTypeMessage = listingType === 'featured' ? 'as Featured Listing' : '';
         toast({
@@ -673,12 +673,8 @@ const PropertyForm = () => {
         return result;
       }
       
-      if (result.pendingReview) {
-        window.location.href = '/properties';
-      } else {
-        const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
-        window.location.href = redirectUrl;
-      }
+      const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
+      window.location.href = redirectUrl;
       
     } catch (error) {
       console.error('Error submitting property:', error);
@@ -2446,6 +2442,15 @@ const PropertyForm = () => {
           onClose={() => setShowPaymentPopup(false)}
           onPayment={handlePayment}
           propertyType={getPropertyTypeTitle(propertyType)}
+        />
+
+        {/* Submission Success Popup (pending admin approval) */}
+        <SubmissionSuccessPopup
+          open={showSubmissionSuccess}
+          onClose={() => {
+            setShowSubmissionSuccess(false);
+            window.location.href = '/properties';
+          }}
         />
 
         {/* Post-Payment Choices Popup */}

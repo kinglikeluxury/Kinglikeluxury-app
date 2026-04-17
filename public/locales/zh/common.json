@@ -309,5 +309,15 @@
     "whiteFrame": "可入住 - 白坯交付",
     "greenFrame": "可入住 - 绿色框架",
     "blackFrame": "可入住 - 黑色框架"
+  },
+  "submission": {
+    "successTitle": "提交成功！",
+    "successSubtitle": "感谢您对 Kinglike Luxury 的信任",
+    "pendingMessage": "您的房产将在应用管理层批准后很快发布",
+    "step1": "管理团队将审核您的房产",
+    "step2": "批准后您将收到通知",
+    "step3": "您的房产将向潜在买家展示",
+    "trustBadge": "管理层快速安全地审核",
+    "understood": "好的，谢谢！"
   }
 }

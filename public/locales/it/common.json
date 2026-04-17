@@ -376,5 +376,15 @@
     "whiteFrame": "Pronto per trasferirsi - Struttura Bianca",
     "greenFrame": "Pronto per trasferirsi - Struttura Verde",
     "blackFrame": "Pronto per trasferirsi - Struttura Nera"
+  },
+  "submission": {
+    "successTitle": "Inviato con successo!",
+    "successSubtitle": "Grazie per aver scelto Kinglike Luxury",
+    "pendingMessage": "Il tuo immobile verrà pubblicato molto presto dopo l'approvazione della gestione dell'applicazione",
+    "step1": "Il team di gestione esaminerà il tuo immobile",
+    "step2": "Riceverai una notifica dopo l'approvazione",
+    "step3": "Il tuo immobile apparirà ai potenziali acquirenti",
+    "trustBadge": "Revisione rapida e sicura da parte della gestione",
+    "understood": "Perfetto, grazie!"
   }
 }

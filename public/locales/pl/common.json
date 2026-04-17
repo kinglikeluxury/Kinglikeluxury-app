@@ -309,5 +309,15 @@
     "whiteFrame": "Gotowy do zamieszkania - Biały szkielet",
     "greenFrame": "Gotowy do zamieszkania - Zielony szkielet",
     "blackFrame": "Gotowy do zamieszkania - Czarny szkielet"
+  },
+  "submission": {
+    "successTitle": "Przesłano pomyślnie!",
+    "successSubtitle": "Dziękujemy za zaufanie do Kinglike Luxury",
+    "pendingMessage": "Twoja nieruchomość zostanie opublikowana bardzo wkrótce po zatwierdzeniu przez zarząd aplikacji",
+    "step1": "Zespół zarządzający sprawdzi Twoją nieruchomość",
+    "step2": "Otrzymasz powiadomienie po zatwierdzeniu",
+    "step3": "Twoja nieruchomość pojawi się dla potencjalnych nabywców",
+    "trustBadge": "Szybka i bezpieczna weryfikacja przez zarząd",
+    "understood": "Świetnie, dziękuję!"
   }
 }
