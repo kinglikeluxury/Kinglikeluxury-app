@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kinglike Luxury</string>
+    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">#005476</item>
+        <item name="android:colorPrimaryDark">#003a52</item>
+        <item name="android:colorAccent">#3bcac4</item>
+        <item name="android:windowBackground">#005476</item>
+        <item name="android:statusBarColor">#003a52</item>
+        <item name="android:navigationBarColor">#005476</item>
+    </style>
+</resources>

@@ -1,0 +1,10 @@
+R_DEF: Internal format may change without notice
+local
+id error_layout
+id progress_bar
+id retry_button
+id webview
+layout activity_main
+mipmap ic_launcher
+string app_name
+style AppTheme
