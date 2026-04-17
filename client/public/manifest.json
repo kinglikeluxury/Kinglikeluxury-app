@@ -1,13 +1,19 @@
 {
   "name": "Kinglike Luxury Real Estate",
-  "short_name": "Kinglike Luxury",
+  "short_name": "Kinglike",
   "description": "Exclusive luxury properties - apartments, villas, lands, and construction projects",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#005476",
   "theme_color": "#3bcac4",
   "orientation": "portrait-primary",
+  "id": "kinglike-luxury-real-estate",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["business", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -34,8 +40,24 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["business", "lifestyle"],
-  "lang": "en",
-  "dir": "auto",
-  "id": "kinglike-luxury-real-estate"
+  "shortcuts": [
+    {
+      "name": "Properties",
+      "short_name": "Properties",
+      "url": "/properties",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Add Property",
+      "short_name": "Add",
+      "url": "/submit-property",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Projects",
+      "short_name": "Projects",
+      "url": "/projects",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }
