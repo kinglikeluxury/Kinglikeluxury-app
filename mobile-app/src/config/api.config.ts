@@ -12,13 +12,13 @@ export const DEV_API_URL = 'http://10.0.2.2:5000/api';
 export const STAGING_API_URL = 'https://staging-api.kinglikeluxury.com/api';
 
 // Production server URL - change this to your production server when deploying
-export const PROD_API_URL = 'https://api.kinglikeluxury.com/api';
+export const PROD_API_URL = 'https://kinglike-luxury.replit.app/api';
 
 // Environment type for better type safety
 type Environment = 'development' | 'staging' | 'production';
 
 // Current environment - set to 'development', 'staging', or 'production'
-export const ENVIRONMENT: Environment = 'development';
+export const ENVIRONMENT: Environment = 'production';
 
 /**
  * Get the appropriate API URL based on the current environment
