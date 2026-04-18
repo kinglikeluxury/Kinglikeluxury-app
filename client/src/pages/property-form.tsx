@@ -574,8 +574,16 @@ const PropertyForm = () => {
         const cityNames = cities.map(city => {
           switch (city) {
             case 'batumi': return 'Batumi';
-            case 'tbilisi': return 'Tbilisi'; 
+            case 'tbilisi': return 'Tbilisi';
             case 'dubai': return 'Dubai';
+            case 'sharjah': return 'Sharjah';
+            case 'rasAlKhaimah': return 'Ras Al Khaimah';
+            case 'lefkosa': return 'Lefkoşa';
+            case 'gazimağusa': return 'Gazimağusa';
+            case 'girne': return 'Girne';
+            case 'iskele': return 'İskele';
+            case 'guzelyurt': return 'Güzelyurt';
+            case 'esentepe': return 'Esentepe';
             default: return city;
           }
         });
@@ -999,27 +1007,21 @@ const PropertyForm = () => {
                     <div className="text-sm text-gray-600 mb-2">Select cities:</div>
                     <div className="space-y-2">
                       {[
-                        { value: 'batumi', label: '🇬🇪 Batumi, Georgia' },
-                        { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia' },
-                        { value: 'dubai', label: '🇦🇪 Dubai, UAE' },
-                        { value: 'sharjah', label: '🇦🇪 Sharjah, UAE' },
-                        { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE' }
+                        { value: 'batumi', label: '🇬🇪 Batumi, Georgia', country: 'georgia' },
+                        { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia', country: 'georgia' },
+                        { value: 'dubai', label: '🇦🇪 Dubai, UAE', country: 'uae' },
+                        { value: 'sharjah', label: '🇦🇪 Sharjah, UAE', country: 'uae' },
+                        { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE', country: 'uae' },
+                        { value: 'lefkosa', label: '🇨🇾 Lefkoşa (Nicosia), TRNC', country: 'northern-cyprus' },
+                        { value: 'gazimağusa', label: '🇨🇾 Gazimağusa (Famagusta), TRNC', country: 'northern-cyprus' },
+                        { value: 'girne', label: '🇨🇾 Girne (Kyrenia), TRNC', country: 'northern-cyprus' },
+                        { value: 'iskele', label: '🇨🇾 İskele, TRNC', country: 'northern-cyprus' },
+                        { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
+                        { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
                       ].filter((cityOption) => {
-                        // Filter cities based on selected country
                         const selectedCountry = formData.country;
-                        
-                        // If Georgia is selected, only show Georgian cities
-                        if (selectedCountry === 'georgia') {
-                          return cityOption.value === 'batumi' || cityOption.value === 'tbilisi';
-                        }
-                        
-                        // If UAE is selected, only show UAE cities
-                        if (selectedCountry === 'uae') {
-                          return ['dubai', 'sharjah', 'rasAlKhaimah'].includes(cityOption.value);
-                        }
-                        
-                        // If no country is selected, show all cities
-                        return true;
+                        if (!selectedCountry) return true;
+                        return cityOption.country === selectedCountry;
                       }).map((cityOption) => {
                         const isSelected = Array.isArray(formData.city) 
                           ? formData.city.includes(cityOption.value)
@@ -1033,26 +1035,13 @@ const PropertyForm = () => {
                               onChange={(e) => {
                                 const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
                                 let newCities;
-                                
                                 if (e.target.checked) {
-                                  const georgianCities = ['batumi', 'tbilisi'];
-                                  const uaeCities = ['dubai', 'sharjah', 'rasAlKhaimah'];
-                                  
-                                  if (georgianCities.includes(cityOption.value)) {
-                                    newCities = [...currentCities.filter(c => !uaeCities.includes(c)), cityOption.value];
-                                  }
-                                  else if (uaeCities.includes(cityOption.value)) {
-                                    newCities = [...currentCities.filter(c => !georgianCities.includes(c)), cityOption.value];
-                                  }
-                                  else {
-                                    newCities = [...currentCities, cityOption.value];
-                                  }
+                                  newCities = [...currentCities, cityOption.value];
                                 } else {
                                   newCities = currentCities.filter(c => c !== cityOption.value);
                                 }
-                                
                                 handleInputChange('city', newCities.join(','));
-                                setUseMapSelection(false); // Reset location map when city changes
+                                setUseMapSelection(false);
                               }}
                               className="rounded border-gray-300"
                             />
@@ -1066,13 +1055,20 @@ const PropertyForm = () => {
                         <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
-                            const cityName = 
-                              cityValue === 'batumi' ? '🇬🇪 Batumi, Georgia' : 
-                              cityValue === 'tbilisi' ? '🇬🇪 Tbilisi, Georgia' : 
-                              cityValue === 'dubai' ? '🇦🇪 Dubai, UAE' :
-                              cityValue === 'sharjah' ? '🇦🇪 Sharjah, UAE' :
-                              cityValue === 'rasAlKhaimah' ? '🇦🇪 Ras Al Khaimah, UAE' :
-                              cityValue;
+                            const cityLabels: Record<string, string> = {
+                              batumi: '🇬🇪 Batumi, Georgia',
+                              tbilisi: '🇬🇪 Tbilisi, Georgia',
+                              dubai: '🇦🇪 Dubai, UAE',
+                              sharjah: '🇦🇪 Sharjah, UAE',
+                              rasAlKhaimah: '🇦🇪 Ras Al Khaimah, UAE',
+                              lefkosa: '🇨🇾 Lefkoşa (Nicosia), TRNC',
+                              'gazimağusa': '🇨🇾 Gazimağusa (Famagusta), TRNC',
+                              girne: '🇨🇾 Girne (Kyrenia), TRNC',
+                              iskele: '🇨🇾 İskele, TRNC',
+                              guzelyurt: '🇨🇾 Güzelyurt, TRNC',
+                              esentepe: '🇨🇾 Esentepe, TRNC',
+                            };
+                            const cityName = cityLabels[cityValue] || cityValue;
                             return (
                               <Badge key={cityValue} variant="secondary" className="text-xs">
                                 {cityName}
