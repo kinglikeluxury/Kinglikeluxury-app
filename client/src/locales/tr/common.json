@@ -61,7 +61,10 @@
     "listings4": "42+ İlan",
     "submit": "Mülk Ekle",
     "uploadProperties": "Mülklerinizi Yükleyin",
-    "myProperties": "Mülklerim"
+    "myProperties": "Mülklerim",
+    "viewProject": "Proje Detaylarını Gör",
+    "viewAllProjects": "Tüm Projeleri Gör",
+    "selectedRange": "Seçili"
   },
   "propertyTypes": {
     "apartment": "Daireler",
@@ -101,6 +104,13 @@
       "description": "Mülkünüzü bugün yükleyerek binlerce potansiyel alıcı ve kiracıya ulaşın.",
       "uploadButton": "Mülk Yükle",
       "browseButton": "İlanları Gözat"
+    },
+    "projects": {
+      "title": "Son İnşaat Projeleri",
+      "subtitle": "Şu an geliştirilen özel projeler",
+      "noResults": "Proje bulunamadı",
+      "completion": "Tamamlanma:",
+      "developer": "Geliştirici:"
     },
     "hero": {
       "country": "Ülke",

@@ -61,7 +61,10 @@
     "listings4": "42+ ofert",
     "submit": "Dodaj nieruchomość",
     "uploadProperties": "Prześlij swoje nieruchomości",
-    "myProperties": "Moje nieruchomości"
+    "myProperties": "Moje nieruchomości",
+    "viewProject": "Zobacz szczegóły projektu",
+    "viewAllProjects": "Zobacz wszystkie projekty",
+    "selectedRange": "Wybrane"
   },
   "propertyTypes": {
     "apartment": "Mieszkania",
@@ -101,6 +104,13 @@
       "description": "Dotrzyj do tysięcy potencjalnych kupców i najemców, przesyłając swoją nieruchomość już dziś.",
       "uploadButton": "Prześlij nieruchomość",
       "browseButton": "Przeglądaj ogłoszenia"
+    },
+    "projects": {
+      "title": "Najnowsze projekty budowlane",
+      "subtitle": "Ekskluzywne projekty w trakcie realizacji",
+      "noResults": "Nie znaleziono projektów",
+      "completion": "Ukończenie:",
+      "developer": "Deweloper:"
     },
     "hero": {
       "country": "Kraj",

@@ -61,7 +61,10 @@
     "listings4": "42+ 房源",
     "submit": "添加房产",
     "uploadProperties": "上传您的房产",
-    "myProperties": "我的房产"
+    "myProperties": "我的房产",
+    "viewProject": "查看项目详情",
+    "viewAllProjects": "查看所有项目",
+    "selectedRange": "已选"
   },
   "propertyTypes": {
     "apartment": "公寓",
@@ -101,6 +104,13 @@
       "description": "立即上传您的房产，吸引数千名潜在买家和租户。",
       "uploadButton": "上传房产",
       "browseButton": "浏览房源"
+    },
+    "projects": {
+      "title": "最新建设项目",
+      "subtitle": "正在开发中的独家项目",
+      "noResults": "未找到项目",
+      "completion": "竣工：",
+      "developer": "开发商："
     },
     "hero": {
       "country": "国家",

@@ -61,7 +61,10 @@
     "listings4": "42+ נכסים",
     "submit": "הוסף נכס",
     "uploadProperties": "העלה את הנכסים שלך",
-    "myProperties": "הנכסים שלי"
+    "myProperties": "הנכסים שלי",
+    "viewProject": "צפה בפרטי הפרויקט",
+    "viewAllProjects": "צפה בכל הפרויקטים",
+    "selectedRange": "נבחר"
   },
   "propertyTypes": {
     "apartment": "דירות",
@@ -101,6 +104,13 @@
       "description": "הגע לאלפי קונים ושוכרים פוטנציאליים על ידי העלאת הנכס שלך היום.",
       "uploadButton": "העלה נכס",
       "browseButton": "עיין במודעות"
+    },
+    "projects": {
+      "title": "פרויקטי בנייה אחרונים",
+      "subtitle": "פרויקטים בלעדיים בפיתוח כעת",
+      "noResults": "לא נמצאו פרויקטים",
+      "completion": "השלמה:",
+      "developer": "יזם:"
     },
     "hero": {
       "country": "מדינה",

@@ -61,7 +61,10 @@
     "listings4": "42+ объекта",
     "submit": "Добавить объект",
     "uploadProperties": "Загрузить объекты",
-    "myProperties": "Мои объекты"
+    "myProperties": "Мои объекты",
+    "viewProject": "Подробнее о проекте",
+    "viewAllProjects": "Все проекты",
+    "selectedRange": "Выбрано"
   },
   "propertyTypes": {
     "apartment": "Квартиры",
@@ -101,6 +104,13 @@
       "description": "Охватите тысячи потенциальных покупателей и арендаторов, загрузив объект сегодня.",
       "uploadButton": "Загрузить объект",
       "browseButton": "Просмотр объявлений"
+    },
+    "projects": {
+      "title": "Последние строительные проекты",
+      "subtitle": "Эксклюзивные проекты в разработке",
+      "noResults": "Проекты не найдены",
+      "completion": "Завершение:",
+      "developer": "Застройщик:"
     },
     "hero": {
       "country": "Страна",

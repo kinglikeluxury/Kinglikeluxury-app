@@ -61,7 +61,10 @@
     "listings4": "42+ Listings",
     "submit": "Add Property",
     "uploadProperties": "Upload your properties",
-    "myProperties": "My Properties"
+    "myProperties": "My Properties",
+    "viewProject": "View Project Details",
+    "viewAllProjects": "View All Projects",
+    "selectedRange": "Selected"
   },
   "propertyTypes": {
     "apartment": "Apartments",
@@ -101,6 +104,13 @@
       "description": "Reach thousands of potential buyers and tenants by uploading your property today.",
       "uploadButton": "Upload Property",
       "browseButton": "Browse Listings"
+    },
+    "projects": {
+      "title": "Latest Construction Projects",
+      "subtitle": "Exclusive projects currently under development",
+      "noResults": "No projects found",
+      "completion": "Completion:",
+      "developer": "Developer:"
     },
     "hero": {
       "country": "Country",

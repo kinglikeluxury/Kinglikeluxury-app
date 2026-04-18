@@ -61,7 +61,10 @@
     "listings4": "42+ عقار",
     "submit": "إضافة عقار",
     "uploadProperties": "رفع عقاراتك",
-    "myProperties": "عقاراتي"
+    "myProperties": "عقاراتي",
+    "viewProject": "عرض تفاصيل المشروع",
+    "viewAllProjects": "عرض جميع المشاريع",
+    "selectedRange": "المحدد"
   },
   "propertyTypes": {
     "apartment": "شقق",
@@ -101,6 +104,13 @@
       "description": "تواصل مع آلاف المشترين والمستأجرين المحتملين برفع عقارك اليوم.",
       "uploadButton": "رفع عقار",
       "browseButton": "تصفح الإعلانات"
+    },
+    "projects": {
+      "title": "أحدث مشاريع البناء",
+      "subtitle": "مشاريع حصرية قيد التطوير حالياً",
+      "noResults": "لا توجد مشاريع",
+      "completion": "موعد التسليم:",
+      "developer": "المطور:"
     },
     "hero": {
       "country": "الدولة",

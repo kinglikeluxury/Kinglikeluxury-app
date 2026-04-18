@@ -61,7 +61,10 @@
     "listings4": "42+ annunci",
     "submit": "Aggiungi proprietà",
     "uploadProperties": "Carica le tue proprietà",
-    "myProperties": "Le mie proprietà"
+    "myProperties": "Le mie proprietà",
+    "viewProject": "Vedi dettagli progetto",
+    "viewAllProjects": "Vedi tutti i progetti",
+    "selectedRange": "Selezionato"
   },
   "propertyTypes": {
     "apartment": "Appartamenti",
@@ -101,6 +104,13 @@
       "description": "Raggiungi migliaia di potenziali acquirenti e inquilini caricando la tua proprietà oggi.",
       "uploadButton": "Carica Proprietà",
       "browseButton": "Sfoglia Annunci"
+    },
+    "projects": {
+      "title": "Ultimi progetti di costruzione",
+      "subtitle": "Progetti esclusivi attualmente in sviluppo",
+      "noResults": "Nessun progetto trovato",
+      "completion": "Completamento:",
+      "developer": "Sviluppatore:"
     },
     "hero": {
       "country": "Paese",

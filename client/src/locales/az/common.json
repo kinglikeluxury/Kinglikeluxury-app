@@ -61,7 +61,10 @@
     "listings4": "42+ elan",
     "submit": "Əmlak əlavə et",
     "uploadProperties": "Əmlakınızı yükləyin",
-    "myProperties": "Əmlakım"
+    "myProperties": "Əmlakım",
+    "viewProject": "Layihə Təfərrüatlarını Gör",
+    "viewAllProjects": "Bütün Layihələri Gör",
+    "selectedRange": "Seçilmiş"
   },
   "propertyTypes": {
     "apartment": "Mənzillər",
@@ -101,6 +104,13 @@
       "description": "Əmlakınızı bu gün yükləyərək minlərlə potensial alıcı və kirayəçiyə çatın.",
       "uploadButton": "Əmlak Yüklə",
       "browseButton": "Elanları Gəz"
+    },
+    "projects": {
+      "title": "Son İnşaat Layihələri",
+      "subtitle": "Hazırda inkişaf etdirilən eksklüziv layihələr",
+      "noResults": "Layihə tapılmadı",
+      "completion": "Tamamlanma:",
+      "developer": "Tərtibatçı:"
     },
     "hero": {
       "country": "Ölkə",
