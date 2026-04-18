@@ -1,13 +1,14 @@
 import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
-  User, LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Settings, Star
+  LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/hooks/use-favorites";
-import LanguageSwitcher from "./LanguageSwitcher";
+import { languages, getFlagUrl } from "@/lib/i18n";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 
 interface MobileDrawerProps {
@@ -28,10 +29,11 @@ interface DrawerSection {
 }
 
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const { favorites } = useFavorites();
   const [location] = useLocation();
+  const [langExpanded, setLangExpanded] = useState(false);
 
   const handleNav = () => onClose();
 
@@ -208,16 +210,63 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
               {t("drawer.settings", "Settings")}
             </p>
-            <div className="bg-white px-5 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3.5">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Globe className="w-4 h-4 text-gray-500" />
+            <div className="bg-white">
+              <button
+                onClick={() => setLangExpanded(!langExpanded)}
+                className="flex items-center justify-between w-full px-5 py-3.5 active:bg-gray-50"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <img
+                      src={getFlagUrl(i18n.language)}
+                      alt=""
+                      className="w-5 h-4 object-cover rounded-sm"
+                    />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-800">
+                    {t("nav.language", "Language")} — {languages[i18n.language as keyof typeof languages]?.name || "English"}
+                  </span>
                 </div>
-                <span className="text-[15px] font-medium text-gray-800">
-                  {t("nav.language", "Language")}
-                </span>
-              </div>
-              <LanguageSwitcher />
+                {langExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+
+              {langExpanded && (
+                <div className="px-4 pb-3 grid grid-cols-2 gap-2">
+                  {Object.entries(languages).map(([code, { name }]) => {
+                    const isActive = i18n.language === code;
+                    return (
+                      <button
+                        key={code}
+                        onClick={() => {
+                          i18n.changeLanguage(code);
+                          setLangExpanded(false);
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all"
+                        style={{
+                          borderColor: isActive ? "#3bcac4" : "#e5e7eb",
+                          background: isActive ? "#f0fdfc" : "#fff",
+                        }}
+                      >
+                        <img
+                          src={getFlagUrl(code)}
+                          alt=""
+                          className="w-6 h-4 object-cover rounded-sm flex-shrink-0"
+                        />
+                        <span
+                          className="text-[13px] font-medium truncate"
+                          style={{ color: isActive ? "#3bcac4" : "#374151" }}
+                        >
+                          {name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

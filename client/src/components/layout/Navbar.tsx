@@ -149,8 +149,9 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Mobile: hamburger button */}
-            <div className="flex items-center sm:hidden">
+            {/* Mobile: language + hamburger */}
+            <div className="flex items-center gap-1 sm:hidden">
+              <LanguageSwitcher />
               <button
                 onClick={() => setIsDrawerOpen(true)}
                 className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors focus:outline-none"
