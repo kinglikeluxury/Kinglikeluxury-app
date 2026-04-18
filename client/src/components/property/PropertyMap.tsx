@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Navigation } from 'lucide-react';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -25,14 +24,6 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
   const lng = longitude ? parseFloat(longitude) : null;
   const hasCoords = lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng);
 
-  const openInMaps = () => {
-    if (hasCoords) {
-      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-    } else {
-      window.open(`https://www.google.com/maps/search/${encodeURIComponent(location)}`, '_blank');
-    }
-  };
-
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return;
 
@@ -49,25 +40,66 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
     }).addTo(map);
 
     if (hasCoords) {
-      // Custom teal pin
+      // Large pulsing pin
       const customIcon = L.divIcon({
-        html: `<div style="
-          width: 36px; height: 36px;
-          background: linear-gradient(135deg, #3bcac4, #005476);
-          border: 3px solid white;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 3px 10px rgba(0,0,0,0.4);
-          cursor: pointer;
-        "></div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 36],
+        html: `
+          <div style="position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center;">
+            <!-- Pulse ring -->
+            <div style="
+              position:absolute;
+              width:60px; height:60px;
+              border-radius:50%;
+              background:rgba(59,202,196,0.25);
+              animation:pulse-ring 1.8s ease-out infinite;
+            "></div>
+            <!-- Outer ring -->
+            <div style="
+              position:absolute;
+              width:44px; height:44px;
+              border-radius:50%;
+              background:rgba(59,202,196,0.4);
+            "></div>
+            <!-- Pin body -->
+            <div style="
+              position:absolute;
+              width:28px; height:28px;
+              background:linear-gradient(135deg,#3bcac4,#005476);
+              border:3px solid white;
+              border-radius:50%;
+              box-shadow:0 4px 14px rgba(0,84,118,0.5);
+              z-index:2;
+            "></div>
+            <!-- Pointer triangle -->
+            <div style="
+              position:absolute;
+              bottom:-8px;
+              left:50%;
+              transform:translateX(-50%);
+              width:0; height:0;
+              border-left:8px solid transparent;
+              border-right:8px solid transparent;
+              border-top:10px solid #005476;
+              z-index:2;
+            "></div>
+          </div>
+          <style>
+            @keyframes pulse-ring {
+              0%{transform:scale(0.6);opacity:0.9}
+              100%{transform:scale(1.4);opacity:0}
+            }
+          </style>`,
+        iconSize: [60, 70],
+        iconAnchor: [30, 68],
         className: '',
       });
 
       L.marker([lat!, lng!], { icon: customIcon })
         .addTo(map)
-        .bindPopup(`<b style="color:#005476">📍 ${location}</b>`)
+        .bindPopup(`
+          <div style="font-family:sans-serif;min-width:160px;padding:4px">
+            <p style="color:#005476;font-weight:700;margin:0 0 4px">📍 ${location}</p>
+            <p style="color:#3bcac4;font-size:11px;margin:0">${lat!.toFixed(5)}, ${lng!.toFixed(5)}</p>
+          </div>`)
         .openPopup();
     }
 
@@ -83,20 +115,11 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
   }, [latitude, longitude, location]);
 
   return (
-    <div className={`w-full rounded-xl overflow-hidden border-2 border-[#3bcac4] shadow-md ${className}`}>
-      <div
-        ref={mapRef}
-        style={{ height: '260px', zIndex: 1 }}
-      />
-      {/* Open in Google Maps button */}
-      <button
-        onClick={openInMaps}
-        className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-      >
-        <Navigation className="h-4 w-4" />
-        Open in Google Maps
-      </button>
-    </div>
+    <div
+      ref={mapRef}
+      className={`w-full rounded-xl border-2 border-[#3bcac4] shadow-md ${className}`}
+      style={{ height: '280px', zIndex: 1 }}
+    />
   );
 };
 
