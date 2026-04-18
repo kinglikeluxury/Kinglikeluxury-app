@@ -41,11 +41,11 @@ const Navbar = () => {
     <>
       <nav className="bg-white shadow-sm sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between h-24 sm:h-16">
             {/* Logo */}
             <div className="flex items-center">
               <Link href="/">
-                <img src={logoPath} alt="Kinglike Luxury" className="h-14 sm:h-10 w-auto" />
+                <img src={logoPath} alt="Kinglike Luxury" className="h-20 sm:h-10 w-auto" />
               </Link>
               {/* Desktop nav links */}
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
