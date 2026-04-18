@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "טוען...",
+    "all": "כל הסוגים",
+    "category": "קטגוריה",
+    "search": "חיפוש",
+    "exclusive": "בלעדי קינגלייק",
+    "comingSoon": "בקרוב"
+  },
+  "score": {
+    "propertyScore": "ניקוד נכס",
+    "location": "מיקום",
+    "value": "ערך",
+    "amenities": "שירותים",
+    "condition": "מצב",
+    "investment": "השקעה",
+    "excellent": "מצוין",
+    "good": "טוב",
+    "average": "ממוצע",
+    "fair": "סביר",
+    "poor": "ירוד",
+    "locationDetails": "מעריך את מיקום הנכס על בסיס קרבה לשירותים, תחבורה ואיכות השכונה",
+    "valueDetails": "בודק אם הנכס מתומחר בצורה הוגנת בהשוואה לנכסים דומים באזור",
+    "amenitiesDetails": "מדרג את הזמינות ואיכות השירותים והמאפיינים של הנכס",
+    "conditionDetails": "מעריך את המצב הפיזי ומצב התחזוקה של הנכס",
+    "investmentDetails": "מציין פוטנציאל לעליית ערך ולהכנסות שכירות",
+    "overallScoreDetails": "ניקוד משולב המבוסס על כל היבטי הנכס"
+  },
+  "nav": {
+    "home": "דף הבית",
+    "properties": "נכסים",
+    "projects": "פרויקטים",
+    "about": "אודות",
+    "contact": "צור קשר",
+    "blog": "בלוג",
+    "login": "התחברות",
+    "register": "הרשמה",
+    "submit": "הגש נכס",
+    "admin": "פאנל ניהול",
+    "logout": "התנתקות",
+    "profile": "הפרופיל שלי",
+    "language": "שפה"
+  },
+  "drawer": {
+    "browse": "עיין",
+    "account": "החשבון שלי",
+    "admin": "כלי ניהול",
+    "settings": "הגדרות"
+  },
+  "property": {
+    "heroTitle": "מצא את הנכס המושלם שלך",
+    "heroSubtitle": "גלה דירות, וילות, קרקעות ופרויקטי בנייה התואמים את צרכיך",
+    "type": "סוג נכס",
+    "location": "מיקום",
+    "anyLocation": "כל מיקום",
+    "priceRange": "טווח מחירים",
+    "anyPrice": "כל מחיר",
+    "listings": "120+ נכסים",
+    "listings2": "85+ נכסים",
+    "listings3": "63+ נכסים",
+    "listings4": "42+ נכסים",
+    "submit": "הוסף נכס",
+    "uploadProperties": "העלה את הנכסים שלך",
+    "myProperties": "הנכסים שלי"
+  },
+  "propertyTypes": {
+    "apartment": "דירות",
+    "villa": "וילות",
+    "land": "קרקעות",
+    "project": "פרויקטים על הנייר"
+  },
+  "auth": {
+    "login": "התחברות",
+    "register": "הרשמה",
+    "logout": "התנתקות",
+    "forgotPassword": "שכחת סיסמא?",
+    "alreadyAccount": "כבר יש לך חשבון?",
+    "noAccount": "אין לך חשבון?"
+  },
+  "favorites": {
+    "title": "מועדפים",
+    "empty": "אין מועדפים עדיין",
+    "add": "הוסף למועדפים",
+    "remove": "הסר מהמועדפים",
+    "viewAll": "צפה בכל המועדפים"
+  },
+  "categories": {
+    "title": "עיין לפי קטגוריה"
+  },
+  "admin": {
+    "onlyListings": "רשימות למנהלים בלבד",
+    "dashboard": "לוח בקרה",
+    "approvals": "אישורים",
+    "createProject": "הוסף פרויקט",
+    "blogManagement": "ניהול בלוג"
+  }
+}

@@ -3,8 +3,16 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
 import enCommon from '../locales/en/common.json';
+import arCommon from '../locales/ar/common.json';
+import heCommon from '../locales/he/common.json';
+import ruCommon from '../locales/ru/common.json';
+import kaCommon from '../locales/ka/common.json';
+import azCommon from '../locales/az/common.json';
+import trCommon from '../locales/tr/common.json';
+import zhCommon from '../locales/zh/common.json';
+import plCommon from '../locales/pl/common.json';
+import itCommon from '../locales/it/common.json';
 
-// Define the language configuration
 export const languages = {
   en: { name: 'English', dir: 'ltr', flagCode: 'gb' },
   ar: { name: 'العربية', dir: 'rtl', flagCode: 'ae' },
@@ -42,6 +50,15 @@ i18n
     defaultNS: 'common',
     resources: {
       en: { common: enCommon },
+      ar: { common: arCommon },
+      he: { common: heCommon },
+      ru: { common: ruCommon },
+      ka: { common: kaCommon },
+      az: { common: azCommon },
+      tr: { common: trCommon },
+      zh: { common: zhCommon },
+      pl: { common: plCommon },
+      it: { common: itCommon },
     },
     detection: {
       order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],

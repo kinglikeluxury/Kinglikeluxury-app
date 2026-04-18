@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Yükleniyor...",
+    "all": "Tüm Türler",
+    "category": "kategori",
+    "search": "Ara",
+    "exclusive": "KINGLIKE ÖZEL",
+    "comingSoon": "Yakında"
+  },
+  "score": {
+    "propertyScore": "Mülk Puanı",
+    "location": "Konum",
+    "value": "Değer",
+    "amenities": "Olanaklar",
+    "condition": "Durum",
+    "investment": "Yatırım",
+    "excellent": "Mükemmel",
+    "good": "İyi",
+    "average": "Ortalama",
+    "fair": "Orta",
+    "poor": "Zayıf",
+    "locationDetails": "Mülkün konumunu, olanaklara, ulaşıma ve mahalle kalitesine yakınlığa göre değerlendirir",
+    "valueDetails": "Mülkün bölgedeki benzer mülklerle karşılaştırıldığında adil fiyatlandırılıp fiyatlandırılmadığını değerlendirir",
+    "amenitiesDetails": "Mülk olanaklarının ve özelliklerinin kullanılabilirliğini ve kalitesini değerlendirir",
+    "conditionDetails": "Mülkün fiziksel durumunu ve bakım durumunu değerlendirir",
+    "investmentDetails": "Değer artışı ve kira geliri potansiyelini gösterir",
+    "overallScoreDetails": "Tüm mülk yönlerine dayalı birleşik puan"
+  },
+  "nav": {
+    "home": "Ana Sayfa",
+    "properties": "Mülkler",
+    "projects": "Projeler",
+    "about": "Hakkımızda",
+    "contact": "İletişim",
+    "blog": "Blog",
+    "login": "Giriş Yap",
+    "register": "Kayıt Ol",
+    "submit": "Mülk Ekle",
+    "admin": "Yönetim Paneli",
+    "logout": "Çıkış Yap",
+    "profile": "Profilim",
+    "language": "Dil"
+  },
+  "drawer": {
+    "browse": "Keşfet",
+    "account": "Hesabım",
+    "admin": "Yönetim Araçları",
+    "settings": "Ayarlar"
+  },
+  "property": {
+    "heroTitle": "Mükemmel Mülkünüzü Bulun",
+    "heroSubtitle": "İhtiyaçlarınıza uygun daireleri, villaları, arazileri ve yapım projelerini keşfedin",
+    "type": "Mülk Türü",
+    "location": "Konum",
+    "anyLocation": "Herhangi bir konum",
+    "priceRange": "Fiyat Aralığı",
+    "anyPrice": "Herhangi bir fiyat",
+    "listings": "120+ İlan",
+    "listings2": "85+ İlan",
+    "listings3": "63+ İlan",
+    "listings4": "42+ İlan",
+    "submit": "Mülk Ekle",
+    "uploadProperties": "Mülklerinizi Yükleyin",
+    "myProperties": "Mülklerim"
+  },
+  "propertyTypes": {
+    "apartment": "Daireler",
+    "villa": "Villalar",
+    "land": "Araziler",
+    "project": "Plan Üzeri Projeler"
+  },
+  "auth": {
+    "login": "Giriş Yap",
+    "register": "Kayıt Ol",
+    "logout": "Çıkış Yap",
+    "forgotPassword": "Şifremi Unuttum?",
+    "alreadyAccount": "Zaten hesabınız var mı?",
+    "noAccount": "Hesabınız yok mu?"
+  },
+  "favorites": {
+    "title": "Favoriler",
+    "empty": "Henüz favori yok",
+    "add": "Favorilere Ekle",
+    "remove": "Favorilerden Kaldır",
+    "viewAll": "Tüm favorileri görüntüle"
+  },
+  "categories": {
+    "title": "Kategoriye Göre Keşfet"
+  },
+  "admin": {
+    "onlyListings": "Yalnızca yönetici ilanları",
+    "dashboard": "Yönetim Paneli",
+    "approvals": "Onaylar",
+    "createProject": "Proje Ekle",
+    "blogManagement": "Blog Yönetimi"
+  }
+}

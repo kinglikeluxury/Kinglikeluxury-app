@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "جاري التحميل...",
+    "all": "جميع الأنواع",
+    "category": "فئة",
+    "search": "بحث",
+    "exclusive": "حصري كينغلايك",
+    "comingSoon": "قريباً"
+  },
+  "score": {
+    "propertyScore": "تقييم العقار",
+    "location": "الموقع",
+    "value": "القيمة",
+    "amenities": "المرافق",
+    "condition": "الحالة",
+    "investment": "الاستثمار",
+    "excellent": "ممتاز",
+    "good": "جيد",
+    "average": "متوسط",
+    "fair": "مقبول",
+    "poor": "ضعيف",
+    "locationDetails": "تقييم موقع العقار بناءً على القرب من المرافق والمواصلات وجودة الحي",
+    "valueDetails": "تقييم ما إذا كان سعر العقار مناسباً مقارنةً بعقارات مماثلة في المنطقة",
+    "amenitiesDetails": "تقييم توفر وجودة مرافق وميزات العقار",
+    "conditionDetails": "تقييم الحالة الجسدية للعقار وحالة الصيانة",
+    "investmentDetails": "مؤشر على إمكانية ارتفاع القيمة ودخل الإيجار",
+    "overallScoreDetails": "التقييم الإجمالي بناءً على جميع جوانب العقار"
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "properties": "العقارات",
+    "projects": "المشاريع",
+    "about": "من نحن",
+    "contact": "تواصل معنا",
+    "blog": "المدونة",
+    "login": "تسجيل الدخول",
+    "register": "التسجيل",
+    "submit": "رفع عقار",
+    "admin": "لوحة الإدارة",
+    "logout": "تسجيل الخروج",
+    "profile": "ملفي الشخصي",
+    "language": "اللغة"
+  },
+  "drawer": {
+    "browse": "تصفح",
+    "account": "حسابي",
+    "admin": "أدوات الإدارة",
+    "settings": "الإعدادات"
+  },
+  "property": {
+    "heroTitle": "ابحث عن عقارك المثالي",
+    "heroSubtitle": "اكتشف الشقق والفلل والأراضي ومشاريع البناء التي تناسب احتياجاتك",
+    "type": "نوع العقار",
+    "location": "الموقع",
+    "anyLocation": "أي موقع",
+    "priceRange": "نطاق السعر",
+    "anyPrice": "أي سعر",
+    "listings": "120+ عقار",
+    "listings2": "85+ عقار",
+    "listings3": "63+ عقار",
+    "listings4": "42+ عقار",
+    "submit": "إضافة عقار",
+    "uploadProperties": "رفع عقاراتك",
+    "myProperties": "عقاراتي"
+  },
+  "propertyTypes": {
+    "apartment": "شقق",
+    "villa": "فلل",
+    "land": "أراضي",
+    "project": "مشاريع على الخارطة"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "alreadyAccount": "لديك حساب بالفعل؟",
+    "noAccount": "ليس لديك حساب؟"
+  },
+  "favorites": {
+    "title": "المفضلة",
+    "empty": "لا توجد عقارات في المفضلة",
+    "add": "إضافة للمفضلة",
+    "remove": "إزالة من المفضلة",
+    "viewAll": "عرض كل المفضلة"
+  },
+  "categories": {
+    "title": "تصفح حسب الفئة"
+  },
+  "admin": {
+    "onlyListings": "قوائم المسؤولين فقط",
+    "dashboard": "لوحة التحكم",
+    "approvals": "الموافقات",
+    "createProject": "إضافة مشروع",
+    "blogManagement": "إدارة المدونة"
+  }
+}

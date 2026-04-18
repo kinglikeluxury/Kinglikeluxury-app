@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Yüklənir...",
+    "all": "Bütün növlər",
+    "category": "kateqoriya",
+    "search": "Axtar",
+    "exclusive": "KINGLIKE MÜSTƏSNAVİ",
+    "comingSoon": "Tezliklə"
+  },
+  "score": {
+    "propertyScore": "Əmlak Balı",
+    "location": "Yer",
+    "value": "Dəyər",
+    "amenities": "İmkanlar",
+    "condition": "Vəziyyət",
+    "investment": "İnvestisiya",
+    "excellent": "Əla",
+    "good": "Yaxşı",
+    "average": "Orta",
+    "fair": "Qənaətbəxş",
+    "poor": "Zəif",
+    "locationDetails": "Əmlakın yerini rahatlıqlara, nəqliyyata yaxınlığına görə qiymətləndirir",
+    "valueDetails": "Əmlakın bölgədəki oxşar əmlakla müqayisədə ədalətli qiymətləndirildiyini yoxlayır",
+    "amenitiesDetails": "Əmlak imkanlarının mövcudluğunu və keyfiyyətini qiymətləndirir",
+    "conditionDetails": "Əmlakın fiziki vəziyyətini qiymətləndirir",
+    "investmentDetails": "Dəyər artımı potensialını göstərir",
+    "overallScoreDetails": "Bütün əmlak aspektlərinə əsaslanan ümumi bal"
+  },
+  "nav": {
+    "home": "Ana Səhifə",
+    "properties": "Əmlaklar",
+    "projects": "Layihələr",
+    "about": "Haqqımızda",
+    "contact": "Əlaqə",
+    "blog": "Bloq",
+    "login": "Daxil ol",
+    "register": "Qeydiyyat",
+    "submit": "Əmlak əlavə et",
+    "admin": "Admin Paneli",
+    "logout": "Çıxış",
+    "profile": "Profilim",
+    "language": "Dil"
+  },
+  "drawer": {
+    "browse": "Gözdən keçir",
+    "account": "Hesabım",
+    "admin": "Admin Alətləri",
+    "settings": "Parametrlər"
+  },
+  "property": {
+    "heroTitle": "Mükəmməl Əmlakınızı Tapın",
+    "heroSubtitle": "Ehtiyaclarınıza uyğun mənzilləri, villaları, torpaqları və tikinti layihələrini kəşf edin",
+    "type": "Əmlak Növü",
+    "location": "Yer",
+    "anyLocation": "Hər hansı bir yer",
+    "priceRange": "Qiymət Aralığı",
+    "anyPrice": "İstənilən qiymət",
+    "listings": "120+ elan",
+    "listings2": "85+ elan",
+    "listings3": "63+ elan",
+    "listings4": "42+ elan",
+    "submit": "Əmlak əlavə et",
+    "uploadProperties": "Əmlakınızı yükləyin",
+    "myProperties": "Əmlakım"
+  },
+  "propertyTypes": {
+    "apartment": "Mənzillər",
+    "villa": "Villalar",
+    "land": "Torpaqlar",
+    "project": "Plan üzrə Layihələr"
+  },
+  "auth": {
+    "login": "Daxil ol",
+    "register": "Qeydiyyat",
+    "logout": "Çıxış",
+    "forgotPassword": "Şifrəni unutmusunuz?",
+    "alreadyAccount": "Artıq hesabınız var?",
+    "noAccount": "Hesabınız yoxdur?"
+  },
+  "favorites": {
+    "title": "Sevimlilər",
+    "empty": "Hələ sevimli yoxdur",
+    "add": "Sevimlilərə əlavə et",
+    "remove": "Sevimlilərdən sil",
+    "viewAll": "Bütün sevimlilərə bax"
+  },
+  "categories": {
+    "title": "Kateqoriyaya görə gözdən keçir"
+  },
+  "admin": {
+    "onlyListings": "Yalnız admin elanları",
+    "dashboard": "İdarəetmə Paneli",
+    "approvals": "Təsdiqlər",
+    "createProject": "Layihə əlavə et",
+    "blogManagement": "Bloq idarəetməsi"
+  }
+}

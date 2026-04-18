@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Caricamento...",
+    "all": "Tutti i tipi",
+    "category": "categoria",
+    "search": "Cerca",
+    "exclusive": "KINGLIKE ESCLUSIVO",
+    "comingSoon": "Prossimamente"
+  },
+  "score": {
+    "propertyScore": "Punteggio Proprietà",
+    "location": "Posizione",
+    "value": "Valore",
+    "amenities": "Servizi",
+    "condition": "Condizione",
+    "investment": "Investimento",
+    "excellent": "Eccellente",
+    "good": "Buono",
+    "average": "Medio",
+    "fair": "Discreto",
+    "poor": "Scarso",
+    "locationDetails": "Valuta la posizione dell'immobile in base alla vicinanza a servizi, trasporti e qualità del quartiere",
+    "valueDetails": "Valuta se l'immobile è prezzato equamente rispetto a proprietà simili nella zona",
+    "amenitiesDetails": "Valuta la disponibilità e qualità dei servizi e delle caratteristiche dell'immobile",
+    "conditionDetails": "Valuta lo stato fisico e la manutenzione dell'immobile",
+    "investmentDetails": "Indica il potenziale di apprezzamento e il reddito da affitto",
+    "overallScoreDetails": "Punteggio combinato basato su tutti gli aspetti dell'immobile"
+  },
+  "nav": {
+    "home": "Home",
+    "properties": "Proprietà",
+    "projects": "Progetti",
+    "about": "Chi siamo",
+    "contact": "Contatti",
+    "blog": "Blog",
+    "login": "Accedi",
+    "register": "Registrati",
+    "submit": "Aggiungi proprietà",
+    "admin": "Pannello Admin",
+    "logout": "Esci",
+    "profile": "Il mio profilo",
+    "language": "Lingua"
+  },
+  "drawer": {
+    "browse": "Esplora",
+    "account": "Il mio account",
+    "admin": "Strumenti Admin",
+    "settings": "Impostazioni"
+  },
+  "property": {
+    "heroTitle": "Trova la tua proprietà ideale",
+    "heroSubtitle": "Scopri appartamenti, ville, terreni e progetti di costruzione che soddisfano le tue esigenze",
+    "type": "Tipo di proprietà",
+    "location": "Posizione",
+    "anyLocation": "Qualsiasi posizione",
+    "priceRange": "Fascia di prezzo",
+    "anyPrice": "Qualsiasi prezzo",
+    "listings": "120+ annunci",
+    "listings2": "85+ annunci",
+    "listings3": "63+ annunci",
+    "listings4": "42+ annunci",
+    "submit": "Aggiungi proprietà",
+    "uploadProperties": "Carica le tue proprietà",
+    "myProperties": "Le mie proprietà"
+  },
+  "propertyTypes": {
+    "apartment": "Appartamenti",
+    "villa": "Ville",
+    "land": "Terreni",
+    "project": "Progetti su carta"
+  },
+  "auth": {
+    "login": "Accedi",
+    "register": "Registrati",
+    "logout": "Esci",
+    "forgotPassword": "Password dimenticata?",
+    "alreadyAccount": "Hai già un account?",
+    "noAccount": "Non hai un account?"
+  },
+  "favorites": {
+    "title": "Preferiti",
+    "empty": "Nessun preferito ancora",
+    "add": "Aggiungi ai preferiti",
+    "remove": "Rimuovi dai preferiti",
+    "viewAll": "Vedi tutti i preferiti"
+  },
+  "categories": {
+    "title": "Esplora per categoria"
+  },
+  "admin": {
+    "onlyListings": "Solo annunci amministratori",
+    "dashboard": "Dashboard",
+    "approvals": "Approvazioni",
+    "createProject": "Aggiungi progetto",
+    "blogManagement": "Gestione Blog"
+  }
+}

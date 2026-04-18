@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "all": "所有类型",
+    "category": "类别",
+    "search": "搜索",
+    "exclusive": "KINGLIKE 独家",
+    "comingSoon": "即将推出"
+  },
+  "score": {
+    "propertyScore": "房产评分",
+    "location": "位置",
+    "value": "价值",
+    "amenities": "设施",
+    "condition": "状况",
+    "investment": "投资",
+    "excellent": "优秀",
+    "good": "良好",
+    "average": "一般",
+    "fair": "尚可",
+    "poor": "较差",
+    "locationDetails": "根据与设施、交通和社区质量的距离评估房产位置",
+    "valueDetails": "评估房产定价是否与该地区类似房产相比合理",
+    "amenitiesDetails": "评估房产设施和功能的可用性和质量",
+    "conditionDetails": "评估房产的物理状况和维护状态",
+    "investmentDetails": "显示升值潜力和租金收益",
+    "overallScoreDetails": "基于房产所有方面的综合评分"
+  },
+  "nav": {
+    "home": "首页",
+    "properties": "房产",
+    "projects": "项目",
+    "about": "关于我们",
+    "contact": "联系我们",
+    "blog": "博客",
+    "login": "登录",
+    "register": "注册",
+    "submit": "提交房产",
+    "admin": "管理面板",
+    "logout": "退出登录",
+    "profile": "我的资料",
+    "language": "语言"
+  },
+  "drawer": {
+    "browse": "浏览",
+    "account": "我的账户",
+    "admin": "管理工具",
+    "settings": "设置"
+  },
+  "property": {
+    "heroTitle": "找到您的理想房产",
+    "heroSubtitle": "发现符合您需求的公寓、别墅、土地和建设项目",
+    "type": "房产类型",
+    "location": "位置",
+    "anyLocation": "任意位置",
+    "priceRange": "价格范围",
+    "anyPrice": "任意价格",
+    "listings": "120+ 房源",
+    "listings2": "85+ 房源",
+    "listings3": "63+ 房源",
+    "listings4": "42+ 房源",
+    "submit": "添加房产",
+    "uploadProperties": "上传您的房产",
+    "myProperties": "我的房产"
+  },
+  "propertyTypes": {
+    "apartment": "公寓",
+    "villa": "别墅",
+    "land": "土地",
+    "project": "期房项目"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出登录",
+    "forgotPassword": "忘记密码？",
+    "alreadyAccount": "已有账户？",
+    "noAccount": "没有账户？"
+  },
+  "favorites": {
+    "title": "收藏",
+    "empty": "暂无收藏",
+    "add": "添加到收藏",
+    "remove": "从收藏中移除",
+    "viewAll": "查看所有收藏"
+  },
+  "categories": {
+    "title": "按类别浏览"
+  },
+  "admin": {
+    "onlyListings": "仅限管理员房源",
+    "dashboard": "管理仪表板",
+    "approvals": "审批",
+    "createProject": "添加项目",
+    "blogManagement": "博客管理"
+  }
+}

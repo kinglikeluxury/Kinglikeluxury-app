@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Ładowanie...",
+    "all": "Wszystkie typy",
+    "category": "kategoria",
+    "search": "Szukaj",
+    "exclusive": "KINGLIKE EKSKLUZYWNE",
+    "comingSoon": "Wkrótce"
+  },
+  "score": {
+    "propertyScore": "Ocena nieruchomości",
+    "location": "Lokalizacja",
+    "value": "Wartość",
+    "amenities": "Udogodnienia",
+    "condition": "Stan",
+    "investment": "Inwestycja",
+    "excellent": "Doskonały",
+    "good": "Dobry",
+    "average": "Średni",
+    "fair": "Dostateczny",
+    "poor": "Słaby",
+    "locationDetails": "Ocenia lokalizację nieruchomości na podstawie bliskości udogodnień, transportu i jakości sąsiedztwa",
+    "valueDetails": "Ocenia, czy nieruchomość jest uczciwie wyceniona w porównaniu z podobnymi w okolicy",
+    "amenitiesDetails": "Ocenia dostępność i jakość udogodnień nieruchomości",
+    "conditionDetails": "Ocenia stan fizyczny i konserwację nieruchomości",
+    "investmentDetails": "Wskazuje potencjał wzrostu wartości i dochód z najmu",
+    "overallScoreDetails": "Łączna ocena oparta na wszystkich aspektach nieruchomości"
+  },
+  "nav": {
+    "home": "Strona główna",
+    "properties": "Nieruchomości",
+    "projects": "Projekty",
+    "about": "O nas",
+    "contact": "Kontakt",
+    "blog": "Blog",
+    "login": "Zaloguj się",
+    "register": "Rejestracja",
+    "submit": "Dodaj nieruchomość",
+    "admin": "Panel administratora",
+    "logout": "Wyloguj się",
+    "profile": "Mój profil",
+    "language": "Język"
+  },
+  "drawer": {
+    "browse": "Przeglądaj",
+    "account": "Moje konto",
+    "admin": "Narzędzia administratora",
+    "settings": "Ustawienia"
+  },
+  "property": {
+    "heroTitle": "Znajdź swoją idealną nieruchomość",
+    "heroSubtitle": "Odkryj mieszkania, wille, działki i projekty budowlane dopasowane do Twoich potrzeb",
+    "type": "Typ nieruchomości",
+    "location": "Lokalizacja",
+    "anyLocation": "Dowolna lokalizacja",
+    "priceRange": "Zakres cen",
+    "anyPrice": "Dowolna cena",
+    "listings": "120+ ofert",
+    "listings2": "85+ ofert",
+    "listings3": "63+ ofert",
+    "listings4": "42+ ofert",
+    "submit": "Dodaj nieruchomość",
+    "uploadProperties": "Prześlij swoje nieruchomości",
+    "myProperties": "Moje nieruchomości"
+  },
+  "propertyTypes": {
+    "apartment": "Mieszkania",
+    "villa": "Wille",
+    "land": "Działki",
+    "project": "Projekty deweloperskie"
+  },
+  "auth": {
+    "login": "Zaloguj się",
+    "register": "Zarejestruj się",
+    "logout": "Wyloguj się",
+    "forgotPassword": "Zapomniałeś hasła?",
+    "alreadyAccount": "Masz już konto?",
+    "noAccount": "Nie masz konta?"
+  },
+  "favorites": {
+    "title": "Ulubione",
+    "empty": "Brak ulubionych",
+    "add": "Dodaj do ulubionych",
+    "remove": "Usuń z ulubionych",
+    "viewAll": "Zobacz wszystkie ulubione"
+  },
+  "categories": {
+    "title": "Przeglądaj według kategorii"
+  },
+  "admin": {
+    "onlyListings": "Tylko oferty administratorów",
+    "dashboard": "Panel zarządzania",
+    "approvals": "Zatwierdzenia",
+    "createProject": "Dodaj projekt",
+    "blogManagement": "Zarządzanie blogiem"
+  }
+}
