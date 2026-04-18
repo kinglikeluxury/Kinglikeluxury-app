@@ -101,45 +101,29 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           }
         }
         
-        // Check if cancelled before getting upload URL
+        // Check if cancelled before uploading
         if (controller.signal.aborted) {
           throw new Error('Upload cancelled');
         }
 
-        // Get upload URL first
+        // Upload file directly to server as multipart form data
+        const formData = new FormData();
+        formData.append("file", processedFile);
+
         const uploadResponse = await fetch("/api/videos/upload", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           credentials: "include",
+          body: formData,
           signal: controller.signal,
         });
-        
+
         if (!uploadResponse.ok) {
-          throw new Error("Failed to get upload URL");
+          const errText = await uploadResponse.text();
+          throw new Error(`Upload failed: ${errText}`);
         }
-        
-        const { uploadURL } = await uploadResponse.json();
-        
-        // Upload the processed file directly to cloud storage using PUT with abort signal
-        const fileUploadResponse = await fetch(uploadURL, {
-          method: 'PUT',
-          body: processedFile,
-          signal: controller.signal,
-        });
-        
-        if (!fileUploadResponse.ok) {
-          throw new Error(`Upload failed: ${fileUploadResponse.statusText}`);
-        }
-        
-        // Convert upload URL to object path for serving
-        const urlParts = uploadURL.split('/');
-        const bucketIndex = urlParts.findIndex((part: string) => part.includes('objstore'));
-        if (bucketIndex !== -1 && urlParts[bucketIndex + 1]) {
-          const objectPath = `/objects/${urlParts.slice(bucketIndex + 1).join('/').split('?')[0]}`;
-          uploadedVideos.push(objectPath);
-        } else {
-          uploadedVideos.push(uploadURL);
-        }
+
+        const { url } = await uploadResponse.json();
+        uploadedVideos.push(url);
       }
       
       const newVideos = [...videos, ...uploadedVideos];
