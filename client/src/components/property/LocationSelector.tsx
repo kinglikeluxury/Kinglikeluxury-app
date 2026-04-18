@@ -115,25 +115,47 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
           } else {
             const marker = L.marker([lat, lng], { icon: customIcon, draggable: true }).addTo(map);
             markerRef.current = marker;
-            marker.on('dragend', () => {
+            marker.on('dragend', async () => {
               const pos = marker.getLatLng();
-              onLocationSelect(`Lat: ${pos.lat.toFixed(5)}, Lng: ${pos.lng.toFixed(5)}`, { lat: pos.lat, lng: pos.lng });
+              onLocationSelect(`${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`, { lat: pos.lat, lng: pos.lng });
+              try {
+                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.lat}&lon=${pos.lng}&format=json&addressdetails=1`);
+                const d = await r.json();
+                if (d?.address) {
+                  const addr = d.address;
+                  const parts = [addr.road || addr.pedestrian, addr.neighbourhood || addr.suburb, addr.city || addr.town || addr.village].filter(Boolean);
+                  const name = parts.length > 0 ? parts.join(', ') : d.display_name.split(',').slice(0, 3).join(', ');
+                  marker.bindPopup(`<b>📍 ${name}</b>`).openPopup();
+                  onLocationSelect(name, { lat: pos.lat, lng: pos.lng });
+                }
+              } catch { /* keep coordinate fallback */ }
             });
           }
 
-          markerRef.current!.bindPopup('<b>📍 Selected location</b>').openPopup();
-          onLocationSelect(`Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}`, { lat, lng });
+          markerRef.current!.bindPopup('<b>📍 Locating address...</b>').openPopup();
+          // Use coordinates as fallback immediately
+          onLocationSelect(`${lat.toFixed(5)}, ${lng.toFixed(5)}`, { lat, lng });
 
-          // Reverse geocode in background to get address
+          // Reverse geocode to get actual street address
           try {
             const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`
             );
             const data = await response.json();
             if (data?.display_name) {
-              const parts = data.display_name.split(',');
-              const locationName = parts.slice(0, 2).join(', ').trim();
+              // Build a readable address: road + neighbourhood + city
+              const addr = data.address || {};
+              const parts = [
+                addr.road || addr.pedestrian || addr.street,
+                addr.neighbourhood || addr.suburb,
+                addr.city || addr.town || addr.village || addr.county,
+              ].filter(Boolean);
+              const locationName = parts.length > 0
+                ? parts.join(', ')
+                : data.display_name.split(',').slice(0, 3).join(', ').trim();
               markerRef.current?.bindPopup(`<b>📍 ${locationName}</b>`).openPopup();
+              // Update form with real address name
+              onLocationSelect(locationName, { lat, lng });
             }
           } catch { /* keep coordinate fallback */ }
         });
