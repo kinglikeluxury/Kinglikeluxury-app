@@ -39,7 +39,8 @@
     "admin": "Admin Panel",
     "logout": "Logout",
     "profile": "My Profile",
-    "language": "Language"
+    "language": "Language",
+    "map": "Map"
   },
   "drawer": {
     "browse": "Browse",

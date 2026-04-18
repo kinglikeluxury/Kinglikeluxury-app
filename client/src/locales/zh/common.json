@@ -39,7 +39,8 @@
     "admin": "管理面板",
     "logout": "退出",
     "profile": "我的资料",
-    "language": "语言"
+    "language": "语言",
+    "map": "地图"
   },
   "drawer": {
     "browse": "浏览",

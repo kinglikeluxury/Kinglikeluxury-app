@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -217,6 +217,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               {renderItem({ label: t("propertyTypes.apartment", "Properties"), path: "/properties", icon: Building2 })}
               {renderItem({ label: t("nav.projects", "Projects"), path: "/projects", icon: FolderOpen })}
               {renderItem({ label: t("nav.blog", "Blog"), path: "/blog", icon: BookOpen })}
+              {renderItem({ label: t("nav.map", "Map"), path: "/map", icon: Map })}
               {renderItem({
                 label: t("favorites.title", "Favorites"),
                 path: "/favorites",

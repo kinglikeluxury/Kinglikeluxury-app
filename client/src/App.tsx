@@ -23,6 +23,7 @@ import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
 import BlogPost from "@/pages/blog-post";
 import Favorites from "@/pages/favorites";
+import MapView from "@/pages/map-view";
 import InstallPWA from "@/components/InstallPWA";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
@@ -52,6 +53,7 @@ function Router() {
           <Route path="/admin/add-project" component={AddProject} />
           <Route path="/admin/blog" component={BlogManagement} />
           <Route path="/favorites" component={Favorites} />
+          <Route path="/map" component={MapView} />
           <Route component={NotFound} />
         </Switch>
       </main>

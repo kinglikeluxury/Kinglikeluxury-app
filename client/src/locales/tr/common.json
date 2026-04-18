@@ -39,7 +39,8 @@
     "admin": "Yönetim Paneli",
     "logout": "Çıkış",
     "profile": "Profilim",
-    "language": "Dil"
+    "language": "Dil",
+    "map": "Harita"
   },
   "drawer": {
     "browse": "Gözat",

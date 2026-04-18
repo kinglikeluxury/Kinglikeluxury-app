@@ -39,7 +39,8 @@
     "admin": "Panel admina",
     "logout": "Wyloguj",
     "profile": "Mój profil",
-    "language": "Język"
+    "language": "Język",
+    "map": "Mapa"
   },
   "drawer": {
     "browse": "Przeglądaj",

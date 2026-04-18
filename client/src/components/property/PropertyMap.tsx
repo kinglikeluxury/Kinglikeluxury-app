@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix for default marker icons in Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -22,35 +21,44 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
   const leafletMapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || leafletMapRef.current) return;
 
-    // Default coordinates (Batumi, Georgia) if no coordinates provided
-    let lat = 41.6168;
-    let lng = 41.6367;
+    const lat = latitude ? parseFloat(latitude) : 41.6168;
+    const lng = longitude ? parseFloat(longitude) : 41.6367;
 
-    // Use provided coordinates if available
-    if (latitude && longitude) {
-      lat = parseFloat(latitude);
-      lng = parseFloat(longitude);
-    }
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([lat, lng], 15);
 
-    // Initialize map
-    if (!leafletMapRef.current) {
-      leafletMapRef.current = L.map(mapRef.current).setView([lat, lng], 13);
+    // Fast CartoDB Voyager tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 20,
+      subdomains: 'abcd',
+    }).addTo(map);
 
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(leafletMapRef.current);
+    // Custom teal pin
+    const customIcon = L.divIcon({
+      html: `<div style="
+        width: 36px; height: 36px;
+        background: linear-gradient(135deg, #3bcac4, #005476);
+        border: 3px solid white;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      "></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      className: '',
+    });
 
-      // Add marker
-      L.marker([lat, lng])
-        .addTo(leafletMapRef.current)
-        .bindPopup(`<b>${location}</b>`)
-        .openPopup();
-    }
+    L.marker([lat, lng], { icon: customIcon })
+      .addTo(map)
+      .bindPopup(`<b style="color:#005476">📍 ${location}</b>`)
+      .openPopup();
 
-    // Cleanup function
+    leafletMapRef.current = map;
+
+    setTimeout(() => map.invalidateSize(), 200);
+
     return () => {
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
@@ -60,10 +68,10 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
   }, [latitude, longitude, location]);
 
   return (
-    <div 
-      ref={mapRef} 
-      className={`w-full h-64 rounded-lg border ${className}`}
-      style={{ zIndex: 1 }}
+    <div
+      ref={mapRef}
+      className={`w-full rounded-xl border-2 border-[#3bcac4] shadow-md ${className}`}
+      style={{ height: '280px', zIndex: 1 }}
     />
   );
 };
