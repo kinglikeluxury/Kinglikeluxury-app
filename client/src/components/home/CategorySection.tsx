@@ -199,9 +199,9 @@ const CategorySection = () => {
                   <SelectValue placeholder={t('home.hero.anyCountry', 'Select Country')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="georgia">{t('countries.georgia', 'Georgia')}</SelectItem>
-                  <SelectItem value="uae">{t('countries.uae', 'United Arab Emirates')}</SelectItem>
-                  <SelectItem value="northern-cyprus">{t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
+                  <SelectItem value="georgia">🇬🇪 {t('countries.georgia', 'Georgia')}</SelectItem>
+                  <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
+                  <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

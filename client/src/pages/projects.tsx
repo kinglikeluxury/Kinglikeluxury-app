@@ -424,7 +424,8 @@ const Projects = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="georgia">🇬🇪 {t('countries.georgia', 'Georgia')}</SelectItem>
-                    <SelectItem value="uae">🇦🇪 {t('countries.uae', 'UAE')}</SelectItem>
+                    <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
+                    <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                   </SelectContent>
                 </Select>
                 {filterErrors.country && (
