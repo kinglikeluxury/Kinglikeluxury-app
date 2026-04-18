@@ -28,6 +28,7 @@ export interface IStorage {
     status?: string;
     ownerId?: number;
     location?: string;
+    locationContains?: string;
     minPrice?: number;
     maxPrice?: number;
   }): Promise<Property[]>;
@@ -132,6 +133,7 @@ export class MemStorage implements IStorage {
     status?: string;
     ownerId?: number;
     location?: string;
+    locationContains?: string;
     minPrice?: number;
     maxPrice?: number;
   }): Promise<Property[]> {
@@ -153,6 +155,12 @@ export class MemStorage implements IStorage {
       if (filters.location) {
         properties = properties.filter(p => 
           p.location.toLowerCase().includes(filters.location!.toLowerCase())
+        );
+      }
+      
+      if (filters.locationContains) {
+        properties = properties.filter(p => 
+          p.location.toLowerCase().includes(filters.locationContains!.toLowerCase())
         );
       }
       

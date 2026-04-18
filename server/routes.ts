@@ -1216,7 +1216,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Handle country-level filtering
     const countryMap: Record<string, string> = {
       'georgia': 'Georgia',
-      'uae': 'UAE'
+      'uae': 'UAE',
+      'northern-cyprus': 'Northern Cyprus'
     };
     
     // Handle city-level filtering  
@@ -1226,7 +1227,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'dubai': 'Dubai',
       'sharjah': 'Sharjah',
       'rasAlKhaimah': 'Ras Al Khaimah',
-      'ras-al-khaimah': 'Ras Al Khaimah'
+      'ras-al-khaimah': 'Ras Al Khaimah',
+      'lefkosa': 'Lefkoşa',
+      'gazimağusa': 'Gazimağusa',
+      'girne': 'Girne',
+      'iskele': 'İskele',
+      'guzelyurt': 'Güzelyurt',
+      'esentepe': 'Esentepe'
     };
     
     // Return country filter or city filter
