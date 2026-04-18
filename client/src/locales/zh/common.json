@@ -93,5 +93,22 @@
     "approvals": "审批",
     "createProject": "添加项目",
     "blogManagement": "博客管理"
+  },
+  "countries": {
+    "georgia": "格鲁吉亚",
+    "uae": "阿拉伯联合酋长国",
+    "northernCyprus": "北塞浦路斯 (KKTC)"
+  },
+  "cities": {
+    "batumi": "巴统",
+    "tbilisi": "第比利斯",
+    "dubai": "迪拜",
+    "sharjah": "沙迦",
+    "rasAlKhaimah": "哈伊马角",
+    "lefkosa": "莱夫科沙（尼科西亚）",
+    "gazimağusa": "加济马古萨（法马古斯塔）",
+    "girne": "吉尔尼（凯里尼亚）",
+    "iskele": "伊斯克莱",
+    "guzelyurt": "居泽尔尤尔特"
   }
 }

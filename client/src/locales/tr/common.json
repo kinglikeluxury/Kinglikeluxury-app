@@ -93,5 +93,22 @@
     "approvals": "Onaylar",
     "createProject": "Proje Ekle",
     "blogManagement": "Blog Yönetimi"
+  },
+  "countries": {
+    "georgia": "Gürcistan",
+    "uae": "Birleşik Arap Emirlikleri",
+    "northernCyprus": "Kuzey Kıbrıs (KKTC)"
+  },
+  "cities": {
+    "batumi": "Batum",
+    "tbilisi": "Tiflis",
+    "dubai": "Dubai",
+    "sharjah": "Şarica",
+    "rasAlKhaimah": "Ras Al Khaimah",
+    "lefkosa": "Lefkoşa",
+    "gazimağusa": "Gazimağusa",
+    "girne": "Girne",
+    "iskele": "İskele",
+    "guzelyurt": "Güzelyurt"
   }
 }

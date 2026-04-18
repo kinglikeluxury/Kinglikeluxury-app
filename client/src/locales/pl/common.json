@@ -93,5 +93,22 @@
     "approvals": "Zatwierdzenia",
     "createProject": "Dodaj projekt",
     "blogManagement": "Zarządzanie blogiem"
+  },
+  "countries": {
+    "georgia": "Gruzja",
+    "uae": "Zjednoczone Emiraty Arabskie",
+    "northernCyprus": "Cypr Północny (KKTC)"
+  },
+  "cities": {
+    "batumi": "Batumi",
+    "tbilisi": "Tbilisi",
+    "dubai": "Dubaj",
+    "sharjah": "Szardża",
+    "rasAlKhaimah": "Ras al-Chajma",
+    "lefkosa": "Lefkosza (Nikozja)",
+    "gazimağusa": "Gazimağusa (Famagusta)",
+    "girne": "Girne (Kyrenia)",
+    "iskele": "İskele",
+    "guzelyurt": "Güzelyurt"
   }
 }

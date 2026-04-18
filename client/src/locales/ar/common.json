@@ -93,5 +93,22 @@
     "approvals": "الموافقات",
     "createProject": "إضافة مشروع",
     "blogManagement": "إدارة المدونة"
+  },
+  "countries": {
+    "georgia": "جورجيا",
+    "uae": "الإمارات العربية المتحدة",
+    "northernCyprus": "قبرص التركية (KKTC)"
+  },
+  "cities": {
+    "batumi": "باتومي",
+    "tbilisi": "تبليسي",
+    "dubai": "دبي",
+    "sharjah": "الشارقة",
+    "rasAlKhaimah": "رأس الخيمة",
+    "lefkosa": "لفكوشا (نيقوسيا)",
+    "gazimağusa": "غازي ماغوسا (فاماغوستا)",
+    "girne": "كيرينيا (غيرني)",
+    "iskele": "إيسكيلي",
+    "guzelyurt": "غوزليورت"
   }
 }

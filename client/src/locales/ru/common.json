@@ -93,5 +93,22 @@
     "approvals": "Согласования",
     "createProject": "Добавить проект",
     "blogManagement": "Управление блогом"
+  },
+  "countries": {
+    "georgia": "Грузия",
+    "uae": "ОАЭ",
+    "northernCyprus": "Северный Кипр (ТРСК)"
+  },
+  "cities": {
+    "batumi": "Батуми",
+    "tbilisi": "Тбилиси",
+    "dubai": "Дубай",
+    "sharjah": "Шарджа",
+    "rasAlKhaimah": "Рас-эль-Хайма",
+    "lefkosa": "Лефкоша (Никосия)",
+    "gazimağusa": "Газимагуса (Фамагуста)",
+    "girne": "Кирения (Гирне)",
+    "iskele": "Искеле",
+    "guzelyurt": "Гюзельюрт"
   }
 }

@@ -294,6 +294,14 @@ const PropertyForm = () => {
           { value: "sharjah", label: "Sharjah" },
           { value: "ras-al-khaimah", label: "Ras Al Khaimah" }
         ];
+      case "northern-cyprus":
+        return [
+          { value: "lefkosa", label: "Lefkoşa (Nicosia)" },
+          { value: "gazimağusa", label: "Gazimağusa (Famagusta)" },
+          { value: "girne", label: "Girne (Kyrenia)" },
+          { value: "iskele", label: "İskele" },
+          { value: "guzelyurt", label: "Güzelyurt" }
+        ];
       default:
         return [];
     }
@@ -576,6 +584,7 @@ const PropertyForm = () => {
           switch (country) {
             case 'georgia': return 'Georgia';
             case 'uae': return 'UAE';
+            case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
             default: return country;
           }
         });
@@ -933,16 +942,12 @@ const PropertyForm = () => {
                     <div className="grid grid-cols-1 gap-2">
                       {[
                         { value: 'georgia', label: '🇬🇪 Georgia' },
-                        { value: 'uae', label: '🇦🇪 United Arab Emirates' }
+                        { value: 'uae', label: '🇦🇪 United Arab Emirates' },
+                        { value: 'northern-cyprus', label: '🇨🇾 Northern Cyprus (TRNC)' }
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
-                        
-                        const hasGeorgia = currentCountries.includes('georgia');
-                        const hasUAE = currentCountries.includes('uae');
-                        const isDisabled = 
-                          (countryOption.value === 'uae' && hasGeorgia) || 
-                          (countryOption.value === 'georgia' && hasUAE);
+                        const isDisabled = currentCountries.length > 0 && !isSelected;
                         
                         return (
                           <label key={countryOption.value} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -956,17 +961,7 @@ const PropertyForm = () => {
                                   handleInputChange('country', countryOption.value);
                                   
                                   // Clear cities when switching countries
-                                  if (countryOption.value === 'georgia') {
-                                    // Clear non-Georgian cities if switching to Georgia
-                                    const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                    const newCities = currentCities.filter(city => ['batumi', 'tbilisi'].includes(city));
-                                    handleInputChange('city', newCities.join(','));
-                                  } else if (countryOption.value === 'uae') {
-                                    // Clear non-UAE cities if switching to UAE
-                                    const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                    const newCities = currentCities.filter(city => ['dubai', 'sharjah', 'rasAlKhaimah'].includes(city));
-                                    handleInputChange('city', newCities.join(','));
-                                  }
+                                  handleInputChange('city', '');
                                 } else {
                                   // When unchecking, just remove this country
                                   handleInputChange('country', '');

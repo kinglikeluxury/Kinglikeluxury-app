@@ -93,5 +93,22 @@
     "approvals": "Təsdiqlər",
     "createProject": "Layihə əlavə et",
     "blogManagement": "Bloq idarəetməsi"
+  },
+  "countries": {
+    "georgia": "Gürcüstan",
+    "uae": "Birləşmiş Ərəb Əmirlikləri",
+    "northernCyprus": "Şimali Kipr (KKTC)"
+  },
+  "cities": {
+    "batumi": "Batum",
+    "tbilisi": "Tbilisi",
+    "dubai": "Dubai",
+    "sharjah": "Şarica",
+    "rasAlKhaimah": "Ras Al Xeymə",
+    "lefkosa": "Lefkoşa (Nikosiya)",
+    "gazimağusa": "Gazimağusa (Famagusta)",
+    "girne": "Girnə (Kireniia)",
+    "iskele": "İskəle",
+    "guzelyurt": "Güzelyurt"
   }
 }

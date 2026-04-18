@@ -93,5 +93,22 @@
     "approvals": "დამტკიცებები",
     "createProject": "პროექტის დამატება",
     "blogManagement": "ბლოგის მართვა"
+  },
+  "countries": {
+    "georgia": "საქართველო",
+    "uae": "არაბთა გაერთიანებული საამიროები",
+    "northernCyprus": "ჩრდილოეთ კვიპროსი (KKTC)"
+  },
+  "cities": {
+    "batumi": "ბათუმი",
+    "tbilisi": "თბილისი",
+    "dubai": "დუბაი",
+    "sharjah": "შარჯა",
+    "rasAlKhaimah": "რას ალ-ხაიმა",
+    "lefkosa": "ლეფქოშა (ნიქოსია)",
+    "gazimağusa": "გაზიმაგუსა (ფამაგუსტა)",
+    "girne": "გირნე (კირენია)",
+    "iskele": "ისქელე",
+    "guzelyurt": "გიუზელიურთი"
   }
 }
