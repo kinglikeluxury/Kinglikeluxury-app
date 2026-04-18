@@ -16,119 +16,106 @@ interface MobileDrawerProps {
   onClose: () => void;
 }
 
-interface DrawerItem {
-  label: string;
-  path: string;
-  icon: React.ElementType;
-  badge?: number;
-}
-
-interface DrawerSection {
-  title: string;
-  items: DrawerItem[];
-}
-
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const { favorites } = useFavorites();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [langExpanded, setLangExpanded] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
-  const handleNav = () => onClose();
+  const handleNav = () => {
+    setShowLoginPrompt(false);
+    onClose();
+  };
 
   const handleLogout = async () => {
     await logout();
     onClose();
   };
 
-  const browseSection: DrawerSection = {
-    title: t("drawer.browse", "Browse"),
-    items: [
-      { label: t("nav.home", "Home"), path: "/", icon: Home },
-      { label: t("propertyTypes.apartment", "Properties"), path: "/properties", icon: Building2 },
-      { label: t("nav.projects", "Projects"), path: "/projects", icon: FolderOpen },
-      { label: t("nav.blog", "Blog"), path: "/blog", icon: BookOpen },
-    ],
+  const handleProtectedNav = (path: string) => {
+    if (user) {
+      navigate(path);
+      onClose();
+    } else {
+      setShowLoginPrompt(true);
+    }
   };
 
-  const accountSection: DrawerSection = {
-    title: t("drawer.account", "My Account"),
-    items: [
-      { label: t("favorites.title", "Favorites"), path: "/favorites", icon: Heart, badge: favorites.length },
-      { label: t("property.myProperties", "My Properties"), path: "/properties?myProperties=true", icon: Star },
-      { label: t("property.submit", "Add Property"), path: "/submit-property", icon: PlusCircle },
-    ],
-  };
+  const isActive = (path: string) =>
+    location === path || location.startsWith(path + "?");
 
-  const adminSection: DrawerSection = {
-    title: t("drawer.admin", "Admin Tools"),
-    items: [
-      { label: t("admin.dashboard", "Dashboard"), path: "/admin/dashboard", icon: LayoutDashboard },
-      { label: t("admin.approvals", "Approvals"), path: "/admin/approvals", icon: CheckSquare },
-      { label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen },
-    ],
-  };
-
-  const isActive = (path: string) => location === path || location.startsWith(path + "?");
-
-  const renderItem = (item: DrawerItem) => {
-    const Icon = item.icon;
-    const active = isActive(item.path);
-    return (
-      <Link key={item.path} href={item.path} onClick={handleNav}>
-        <div
-          className={`flex items-center justify-between px-5 py-3.5 transition-colors active:bg-gray-100 ${
-            active ? "bg-teal-50" : ""
-          }`}
-        >
-          <div className="flex items-center gap-3.5">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{
-                background: active
-                  ? "linear-gradient(135deg, #3bcac4, #005476)"
-                  : "#f3f4f6",
-              }}
-            >
-              <Icon
-                className="w-4 h-4"
-                style={{ color: active ? "#fff" : "#6b7280" }}
-              />
-            </div>
-            <span
-              className="text-[15px] font-medium"
-              style={{ color: active ? "#3bcac4" : "#1f2937" }}
-            >
-              {item.label}
-            </span>
+  const renderItem = ({
+    label,
+    path,
+    icon: Icon,
+    badge,
+    protected: isProtected,
+  }: {
+    label: string;
+    path: string;
+    icon: React.ElementType;
+    badge?: number;
+    protected?: boolean;
+  }) => {
+    const active = isActive(path);
+    const content = (
+      <div
+        className={`flex items-center justify-between px-5 py-3.5 transition-colors active:bg-gray-100 ${
+          active ? "bg-teal-50" : ""
+        }`}
+      >
+        <div className="flex items-center gap-3.5">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{
+              background: active
+                ? "linear-gradient(135deg, #3bcac4, #005476)"
+                : "#f3f4f6",
+            }}
+          >
+            <Icon className="w-4 h-4" style={{ color: active ? "#fff" : "#6b7280" }} />
           </div>
-          <div className="flex items-center gap-2">
-            {item.badge !== undefined && item.badge > 0 && (
-              <span
-                className="text-xs text-white font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
-                style={{ background: "#3bcac4" }}
-              >
-                {item.badge}
-              </span>
-            )}
-            <ChevronRight className="w-4 h-4 text-gray-300" />
-          </div>
+          <span
+            className="text-[15px] font-medium"
+            style={{ color: active ? "#3bcac4" : "#1f2937" }}
+          >
+            {label}
+          </span>
         </div>
+        <div className="flex items-center gap-2">
+          {badge !== undefined && badge > 0 && (
+            <span
+              className="text-xs text-white font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
+              style={{ background: "#3bcac4" }}
+            >
+              {badge}
+            </span>
+          )}
+          <ChevronRight className="w-4 h-4 text-gray-300" />
+        </div>
+      </div>
+    );
+
+    if (isProtected) {
+      return (
+        <button
+          key={path}
+          className="w-full text-left"
+          onClick={() => handleProtectedNav(path)}
+        >
+          {content}
+        </button>
+      );
+    }
+
+    return (
+      <Link key={path} href={path} onClick={handleNav}>
+        {content}
       </Link>
     );
   };
-
-  const renderSection = (section: DrawerSection) => (
-    <div key={section.title} className="mb-2">
-      <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-        {section.title}
-      </p>
-      <div className="bg-white">
-        {section.items.map(renderItem)}
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -142,28 +129,21 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
 
       {/* Drawer panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-[82vw] max-w-[340px] z-50 flex flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ease-out md:hidden`}
-        style={{
-          transform: isOpen ? "translateX(0)" : "translateX(100%)",
-        }}
+        className="fixed top-0 right-0 h-full w-[82vw] max-w-[340px] z-50 flex flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ease-out md:hidden"
+        style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)" }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 pt-12 pb-5"
-          style={{
-            background: "linear-gradient(135deg, #005476, #3bcac4)",
-          }}
-        >
-          <img src={logoPath} alt="Kinglike" className="h-9 w-auto brightness-0 invert" />
+        {/* Header — white background, logo centred */}
+        <div className="bg-white border-b border-gray-100 pt-10 pb-4 px-5 relative flex items-center justify-center">
+          <img src={logoPath} alt="Kinglike Luxury" className="h-14 w-auto" />
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
           >
-            <X className="w-4 h-4 text-white" />
+            <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
 
-        {/* User info */}
+        {/* User info / Login buttons */}
         {user ? (
           <div className="bg-white px-5 py-4 border-b border-gray-100">
             <div className="flex items-center gap-3">
@@ -175,7 +155,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               </div>
               <div>
                 <p className="font-semibold text-gray-900 text-[15px]">{user.username}</p>
-                <p className="text-xs text-gray-500">{user.email}</p>
+                <p className="text-xs text-gray-500">{user.email || ""}</p>
               </div>
             </div>
           </div>
@@ -199,11 +179,79 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           </div>
         )}
 
+        {/* Login prompt banner (shown when non-auth user taps protected item) */}
+        {showLoginPrompt && (
+          <div className="mx-4 mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+            <LogIn className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800">يجب تسجيل الدخول أولاً</p>
+              <div className="flex gap-2 mt-2">
+                <Link href="/login" onClick={handleNav}>
+                  <span className="text-xs px-3 py-1.5 rounded-lg text-white font-medium" style={{ background: "#3bcac4" }}>
+                    تسجيل الدخول
+                  </span>
+                </Link>
+                <Link href="/register" onClick={handleNav}>
+                  <span className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 font-medium">
+                    إنشاء حساب
+                  </span>
+                </Link>
+              </div>
+            </div>
+            <button onClick={() => setShowLoginPrompt(false)}>
+              <X className="w-4 h-4 text-amber-400" />
+            </button>
+          </div>
+        )}
+
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto py-2">
-          {renderSection(browseSection)}
-          {user && renderSection(accountSection)}
-          {user?.isAdmin && renderSection(adminSection)}
+
+          {/* Browse section — visible to all */}
+          <div className="mb-2">
+            <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              {t("drawer.browse", "Browse")}
+            </p>
+            <div className="bg-white">
+              {renderItem({ label: t("nav.home", "Home"), path: "/", icon: Home })}
+              {renderItem({ label: t("propertyTypes.apartment", "Properties"), path: "/properties", icon: Building2 })}
+              {renderItem({ label: t("nav.projects", "Projects"), path: "/projects", icon: FolderOpen })}
+              {renderItem({ label: t("nav.blog", "Blog"), path: "/blog", icon: BookOpen })}
+              {renderItem({
+                label: t("favorites.title", "Favorites"),
+                path: "/favorites",
+                icon: Heart,
+                badge: favorites.length,
+                protected: !user,
+              })}
+              {renderItem({
+                label: t("property.myProperties", "My Properties"),
+                path: "/properties?myProperties=true",
+                icon: Star,
+                protected: !user,
+              })}
+              {renderItem({
+                label: t("property.submit", "Add Property"),
+                path: "/submit-property",
+                icon: PlusCircle,
+                protected: !user,
+              })}
+            </div>
+          </div>
+
+          {/* Admin section */}
+          {user?.isAdmin && (
+            <div className="mb-2">
+              <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                {t("drawer.admin", "Admin Tools")}
+              </p>
+              <div className="bg-white">
+                {renderItem({ label: t("admin.dashboard", "Dashboard"), path: "/admin/dashboard", icon: LayoutDashboard })}
+                {renderItem({ label: t("admin.approvals", "Approvals"), path: "/admin/approvals", icon: CheckSquare })}
+                {renderItem({ label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen })}
+              </div>
+            </div>
+          )}
 
           {/* Language */}
           <div className="mb-2">
@@ -217,49 +265,31 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               >
                 <div className="flex items-center gap-3.5">
                   <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <img
-                      src={getFlagUrl(i18n.language)}
-                      alt=""
-                      className="w-5 h-4 object-cover rounded-sm"
-                    />
+                    <img src={getFlagUrl(i18n.language)} alt="" className="w-5 h-4 object-cover rounded-sm" />
                   </div>
                   <span className="text-[15px] font-medium text-gray-800">
                     {t("nav.language", "Language")} — {languages[i18n.language as keyof typeof languages]?.name || "English"}
                   </span>
                 </div>
-                {langExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                )}
+                {langExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
               </button>
 
               {langExpanded && (
                 <div className="px-4 pb-3 grid grid-cols-2 gap-2">
                   {Object.entries(languages).map(([code, { name }]) => {
-                    const isActive = i18n.language === code;
+                    const active = i18n.language === code;
                     return (
                       <button
                         key={code}
-                        onClick={() => {
-                          i18n.changeLanguage(code);
-                          setLangExpanded(false);
-                        }}
+                        onClick={() => { i18n.changeLanguage(code); setLangExpanded(false); }}
                         className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all"
                         style={{
-                          borderColor: isActive ? "#3bcac4" : "#e5e7eb",
-                          background: isActive ? "#f0fdfc" : "#fff",
+                          borderColor: active ? "#3bcac4" : "#e5e7eb",
+                          background: active ? "#f0fdfc" : "#fff",
                         }}
                       >
-                        <img
-                          src={getFlagUrl(code)}
-                          alt=""
-                          className="w-6 h-4 object-cover rounded-sm flex-shrink-0"
-                        />
-                        <span
-                          className="text-[13px] font-medium truncate"
-                          style={{ color: isActive ? "#3bcac4" : "#374151" }}
-                        >
+                        <img src={getFlagUrl(code)} alt="" className="w-6 h-4 object-cover rounded-sm flex-shrink-0" />
+                        <span className="text-[13px] font-medium truncate" style={{ color: active ? "#3bcac4" : "#374151" }}>
                           {name}
                         </span>
                       </button>
