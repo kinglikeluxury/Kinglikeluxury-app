@@ -49,13 +49,13 @@ const PropertyCard = ({
   const getPropertyTypeName = () => {
     switch (propertyType) {
       case PROPERTY_TYPES.APARTMENT:
-        return t('property.types.apartment', 'Apartment');
+        return t('propertyTypes.apartment', 'Apartment');
       case PROPERTY_TYPES.VILLA:
-        return t('property.types.villa', 'Villa');
+        return t('propertyTypes.villa', 'Villa');
       case PROPERTY_TYPES.LAND:
-        return t('property.types.land', 'Land');
+        return t('propertyTypes.land', 'Land');
       case PROPERTY_TYPES.PROJECT:
-        return t('property.types.project', 'مشاريع قيد الإنشاء');
+        return t('propertyTypes.project', 'Off Plan Project');
       default:
         return propertyType;
     }
