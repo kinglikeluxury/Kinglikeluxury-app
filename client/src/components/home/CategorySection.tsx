@@ -44,6 +44,15 @@ const CategorySection = () => {
           { value: "sharjah", label: "Sharjah" },
           { value: "rasAlKhaimah", label: "Ras Al Khaimah" },
         ];
+      case "northern-cyprus":
+        return [
+          { value: "lefkosa", label: "Lefkoşa (Nicosia)" },
+          { value: "gazimağusa", label: "Gazimağusa (Famagusta)" },
+          { value: "girne", label: "Girne (Kyrenia)" },
+          { value: "iskele", label: "İskele" },
+          { value: "guzelyurt", label: "Güzelyurt" },
+          { value: "esentepe", label: "Esentepe" },
+        ];
       default:
         return [];
     }
@@ -192,6 +201,7 @@ const CategorySection = () => {
                 <SelectContent>
                   <SelectItem value="georgia">{t('countries.georgia', 'Georgia')}</SelectItem>
                   <SelectItem value="uae">{t('countries.uae', 'United Arab Emirates')}</SelectItem>
+                  <SelectItem value="northern-cyprus">{t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
