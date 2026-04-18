@@ -783,14 +783,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ objectPath: photoURL || "" });
   });
 
-  // Route to serve uploaded images (legacy object storage - kept for old URLs)
+  // Route to serve uploaded files (legacy object storage - with Range request support for video)
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      objectStorageService.downloadObject(objectFile, res);
+
+      const [metadata] = await objectFile.getMetadata();
+      const contentType = metadata.contentType || "application/octet-stream";
+      const fileSize = Number(metadata.size);
+      const isVideo = contentType.startsWith("video/");
+
+      const rangeHeader = req.headers.range;
+
+      if (isVideo && rangeHeader) {
+        // Parse Range header e.g. "bytes=0-1023"
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 - 1, fileSize - 1);
+        const chunkSize = end - start + 1;
+
+        res.writeHead(206, {
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunkSize,
+          "Content-Type": contentType,
+          "Cache-Control": "private, max-age=3600",
+        });
+
+        const stream = objectFile.createReadStream({ start, end });
+        stream.on("error", (err) => {
+          console.error("Stream error:", err);
+          if (!res.headersSent) res.status(500).end();
+        });
+        stream.pipe(res);
+      } else {
+        // No range request - serve full file
+        res.writeHead(200, {
+          "Content-Type": contentType,
+          "Content-Length": fileSize,
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "private, max-age=3600",
+        });
+        const stream = objectFile.createReadStream();
+        stream.on("error", (err) => {
+          console.error("Stream error:", err);
+          if (!res.headersSent) res.status(500).end();
+        });
+        stream.pipe(res);
+      }
     } catch (error: any) {
       if (error.name === "ObjectNotFoundError") {
+        if (req.path.startsWith("/objects/.private/uploads/")) {
+          return res.status(404).json({ error: "File not found" });
+        }
         return res.redirect("https://via.placeholder.com/800x600?text=Image+Not+Found");
       }
       return res.status(404).json({ error: "Object not found" });

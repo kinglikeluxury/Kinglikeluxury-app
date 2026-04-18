@@ -27,6 +27,7 @@ const PropertyDetail = () => {
   const videoRefs = useRef<HTMLVideoElement[]>([]);
   const wasPlayingBeforePause = useRef<Set<number>>(new Set());
   const [videoOrientations, setVideoOrientations] = useState<('vertical' | 'horizontal')[]>([]);
+  const [videoErrors, setVideoErrors] = useState<boolean[]>([]);
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
@@ -483,42 +484,64 @@ const PropertyDetail = () => {
                           </Badge>
                         </div>
                         
-                        <video 
-                          ref={el => {
-                            if (el) {
-                              videoRefs.current[idx] = el;
-                            }
-                          }}
-                          controls 
-                          controlsList="nodownload"
-                          onContextMenu={(e) => e.preventDefault()}
-                          className={`w-full rounded-lg ${
-                            isVertical 
-                              ? 'h-96 object-contain bg-black' 
-                              : 'h-64 object-cover'
-                          }`}
-                          preload="metadata"
-                          playsInline
-                          onLoadedMetadata={(e) => {
-                            const video = e.target as HTMLVideoElement;
-                            const isVideoVertical = video.videoHeight > video.videoWidth;
-                            
-                            setVideoOrientations(prev => {
-                              const newOrientations = [...prev];
-                              newOrientations[idx] = isVideoVertical ? 'vertical' : 'horizontal';
-                              return newOrientations;
-                            });
-                          }}
-                          style={{ 
-                            objectFit: isVertical ? 'contain' : 'cover'
-                          }}
-                        >
-                          <source src={video} type="video/mp4" />
-                          Your browser does not support the video tag.
-                        </video>
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
-                          <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
-                        </div>
+                        {videoErrors[idx] ? (
+                          <div className="w-full h-48 bg-gray-900 rounded-lg flex flex-col items-center justify-center gap-3 text-white">
+                            <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                            </svg>
+                            <p className="text-sm text-gray-400">تعذّر تشغيل الفيديو</p>
+                            <a
+                              href={video}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs px-4 py-2 rounded-full border border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white transition-colors"
+                            >
+                              فتح الفيديو مباشرة
+                            </a>
+                          </div>
+                        ) : (
+                          <>
+                            <video 
+                              ref={el => {
+                                if (el) videoRefs.current[idx] = el;
+                              }}
+                              controls 
+                              controlsList="nodownload"
+                              onContextMenu={(e) => e.preventDefault()}
+                              className={`w-full rounded-lg ${
+                                isVertical 
+                                  ? 'h-96 object-contain bg-black' 
+                                  : 'h-64 object-cover'
+                              }`}
+                              preload="metadata"
+                              playsInline
+                              onLoadedMetadata={(e) => {
+                                const vid = e.target as HTMLVideoElement;
+                                const isVideoVertical = vid.videoHeight > vid.videoWidth;
+                                setVideoOrientations(prev => {
+                                  const newOrientations = [...prev];
+                                  newOrientations[idx] = isVideoVertical ? 'vertical' : 'horizontal';
+                                  return newOrientations;
+                                });
+                              }}
+                              onError={() => {
+                                setVideoErrors(prev => {
+                                  const next = [...prev];
+                                  next[idx] = true;
+                                  return next;
+                                });
+                              }}
+                              style={{ objectFit: isVertical ? 'contain' : 'cover' }}
+                            >
+                              <source src={video} type="video/mp4" />
+                              <source src={video} type="video/quicktime" />
+                              <source src={video} type="video/webm" />
+                            </video>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
+                              <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
+                            </div>
+                          </>
+                        )}
                         
                         {/* Video Type Info */}
                         <div className="absolute bottom-2 left-2 z-10">
