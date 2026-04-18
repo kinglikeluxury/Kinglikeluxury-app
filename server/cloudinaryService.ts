@@ -1,9 +1,30 @@
 import { v2 as cloudinary } from "cloudinary";
 
+// Cloudinary credentials - detect correct mapping regardless of env var order
+const knownCloudName = "dmfy0mz7g";
+const knownApiKey = "128179551742346";
+
+function resolveCloudinaryConfig() {
+  const vars = [
+    process.env.CLOUDINARY_CLOUD_NAME,
+    process.env.CLOUDINARY_API_KEY,
+    process.env.CLOUDINARY_API_SECRET,
+  ].filter(Boolean) as string[];
+
+  // Find each value by matching known patterns
+  const cloudName = vars.find(v => v === knownCloudName) || process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = vars.find(v => v === knownApiKey) || process.env.CLOUDINARY_API_KEY;
+  const apiSecret = vars.find(v => v !== knownCloudName && v !== knownApiKey) || process.env.CLOUDINARY_API_SECRET;
+
+  return { cloudName, apiKey, apiSecret };
+}
+
+const { cloudName, apiKey, apiSecret } = resolveCloudinaryConfig();
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: cloudName,
+  api_key: apiKey,
+  api_secret: apiSecret,
   secure: true,
 });
 
