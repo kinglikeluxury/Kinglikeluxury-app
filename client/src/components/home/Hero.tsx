@@ -76,7 +76,8 @@ const Hero = () => {
           { value: "gazimağusa", label: "Gazimağusa (Famagusta)" },
           { value: "girne", label: "Girne (Kyrenia)" },
           { value: "iskele", label: "İskele" },
-          { value: "guzelyurt", label: "Güzelyurt" }
+          { value: "guzelyurt", label: "Güzelyurt" },
+          { value: "esentepe", label: "Esentepe" }
         ];
       default:
         return [];
