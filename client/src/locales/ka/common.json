@@ -94,6 +94,17 @@
     "createProject": "პროექტის დამატება",
     "blogManagement": "ბლოგის მართვა"
   },
+  "home": {
+    "hero": {
+      "country": "ქვეყანა",
+      "anyCountry": "ნებისმიერი ქვეყანა",
+      "city": "ქალაქი",
+      "purpose": "მიზანი",
+      "anyPurpose": "ნებისმიერი მიზანი",
+      "toBuy": "ყიდვა",
+      "forRent": "გაქირავება"
+    }
+  },
   "countries": {
     "georgia": "საქართველო",
     "uae": "არაბთა გაერთიანებული საამიროები",

@@ -94,6 +94,17 @@
     "createProject": "إضافة مشروع",
     "blogManagement": "إدارة المدونة"
   },
+  "home": {
+    "hero": {
+      "country": "الدولة",
+      "anyCountry": "أي دولة",
+      "city": "المدينة",
+      "purpose": "الغرض",
+      "anyPurpose": "أي غرض",
+      "toBuy": "للشراء",
+      "forRent": "للإيجار"
+    }
+  },
   "countries": {
     "georgia": "جورجيا",
     "uae": "الإمارات العربية المتحدة",

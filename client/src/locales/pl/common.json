@@ -94,6 +94,17 @@
     "createProject": "Dodaj projekt",
     "blogManagement": "Zarządzanie blogiem"
   },
+  "home": {
+    "hero": {
+      "country": "Kraj",
+      "anyCountry": "Dowolny kraj",
+      "city": "Miasto",
+      "purpose": "Cel",
+      "anyPurpose": "Dowolny cel",
+      "toBuy": "Kup",
+      "forRent": "Wynajem"
+    }
+  },
   "countries": {
     "georgia": "Gruzja",
     "uae": "Zjednoczone Emiraty Arabskie",

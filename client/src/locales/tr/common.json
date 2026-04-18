@@ -94,6 +94,17 @@
     "createProject": "Proje Ekle",
     "blogManagement": "Blog Yönetimi"
   },
+  "home": {
+    "hero": {
+      "country": "Ülke",
+      "anyCountry": "Herhangi bir ülke",
+      "city": "Şehir",
+      "purpose": "Amaç",
+      "anyPurpose": "Herhangi bir amaç",
+      "toBuy": "Satın almak",
+      "forRent": "Kiralık"
+    }
+  },
   "countries": {
     "georgia": "Gürcistan",
     "uae": "Birleşik Arap Emirlikleri",

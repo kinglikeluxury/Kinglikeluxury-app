@@ -94,6 +94,17 @@
     "createProject": "Add Project",
     "blogManagement": "Blog Management"
   },
+  "home": {
+    "hero": {
+      "country": "Country",
+      "anyCountry": "Any Country",
+      "city": "City",
+      "purpose": "What for",
+      "anyPurpose": "Any Purpose",
+      "toBuy": "To buy",
+      "forRent": "For rent"
+    }
+  },
   "countries": {
     "georgia": "Georgia",
     "uae": "United Arab Emirates",

@@ -94,6 +94,17 @@
     "createProject": "添加项目",
     "blogManagement": "博客管理"
   },
+  "home": {
+    "hero": {
+      "country": "国家",
+      "anyCountry": "任何国家",
+      "city": "城市",
+      "purpose": "目的",
+      "anyPurpose": "任何目的",
+      "toBuy": "购买",
+      "forRent": "租赁"
+    }
+  },
   "countries": {
     "georgia": "格鲁吉亚",
     "uae": "阿拉伯联合酋长国",

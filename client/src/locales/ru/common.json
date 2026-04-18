@@ -94,6 +94,17 @@
     "createProject": "Добавить проект",
     "blogManagement": "Управление блогом"
   },
+  "home": {
+    "hero": {
+      "country": "Страна",
+      "anyCountry": "Любая страна",
+      "city": "Город",
+      "purpose": "Цель",
+      "anyPurpose": "Любая цель",
+      "toBuy": "Купить",
+      "forRent": "Аренда"
+    }
+  },
   "countries": {
     "georgia": "Грузия",
     "uae": "ОАЭ",

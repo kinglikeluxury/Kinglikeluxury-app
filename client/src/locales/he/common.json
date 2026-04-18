@@ -94,6 +94,17 @@
     "createProject": "הוסף פרויקט",
     "blogManagement": "ניהול בלוג"
   },
+  "home": {
+    "hero": {
+      "country": "מדינה",
+      "anyCountry": "כל מדינה",
+      "city": "עיר",
+      "purpose": "מטרה",
+      "anyPurpose": "כל מטרה",
+      "toBuy": "לקנייה",
+      "forRent": "להשכרה"
+    }
+  },
   "countries": {
     "georgia": "גאורגיה",
     "uae": "איחוד האמירויות הערביות",

@@ -94,6 +94,17 @@
     "createProject": "Layihə əlavə et",
     "blogManagement": "Bloq idarəetməsi"
   },
+  "home": {
+    "hero": {
+      "country": "Ölkə",
+      "anyCountry": "İstənilən ölkə",
+      "city": "Şəhər",
+      "purpose": "Məqsəd",
+      "anyPurpose": "İstənilən məqsəd",
+      "toBuy": "Almaq",
+      "forRent": "Kirayə"
+    }
+  },
   "countries": {
     "georgia": "Gürcüstan",
     "uae": "Birləşmiş Ərəb Əmirlikləri",
