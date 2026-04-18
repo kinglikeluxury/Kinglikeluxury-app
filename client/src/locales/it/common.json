@@ -8,7 +8,7 @@
     "comingSoon": "Prossimamente"
   },
   "score": {
-    "propertyScore": "Punteggio Proprietà",
+    "propertyScore": "Punteggio proprietà",
     "location": "Posizione",
     "value": "Valore",
     "amenities": "Servizi",
@@ -19,12 +19,12 @@
     "average": "Medio",
     "fair": "Discreto",
     "poor": "Scarso",
-    "locationDetails": "Valuta la posizione dell'immobile in base alla vicinanza a servizi, trasporti e qualità del quartiere",
-    "valueDetails": "Valuta se l'immobile è prezzato equamente rispetto a proprietà simili nella zona",
-    "amenitiesDetails": "Valuta la disponibilità e qualità dei servizi e delle caratteristiche dell'immobile",
-    "conditionDetails": "Valuta lo stato fisico e la manutenzione dell'immobile",
-    "investmentDetails": "Indica il potenziale di apprezzamento e il reddito da affitto",
-    "overallScoreDetails": "Punteggio combinato basato su tutti gli aspetti dell'immobile"
+    "locationDetails": "Valuta la posizione della proprietà in base alla prossimità a servizi, trasporti e qualità del quartiere",
+    "valueDetails": "Valuta se la proprietà è prezzata equamente rispetto a proprietà simili nella zona",
+    "amenitiesDetails": "Valuta la disponibilità e la qualità dei servizi e delle caratteristiche della proprietà",
+    "conditionDetails": "Valuta le condizioni fisiche della proprietà e lo stato di manutenzione",
+    "investmentDetails": "Indica il potenziale di apprezzamento del valore e reddito da locazione",
+    "overallScoreDetails": "Punteggio combinato basato su tutti gli aspetti della proprietà"
   },
   "nav": {
     "home": "Home",
@@ -36,20 +36,20 @@
     "login": "Accedi",
     "register": "Registrati",
     "submit": "Aggiungi proprietà",
-    "admin": "Pannello Admin",
+    "admin": "Pannello admin",
     "logout": "Esci",
     "profile": "Il mio profilo",
     "language": "Lingua"
   },
   "drawer": {
-    "browse": "Esplora",
+    "browse": "Sfoglia",
     "account": "Il mio account",
-    "admin": "Strumenti Admin",
+    "admin": "Strumenti admin",
     "settings": "Impostazioni"
   },
   "property": {
     "heroTitle": "Trova la tua proprietà ideale",
-    "heroSubtitle": "Scopri appartamenti, ville, terreni e progetti di costruzione che soddisfano le tue esigenze",
+    "heroSubtitle": "Scopri appartamenti, ville, terreni e progetti di costruzione che corrispondono alle tue esigenze",
     "type": "Tipo di proprietà",
     "location": "Posizione",
     "anyLocation": "Qualsiasi posizione",
@@ -64,13 +64,17 @@
     "myProperties": "Le mie proprietà",
     "viewProject": "Vedi dettagli progetto",
     "viewAllProjects": "Vedi tutti i progetti",
-    "selectedRange": "Selezionato"
+    "selectedRange": "Selezionato",
+    "noResults": "Nessuna proprietà trovata",
+    "tryAdjustingFilters": "Prova a modificare i filtri",
+    "viewAll": "Vedi tutte le proprietà"
   },
   "propertyTypes": {
     "apartment": "Appartamenti",
     "villa": "Ville",
     "land": "Terreni",
-    "project": "Progetti su carta"
+    "project": "Progetti su carta",
+    "commercial": "Spazi commerciali"
   },
   "auth": {
     "login": "Accedi",
@@ -88,14 +92,69 @@
     "viewAll": "Vedi tutti i preferiti"
   },
   "categories": {
-    "title": "Esplora per categoria"
+    "title": "Sfoglia per categoria",
+    "selectFilters": "Seleziona filtri per sfogliare"
   },
   "admin": {
-    "onlyListings": "Solo annunci amministratori",
-    "dashboard": "Dashboard",
+    "onlyListings": "Solo annunci admin",
+    "dashboard": "Dashboard amministrativa",
     "approvals": "Approvazioni",
     "createProject": "Aggiungi progetto",
     "blogManagement": "Gestione Blog"
+  },
+  "blog": {
+    "title": "Blog immobiliare",
+    "subtitle": "Ultime notizie, consigli e approfondimenti",
+    "loading": "Caricamento articoli...",
+    "noPosts": "Nessun articolo trovato",
+    "noPostsDescription": "Torna più tardi per nuovi articoli",
+    "notFound": "Articolo non trovato",
+    "notFoundDesc": "L'articolo che cerchi non esiste",
+    "backToBlog": "Torna al blog",
+    "allCountries": "Tutti i paesi"
+  },
+  "projects": {
+    "title": "Progetti su carta",
+    "subtitle": "Sviluppi esclusivi attualmente in costruzione",
+    "loading": "Caricamento progetti...",
+    "noProjects": "Nessun progetto trovato",
+    "noProjectsHint": "Prova a modificare i filtri",
+    "error": "Caricamento progetti fallito",
+    "smartFilters": "Filtri intelligenti",
+    "selectCountry": "Seleziona paese",
+    "selectCountryFirst": "Seleziona prima un paese",
+    "selectDeliveryDate": "Seleziona data di consegna",
+    "searchButton": "Cerca",
+    "clearAll": "Cancella tutto",
+    "clearAllFilters": "Cancella tutti i filtri",
+    "filtersApplied": "filtri applicati",
+    "projectsFound": "progetti trovati",
+    "active": "Attivo",
+    "completion": "Completamento",
+    "deliveryDate": "Data di consegna",
+    "allDate": "Tutte le date",
+    "developer": "Sviluppatore",
+    "fromPrice": "Da",
+    "viewDetails": "Vedi dettagli",
+    "addProject": "Aggiungi progetto",
+    "bed": "Camera",
+    "bath": "Bagno",
+    "sqm": "m²",
+    "countryRequired": "Seleziona un paese",
+    "selectRequired": "Seleziona data di consegna",
+    "selectRequiredHint": "Scegli un anno di consegna per vedere i progetti",
+    "promoTitle": "Interessato a questo progetto?",
+    "promoSubtitle": "Contattaci tramite WhatsApp per maggiori dettagli e offerte esclusive.",
+    "promoWhatsapp": "Contatta tramite WhatsApp",
+    "whatsappMessage": "Ciao, sono interessato a questo progetto."
+  },
+  "projectStatus": {
+    "nowSelling": "In vendita",
+    "underConstruction": "In costruzione",
+    "completed": "Completato",
+    "comingSoon": "Prossimamente",
+    "soldOut": "Esaurito",
+    "preLaunch": "Pre-lancio"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "Nessun progetto trovato",
       "completion": "Completamento:",
       "developer": "Sviluppatore:"
+    },
+    "featured": {
+      "title": "Proprietà in evidenza",
+      "noResults": "Nessuna proprietà in evidenza disponibile"
+    },
+    "howItWorks": {
+      "title": "Come funziona",
+      "subtitle": "Semplici passaggi per pubblicare la tua proprietà sulla nostra piattaforma",
+      "createAccount": {
+        "title": "Crea un account",
+        "description": "Registrati gratuitamente per accedere a tutte le funzionalità della piattaforma."
+      },
+      "submitProperty": {
+        "title": "Invia proprietà",
+        "description": "Compila il modulo con i dettagli della proprietà e carica foto di alta qualità."
+      },
+      "getApproved": {
+        "title": "Ottieni approvazione",
+        "description": "Dopo la revisione e l'approvazione, la tua proprietà sarà pubblicata sulla piattaforma."
+      }
+    },
+    "insights": {
+      "title": "Approfondimenti immobiliari",
+      "subtitle": "Rimani aggiornato con le ultime tendenze e analisi di mercato",
+      "readArticle": "Leggi l'articolo",
+      "viewAllButton": "Vedi tutti gli articoli",
+      "categories": {
+        "buyingGuide": "Guida all'acquisto",
+        "design": "Design",
+        "investment": "Investimento",
+        "luxuryHomes": "Case di lusso",
+        "marketAnalysis": "Analisi di mercato",
+        "propertyValue": "Valore della proprietà"
+      },
+      "posts": {
+        "post1": {
+          "title": "Come scegliere la proprietà di lusso perfetta",
+          "excerpt": "Fattori chiave da considerare quando si investe nel lusso immobiliare.",
+          "author": "Team Kinglike"
+        },
+        "post2": {
+          "title": "Tendenze del mercato immobiliare 2024",
+          "excerpt": "Una panoramica delle ultime tendenze che modellano il mercato delle proprietà di lusso.",
+          "author": "Team Kinglike"
+        },
+        "post3": {
+          "title": "Design d'interni per case di lusso",
+          "excerpt": "Migliori consigli di design per massimizzare il valore e l'appeal della tua proprietà.",
+          "author": "Team Kinglike"
+        }
+      }
     },
     "hero": {
       "country": "Paese",
@@ -134,7 +244,7 @@
     "sharjah": "Sharjah",
     "rasAlKhaimah": "Ras Al Khaimah",
     "lefkosa": "Lefkoşa (Nicosia)",
-    "gazimağusa": "Gazimağusa (Famagusta)",
+    "gazimağusa": "Gazimağusa (Famagosta)",
     "girne": "Girne (Kyrenia)",
     "iskele": "İskele",
     "guzelyurt": "Güzelyurt",

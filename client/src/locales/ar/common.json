@@ -64,13 +64,17 @@
     "myProperties": "عقاراتي",
     "viewProject": "عرض تفاصيل المشروع",
     "viewAllProjects": "عرض جميع المشاريع",
-    "selectedRange": "المحدد"
+    "selectedRange": "المحدد",
+    "noResults": "لا توجد عقارات",
+    "tryAdjustingFilters": "جرّب تعديل الفلاتر",
+    "viewAll": "عرض جميع العقارات"
   },
   "propertyTypes": {
     "apartment": "شقق",
     "villa": "فلل",
     "land": "أراضي",
-    "project": "مشاريع على الخارطة"
+    "project": "مشاريع على الخارطة",
+    "commercial": "مساحات تجارية"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -88,7 +92,8 @@
     "viewAll": "عرض كل المفضلة"
   },
   "categories": {
-    "title": "تصفح حسب الفئة"
+    "title": "تصفح حسب الفئة",
+    "selectFilters": "اختر الفلاتر للتصفح"
   },
   "admin": {
     "onlyListings": "قوائم المسؤولين فقط",
@@ -96,6 +101,60 @@
     "approvals": "الموافقات",
     "createProject": "إضافة مشروع",
     "blogManagement": "إدارة المدونة"
+  },
+  "blog": {
+    "title": "مدونة العقارات",
+    "subtitle": "آخر الأخبار والنصائح والتحليلات",
+    "loading": "جاري تحميل المقالات...",
+    "noPosts": "لا توجد مقالات",
+    "noPostsDescription": "تفقّد لاحقاً للاطلاع على مقالات جديدة",
+    "notFound": "المقالة غير موجودة",
+    "notFoundDesc": "المقالة التي تبحث عنها غير موجودة",
+    "backToBlog": "العودة إلى المدونة",
+    "allCountries": "جميع الدول"
+  },
+  "projects": {
+    "title": "مشاريع على الخارطة",
+    "subtitle": "تطويرات حصرية قيد الإنشاء حالياً",
+    "loading": "جاري تحميل المشاريع...",
+    "noProjects": "لا توجد مشاريع",
+    "noProjectsHint": "جرّب تعديل الفلاتر",
+    "error": "فشل تحميل المشاريع",
+    "smartFilters": "فلاتر ذكية",
+    "selectCountry": "اختر الدولة",
+    "selectCountryFirst": "اختر الدولة أولاً",
+    "selectDeliveryDate": "اختر تاريخ التسليم",
+    "searchButton": "بحث",
+    "clearAll": "مسح الكل",
+    "clearAllFilters": "مسح جميع الفلاتر",
+    "filtersApplied": "فلاتر مطبّقة",
+    "projectsFound": "مشروع موجود",
+    "active": "نشط",
+    "completion": "الاكتمال",
+    "deliveryDate": "تاريخ التسليم",
+    "allDate": "جميع التواريخ",
+    "developer": "المطور",
+    "fromPrice": "من",
+    "viewDetails": "عرض التفاصيل",
+    "addProject": "إضافة مشروع",
+    "bed": "غرفة",
+    "bath": "حمام",
+    "sqm": "م²",
+    "countryRequired": "يرجى اختيار الدولة",
+    "selectRequired": "يرجى اختيار تاريخ التسليم",
+    "selectRequiredHint": "اختر سنة التسليم لعرض المشاريع",
+    "promoTitle": "مهتم بهذا المشروع؟",
+    "promoSubtitle": "تواصل معنا عبر واتساب للحصول على تفاصيل وعروض حصرية.",
+    "promoWhatsapp": "تواصل عبر واتساب",
+    "whatsappMessage": "مرحباً، أنا مهتم بهذا المشروع."
+  },
+  "projectStatus": {
+    "nowSelling": "يُباع الآن",
+    "underConstruction": "قيد الإنشاء",
+    "completed": "مكتمل",
+    "comingSoon": "قريباً",
+    "soldOut": "نفذت الوحدات",
+    "preLaunch": "قبل الإطلاق"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "لا توجد مشاريع",
       "completion": "موعد التسليم:",
       "developer": "المطور:"
+    },
+    "featured": {
+      "title": "عقارات مميزة",
+      "noResults": "لا توجد عقارات مميزة"
+    },
+    "howItWorks": {
+      "title": "كيف يعمل النظام",
+      "subtitle": "خطوات بسيطة لإدراج عقارك على منصتنا",
+      "createAccount": {
+        "title": "إنشاء حساب",
+        "description": "سجّل حساباً مجانياً للوصول إلى جميع مميزات المنصة."
+      },
+      "submitProperty": {
+        "title": "إرسال العقار",
+        "description": "أكمل نموذج تفاصيل العقار وارفع صوراً عالية الجودة."
+      },
+      "getApproved": {
+        "title": "الحصول على الموافقة",
+        "description": "بعد المراجعة والموافقة، سيُنشر عقارك على منصتنا."
+      }
+    },
+    "insights": {
+      "title": "رؤى عقارية",
+      "subtitle": "ابقَ على اطلاع بأحدث الاتجاهات وتحليلات السوق",
+      "readArticle": "اقرأ المقالة",
+      "viewAllButton": "عرض جميع المقالات",
+      "categories": {
+        "buyingGuide": "دليل الشراء",
+        "design": "التصميم",
+        "investment": "الاستثمار",
+        "luxuryHomes": "المنازل الفاخرة",
+        "marketAnalysis": "تحليل السوق",
+        "propertyValue": "قيمة العقار"
+      },
+      "posts": {
+        "post1": {
+          "title": "كيفية اختيار العقار الفاخر المثالي",
+          "excerpt": "العوامل الرئيسية التي يجب مراعاتها عند الاستثمار في العقارات الفاخرة.",
+          "author": "فريق كينغلايك"
+        },
+        "post2": {
+          "title": "اتجاهات سوق العقارات 2024",
+          "excerpt": "نظرة عامة على أحدث الاتجاهات التي تشكّل سوق العقارات الفاخرة.",
+          "author": "فريق كينغلايك"
+        },
+        "post3": {
+          "title": "التصميم الداخلي للمنازل الفاخرة",
+          "excerpt": "أفضل نصائح التصميم لتعظيم قيمة عقارك وجاذبيته.",
+          "author": "فريق كينغلايك"
+        }
+      }
     },
     "hero": {
       "country": "الدولة",

@@ -64,13 +64,17 @@
     "myProperties": "My Properties",
     "viewProject": "View Project Details",
     "viewAllProjects": "View All Projects",
-    "selectedRange": "Selected"
+    "selectedRange": "Selected",
+    "noResults": "No properties found",
+    "tryAdjustingFilters": "Try adjusting your filters",
+    "viewAll": "View All Properties"
   },
   "propertyTypes": {
     "apartment": "Apartments",
     "villa": "Villas",
     "land": "Lands",
-    "project": "Off Plan Projects"
+    "project": "Off Plan Projects",
+    "commercial": "Commercial Spaces"
   },
   "auth": {
     "login": "Login",
@@ -88,7 +92,8 @@
     "viewAll": "View all favorites"
   },
   "categories": {
-    "title": "Browse by category"
+    "title": "Browse by category",
+    "selectFilters": "Select filters to browse"
   },
   "admin": {
     "onlyListings": "Admin-only listings",
@@ -96,6 +101,60 @@
     "approvals": "Property Approvals",
     "createProject": "Add Project",
     "blogManagement": "Blog Management"
+  },
+  "blog": {
+    "title": "Real Estate Blog",
+    "subtitle": "Latest news, tips and insights",
+    "loading": "Loading posts...",
+    "noPosts": "No posts found",
+    "noPostsDescription": "Check back later for new articles",
+    "notFound": "Post not found",
+    "notFoundDesc": "The article you are looking for does not exist",
+    "backToBlog": "Back to Blog",
+    "allCountries": "All Countries"
+  },
+  "projects": {
+    "title": "Off Plan Projects",
+    "subtitle": "Exclusive developments currently under construction",
+    "loading": "Loading projects...",
+    "noProjects": "No projects found",
+    "noProjectsHint": "Try adjusting your filters",
+    "error": "Failed to load projects",
+    "smartFilters": "Smart Filters",
+    "selectCountry": "Select Country",
+    "selectCountryFirst": "Select a country first",
+    "selectDeliveryDate": "Select delivery date",
+    "searchButton": "Search",
+    "clearAll": "Clear All",
+    "clearAllFilters": "Clear All Filters",
+    "filtersApplied": "filters applied",
+    "projectsFound": "projects found",
+    "active": "Active",
+    "completion": "Completion",
+    "deliveryDate": "Delivery Date",
+    "allDate": "All Dates",
+    "developer": "Developer",
+    "fromPrice": "From",
+    "viewDetails": "View Details",
+    "addProject": "Add Project",
+    "bed": "Bed",
+    "bath": "Bath",
+    "sqm": "sqm",
+    "countryRequired": "Please select a country",
+    "selectRequired": "Please select delivery date",
+    "selectRequiredHint": "Choose a delivery year to see projects",
+    "promoTitle": "Interested in this project?",
+    "promoSubtitle": "Contact us via WhatsApp for more details and exclusive offers.",
+    "promoWhatsapp": "Contact via WhatsApp",
+    "whatsappMessage": "Hi, I am interested in this project."
+  },
+  "projectStatus": {
+    "nowSelling": "Now Selling",
+    "underConstruction": "Under Construction",
+    "completed": "Completed",
+    "comingSoon": "Coming Soon",
+    "soldOut": "Sold Out",
+    "preLaunch": "Pre-Launch"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "No projects found",
       "completion": "Completion:",
       "developer": "Developer:"
+    },
+    "featured": {
+      "title": "Featured Properties",
+      "noResults": "No featured properties available"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "Easy steps to list your property on our platform",
+      "createAccount": {
+        "title": "Create Account",
+        "description": "Sign up for a free account to access all our platform features."
+      },
+      "submitProperty": {
+        "title": "Submit Property",
+        "description": "Fill out the property details form and upload high-quality photos."
+      },
+      "getApproved": {
+        "title": "Get Approved",
+        "description": "Once reviewed and approved, your property will be listed on our platform."
+      }
+    },
+    "insights": {
+      "title": "Real Estate Insights",
+      "subtitle": "Stay informed with the latest trends and market analysis",
+      "readArticle": "Read Article",
+      "viewAllButton": "View All Articles",
+      "categories": {
+        "buyingGuide": "Buying Guide",
+        "design": "Design",
+        "investment": "Investment",
+        "luxuryHomes": "Luxury Homes",
+        "marketAnalysis": "Market Analysis",
+        "propertyValue": "Property Value"
+      },
+      "posts": {
+        "post1": {
+          "title": "How to Choose the Perfect Luxury Property",
+          "excerpt": "Key factors to consider when investing in luxury real estate.",
+          "author": "Kinglike Team"
+        },
+        "post2": {
+          "title": "Real Estate Market Trends 2024",
+          "excerpt": "An overview of the latest trends shaping the luxury property market.",
+          "author": "Kinglike Team"
+        },
+        "post3": {
+          "title": "Interior Design for Luxury Homes",
+          "excerpt": "Top design tips to maximize the value and appeal of your property.",
+          "author": "Kinglike Team"
+        }
+      }
     },
     "hero": {
       "country": "Country",

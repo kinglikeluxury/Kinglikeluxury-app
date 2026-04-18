@@ -1,7 +1,7 @@
 {
   "common": {
     "loading": "Yüklənir...",
-    "all": "Bütün növlər",
+    "all": "Bütün Növlər",
     "category": "kateqoriya",
     "search": "Axtar",
     "exclusive": "KINGLIKE MÜSTƏSNAVİ",
@@ -9,9 +9,9 @@
   },
   "score": {
     "propertyScore": "Əmlak Balı",
-    "location": "Yer",
+    "location": "Məkan",
     "value": "Dəyər",
-    "amenities": "İmkanlar",
+    "amenities": "Rahatlıqlar",
     "condition": "Vəziyyət",
     "investment": "İnvestisiya",
     "excellent": "Əla",
@@ -19,12 +19,12 @@
     "average": "Orta",
     "fair": "Qənaətbəxş",
     "poor": "Zəif",
-    "locationDetails": "Əmlakın yerini rahatlıqlara, nəqliyyata yaxınlığına görə qiymətləndirir",
-    "valueDetails": "Əmlakın bölgədəki oxşar əmlakla müqayisədə ədalətli qiymətləndirildiyini yoxlayır",
-    "amenitiesDetails": "Əmlak imkanlarının mövcudluğunu və keyfiyyətini qiymətləndirir",
-    "conditionDetails": "Əmlakın fiziki vəziyyətini qiymətləndirir",
-    "investmentDetails": "Dəyər artımı potensialını göstərir",
-    "overallScoreDetails": "Bütün əmlak aspektlərinə əsaslanan ümumi bal"
+    "locationDetails": "Əmlakın yerini rahatlıqlara, nəqliyyata və məhəllə keyfiyyətinə yaxınlığa görə qiymətləndirir",
+    "valueDetails": "Əmlakın ərazidəki oxşar əmlakla müqayisədə ədalətli qiymətləndirilub-qiymətləndirilmədiyini qiymətləndirir",
+    "amenitiesDetails": "Əmlak rahatlıqlarının və xüsusiyyətlərinin mövcudluğunu və keyfiyyətini qiymətləndirir",
+    "conditionDetails": "Əmlakın fiziki vəziyyətini və texniki xidmət statusunu qiymətləndirir",
+    "investmentDetails": "Dəyər artımı və icarə gəliri potensialını göstərir",
+    "overallScoreDetails": "Bütün əmlak aspektlərinə əsaslanan birləşdirilmiş bal"
   },
   "nav": {
     "home": "Ana Səhifə",
@@ -33,62 +33,67 @@
     "about": "Haqqımızda",
     "contact": "Əlaqə",
     "blog": "Bloq",
-    "login": "Daxil ol",
+    "login": "Giriş",
     "register": "Qeydiyyat",
-    "submit": "Əmlak əlavə et",
+    "submit": "Əmlak Əlavə Et",
     "admin": "Admin Paneli",
     "logout": "Çıxış",
     "profile": "Profilim",
     "language": "Dil"
   },
   "drawer": {
-    "browse": "Gözdən keçir",
+    "browse": "Gəz",
     "account": "Hesabım",
     "admin": "Admin Alətləri",
     "settings": "Parametrlər"
   },
   "property": {
     "heroTitle": "Mükəmməl Əmlakınızı Tapın",
-    "heroSubtitle": "Ehtiyaclarınıza uyğun mənzilləri, villaları, torpaqları və tikinti layihələrini kəşf edin",
+    "heroSubtitle": "Ehtiyaclarınıza uyğun mənzillər, villalar, torpaqlar və tikinti layihələrini kəşf edin",
     "type": "Əmlak Növü",
-    "location": "Yer",
-    "anyLocation": "Hər hansı bir yer",
+    "location": "Məkan",
+    "anyLocation": "İstənilən məkan",
     "priceRange": "Qiymət Aralığı",
     "anyPrice": "İstənilən qiymət",
-    "listings": "120+ elan",
-    "listings2": "85+ elan",
-    "listings3": "63+ elan",
-    "listings4": "42+ elan",
+    "listings": "120+ Elan",
+    "listings2": "85+ Elan",
+    "listings3": "63+ Elan",
+    "listings4": "42+ Elan",
     "submit": "Əmlak əlavə et",
     "uploadProperties": "Əmlakınızı yükləyin",
     "myProperties": "Əmlakım",
     "viewProject": "Layihə Təfərrüatlarını Gör",
     "viewAllProjects": "Bütün Layihələri Gör",
-    "selectedRange": "Seçilmiş"
+    "selectedRange": "Seçilmiş",
+    "noResults": "Əmlak tapılmadı",
+    "tryAdjustingFilters": "Filtrləri tənzimləməyi sınayın",
+    "viewAll": "Bütün Əmlakları Gör"
   },
   "propertyTypes": {
     "apartment": "Mənzillər",
     "villa": "Villalar",
     "land": "Torpaqlar",
-    "project": "Plan üzrə Layihələr"
+    "project": "Plan Üzrə Layihələr",
+    "commercial": "Kommersiya Sahələri"
   },
   "auth": {
-    "login": "Daxil ol",
+    "login": "Giriş",
     "register": "Qeydiyyat",
     "logout": "Çıxış",
-    "forgotPassword": "Şifrəni unutmusunuz?",
+    "forgotPassword": "Şifrəni unutdunuz?",
     "alreadyAccount": "Artıq hesabınız var?",
     "noAccount": "Hesabınız yoxdur?"
   },
   "favorites": {
     "title": "Sevimlilər",
     "empty": "Hələ sevimli yoxdur",
-    "add": "Sevimlilərə əlavə et",
-    "remove": "Sevimlilərdən sil",
+    "add": "Sevimlilərə Əlavə Et",
+    "remove": "Sevimlilərdən Çıxar",
     "viewAll": "Bütün sevimlilərə bax"
   },
   "categories": {
-    "title": "Kateqoriyaya görə gözdən keçir"
+    "title": "Kateqoriyaya görə gəz",
+    "selectFilters": "Gəzmək üçün filtrlər seçin"
   },
   "admin": {
     "onlyListings": "Yalnız admin elanları",
@@ -96,6 +101,60 @@
     "approvals": "Təsdiqlər",
     "createProject": "Layihə əlavə et",
     "blogManagement": "Bloq idarəetməsi"
+  },
+  "blog": {
+    "title": "Əmlak Bloqu",
+    "subtitle": "Son xəbərlər, məsləhətlər və anlayışlar",
+    "loading": "Yazılar yüklənir...",
+    "noPosts": "Yazı tapılmadı",
+    "noPostsDescription": "Yeni məqalələr üçün daha sonra yoxlayın",
+    "notFound": "Yazı tapılmadı",
+    "notFoundDesc": "Axtardığınız məqalə mövcud deyil",
+    "backToBlog": "Bloqa Qayıt",
+    "allCountries": "Bütün Ölkələr"
+  },
+  "projects": {
+    "title": "Plan Üzrə Layihələr",
+    "subtitle": "Hazırda tikinti mərhələsindəki eksklüziv layihələr",
+    "loading": "Layihələr yüklənir...",
+    "noProjects": "Layihə tapılmadı",
+    "noProjectsHint": "Filtrləri tənzimləməyi sınayın",
+    "error": "Layihələr yüklənmədi",
+    "smartFilters": "Ağıllı Filtrlər",
+    "selectCountry": "Ölkə seçin",
+    "selectCountryFirst": "Əvvəlcə ölkə seçin",
+    "selectDeliveryDate": "Çatdırılma tarixi seçin",
+    "searchButton": "Axtar",
+    "clearAll": "Hamısını Sil",
+    "clearAllFilters": "Bütün Filtrləri Sil",
+    "filtersApplied": "filtr tətbiq edildi",
+    "projectsFound": "layihə tapıldı",
+    "active": "Aktiv",
+    "completion": "Tamamlanma",
+    "deliveryDate": "Çatdırılma Tarixi",
+    "allDate": "Bütün Tarixlər",
+    "developer": "Tərtibatçı",
+    "fromPrice": "Başlayaraq",
+    "viewDetails": "Təfərrüatlara Bax",
+    "addProject": "Layihə əlavə et",
+    "bed": "Yataq otağı",
+    "bath": "Hamam",
+    "sqm": "m²",
+    "countryRequired": "Zəhmət olmasa ölkə seçin",
+    "selectRequired": "Zəhmət olmasa çatdırılma tarixi seçin",
+    "selectRequiredHint": "Layihələri görmək üçün çatdırılma ilini seçin",
+    "promoTitle": "Bu layihəyə maraqlanırsınız?",
+    "promoSubtitle": "Daha çox məlumat və eksklüziv təkliflər üçün WhatsApp vasitəsilə bizimlə əlaqə saxlayın.",
+    "promoWhatsapp": "WhatsApp ilə Əlaqə",
+    "whatsappMessage": "Salam, bu layihəyə maraqlanıram."
+  },
+  "projectStatus": {
+    "nowSelling": "İndi Satılır",
+    "underConstruction": "Tikintidə",
+    "completed": "Tamamlandı",
+    "comingSoon": "Tezliklə",
+    "soldOut": "Bitdi",
+    "preLaunch": "Başlanğıcdan Əvvəl"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "Layihə tapılmadı",
       "completion": "Tamamlanma:",
       "developer": "Tərtibatçı:"
+    },
+    "featured": {
+      "title": "Seçilmiş Əmlaklar",
+      "noResults": "Seçilmiş əmlak yoxdur"
+    },
+    "howItWorks": {
+      "title": "Necə İşləyir",
+      "subtitle": "Əmlakınızı platformamızda qeydiyyata almaq üçün asan addımlar",
+      "createAccount": {
+        "title": "Hesab Yarat",
+        "description": "Platformamızın bütün xüsusiyyətlərinə daxil olmaq üçün pulsuz hesab açın."
+      },
+      "submitProperty": {
+        "title": "Əmlak Göndər",
+        "description": "Əmlak məlumatları formasını doldurun və yüksək keyfiyyətli fotoşəkillər yükləyin."
+      },
+      "getApproved": {
+        "title": "Təsdiq Alın",
+        "description": "Yoxlama və təsdiqdən sonra əmlakınız platformamızda yayınlanacaq."
+      }
+    },
+    "insights": {
+      "title": "Əmlak Anlayışları",
+      "subtitle": "Son tendensiyalar və bazar təhlilləri ilə xəbərdar olun",
+      "readArticle": "Məqaləni Oxu",
+      "viewAllButton": "Bütün Məqalələrə Bax",
+      "categories": {
+        "buyingGuide": "Alış Bələdçisi",
+        "design": "Dizayn",
+        "investment": "İnvestisiya",
+        "luxuryHomes": "Lüks Evlər",
+        "marketAnalysis": "Bazar Təhlili",
+        "propertyValue": "Əmlak Dəyəri"
+      },
+      "posts": {
+        "post1": {
+          "title": "Mükəmməl Lüks Əmlakı Necə Seçmək olar",
+          "excerpt": "Lüks daşınmaz əmlaka investisiya edərkən nəzərə alınacaq əsas amillər.",
+          "author": "Kinglike Komandası"
+        },
+        "post2": {
+          "title": "2024 Əmlak Bazarı Tendensiyaları",
+          "excerpt": "Lüks əmlak bazarını formalaşdıran son tendensiyalara ümumi baxış.",
+          "author": "Kinglike Komandası"
+        },
+        "post3": {
+          "title": "Lüks Evlər üçün İnteryer Dizaynı",
+          "excerpt": "Əmlakınızın dəyərini və cəlbediciliyini artırmaq üçün ən yaxşı dizayn məsləhətləri.",
+          "author": "Kinglike Komandası"
+        }
+      }
     },
     "hero": {
       "country": "Ölkə",
@@ -132,11 +242,11 @@
     "tbilisi": "Tbilisi",
     "dubai": "Dubai",
     "sharjah": "Şarica",
-    "rasAlKhaimah": "Ras Al Xeymə",
+    "rasAlKhaimah": "Rəs əl-Xeymə",
     "lefkosa": "Lefkoşa (Nikosiya)",
-    "gazimağusa": "Gazimağusa (Famagusta)",
-    "girne": "Girnə (Kireniia)",
-    "iskele": "İskəle",
+    "gazimağusa": "Gazimağusa (Famaqusta)",
+    "girne": "Girne (Kireniya)",
+    "iskele": "İskele",
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe"
   }

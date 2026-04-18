@@ -16,15 +16,15 @@
     "investment": "Inwestycja",
     "excellent": "Doskonały",
     "good": "Dobry",
-    "average": "Średni",
-    "fair": "Dostateczny",
+    "average": "Przeciętny",
+    "fair": "Zadowalający",
     "poor": "Słaby",
-    "locationDetails": "Ocenia lokalizację nieruchomości na podstawie bliskości udogodnień, transportu i jakości sąsiedztwa",
-    "valueDetails": "Ocenia, czy nieruchomość jest uczciwie wyceniona w porównaniu z podobnymi w okolicy",
-    "amenitiesDetails": "Ocenia dostępność i jakość udogodnień nieruchomości",
-    "conditionDetails": "Ocenia stan fizyczny i konserwację nieruchomości",
-    "investmentDetails": "Wskazuje potencjał wzrostu wartości i dochód z najmu",
-    "overallScoreDetails": "Łączna ocena oparta na wszystkich aspektach nieruchomości"
+    "locationDetails": "Ocenia lokalizację nieruchomości na podstawie bliskości do udogodnień, transportu i jakości okolicy",
+    "valueDetails": "Ocenia, czy nieruchomość jest wyceniona uczciwie w porównaniu do podobnych w okolicy",
+    "amenitiesDetails": "Ocenia dostępność i jakość udogodnień i cech nieruchomości",
+    "conditionDetails": "Ocenia fizyczny stan nieruchomości i status konserwacji",
+    "investmentDetails": "Wskazuje potencjał wzrostu wartości i dochodu z wynajmu",
+    "overallScoreDetails": "Łączna ocena na podstawie wszystkich aspektów nieruchomości"
   },
   "nav": {
     "home": "Strona główna",
@@ -33,27 +33,27 @@
     "about": "O nas",
     "contact": "Kontakt",
     "blog": "Blog",
-    "login": "Zaloguj się",
+    "login": "Zaloguj",
     "register": "Rejestracja",
     "submit": "Dodaj nieruchomość",
-    "admin": "Panel administratora",
-    "logout": "Wyloguj się",
+    "admin": "Panel admina",
+    "logout": "Wyloguj",
     "profile": "Mój profil",
     "language": "Język"
   },
   "drawer": {
     "browse": "Przeglądaj",
     "account": "Moje konto",
-    "admin": "Narzędzia administratora",
+    "admin": "Narzędzia admina",
     "settings": "Ustawienia"
   },
   "property": {
-    "heroTitle": "Znajdź swoją idealną nieruchomość",
+    "heroTitle": "Znajdź idealną nieruchomość",
     "heroSubtitle": "Odkryj mieszkania, wille, działki i projekty budowlane dopasowane do Twoich potrzeb",
     "type": "Typ nieruchomości",
     "location": "Lokalizacja",
     "anyLocation": "Dowolna lokalizacja",
-    "priceRange": "Zakres cen",
+    "priceRange": "Zakres cenowy",
     "anyPrice": "Dowolna cena",
     "listings": "120+ ofert",
     "listings2": "85+ ofert",
@@ -64,19 +64,23 @@
     "myProperties": "Moje nieruchomości",
     "viewProject": "Zobacz szczegóły projektu",
     "viewAllProjects": "Zobacz wszystkie projekty",
-    "selectedRange": "Wybrane"
+    "selectedRange": "Wybrane",
+    "noResults": "Nie znaleziono nieruchomości",
+    "tryAdjustingFilters": "Spróbuj dostosować filtry",
+    "viewAll": "Zobacz wszystkie nieruchomości"
   },
   "propertyTypes": {
     "apartment": "Mieszkania",
     "villa": "Wille",
     "land": "Działki",
-    "project": "Projekty deweloperskie"
+    "project": "Projekty w budowie",
+    "commercial": "Powierzchnie komercyjne"
   },
   "auth": {
-    "login": "Zaloguj się",
+    "login": "Zaloguj",
     "register": "Zarejestruj się",
-    "logout": "Wyloguj się",
-    "forgotPassword": "Zapomniałeś hasła?",
+    "logout": "Wyloguj",
+    "forgotPassword": "Zapomniałem hasła?",
     "alreadyAccount": "Masz już konto?",
     "noAccount": "Nie masz konta?"
   },
@@ -88,14 +92,69 @@
     "viewAll": "Zobacz wszystkie ulubione"
   },
   "categories": {
-    "title": "Przeglądaj według kategorii"
+    "title": "Przeglądaj według kategorii",
+    "selectFilters": "Wybierz filtry do przeglądania"
   },
   "admin": {
-    "onlyListings": "Tylko oferty administratorów",
-    "dashboard": "Panel zarządzania",
+    "onlyListings": "Tylko oferty admina",
+    "dashboard": "Panel administracyjny",
     "approvals": "Zatwierdzenia",
     "createProject": "Dodaj projekt",
     "blogManagement": "Zarządzanie blogiem"
+  },
+  "blog": {
+    "title": "Blog o nieruchomościach",
+    "subtitle": "Najnowsze wiadomości, porady i spostrzeżenia",
+    "loading": "Ładowanie wpisów...",
+    "noPosts": "Nie znaleziono wpisów",
+    "noPostsDescription": "Sprawdź później, aby zobaczyć nowe artykuły",
+    "notFound": "Wpis nie znaleziony",
+    "notFoundDesc": "Szukany artykuł nie istnieje",
+    "backToBlog": "Powrót do bloga",
+    "allCountries": "Wszystkie kraje"
+  },
+  "projects": {
+    "title": "Projekty w budowie",
+    "subtitle": "Ekskluzywne inwestycje w trakcie realizacji",
+    "loading": "Ładowanie projektów...",
+    "noProjects": "Nie znaleziono projektów",
+    "noProjectsHint": "Spróbuj dostosować filtry",
+    "error": "Błąd ładowania projektów",
+    "smartFilters": "Inteligentne filtry",
+    "selectCountry": "Wybierz kraj",
+    "selectCountryFirst": "Najpierw wybierz kraj",
+    "selectDeliveryDate": "Wybierz datę dostawy",
+    "searchButton": "Szukaj",
+    "clearAll": "Wyczyść wszystko",
+    "clearAllFilters": "Wyczyść wszystkie filtry",
+    "filtersApplied": "filtrów zastosowanych",
+    "projectsFound": "projektów znalezionych",
+    "active": "Aktywny",
+    "completion": "Ukończenie",
+    "deliveryDate": "Data dostawy",
+    "allDate": "Wszystkie daty",
+    "developer": "Deweloper",
+    "fromPrice": "Od",
+    "viewDetails": "Zobacz szczegóły",
+    "addProject": "Dodaj projekt",
+    "bed": "Sypialnia",
+    "bath": "Łazienka",
+    "sqm": "m²",
+    "countryRequired": "Wybierz kraj",
+    "selectRequired": "Wybierz datę dostawy",
+    "selectRequiredHint": "Wybierz rok dostawy, aby zobaczyć projekty",
+    "promoTitle": "Zainteresowany tym projektem?",
+    "promoSubtitle": "Skontaktuj się z nami przez WhatsApp, aby uzyskać więcej szczegółów i ekskluzywnych ofert.",
+    "promoWhatsapp": "Kontakt przez WhatsApp",
+    "whatsappMessage": "Cześć, jestem zainteresowany tym projektem."
+  },
+  "projectStatus": {
+    "nowSelling": "W sprzedaży",
+    "underConstruction": "W budowie",
+    "completed": "Ukończony",
+    "comingSoon": "Wkrótce",
+    "soldOut": "Wyprzedany",
+    "preLaunch": "Przedsprzedaż"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "Nie znaleziono projektów",
       "completion": "Ukończenie:",
       "developer": "Deweloper:"
+    },
+    "featured": {
+      "title": "Wyróżnione nieruchomości",
+      "noResults": "Brak wyróżnionych nieruchomości"
+    },
+    "howItWorks": {
+      "title": "Jak to działa",
+      "subtitle": "Proste kroki, aby wystawić swoją nieruchomość na naszej platformie",
+      "createAccount": {
+        "title": "Utwórz konto",
+        "description": "Zarejestruj się za darmo, aby uzyskać dostęp do wszystkich funkcji platformy."
+      },
+      "submitProperty": {
+        "title": "Dodaj nieruchomość",
+        "description": "Wypełnij formularz szczegółów nieruchomości i prześlij wysokiej jakości zdjęcia."
+      },
+      "getApproved": {
+        "title": "Uzyskaj zatwierdzenie",
+        "description": "Po weryfikacji i zatwierdzeniu Twoja nieruchomość zostanie opublikowana na platformie."
+      }
+    },
+    "insights": {
+      "title": "Analizy rynku nieruchomości",
+      "subtitle": "Bądź na bieżąco z najnowszymi trendami i analizami rynku",
+      "readArticle": "Czytaj artykuł",
+      "viewAllButton": "Zobacz wszystkie artykuły",
+      "categories": {
+        "buyingGuide": "Poradnik kupującego",
+        "design": "Wzornictwo",
+        "investment": "Inwestycja",
+        "luxuryHomes": "Luksusowe domy",
+        "marketAnalysis": "Analiza rynku",
+        "propertyValue": "Wartość nieruchomości"
+      },
+      "posts": {
+        "post1": {
+          "title": "Jak wybrać idealną luksusową nieruchomość",
+          "excerpt": "Kluczowe czynniki przy inwestowaniu w luksusowe nieruchomości.",
+          "author": "Zespół Kinglike"
+        },
+        "post2": {
+          "title": "Trendy na rynku nieruchomości 2024",
+          "excerpt": "Przegląd najnowszych trendów kształtujących rynek luksusowych nieruchomości.",
+          "author": "Zespół Kinglike"
+        },
+        "post3": {
+          "title": "Aranżacja wnętrz luksusowych domów",
+          "excerpt": "Najlepsze wskazówki dotyczące aranżacji, aby zmaksymalizować wartość i atrakcyjność nieruchomości.",
+          "author": "Zespół Kinglike"
+        }
+      }
     },
     "hero": {
       "country": "Kraj",
@@ -134,9 +244,9 @@
     "sharjah": "Szardża",
     "rasAlKhaimah": "Ras al-Chajma",
     "lefkosa": "Lefkosza (Nikozja)",
-    "gazimağusa": "Gazimağusa (Famagusta)",
+    "gazimağusa": "Gazimagusa (Famagusta)",
     "girne": "Girne (Kyrenia)",
-    "iskele": "İskele",
+    "iskele": "Iskele",
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe"
   }

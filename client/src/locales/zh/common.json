@@ -12,19 +12,19 @@
     "location": "位置",
     "value": "价值",
     "amenities": "设施",
-    "condition": "状况",
+    "condition": "状态",
     "investment": "投资",
     "excellent": "优秀",
     "good": "良好",
     "average": "一般",
     "fair": "尚可",
     "poor": "较差",
-    "locationDetails": "根据与设施、交通和社区质量的距离评估房产位置",
-    "valueDetails": "评估房产定价是否与该地区类似房产相比合理",
+    "locationDetails": "根据与设施、交通和社区质量的接近程度评估房产位置",
+    "valueDetails": "评估房产与该地区类似房产相比定价是否合理",
     "amenitiesDetails": "评估房产设施和功能的可用性和质量",
     "conditionDetails": "评估房产的物理状况和维护状态",
-    "investmentDetails": "显示升值潜力和租金收益",
-    "overallScoreDetails": "基于房产所有方面的综合评分"
+    "investmentDetails": "显示价值升值和租金收入的潜力",
+    "overallScoreDetails": "基于所有房产方面的综合评分"
   },
   "nav": {
     "home": "首页",
@@ -37,7 +37,7 @@
     "register": "注册",
     "submit": "提交房产",
     "admin": "管理面板",
-    "logout": "退出登录",
+    "logout": "退出",
     "profile": "我的资料",
     "language": "语言"
   },
@@ -64,18 +64,22 @@
     "myProperties": "我的房产",
     "viewProject": "查看项目详情",
     "viewAllProjects": "查看所有项目",
-    "selectedRange": "已选"
+    "selectedRange": "已选",
+    "noResults": "未找到房产",
+    "tryAdjustingFilters": "尝试调整筛选条件",
+    "viewAll": "查看所有房产"
   },
   "propertyTypes": {
     "apartment": "公寓",
     "villa": "别墅",
     "land": "土地",
-    "project": "期房项目"
+    "project": "期房项目",
+    "commercial": "商业空间"
   },
   "auth": {
     "login": "登录",
     "register": "注册",
-    "logout": "退出登录",
+    "logout": "退出",
     "forgotPassword": "忘记密码？",
     "alreadyAccount": "已有账户？",
     "noAccount": "没有账户？"
@@ -83,19 +87,74 @@
   "favorites": {
     "title": "收藏",
     "empty": "暂无收藏",
-    "add": "添加到收藏",
+    "add": "加入收藏",
     "remove": "从收藏中移除",
     "viewAll": "查看所有收藏"
   },
   "categories": {
-    "title": "按类别浏览"
+    "title": "按类别浏览",
+    "selectFilters": "选择筛选条件浏览"
   },
   "admin": {
-    "onlyListings": "仅限管理员房源",
-    "dashboard": "管理仪表板",
+    "onlyListings": "仅管理员房源",
+    "dashboard": "管理后台",
     "approvals": "审批",
     "createProject": "添加项目",
     "blogManagement": "博客管理"
+  },
+  "blog": {
+    "title": "房地产博客",
+    "subtitle": "最新新闻、技巧和见解",
+    "loading": "加载文章中...",
+    "noPosts": "未找到文章",
+    "noPostsDescription": "稍后再来查看新文章",
+    "notFound": "文章未找到",
+    "notFoundDesc": "您查找的文章不存在",
+    "backToBlog": "返回博客",
+    "allCountries": "所有国家"
+  },
+  "projects": {
+    "title": "期房项目",
+    "subtitle": "目前在建的独家开发项目",
+    "loading": "加载项目中...",
+    "noProjects": "未找到项目",
+    "noProjectsHint": "尝试调整筛选条件",
+    "error": "项目加载失败",
+    "smartFilters": "智能筛选",
+    "selectCountry": "选择国家",
+    "selectCountryFirst": "请先选择国家",
+    "selectDeliveryDate": "选择交付日期",
+    "searchButton": "搜索",
+    "clearAll": "清除全部",
+    "clearAllFilters": "清除所有筛选",
+    "filtersApplied": "个筛选已应用",
+    "projectsFound": "个项目",
+    "active": "活跃",
+    "completion": "竣工",
+    "deliveryDate": "交付日期",
+    "allDate": "所有日期",
+    "developer": "开发商",
+    "fromPrice": "起价",
+    "viewDetails": "查看详情",
+    "addProject": "添加项目",
+    "bed": "卧室",
+    "bath": "浴室",
+    "sqm": "平方米",
+    "countryRequired": "请选择国家",
+    "selectRequired": "请选择交付日期",
+    "selectRequiredHint": "选择交付年份以查看项目",
+    "promoTitle": "对这个项目感兴趣？",
+    "promoSubtitle": "通过WhatsApp联系我们获取更多详情和独家优惠。",
+    "promoWhatsapp": "通过WhatsApp联系",
+    "whatsappMessage": "您好，我对这个项目感兴趣。"
+  },
+  "projectStatus": {
+    "nowSelling": "热销中",
+    "underConstruction": "建设中",
+    "completed": "已竣工",
+    "comingSoon": "即将推出",
+    "soldOut": "已售罄",
+    "preLaunch": "预售"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "未找到项目",
       "completion": "竣工：",
       "developer": "开发商："
+    },
+    "featured": {
+      "title": "精选房产",
+      "noResults": "暂无精选房产"
+    },
+    "howItWorks": {
+      "title": "如何使用",
+      "subtitle": "在我们平台上发布房产的简单步骤",
+      "createAccount": {
+        "title": "创建账户",
+        "description": "注册免费账户以访问我们平台的所有功能。"
+      },
+      "submitProperty": {
+        "title": "提交房产",
+        "description": "填写房产详情表格并上传高质量照片。"
+      },
+      "getApproved": {
+        "title": "获得审核",
+        "description": "经过审核和批准后，您的房产将在我们的平台上上架。"
+      }
+    },
+    "insights": {
+      "title": "房地产见解",
+      "subtitle": "了解最新趋势和市场分析",
+      "readArticle": "阅读文章",
+      "viewAllButton": "查看所有文章",
+      "categories": {
+        "buyingGuide": "购房指南",
+        "design": "设计",
+        "investment": "投资",
+        "luxuryHomes": "豪华住宅",
+        "marketAnalysis": "市场分析",
+        "propertyValue": "房产价值"
+      },
+      "posts": {
+        "post1": {
+          "title": "如何选择完美的豪华房产",
+          "excerpt": "投资豪华房地产时需要考虑的关键因素。",
+          "author": "Kinglike团队"
+        },
+        "post2": {
+          "title": "2024年房地产市场趋势",
+          "excerpt": "塑造豪华房产市场的最新趋势概述。",
+          "author": "Kinglike团队"
+        },
+        "post3": {
+          "title": "豪华住宅室内设计",
+          "excerpt": "最大化房产价值和吸引力的顶级设计技巧。",
+          "author": "Kinglike团队"
+        }
+      }
     },
     "hero": {
       "country": "国家",
@@ -134,10 +244,10 @@
     "sharjah": "沙迦",
     "rasAlKhaimah": "哈伊马角",
     "lefkosa": "莱夫科沙（尼科西亚）",
-    "gazimağusa": "加济马古萨（法马古斯塔）",
-    "girne": "吉尔尼（凯里尼亚）",
-    "iskele": "伊斯克莱",
-    "guzelyurt": "居泽尔尤尔特",
+    "gazimağusa": "加齐马古萨（法马古斯塔）",
+    "girne": "吉尔内（基雷尼亚）",
+    "iskele": "伊斯克勒",
+    "guzelyurt": "居泽尔于尔特",
     "esentepe": "埃森特佩"
   }
 }

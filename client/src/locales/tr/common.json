@@ -16,12 +16,12 @@
     "investment": "Yatırım",
     "excellent": "Mükemmel",
     "good": "İyi",
-    "average": "Ortalama",
-    "fair": "Orta",
+    "average": "Orta",
+    "fair": "Yeterli",
     "poor": "Zayıf",
-    "locationDetails": "Mülkün konumunu, olanaklara, ulaşıma ve mahalle kalitesine yakınlığa göre değerlendirir",
+    "locationDetails": "Mülk konumunu olanaklara, ulaşıma ve mahalle kalitesine yakınlık bazında değerlendirir",
     "valueDetails": "Mülkün bölgedeki benzer mülklerle karşılaştırıldığında adil fiyatlandırılıp fiyatlandırılmadığını değerlendirir",
-    "amenitiesDetails": "Mülk olanaklarının ve özelliklerinin kullanılabilirliğini ve kalitesini değerlendirir",
+    "amenitiesDetails": "Mülk olanaklarının ve özelliklerinin mevcudiyetini ve kalitesini değerlendirir",
     "conditionDetails": "Mülkün fiziksel durumunu ve bakım durumunu değerlendirir",
     "investmentDetails": "Değer artışı ve kira geliri potansiyelini gösterir",
     "overallScoreDetails": "Tüm mülk yönlerine dayalı birleşik puan"
@@ -33,23 +33,23 @@
     "about": "Hakkımızda",
     "contact": "İletişim",
     "blog": "Blog",
-    "login": "Giriş Yap",
-    "register": "Kayıt Ol",
+    "login": "Giriş",
+    "register": "Kayıt",
     "submit": "Mülk Ekle",
     "admin": "Yönetim Paneli",
-    "logout": "Çıkış Yap",
+    "logout": "Çıkış",
     "profile": "Profilim",
     "language": "Dil"
   },
   "drawer": {
-    "browse": "Keşfet",
+    "browse": "Gözat",
     "account": "Hesabım",
     "admin": "Yönetim Araçları",
     "settings": "Ayarlar"
   },
   "property": {
     "heroTitle": "Mükemmel Mülkünüzü Bulun",
-    "heroSubtitle": "İhtiyaçlarınıza uygun daireleri, villaları, arazileri ve yapım projelerini keşfedin",
+    "heroSubtitle": "İhtiyaçlarınıza uygun daireler, villalar, araziler ve inşaat projelerini keşfedin",
     "type": "Mülk Türü",
     "location": "Konum",
     "anyLocation": "Herhangi bir konum",
@@ -64,16 +64,20 @@
     "myProperties": "Mülklerim",
     "viewProject": "Proje Detaylarını Gör",
     "viewAllProjects": "Tüm Projeleri Gör",
-    "selectedRange": "Seçili"
+    "selectedRange": "Seçili",
+    "noResults": "Mülk bulunamadı",
+    "tryAdjustingFilters": "Filtreleri ayarlamayı deneyin",
+    "viewAll": "Tüm Mülkleri Gör"
   },
   "propertyTypes": {
     "apartment": "Daireler",
     "villa": "Villalar",
     "land": "Araziler",
-    "project": "Plan Üzeri Projeler"
+    "project": "Plan Üzeri Projeler",
+    "commercial": "Ticari Alanlar"
   },
   "auth": {
-    "login": "Giriş Yap",
+    "login": "Giriş",
     "register": "Kayıt Ol",
     "logout": "Çıkış Yap",
     "forgotPassword": "Şifremi Unuttum?",
@@ -84,11 +88,12 @@
     "title": "Favoriler",
     "empty": "Henüz favori yok",
     "add": "Favorilere Ekle",
-    "remove": "Favorilerden Kaldır",
-    "viewAll": "Tüm favorileri görüntüle"
+    "remove": "Favorilerden Çıkar",
+    "viewAll": "Tüm favorileri gör"
   },
   "categories": {
-    "title": "Kategoriye Göre Keşfet"
+    "title": "Kategoriye göre gözat",
+    "selectFilters": "Gözatmak için filtre seçin"
   },
   "admin": {
     "onlyListings": "Yalnızca yönetici ilanları",
@@ -96,6 +101,60 @@
     "approvals": "Onaylar",
     "createProject": "Proje Ekle",
     "blogManagement": "Blog Yönetimi"
+  },
+  "blog": {
+    "title": "Gayrimenkul Blogu",
+    "subtitle": "Son haberler, ipuçları ve içgörüler",
+    "loading": "Gönderiler yükleniyor...",
+    "noPosts": "Gönderi bulunamadı",
+    "noPostsDescription": "Yeni makaleler için daha sonra tekrar kontrol edin",
+    "notFound": "Gönderi bulunamadı",
+    "notFoundDesc": "Aradığınız makale mevcut değil",
+    "backToBlog": "Bloga Geri Dön",
+    "allCountries": "Tüm Ülkeler"
+  },
+  "projects": {
+    "title": "Plan Üzeri Projeler",
+    "subtitle": "Şu an inşaat aşamasında olan özel projeler",
+    "loading": "Projeler yükleniyor...",
+    "noProjects": "Proje bulunamadı",
+    "noProjectsHint": "Filtreleri ayarlamayı deneyin",
+    "error": "Projeler yüklenemedi",
+    "smartFilters": "Akıllı Filtreler",
+    "selectCountry": "Ülke Seçin",
+    "selectCountryFirst": "Önce bir ülke seçin",
+    "selectDeliveryDate": "Teslim tarihi seçin",
+    "searchButton": "Ara",
+    "clearAll": "Tümünü Temizle",
+    "clearAllFilters": "Tüm Filtreleri Temizle",
+    "filtersApplied": "filtre uygulandı",
+    "projectsFound": "proje bulundu",
+    "active": "Aktif",
+    "completion": "Tamamlanma",
+    "deliveryDate": "Teslim Tarihi",
+    "allDate": "Tüm Tarihler",
+    "developer": "Geliştirici",
+    "fromPrice": "Başlangıç",
+    "viewDetails": "Detayları Gör",
+    "addProject": "Proje Ekle",
+    "bed": "Yatak Odası",
+    "bath": "Banyo",
+    "sqm": "m²",
+    "countryRequired": "Lütfen bir ülke seçin",
+    "selectRequired": "Lütfen teslim tarihi seçin",
+    "selectRequiredHint": "Projeleri görmek için teslim yılı seçin",
+    "promoTitle": "Bu projeyle ilgileniyor musunuz?",
+    "promoSubtitle": "Daha fazla ayrıntı ve özel teklifler için WhatsApp üzerinden bize ulaşın.",
+    "promoWhatsapp": "WhatsApp ile İletişim",
+    "whatsappMessage": "Merhaba, bu projeyle ilgileniyorum."
+  },
+  "projectStatus": {
+    "nowSelling": "Satışta",
+    "underConstruction": "İnşaat Halinde",
+    "completed": "Tamamlandı",
+    "comingSoon": "Yakında",
+    "soldOut": "Tükendi",
+    "preLaunch": "Ön Satış"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "Proje bulunamadı",
       "completion": "Tamamlanma:",
       "developer": "Geliştirici:"
+    },
+    "featured": {
+      "title": "Öne Çıkan Mülkler",
+      "noResults": "Öne çıkan mülk yok"
+    },
+    "howItWorks": {
+      "title": "Nasıl Çalışır",
+      "subtitle": "Mülkünüzü platformumuza kaydetmek için kolay adımlar",
+      "createAccount": {
+        "title": "Hesap Oluştur",
+        "description": "Tüm platform özelliklerine erişmek için ücretsiz hesap oluşturun."
+      },
+      "submitProperty": {
+        "title": "Mülk Gönder",
+        "description": "Mülk detay formunu doldurun ve yüksek kaliteli fotoğraflar yükleyin."
+      },
+      "getApproved": {
+        "title": "Onay Alın",
+        "description": "İnceleme ve onaydan sonra mülkünüz platformumuzda yayınlanacaktır."
+      }
+    },
+    "insights": {
+      "title": "Gayrimenkul İçgörüleri",
+      "subtitle": "En son trendler ve pazar analizleri hakkında bilgi edinin",
+      "readArticle": "Makaleyi Oku",
+      "viewAllButton": "Tüm Makaleleri Gör",
+      "categories": {
+        "buyingGuide": "Satın Alma Rehberi",
+        "design": "Tasarım",
+        "investment": "Yatırım",
+        "luxuryHomes": "Lüks Evler",
+        "marketAnalysis": "Piyasa Analizi",
+        "propertyValue": "Mülk Değeri"
+      },
+      "posts": {
+        "post1": {
+          "title": "Mükemmel Lüks Mülkü Nasıl Seçersiniz",
+          "excerpt": "Lüks gayrimenkule yatırım yaparken göz önünde bulundurulması gereken temel faktörler.",
+          "author": "Kinglike Ekibi"
+        },
+        "post2": {
+          "title": "2024 Gayrimenkul Piyasası Trendleri",
+          "excerpt": "Lüks mülk piyasasını şekillendiren son trendlere genel bakış.",
+          "author": "Kinglike Ekibi"
+        },
+        "post3": {
+          "title": "Lüks Evler için İç Tasarım",
+          "excerpt": "Mülkünüzün değerini ve çekiciliğini artırmak için en iyi tasarım ipuçları.",
+          "author": "Kinglike Ekibi"
+        }
+      }
     },
     "hero": {
       "country": "Ülke",
@@ -132,7 +242,7 @@
     "tbilisi": "Tiflis",
     "dubai": "Dubai",
     "sharjah": "Şarica",
-    "rasAlKhaimah": "Ras Al Khaimah",
+    "rasAlKhaimah": "Ras el-Hayme",
     "lefkosa": "Lefkoşa",
     "gazimağusa": "Gazimağusa",
     "girne": "Girne",

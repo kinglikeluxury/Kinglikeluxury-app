@@ -4,11 +4,11 @@
     "all": "כל הסוגים",
     "category": "קטגוריה",
     "search": "חיפוש",
-    "exclusive": "בלעדי קינגלייק",
+    "exclusive": "KINGLIKE בלעדי",
     "comingSoon": "בקרוב"
   },
   "score": {
-    "propertyScore": "ניקוד נכס",
+    "propertyScore": "ציון הנכס",
     "location": "מיקום",
     "value": "ערך",
     "amenities": "שירותים",
@@ -18,16 +18,16 @@
     "good": "טוב",
     "average": "ממוצע",
     "fair": "סביר",
-    "poor": "ירוד",
+    "poor": "גרוע",
     "locationDetails": "מעריך את מיקום הנכס על בסיס קרבה לשירותים, תחבורה ואיכות השכונה",
-    "valueDetails": "בודק אם הנכס מתומחר בצורה הוגנת בהשוואה לנכסים דומים באזור",
-    "amenitiesDetails": "מדרג את הזמינות ואיכות השירותים והמאפיינים של הנכס",
-    "conditionDetails": "מעריך את המצב הפיזי ומצב התחזוקה של הנכס",
-    "investmentDetails": "מציין פוטנציאל לעליית ערך ולהכנסות שכירות",
-    "overallScoreDetails": "ניקוד משולב המבוסס על כל היבטי הנכס"
+    "valueDetails": "מעריך אם הנכס מתומחר בהוגנות בהשוואה לנכסים דומים באזור",
+    "amenitiesDetails": "מדרג את הזמינות והאיכות של שירותי ומאפייני הנכס",
+    "conditionDetails": "מעריך את המצב הפיזי של הנכס וסטטוס התחזוקה",
+    "investmentDetails": "מצביע על פוטנציאל עליית ערך והכנסה משכירות",
+    "overallScoreDetails": "ציון משולב המבוסס על כל היבטי הנכס"
   },
   "nav": {
-    "home": "דף הבית",
+    "home": "בית",
     "properties": "נכסים",
     "projects": "פרויקטים",
     "about": "אודות",
@@ -36,20 +36,20 @@
     "login": "התחברות",
     "register": "הרשמה",
     "submit": "הגש נכס",
-    "admin": "פאנל ניהול",
+    "admin": "לוח ניהול",
     "logout": "התנתקות",
     "profile": "הפרופיל שלי",
     "language": "שפה"
   },
   "drawer": {
-    "browse": "עיין",
+    "browse": "עיון",
     "account": "החשבון שלי",
     "admin": "כלי ניהול",
     "settings": "הגדרות"
   },
   "property": {
     "heroTitle": "מצא את הנכס המושלם שלך",
-    "heroSubtitle": "גלה דירות, וילות, קרקעות ופרויקטי בנייה התואמים את צרכיך",
+    "heroSubtitle": "גלה דירות, וילות, קרקעות ופרויקטי בנייה שמתאימים לצרכים שלך",
     "type": "סוג נכס",
     "location": "מיקום",
     "anyLocation": "כל מיקום",
@@ -64,19 +64,23 @@
     "myProperties": "הנכסים שלי",
     "viewProject": "צפה בפרטי הפרויקט",
     "viewAllProjects": "צפה בכל הפרויקטים",
-    "selectedRange": "נבחר"
+    "selectedRange": "נבחר",
+    "noResults": "לא נמצאו נכסים",
+    "tryAdjustingFilters": "נסה לשנות את המסננים",
+    "viewAll": "צפה בכל הנכסים"
   },
   "propertyTypes": {
     "apartment": "דירות",
     "villa": "וילות",
     "land": "קרקעות",
-    "project": "פרויקטים על הנייר"
+    "project": "פרויקטים על הנייר",
+    "commercial": "מרחבים מסחריים"
   },
   "auth": {
     "login": "התחברות",
     "register": "הרשמה",
     "logout": "התנתקות",
-    "forgotPassword": "שכחת סיסמא?",
+    "forgotPassword": "שכחת סיסמה?",
     "alreadyAccount": "כבר יש לך חשבון?",
     "noAccount": "אין לך חשבון?"
   },
@@ -88,14 +92,69 @@
     "viewAll": "צפה בכל המועדפים"
   },
   "categories": {
-    "title": "עיין לפי קטגוריה"
+    "title": "עיון לפי קטגוריה",
+    "selectFilters": "בחר מסננים לעיון"
   },
   "admin": {
-    "onlyListings": "רשימות למנהלים בלבד",
+    "onlyListings": "רשימות מנהל בלבד",
     "dashboard": "לוח בקרה",
     "approvals": "אישורים",
     "createProject": "הוסף פרויקט",
     "blogManagement": "ניהול בלוג"
+  },
+  "blog": {
+    "title": "בלוג נדל\"ן",
+    "subtitle": "חדשות, טיפים ותובנות עדכניות",
+    "loading": "טוען פוסטים...",
+    "noPosts": "לא נמצאו פוסטים",
+    "noPostsDescription": "חזור מאוחר יותר לקבלת מאמרים חדשים",
+    "notFound": "פוסט לא נמצא",
+    "notFoundDesc": "המאמר שחיפשת אינו קיים",
+    "backToBlog": "חזרה לבלוג",
+    "allCountries": "כל המדינות"
+  },
+  "projects": {
+    "title": "פרויקטים על הנייר",
+    "subtitle": "התפתחויות בלעדיות כיום בבנייה",
+    "loading": "טוען פרויקטים...",
+    "noProjects": "לא נמצאו פרויקטים",
+    "noProjectsHint": "נסה לשנות את המסננים",
+    "error": "טעינת הפרויקטים נכשלה",
+    "smartFilters": "מסננים חכמים",
+    "selectCountry": "בחר מדינה",
+    "selectCountryFirst": "בחר מדינה תחילה",
+    "selectDeliveryDate": "בחר תאריך מסירה",
+    "searchButton": "חיפוש",
+    "clearAll": "נקה הכל",
+    "clearAllFilters": "נקה את כל המסננים",
+    "filtersApplied": "מסננים מופעלים",
+    "projectsFound": "פרויקטים נמצאו",
+    "active": "פעיל",
+    "completion": "השלמה",
+    "deliveryDate": "תאריך מסירה",
+    "allDate": "כל התאריכים",
+    "developer": "יזם",
+    "fromPrice": "החל מ",
+    "viewDetails": "צפה בפרטים",
+    "addProject": "הוסף פרויקט",
+    "bed": "חדר שינה",
+    "bath": "אמבטיה",
+    "sqm": "מ\"ר",
+    "countryRequired": "אנא בחר מדינה",
+    "selectRequired": "אנא בחר תאריך מסירה",
+    "selectRequiredHint": "בחר שנת מסירה לצפייה בפרויקטים",
+    "promoTitle": "מעוניין בפרויקט זה?",
+    "promoSubtitle": "צור איתנו קשר דרך WhatsApp לפרטים נוספים והצעות בלעדיות.",
+    "promoWhatsapp": "צור קשר דרך WhatsApp",
+    "whatsappMessage": "שלום, אני מעוניין בפרויקט זה."
+  },
+  "projectStatus": {
+    "nowSelling": "נמכר עכשיו",
+    "underConstruction": "בבנייה",
+    "completed": "הושלם",
+    "comingSoon": "בקרוב",
+    "soldOut": "אזל",
+    "preLaunch": "לפני השקה"
   },
   "home": {
     "cta": {
@@ -111,6 +170,57 @@
       "noResults": "לא נמצאו פרויקטים",
       "completion": "השלמה:",
       "developer": "יזם:"
+    },
+    "featured": {
+      "title": "נכסים מובחרים",
+      "noResults": "אין נכסים מובחרים זמינים"
+    },
+    "howItWorks": {
+      "title": "איך זה עובד",
+      "subtitle": "שלבים קלים לרישום הנכס שלך בפלטפורמה שלנו",
+      "createAccount": {
+        "title": "צור חשבון",
+        "description": "הירשם לחשבון חינמי כדי לגשת לכל תכונות הפלטפורמה שלנו."
+      },
+      "submitProperty": {
+        "title": "הגש נכס",
+        "description": "מלא את טופס פרטי הנכס והעלה תמונות באיכות גבוהה."
+      },
+      "getApproved": {
+        "title": "קבל אישור",
+        "description": "לאחר סקירה ואישור, הנכס שלך יופיע בפלטפורמה שלנו."
+      }
+    },
+    "insights": {
+      "title": "תובנות נדל\"ן",
+      "subtitle": "הישאר מעודכן עם המגמות האחרונות וניתוחי השוק",
+      "readArticle": "קרא מאמר",
+      "viewAllButton": "צפה בכל המאמרים",
+      "categories": {
+        "buyingGuide": "מדריך קנייה",
+        "design": "עיצוב",
+        "investment": "השקעה",
+        "luxuryHomes": "בתים יוקרתיים",
+        "marketAnalysis": "ניתוח שוק",
+        "propertyValue": "ערך נכס"
+      },
+      "posts": {
+        "post1": {
+          "title": "כיצד לבחור את הנכס היוקרתי המושלם",
+          "excerpt": "גורמים מרכזיים שיש לקחת בחשבון בעת השקעה בנדל\"ן יוקרתי.",
+          "author": "צוות Kinglike"
+        },
+        "post2": {
+          "title": "מגמות שוק הנדל\"ן 2024",
+          "excerpt": "סקירה של המגמות האחרונות שמעצבות את שוק הנכסים היוקרתיים.",
+          "author": "צוות Kinglike"
+        },
+        "post3": {
+          "title": "עיצוב פנים לבתים יוקרתיים",
+          "excerpt": "טיפי עיצוב מובילים למיצוי הערך והאטרקטיביות של הנכס שלך.",
+          "author": "צוות Kinglike"
+        }
+      }
     },
     "hero": {
       "country": "מדינה",
@@ -132,10 +242,10 @@
     "tbilisi": "טביליסי",
     "dubai": "דובאי",
     "sharjah": "שארג'ה",
-    "rasAlKhaimah": "ראס אל-חיימה",
+    "rasAlKhaimah": "ראס אל ח'ימה",
     "lefkosa": "לפקושה (ניקוסיה)",
-    "gazimağusa": "גאזימאגוסה (פאמגוסטה)",
-    "girne": "גירנה (קיריניה)",
+    "gazimağusa": "גאזימאגוסה (פמגוסטה)",
+    "girne": "גירנה (קירניה)",
     "iskele": "איסקלה",
     "guzelyurt": "גוזליורט",
     "esentepe": "אסנטפה"
