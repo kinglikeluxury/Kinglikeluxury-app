@@ -126,13 +126,7 @@ const Login = () => {
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <p className="text-xs text-center text-gray-500">
-            For admin access, use the following credentials:
-            <br />
-            Username: kinglike_admin | Password: 554466554466
-          </p>
-        </CardFooter>
+        
       </Card>
     </div>
   );
