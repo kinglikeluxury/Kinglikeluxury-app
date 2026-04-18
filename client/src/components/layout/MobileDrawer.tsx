@@ -133,8 +133,8 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
         style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)" }}
       >
         {/* Header — white background, logo centred */}
-        <div className="bg-white border-b border-gray-100 pt-10 pb-4 px-5 relative flex items-center justify-center">
-          <img src={logoPath} alt="Kinglike Luxury" className="h-14 w-auto" />
+        <div className="bg-white border-b border-gray-100 pt-8 pb-4 px-5 relative flex items-center justify-center">
+          <img src={logoPath} alt="Kinglike Luxury" className="h-24 w-auto max-w-[70%]" />
           <button
             onClick={onClose}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
