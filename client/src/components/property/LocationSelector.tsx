@@ -162,20 +162,25 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
   }, []);
 
   return (
-    <div className={`w-full rounded-xl border-2 border-[#3bcac4] overflow-hidden shadow-md ${className}`} style={{ minHeight: '380px' }}>
-      {!isMapReady && (
-        <div className="w-full flex items-center justify-center bg-gray-50" style={{ height: '380px' }}>
-          <div className="text-center text-[#005476]">
-            <MapPin className="h-10 w-10 mx-auto mb-2 text-[#3bcac4] animate-bounce" />
-            <p className="font-semibold">Loading map...</p>
-            <p className="text-sm text-gray-500 mt-1">Tap anywhere to pin location</p>
+    <div className={`w-full rounded-xl border-2 border-[#3bcac4] overflow-hidden shadow-md ${className}`}>
+      <div style={{ position: 'relative', height: '380px' }}>
+        <div
+          ref={mapRef}
+          style={{ height: '100%', width: '100%' }}
+        />
+        {!isMapReady && (
+          <div
+            className="w-full flex items-center justify-center bg-gray-50"
+            style={{ position: 'absolute', inset: 0 }}
+          >
+            <div className="text-center text-[#005476]">
+              <MapPin className="h-10 w-10 mx-auto mb-2 text-[#3bcac4] animate-bounce" />
+              <p className="font-semibold">Loading map...</p>
+              <p className="text-sm text-gray-500 mt-1">Tap anywhere to pin location</p>
+            </div>
           </div>
-        </div>
-      )}
-      <div
-        ref={mapRef}
-        style={{ height: '380px', display: isMapReady ? 'block' : 'none' }}
-      />
+        )}
+      </div>
       {isMapReady && (
         <div className="bg-[#005476] text-white text-xs text-center py-1.5 font-medium">
           📍 Tap on the map to set property location — you can also drag the pin
