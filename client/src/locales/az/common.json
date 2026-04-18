@@ -95,6 +95,13 @@
     "blogManagement": "Bloq idarəetməsi"
   },
   "home": {
+    "cta": {
+      "title": "Satılık və ya kirayəlik əmlakınız var mı?",
+      "subtitle": "Platformamızda pulsuz əlavə edin.",
+      "description": "Əmlakınızı bu gün yükləyərək minlərlə potensial alıcı və kirayəçiyə çatın.",
+      "uploadButton": "Əmlak Yüklə",
+      "browseButton": "Elanları Gəz"
+    },
     "hero": {
       "country": "Ölkə",
       "anyCountry": "İstənilən ölkə",

@@ -95,6 +95,13 @@
     "blogManagement": "Zarządzanie blogiem"
   },
   "home": {
+    "cta": {
+      "title": "Masz nieruchomość do sprzedania lub wynajęcia?",
+      "subtitle": "Dodaj ją na naszą platformę za darmo.",
+      "description": "Dotrzyj do tysięcy potencjalnych kupców i najemców, przesyłając swoją nieruchomość już dziś.",
+      "uploadButton": "Prześlij nieruchomość",
+      "browseButton": "Przeglądaj ogłoszenia"
+    },
     "hero": {
       "country": "Kraj",
       "anyCountry": "Dowolny kraj",

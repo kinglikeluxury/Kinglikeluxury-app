@@ -95,6 +95,13 @@
     "blogManagement": "博客管理"
   },
   "home": {
+    "cta": {
+      "title": "有房产要出售或出租？",
+      "subtitle": "在我们的平台上免费发布。",
+      "description": "立即上传您的房产，吸引数千名潜在买家和租户。",
+      "uploadButton": "上传房产",
+      "browseButton": "浏览房源"
+    },
     "hero": {
       "country": "国家",
       "anyCountry": "任何国家",

@@ -95,6 +95,13 @@
     "blogManagement": "Blog Management"
   },
   "home": {
+    "cta": {
+      "title": "Have a property to sell or rent?",
+      "subtitle": "List it on our platform for free.",
+      "description": "Reach thousands of potential buyers and tenants by uploading your property today.",
+      "uploadButton": "Upload Property",
+      "browseButton": "Browse Listings"
+    },
     "hero": {
       "country": "Country",
       "anyCountry": "Any Country",

@@ -95,6 +95,13 @@
     "blogManagement": "Gestione Blog"
   },
   "home": {
+    "cta": {
+      "title": "Hai una proprietà da vendere o affittare?",
+      "subtitle": "Pubblicala gratuitamente sulla nostra piattaforma.",
+      "description": "Raggiungi migliaia di potenziali acquirenti e inquilini caricando la tua proprietà oggi.",
+      "uploadButton": "Carica Proprietà",
+      "browseButton": "Sfoglia Annunci"
+    },
     "hero": {
       "country": "Paese",
       "anyCountry": "Qualsiasi paese",

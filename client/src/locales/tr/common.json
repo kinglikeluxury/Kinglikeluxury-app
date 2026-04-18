@@ -95,6 +95,13 @@
     "blogManagement": "Blog Yönetimi"
   },
   "home": {
+    "cta": {
+      "title": "Satılık veya kiralık bir mülkünüz var mı?",
+      "subtitle": "Platformumuza ücretsiz ekleyin.",
+      "description": "Mülkünüzü bugün yükleyerek binlerce potansiyel alıcı ve kiracıya ulaşın.",
+      "uploadButton": "Mülk Yükle",
+      "browseButton": "İlanları Gözat"
+    },
     "hero": {
       "country": "Ülke",
       "anyCountry": "Herhangi bir ülke",
