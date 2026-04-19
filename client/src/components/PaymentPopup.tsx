@@ -3,14 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Crown, Calendar, DollarSign } from 'lucide-react';
+import { CreditCard, Crown, Calendar, DollarSign, Building2, Loader2 } from 'lucide-react';
 import { SiStripe, SiPaypal } from 'react-icons/si';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface PaymentPopupProps {
   open: boolean;
   onClose: () => void;
   onPayment: (amount: number, days: number, method: string) => void;
   propertyType: string;
+  propertyId?: number | string;
 }
 
 interface PricingOption {
@@ -29,14 +32,49 @@ export default function PaymentPopup({
   open, 
   onClose, 
   onPayment,
-  propertyType 
+  propertyType,
+  propertyId
 }: PaymentPopupProps) {
   const [selectedOption, setSelectedOption] = useState<PricingOption | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
+  const [bogLoading, setBogLoading] = useState(false);
+  const { toast } = useToast();
   
-  const handlePayment = () => {
-    if (selectedOption && selectedPaymentMethod) {
-      onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
+  const handlePayment = async () => {
+    if (!selectedOption || !selectedPaymentMethod) return;
+
+    if (selectedPaymentMethod === 'bog') {
+      await handleBOGPayment();
+      return;
+    }
+
+    onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
+  };
+
+  const handleBOGPayment = async () => {
+    if (!selectedOption) return;
+    setBogLoading(true);
+    try {
+      const res = await apiRequest('POST', '/api/bog/create-order', {
+        amount: selectedOption.amount,
+        currency: 'USD',
+        propertyId: propertyId || 0,
+        days: selectedOption.days,
+      });
+      const data = await res.json();
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        throw new Error(data.message || 'Failed to get redirect URL');
+      }
+    } catch (err: any) {
+      toast({
+        title: 'خطأ في الدفع',
+        description: err.message || 'تعذّر الاتصال ببوابة بنك جورجيا',
+        variant: 'destructive',
+      });
+    } finally {
+      setBogLoading(false);
     }
   };
   
@@ -122,7 +160,7 @@ export default function PaymentPopup({
         {selectedOption && (
           <div className="mt-8">
             <h3 className="text-lg font-semibold mb-4 text-center">Choose Payment Method</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Stripe */}
               <Card 
                 className={`border-2 cursor-pointer transition-all hover:shadow-lg ${
@@ -168,6 +206,30 @@ export default function PaymentPopup({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* BOG — Bank of Georgia */}
+              <Card 
+                className={`border-2 cursor-pointer transition-all hover:shadow-lg ${
+                  selectedPaymentMethod === 'bog' 
+                    ? 'border-[#3bcac4] bg-[#3bcac4]/5' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => setSelectedPaymentMethod('bog')}
+                data-testid="card-payment-bog"
+              >
+                <CardContent className="flex items-center justify-center p-6">
+                  <div className="text-center">
+                    <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-br from-[#e8000d] to-[#c00009] flex items-center justify-center">
+                      <Building2 className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="font-semibold">Bank of Georgia</div>
+                    <div className="text-sm text-gray-500">BOG Online Payment</div>
+                    <div className="flex items-center justify-center mt-2">
+                      <span className="text-xs text-gray-500">🇬🇪 Visa, Mastercard</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}
@@ -183,7 +245,9 @@ export default function PaymentPopup({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Payment method:</span>
-                <span className="font-semibold capitalize">{selectedPaymentMethod}</span>
+                <span className="font-semibold capitalize">
+                  {selectedPaymentMethod === 'bog' ? '🇬🇪 Bank of Georgia' : selectedPaymentMethod}
+                </span>
               </div>
               <div className="border-t border-primary/20 pt-3">
                 <div className="flex justify-between items-center text-lg">
@@ -199,6 +263,7 @@ export default function PaymentPopup({
                 onClick={onClose}
                 className="flex-1"
                 data-testid="button-cancel-payment"
+                disabled={bogLoading}
               >
                 Cancel
               </Button>
@@ -206,8 +271,16 @@ export default function PaymentPopup({
                 onClick={handlePayment}
                 className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
                 data-testid="button-proceed-payment"
+                disabled={bogLoading}
               >
-                Proceed to Payment
+                {bogLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Redirecting to Bank...
+                  </>
+                ) : (
+                  'Proceed to Payment'
+                )}
               </Button>
             </div>
           </div>

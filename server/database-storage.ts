@@ -454,4 +454,32 @@ export class DatabaseStorage implements IStorage {
       );
     return !!record;
   }
+
+  // In-memory store for BOG pending payments (these are transient)
+  private bogPayments: Map<string, any> = new Map();
+
+  async createPendingBOGPayment(data: {
+    bogOrderId: string;
+    shopOrderId: string;
+    propertyId: number;
+    userId: number;
+    amount: number;
+    currency: string;
+    days: number;
+    status: string;
+  }): Promise<void> {
+    this.bogPayments.set(data.bogOrderId, { ...data, createdAt: new Date() });
+  }
+
+  async completeBOGPayment(bogOrderId: string): Promise<void> {
+    const record = this.bogPayments.get(bogOrderId);
+    if (!record) return;
+    record.status = "completed";
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + record.days);
+    await db
+      .update(properties)
+      .set({ listingType: "vip", listingExpiresAt: expiresAt })
+      .where(eq(properties.id, record.propertyId));
+  }
 }

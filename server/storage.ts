@@ -60,6 +60,19 @@ export interface IStorage {
   createVerificationCode(phoneNumber: string, code: string, expiresAt: Date): Promise<void>;
   verifyCode(phoneNumber: string, code: string): Promise<boolean>;
   isPhoneVerified(phoneNumber: string): Promise<boolean>;
+
+  // BOG payment operations
+  createPendingBOGPayment(data: {
+    bogOrderId: string;
+    shopOrderId: string;
+    propertyId: number;
+    userId: number;
+    amount: number;
+    currency: string;
+    days: number;
+    status: string;
+  }): Promise<void>;
+  completeBOGPayment(bogOrderId: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -339,6 +352,38 @@ export class MemStorage implements IStorage {
   async isPhoneVerified(phoneNumber: string): Promise<boolean> {
     const record = this.verificationCodes.get(phoneNumber);
     return record?.verified === true;
+  }
+
+  private bogPayments: Map<string, any> = new Map();
+
+  async createPendingBOGPayment(data: {
+    bogOrderId: string;
+    shopOrderId: string;
+    propertyId: number;
+    userId: number;
+    amount: number;
+    currency: string;
+    days: number;
+    status: string;
+  }): Promise<void> {
+    this.bogPayments.set(data.bogOrderId, { ...data, createdAt: new Date() });
+  }
+
+  async completeBOGPayment(bogOrderId: string): Promise<void> {
+    const record = this.bogPayments.get(bogOrderId);
+    if (!record) return;
+    record.status = "completed";
+    // Upgrade property to VIP
+    const property = this.properties.get(record.propertyId);
+    if (property) {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + record.days);
+      this.properties.set(record.propertyId, {
+        ...property,
+        listingType: "vip",
+        listingExpiresAt: expiresAt,
+      });
+    }
   }
 }
 

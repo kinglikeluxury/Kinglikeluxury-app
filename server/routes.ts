@@ -14,6 +14,7 @@ import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 import { translateBlogPost } from "./translate";
+import { createBOGOrder, getBOGOrderStatus } from "./bogPayment";
 // TODO: Fix Google Cloud Storage TypeScript compatibility issues
 // import {
 //   ObjectStorageService,
@@ -322,36 +323,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Payment routes
   app.post("/api/payments", isAuthenticated, async (req, res) => {
     try {
-      // Check if user is authenticated
       if (!req.session.userId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-      
       const paymentData = req.body;
-      
-      // Validate required fields
       if (!paymentData.propertyId || !paymentData.amount || !paymentData.paymentMethod) {
         return res.status(400).json({ message: "Missing required payment fields" });
       }
-      
-      // For demo, we'll just create the payment record
-      // In production, you would integrate with actual payment processors
       const payment = {
-        id: Math.floor(Math.random() * 1000000), // Demo ID
+        id: Math.floor(Math.random() * 1000000),
         ...paymentData,
         userId: req.session.userId,
-        status: 'completed', // For demo purposes
+        status: 'completed',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      
-      // Log payment for demo
       console.log('💳 Payment processed:', payment);
-      
       res.status(201).json(payment);
     } catch (error) {
       console.error('Payment error:', error);
       res.status(500).json({ message: "Payment processing failed" });
+    }
+  });
+
+  // BOG (Bank of Georgia) payment — create order and redirect
+  app.post("/api/bog/create-order", isAuthenticated, async (req, res) => {
+    try {
+      const { amount, currency = "USD", propertyId, days } = req.body;
+      if (!amount || !propertyId) {
+        return res.status(400).json({ message: "amount and propertyId are required" });
+      }
+      const shopOrderId = `prop-${propertyId}-${Date.now()}`;
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const host = req.headers["x-forwarded-host"] || req.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+      const { orderId, redirectUrl } = await createBOGOrder(
+        parseFloat(amount),
+        currency,
+        shopOrderId,
+        baseUrl
+      );
+      // Store pending payment with bog order id
+      await storage.createPendingBOGPayment({
+        bogOrderId: orderId,
+        shopOrderId,
+        propertyId: parseInt(propertyId),
+        userId: req.session.userId!,
+        amount: parseFloat(amount),
+        currency,
+        days: parseInt(days) || 30,
+        status: "pending",
+      });
+      res.json({ orderId, redirectUrl });
+    } catch (error: any) {
+      console.error("BOG create order error:", error);
+      res.status(500).json({ message: error.message || "Failed to create BOG payment order" });
+    }
+  });
+
+  // BOG callback — called by BOG after payment
+  app.post("/api/bog/callback", async (req, res) => {
+    try {
+      const { order_id } = req.body;
+      if (!order_id) {
+        return res.status(400).json({ message: "order_id missing" });
+      }
+      const status = await getBOGOrderStatus(order_id);
+      const completed = status === "completed" || status === "captured";
+      if (completed) {
+        await storage.completeBOGPayment(order_id);
+      }
+      console.log(`BOG callback: order ${order_id} status=${status}`);
+      res.json({ received: true, status });
+    } catch (error: any) {
+      console.error("BOG callback error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // BOG order status check
+  app.get("/api/bog/order-status/:orderId", isAuthenticated, async (req, res) => {
+    try {
+      const status = await getBOGOrderStatus(req.params.orderId);
+      res.json({ status });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

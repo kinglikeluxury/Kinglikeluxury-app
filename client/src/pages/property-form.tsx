@@ -2525,6 +2525,7 @@ const PropertyForm = () => {
           onClose={() => setShowPaymentPopup(false)}
           onPayment={handlePayment}
           propertyType={getPropertyTypeTitle(propertyType)}
+          propertyId={paymentSuccessDetails?.propertyId}
         />
 
         {/* Submission Success Popup (pending admin approval) */}
