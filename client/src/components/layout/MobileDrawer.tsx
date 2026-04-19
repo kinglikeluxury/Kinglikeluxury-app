@@ -153,10 +153,18 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               >
                 {user.username.substring(0, 2).toUpperCase()}
               </div>
-              <div>
-                <p className="font-semibold text-gray-900 text-[15px]">{user.username}</p>
-                <p className="text-xs text-gray-500">{user.email || ""}</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 text-[15px] truncate">{user.username}</p>
+                <p className="text-xs text-gray-500 truncate">{user.email || ""}</p>
               </div>
+              {/* Logout button — always visible next to user info */}
+              <button
+                onClick={handleLogout}
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl bg-red-50 active:bg-red-100 flex-shrink-0"
+              >
+                <LogOut className="w-4 h-4 text-red-500" />
+                <span className="text-[10px] font-medium text-red-500">{t("auth.logout", "Logout")}</span>
+              </button>
             </div>
           </div>
         ) : (
