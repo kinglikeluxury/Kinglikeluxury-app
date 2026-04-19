@@ -817,26 +817,46 @@ const PropertyForm = () => {
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + days);
       
-      // Submit property as featured listing
+      // Submit property as featured listing (always first to get real ID)
       const propertyResult = await submitProperty('featured', expirationDate.toISOString());
-      
-      // Create payment record (this is for demo purposes)
-      const propertyId = propertyResult?.id || Date.now();
+      const savedPropertyId = propertyResult?.id;
+
+      if (!savedPropertyId) {
+        throw new Error('Failed to get property ID after submission');
+      }
+
+      // BOG — redirect to Bank of Georgia payment page
+      if (method === 'bog') {
+        const res = await apiRequest('POST', '/api/bog/create-order', {
+          amount,
+          currency: 'USD',
+          propertyId: savedPropertyId,
+          days,
+        });
+        const data = await res.json();
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+          return;
+        } else {
+          throw new Error(data.message || 'Failed to get BOG redirect URL');
+        }
+      }
+
+      // PayPal or other methods
       const paymentData = {
-        propertyId: propertyId,
+        propertyId: savedPropertyId,
         userId: user.id,
-        amount: amount * 100, // Convert to cents
+        amount: amount * 100,
         currency: 'USD',
         paymentMethod: method,
-        status: 'completed', // For demo, mark as completed
+        status: 'completed',
         durationDays: days,
       };
       
       await apiRequest('POST', '/api/payments', paymentData);
       
-      // Set payment success details and show choices popup
       setPaymentSuccessDetails({
-        propertyId: propertyId.toString(),
+        propertyId: savedPropertyId.toString(),
         propertyTitle: formData.title,
         durationDays: days,
         amount: amount
@@ -844,11 +864,11 @@ const PropertyForm = () => {
       
       setShowPostPaymentChoices(true);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing payment:', error);
       toast({
         title: 'Payment Failed',
-        description: 'Unable to process payment. Please try again.',
+        description: error.message || 'Unable to process payment. Please try again.',
         variant: 'destructive',
       });
     }

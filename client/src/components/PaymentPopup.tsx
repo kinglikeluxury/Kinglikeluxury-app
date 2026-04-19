@@ -5,13 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Crown, Calendar, DollarSign, Building2, Loader2 } from 'lucide-react';
 import { SiPaypal } from 'react-icons/si';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
 
 interface PaymentPopupProps {
   open: boolean;
   onClose: () => void;
-  onPayment: (amount: number, days: number, method: string) => void;
+  onPayment: (amount: number, days: number, method: string) => Promise<void> | void;
   propertyType: string;
   propertyId?: number | string;
 }
@@ -37,47 +35,15 @@ export default function PaymentPopup({
 }: PaymentPopupProps) {
   const [selectedOption, setSelectedOption] = useState<PricingOption | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
-  const [bogLoading, setBogLoading] = useState(false);
-  const { toast } = useToast();
-  
+  const [loading, setLoading] = useState(false);
+
   const handlePayment = async () => {
     if (!selectedOption || !selectedPaymentMethod) return;
-
-    if (selectedPaymentMethod === 'bog') {
-      await handleBOGPayment();
-      return;
-    }
-
-    if (selectedPaymentMethod === 'paypal') {
-      onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
-      return;
-    }
-  };
-
-  const handleBOGPayment = async () => {
-    if (!selectedOption) return;
-    setBogLoading(true);
+    setLoading(true);
     try {
-      const res = await apiRequest('POST', '/api/bog/create-order', {
-        amount: selectedOption.amount,
-        currency: 'USD',
-        propertyId: propertyId || 0,
-        days: selectedOption.days,
-      });
-      const data = await res.json();
-      if (data.redirectUrl) {
-        window.location.href = data.redirectUrl;
-      } else {
-        throw new Error(data.message || 'Failed to get redirect URL');
-      }
-    } catch (err: any) {
-      toast({
-        title: 'خطأ في الدفع',
-        description: err.message || 'تعذّر الاتصال ببوابة بنك جورجيا',
-        variant: 'destructive',
-      });
+      await onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
     } finally {
-      setBogLoading(false);
+      setLoading(false);
     }
   };
   
@@ -243,7 +209,7 @@ export default function PaymentPopup({
                 onClick={onClose}
                 className="flex-1"
                 data-testid="button-cancel-payment"
-                disabled={bogLoading}
+                disabled={loading}
               >
                 Cancel
               </Button>
@@ -251,12 +217,12 @@ export default function PaymentPopup({
                 onClick={handlePayment}
                 className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
                 data-testid="button-proceed-payment"
-                disabled={bogLoading}
+                disabled={loading}
               >
-                {bogLoading ? (
+                {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Redirecting to Bank...
+                    Processing...
                   </>
                 ) : (
                   'Proceed to Payment'
