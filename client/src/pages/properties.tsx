@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Property, PROPERTY_TYPES } from "@shared/schema";
@@ -11,31 +11,20 @@ import { Badge } from "@/components/ui/badge";
 
 const Properties = () => {
   const { t } = useTranslation();
-  const [location] = useLocation();
-  const [searchString, setSearchString] = useState(window.location.search);
+  const searchString = useSearch();
   const [filters, setFilters] = useState<Record<string, string | null>>({});
   const [title, setTitle] = useState(t('property.viewAll', 'All Properties'));
 
   useEffect(() => {
-    const handleUrlChange = () => {
-      setSearchString(window.location.search);
-    };
-    window.addEventListener('popstate', handleUrlChange);
-    setSearchString(window.location.search);
-    return () => window.removeEventListener('popstate', handleUrlChange);
-  }, [location]);
-
-  // Parse URL parameters
-  useEffect(() => {
     const params = new URLSearchParams(searchString);
     const newFilters: Record<string, string | null> = {};
-    
+
     params.forEach((value, key) => {
       newFilters[key] = value;
     });
-    
+
     setFilters(newFilters);
-    
+
     if (params.has("type")) {
       const type = params.get("type");
       switch (type) {
@@ -61,44 +50,24 @@ const Properties = () => {
     }
   }, [searchString]);
 
-  // Construct API query URL with filters
   const getQueryUrl = () => {
     const params = new URLSearchParams();
-    
-    if (filters.type) {
-      params.append("type", filters.type);
-    }
-    
-    if (filters.location) {
-      params.append("location", filters.location);
-    }
-    
-    if (filters.city) {
-      params.append("city", filters.city);
-    }
-    
-    if (filters.minPrice) {
-      params.append("minPrice", filters.minPrice);
-    }
-    
-    if (filters.maxPrice) {
-      params.append("maxPrice", filters.maxPrice);
-    }
-    
-    if (filters.myProperties) {
-      params.append("myProperties", "true");
-    }
-    
+
+    if (filters.type) params.append("type", filters.type);
+    if (filters.location) params.append("location", filters.location);
+    if (filters.city) params.append("city", filters.city);
+    if (filters.minPrice) params.append("minPrice", filters.minPrice);
+    if (filters.maxPrice) params.append("maxPrice", filters.maxPrice);
+    if (filters.myProperties) params.append("myProperties", "true");
+
     return `/api/properties${params.size > 0 ? `?${params.toString()}` : ""}`;
   };
 
-  // Fetch properties based on filters
   const { data: properties, isLoading } = useQuery<Property[]>({
     queryKey: [getQueryUrl()],
-    staleTime: 0, // Don't use cached data
+    staleTime: 0,
   });
 
-  // Convert filters for the search component
   const searchFilters = {
     type: filters.type || undefined,
     location: filters.location || undefined,
