@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Building2, FolderOpen, Map, PlusCircle } from "lucide-react";
+import { Home, Building2, FolderOpen, BookOpen, PlusCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/lib/auth";
 
@@ -32,9 +32,9 @@ export default function BottomNav() {
       icon: FolderOpen 
     },
     { 
-      path: "/map", 
-      label: t("nav.map", "Map"), 
-      icon: Map 
+      path: "/blog", 
+      label: t("nav.blog", "Blog"), 
+      icon: BookOpen 
     },
   ];
 
