@@ -202,8 +202,8 @@ export default function PaymentPopup({
                     <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-br from-[#e8000d] to-[#c00009] flex items-center justify-center">
                       <Building2 className="w-7 h-7 text-white" />
                     </div>
-                    <div className="font-semibold">Bank of Georgia</div>
-                    <div className="text-sm text-gray-500">BOG Online Payment</div>
+                    <div className="font-semibold">Pay via Bank</div>
+                    <div className="text-sm text-gray-500">Secure Bank Payment</div>
                     <div className="flex items-center justify-center mt-2">
                       <span className="text-xs text-gray-500">🇬🇪 Visa, Mastercard</span>
                     </div>
@@ -226,7 +226,7 @@ export default function PaymentPopup({
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Payment method:</span>
                 <span className="font-semibold capitalize">
-                  {selectedPaymentMethod === 'bog' ? '🇬🇪 Bank of Georgia' : selectedPaymentMethod}
+                  {selectedPaymentMethod === 'bog' ? '🇬🇪 Pay via Bank' : selectedPaymentMethod}
                 </span>
               </div>
               <div className="border-t border-primary/20 pt-3">
