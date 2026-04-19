@@ -482,4 +482,13 @@ export class DatabaseStorage implements IStorage {
       .set({ listingType: "vip", listingExpiresAt: expiresAt })
       .where(eq(properties.id, record.propertyId));
   }
+
+  async getBOGPaymentByPropertyId(propertyId: number): Promise<{ bogOrderId: string; amount: number; status: string } | null> {
+    for (const [bogOrderId, record] of this.bogPayments.entries()) {
+      if (record.propertyId === propertyId && record.status === "completed") {
+        return { bogOrderId, amount: record.amount, status: record.status };
+      }
+    }
+    return null;
+  }
 }

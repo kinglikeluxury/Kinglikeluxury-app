@@ -14,7 +14,7 @@ import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 import { translateBlogPost } from "./translate";
-import { createBOGOrder, getBOGOrderStatus } from "./bogPayment";
+import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment";
 // TODO: Fix Google Cloud Storage TypeScript compatibility issues
 // import {
 //   ObjectStorageService,
@@ -407,6 +407,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ status });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // BOG refund — called by admin when rejecting a paid property
+  app.post("/api/bog/refund/:propertyId", isAdmin, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const payment = await storage.getBOGPaymentByPropertyId(propertyId);
+      if (!payment) {
+        return res.status(404).json({ message: "No confirmed BOG payment found for this property" });
+      }
+      await refundBOGOrder(payment.bogOrderId);
+      console.log(`BOG refund issued for property ${propertyId}, order ${payment.bogOrderId}`);
+      res.json({ success: true, refundedAmount: payment.amount });
+    } catch (error: any) {
+      console.error("BOG refund error:", error);
+      res.status(500).json({ message: error.message || "Refund failed" });
     }
   });
 

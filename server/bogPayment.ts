@@ -127,3 +127,28 @@ export async function getBOGOrderStatus(orderId: string): Promise<string> {
   const data = (await response.json()) as BOGOrderDetails;
   return data.order_status?.key || "unknown";
 }
+
+export async function refundBOGOrder(orderId: string, amount?: number): Promise<boolean> {
+  const token = await getBOGToken();
+
+  const body: any = {};
+  if (amount) {
+    body.amount = amount;
+  }
+
+  const response = await fetch(`${BOG_ORDER_DETAILS_URL}${orderId}/refund`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`BOG refund failed: ${response.status} - ${errorText}`);
+  }
+
+  return true;
+}

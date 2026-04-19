@@ -73,6 +73,7 @@ export interface IStorage {
     status: string;
   }): Promise<void>;
   completeBOGPayment(bogOrderId: string): Promise<void>;
+  getBOGPaymentByPropertyId(propertyId: number): Promise<{ bogOrderId: string; amount: number; status: string } | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -384,6 +385,15 @@ export class MemStorage implements IStorage {
         listingExpiresAt: expiresAt,
       });
     }
+  }
+
+  async getBOGPaymentByPropertyId(propertyId: number): Promise<{ bogOrderId: string; amount: number; status: string } | null> {
+    for (const [bogOrderId, record] of this.bogPayments.entries()) {
+      if (record.propertyId === propertyId && record.status === "completed") {
+        return { bogOrderId, amount: record.amount, status: record.status };
+      }
+    }
+    return null;
   }
 }
 

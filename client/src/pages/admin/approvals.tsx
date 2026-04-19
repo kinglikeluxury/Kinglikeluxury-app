@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Eye } from "lucide-react";
+import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -36,22 +37,21 @@ const Approvals = () => {
   const queryClient = useQueryClient();
   const [openPropertyId, setOpenPropertyId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [refundPayment, setRefundPayment] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
   const [currentTab, setCurrentTab] = useState("pending");
 
-  // Redirect if not admin
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) {
       navigate("/");
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch all properties for admin
   const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({
     queryKey: ['/api/properties?status=all'],
     enabled: !!user?.isAdmin,
   });
 
-  // Update property status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const response = await apiRequest("PATCH", `/api/properties/${id}/status`, { status });
@@ -62,10 +62,10 @@ const Approvals = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/properties?status=all'] });
       setOpenPropertyId(null);
       setRejectionReason("");
+      setRefundPayment(false);
     },
   });
 
-  // Handle approve action
   const handleApprove = (id: number) => {
     updateStatusMutation.mutate(
       { id, status: PROPERTY_STATUS.APPROVED },
@@ -87,8 +87,35 @@ const Approvals = () => {
     );
   };
 
-  // Handle reject action
-  const handleReject = (id: number) => {
+  const handleReject = async (id: number) => {
+    if (refundPayment) {
+      setIsRefunding(true);
+      try {
+        const refundRes = await apiRequest("POST", `/api/bog/refund/${id}`, {});
+        const refundData = await refundRes.json();
+        if (!refundRes.ok) {
+          toast({
+            variant: "destructive",
+            title: "Refund Warning",
+            description: refundData.message || "Could not process refund, but property will be rejected.",
+          });
+        } else {
+          toast({
+            title: "Refund Initiated",
+            description: `$${refundData.refundedAmount} refund sent to the user's bank account.`,
+          });
+        }
+      } catch (err) {
+        toast({
+          variant: "destructive",
+          title: "Refund Error",
+          description: "Refund request failed. Property will still be rejected.",
+        });
+      } finally {
+        setIsRefunding(false);
+      }
+    }
+
     updateStatusMutation.mutate(
       { id, status: PROPERTY_STATUS.REJECTED },
       {
@@ -109,10 +136,10 @@ const Approvals = () => {
     );
   };
 
-  // Open rejection dialog
   const openRejectDialog = (id: number) => {
     setOpenPropertyId(id);
     setRejectionReason("");
+    setRefundPayment(false);
   };
 
   if (authLoading || propertiesLoading) {
@@ -128,10 +155,9 @@ const Approvals = () => {
   }
 
   if (!user?.isAdmin) {
-    return null; // Will redirect due to useEffect
+    return null;
   }
 
-  // Filter properties based on current tab
   const filteredProperties = properties?.filter(p => {
     if (currentTab === "pending") return p.status === PROPERTY_STATUS.PENDING;
     if (currentTab === "approved") return p.status === PROPERTY_STATUS.APPROVED;
@@ -139,10 +165,12 @@ const Approvals = () => {
     return true;
   }) || [];
 
-  // Get property by ID
-  const getPropertyById = (id: number) => {
-    return properties?.find(p => p.id === id);
-  };
+  const getPropertyById = (id: number) => properties?.find(p => p.id === id);
+
+  const isPaidProperty = (property: Property) =>
+    property.listingType === "vip" || property.listingType === "super_vip";
+
+  const openProperty = openPropertyId ? getPropertyById(openPropertyId) : null;
 
   return (
     <div className="p-8 bg-gray-50">
@@ -150,10 +178,10 @@ const Approvals = () => {
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Property Approvals</h1>
           <p className="text-gray-600 mt-1">
-            Manage property submissions - approve or reject user-submitted properties
+            Manage property submissions — approve or reject user-submitted properties
           </p>
         </div>
-        
+
         <Tabs value={currentTab} onValueChange={setCurrentTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="pending">
@@ -165,7 +193,7 @@ const Approvals = () => {
             <TabsTrigger value="approved">Approved</TabsTrigger>
             <TabsTrigger value="rejected">Rejected</TabsTrigger>
           </TabsList>
-          
+
           <Card>
             <CardHeader>
               <CardTitle>
@@ -189,6 +217,7 @@ const Approvals = () => {
                       <TableHead>Type</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Price</TableHead>
+                      <TableHead>Payment</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -200,6 +229,16 @@ const Approvals = () => {
                         <TableCell className="capitalize">{property.propertyType}</TableCell>
                         <TableCell>{property.location}</TableCell>
                         <TableCell>${property.price.toLocaleString()}</TableCell>
+                        <TableCell>
+                          {isPaidProperty(property) ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+                              <CreditCard className="w-3 h-3" />
+                              PAID
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-gray-400">Free</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-2">
                             <Button size="sm" variant="outline" asChild>
@@ -208,22 +247,22 @@ const Approvals = () => {
                                 View
                               </a>
                             </Button>
-                            
+
                             {currentTab === "pending" && (
                               <>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
                                   onClick={() => handleApprove(property.id)}
                                 >
                                   <CheckCircle className="h-4 w-4 mr-1" />
                                   Approve
                                 </Button>
-                                
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
                                   onClick={() => openRejectDialog(property.id)}
                                 >
@@ -232,11 +271,11 @@ const Approvals = () => {
                                 </Button>
                               </>
                             )}
-                            
+
                             {currentTab === "rejected" && (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
+                              <Button
+                                size="sm"
+                                variant="outline"
                                 className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
                                 onClick={() => handleApprove(property.id)}
                               >
@@ -244,11 +283,11 @@ const Approvals = () => {
                                 Approve
                               </Button>
                             )}
-                            
+
                             {currentTab === "approved" && (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
+                              <Button
+                                size="sm"
+                                variant="outline"
                                 className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
                                 onClick={() => openRejectDialog(property.id)}
                               >
@@ -274,7 +313,7 @@ const Approvals = () => {
             </CardContent>
           </Card>
         </Tabs>
-        
+
         {/* Rejection Dialog */}
         <Dialog open={openPropertyId !== null} onOpenChange={(open) => !open && setOpenPropertyId(null)}>
           <DialogContent>
@@ -289,29 +328,56 @@ const Approvals = () => {
                 )}
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="py-2">
-              <label className="text-sm font-medium mb-1 block">Reason for rejection (optional):</label>
-              <Textarea
-                placeholder="Enter reason for rejection"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-              />
+
+            <div className="py-2 space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Reason for rejection (optional):</label>
+                <Textarea
+                  placeholder="Enter reason for rejection"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                />
+              </div>
+
+              {openProperty && isPaidProperty(openProperty) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800">هذا العقار مدفوع (VIP)</p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        تم دفع رسوم ترقية لهذا العقار عبر بنك جورجيا. هل تريد استرداد المبلغ تلقائياً؟
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="refund-check"
+                      checked={refundPayment}
+                      onCheckedChange={(v) => setRefundPayment(!!v)}
+                    />
+                    <label htmlFor="refund-check" className="text-sm font-medium text-amber-900 cursor-pointer">
+                      نعم، استرداد المبلغ للعميل عبر بنك جورجيا
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
-            
+
             <DialogFooter>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setOpenPropertyId(null)}
+                disabled={isRefunding || updateStatusMutation.isPending}
               >
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => openPropertyId && handleReject(openPropertyId)}
-                disabled={updateStatusMutation.isPending}
+                disabled={isRefunding || updateStatusMutation.isPending}
               >
-                {updateStatusMutation.isPending ? "Rejecting..." : "Reject Property"}
+                {isRefunding ? "Refunding..." : updateStatusMutation.isPending ? "Rejecting..." : "Reject Property"}
               </Button>
             </DialogFooter>
           </DialogContent>
