@@ -3,8 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Calendar, DollarSign, Building2, Loader2 } from 'lucide-react';
-import { SiPaypal } from 'react-icons/si';
+import { Crown, Calendar, Building2, Loader2, ShieldCheck } from 'lucide-react';
 
 interface PaymentPopupProps {
   open: boolean;
@@ -34,14 +33,13 @@ export default function PaymentPopup({
   propertyId
 }: PaymentPopupProps) {
   const [selectedOption, setSelectedOption] = useState<PricingOption | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
-    if (!selectedOption || !selectedPaymentMethod) return;
+    if (!selectedOption) return;
     setLoading(true);
     try {
-      await onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
+      await onPayment(selectedOption.amount, selectedOption.days, 'bog');
     } finally {
       setLoading(false);
     }
