@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Crown, Calendar, DollarSign, Building2, Loader2 } from 'lucide-react';
-import { SiStripe, SiPaypal } from 'react-icons/si';
+import { Crown, Calendar, DollarSign, Building2, Loader2 } from 'lucide-react';
+import { SiPaypal } from 'react-icons/si';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -48,7 +48,10 @@ export default function PaymentPopup({
       return;
     }
 
-    onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
+    if (selectedPaymentMethod === 'paypal') {
+      onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
+      return;
+    }
   };
 
   const handleBOGPayment = async () => {
@@ -160,30 +163,7 @@ export default function PaymentPopup({
         {selectedOption && (
           <div className="mt-8">
             <h3 className="text-lg font-semibold mb-4 text-center">Choose Payment Method</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Stripe */}
-              <Card 
-                className={`border-2 cursor-pointer transition-all hover:shadow-lg ${
-                  selectedPaymentMethod === 'stripe' 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => setSelectedPaymentMethod('stripe')}
-                data-testid="card-payment-stripe"
-              >
-                <CardContent className="flex items-center justify-center p-6">
-                  <div className="text-center">
-                    <SiStripe className="w-12 h-12 mx-auto mb-2 text-blue-600" />
-                    <div className="font-semibold">Credit/Debit Card</div>
-                    <div className="text-sm text-gray-500">Powered by Stripe</div>
-                    <div className="flex items-center justify-center mt-2 space-x-2">
-                      <CreditCard className="w-4 h-4 text-gray-500" />
-                      <span className="text-xs text-gray-500">Visa, Mastercard, Amex</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* PayPal */}
               <Card 
                 className={`border-2 cursor-pointer transition-all hover:shadow-lg ${
