@@ -5,7 +5,7 @@ import {
   Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/hooks/use-favorites";
 import { languages, getFlagUrl } from "@/lib/i18n";
@@ -42,6 +42,32 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
       setShowLoginPrompt(true);
     }
   };
+
+  // Lock background scroll when drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflowY = 'scroll';
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflowY = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
+    }
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflowY = '';
+    };
+  }, [isOpen]);
 
   const isActive = (path: string) =>
     location === path || location.startsWith(path + "?");
@@ -213,7 +239,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
         )}
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto py-2">
+        <div className="flex-1 overflow-y-auto py-2" style={{ overscrollBehavior: 'contain' }}>
 
           {/* Browse section — visible to all */}
           <div className="mb-2">
