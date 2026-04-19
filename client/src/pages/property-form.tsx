@@ -567,7 +567,20 @@ const PropertyForm = () => {
         const countries = formData.country ? formData.country.split(',') : [];
         
         if (cities.length === 0 || countries.length === 0) {
-          return formData.location || 'Not specified';
+          const loc = formData.location || 'Not specified';
+          // Always append country name so location-based filtering works
+          if (countries.length > 0) {
+            const countryName = countries.map((c: string) => {
+              switch (c) {
+                case 'georgia': return 'Georgia';
+                case 'uae': return 'UAE';
+                case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
+                default: return c;
+              }
+            }).join(', ');
+            return `${loc}, ${countryName}`;
+          }
+          return loc;
         }
 
         // Map city codes to full names

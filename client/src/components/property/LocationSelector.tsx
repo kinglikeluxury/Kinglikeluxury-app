@@ -48,13 +48,15 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
   };
 
   useEffect(() => {
-    if (leafletMapRef.current) {
+    if (leafletMapRef.current && city) {
       const center = getCenter();
       leafletMapRef.current.setView([center.lat, center.lng], center.zoom);
       if (markerRef.current) {
         markerRef.current.remove();
         markerRef.current = null;
       }
+      // Auto-save city center coordinates so they're stored even without clicking the map
+      onLocationSelect('', { lat: center.lat, lng: center.lng });
     }
   }, [city]);
 

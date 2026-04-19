@@ -22,13 +22,33 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
 
   const lat = latitude ? parseFloat(latitude) : null;
   const lng = longitude ? parseFloat(longitude) : null;
-  const hasCoords = lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng);
+  const rawHasCoords = lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng);
+
+  // Detect mismatch: if location says Northern Cyprus (~35°N) but coords point to Georgia (~41°N), coords are wrong
+  const isCoordMismatch = rawHasCoords && (
+    (location.toLowerCase().includes('northern cyprus') && lat! > 38) ||
+    (location.toLowerCase().includes('georgia') && lat! < 38 && lat! > 30 && lng! > 30 && lng! < 40) ||
+    (location.toLowerCase().includes('uae') && (lat! < 20 || lat! > 30))
+  );
+  const hasCoords = rawHasCoords && !isCoordMismatch;
+
+  // If coords are mismatched, pick a sensible center from location string
+  const getFallbackCenter = (): { lat: number; lng: number; zoom: number } => {
+    const loc = location.toLowerCase();
+    if (loc.includes('northern cyprus') || loc.includes('girne') || loc.includes('lefkoşa') || loc.includes('gazimağusa') || loc.includes('iskele') || loc.includes('güzelyurt') || loc.includes('esentepe'))
+      return { lat: 35.2, lng: 33.35, zoom: 11 };
+    if (loc.includes('dubai')) return { lat: 25.2048, lng: 55.2708, zoom: 12 };
+    if (loc.includes('uae') || loc.includes('sharjah') || loc.includes('ras al khaimah')) return { lat: 25.3, lng: 55.4, zoom: 11 };
+    return { lat: 41.6168, lng: 41.6367, zoom: 13 }; // Batumi default
+  };
 
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return;
 
-    const centerLat = hasCoords ? lat! : 41.6168;
-    const centerLng = hasCoords ? lng! : 41.6367;
+    const fallback = getFallbackCenter();
+    const centerLat = hasCoords ? lat! : fallback.lat;
+    const centerLng = hasCoords ? lng! : fallback.lng;
+    const centerZoom = hasCoords ? 15 : fallback.zoom;
 
     // Disable ALL touch/scroll interactions so mobile page scrolling still works
     const map = L.map(mapRef.current, {
@@ -40,7 +60,7 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
       tap: false,
       keyboard: false,
       attributionControl: false,
-    }).setView([centerLat, centerLng], hasCoords ? 15 : 10);
+    }).setView([centerLat, centerLng], centerZoom);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
