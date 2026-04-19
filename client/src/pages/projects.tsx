@@ -174,8 +174,12 @@ const Projects = () => {
     }
 
     if (selectedCountry && selectedCountry !== 'all' && selectedCountry !== 'any') {
-      const countryName = selectedCountry === 'georgia' ? 'georgia' : 
-                         selectedCountry === 'uae' ? 'uae' : selectedCountry;
+      const countryNameMap: Record<string, string> = {
+        'georgia': 'georgia',
+        'uae': 'uae',
+        'northern-cyprus': 'northern cyprus',
+      };
+      const countryName = countryNameMap[selectedCountry] || selectedCountry.replace(/-/g, ' ');
       if (!projectLocation.includes(countryName)) {
         return false;
       }
@@ -186,9 +190,12 @@ const Projects = () => {
         'batumi': 'batumi', 'tbilisi': 'tbilisi',
         'dubai': 'dubai', 'sharjah': 'sharjah',
         'rasAlKhaimah': 'ras al khaimah', 'ras-al-khaimah': 'ras al khaimah',
-        'abu-dhabi': 'abu dhabi'
+        'abu-dhabi': 'abu dhabi',
+        'lefkosa': 'lefkoşa', 'gazimağusa': 'gazimağusa',
+        'girne': 'girne', 'iskele': 'skele',
+        'guzelyurt': 'güzelyurt', 'esentepe': 'esentepe',
       };
-      const cityName = cityMap[selectedCity] || selectedCity.toLowerCase();
+      const cityName = cityMap[selectedCity] || selectedCity.toLowerCase().replace(/-/g, ' ');
       if (!projectLocation.includes(cityName)) {
         return false;
       }
@@ -242,6 +249,15 @@ const Projects = () => {
           { value: 'ras-al-khaimah', label: 'Ras Al Khaimah' },
           { value: 'dubai', label: 'Dubai' },
           { value: 'abu-dhabi', label: 'Abu Dhabi' }
+        ];
+      case 'northern-cyprus':
+        return [
+          { value: 'lefkosa', label: '🇨🇾 Lefkoşa (Nicosia)' },
+          { value: 'gazimağusa', label: '🇨🇾 Gazimağusa (Famagusta)' },
+          { value: 'girne', label: '🇨🇾 Girne (Kyrenia)' },
+          { value: 'iskele', label: '🇨🇾 İskele' },
+          { value: 'guzelyurt', label: '🇨🇾 Güzelyurt' },
+          { value: 'esentepe', label: '🇨🇾 Esentepe' },
         ];
       default:
         return [];
