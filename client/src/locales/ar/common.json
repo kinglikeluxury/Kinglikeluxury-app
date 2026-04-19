@@ -112,7 +112,11 @@
     "notFound": "المقالة غير موجودة",
     "notFoundDesc": "المقالة التي تبحث عنها غير موجودة",
     "backToBlog": "العودة إلى المدونة",
-    "allCountries": "جميع الدول"
+    "allCountries": "جميع الدول",
+    "interestedQuestion": "هل أعجبك المقال؟ تواصل معنا مباشرةً عبر واتساب",
+    "contactWhatsApp": "تواصل معنا عبر واتساب",
+    "whatsappMessage": "مرحباً، قرأت المقال \"",
+    "whatsappMessageEnd": "\" وأودّ الاستفسار عن مزيد من المعلومات."
   },
   "projects": {
     "title": "مشاريع على الخارطة",

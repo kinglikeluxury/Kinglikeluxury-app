@@ -112,7 +112,11 @@
     "notFound": "Post not found",
     "notFoundDesc": "The article you are looking for does not exist",
     "backToBlog": "Back to Blog",
-    "allCountries": "All Countries"
+    "allCountries": "All Countries",
+    "interestedQuestion": "Interested in learning more? Contact us directly on WhatsApp",
+    "contactWhatsApp": "Contact us on WhatsApp",
+    "whatsappMessage": "Hello, I read the article \"",
+    "whatsappMessageEnd": "\" and I would like more information."
   },
   "projects": {
     "title": "Off Plan Projects",

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useTranslation } from "react-i18next";
-import { CalendarDays, User, ArrowLeft, MapPin } from "lucide-react";
+import { CalendarDays, User, ArrowLeft, MapPin, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -101,7 +101,7 @@ export default function BlogPost() {
             {post.country && (
               <span className="inline-flex items-center gap-1 bg-[#005476]/10 text-[#005476] px-3 py-1 rounded-full font-medium">
                 <MapPin className="w-3.5 h-3.5" />
-                {post.country === 'uae' ? '🇦🇪 UAE' : '🇬🇪 Georgia'}
+                {post.country === 'uae' ? '🇦🇪 UAE' : post.country === 'turkey' ? '🇹🇷 Turkey' : post.country === 'northern-cyprus' ? '🇨🇾 Northern Cyprus' : '🇬🇪 Georgia'}
               </span>
             )}
             <div className="flex items-center gap-1.5">
@@ -125,6 +125,22 @@ export default function BlogPost() {
               prose-img:rounded-lg prose-img:shadow-md"
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
+
+          <div className="mt-10 pt-8 border-t border-gray-100">
+            <p className="text-gray-500 text-sm mb-4 text-center">
+              {t('blog.interestedQuestion', 'Interested in learning more? Contact us directly on WhatsApp')}
+            </p>
+            <a
+              href={`https://wa.me/995591000058?text=${encodeURIComponent(t('blog.whatsappMessage', 'Hello, I read the article "') + post.title + t('blog.whatsappMessageEnd', '" and I would like more information.'))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-3 w-full py-4 px-6 rounded-xl font-semibold text-white text-lg transition-all duration-200 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)' }}
+            >
+              <MessageCircle className="w-6 h-6" />
+              {t('blog.contactWhatsApp', 'Contact us on WhatsApp')}
+            </a>
+          </div>
         </div>
       </div>
     </div>
