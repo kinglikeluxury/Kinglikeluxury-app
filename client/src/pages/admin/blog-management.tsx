@@ -327,6 +327,18 @@ const BlogManagement = () => {
                       <span className="text-xl">🇹🇷</span>
                       Turkey
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setCountry("northern-cyprus")}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                        country === "northern-cyprus"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
+                      }`}
+                    >
+                      <span className="text-xl">🇨🇾</span>
+                      N. Cyprus
+                    </button>
                   </div>
                 </div>
 
@@ -522,7 +534,7 @@ const BlogManagement = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-lg font-semibold text-[#005476] truncate">{post.title}</h3>
                       <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                        {(post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : '🇬🇪 Georgia'}
+                        {(post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : (post as any).country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
                       </span>
                       {post.published ? (
                         <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
