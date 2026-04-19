@@ -32,6 +32,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useAutoTranslate } from "@/hooks/useAutoTranslate";
 
 interface Project {
   id: number | string;
@@ -65,6 +66,110 @@ interface Project {
     status: 'pending' | 'approved' | 'rejected';
   };
 }
+
+// Sub-component so hooks can be used per card
+const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRange: (p: number) => string }) => {
+  const { t } = useTranslation();
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const propertyData = project.property || project;
+
+  const translated = useAutoTranslate({
+    title: propertyData.title || '',
+    description: propertyData.description || '',
+  });
+
+  const projectImage = propertyData.images?.[0] || "https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+
+  return (
+    <Card className="overflow-hidden flex flex-col">
+      <div className="flex-shrink-0 relative">
+        <Link href={`/property/${project.propertyId}`} className="block">
+          <img
+            className="h-64 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+            src={projectImage}
+            alt={translated.title}
+          />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
+          </div>
+        </Link>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite({ id: project.propertyId, title: propertyData.title, price: propertyData.price, type: (propertyData as any).propertyType || 'project' });
+          }}
+          className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md"
+        >
+          <Heart className={`h-5 w-5 transition-colors ${isFavorite(project.propertyId) ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-600'}`} />
+        </button>
+      </div>
+      <CardContent className="p-6 flex-1 flex flex-col justify-between">
+        <div className="flex-1">
+          <div className="flex items-center flex-wrap gap-2 mb-3">
+            {project.projectStatus && (
+              <Badge variant="outline" className="border-[#3bcac4] text-[#3bcac4] bg-[#3bcac4]/10">
+                {project.projectStatus}
+              </Badge>
+            )}
+            {project.completionDate && (
+              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                {t('projects.completion', 'Completion')}: {project.completionDate}
+              </Badge>
+            )}
+            <Badge variant="outline" className="bg-[#005476] text-white border-[#005476]">
+              {getPriceRange(propertyData.price)}
+            </Badge>
+          </div>
+          <Link href={`/property/${project.propertyId}`}>
+            <a className="block">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
+                {translated.title}
+              </h3>
+              <p className="text-base text-gray-600 mb-4 line-clamp-2">
+                {translated.description?.slice(0, 120)}{translated.description?.length > 120 ? '...' : ''}
+              </p>
+            </a>
+          </Link>
+          <div className="space-y-2">
+            <div className="flex items-center text-sm text-gray-500">
+              <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+              {propertyData.location}
+            </div>
+            {project.developer && (
+              <div className="flex items-center text-sm text-gray-500">
+                <User className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                {t('projects.developer', 'Developer')}: {project.developer}
+              </div>
+            )}
+            {propertyData.area && (
+              <div className="flex items-center text-sm text-gray-500">
+                <Home className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                {propertyData.area} {t('projects.sqm', 'sqm')}
+              </div>
+            )}
+            {propertyData.bedrooms && (
+              <div className="flex items-center text-sm text-gray-500">
+                <Building className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                {propertyData.bedrooms} {t('projects.bed', 'bed')}, {propertyData.bathrooms || 0} {t('projects.bath', 'bath')}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <Button asChild className="w-full">
+            <Link href={`/property/${project.propertyId}`}>
+              <span className="flex items-center justify-center">
+                {t('projects.viewDetails', 'View Project Details')}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </span>
+            </Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Projects = () => {
   const { user } = useAuth();
@@ -596,105 +701,9 @@ const Projects = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => {
-              // Get the actual property data - use property field if available, otherwise use project fields directly
-              const propertyData = project.property || project;
-              const projectImage = propertyData.images?.[0] || "https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
-              
-              return (
-                <Card key={project.id} className="overflow-hidden flex flex-col">
-                  <div className="flex-shrink-0 relative">
-                    <Link href={`/property/${project.propertyId}`} className="block">
-                      <img 
-                        className="h-64 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity" 
-                        src={projectImage}
-                        alt={propertyData.title}
-                        data-testid={`img-project-${project.id}`}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
-                      </div>
-                    </Link>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleFavorite({ id: project.propertyId, title: propertyData.title, price: propertyData.price, type: (propertyData as any).propertyType || 'project' });
-                      }}
-                      className={`absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md`}
-                    >
-                      <Heart className={`h-5 w-5 transition-colors ${isFavorite(project.propertyId) ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-600'}`} />
-                    </button>
-                  </div>
-                  <CardContent className="p-6 flex-1 flex flex-col justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center flex-wrap gap-2 mb-3">
-                        {project.projectStatus && (
-                          <Badge variant="outline" className="border-[#3bcac4] text-[#3bcac4] bg-[#3bcac4]/10">
-                            {project.projectStatus}
-                          </Badge>
-                        )}
-                        {project.completionDate && (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                            {t('projects.completion', 'Completion')}: {project.completionDate}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="bg-[#005476] text-white border-[#005476]">
-                          {getPriceRange(propertyData.price)}
-                        </Badge>
-                      </div>
-                      
-                      <Link href={`/property/${project.propertyId}`}>
-                        <a className="block" data-testid={`link-project-${project.id}`}>
-                          <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
-                            {propertyData.title}
-                          </h3>
-                          <p className="text-base text-gray-600 mb-4 line-clamp-2">
-                            {propertyData.description?.slice(0, 120)}...
-                          </p>
-                        </a>
-                      </Link>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-center text-sm text-gray-500">
-                          <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                          {propertyData.location}
-                        </div>
-                        {project.developer && (
-                          <div className="flex items-center text-sm text-gray-500">
-                            <User className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                            {t('projects.developer', 'Developer')}: {project.developer}
-                          </div>
-                        )}
-                        {propertyData.area && (
-                          <div className="flex items-center text-sm text-gray-500">
-                            <Home className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                            {propertyData.area} {t('projects.sqm', 'sqm')}
-                          </div>
-                        )}
-                        {propertyData.bedrooms && (
-                          <div className="flex items-center text-sm text-gray-500">
-                            <Building className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                            {propertyData.bedrooms} {t('projects.bed', 'bed')}, {propertyData.bathrooms || 0} {t('projects.bath', 'bath')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6 pt-4 border-t border-gray-100">
-                      <Button asChild className="w-full" data-testid={`button-view-project-${project.id}`}>
-                        <Link href={`/property/${project.propertyId}`}>
-                          <span className="flex items-center justify-center">
-                            {t('projects.viewDetails', 'View Project Details')}
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </span>
-                        </Link>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {filteredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} getPriceRange={getPriceRange} />
+            ))}
           </div>
         )}
       </div>
