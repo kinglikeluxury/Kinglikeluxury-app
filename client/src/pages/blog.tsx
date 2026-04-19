@@ -86,6 +86,16 @@ export default function Blog() {
           >
             <span>🇹🇷</span> {t('countries.turkey', 'Turkey')}
           </button>
+          <button
+            onClick={() => setCountryFilter("northern-cyprus")}
+            className={`px-5 py-2.5 rounded-full text-sm font-medium transition flex items-center gap-2 ${
+              countryFilter === "northern-cyprus"
+                ? "bg-[#005476] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
+            }`}
+          >
+            <span>🇨🇾</span> {t('countries.northernCyprus', 'N. Cyprus')}
+          </button>
         </div>
 
         {blogPosts.length === 0 ? (
@@ -114,7 +124,7 @@ export default function Blog() {
                       <div className="absolute top-3 left-3">
                         <span className="text-xs bg-white/90 backdrop-blur-sm text-[#005476] px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
-                          {post.country === 'uae' ? '🇦🇪 UAE' : post.country === 'turkey' ? '🇹🇷 Turkey' : '🇬🇪 Georgia'}
+                          {post.country === 'uae' ? '🇦🇪 UAE' : post.country === 'turkey' ? '🇹🇷 Turkey' : post.country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
                         </span>
                       </div>
                     </div>
