@@ -3,7 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Calendar, Building2, Loader2, ShieldCheck } from 'lucide-react';
+import { Crown, Calendar, DollarSign, Building2, Loader2, CreditCard } from 'lucide-react';
+import { SiStripe, SiPaypal } from 'react-icons/si';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface PaymentPopupProps {
   open: boolean;
@@ -33,18 +36,19 @@ export default function PaymentPopup({
   propertyId
 }: PaymentPopupProps) {
   const [selectedOption, setSelectedOption] = useState<PricingOption | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
-    if (!selectedOption) return;
+    if (!selectedOption || !selectedPaymentMethod) return;
     setLoading(true);
     try {
-      await onPayment(selectedOption.amount, selectedOption.days, 'bog');
+      await onPayment(selectedOption.amount, selectedOption.days, selectedPaymentMethod);
     } finally {
       setLoading(false);
     }
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-payment">
@@ -190,7 +194,7 @@ export default function PaymentPopup({
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Payment method:</span>
                 <span className="font-semibold capitalize">
-                  {selectedPaymentMethod === 'bog' ? '🇬🇪 Pay via Bank' : selectedPaymentMethod}
+                  {selectedPaymentMethod === 'bog' ? '🇬🇪 Pay via Bank' : 'PayPal'}
                 </span>
               </div>
               <div className="border-t border-primary/20 pt-3">
