@@ -236,7 +236,8 @@
   "countries": {
     "georgia": "Грузия",
     "uae": "ОАЭ",
-    "northernCyprus": "Северный Кипр (ТРСК)"
+    "northernCyprus": "Северный Кипр (ТРСК)",
+    "turkey": "Turkey"
   },
   "cities": {
     "batumi": "Батуми",
@@ -249,6 +250,8 @@
     "girne": "Гирне (Кирения)",
     "iskele": "Искеле",
     "guzelyurt": "Гюзельюрт",
-    "esentepe": "Эсентепе"
+    "esentepe": "Эсентепе",
+    "istanbul": "İstanbul",
+    "trabzon": "Trabzon"
   }
 }

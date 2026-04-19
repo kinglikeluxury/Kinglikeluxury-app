@@ -53,6 +53,11 @@ const CategorySection = () => {
           { value: "guzelyurt", label: "Güzelyurt" },
           { value: "esentepe", label: "Esentepe" },
         ];
+      case "turkey":
+        return [
+          { value: "istanbul", label: "İstanbul" },
+          { value: "trabzon", label: "Trabzon" },
+        ];
       default:
         return [];
     }
@@ -202,6 +207,7 @@ const CategorySection = () => {
                   <SelectItem value="georgia">🇬🇪 {t('countries.georgia', 'Georgia')}</SelectItem>
                   <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
                   <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
+                  <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

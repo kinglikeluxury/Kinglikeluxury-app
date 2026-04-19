@@ -236,7 +236,8 @@
   "countries": {
     "georgia": "Gruzja",
     "uae": "Zjednoczone Emiraty Arabskie",
-    "northernCyprus": "Cypr Północny (KKTC)"
+    "northernCyprus": "Cypr Północny (KKTC)",
+    "turkey": "Turkey"
   },
   "cities": {
     "batumi": "Batumi",
@@ -249,6 +250,8 @@
     "girne": "Girne (Kyrenia)",
     "iskele": "Iskele",
     "guzelyurt": "Güzelyurt",
-    "esentepe": "Esentepe"
+    "esentepe": "Esentepe",
+    "istanbul": "İstanbul",
+    "trabzon": "Trabzon"
   }
 }

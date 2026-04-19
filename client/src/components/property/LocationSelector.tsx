@@ -22,6 +22,8 @@ const CITY_CENTERS: Record<string, { lat: number; lng: number; zoom: number }> =
   iskele: { lat: 35.2923, lng: 33.8845, zoom: 13 },
   guzelyurt: { lat: 35.2028, lng: 32.9938, zoom: 13 },
   esentepe: { lat: 35.3942, lng: 33.5217, zoom: 13 },
+  istanbul: { lat: 41.0082, lng: 28.9784, zoom: 12 },
+  trabzon: { lat: 41.0015, lng: 39.7178, zoom: 13 },
 };
 
 interface LocationSelectorProps {

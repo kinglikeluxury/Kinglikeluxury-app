@@ -283,6 +283,7 @@ const Projects = () => {
         'georgia': 'georgia',
         'uae': 'uae',
         'northern-cyprus': 'northern cyprus',
+        'turkey': 'turkey',
       };
       const countryName = countryNameMap[selectedCountry] || selectedCountry.replace(/-/g, ' ');
       if (!projectLocation.includes(countryName)) {
@@ -299,6 +300,7 @@ const Projects = () => {
         'lefkosa': 'lefkoşa', 'gazimağusa': 'gazimağusa',
         'girne': 'girne', 'iskele': 'skele',
         'guzelyurt': 'güzelyurt', 'esentepe': 'esentepe',
+        'istanbul': 'istanbul', 'trabzon': 'trabzon',
       };
       const cityName = cityMap[selectedCity] || selectedCity.toLowerCase().replace(/-/g, ' ');
       if (!projectLocation.includes(cityName)) {
@@ -363,6 +365,11 @@ const Projects = () => {
           { value: 'iskele', label: '🇨🇾 İskele' },
           { value: 'guzelyurt', label: '🇨🇾 Güzelyurt' },
           { value: 'esentepe', label: '🇨🇾 Esentepe' },
+        ];
+      case 'turkey':
+        return [
+          { value: 'istanbul', label: '🇹🇷 İstanbul' },
+          { value: 'trabzon', label: '🇹🇷 Trabzon' },
         ];
       default:
         return [];
@@ -547,6 +554,7 @@ const Projects = () => {
                     <SelectItem value="georgia">🇬🇪 {t('countries.georgia', 'Georgia')}</SelectItem>
                     <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
                     <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
+                    <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
                   </SelectContent>
                 </Select>
                 {filterErrors.country && (

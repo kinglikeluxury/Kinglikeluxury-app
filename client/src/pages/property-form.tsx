@@ -151,6 +151,10 @@ const PropertyForm = () => {
       } else if (location.includes('UAE')) {
         country = 'uae';
         if (location.includes('Dubai')) city = 'dubai';
+      } else if (location.includes('Turkey')) {
+        country = 'turkey';
+        if (location.includes('Istanbul')) city = 'istanbul';
+        else if (location.includes('Trabzon')) city = 'trabzon';
       }
 
       // Update all form data
@@ -302,6 +306,11 @@ const PropertyForm = () => {
           { value: "iskele", label: "İskele" },
           { value: "guzelyurt", label: "Güzelyurt" },
           { value: "esentepe", label: "Esentepe" }
+        ];
+      case "turkey":
+        return [
+          { value: "istanbul", label: "İstanbul" },
+          { value: "trabzon", label: "Trabzon" }
         ];
       default:
         return [];
@@ -464,6 +473,68 @@ const PropertyForm = () => {
         { value: "al-rams", label: "Al Rams" },
         { value: "dafan-al-khor", label: "Dafan Al Khor" },
       ],
+      istanbul: [
+        { value: "sultanahmet", label: "Sultanahmet (Historic Peninsula)" },
+        { value: "taksim", label: "Taksim / Beyoğlu" },
+        { value: "besiktas", label: "Beşiktaş" },
+        { value: "sisli", label: "Şişli" },
+        { value: "nisantasi", label: "Nişantaşı" },
+        { value: "kadikoy", label: "Kadıköy" },
+        { value: "uskudar", label: "Üsküdar" },
+        { value: "fatih", label: "Fatih" },
+        { value: "bakirkoy", label: "Bakırköy" },
+        { value: "sariyer", label: "Sarıyer" },
+        { value: "levent", label: "Levent" },
+        { value: "maslak", label: "Maslak" },
+        { value: "atasehir", label: "Ataşehir" },
+        { value: "umraniye", label: "Ümraniye" },
+        { value: "pendik", label: "Pendik" },
+        { value: "kartal", label: "Kartal" },
+        { value: "maltepe", label: "Maltepe" },
+        { value: "bagcilar", label: "Bağcılar" },
+        { value: "avcilar", label: "Avcılar" },
+        { value: "buyukcek mece", label: "Büyükçekmece" },
+        { value: "kucukcekmece", label: "Küçükçekmece" },
+        { value: "basaksehir", label: "Başakşehir" },
+        { value: "beylikduzu", label: "Beylikdüzü" },
+        { value: "esenyurt", label: "Esenyurt" },
+        { value: "zeytinburnu", label: "Zeytinburnu" },
+        { value: "eyupsultan", label: "Eyüpsultan" },
+        { value: "gaziosmanpasa", label: "Gaziosmanpaşa" },
+        { value: "bahcelievler", label: "Bahçelievler" },
+        { value: "gungoren", label: "Güngören" },
+        { value: "esenler", label: "Esenler" },
+        { value: "cihangir", label: "Cihangir" },
+        { value: "etiler", label: "Etiler" },
+        { value: "ortakoy", label: "Ortaköy" },
+        { value: "beykoz", label: "Beykoz" },
+        { value: "cekmekoy", label: "Çekmeköy" },
+        { value: "tuzla", label: "Tuzla" },
+        { value: "silivri", label: "Silivri" },
+        { value: "arnavutkoy", label: "Arnavutköy" },
+        { value: "adalar", label: "Adalar (Princes Islands)" },
+        { value: "florya", label: "Florya" },
+        { value: "yesilkoy", label: "Yeşilköy" },
+        { value: "bostanci", label: "Bostancı" },
+      ],
+      trabzon: [
+        { value: "trabzon-merkez", label: "Trabzon Merkez (City Center)" },
+        { value: "ortahisar", label: "Ortahisar" },
+        { value: "akcaabat", label: "Akçaabat" },
+        { value: "pelitli", label: "Pelitli" },
+        { value: "arakli", label: "Araklı" },
+        { value: "yomra", label: "Yomra" },
+        { value: "degirmendere", label: "Değirmendere" },
+        { value: "arsin", label: "Arsin" },
+        { value: "of", label: "Of" },
+        { value: "macka", label: "Maçka" },
+        { value: "surmene", label: "Sürmene" },
+        { value: "carsibasi", label: "Çarşıbaşı" },
+        { value: "vakfıkebir", label: "Vakfıkebir" },
+        { value: "tonya", label: "Tonya" },
+        { value: "besikduzu", label: "Beşikdüzü" },
+        { value: "hayrat", label: "Hayrat" },
+      ],
     };
     return locations[cityKey] || [];
   };
@@ -575,6 +646,7 @@ const PropertyForm = () => {
                 case 'georgia': return 'Georgia';
                 case 'uae': return 'UAE';
                 case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
+                case 'turkey': return 'Turkey';
                 default: return c;
               }
             }).join(', ');
@@ -597,6 +669,8 @@ const PropertyForm = () => {
             case 'iskele': return 'İskele';
             case 'guzelyurt': return 'Güzelyurt';
             case 'esentepe': return 'Esentepe';
+            case 'istanbul': return 'Istanbul';
+            case 'trabzon': return 'Trabzon';
             default: return city;
           }
         });
@@ -607,6 +681,7 @@ const PropertyForm = () => {
             case 'georgia': return 'Georgia';
             case 'uae': return 'UAE';
             case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
+            case 'turkey': return 'Turkey';
             default: return country;
           }
         });
@@ -965,7 +1040,8 @@ const PropertyForm = () => {
                       {[
                         { value: 'georgia', label: '🇬🇪 Georgia' },
                         { value: 'uae', label: '🇦🇪 United Arab Emirates' },
-                        { value: 'northern-cyprus', label: '🇨🇾 Northern Cyprus (TRNC)' }
+                        { value: 'northern-cyprus', label: '🇨🇾 Northern Cyprus (TRNC)' },
+                        { value: 'turkey', label: '🇹🇷 Turkey' }
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
@@ -1002,7 +1078,7 @@ const PropertyForm = () => {
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.country) ? formData.country : formData.country?.split(',') || []).map((country) => (
                             <Badge key={country} variant="secondary" className="text-xs">
-                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country}
+                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'northern-cyprus' ? '🇨🇾 TRNC' : country === 'turkey' ? '🇹🇷 Turkey' : country}
                             </Badge>
                           ))}
                         </div>
@@ -1031,6 +1107,8 @@ const PropertyForm = () => {
                         { value: 'iskele', label: '🇨🇾 İskele, TRNC', country: 'northern-cyprus' },
                         { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
                         { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
+                        { value: 'istanbul', label: '🇹🇷 İstanbul, Turkey', country: 'turkey' },
+                        { value: 'trabzon', label: '🇹🇷 Trabzon, Turkey', country: 'turkey' },
                       ].filter((cityOption) => {
                         const selectedCountry = formData.country;
                         if (!selectedCountry) return true;

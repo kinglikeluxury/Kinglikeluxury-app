@@ -236,7 +236,8 @@
   "countries": {
     "georgia": "საქართველო",
     "uae": "არაბთა გაერთიანებული საამიროები",
-    "northernCyprus": "ჩრდილოეთ კვიპროსი (KKTC)"
+    "northernCyprus": "ჩრდილოეთ კვიპროსი (KKTC)",
+    "turkey": "Turkey"
   },
   "cities": {
     "batumi": "ბათუმი",
@@ -249,6 +250,8 @@
     "girne": "გირნე (კირენია)",
     "iskele": "ისქელე",
     "guzelyurt": "გიუზელიურთი",
-    "esentepe": "ესენტეფე"
+    "esentepe": "ესენტეფე",
+    "istanbul": "İstanbul",
+    "trabzon": "Trabzon"
   }
 }
