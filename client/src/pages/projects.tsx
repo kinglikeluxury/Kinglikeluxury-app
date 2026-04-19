@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -175,29 +176,41 @@ const Projects = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const searchString = useSearch();
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlCountry = urlParams.get('country') || '';
-  const urlCity = urlParams.get('city') || '';
-  const urlDeliveryYear = urlParams.get('deliveryYear') || '';
-  
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState(urlCountry);
-  const [selectedCity, setSelectedCity] = useState(urlCity);
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedPurpose, setSelectedPurpose] = useState("");
-  const [selectedDeliveryYear, setSelectedDeliveryYear] = useState(urlDeliveryYear);
+  const [selectedDeliveryYear, setSelectedDeliveryYear] = useState("");
+
   const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
   const [priceExpanded, setPriceExpanded] = useState(false);
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
+  const syncingFromUrl = useRef(false);
 
-  // Reset city when country changes
+  // Sync URL params to state whenever URL changes (e.g. navigation from home page)
   useEffect(() => {
-    if (selectedCountry !== "") {
+    const urlParams = new URLSearchParams(searchString);
+    const urlCountry = urlParams.get('country') || '';
+    const urlCity = urlParams.get('city') || '';
+    const urlDeliveryYear = urlParams.get('deliveryYear') || '';
+    syncingFromUrl.current = true;
+    if (urlCountry) setSelectedCountry(urlCountry);
+    if (urlCity) setSelectedCity(urlCity);
+    if (urlDeliveryYear) setSelectedDeliveryYear(urlDeliveryYear);
+    // Allow the reset-city effect to see the flag before it clears
+    setTimeout(() => { syncingFromUrl.current = false; }, 0);
+  }, [searchString]);
+
+  // Reset city when country changes manually (not from URL sync)
+  useEffect(() => {
+    if (selectedCountry !== "" && !syncingFromUrl.current) {
       setSelectedCity("");
       setFilterErrors(prev => ({ ...prev, country: false }));
     }

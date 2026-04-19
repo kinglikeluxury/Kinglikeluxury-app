@@ -97,11 +97,12 @@ const Hero = () => {
   };
 
   const handleSearch = () => {
+    const isProject = propertyType === PROPERTY_TYPES.PROJECT;
     const newErrors: Record<string, boolean> = {};
     
     if (!city || city === "any") newErrors.country = true;
     if (!propertyType || propertyType === "all") newErrors.propertyType = true;
-    if (!purpose || purpose === "any") newErrors.purpose = true;
+    if (!isProject && (!purpose || purpose === "any")) newErrors.purpose = true;
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -110,7 +111,16 @@ const Hero = () => {
 
     setErrors({});
     const params = new URLSearchParams();
-    
+
+    // For Off Plan Projects route to /projects page with country/city params
+    if (isProject) {
+      if (city && city !== "any") params.append("country", city);
+      if (location && location !== "any") params.append("city", location);
+      navigate(`/projects?${params.toString()}`);
+      return;
+    }
+
+    // For regular property types route to /properties
     if (location && location !== "any") {
       params.append("city", location);
     } else if (city && city !== "any") {
@@ -207,6 +217,7 @@ const Hero = () => {
                     </Select>
                   </div>
                   
+                  {propertyType !== PROPERTY_TYPES.PROJECT && (
                   <div>
                     <label className={`block text-sm font-medium mb-1 ${errors.purpose ? 'text-red-500' : 'text-gray-700'}`}>{t('home.hero.purpose', 'What for')}</label>
                     <Select value={purpose} onValueChange={(v) => { setPurpose(v); setErrors(prev => ({ ...prev, purpose: false })); }}>
@@ -220,6 +231,7 @@ const Hero = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
                   
                   <div className="relative" ref={priceDropdownRef}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('property.priceRange', 'Price Range')}</label>
