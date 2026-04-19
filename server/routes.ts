@@ -354,9 +354,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "amount and propertyId are required" });
       }
       const shopOrderId = `prop-${propertyId}-${Date.now()}`;
-      const protocol = req.headers["x-forwarded-proto"] || "https";
-      const host = req.headers["x-forwarded-host"] || req.headers.host;
-      const baseUrl = `${protocol}://${host}`;
+      const baseUrl = process.env.BOG_BASE_URL ||
+        `${req.headers["x-forwarded-proto"] || "https"}://${req.headers["x-forwarded-host"] || req.headers.host}`;
       const { orderId, redirectUrl } = await createBOGOrder(
         parseFloat(amount),
         currency,
