@@ -6,3 +6,9 @@ id = "eA3InOIcayTCTDPco4I70"
 uri = "file://kinglike-mobile-app.zip"
 type = "unspecified"
 title = "Kinglike Luxury - مشروع Android (React Native)"
+
+[[outputs]]
+id = "QZCce8phDI7OhnFzGucih"
+uri = "file://kinglike-project.zip"
+type = "unspecified"
+title = "Kinglike Luxury — Full Project"
