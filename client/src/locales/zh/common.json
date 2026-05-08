@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "搜索国家...",
+    "noCountriesFound": "未找到国家",
     "loading": "加载中...",
     "all": "所有类型",
     "category": "类别",

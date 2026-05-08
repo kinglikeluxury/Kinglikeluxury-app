@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "Ölkə axtar...",
+    "noCountriesFound": "Ölkə tapılmadı",
     "loading": "Yüklənir...",
     "all": "Bütün Növlər",
     "category": "kateqoriya",

@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "Cerca paese...",
+    "noCountriesFound": "Nessun paese trovato",
     "loading": "Caricamento...",
     "all": "Tutti i tipi",
     "category": "categoria",

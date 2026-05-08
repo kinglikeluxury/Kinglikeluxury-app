@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "ابحث عن دولة...",
+    "noCountriesFound": "لا توجد دول",
     "loading": "جاري التحميل...",
     "all": "جميع الأنواع",
     "category": "فئة",

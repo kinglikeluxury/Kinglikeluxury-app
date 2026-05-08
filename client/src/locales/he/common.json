@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "חפש מדינה...",
+    "noCountriesFound": "לא נמצאו מדינות",
     "loading": "טוען...",
     "all": "כל הסוגים",
     "category": "קטגוריה",

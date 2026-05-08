@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "Ülke ara...",
+    "noCountriesFound": "Ülke bulunamadı",
     "loading": "Yükleniyor...",
     "all": "Tüm Türler",
     "category": "kategori",

@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "Поиск страны...",
+    "noCountriesFound": "Страны не найдены",
     "loading": "Загрузка...",
     "all": "Все типы",
     "category": "категория",

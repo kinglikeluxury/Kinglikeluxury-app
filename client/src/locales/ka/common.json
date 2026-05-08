@@ -1,5 +1,7 @@
 {
   "common": {
+    "searchCountry": "ქვეყნის ძებნა...",
+    "noCountriesFound": "ქვეყანა ვერ მოიძებნა",
     "loading": "იტვირთება...",
     "all": "ყველა ტიპი",
     "category": "კატეგორია",
