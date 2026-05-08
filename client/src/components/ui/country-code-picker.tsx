@@ -105,6 +105,8 @@ const countries: Country[] = [
   { code: 'YE', dial: '+967', flag: '🇾🇪' },
 ];
 
+const ALL_LOCALES = ['en', 'ar', 'ru', 'tr', 'zh', 'pl', 'ka', 'he', 'az', 'it'];
+
 function getLocalizedName(code: string, locale: string): string {
   try {
     const displayNames = new Intl.DisplayNames([locale, 'en'], { type: 'region' });
@@ -112,6 +114,15 @@ function getLocalizedName(code: string, locale: string): string {
   } catch {
     return code;
   }
+}
+
+// Pre-build a search index with country names in ALL supported languages
+// so searching works regardless of the current UI language
+const allLanguageNamesIndex: Record<string, string[]> = {};
+for (const country of countries) {
+  allLanguageNamesIndex[country.code] = ALL_LOCALES.map(loc =>
+    getLocalizedName(country.code, loc).toLowerCase()
+  );
 }
 
 interface CountryCodePickerProps {
@@ -134,7 +145,6 @@ export function CountryCodePicker({ value, onChange, disabled }: CountryCodePick
     return countries.map(c => ({
       ...c,
       name: getLocalizedName(c.code, locale),
-      nameEn: getLocalizedName(c.code, 'en'),
     }));
   }, [locale]);
 
@@ -179,8 +189,11 @@ export function CountryCodePicker({ value, onChange, disabled }: CountryCodePick
     if (!search) return countriesLocalized;
     const q = search.toLowerCase().trim();
     return countriesLocalized.filter(c =>
+      // Search in current UI language name
       c.name.toLowerCase().includes(q) ||
-      c.nameEn.toLowerCase().includes(q) ||
+      // Search across ALL language names (Arabic, Russian, Turkish, etc.)
+      (allLanguageNamesIndex[c.code] || []).some(n => n.includes(q)) ||
+      // Search by dial code or country code
       c.dial.includes(q) ||
       c.code.toLowerCase().includes(q)
     );
