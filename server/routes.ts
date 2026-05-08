@@ -158,15 +158,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Phone number and code are required" });
       }
 
-      const isValid = await storage.verifyCode(phoneNumber, code);
-      if (!isValid) {
-        return res.status(400).json({ message: "Invalid or expired verification code" });
+      const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
+      if (twilioClient && verifySid) {
+        // Use Twilio Verify to check the code
+        const check = await (twilioClient as any).verify.v2.services(verifySid).verificationChecks.create({
+          to: phoneNumber,
+          code,
+        });
+        if (check.status !== "approved") {
+          return res.status(400).json({ message: "Invalid or expired verification code" });
+        }
+      } else {
+        // Fallback to local DB verification
+        const isValid = await storage.verifyCode(phoneNumber, code);
+        if (!isValid) {
+          return res.status(400).json({ message: "Invalid or expired verification code" });
+        }
       }
 
       res.json({ success: true, verified: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Verify code error:", error);
-      res.status(500).json({ message: "Verification failed" });
+      res.status(500).json({ message: error.message || "Verification failed" });
     }
   });
 
