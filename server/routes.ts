@@ -433,39 +433,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Export leads as CSV (opens in Excel)
+  // Export leads as real Excel .xlsx file
   app.get("/api/admin/leads/export", isAuthenticated, async (req, res) => {
     try {
       if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+
+      const XLSX = await import("xlsx");
       const allUsers = await storage.getAllUsers();
       const allProperties = await storage.getProperties({});
 
       const rows = allUsers.map((u) => {
         const propCount = allProperties.filter((p) => p.ownerId === u.id).length;
-        const type = propCount > 0 ? "Seller/Uploader" : "Browser";
-        const date = u.createdAt ? new Date(u.createdAt).toLocaleString("ar-EG") : "";
-        return [
-          u.id,
-          u.username,
-          u.phoneNumber || "",
-          u.email || "",
-          u.whatsappNumber || "",
-          u.authMethod,
-          type,
-          propCount,
-          u.isVerified ? "Yes" : "No",
-          u.isAdmin ? "Admin" : "User",
-          date,
-        ].map(String).join(",");
+        return {
+          "الرقم": u.id,
+          "اسم المستخدم": u.username,
+          "رقم الهاتف": u.phoneNumber || "",
+          "البريد الإلكتروني": u.email || "",
+          "واتساب": u.whatsappNumber || "",
+          "طريقة التسجيل": u.authMethod,
+          "نوع العميل": propCount > 0 ? "بائع / رافع عقار" : "متصفح",
+          "عدد العقارات": propCount,
+          "موثّق": u.isVerified ? "نعم" : "لا",
+          "الدور": u.isAdmin ? "أدمن" : "مستخدم",
+          "تاريخ التسجيل": u.createdAt ? new Date(u.createdAt).toLocaleDateString("ar-EG") : "",
+          "وقت التسجيل": u.createdAt ? new Date(u.createdAt).toLocaleTimeString("ar-EG") : "",
+        };
       });
 
-      const header = "ID,Username,Phone,Email,WhatsApp,AuthMethod,LeadType,Properties,Verified,Role,RegisteredAt";
-      const csv = "\uFEFF" + [header, ...rows].join("\n"); // BOM for Arabic Excel
+      const worksheet = XLSX.utils.json_to_sheet(rows);
 
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="kinglike-leads-${Date.now()}.csv"`);
-      res.send(csv);
+      // Column widths
+      worksheet["!cols"] = [
+        { wch: 6 }, { wch: 20 }, { wch: 18 }, { wch: 28 },
+        { wch: 18 }, { wch: 14 }, { wch: 20 }, { wch: 12 },
+        { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 14 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "العملاء - Leads");
+
+      const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+      const filename = `kinglike-leads-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
     } catch (err) {
+      console.error("Excel export error:", err);
       res.status(500).json({ message: "Server error" });
     }
   });
