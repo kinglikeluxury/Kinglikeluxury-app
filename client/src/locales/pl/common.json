@@ -117,7 +117,8 @@
     "dashboard": "Panel administracyjny",
     "approvals": "Zatwierdzenia",
     "createProject": "Dodaj projekt",
-    "blogManagement": "Zarządzanie blogiem"
+    "blogManagement": "Zarządzanie blogiem",
+    "leads": "Baza klientów"
   },
   "blog": {
     "title": "Blog o nieruchomościach",

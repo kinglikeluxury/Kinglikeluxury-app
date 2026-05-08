@@ -117,7 +117,8 @@
     "dashboard": "Admin Dashboard",
     "approvals": "Property Approvals",
     "createProject": "Add Project",
-    "blogManagement": "Blog Management"
+    "blogManagement": "Blog Management",
+    "leads": "Leads Database"
   },
   "blog": {
     "title": "Real Estate Blog",

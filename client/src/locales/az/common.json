@@ -117,7 +117,8 @@
     "dashboard": "İdarəetmə Paneli",
     "approvals": "Təsdiqlər",
     "createProject": "Layihə əlavə et",
-    "blogManagement": "Bloq idarəetməsi"
+    "blogManagement": "Bloq idarəetməsi",
+    "leads": "Müştəri Bazası"
   },
   "blog": {
     "title": "Əmlak Bloqu",

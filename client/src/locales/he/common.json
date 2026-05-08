@@ -117,7 +117,8 @@
     "dashboard": "לוח בקרה",
     "approvals": "אישורים",
     "createProject": "הוסף פרויקט",
-    "blogManagement": "ניהול בלוג"
+    "blogManagement": "ניהול בלוג",
+    "leads": "מסד נתוני לקוחות"
   },
   "blog": {
     "title": "בלוג נדל\"ן",

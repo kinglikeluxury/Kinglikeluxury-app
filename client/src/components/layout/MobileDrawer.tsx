@@ -286,7 +286,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: t("admin.dashboard", "Dashboard"), path: "/admin/dashboard", icon: LayoutDashboard })}
                 {renderItem({ label: t("admin.approvals", "Approvals"), path: "/admin/approvals", icon: CheckSquare })}
                 {renderItem({ label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen })}
-                {renderItem({ label: "👥 قاعدة العملاء", path: "/admin/leads", icon: Users })}
+                {renderItem({ label: `👥 ${t("admin.leads", "Leads Database")}`, path: "/admin/leads", icon: Users })}
               </div>
             </div>
           )}

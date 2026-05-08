@@ -117,7 +117,8 @@
     "dashboard": "لوحة التحكم",
     "approvals": "الموافقات",
     "createProject": "إضافة مشروع",
-    "blogManagement": "إدارة المدونة"
+    "blogManagement": "إدارة المدونة",
+    "leads": "قاعدة العملاء"
   },
   "blog": {
     "title": "مدونة العقارات",

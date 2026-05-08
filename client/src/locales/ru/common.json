@@ -117,7 +117,8 @@
     "dashboard": "Панель управления",
     "approvals": "Согласования",
     "createProject": "Добавить проект",
-    "blogManagement": "Управление блогом"
+    "blogManagement": "Управление блогом",
+    "leads": "База клиентов"
   },
   "blog": {
     "title": "Блог о недвижимости",

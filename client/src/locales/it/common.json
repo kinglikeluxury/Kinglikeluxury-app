@@ -117,7 +117,8 @@
     "dashboard": "Dashboard amministrativa",
     "approvals": "Approvazioni",
     "createProject": "Aggiungi progetto",
-    "blogManagement": "Gestione Blog"
+    "blogManagement": "Gestione Blog",
+    "leads": "Database clienti"
   },
   "blog": {
     "title": "Blog immobiliare",

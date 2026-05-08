@@ -117,7 +117,8 @@
     "dashboard": "ადმინის პანელი",
     "approvals": "დამტკიცებები",
     "createProject": "პროექტის დამატება",
-    "blogManagement": "ბლოგის მართვა"
+    "blogManagement": "ბლოგის მართვა",
+    "leads": "კლიენტთა ბაზა"
   },
   "blog": {
     "title": "უძრავი ქონების ბლოგი",

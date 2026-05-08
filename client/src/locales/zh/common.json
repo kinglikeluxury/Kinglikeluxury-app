@@ -117,7 +117,8 @@
     "dashboard": "管理后台",
     "approvals": "审批",
     "createProject": "添加项目",
-    "blogManagement": "博客管理"
+    "blogManagement": "博客管理",
+    "leads": "客户数据库"
   },
   "blog": {
     "title": "房地产博客",

@@ -117,7 +117,8 @@
     "dashboard": "Yönetim Paneli",
     "approvals": "Onaylar",
     "createProject": "Proje Ekle",
-    "blogManagement": "Blog Yönetimi"
+    "blogManagement": "Blog Yönetimi",
+    "leads": "Müşteri Veritabanı"
   },
   "blog": {
     "title": "Gayrimenkul Blogu",
