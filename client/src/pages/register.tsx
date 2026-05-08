@@ -27,6 +27,7 @@ export default function RegisterPage() {
   const [, setLocation] = useLocation();
 
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneAlreadyRegistered, setPhoneAlreadyRegistered] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [sendingCode, setSendingCode] = useState(false);
@@ -99,7 +100,11 @@ export default function RegisterPage() {
       toast({ title: "✅ مرحباً بك في Kinglike Luxury!", description: "تم إنشاء حسابك وتسجيل دخولك تلقائياً" });
       setLocation('/');
     } catch (error: any) {
-      toast({ title: "فشل التحقق أو التسجيل", description: error.message || "حاول مجدداً", variant: "destructive" });
+      if (error.message?.includes("already registered") || error.message?.includes("already exists")) {
+        setPhoneAlreadyRegistered(true);
+      } else {
+        toast({ title: "خطأ", description: error.message || "حاول مجدداً", variant: "destructive" });
+      }
     } finally {
       setVerifyingCode(false);
     }
@@ -236,6 +241,44 @@ export default function RegisterPage() {
                       إعادة الإرسال
                     </button>
                   </p>
+                </div>
+              )}
+
+              {/* Phone already registered banner */}
+              {phoneAlreadyRegistered && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                  <p className="text-sm font-medium text-amber-800 text-center">
+                    ⚠️ هذا الرقم مسجّل مسبقاً
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                      onClick={() => setLocation('/login')}
+                    >
+                      تسجيل الدخول
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full border-[#3bcac4] text-[#3bcac4]"
+                      onClick={() => setLocation('/forgot-password')}
+                    >
+                      نسيت كلمة السر؟
+                    </Button>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:underline text-center"
+                      onClick={() => {
+                        setPhoneAlreadyRegistered(false);
+                        setVerificationSent(false);
+                        setVerificationCode('');
+                        setLocalNumber('');
+                      }}
+                    >
+                      استخدام رقم مختلف
+                    </button>
+                  </div>
                 </div>
               )}
 
