@@ -71,6 +71,9 @@ const PropertyDetail = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  // Platform fallback WhatsApp (used when property owner has no registered number)
+  const PLATFORM_WHATSAPP = "995591000058";
+
   // Contact owner via WhatsApp — notify admin silently
   const handleContactOwner = async () => {
     if (!property) return;
@@ -80,21 +83,17 @@ const PropertyDetail = () => {
       await apiRequest("POST", `/api/properties/${property.id}/contact`, {});
     } catch (_) { /* silent */ }
 
-    // Determine owner contact number: prefer whatsapp, fallback to phone
+    // Determine owner contact number: prefer whatsapp > phone > platform fallback
     const rawNumber =
-      property.agent?.whatsappNumber || property.agent?.phoneNumber || null;
+      property.agent?.whatsappNumber ||
+      property.agent?.phoneNumber ||
+      PLATFORM_WHATSAPP;
 
-    if (rawNumber) {
-      const digits = rawNumber.replace(/[^0-9]/g, "");
-      const propertyLink = `${window.location.origin}/property/${property.id}`;
-      const msg = `مرحباً،\nوجدت هذا العقار "${property.title}" على تطبيق Kinglike Luxury.\nهل يمكنني الحصول على مزيد من المعلومات؟\n${propertyLink}`;
-      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, "_blank");
-    } else {
-      // fallback: open WhatsApp share without a number
-      const propertyLink = `${window.location.origin}/property/${property.id}`;
-      const msg = `مرحباً، أريد الاستفسار عن عقار: ${property.title}\n${propertyLink}`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-    }
+    const digits = rawNumber.replace(/[^0-9]/g, "");
+    const propertyLink = `${window.location.origin}/property/${property.id}`;
+    const msg =
+      `مرحباً،\nوجدت هذا العقار "${property.title}" على تطبيق Kinglike Luxury.\nهل يمكنني الحصول على مزيد من المعلومات؟\n${propertyLink}`;
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   // Fetch property data
