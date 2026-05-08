@@ -65,22 +65,36 @@ const PropertyDetail = () => {
 
   const handleWhatsAppShare = () => {
     if (!property) return;
-    
-    // Get current domain for the property link
     const currentDomain = window.location.origin;
     const propertyLink = `${currentDomain}/property/${property.id}`;
-    
-    // Create formatted WhatsApp message with more details for property page
     const message = `🏠 *${property.title}*\n\n💰 *Price:* ${getPriceRange(property.price)}\n📍 *Location:* ${property.location}\n🏡 *Type:* ${getPropertyTypeName(property.propertyType)}\n📐 *Area:* ${property.area} m²${property.bedrooms ? `\n🛏️ *Bedrooms:* ${property.bedrooms}` : ''}${property.bathrooms ? `\n🚿 *Bathrooms:* ${property.bathrooms}` : ''}${property.floorNumber ? `\n🏢 *Floor:* ${property.floorNumber}` : ''}\n\n📸 *Images:* ${property.images?.length || 0} photos${property.videos?.length ? `\n🎥 *Videos:* ${property.videos.length} property videos` : ''}\n\n✨ Check out this amazing property!\n\n🔗 ${propertyLink}\n\n🏢 *Kinglike Luxury Real Estate*`;
-    
-    // Encode message for URL
-    const encodedMessage = encodeURIComponent(message);
-    
-    // Create WhatsApp URL
-    const whatsappURL = `https://wa.me/?text=${encodedMessage}`;
-    
-    // Open WhatsApp
-    window.open(whatsappURL, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  // Contact owner via WhatsApp — notify admin silently
+  const handleContactOwner = async () => {
+    if (!property) return;
+
+    // Notify admin (fire-and-forget — don't block user)
+    try {
+      await apiRequest("POST", `/api/properties/${property.id}/contact`, {});
+    } catch (_) { /* silent */ }
+
+    // Determine owner contact number: prefer whatsapp, fallback to phone
+    const rawNumber =
+      property.agent?.whatsappNumber || property.agent?.phoneNumber || null;
+
+    if (rawNumber) {
+      const digits = rawNumber.replace(/[^0-9]/g, "");
+      const propertyLink = `${window.location.origin}/property/${property.id}`;
+      const msg = `مرحباً،\nوجدت هذا العقار "${property.title}" على تطبيق Kinglike Luxury.\nهل يمكنني الحصول على مزيد من المعلومات؟\n${propertyLink}`;
+      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, "_blank");
+    } else {
+      // fallback: open WhatsApp share without a number
+      const propertyLink = `${window.location.origin}/property/${property.id}`;
+      const msg = `مرحباً، أريد الاستفسار عن عقار: ${property.title}\n${propertyLink}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    }
   };
 
   // Fetch property data
@@ -782,31 +796,27 @@ const PropertyDetail = () => {
                     
                     <Separator className="my-4" />
                     
-                    {/* Contact Agent via WhatsApp */}
-                    <Button className="w-full bg-[#005476] hover:bg-[#005476]/90 text-white" asChild>
-                      <a 
-                        href={`https://wa.me/995591000058?text=Hi%20Kinglike%20luxury,%0AI%20found%20this%20${encodeURIComponent(property.propertyType === 'project' ? 'project' : 'property')}%20"${encodeURIComponent(property.title)}"%20(ID:%20${property.id})%20on%20your%20App,%20may%20I%20have%20more%20information%20about%20it?`}
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                      >
-                        WhatsApp
-                      </a>
+                    {/* Contact owner via WhatsApp — smart button */}
+                    <Button
+                      onClick={handleContactOwner}
+                      className="w-full bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold shadow-md"
+                    >
+                      <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.532 5.845L.057 23.429a.75.75 0 0 0 .955.899l5.7-1.505A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.907 0-3.693-.511-5.228-1.4l-.374-.22-3.883 1.026 1.003-3.795-.243-.388A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                      </svg>
+                      {t("property.contactWhatsApp", "تواصل عبر واتساب")}
                     </Button>
-                    
-                    {/* Phone/WhatsApp Contact - Show only if agent has phone number */}
+
+                    {/* Phone call button */}
                     {(property.agent?.phoneNumber || property.agent?.whatsappNumber) && (
-                      <Button variant="outline" className="w-full mt-3 border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white">
+                      <Button
+                        variant="outline"
+                        className="w-full mt-3 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4] hover:text-white font-medium"
+                        asChild
+                      >
                         <a href={`tel:${property.agent?.phoneNumber || property.agent?.whatsappNumber}`}>
-                          Call: {property.agent?.phoneNumber || property.agent?.whatsappNumber}
-                        </a>
-                      </Button>
-                    )}
-                    
-                    {/* WhatsApp button if WhatsApp number exists */}
-                    {property.agent?.whatsappNumber && (
-                      <Button variant="outline" className="w-full mt-2 border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white">
-                        <a href={`https://wa.me/${property.agent.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer">
-                          WhatsApp: {property.agent.whatsappNumber}
+                          📞 {property.agent?.phoneNumber || property.agent?.whatsappNumber}
                         </a>
                       </Button>
                     )}

@@ -740,6 +740,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contact property owner — notify admin via SMS
+  app.post("/api/properties/:id/contact", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getPropertyWithAgent(id);
+      if (!property) return res.status(404).json({ message: "Property not found" });
+
+      // Who is contacting? (logged-in user or guest)
+      const contactorId = req.session?.userId;
+      let contactorPhone: string | null = null;
+      let contactorName: string = "زائر / Guest";
+      if (contactorId) {
+        const contactor = await storage.getUser(contactorId);
+        if (contactor) {
+          contactorPhone = contactor.whatsappNumber || contactor.phoneNumber || null;
+          contactorName = contactor.username;
+        }
+      }
+      // Also accept phone from body (guest flow)
+      if (!contactorPhone && req.body?.phone) contactorPhone = req.body.phone;
+
+      // Get admin phone — first admin user in the system
+      const allUsers = await storage.getAllUsers();
+      const adminUser = allUsers.find((u) => u.isAdmin);
+      const adminPhone = adminUser?.whatsappNumber || adminUser?.phoneNumber;
+
+      // Send SMS notification to admin
+      if (twilioClient && adminPhone) {
+        const ownerContact = property.agent?.whatsappNumber || property.agent?.phoneNumber || "—";
+        const msg =
+          `📩 *Kinglike Luxury — تواصل جديد*\n` +
+          `🏠 العقار: ${property.title} (ID: ${property.id})\n` +
+          `👤 المتواصل: ${contactorName}\n` +
+          `📱 رقمه: ${contactorPhone || "غير متوفر"}\n` +
+          `🔗 رقم المالك: ${ownerContact}`;
+
+        const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+        try {
+          await twilioClient.messages.create({ body: msg, from: fromNumber, to: adminPhone });
+          console.log(`✅ Admin notified about contact on property ${id}`);
+        } catch (smsErr: any) {
+          console.warn("⚠️ Admin SMS failed:", smsErr.message);
+        }
+      }
+
+      res.json({
+        success: true,
+        ownerPhone: property.agent?.phoneNumber || null,
+        ownerWhatsapp: property.agent?.whatsappNumber || null,
+      });
+    } catch (error: any) {
+      console.error("Contact notify error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   const recentSubmissions = new Map<string, number>();
   
   app.post("/api/properties", isAuthenticated, async (req, res) => {
