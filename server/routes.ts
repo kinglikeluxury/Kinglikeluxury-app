@@ -192,6 +192,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset password via SMS OTP
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { phoneNumber, code, newPassword } = req.body;
+      if (!phoneNumber || !code || !newPassword) {
+        return res.status(400).json({ message: "Phone number, code and new password are required" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+      // Verify code first
+      const isValid = await storage.verifyCode(phoneNumber, code);
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid or expired verification code" });
+      }
+      // Find user by phone
+      const user = await storage.getUserByPhone(phoneNumber);
+      if (!user) {
+        return res.status(404).json({ message: "No account found with this phone number" });
+      }
+      await storage.updateUserPassword(user.id, newPassword);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: error.message || "Failed to reset password" });
+    }
+  });
+
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {

@@ -120,7 +120,12 @@ const Login = () => {
             </div>
           </div>
           
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-4 text-center">
+            <Link href="/forgot-password" className="text-sm text-[#3bcac4] hover:underline">
+              نسيت كلمة السر؟
+            </Link>
+          </div>
+          <div className="mt-2 text-center text-sm">
             <Button variant="link" asChild>
               <Link href="/register">Don't have an account? Sign up</Link>
             </Button>
