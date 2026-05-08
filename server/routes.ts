@@ -403,6 +403,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Logged out successfully" });
     });
   });
+
+  // ─── Admin Leads ───────────────────────────────────────────────────────────
+  app.get("/api/admin/leads", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+      const allUsers = await storage.getAllUsers();
+      const allProperties = await storage.getProperties({});
+      const leads = allUsers.map((u) => {
+        const propCount = allProperties.filter((p) => p.ownerId === u.id).length;
+        const type = propCount > 0 ? "seller" : "browser";
+        return {
+          id: u.id,
+          username: u.username,
+          phoneNumber: u.phoneNumber || "",
+          email: u.email || "",
+          whatsappNumber: u.whatsappNumber || "",
+          authMethod: u.authMethod,
+          isAdmin: u.isAdmin,
+          isVerified: u.isVerified,
+          propertiesCount: propCount,
+          leadType: type,
+          registeredAt: u.createdAt,
+        };
+      });
+      res.json(leads);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Export leads as CSV (opens in Excel)
+  app.get("/api/admin/leads/export", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+      const allUsers = await storage.getAllUsers();
+      const allProperties = await storage.getProperties({});
+
+      const rows = allUsers.map((u) => {
+        const propCount = allProperties.filter((p) => p.ownerId === u.id).length;
+        const type = propCount > 0 ? "Seller/Uploader" : "Browser";
+        const date = u.createdAt ? new Date(u.createdAt).toLocaleString("ar-EG") : "";
+        return [
+          u.id,
+          u.username,
+          u.phoneNumber || "",
+          u.email || "",
+          u.whatsappNumber || "",
+          u.authMethod,
+          type,
+          propCount,
+          u.isVerified ? "Yes" : "No",
+          u.isAdmin ? "Admin" : "User",
+          date,
+        ].map(String).join(",");
+      });
+
+      const header = "ID,Username,Phone,Email,WhatsApp,AuthMethod,LeadType,Properties,Verified,Role,RegisteredAt";
+      const csv = "\uFEFF" + [header, ...rows].join("\n"); // BOM for Arabic Excel
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="kinglike-leads-${Date.now()}.csv"`);
+      res.send(csv);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
   
   // Payment routes
   app.post("/api/payments", isAuthenticated, async (req, res) => {

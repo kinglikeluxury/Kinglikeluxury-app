@@ -67,6 +67,12 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return await withRetry(async () => {
+      return await db.select().from(users).orderBy(desc(users.createdAt));
+    });
+  }
+
   async updateUserPassword(id: number, newPassword: string): Promise<User | undefined> {
     return await withRetry(async () => {
       const [updated] = await db

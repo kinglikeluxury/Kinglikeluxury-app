@@ -19,6 +19,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import Approvals from "@/pages/admin/approvals";
 import AddProject from "@/pages/admin/add-project";
 import BlogManagement from "@/pages/admin/blog-management";
+import LeadsPage from "@/pages/admin/leads";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
 import BlogPost from "@/pages/blog-post";
@@ -55,6 +56,7 @@ function Router() {
           <Route path="/admin/approvals" component={Approvals} />
           <Route path="/admin/add-project" component={AddProject} />
           <Route path="/admin/blog" component={BlogManagement} />
+          <Route path="/admin/leads" component={LeadsPage} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/map" component={MapView} />
           <Route path="/payment/success" component={PaymentSuccess} />
