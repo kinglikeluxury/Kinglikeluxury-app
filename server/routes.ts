@@ -219,6 +219,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/change-password", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Both passwords are required" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user || user.password !== currentPassword) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+      await storage.updateUserPassword(userId, newPassword);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Change password error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password, phoneNumber, whatsappNumber, facebookId, authMethod } = req.body;

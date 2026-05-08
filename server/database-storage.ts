@@ -59,6 +59,17 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async updateUserPassword(id: number, newPassword: string): Promise<User | undefined> {
+    return await withRetry(async () => {
+      const [updated] = await db
+        .update(users)
+        .set({ password: newPassword })
+        .where(eq(users.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
   async getUserByField(field: string, value: string): Promise<User | undefined> {
     if (!value) return undefined;
     

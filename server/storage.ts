@@ -21,6 +21,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(id: number, newPassword: string): Promise<User | undefined>;
   
   // Property operations
   getProperties(filters?: {
@@ -120,6 +121,14 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(
       (user) => user.email === email
     );
+  }
+
+  async updateUserPassword(id: number, newPassword: string): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    const updated = { ...user, password: newPassword };
+    this.users.set(id, updated);
+    return updated;
   }
 
   async createUser(userData: InsertUser): Promise<User> {

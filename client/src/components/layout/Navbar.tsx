@@ -137,6 +137,7 @@ const Navbar = () => {
                         </>
                       )}
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild><Link href="/change-password">{t("auth.changePassword", "Change Password")}</Link></DropdownMenuItem>
                       <DropdownMenuItem onClick={handleLogout}>{t("auth.logout", "Sign out")}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

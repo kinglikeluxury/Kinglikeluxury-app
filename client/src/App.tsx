@@ -25,6 +25,7 @@ import BlogPost from "@/pages/blog-post";
 import Favorites from "@/pages/favorites";
 import MapView from "@/pages/map-view";
 import { PaymentSuccess, PaymentFail } from "@/pages/payment-result";
+import ChangePassword from "@/pages/change-password";
 import InstallPWA from "@/components/InstallPWA";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
@@ -57,6 +58,7 @@ function Router() {
           <Route path="/map" component={MapView} />
           <Route path="/payment/success" component={PaymentSuccess} />
           <Route path="/payment/fail" component={PaymentFail} />
+          <Route path="/change-password" component={ChangePassword} />
           <Route component={NotFound} />
         </Switch>
       </main>
