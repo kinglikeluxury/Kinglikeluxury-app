@@ -125,7 +125,13 @@ const Navbar = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem><span className="font-medium">{user.username}</span></DropdownMenuItem>
-                      <DropdownMenuItem><span className="text-sm text-gray-500">{user.email}</span></DropdownMenuItem>
+                      {(user.email || user.phoneNumber) && (
+                        <DropdownMenuItem>
+                          <span className="text-sm text-gray-500">
+                            {user.email || user.phoneNumber}
+                          </span>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild><Link href="/properties?myProperties=true">{t("property.myProperties", "My Properties")}</Link></DropdownMenuItem>
                       {user.isAdmin && (

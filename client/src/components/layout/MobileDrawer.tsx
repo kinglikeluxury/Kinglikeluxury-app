@@ -181,7 +181,9 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-[15px] truncate">{user.username}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email || ""}</p>
+                {(user.email || user.phoneNumber) && (
+                  <p className="text-xs text-gray-500 truncate">{user.email || user.phoneNumber}</p>
+                )}
               </div>
               {/* Logout button — always visible next to user info */}
               <button

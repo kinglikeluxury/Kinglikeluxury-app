@@ -526,6 +526,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       id: user.id, 
       username: user.username,
       email: user.email,
+      phoneNumber: user.phoneNumber,
+      authMethod: user.authMethod,
       isAdmin: user.isAdmin
     });
   });

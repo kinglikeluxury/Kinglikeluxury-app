@@ -5,7 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 export type User = {
   id: number;
   username: string;
-  email: string;
+  email: string | null;
+  phoneNumber: string | null;
+  authMethod: string | null;
   isAdmin: boolean;
 };
 
