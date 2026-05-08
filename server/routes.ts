@@ -102,6 +102,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Temporary Twilio diagnostic endpoint
+  app.get("/api/twilio-test", async (req, res) => {
+    const sid = process.env.TWILIO_ACCOUNT_SID || "";
+    const token = process.env.TWILIO_AUTH_TOKEN || "";
+    const phone = process.env.TWILIO_PHONE_NUMBER || "";
+    try {
+      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}.json`, {
+        headers: { Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64") }
+      });
+      const data = await resp.json() as any;
+      res.json({ status: resp.status, accountSidPrefix: sid.slice(0, 8), phoneNumber: phone, twilioStatus: data.status || data.message || "unknown" });
+    } catch (e: any) {
+      res.json({ error: e.message });
+    }
+  });
+
   // Twilio client
   const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
     ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
