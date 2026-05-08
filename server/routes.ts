@@ -140,16 +140,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // WhatsApp failed — fallback to SMS via Messaging Service or phone number
         console.warn(`⚠️ WhatsApp failed (${waError.code}), falling back to SMS...`);
         method = "sms";
-        const msgParams: any = {
+        await twilioClient.messages.create({
           body: `Kinglike Luxury - رمز التحقق: ${code} (صالح 10 دقائق)`,
           to: phoneNumber,
-        };
-        if (msgSid) {
-          msgParams.messagingServiceSid = msgSid;
-        } else {
-          msgParams.from = fromNumber;
-        }
-        await twilioClient.messages.create(msgParams);
+          from: fromNumber,
+        });
         console.log(`✅ SMS OTP sent to ${phoneNumber}`);
       }
 
