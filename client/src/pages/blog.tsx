@@ -45,10 +45,10 @@ export default function Blog() {
           </p>
         </div>
 
-        <div className="flex justify-center gap-3 mb-8">
+        <div className="flex flex-wrap justify-center gap-2 mb-8">
           <button
             onClick={() => setCountryFilter("all")}
-            className={`px-5 py-2.5 rounded-full text-sm font-medium transition ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
               countryFilter === "all"
                 ? "bg-[#005476] text-white"
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
@@ -58,7 +58,7 @@ export default function Blog() {
           </button>
           <button
             onClick={() => setCountryFilter("georgia")}
-            className={`px-5 py-2.5 rounded-full text-sm font-medium transition flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
               countryFilter === "georgia"
                 ? "bg-[#005476] text-white"
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
@@ -68,17 +68,17 @@ export default function Blog() {
           </button>
           <button
             onClick={() => setCountryFilter("uae")}
-            className={`px-5 py-2.5 rounded-full text-sm font-medium transition flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
               countryFilter === "uae"
                 ? "bg-[#005476] text-white"
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
             }`}
           >
-            <span>🇦🇪</span> {t('countries.uae', 'Dubai / UAE')}
+            <span>🇦🇪</span> {t('countries.uae', 'UAE')}
           </button>
           <button
             onClick={() => setCountryFilter("turkey")}
-            className={`px-5 py-2.5 rounded-full text-sm font-medium transition flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
               countryFilter === "turkey"
                 ? "bg-[#005476] text-white"
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
@@ -88,7 +88,7 @@ export default function Blog() {
           </button>
           <button
             onClick={() => setCountryFilter("northern-cyprus")}
-            className={`px-5 py-2.5 rounded-full text-sm font-medium transition flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
               countryFilter === "northern-cyprus"
                 ? "bg-[#005476] text-white"
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
