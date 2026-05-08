@@ -15,6 +15,7 @@ type AuthContextType = {
   login: (username: string, password: string) => Promise<User>;
   register: (username: string, password: string, email: string) => Promise<User>;
   logout: () => Promise<void>;
+  setUser: (user: User | null) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -119,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     register,
     logout,
+    setUser,
   };
 
   // Fix the JSX syntax

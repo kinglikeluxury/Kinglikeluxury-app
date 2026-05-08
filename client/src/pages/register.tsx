@@ -23,7 +23,7 @@ type PhoneFormValues = z.infer<typeof phoneSchema>;
 
 export default function RegisterPage() {
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { setUser } = useAuth();
   const [, setLocation] = useLocation();
 
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -88,9 +88,12 @@ export default function RegisterPage() {
         authMethod: AUTH_METHODS.PHONE,
       });
 
-      // Auto-login after registration
-      const values2 = form.getValues();
-      await login(values2.username, values2.password);
+      // Step 3: Register endpoint already sets the session — fetch current user to update UI
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (meRes.ok) {
+        const userData = await meRes.json();
+        setUser(userData);
+      }
 
       setPhoneVerified(true);
       toast({ title: "✅ مرحباً بك في Kinglike Luxury!", description: "تم إنشاء حسابك وتسجيل دخولك تلقائياً" });
