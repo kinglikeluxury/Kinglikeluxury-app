@@ -12,6 +12,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
 import { CheckCircle, Loader2, MessageCircle, Smartphone, Eye, EyeOff } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
+import { useAuth } from '@/lib/auth';
 
 const phoneSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -22,6 +23,7 @@ type PhoneFormValues = z.infer<typeof phoneSchema>;
 
 export default function RegisterPage() {
   const { toast } = useToast();
+  const { login } = useAuth();
   const [, setLocation] = useLocation();
 
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -86,9 +88,13 @@ export default function RegisterPage() {
         authMethod: AUTH_METHODS.PHONE,
       });
 
+      // Auto-login after registration
+      const values2 = form.getValues();
+      await login(values2.username, values2.password);
+
       setPhoneVerified(true);
-      toast({ title: "✅ تم التسجيل بنجاح", description: "يمكنك الآن تسجيل الدخول" });
-      setLocation('/login');
+      toast({ title: "✅ مرحباً بك في Kinglike Luxury!", description: "تم إنشاء حسابك وتسجيل دخولك تلقائياً" });
+      setLocation('/');
     } catch (error: any) {
       toast({ title: "فشل التحقق أو التسجيل", description: error.message || "حاول مجدداً", variant: "destructive" });
     } finally {
