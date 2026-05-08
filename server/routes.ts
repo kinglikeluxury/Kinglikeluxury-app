@@ -107,7 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
     : null;
 
-  // Send verification code — WhatsApp first, fallback to SMS
+  // Send verification code via Twilio Verify (WhatsApp first, SMS fallback)
   app.post("/api/auth/send-verification", async (req, res) => {
     try {
       const { phoneNumber } = req.body;
@@ -119,33 +119,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Messaging service not configured" });
       }
 
-      const fromNumber = process.env.TWILIO_PHONE_NUMBER || "";
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
+      if (!verifySid) {
+        return res.status(500).json({ message: "Verify service not configured" });
+      }
 
-      await storage.createVerificationCode(phoneNumber, code, expiresAt);
-
-      const msgBody = `🔐 Kinglike Luxury — رمز التحقق الخاص بك:\n*${code}*\nصالح لمدة 10 دقائق.`;
-
-      // 1️⃣ Try WhatsApp first
+      // 1️⃣ Try WhatsApp first via Twilio Verify
       let method = "whatsapp";
       try {
-        await twilioClient.messages.create({
-          body: msgBody,
-          from: `whatsapp:${fromNumber}`,
-          to: `whatsapp:${phoneNumber}`,
+        await (twilioClient as any).verify.v2.services(verifySid).verifications.create({
+          to: phoneNumber,
+          channel: "whatsapp",
         });
-        console.log(`✅ WhatsApp OTP sent to ${phoneNumber}`);
+        console.log(`✅ WhatsApp Verify sent to ${phoneNumber}`);
       } catch (waError: any) {
         // WhatsApp failed — fallback to SMS
-        console.warn(`⚠️ WhatsApp failed (${waError.code}), falling back to SMS...`);
+        console.warn(`⚠️ WhatsApp Verify failed (${waError.code}), falling back to SMS...`);
         method = "sms";
-        await twilioClient.messages.create({
-          body: `Kinglike Luxury — رمز التحقق: ${code}\nصالح 10 دقائق.`,
-          from: fromNumber,
+        await (twilioClient as any).verify.v2.services(verifySid).verifications.create({
           to: phoneNumber,
+          channel: "sms",
         });
-        console.log(`✅ SMS OTP sent to ${phoneNumber}`);
+        console.log(`✅ SMS Verify sent to ${phoneNumber}`);
       }
 
       res.json({ success: true, method, message: method === "whatsapp" ? "Verification code sent via WhatsApp" : "Verification code sent via SMS" });
