@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { User, useAuth } from "@/lib/auth";
 import { Property, PropertyWithAgent, Project } from "@shared/schema";
@@ -22,6 +22,7 @@ const PropertyDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const [, navigate] = useLocation();
   const [, params] = useRoute("/property/:id");
   const propertyId = params?.id ? parseInt(params.id) : null;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -74,9 +75,20 @@ const PropertyDetail = () => {
   // Platform fallback WhatsApp (used when property owner has no registered number)
   const PLATFORM_WHATSAPP = "995591000058";
 
-  // Contact owner via WhatsApp — notify admin silently
+  // Contact owner via WhatsApp — require login first
   const handleContactOwner = async () => {
     if (!property) return;
+
+    // Must be logged in to contact
+    if (!user) {
+      toast({
+        title: t("auth.loginRequired", "يجب تسجيل الدخول"),
+        description: t("auth.loginToContact", "سجّل دخولك أولاً للتواصل مع صاحب العقار"),
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
 
     // Notify admin (fire-and-forget — don't block user)
     try {
@@ -807,17 +819,27 @@ const PropertyDetail = () => {
                       {t("property.contactWhatsApp", "تواصل عبر واتساب")}
                     </Button>
 
-                    {/* Phone call button */}
+                    {/* Phone call button — only show number if logged in */}
                     {(property.agent?.phoneNumber || property.agent?.whatsappNumber) && (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-3 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4] hover:text-white font-medium"
-                        asChild
-                      >
-                        <a href={`tel:${property.agent?.phoneNumber || property.agent?.whatsappNumber}`}>
-                          📞 {property.agent?.phoneNumber || property.agent?.whatsappNumber}
-                        </a>
-                      </Button>
+                      user ? (
+                        <Button
+                          variant="outline"
+                          className="w-full mt-3 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4] hover:text-white font-medium"
+                          asChild
+                        >
+                          <a href={`tel:${property.agent?.phoneNumber || property.agent?.whatsappNumber}`}>
+                            📞 {property.agent?.phoneNumber || property.agent?.whatsappNumber}
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          className="w-full mt-3 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4] hover:text-white font-medium"
+                          onClick={() => { navigate("/auth"); }}
+                        >
+                          📞 {t("auth.loginToViewPhone", "سجّل للاطلاع على الرقم")}
+                        </Button>
+                      )
                     )}
                   </CardContent>
                 </Card>
