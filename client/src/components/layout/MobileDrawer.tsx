@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -336,9 +336,19 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           </div>
         </div>
 
-        {/* Sign out */}
+        {/* Change password + Sign out */}
         {user && (
           <div className="border-t border-gray-200 bg-white">
+            <Link
+              href="/change-password"
+              onClick={() => { onClose(); }}
+              className="flex items-center gap-3.5 w-full px-5 py-4 text-gray-700 active:bg-gray-50"
+            >
+              <div className="w-8 h-8 rounded-full bg-[#3bcac4]/10 flex items-center justify-center">
+                <KeyRound className="w-4 h-4 text-[#3bcac4]" />
+              </div>
+              <span className="text-[15px] font-medium">{t("auth.changePassword", "Change Password")}</span>
+            </Link>
             <button
               onClick={handleLogout}
               className="flex items-center gap-3.5 w-full px-5 py-4 text-red-500 active:bg-red-50"
