@@ -121,6 +121,7 @@ const Properties = () => {
                     images={property.images}
                     status={property.status}
                     topRated={property.topRated}
+                    isSold={(property as any).isSold}
                   />
                 ))}
               </div>

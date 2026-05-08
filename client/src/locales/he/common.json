@@ -68,7 +68,13 @@
     "selectedRange": "נבחר",
     "noResults": "לא נמצאו נכסים",
     "tryAdjustingFilters": "נסה לשנות את המסננים",
-    "viewAll": "צפה בכל הנכסים"
+    "viewAll": "צפה בכל הנכסים",
+    "sold": "נמכר",
+    "markAsSold": "סמן כנמכר",
+    "markAsAvailable": "סמן כזמין",
+    "soldConfirmTitle": "לסמן כנמכר?",
+    "soldConfirmDesc": "על תמונת הכריכה של הנכס יופיע באנר 'נמכר'.",
+    "availableConfirmDesc": "הבאנר 'נמכר' יוסר מהנכס הזה."
   },
   "propertyTypes": {
     "apartment": "דירות",

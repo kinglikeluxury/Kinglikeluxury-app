@@ -68,7 +68,13 @@
     "selectedRange": "არჩეული",
     "noResults": "ქონება ვერ მოიძებნა",
     "tryAdjustingFilters": "სცადეთ ფილტრების შეცვლა",
-    "viewAll": "ყველა ქონება"
+    "viewAll": "ყველა ქონება",
+    "sold": "გაყიდულია",
+    "markAsSold": "გაყიდულად მონიშვნა",
+    "markAsAvailable": "ხელმისაწვდომად მონიშვნა",
+    "soldConfirmTitle": "გაყიდულად მონიშვნა?",
+    "soldConfirmDesc": "ქონების სქემაზე გამოჩნდება 'გაყიდულია' ბანერი.",
+    "availableConfirmDesc": "'გაყიდულია' ბანერი მოიხსნება ამ ქონებიდან."
   },
   "propertyTypes": {
     "apartment": "ბინები",

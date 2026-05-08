@@ -68,7 +68,13 @@
     "selectedRange": "Selezionato",
     "noResults": "Nessuna proprietà trovata",
     "tryAdjustingFilters": "Prova a modificare i filtri",
-    "viewAll": "Vedi tutte le proprietà"
+    "viewAll": "Vedi tutte le proprietà",
+    "sold": "VENDUTO",
+    "markAsSold": "Segna come venduto",
+    "markAsAvailable": "Segna come disponibile",
+    "soldConfirmTitle": "Segnare come venduto?",
+    "soldConfirmDesc": "Sull'immagine di copertina apparirà un banner 'VENDUTO'.",
+    "availableConfirmDesc": "Il banner 'VENDUTO' verrà rimosso da questa proprietà."
   },
   "propertyTypes": {
     "apartment": "Appartamenti",

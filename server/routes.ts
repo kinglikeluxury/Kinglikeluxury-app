@@ -682,6 +682,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark property as sold / unmark
+  app.patch("/api/properties/:id/sold", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).json({ message: "Property not found" });
+      if (property.ownerId !== req.session.userId && !req.session.isAdmin) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { isSold } = req.body;
+      const updated = await storage.updateProperty(id, { isSold: !!isSold } as any);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking sold:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.delete("/api/properties/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

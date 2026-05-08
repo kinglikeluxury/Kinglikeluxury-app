@@ -68,7 +68,13 @@
     "selectedRange": "المحدد",
     "noResults": "لا توجد عقارات",
     "tryAdjustingFilters": "جرّب تعديل الفلاتر",
-    "viewAll": "عرض جميع العقارات"
+    "viewAll": "عرض جميع العقارات",
+    "sold": "تم البيع",
+    "markAsSold": "تحديد كمباع",
+    "markAsAvailable": "تحديد كمتاح",
+    "soldConfirmTitle": "تحديد كمباع؟",
+    "soldConfirmDesc": "سيظهر شعار 'تم البيع' على صورة الغلاف الرئيسية للعقار.",
+    "availableConfirmDesc": "سيتم إزالة شعار 'تم البيع' من هذا العقار."
   },
   "propertyTypes": {
     "apartment": "شقق",

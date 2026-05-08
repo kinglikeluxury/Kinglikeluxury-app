@@ -68,7 +68,13 @@
     "selectedRange": "Seçilmiş",
     "noResults": "Əmlak tapılmadı",
     "tryAdjustingFilters": "Filtrləri tənzimləməyi sınayın",
-    "viewAll": "Bütün Əmlakları Gör"
+    "viewAll": "Bütün Əmlakları Gör",
+    "sold": "SATILDI",
+    "markAsSold": "Satıldı kimi işarələ",
+    "markAsAvailable": "Mövcud kimi işarələ",
+    "soldConfirmTitle": "Satıldı kimi işarələnsin?",
+    "soldConfirmDesc": "Əmlakın üz qabığında 'SATILDI' banneri görünəcək.",
+    "availableConfirmDesc": "'SATILDI' banneri bu əmlakdan silinəcək."
   },
   "propertyTypes": {
     "apartment": "Mənzillər",

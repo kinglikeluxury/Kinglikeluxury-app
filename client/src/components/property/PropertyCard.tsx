@@ -21,6 +21,7 @@ interface PropertyCardProps {
   status: string;
   isFeatured?: boolean;
   topRated?: boolean | null;
+  isSold?: boolean | null;
 }
 
 const PropertyCard = ({
@@ -36,6 +37,7 @@ const PropertyCard = ({
   status,
   isFeatured = false,
   topRated = false,
+  isSold = false,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -143,6 +145,13 @@ const PropertyCard = ({
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
             </div>
+            {isSold && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
+                <div className="bg-red-600 text-white font-extrabold text-2xl tracking-widest px-6 py-3 rounded-lg rotate-[-15deg] shadow-2xl border-4 border-white">
+                  {t('property.sold', 'SOLD')}
+                </div>
+              </div>
+            )}
           </div>
         </Link>
         <div className="absolute top-2 left-2">

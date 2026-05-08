@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { User, useAuth } from "@/lib/auth";
@@ -10,14 +10,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart, Star } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart, Star, BadgeCheck } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate, useAutoTranslateArray } from "@/hooks/useAutoTranslate";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const PropertyDetail = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const { toggleFavorite, isFavorite } = useFavorites();
   const [, params] = useRoute("/property/:id");
   const propertyId = params?.id ? parseInt(params.id) : null;
@@ -84,6 +87,18 @@ const PropertyDetail = () => {
   const { data: property, isLoading: isLoadingProperty } = useQuery<PropertyWithAgent>({
     queryKey: [`/api/properties/${propertyId}`],
     enabled: !!propertyId,
+  });
+
+  // Mark as sold mutation
+  const soldMutation = useMutation({
+    mutationFn: ({ id, isSold }: { id: number; isSold: boolean }) =>
+      apiRequest('PATCH', `/api/properties/${id}/sold`, { isSold }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/properties/${propertyId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
+      toast({ title: t('property.sold', 'SOLD'), description: property?.isSold ? t('property.availableConfirmDesc') : t('property.soldConfirmDesc') });
+    },
+    onError: () => toast({ title: 'Error', description: 'Could not update status', variant: 'destructive' }),
   });
 
   // Fetch project data if property type is project
@@ -367,12 +382,28 @@ const PropertyDetail = () => {
                       <Heart className={`h-5 w-5 transition-colors ${isFavorite(property.id) ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-400'}`} />
                     </button>
                     {user && (user.id === property.ownerId || user.isAdmin) && (
-                      <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
-                        <Link href={`/property/${property.id}/edit`}>
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Link>
-                      </Button>
+                      <>
+                        <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
+                          <Link href={`/property/${property.id}/edit`}>
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={soldMutation.isPending}
+                          onClick={() => soldMutation.mutate({ id: property.id, isSold: !(property as any).isSold })}
+                          className={
+                            (property as any).isSold
+                              ? "border-green-500 text-green-600 hover:bg-green-50"
+                              : "border-red-500 text-red-600 hover:bg-red-50"
+                          }
+                        >
+                          <BadgeCheck className="h-4 w-4 mr-1" />
+                          {(property as any).isSold ? t('property.markAsAvailable', 'Mark as Available') : t('property.markAsSold', 'Mark as Sold')}
+                        </Button>
+                      </>
                     )}
                   </div>
                   <p className="text-gray-600 flex items-center mt-1">
@@ -421,6 +452,13 @@ const PropertyDetail = () => {
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-30" draggable={false} />
                   </div>
+                  {(property as any).isSold && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
+                      <div className="bg-red-600 text-white font-extrabold text-4xl tracking-widest px-8 py-4 rounded-xl rotate-[-15deg] shadow-2xl border-4 border-white">
+                        {t('property.sold', 'SOLD')}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

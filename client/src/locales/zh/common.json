@@ -68,7 +68,13 @@
     "selectedRange": "已选",
     "noResults": "未找到房产",
     "tryAdjustingFilters": "尝试调整筛选条件",
-    "viewAll": "查看所有房产"
+    "viewAll": "查看所有房产",
+    "sold": "已售出",
+    "markAsSold": "标记为已售出",
+    "markAsAvailable": "标记为可用",
+    "soldConfirmTitle": "标记为已售出？",
+    "soldConfirmDesc": "房产封面图片上将显示'已售出'标识。",
+    "availableConfirmDesc": "将从该房产中移除'已售出'标识。"
   },
   "propertyTypes": {
     "apartment": "公寓",

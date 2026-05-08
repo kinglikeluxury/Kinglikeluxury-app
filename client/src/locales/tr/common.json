@@ -68,7 +68,13 @@
     "selectedRange": "Seçili",
     "noResults": "Mülk bulunamadı",
     "tryAdjustingFilters": "Filtreleri ayarlamayı deneyin",
-    "viewAll": "Tüm Mülkleri Gör"
+    "viewAll": "Tüm Mülkleri Gör",
+    "sold": "SATILDI",
+    "markAsSold": "Satıldı Olarak İşaretle",
+    "markAsAvailable": "Mevcut Olarak İşaretle",
+    "soldConfirmTitle": "Satıldı Olarak İşaretlensin mi?",
+    "soldConfirmDesc": "Mülkün kapak görselinde 'SATILDI' afişi görünecek.",
+    "availableConfirmDesc": "'SATILDI' afişi bu mülkten kaldırılacak."
   },
   "propertyTypes": {
     "apartment": "Daireler",

@@ -68,7 +68,13 @@
     "selectedRange": "Wybrane",
     "noResults": "Nie znaleziono nieruchomości",
     "tryAdjustingFilters": "Spróbuj dostosować filtry",
-    "viewAll": "Zobacz wszystkie nieruchomości"
+    "viewAll": "Zobacz wszystkie nieruchomości",
+    "sold": "SPRZEDANE",
+    "markAsSold": "Oznacz jako sprzedane",
+    "markAsAvailable": "Oznacz jako dostępne",
+    "soldConfirmTitle": "Oznaczyć jako sprzedane?",
+    "soldConfirmDesc": "Na zdjęciu okładki nieruchomości pojawi się baner 'SPRZEDANE'.",
+    "availableConfirmDesc": "Baner 'SPRZEDANE' zostanie usunięty z tej nieruchomości."
   },
   "propertyTypes": {
     "apartment": "Mieszkania",

@@ -68,7 +68,13 @@
     "selectedRange": "Selected",
     "noResults": "No properties found",
     "tryAdjustingFilters": "Try adjusting your filters",
-    "viewAll": "View All Properties"
+    "viewAll": "View All Properties",
+    "sold": "SOLD",
+    "markAsSold": "Mark as Sold",
+    "markAsAvailable": "Mark as Available",
+    "soldConfirmTitle": "Mark as Sold?",
+    "soldConfirmDesc": "This will show a SOLD banner on the property cover image.",
+    "availableConfirmDesc": "This will remove the SOLD banner from this property."
   },
   "propertyTypes": {
     "apartment": "Apartments",

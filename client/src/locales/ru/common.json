@@ -68,7 +68,13 @@
     "selectedRange": "Выбрано",
     "noResults": "Объекты не найдены",
     "tryAdjustingFilters": "Попробуйте изменить фильтры",
-    "viewAll": "Все объекты"
+    "viewAll": "Все объекты",
+    "sold": "ПРОДАНО",
+    "markAsSold": "Отметить как проданное",
+    "markAsAvailable": "Отметить как доступное",
+    "soldConfirmTitle": "Отметить как проданное?",
+    "soldConfirmDesc": "На обложке объекта появится баннер «ПРОДАНО».",
+    "availableConfirmDesc": "Баннер «ПРОДАНО» будет удалён с этого объекта."
   },
   "propertyTypes": {
     "apartment": "Квартиры",
