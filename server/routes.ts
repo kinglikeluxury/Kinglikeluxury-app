@@ -223,62 +223,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const userData = insertUserSchema.parse(req.body);
-      
-      // Check if username already exists
-      const existingUser = await storage.getUserByUsername(userData.username);
+      const { username, password, email, phoneNumber, authMethod } = req.body;
+
+      if (!username || typeof username !== 'string' || username.length < 3) {
+        return res.status(400).json({ message: "Username must be at least 3 characters" });
+      }
+      if (!password || typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      // Check username uniqueness
+      const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
-      
-      // Check for existing credentials based on auth method
-      if (userData.email) {
-        const existingEmail = await storage.getUserByEmail(userData.email);
-        if (existingEmail) {
-          return res.status(400).json({ message: "Email already exists" });
+
+      // Phone registration
+      if (authMethod === 'phone') {
+        if (!phoneNumber) {
+          return res.status(400).json({ message: "Phone number is required" });
         }
-      }
-      
-      // Check phone number verification for mobile signups
-      if (userData.authMethod === 'phone' && userData.phoneNumber) {
-        const isPhoneVerified = await storage.isPhoneVerified(userData.phoneNumber);
-        if (!isPhoneVerified) {
+        const isVerified = await storage.isPhoneVerified(phoneNumber);
+        if (!isVerified) {
           return res.status(400).json({ message: "Phone number must be verified before registration" });
+        }
+        const existingPhone = await storage.getUserByPhone(phoneNumber);
+        if (existingPhone) {
+          return res.status(400).json({ message: "Phone number already registered" });
         }
       }
 
-      const userWithVerification = {
-        ...userData,
+      const user = await storage.createUser({
+        username,
+        password,
+        email: email || null,
+        phoneNumber: phoneNumber || null,
+        whatsappNumber: null,
+        facebookId: null,
+        authMethod: authMethod || 'phone',
         isAdmin: false,
-        isVerified: true
-      };
-      
-      const user = await storage.createUser(userWithVerification);
-      
-      // Set session
+        isVerified: true,
+      });
+
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
-      
-      // Return appropriate user data
+
       const userResponse: any = {
         id: user.id,
         username: user.username,
         authMethod: user.authMethod,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
       };
-      
-      // Add method-specific fields to response
       if (user.email) userResponse.email = user.email;
       if (user.phoneNumber) userResponse.phoneNumber = user.phoneNumber;
-      if (user.whatsappNumber) userResponse.whatsappNumber = user.whatsappNumber;
-      if (user.facebookId) userResponse.facebookId = user.facebookId;
-      
+
       res.status(201).json(userResponse);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid input", errors: error.errors });
-      }
-      res.status(500).json({ message: "Server error" });
+      console.error("Register error:", error);
+      res.status(500).json({ message: (error as any)?.message || "Server error" });
     }
   });
 
