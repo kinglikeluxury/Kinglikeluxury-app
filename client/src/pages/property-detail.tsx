@@ -453,8 +453,8 @@ const PropertyDetail = () => {
                     <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-30" draggable={false} />
                   </div>
                   {(property as any).isSold && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
-                      <div className="bg-red-600 text-white font-extrabold text-4xl tracking-widest px-8 py-4 rounded-xl rotate-[-15deg] shadow-2xl border-4 border-white">
+                    <div className="absolute inset-0 bg-[#005476]/60 flex items-center justify-center pointer-events-none">
+                      <div className="bg-[#3bcac4] text-white font-extrabold text-4xl tracking-widest px-8 py-4 rounded-xl rotate-[-15deg] shadow-2xl border-4 border-white">
                         {t('property.sold', 'SOLD')}
                       </div>
                     </div>
