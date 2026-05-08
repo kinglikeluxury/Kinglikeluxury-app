@@ -146,7 +146,7 @@ const PropertyCard = ({
               <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
             </div>
             {isSold && (
-              <div className="absolute inset-0 bg-[#005476]/60 flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="bg-[#3bcac4] text-white font-extrabold text-2xl tracking-widest px-6 py-3 rounded-lg rotate-[-15deg] shadow-2xl border-4 border-white">
                   {t('property.sold', 'SOLD')}
                 </div>
