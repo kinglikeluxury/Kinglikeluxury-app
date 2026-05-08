@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { AUTH_METHODS, insertUserSchema } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
-import { MailIcon, Phone, CheckCircle, Loader2 } from 'lucide-react';
+import { MailIcon, Phone, CheckCircle, Loader2, MessageCircle, Smartphone } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 
 const registerSchema = z.object({
@@ -50,6 +50,7 @@ export default function RegisterPage() {
   const [verificationCode, setVerificationCode] = useState('');
   const [sendingCode, setSendingCode] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
+  const [sentMethod, setSentMethod] = useState<'whatsapp' | 'sms' | null>(null);
   const [dialCode, setDialCode] = useState('+971');
   const [localNumber, setLocalNumber] = useState('');
   
@@ -88,11 +89,19 @@ export default function RegisterPage() {
     form.setValue('phoneNumber', phoneNumber);
     setSendingCode(true);
     try {
-      await apiRequest('POST', '/api/auth/send-verification', { phoneNumber });
+      const result = await apiRequest('POST', '/api/auth/send-verification', { phoneNumber });
+      const data = await result.json();
       setVerificationSent(true);
-      toast({ title: "Code sent", description: "A verification code has been sent to your phone" });
+      setSentMethod(data.method || 'sms');
+      const isWhatsApp = data.method === 'whatsapp';
+      toast({
+        title: isWhatsApp ? "✅ تم الإرسال عبر WhatsApp" : "✅ تم الإرسال عبر SMS",
+        description: isWhatsApp
+          ? `افتح WhatsApp على ${phoneNumber} وأدخل الرمز`
+          : `تحقق من رسائلك النصية على ${phoneNumber}`,
+      });
     } catch (error: any) {
-      toast({ title: "Failed to send code", description: error.message || "Please try again", variant: "destructive" });
+      toast({ title: "فشل الإرسال", description: error.message || "حاول مجدداً", variant: "destructive" });
     } finally {
       setSendingCode(false);
     }
@@ -265,11 +274,18 @@ export default function RegisterPage() {
 
                       {verificationSent && !phoneVerified && (
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Verification Code</label>
+                          {/* Method badge */}
+                          <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${sentMethod === 'whatsapp' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+                            {sentMethod === 'whatsapp'
+                              ? <><MessageCircle className="h-3.5 w-3.5 shrink-0" /> تم إرسال الرمز عبر <strong>WhatsApp</strong></>
+                              : <><Smartphone className="h-3.5 w-3.5 shrink-0" /> تم إرسال الرمز عبر <strong>SMS</strong></>
+                            }
+                          </div>
+                          <label className="text-sm font-medium">رمز التحقق</label>
                           <div className="flex gap-2">
                             <Input
                               type="text"
-                              placeholder="Enter 6-digit code"
+                              placeholder="أدخل الرمز المكون من 6 أرقام"
                               value={verificationCode}
                               onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                               maxLength={6}
@@ -280,18 +296,18 @@ export default function RegisterPage() {
                               onClick={handleVerifyCode}
                               disabled={verifyingCode}
                             >
-                              {verifyingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                              {verifyingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : "تحقق"}
                             </Button>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Didn't receive the code?{" "}
+                            لم يصلك الرمز؟{" "}
                             <button 
                               type="button" 
                               className="text-[#3bcac4] hover:underline"
                               onClick={handleSendCode}
                               disabled={sendingCode}
                             >
-                              Resend
+                              إعادة الإرسال
                             </button>
                           </p>
                         </div>

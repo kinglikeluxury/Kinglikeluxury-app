@@ -102,12 +102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Twilio SMS client
+  // Twilio client
   const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
     ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
     : null;
 
-  // Send SMS verification code
+  // Send verification code — WhatsApp first, fallback to SMS
   app.post("/api/auth/send-verification", async (req, res) => {
     try {
       const { phoneNumber } = req.body;
@@ -116,23 +116,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!twilioClient) {
-        return res.status(500).json({ message: "SMS service not configured" });
+        return res.status(500).json({ message: "Messaging service not configured" });
       }
 
+      const fromNumber = process.env.TWILIO_PHONE_NUMBER || "";
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
       await storage.createVerificationCode(phoneNumber, code, expiresAt);
 
-      await twilioClient.messages.create({
-        body: `Your Kinglike verification code is: ${code}`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: phoneNumber,
-      });
+      const msgBody = `🔐 Kinglike Luxury — رمز التحقق الخاص بك:\n*${code}*\nصالح لمدة 10 دقائق.`;
 
-      res.json({ success: true, message: "Verification code sent" });
+      // 1️⃣ Try WhatsApp first
+      let method = "whatsapp";
+      try {
+        await twilioClient.messages.create({
+          body: msgBody,
+          from: `whatsapp:${fromNumber}`,
+          to: `whatsapp:${phoneNumber}`,
+        });
+        console.log(`✅ WhatsApp OTP sent to ${phoneNumber}`);
+      } catch (waError: any) {
+        // WhatsApp failed — fallback to SMS
+        console.warn(`⚠️ WhatsApp failed (${waError.code}), falling back to SMS...`);
+        method = "sms";
+        await twilioClient.messages.create({
+          body: `Kinglike Luxury — رمز التحقق: ${code}\nصالح 10 دقائق.`,
+          from: fromNumber,
+          to: phoneNumber,
+        });
+        console.log(`✅ SMS OTP sent to ${phoneNumber}`);
+      }
+
+      res.json({ success: true, method, message: method === "whatsapp" ? "Verification code sent via WhatsApp" : "Verification code sent via SMS" });
     } catch (error: any) {
-      console.error("SMS send error:", error);
+      console.error("OTP send error:", error);
       res.status(500).json({ message: error.message || "Failed to send verification code" });
     }
   });
