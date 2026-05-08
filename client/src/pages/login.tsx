@@ -20,9 +20,10 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const { login } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const redirectTo = new URLSearchParams(location.split("?")[1] || "").get("redirect") || "/";
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -36,7 +37,7 @@ const Login = () => {
     try {
       setIsLoading(true);
       await login(data.username, data.password);
-      navigate("/");
+      navigate(redirectTo);
     } catch (error) {
       console.error("Login failed:", error);
     } finally {

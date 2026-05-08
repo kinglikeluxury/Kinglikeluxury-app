@@ -24,7 +24,8 @@ type PhoneFormValues = z.infer<typeof phoneSchema>;
 export default function RegisterPage() {
   const { toast } = useToast();
   const { setUser } = useAuth();
-  const [, setLocation] = useLocation();
+  const [currentLocation, setLocation] = useLocation();
+  const redirectTo = new URLSearchParams(currentLocation.split("?")[1] || "").get("redirect") || "/";
 
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneAlreadyRegistered, setPhoneAlreadyRegistered] = useState(false);
@@ -98,7 +99,7 @@ export default function RegisterPage() {
 
       setPhoneVerified(true);
       toast({ title: "✅ مرحباً بك في Kinglike Luxury!", description: "تم إنشاء حسابك وتسجيل دخولك تلقائياً" });
-      setLocation('/');
+      setLocation(redirectTo);
     } catch (error: any) {
       if (error.message?.includes("already registered") || error.message?.includes("already exists")) {
         setPhoneAlreadyRegistered(true);

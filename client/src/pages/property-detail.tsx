@@ -86,7 +86,7 @@ const PropertyDetail = () => {
         description: t("auth.loginToContact", "سجّل دخولك أولاً للتواصل مع صاحب العقار"),
         variant: "destructive",
       });
-      navigate("/login");
+      navigate(`/login?redirect=/property/${property.id}`);
       return;
     }
 
@@ -835,7 +835,7 @@ const PropertyDetail = () => {
                         <Button
                           variant="outline"
                           className="w-full mt-3 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4] hover:text-white font-medium"
-                          onClick={() => { navigate("/login"); }}
+                          onClick={() => { navigate(`/login?redirect=/property/${property.id}`); }}
                         >
                           📞 {t("auth.loginToViewPhone", "سجّل للاطلاع على الرقم")}
                         </Button>
