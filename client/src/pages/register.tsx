@@ -123,23 +123,7 @@ export default function RegisterPage() {
                 </FormItem>
               )} />
 
-              {/* Mobile Number */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">رقم الهاتف</label>
-                <div className="flex gap-2">
-                  <CountryCodePicker value={dialCode} onChange={setDialCode} disabled={verificationSent} />
-                  <Input
-                    type="tel"
-                    placeholder="50 123 4567"
-                    value={localNumber}
-                    onChange={(e) => setLocalNumber(e.target.value)}
-                    disabled={verificationSent}
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
+              {/* Password — must be filled before phone */}
               <FormField control={form.control} name="password" render={({ field }) => (
                 <FormItem>
                   <FormLabel>كلمة السر</FormLabel>
@@ -163,6 +147,28 @@ export default function RegisterPage() {
                   <FormMessage />
                 </FormItem>
               )} />
+
+              {/* Mobile Number — disabled until password is valid */}
+              <div className="space-y-2">
+                <label className={`text-sm font-medium ${form.watch('password').length < 6 ? 'text-muted-foreground' : ''}`}>
+                  رقم الهاتف
+                </label>
+                <div className="flex gap-2">
+                  <CountryCodePicker
+                    value={dialCode}
+                    onChange={setDialCode}
+                    disabled={verificationSent || form.watch('password').length < 6}
+                  />
+                  <Input
+                    type="tel"
+                    placeholder={form.watch('password').length < 6 ? "أدخل كلمة السر أولاً" : "50 123 4567"}
+                    value={localNumber}
+                    onChange={(e) => setLocalNumber(e.target.value)}
+                    disabled={verificationSent || form.watch('password').length < 6}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
 
               {/* Send Code button */}
               {!verificationSent && (
