@@ -59,6 +59,14 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getUserByPhone(phoneNumber: string): Promise<User | undefined> {
+    if (!phoneNumber) return undefined;
+    return await withRetry(async () => {
+      const [user] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
+      return user;
+    });
+  }
+
   async updateUserPassword(id: number, newPassword: string): Promise<User | undefined> {
     return await withRetry(async () => {
       const [updated] = await db
