@@ -42,7 +42,9 @@
     "logout": "Çıkış",
     "profile": "Profilim",
     "language": "Dil",
-    "map": "Harita"
+    "map": "Harita",
+    "privacyPolicy": "Gizlilik Politikası",
+    "termsConditions": "Şartlar ve Koşullar"
   },
   "drawer": {
     "browse": "Gözat",

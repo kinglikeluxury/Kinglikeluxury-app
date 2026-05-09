@@ -42,7 +42,9 @@
     "logout": "Выйти",
     "profile": "Мой профиль",
     "language": "Язык",
-    "map": "Карта"
+    "map": "Карта",
+    "privacyPolicy": "Политика конфиденциальности",
+    "termsConditions": "Условия и положения"
   },
   "drawer": {
     "browse": "Просмотр",

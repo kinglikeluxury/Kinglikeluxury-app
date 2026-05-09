@@ -42,7 +42,9 @@
     "logout": "გამოსვლა",
     "profile": "ჩემი პროფილი",
     "language": "ენა",
-    "map": "რუკა"
+    "map": "რუკა",
+    "privacyPolicy": "კონფიდენციალურობის პოლიტიკა",
+    "termsConditions": "წესები და პირობები"
   },
   "drawer": {
     "browse": "დათვალიერება",

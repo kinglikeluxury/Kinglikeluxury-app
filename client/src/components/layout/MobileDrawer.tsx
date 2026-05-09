@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -273,6 +273,8 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 icon: PlusCircle,
                 protected: !user,
               })}
+              {renderItem({ label: t("nav.privacyPolicy", "Privacy Policy"), path: "/privacy-policy", icon: Shield })}
+              {renderItem({ label: t("nav.termsConditions", "Terms & Conditions"), path: "/terms", icon: FileText })}
             </div>
           </div>
 

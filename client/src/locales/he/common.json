@@ -42,7 +42,9 @@
     "logout": "התנתקות",
     "profile": "הפרופיל שלי",
     "language": "שפה",
-    "map": "מפה"
+    "map": "מפה",
+    "privacyPolicy": "מדיניות הפרטיות",
+    "termsConditions": "תנאים והגבלות"
   },
   "drawer": {
     "browse": "עיון",

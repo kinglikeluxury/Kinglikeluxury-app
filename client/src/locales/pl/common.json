@@ -42,7 +42,9 @@
     "logout": "Wyloguj",
     "profile": "Mój profil",
     "language": "Język",
-    "map": "Mapa"
+    "map": "Mapa",
+    "privacyPolicy": "Polityka prywatności",
+    "termsConditions": "Regulamin"
   },
   "drawer": {
     "browse": "Przeglądaj",

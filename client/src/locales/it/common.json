@@ -42,7 +42,9 @@
     "logout": "Esci",
     "profile": "Il mio profilo",
     "language": "Lingua",
-    "map": "Mappa"
+    "map": "Mappa",
+    "privacyPolicy": "Informativa sulla privacy",
+    "termsConditions": "Termini e condizioni"
   },
   "drawer": {
     "browse": "Sfoglia",

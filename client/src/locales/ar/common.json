@@ -42,7 +42,9 @@
     "logout": "تسجيل الخروج",
     "profile": "ملفي الشخصي",
     "language": "اللغة",
-    "map": "الخريطة"
+    "map": "الخريطة",
+    "privacyPolicy": "سياسة الخصوصية",
+    "termsConditions": "الشروط والأحكام"
   },
   "drawer": {
     "browse": "تصفح",

@@ -42,7 +42,9 @@
     "logout": "Çıxış",
     "profile": "Profilim",
     "language": "Dil",
-    "map": "Xəritə"
+    "map": "Xəritə",
+    "privacyPolicy": "Məxfilik Siyasəti",
+    "termsConditions": "Şərtlər və Qaydalar"
   },
   "drawer": {
     "browse": "Gəz",
