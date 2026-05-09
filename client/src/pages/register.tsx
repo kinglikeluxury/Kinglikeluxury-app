@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { AUTH_METHODS } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
-import { CheckCircle, Loader2, MessageCircle, Smartphone, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle, Loader2, MessageCircle, Smartphone, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 import { useAuth } from '@/lib/auth';
 
@@ -37,6 +37,7 @@ export default function RegisterPage() {
   const [dialCode, setDialCode] = useState('+971');
   const [localNumber, setLocalNumber] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const form = useForm<PhoneFormValues>({
     resolver: zodResolver(phoneSchema),
@@ -46,6 +47,11 @@ export default function RegisterPage() {
   const getFullPhoneNumber = () => `${dialCode}${localNumber.replace(/\s+/g, '')}`;
 
   const handleSendCode = async () => {
+    if (!privacyAccepted) {
+      toast({ title: "الموافقة مطلوبة", description: "يجب الموافقة على سياسة الخصوصية أولاً", variant: "destructive" });
+      return;
+    }
+
     const valid = await form.trigger(['username', 'password']);
     if (!valid) return;
 
@@ -90,7 +96,6 @@ export default function RegisterPage() {
         authMethod: AUTH_METHODS.PHONE,
       });
 
-      // Step 3: Register endpoint already sets the session — fetch current user to update UI
       const meRes = await fetch('/api/auth/me', { credentials: 'include' });
       if (meRes.ok) {
         const userData = await meRes.json();
@@ -138,7 +143,7 @@ export default function RegisterPage() {
                 </FormItem>
               )} />
 
-              {/* Password — must be filled before phone */}
+              {/* Password */}
               <FormField control={form.control} name="password" render={({ field }) => (
                 <FormItem>
                   <FormLabel>كلمة السر</FormLabel>
@@ -163,7 +168,7 @@ export default function RegisterPage() {
                 </FormItem>
               )} />
 
-              {/* Mobile Number — disabled until password is valid */}
+              {/* Mobile Number */}
               <div className="space-y-2">
                 <label className={`text-sm font-medium ${form.watch('password').length < 6 ? 'text-muted-foreground' : ''}`}>
                   رقم الهاتف
@@ -185,13 +190,68 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* Privacy Policy Acceptance */}
+              {!verificationSent && (
+                <div
+                  onClick={() => setPrivacyAccepted(v => !v)}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all select-none ${
+                    privacyAccepted
+                      ? 'border-[#3bcac4] bg-[#3bcac4]/5'
+                      : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                  }`}
+                >
+                  <div className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    privacyAccepted ? 'bg-[#3bcac4] border-[#3bcac4]' : 'bg-white border-gray-300'
+                  }`}>
+                    {privacyAccepted && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="text-sm leading-relaxed">
+                    <span className="font-medium text-gray-800 flex items-center gap-1.5 mb-0.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-[#3bcac4]" />
+                      الموافقة على سياسة الخصوصية
+                    </span>
+                    <span className="text-gray-500">
+                      أوافق على{" "}
+                      <a
+                        href="/privacy-policy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#005476] underline font-medium hover:text-[#3bcac4]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        سياسة الخصوصية
+                      </a>
+                      {" "}و{" "}
+                      <a
+                        href="/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#005476] underline font-medium hover:text-[#3bcac4]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        شروط الاستخدام
+                      </a>
+                      {" "}الخاصة بـ Kinglike Luxury، وأوافق على معالجة بياناتي وفق هذه السياسة.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Send Code button */}
               {!verificationSent && (
                 <Button
                   type="button"
-                  className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]"
+                  className={`w-full transition-all ${
+                    privacyAccepted
+                      ? 'bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
                   onClick={handleSendCode}
-                  disabled={sendingCode}
+                  disabled={sendingCode || !privacyAccepted}
                 >
                   {sendingCode && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {sendingCode ? "جاري الإرسال..." : "إرسال رمز التحقق"}

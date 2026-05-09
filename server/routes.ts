@@ -772,36 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Also accept phone from body (guest flow)
       if (!contactorPhone && req.body?.phone) contactorPhone = req.body.phone;
 
-      // Get admin phone — from DB first, fallback to platform number
-      const allUsers = await storage.getAllUsers();
-      const adminUser = allUsers.find((u) => u.isAdmin);
-      const PLATFORM_ADMIN_PHONE = process.env.ADMIN_NOTIFY_PHONE || "+995591000058";
-      const adminPhone =
-        adminUser?.whatsappNumber || adminUser?.phoneNumber || PLATFORM_ADMIN_PHONE;
-
-      // Always send SMS notification to admin
-      if (twilioClient) {
-        const ownerContact =
-          property.agent?.whatsappNumber || property.agent?.phoneNumber || "—";
-        const msg =
-          `📩 Kinglike Luxury — تواصل جديد\n` +
-          `🏠 العقار: ${property.title} (ID: ${property.id})\n` +
-          `👤 المتواصل: ${contactorName}\n` +
-          `📱 رقمه: ${contactorPhone || "غير متوفر"}\n` +
-          `🔗 رقم المالك: ${ownerContact}`;
-
-        const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-        try {
-          await twilioClient.messages.create({ body: msg, from: fromNumber, to: adminPhone });
-          console.log(`✅ Admin notified: ${contactorName} → property ${id}`);
-        } catch (smsErr: any) {
-          console.warn("⚠️ Admin SMS failed:", smsErr.message);
-        }
-      } else {
-        console.warn("⚠️ Twilio not configured — admin notification skipped");
-      }
-
-      // Save contact event to database
+      // Save contact event to database (no SMS — admin reviews leads manually)
       await storage.createContactLog({
         propertyId: id,
         contactorId: contactorId ?? undefined,
