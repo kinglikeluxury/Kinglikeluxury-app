@@ -484,6 +484,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Admin: get all contact logs
+  app.get("/api/admin/contact-logs", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+      const logs = await storage.getContactLogs();
+      res.json(logs);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Payment routes
   app.post("/api/payments", isAuthenticated, async (req, res) => {
     try {
@@ -789,6 +800,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         console.warn("⚠️ Twilio not configured — admin notification skipped");
       }
+
+      // Save contact event to database
+      await storage.createContactLog({
+        propertyId: id,
+        contactorId: contactorId ?? undefined,
+        contactorName,
+        contactorPhone: contactorPhone ?? undefined,
+        ownerName: property.agent?.username ?? undefined,
+        ownerPhone: property.agent?.whatsappNumber || property.agent?.phoneNumber || undefined,
+        propertyTitle: property.title,
+      });
 
       res.json({
         success: true,

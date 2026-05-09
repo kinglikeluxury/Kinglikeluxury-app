@@ -228,6 +228,21 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 
+// Contact Logs — records every WhatsApp contact click
+export const contactLogs = pgTable("contact_logs", {
+  id: serial("id").primaryKey(),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  contactorId: integer("contactor_id").references(() => users.id),
+  contactorName: text("contactor_name").notNull().default("زائر"),
+  contactorPhone: text("contactor_phone"),
+  ownerName: text("owner_name"),
+  ownerPhone: text("owner_phone"),
+  propertyTitle: text("property_title"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ContactLog = typeof contactLogs.$inferSelect;
+
 // SMS Verification Codes
 export const verificationCodes = pgTable("verification_codes", {
   id: serial("id").primaryKey(),

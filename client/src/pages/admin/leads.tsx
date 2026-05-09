@@ -10,8 +10,20 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users, Phone, Mail, Download, Search, Building2,
-  Eye, ShoppingBag, ArrowLeft, FileText
+  Eye, ShoppingBag, ArrowLeft, FileText, MessageCircle, Home
 } from "lucide-react";
+
+type ContactLog = {
+  id: number;
+  propertyId: number;
+  contactorId: number | null;
+  contactorName: string;
+  contactorPhone: string | null;
+  ownerName: string | null;
+  ownerPhone: string | null;
+  propertyTitle: string | null;
+  createdAt: string;
+};
 
 type Lead = {
   id: number;
@@ -25,6 +37,15 @@ type Lead = {
   propertiesCount: number;
   leadType: "seller" | "browser";
   registeredAt: string;
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  email: "📧 بريد",
+  phone: "📱 هاتف",
+  whatsapp: "💬 واتساب",
+  facebook: "👤 فيسبوك",
+  google: "🔍 جوجل",
+  username: "🔑 اسم مستخدم",
 };
 
 // PDF labels for all 10 supported languages
@@ -178,6 +199,7 @@ export default function LeadsPage() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "seller" | "browser">("all");
+  const [activeTab, setActiveTab] = useState<"leads" | "contacts">("leads");
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -185,6 +207,11 @@ export default function LeadsPage() {
 
   const { data: leads = [], isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/admin/leads"],
+    enabled: !!user?.isAdmin,
+  });
+
+  const { data: contactLogs = [], isLoading: isLoadingContacts } = useQuery<ContactLog[]>({
+    queryKey: ["/api/admin/contact-logs"],
     enabled: !!user?.isAdmin,
   });
 
@@ -310,7 +337,7 @@ export default function LeadsPage() {
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/admin/dashboard")}
@@ -320,27 +347,150 @@ export default function LeadsPage() {
             </button>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">قاعدة بيانات العملاء</h1>
-              <p className="text-sm text-gray-500 mt-0.5">جميع المسجّلين في التطبيق — بياناتهم الكاملة</p>
+              <p className="text-sm text-gray-500 mt-0.5">جميع المسجّلين وسجل التواصل عبر العقارات</p>
             </div>
           </div>
-          <div className="flex gap-2 self-start md:self-auto">
-            <Button
-              onClick={handleExportPDF}
-              variant="outline"
-              className="border-[#005476] text-[#005476] hover:bg-[#005476] hover:text-white gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              تصدير PDF
-            </Button>
-            <Button
-              onClick={handleExport}
-              className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white gap-2"
-            >
-              <Download className="h-4 w-4" />
-              تصدير Excel
-            </Button>
-          </div>
+          {activeTab === "leads" && (
+            <div className="flex gap-2 self-start md:self-auto">
+              <Button
+                onClick={handleExportPDF}
+                variant="outline"
+                className="border-[#005476] text-[#005476] hover:bg-[#005476] hover:text-white gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                تصدير PDF
+              </Button>
+              <Button
+                onClick={handleExport}
+                className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white gap-2"
+              >
+                <Download className="h-4 w-4" />
+                تصدير Excel
+              </Button>
+            </div>
+          )}
         </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+          <button
+            onClick={() => setActiveTab("leads")}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "leads"
+                ? "bg-white text-[#005476] shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            العملاء المسجّلون
+            <span className="bg-[#3bcac4]/20 text-[#005476] text-xs px-1.5 py-0.5 rounded-full font-bold">
+              {leads.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab("contacts")}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "contacts"
+                ? "bg-white text-[#005476] shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <MessageCircle className="h-4 w-4" />
+            سجل التواصل
+            {contactLogs.length > 0 && (
+              <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full font-bold">
+                {contactLogs.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* ══════════ CONTACTS TAB ══════════ */}
+        {activeTab === "contacts" && (
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-[#3bcac4]" />
+                سجل التواصل عبر واتساب
+              </CardTitle>
+              <CardDescription>كل ضغطة على زر "تواصل" في أي عقار تُسجَّل هنا</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoadingContacts ? (
+                <div className="p-6 space-y-3">
+                  {[0,1,2,3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
+                </div>
+              ) : contactLogs.length === 0 ? (
+                <div className="text-center py-16 text-gray-400">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">لا توجد سجلات تواصل بعد</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50/80">
+                        <th className="text-right p-3 font-semibold text-gray-600">#</th>
+                        <th className="text-right p-3 font-semibold text-gray-600">المتواصل</th>
+                        <th className="text-right p-3 font-semibold text-gray-600">رقمه</th>
+                        <th className="text-right p-3 font-semibold text-gray-600">العقار</th>
+                        <th className="text-right p-3 font-semibold text-gray-600">المالك</th>
+                        <th className="text-right p-3 font-semibold text-gray-600">رقم المالك</th>
+                        <th className="text-right p-3 font-semibold text-gray-600">التاريخ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contactLogs.map((log, idx) => (
+                        <tr key={log.id} className="border-b hover:bg-gray-50/60 transition-colors">
+                          <td className="p-3 text-gray-400 text-xs">{idx + 1}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#25D366] to-[#128C7E] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                {log.contactorName.substring(0, 2).toUpperCase()}
+                              </div>
+                              <span className="font-medium text-gray-900">{log.contactorName}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            {log.contactorPhone ? (
+                              <a href={`https://wa.me/${log.contactorPhone.replace(/[^0-9]/g,"")}`} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 text-[#25D366] hover:underline font-medium" dir="ltr">
+                                <Phone className="h-3.5 w-3.5" />
+                                {log.contactorPhone}
+                              </a>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="p-3">
+                            <a href={`/property/${log.propertyId}`} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-[#005476] hover:underline">
+                              <Home className="h-3.5 w-3.5 flex-shrink-0" />
+                              <span className="line-clamp-1">{log.propertyTitle || `#${log.propertyId}`}</span>
+                            </a>
+                          </td>
+                          <td className="p-3 text-gray-700">{log.ownerName || "—"}</td>
+                          <td className="p-3">
+                            {log.ownerPhone ? (
+                              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full" dir="ltr">{log.ownerPhone}</span>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="p-3 text-gray-500 text-xs whitespace-nowrap">
+                            {new Date(log.createdAt).toLocaleString("ar-EG", {
+                              year: "numeric", month: "short", day: "numeric",
+                              hour: "2-digit", minute: "2-digit"
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ══════════ LEADS TAB ══════════ */}
+        {activeTab === "leads" && <>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -531,6 +681,9 @@ export default function LeadsPage() {
             </div>
           </CardContent>
         </Card>
+
+        </> /* end leads tab */}
+
       </div>
     </div>
   );

@@ -64,6 +64,18 @@ export interface IStorage {
   verifyCode(phoneNumber: string, code: string): Promise<boolean>;
   isPhoneVerified(phoneNumber: string): Promise<boolean>;
 
+  // Contact log operations
+  createContactLog(data: {
+    propertyId: number;
+    contactorId?: number;
+    contactorName: string;
+    contactorPhone?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+    propertyTitle?: string;
+  }): Promise<void>;
+  getContactLogs(): Promise<import("@shared/schema").ContactLog[]>;
+
   // BOG payment operations
   createPendingBOGPayment(data: {
     bogOrderId: string;
@@ -370,6 +382,22 @@ export class MemStorage implements IStorage {
   async isPhoneVerified(phoneNumber: string): Promise<boolean> {
     const record = this.verificationCodes.get(phoneNumber);
     return record?.verified === true;
+  }
+
+  async createContactLog(_data: {
+    propertyId: number;
+    contactorId?: number;
+    contactorName: string;
+    contactorPhone?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+    propertyTitle?: string;
+  }): Promise<void> {
+    // MemStorage stub — not used in production
+  }
+
+  async getContactLogs(): Promise<import("@shared/schema").ContactLog[]> {
+    return [];
   }
 
   private bogPayments: Map<string, any> = new Map();

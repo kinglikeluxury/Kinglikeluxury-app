@@ -9,6 +9,8 @@ import {
   projects,
   blogPosts,
   verificationCodes,
+  contactLogs,
+  type ContactLog,
   type User,
   type InsertUser,
   type Property,
@@ -478,6 +480,33 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return !!record;
+  }
+
+  async createContactLog(data: {
+    propertyId: number;
+    contactorId?: number;
+    contactorName: string;
+    contactorPhone?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+    propertyTitle?: string;
+  }): Promise<void> {
+    await db.insert(contactLogs).values({
+      propertyId: data.propertyId,
+      contactorId: data.contactorId ?? null,
+      contactorName: data.contactorName,
+      contactorPhone: data.contactorPhone ?? null,
+      ownerName: data.ownerName ?? null,
+      ownerPhone: data.ownerPhone ?? null,
+      propertyTitle: data.propertyTitle ?? null,
+    });
+  }
+
+  async getContactLogs(): Promise<ContactLog[]> {
+    return await db
+      .select()
+      .from(contactLogs)
+      .orderBy(desc(contactLogs.createdAt));
   }
 
   // In-memory store for BOG pending payments (these are transient)
