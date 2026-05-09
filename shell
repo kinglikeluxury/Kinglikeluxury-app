@@ -1,0 +1,2 @@
+git remote set-url origin https://YOUR_TOKEN@github.com/kinglikeluxury/kinglikeluxury.app.git
+git push -u origin main
