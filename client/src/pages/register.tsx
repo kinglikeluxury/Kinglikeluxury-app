@@ -13,6 +13,7 @@ import { Link, useLocation } from 'wouter';
 import { CheckCircle, Loader2, MessageCircle, Smartphone, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
 
 const phoneSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -24,6 +25,7 @@ type PhoneFormValues = z.infer<typeof phoneSchema>;
 export default function RegisterPage() {
   const { toast } = useToast();
   const { setUser } = useAuth();
+  const { t } = useTranslation();
   const [currentLocation, setLocation] = useLocation();
   const redirectTo = new URLSearchParams(currentLocation.split("?")[1] || "").get("redirect") || "/";
 
@@ -48,15 +50,14 @@ export default function RegisterPage() {
 
   const handleSendCode = async () => {
     if (!privacyAccepted) {
-      toast({ title: "الموافقة مطلوبة", description: "يجب الموافقة على سياسة الخصوصية أولاً", variant: "destructive" });
+      toast({ title: t('auth.privacyRequired'), description: t('auth.privacyRequiredDesc'), variant: "destructive" });
       return;
     }
-
     const valid = await form.trigger(['username', 'password']);
     if (!valid) return;
 
     if (!localNumber || localNumber.replace(/\s+/g, '').length < 4) {
-      toast({ title: "رقم غير صحيح", description: "أدخل رقم هاتف صحيح", variant: "destructive" });
+      toast({ title: t('auth.invalidNumber'), description: t('auth.invalidNumberDesc'), variant: "destructive" });
       return;
     }
 
@@ -68,11 +69,11 @@ export default function RegisterPage() {
       setVerificationSent(true);
       setSentMethod(data.method || 'sms');
       toast({
-        title: data.method === 'whatsapp' ? "✅ تم الإرسال عبر WhatsApp" : "✅ تم الإرسال عبر SMS",
-        description: `أدخل الرمز المرسل إلى ${phoneNumber}`,
+        title: data.method === 'whatsapp' ? `✅ ${t('auth.sentViaWhatsapp')}` : `✅ ${t('auth.sentViaSms')}`,
+        description: phoneNumber,
       });
     } catch (error: any) {
-      toast({ title: "فشل الإرسال", description: error.message || "حاول مجدداً", variant: "destructive" });
+      toast({ title: t('auth.sendFailed'), description: error.message || "", variant: "destructive" });
     } finally {
       setSendingCode(false);
     }
@@ -81,7 +82,7 @@ export default function RegisterPage() {
   const handleVerifyAndRegister = async () => {
     const phoneNumber = getFullPhoneNumber();
     if (!verificationCode || verificationCode.length !== 6) {
-      toast({ title: "رمز غير صحيح", description: "أدخل الرمز المكون من 6 أرقام", variant: "destructive" });
+      toast({ title: t('auth.invalidCode'), description: t('auth.invalidCodeDesc'), variant: "destructive" });
       return;
     }
     setVerifyingCode(true);
@@ -103,13 +104,13 @@ export default function RegisterPage() {
       }
 
       setPhoneVerified(true);
-      toast({ title: "✅ مرحباً بك في Kinglike Luxury!", description: "تم إنشاء حسابك وتسجيل دخولك تلقائياً" });
+      toast({ title: `✅ ${t('auth.successMsg')}` });
       setLocation(redirectTo);
     } catch (error: any) {
       if (error.message?.includes("already registered") || error.message?.includes("already exists")) {
         setPhoneAlreadyRegistered(true);
       } else {
-        toast({ title: "خطأ", description: error.message || "حاول مجدداً", variant: "destructive" });
+        toast({ title: t('auth.sendFailed'), description: error.message || "", variant: "destructive" });
       }
     } finally {
       setVerifyingCode(false);
@@ -121,10 +122,10 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-[#3bcac4] to-[#005476] bg-clip-text text-transparent">
-            إنشاء حساب
+            {t('auth.registerTitle')}
           </CardTitle>
           <CardDescription className="text-center">
-            انضم إلى Kinglike Luxury واكتشف أفضل العقارات الفاخرة
+            {t('auth.registerSubtitle')}
           </CardDescription>
         </CardHeader>
 
@@ -135,7 +136,7 @@ export default function RegisterPage() {
               {/* Username */}
               <FormField control={form.control} name="username" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>اسم المستخدم</FormLabel>
+                  <FormLabel>{t('auth.username')}</FormLabel>
                   <FormControl>
                     <Input placeholder="username" disabled={verificationSent} {...field} />
                   </FormControl>
@@ -146,7 +147,7 @@ export default function RegisterPage() {
               {/* Password */}
               <FormField control={form.control} name="password" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>كلمة السر</FormLabel>
+                  <FormLabel>{t('auth.password')}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Input
@@ -171,7 +172,7 @@ export default function RegisterPage() {
               {/* Mobile Number */}
               <div className="space-y-2">
                 <label className={`text-sm font-medium ${form.watch('password').length < 6 ? 'text-muted-foreground' : ''}`}>
-                  رقم الهاتف
+                  {t('auth.phone')}
                 </label>
                 <div className="flex gap-2">
                   <CountryCodePicker
@@ -181,7 +182,7 @@ export default function RegisterPage() {
                   />
                   <Input
                     type="tel"
-                    placeholder={form.watch('password').length < 6 ? "أدخل كلمة السر أولاً" : "50 123 4567"}
+                    placeholder={form.watch('password').length < 6 ? t('auth.enterPasswordFirst') : "50 123 4567"}
                     value={localNumber}
                     onChange={(e) => setLocalNumber(e.target.value)}
                     disabled={verificationSent || form.watch('password').length < 6}
@@ -212,10 +213,10 @@ export default function RegisterPage() {
                   <div className="text-sm leading-relaxed">
                     <span className="font-medium text-gray-800 flex items-center gap-1.5 mb-0.5">
                       <ShieldCheck className="h-3.5 w-3.5 text-[#3bcac4]" />
-                      الموافقة على سياسة الخصوصية
+                      {t('auth.privacyTitle')}
                     </span>
                     <span className="text-gray-500">
-                      أوافق على{" "}
+                      {t('auth.privacyText').split(t('auth.privacyPolicy'))[0]}
                       <a
                         href="/privacy-policy"
                         target="_blank"
@@ -223,9 +224,9 @@ export default function RegisterPage() {
                         className="text-[#005476] underline font-medium hover:text-[#3bcac4]"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        سياسة الخصوصية
+                        {t('auth.privacyPolicy')}
                       </a>
-                      {" "}و{" "}
+                      {" "}{t('auth.privacyText').split(t('auth.privacyPolicy'))[1]?.split(t('auth.termsOfUse'))[0]}
                       <a
                         href="/terms"
                         target="_blank"
@@ -233,9 +234,9 @@ export default function RegisterPage() {
                         className="text-[#005476] underline font-medium hover:text-[#3bcac4]"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        شروط الاستخدام
+                        {t('auth.termsOfUse')}
                       </a>
-                      {" "}الخاصة بـ Kinglike Luxury، وأوافق على معالجة بياناتي وفق هذه السياسة.
+                      {t('auth.privacyText').split(t('auth.termsOfUse'))[1] || ""}
                     </span>
                   </div>
                 </div>
@@ -254,7 +255,7 @@ export default function RegisterPage() {
                   disabled={sendingCode || !privacyAccepted}
                 >
                   {sendingCode && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {sendingCode ? "جاري الإرسال..." : "إرسال رمز التحقق"}
+                  {sendingCode ? t('auth.sending') : t('auth.sendCode')}
                 </Button>
               )}
 
@@ -263,13 +264,13 @@ export default function RegisterPage() {
                 <div className="space-y-3">
                   <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${sentMethod === 'whatsapp' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
                     {sentMethod === 'whatsapp'
-                      ? <><MessageCircle className="h-3.5 w-3.5 shrink-0" /> تم إرسال الرمز عبر <strong>WhatsApp</strong></>
-                      : <><Smartphone className="h-3.5 w-3.5 shrink-0" /> تم إرسال الرمز عبر <strong>SMS</strong></>
+                      ? <><MessageCircle className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaWhatsapp')}</>
+                      : <><Smartphone className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaSms')}</>
                     }
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">رمز التحقق</label>
+                    <label className="text-sm font-medium">{t('auth.verificationCode')}</label>
                     <Input
                       type="text"
                       inputMode="numeric"
@@ -289,17 +290,17 @@ export default function RegisterPage() {
                   >
                     {verifyingCode && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     {!verifyingCode && <CheckCircle className="h-4 w-4 mr-2" />}
-                    {verifyingCode ? "جاري التحقق والتسجيل..." : "تحقق وأكمل التسجيل"}
+                    {verifyingCode ? t('auth.verifying') : t('auth.verifyAndRegister')}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    لم يصلك الرمز؟{" "}
+                    {t('auth.noCode')}{" "}
                     <button type="button" className="text-[#3bcac4] hover:underline" onClick={() => { setVerificationSent(false); setVerificationCode(''); }}>
-                      تغيير البيانات
+                      {t('auth.changeData')}
                     </button>
                     {" · "}
                     <button type="button" className="text-[#3bcac4] hover:underline" onClick={handleSendCode} disabled={sendingCode}>
-                      إعادة الإرسال
+                      {t('auth.resend')}
                     </button>
                   </p>
                 </div>
@@ -309,7 +310,7 @@ export default function RegisterPage() {
               {phoneAlreadyRegistered && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
                   <p className="text-sm font-medium text-amber-800 text-center">
-                    ⚠️ هذا الرقم مسجّل مسبقاً
+                    ⚠️ {t('auth.phoneAlreadyRegistered')}
                   </p>
                   <div className="flex flex-col gap-2">
                     <Button
@@ -317,7 +318,7 @@ export default function RegisterPage() {
                       className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476]"
                       onClick={() => setLocation('/login')}
                     >
-                      تسجيل الدخول
+                      {t('auth.useLogin')}
                     </Button>
                     <Button
                       type="button"
@@ -325,7 +326,7 @@ export default function RegisterPage() {
                       className="w-full border-[#3bcac4] text-[#3bcac4]"
                       onClick={() => setLocation('/forgot-password')}
                     >
-                      نسيت كلمة السر؟
+                      {t('auth.forgotPassword')}
                     </Button>
                     <button
                       type="button"
@@ -337,7 +338,7 @@ export default function RegisterPage() {
                         setLocalNumber('');
                       }}
                     >
-                      استخدام رقم مختلف
+                      {t('auth.useDifferentNumber')}
                     </button>
                   </div>
                 </div>
@@ -346,7 +347,7 @@ export default function RegisterPage() {
               {phoneVerified && (
                 <div className="flex items-center justify-center gap-2 text-green-600 py-2">
                   <CheckCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">تم التسجيل بنجاح!</span>
+                  <span className="text-sm font-medium">{t('auth.successMsg')}</span>
                 </div>
               )}
 
@@ -356,8 +357,8 @@ export default function RegisterPage() {
 
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-center text-sm">
-            لديك حساب بالفعل؟{" "}
-            <Link href="/login" className="text-[#3bcac4] hover:underline">تسجيل الدخول</Link>
+            {t('auth.hasAccount')}{" "}
+            <Link href="/login" className="text-[#3bcac4] hover:underline">{t('auth.login')}</Link>
           </div>
         </CardFooter>
       </Card>
