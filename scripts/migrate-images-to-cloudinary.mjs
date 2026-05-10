@@ -26,7 +26,7 @@ cloudinary.config({
   secure: true,
 });
 
-const RAILWAY_DB_URL = 'postgresql://postgres:JkZGFYLYsCjJlpwBodRdnfDyNeIkHwla@viaduct.proxy.rlwy.net:30323/railway';
+const RAILWAY_DB_URL = process.env.TARGET_DB || process.env.DATABASE_URL;
 const REPLIT_BASE = 'http://localhost:5000';
 
 async function downloadImage(url, destPath) {
