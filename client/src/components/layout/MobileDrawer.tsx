@@ -293,12 +293,13 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             </div>
           )}
 
-          {/* Language */}
+          {/* Settings */}
           <div className="mb-2">
             <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
               {t("drawer.settings", "Settings")}
             </p>
             <div className="bg-white">
+              {renderItem({ label: t("nav.privacyTerms", "Privacy & Terms"), path: "/privacy-terms", icon: Lock })}
               <button
                 onClick={() => setLangExpanded(!langExpanded)}
                 className="flex items-center justify-between w-full px-5 py-3.5 active:bg-gray-50"
