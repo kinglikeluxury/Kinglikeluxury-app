@@ -92,6 +92,11 @@ const Footer = () => {
                   <a className="text-gray-400 hover:text-white">Register</a>
                 </Link>
               </li>
+              <li>
+                <Link href="/privacy-terms">
+                  <a className="text-gray-400 hover:text-white">Privacy & Terms</a>
+                </Link>
+              </li>
             </ul>
           </div>
 
