@@ -66,7 +66,7 @@ function Router() {
           <Route path="/payment/fail" component={PaymentFail} />
           <Route path="/change-password" component={ChangePassword} />
           <Route path="/forgot-password" component={ForgotPassword} />
-          <Route path="/privacy-policy" component={PrivacyPolicy} />
+          <Route path="/privacy-policy" component={PrivacyTerms} />
           <Route path="/terms" component={Terms} />
           <Route path="/privacy-terms" component={PrivacyTerms} />
           <Route component={NotFound} />
