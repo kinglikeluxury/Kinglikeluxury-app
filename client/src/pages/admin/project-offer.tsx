@@ -651,18 +651,18 @@ function PDFTemplate({
   const S = {
     // IMPORTANT: page is always LTR — RTL applied per-text-element only
     page:       { width: W, backgroundColor: "#fff", fontFamily: ff, direction: "ltr" as const, overflow: "hidden" as const },
-    header:     { background: "#ffffff", borderBottom: "3px solid #3bcac4", padding: "22px 40px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+    header:     { background: "#ffffff", padding: "22px 40px 30px", display: "flex", justifyContent: "space-between", alignItems: "center" },
     hLogo:      { flexShrink: 0 },
     hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
     hTagline:   { fontSize: 10, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
-    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, direction: dir, unicodeBidi: "embed" as const },
+    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#3bcac4", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
     hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
-    hLocation:  { fontSize: 13, color: "#64748b", marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
-    logo:       { height: 80, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
+    hLocation:  { fontSize: 15, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
+    logo:       { height: 160, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
     imgWrap1:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0 },
     imgWrap2:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
     imgFill:    { maxWidth: "100%", maxHeight: 420, height: "auto", display: "inline-block" as const, verticalAlign: "bottom" as const },
-    titleBar:   { background: "#f0f4f8", borderTop: "5px solid #3bcac4", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center" },
+    titleBar:   { background: "#f0f4f8", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center" },
     titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476", ...txt() },
     pricePill:  { background: "#3bcac4", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
     priceLbl:   { fontSize: 10, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1, ...txt() },
@@ -708,7 +708,7 @@ function PDFTemplate({
         {/* Right: city / country */}
         <div style={S.hRight}>
           {project.location && (
-            <div style={S.hLocation}>📍 {project.location}</div>
+            <div style={S.hLocation}>🇬🇪 {project.location}</div>
           )}
         </div>
       </div>
