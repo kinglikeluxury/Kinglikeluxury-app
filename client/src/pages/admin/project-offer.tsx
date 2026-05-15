@@ -655,7 +655,7 @@ function PDFTemplate({
     hLogo:      { flexShrink: 0 },
     hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
     hTagline:   { fontSize: 10, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
-    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#3bcac4", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
+    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
     hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
     hLocation:  { fontSize: 15, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
     logo:       { height: 160, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
@@ -698,7 +698,7 @@ function PDFTemplate({
           <img
             src={logoPath}
             alt="Kinglike"
-            style={{ height: 72, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
+            style={{ height: 220, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
           />
           <div style={S.hTitle}>{project.title}</div>
         </div>
@@ -706,7 +706,14 @@ function PDFTemplate({
         {/* Right: city / country */}
         <div style={S.hRight}>
           {project.location && (
-            <div style={S.hLocation}>🇬🇪 {project.location}</div>
+            <div style={{ ...S.hLocation, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+              <img
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 600'%3E%3Crect width='900' height='600' fill='white'/%3E%3Crect x='375' width='150' height='600' fill='%23FF0000'/%3E%3Crect y='225' width='900' height='150' fill='%23FF0000'/%3E%3Crect x='112' y='75' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='37' y='150' width='210' height='60' fill='%23FF0000'/%3E%3Crect x='727' y='75' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='652' y='150' width='210' height='60' fill='%23FF0000'/%3E%3Crect x='112' y='375' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='37' y='450' width='210' height='60' fill='%23FF0000'/%3E%3Crect x='727' y='375' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='652' y='450' width='210' height='60' fill='%23FF0000'/%3E%3C/svg%3E"
+                alt="GE"
+                style={{ width: 28, height: 19, objectFit: "cover", border: "1px solid #e2e8f0", borderRadius: 2, flexShrink: 0 }}
+              />
+              <span>{project.location}</span>
+            </div>
           )}
         </div>
       </div>
