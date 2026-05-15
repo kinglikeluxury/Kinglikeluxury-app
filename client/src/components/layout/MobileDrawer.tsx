@@ -289,6 +289,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: t("admin.approvals", "Approvals"), path: "/admin/approvals", icon: CheckSquare })}
                 {renderItem({ label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen })}
                 {renderItem({ label: `👥 ${t("admin.leads", "Leads Database")}`, path: "/admin/leads", icon: Users })}
+                {renderItem({ label: `📄 إنشاء عرض للمشاريع`, path: "/admin/project-offer", icon: FileText })}
               </div>
             </div>
           )}

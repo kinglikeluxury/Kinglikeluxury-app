@@ -141,6 +141,7 @@ const Navbar = () => {
                           <DropdownMenuItem asChild><Link href="/admin/add-project">{t("admin.createProject", "Add Project")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/blog">{t("admin.blogManagement", "Blog")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/leads">👥 {t("admin.leads", "Leads Database")}</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
                         </>
                       )}
                       <DropdownMenuSeparator />

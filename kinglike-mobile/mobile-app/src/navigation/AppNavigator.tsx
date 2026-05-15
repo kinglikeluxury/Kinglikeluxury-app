@@ -17,6 +17,7 @@ import ApprovalsScreen from '@screens/ApprovalsScreen';
 import AddProjectScreen from '@screens/AddProjectScreen';
 import SettingsScreen from '@screens/SettingsScreen';
 import PropertiesScreen from '@screens/PropertiesScreen';
+import PhoneVerificationScreen from '@screens/PhoneVerificationScreen';
 import { COLORS } from '@lib/theme';
 
 export type RootStackParamList = {
@@ -30,6 +31,7 @@ export type RootStackParamList = {
   };
   Login: undefined;
   Register: undefined;
+  PhoneVerification: { phoneNumber: string; onVerified?: () => void };
   Projects: undefined;
   Blog: undefined;
   SubmitProperty: undefined;
@@ -132,6 +134,11 @@ const AppNavigator = () => {
           name="Settings"
           component={SettingsScreen}
           options={{ title: t('nav.settings') }}
+        />
+        <Stack.Screen
+          name="PhoneVerification"
+          component={PhoneVerificationScreen}
+          options={{ title: t('auth.verifyPhone', 'Verify Phone'), headerBackVisible: true }}
         />
       </Stack.Navigator>
     </NavigationContainer>

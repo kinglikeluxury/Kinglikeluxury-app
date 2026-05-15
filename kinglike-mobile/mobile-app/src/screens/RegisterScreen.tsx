@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { COLORS, FONTS, SPACING } from '../lib/theme';
+import { sendVerificationCode } from '../lib/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
@@ -72,12 +73,28 @@ const RegisterScreen = () => {
         phoneNumber: phoneNumber || undefined,
         whatsappNumber: whatsappNumber || undefined,
       });
-      Alert.alert(t('common.success'), t('auth.registerSuccess'), [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('Home'),
-        },
-      ]);
+
+      // If phone number provided, send verification code and go to verification screen
+      if (phoneNumber) {
+        try {
+          const result = await sendVerificationCode(phoneNumber);
+          const method = result?.method === 'whatsapp' ? 'WhatsApp' : 'SMS';
+          Alert.alert(
+            t('common.success', 'Success'),
+            t('auth.registerSuccessVerify', `Account created! A verification code has been sent to your phone via ${method}.`),
+            [{ text: 'OK', onPress: () => navigation.navigate('PhoneVerification', { phoneNumber }) }]
+          );
+        } catch {
+          // Verification send failed — still go home, user can verify later
+          Alert.alert(t('common.success'), t('auth.registerSuccess'), [
+            { text: 'OK', onPress: () => navigation.navigate('Home') },
+          ]);
+        }
+      } else {
+        Alert.alert(t('common.success'), t('auth.registerSuccess'), [
+          { text: 'OK', onPress: () => navigation.navigate('Home') },
+        ]);
+      }
     } catch (error: any) {
       Alert.alert(t('auth.registerError'), error.message || t('auth.registerError'));
     } finally {

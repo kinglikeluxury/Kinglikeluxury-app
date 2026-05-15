@@ -105,6 +105,26 @@ export const logout = async () => {
   }
 };
 
+export const sendVerificationCode = async (phoneNumber: string) => {
+  try {
+    const response = await api.post('/auth/send-verification', { phoneNumber });
+    return response.data;
+  } catch (error) {
+    console.error('Send verification error:', error);
+    throw error;
+  }
+};
+
+export const verifyPhoneCode = async (phoneNumber: string, code: string) => {
+  try {
+    const response = await api.post('/auth/verify-code', { phoneNumber, code });
+    return response.data;
+  } catch (error) {
+    console.error('Verify code error:', error);
+    throw error;
+  }
+};
+
 export const getCurrentUser = async () => {
   try {
     const response = await api.get('/auth/me');
