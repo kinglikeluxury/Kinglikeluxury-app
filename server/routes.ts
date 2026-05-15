@@ -1075,15 +1075,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cloudinary diagnostics (admin only)
+  app.get("/api/cloudinary/test", isAuthenticated, async (req, res) => {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    res.json({
+      configured: !!(cloudName && apiKey && apiSecret),
+      cloudName: cloudName ? cloudName.substring(0, 4) + "***" : "MISSING",
+      apiKey: apiKey ? apiKey.substring(0, 6) + "***" : "MISSING",
+      apiSecretSet: !!apiSecret,
+    });
+  });
+
   // Photo upload → Cloudinary
   app.post("/api/photos/upload", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
       const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/photos", resourceType: "image" });
       res.json({ url: result.secureUrl, objectPath: result.secureUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading photo:", error);
-      res.status(500).json({ error: "Failed to upload photo" });
+      const message = error?.message || "Failed to upload photo";
+      res.status(500).json({ error: message });
     }
   });
 
@@ -1159,9 +1173,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
       const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/videos", resourceType: "video" });
       res.json({ url: result.secureUrl, objectPath: result.secureUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading video:", error);
-      res.status(500).json({ error: "Failed to upload video" });
+      const message = error?.message || "Failed to upload video";
+      res.status(500).json({ error: message });
     }
   });
 
