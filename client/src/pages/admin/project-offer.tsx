@@ -276,10 +276,11 @@ export default function ProjectOfferPage() {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pw, totalMm] });
       pdf.addImage(imgData, "PNG", 0, 0, pw, totalMm);
 
+      const floorStr = selectedFloors.length > 0 ? `Floor${floorsLabel(selectedFloors).replace(/\s/g,"")}` : "";
       const parts = [
         selectedProject.title || "offer",
         apartmentType || "",
-        totalArea ? `${totalArea}m2` : "",
+        floorStr,
         totalPrice > 0 ? `$${fmt(totalPrice)}` : "",
       ].filter(Boolean).map((s) => s.replace(/\s+/g, "_").replace(/[^\w$.\-]/g, ""));
       pdf.save(`${parts.join("_")}.pdf`);
