@@ -276,8 +276,13 @@ export default function ProjectOfferPage() {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pw, totalMm] });
       pdf.addImage(imgData, "PNG", 0, 0, pw, totalMm);
 
-      const fileName = (selectedProject.title || "offer").replace(/\s+/g, "_");
-      pdf.save(`${fileName}-offer.pdf`);
+      const parts = [
+        selectedProject.title || "offer",
+        apartmentType || "",
+        totalArea ? `${totalArea}m2` : "",
+        totalPrice > 0 ? `$${fmt(totalPrice)}` : "",
+      ].filter(Boolean).map((s) => s.replace(/\s+/g, "_").replace(/[^\w$.\-]/g, ""));
+      pdf.save(`${parts.join("_")}.pdf`);
     } finally {
       setGenerating(false);
       setB64Images([]);
