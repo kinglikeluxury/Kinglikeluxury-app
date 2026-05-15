@@ -582,8 +582,9 @@ function PDFTemplate({
     hTitle:     { fontSize: 30, fontWeight: 900 as const, color: "#fff", lineHeight: 1.25, marginBottom: 8 },
     hLocation:  { fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 4 },
     logo:       { height: 90, width: "auto", objectFit: "contain" as const, filter: "brightness(0) invert(1)", flexShrink: 0 },
-    heroImg:    { width: "100%", height: 320, objectFit: "cover" as const, display: "block" as const },
-    img2:       { width: "100%", height: 280, objectFit: "cover" as const, display: "block" as const, marginTop: 4 },
+    imgWrap1:   { width: "100%", height: 320, overflow: "hidden" as const, display: "block" as const },
+    imgWrap2:   { width: "100%", height: 280, overflow: "hidden" as const, display: "block" as const, marginTop: 4 },
+    imgFill:    { width: "100%", height: "100%", objectFit: "cover" as const, display: "block" as const },
     titleBar:   { background: "#f0f4f8", borderTop: "5px solid #3bcac4", padding: "16px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" },
     titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476" },
     pricePill:  { background: "linear-gradient(120deg,#3bcac4,#005476)", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
@@ -625,9 +626,9 @@ function PDFTemplate({
         )}
       </div>
 
-      {/* ── Images — stacked vertically, each full width ── */}
-      {hero   && <img src={hero}   style={S.heroImg} />}
-      {thumb1 && <img src={thumb1} style={S.img2}    />}
+      {/* ── Images — stacked vertically, each full width, no stretch ── */}
+      {hero   && <div style={S.imgWrap1}><img src={hero}   style={S.imgFill} /></div>}
+      {thumb1 && <div style={S.imgWrap2}><img src={thumb1} style={S.imgFill} /></div>}
 
       {/* ── Title bar with total price ── */}
       <div style={S.titleBar}>
