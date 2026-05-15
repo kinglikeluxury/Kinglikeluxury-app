@@ -653,8 +653,8 @@ function PDFTemplate({
     hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
     hLocation:  { fontSize: 13, color: "#64748b", marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
     logo:       { height: 80, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
-    imgWrap1:   { width: "100%", background: "#000", textAlign: "center" as const, lineHeight: 0 },
-    imgWrap2:   { width: "100%", background: "#000", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
+    imgWrap1:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0 },
+    imgWrap2:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
     imgFill:    { maxWidth: "100%", maxHeight: 420, height: "auto", display: "inline-block" as const, verticalAlign: "bottom" as const },
     titleBar:   { background: "#f0f4f8", borderTop: "5px solid #3bcac4", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center" },
     titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476", ...txt() },
@@ -684,16 +684,18 @@ function PDFTemplate({
   return (
     <div style={S.page}>
 
-      {/* ── Header — logo LEFT · title CENTER · location RIGHT (always, all langs) ── */}
+      {/* ── Header — logo CENTER · location RIGHT (always, all langs) ── */}
       <div style={{ ...S.header, direction: "ltr" }}>
-        {/* Left: Logo */}
-        <div style={S.hLogo}>
-          <img src={logoPath} alt="Kinglike" style={S.logo} />
-        </div>
+        {/* Left: spacer to balance the right column */}
+        <div style={{ minWidth: 120 }} />
 
-        {/* Center: tagline + project name */}
+        {/* Center: original-color logo + project title */}
         <div style={S.hCenter}>
-          <div style={S.hTagline}>KINGLIKE LUXURY REAL ESTATE</div>
+          <img
+            src={logoPath}
+            alt="Kinglike"
+            style={{ height: 72, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
+          />
           <div style={S.hTitle}>{project.title}</div>
         </div>
 
