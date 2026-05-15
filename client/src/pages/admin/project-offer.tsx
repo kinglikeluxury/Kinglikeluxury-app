@@ -228,7 +228,20 @@ export default function ProjectOfferPage() {
     if (!selectedProject) return;
     setGenerating(true);
     try {
-      // 1. Pre-load project images + optional floor plan as base64
+      // 1. Load Cairo Arabic font so html2canvas renders Arabic correctly
+      const existingLink = document.getElementById("cairo-font-link");
+      if (!existingLink) {
+        const link = document.createElement("link");
+        link.id   = "cairo-font-link";
+        link.rel  = "stylesheet";
+        link.href = "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap";
+        document.head.appendChild(link);
+      }
+      // Wait for all fonts (including Cairo) to be loaded
+      await document.fonts.ready;
+      await new Promise((r) => setTimeout(r, 400));
+
+      // 2. Pre-load project images + optional floor plan as base64
       const rawUrls: string[] = selectedProject.images?.slice(0, 2) ?? [];
       const [loaded, fpB64] = await Promise.all([
         Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
@@ -241,9 +254,9 @@ export default function ProjectOfferPage() {
       const el = pdfRef.current;
       if (!el) return;
       el.style.display = "block";
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 500));
 
-      // 2. Capture at scale 3 → sharp @300dpi-equivalent, PNG (lossless)
+      // 3. Capture at scale 3 → sharp @300dpi-equivalent, PNG (lossless)
       const canvas = await html2canvas(el, {
         scale: 3,
         useCORS: true,
@@ -254,27 +267,14 @@ export default function ProjectOfferPage() {
       });
       el.style.display = "none";
 
-      // 3. PNG → no lossy compression on the image data
+      // 4. PNG data
       const imgData = canvas.toDataURL("image/png");
 
-      // 4. Embed in PDF — split into pages if taller than A4
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pw  = pdf.internal.pageSize.getWidth();   // 210 mm
-      const ph  = pdf.internal.pageSize.getHeight();  // 297 mm
-      // px per mm  =  (canvas.width / scale) / pw
-      const pxPerMm = (canvas.width / 3) / pw;
-      const totalMm = (canvas.height / 3) / pxPerMm;  // total mm height of content
-
-      let offsetMm = 0;
-      let pageIndex = 0;
-      while (offsetMm < totalMm) {
-        if (pageIndex > 0) pdf.addPage();
-        // addImage: x, y (in mm on pdf page), width, height
-        // We shift the image up by offsetMm each page
-        pdf.addImage(imgData, "PNG", 0, -offsetMm, pw, totalMm);
-        offsetMm += ph;
-        pageIndex++;
-      }
+      // 5. Single custom-height page — no splitting, no text gets cut
+      const pw       = 210;   // A4 width in mm
+      const totalMm  = Math.round((canvas.height / canvas.width) * pw);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pw, totalMm] });
+      pdf.addImage(imgData, "PNG", 0, 0, pw, totalMm);
 
       const fileName = (selectedProject.title || "offer").replace(/\s+/g, "_");
       pdf.save(`${fileName}-offer.pdf`);
@@ -612,8 +612,8 @@ function PDFTemplate({
   const W   = 794;
   const dir = isRTL ? "rtl" : "ltr";
   const ff  = isRTL
-    ? '"Tahoma","Arial Unicode MS","Arial","sans-serif"'
-    : '"Arial","Helvetica Neue","sans-serif"';
+    ? '"Cairo","Tahoma","Arial Unicode MS","Arial","sans-serif"'
+    : '"Cairo","Arial","Helvetica Neue","sans-serif"';
 
   // Use preloaded base64 images when available, else fallback to raw URLs
   const imgs: string[] = b64Images?.length
@@ -658,12 +658,12 @@ function PDFTemplate({
     imgFill:    { maxWidth: "100%", maxHeight: 420, height: "auto", display: "inline-block" as const, verticalAlign: "bottom" as const },
     titleBar:   { background: "#f0f4f8", borderTop: "5px solid #3bcac4", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center" },
     titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476", ...txt() },
-    pricePill:  { background: "linear-gradient(120deg,#3bcac4,#005476)", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
+    pricePill:  { background: "#3bcac4", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
     priceLbl:   { fontSize: 10, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1, ...txt() },
     priceVal:   { fontSize: 24, fontWeight: 900 as const, color: "#fff" },
     grid:       { padding: "22px 40px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
     cell:       { borderRadius: 10, padding: "13px 18px", background: "#f1f5f9", border: "1px solid #dde3ea" },
-    cellAccent: { borderRadius: 10, padding: "13px 18px", background: "linear-gradient(120deg,#005476,#3bcac4)", border: "none" },
+    cellAccent: { borderRadius: 10, padding: "13px 18px", background: "#3bcac4", border: "none" },
     cellLbl:    { fontSize: 11, color: "#64748b", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
     cellLblA:   { fontSize: 11, color: "rgba(255,255,255,0.75)", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
     cellVal:    { fontSize: 17, fontWeight: 700 as const, color: "#0f172a", lineHeight: 1.3, textAlign: ta, ...txt() },
@@ -743,7 +743,7 @@ function PDFTemplate({
           }}>
             {/* Section label bar */}
             <div style={{
-              background: "linear-gradient(120deg,#005476,#3bcac4)",
+              background: "#3bcac4",
               padding: "10px 20px",
               display: "flex",
               flexDirection: isRTL ? "row-reverse" : "row",
