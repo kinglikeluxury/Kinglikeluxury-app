@@ -257,7 +257,13 @@ export default function ProjectOfferPage() {
       }
       // Wait for all fonts (including Cairo) to be loaded
       await document.fonts.ready;
-      await new Promise((r) => setTimeout(r, 400));
+      // Force Cairo to render at least once so the browser caches the glyph shapes
+      const probe = document.createElement("span");
+      probe.style.cssText = "font-family:'Cairo';visibility:hidden;position:fixed;font-size:20px";
+      probe.textContent = "مرحبا بك في النظام";
+      document.body.appendChild(probe);
+      await new Promise((r) => setTimeout(r, 1200));
+      document.body.removeChild(probe);
 
       // 2. Pre-load project images + optional floor plan as base64
       const rawUrls: string[] = selectedProject.images?.slice(0, 2) ?? [];
@@ -697,8 +703,8 @@ function PDFTemplate({
     cellValA:   { fontSize: 17, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3, textAlign: ta, ...txt() },
     footer:     { background: "#ffffff", marginTop: 6, borderTop: "1px solid #e2e8f0" },
     fInner:     { padding: "24px 40px", display: "flex", flexDirection: "row" as const, justifyContent: "space-between", alignItems: "center" },
-    fLogo:      { height: 100, width: "auto", objectFit: "contain" as const, display: "block" as const },
-    fCenter:    { flex: 1, textAlign: "center" as const },
+    fLogo:      { height: 320, width: "auto", objectFit: "contain" as const, display: "block" as const, margin: "0 auto" },
+    fCenter:    { flex: 1, display: "flex" as const, justifyContent: "center" as const, alignItems: "center" as const },
     fWebsite:   { color: "#3bcac4", fontWeight: 800 as const, fontSize: 15, letterSpacing: 0.5, display: "block" as const },
     fRight:     { textAlign: "right" as const, minWidth: 160 },
     fPhoneLbl:  { fontSize: 10, color: "#94a3b8", marginBottom: 3, letterSpacing: 1 },
@@ -747,7 +753,7 @@ function PDFTemplate({
 
       {/* ── Title bar with total price ── */}
       <div style={S.titleBar}>
-        <div style={S.titleText}>{t("offerTitle", lang)}</div>
+        <div dir={dir} style={S.titleText}>{t("offerTitle", lang)}</div>
         {totalPrice > 0 && (
           <div style={S.pricePill}>
             <div style={S.priceLbl}>{t("totalPrice", lang)}</div>
@@ -760,8 +766,8 @@ function PDFTemplate({
       <div style={S.grid}>
         {rows.map((row, i) => (
           <div key={i} style={row.accent ? S.cellAccent : S.cell}>
-            <div style={row.accent ? S.cellLblA : S.cellLbl}>{row.label}</div>
-            <div style={row.accent ? S.cellValA : S.cellVal}>{row.value}</div>
+            <div dir={dir} style={row.accent ? S.cellLblA : S.cellLbl}>{row.label}</div>
+            <div dir={dir} style={row.accent ? S.cellValA : S.cellVal}>{row.value}</div>
           </div>
         ))}
       </div>
@@ -785,7 +791,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🏗️</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
                 {lang === "ar" ? "المخطط الداخلي للشقة" :
                  lang === "he" ? "תוכנית הדירה" :
                  lang === "ru" ? "Планировка квартиры" :
