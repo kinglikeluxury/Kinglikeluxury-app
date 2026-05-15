@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Video, X, Play, Upload, Loader2 } from "lucide-react";
 import { videoCompressor, CompressionProgress } from "@/lib/videoCompression";
+import { uploadToCloudinary } from "@/lib/cloudinaryUpload";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 
 interface VideoUploaderProps {
@@ -17,131 +18,85 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
   const [videos, setVideos] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState<CompressionProgress | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [showPatientPopup, setShowPatientPopup] = useState(false);
-  const [uploadController, setUploadController] = useState<AbortController | null>(null);
+  const [cancelled, setCancelled] = useState(false);
 
-  // Convert any storage URLs to object paths and update videos when initialVideos changes
   useEffect(() => {
-    const convertedVideos = initialVideos.map(video => {
-      if (video.includes('storage.googleapis.com') && video.includes('.private/uploads/')) {
-        const urlParts = video.split('/');
-        const bucketIndex = urlParts.findIndex((part: string) => part.includes('objstore'));
-        if (bucketIndex !== -1 && urlParts[bucketIndex + 1]) {
-          const objectPath = `/objects/${urlParts.slice(bucketIndex + 1).join('/').split('?')[0]}`;
-          return objectPath;
-        }
-      }
-      return video;
-    });
-    setVideos(convertedVideos);
+    setVideos(initialVideos.filter(Boolean));
   }, [initialVideos]);
 
-  // Show patient popup when compression starts and hide after 3 seconds
   useEffect(() => {
-    if (compressionProgress?.phase === 'loading') {
+    if (compressionProgress?.phase === "loading") {
       setShowPatientPopup(true);
-      const timer = setTimeout(() => {
-        setShowPatientPopup(false);
-      }, 5000); // Hide after 5 seconds
-      
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setShowPatientPopup(false), 5000);
+      return () => clearTimeout(t);
     }
   }, [compressionProgress?.phase]);
 
   const cancelUpload = () => {
-    if (uploadController) {
-      uploadController.abort();
-      setUploadController(null);
-    }
+    setCancelled(true);
     setIsUploading(false);
     setCompressionProgress(null);
     setShowPatientPopup(false);
+    setUploadProgress(0);
   };
 
   const handleFileUpload = async (files: File[]) => {
-    // Create abort controller for this upload session
-    const controller = new AbortController();
-    setUploadController(controller);
+    setCancelled(false);
     setIsUploading(true);
     setCompressionProgress(null);
-    
-    try {
-      const uploadedVideos = [];
-      
-      for (let i = 0; i < files.length; i++) {
-        // Check if upload was cancelled
-        if (controller.signal.aborted) {
-          throw new Error('Upload cancelled');
-        }
+    setUploadProgress(0);
 
-        const file = files[i];
-        let processedFile = file;
-        
-        // Compress video if needed
+    const uploadedVideos: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        if (cancelled) break;
+
+        let file = files[i];
+
         if (videoCompressor.shouldCompress(file)) {
           setCompressionProgress({
-            phase: 'loading',
+            phase: "loading",
             progress: 0,
-            message: `Compressing video ${i + 1} of ${files.length}...`
+            message: `Compressing video ${i + 1} of ${files.length}...`,
           });
-          
           try {
-            processedFile = await videoCompressor.compressVideo(file, setCompressionProgress);
-            
-            // Check if cancelled during compression
-            if (controller.signal.aborted) {
-              throw new Error('Upload cancelled');
-            }
-          } catch (compressionError: unknown) {
-            if (compressionError instanceof Error && compressionError.message === 'Upload cancelled') {
-              throw compressionError;
-            }
-            console.warn('Video compression failed, uploading original:', compressionError);
-            // Continue with original file if compression fails
+            file = await videoCompressor.compressVideo(file, setCompressionProgress);
+          } catch (err) {
+            console.warn("Compression failed, using original:", err);
           }
         }
-        
-        // Check if cancelled before uploading
-        if (controller.signal.aborted) {
-          throw new Error('Upload cancelled');
-        }
 
-        // Upload file directly to server as multipart form data
-        const formData = new FormData();
-        formData.append("file", processedFile);
+        if (cancelled) break;
 
-        const uploadResponse = await fetch("/api/videos/upload", {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-          signal: controller.signal,
+        setCompressionProgress(null);
+
+        const result = await uploadToCloudinary(file, "video", (pct) => {
+          const overall = Math.round(((i + pct / 100) / files.length) * 100);
+          setUploadProgress(overall);
         });
 
-        if (!uploadResponse.ok) {
-          const errText = await uploadResponse.text();
-          throw new Error(`Upload failed: ${errText}`);
-        }
-
-        const { url } = await uploadResponse.json();
-        uploadedVideos.push(url);
+        uploadedVideos.push(result.secure_url);
+        setUploadProgress(Math.round(((i + 1) / files.length) * 100));
       }
-      
-      const newVideos = [...videos, ...uploadedVideos];
-      setVideos(newVideos);
-      onVideosChange(newVideos);
+
+      if (!cancelled && uploadedVideos.length > 0) {
+        const newVideos = [...videos, ...uploadedVideos];
+        setVideos(newVideos);
+        onVideosChange(newVideos);
+      }
     } catch (error: unknown) {
-      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Upload cancelled')) {
-        console.log('Upload cancelled by user');
-        // Don't show error for cancelled uploads
-      } else {
+      if (error instanceof Error && error.message !== "Upload cancelled") {
         console.error("Error uploading videos:", error);
-        alert('Failed to upload videos. Please try again.');
+        alert(`Failed to upload video: ${error.message}`);
       }
     } finally {
       setIsUploading(false);
       setCompressionProgress(null);
       setShowPatientPopup(false);
-      setUploadController(null);
+      setUploadProgress(0);
     }
   };
 
@@ -149,14 +104,6 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
     const newVideos = videos.filter((_, i) => i !== index);
     setVideos(newVideos);
     onVideosChange(newVideos);
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -167,19 +114,18 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
           Property Videos ({videos.length} uploaded)
         </CardTitle>
         <p className="text-sm text-gray-600">
-          Upload videos with automatic 1080p HD compression for optimal quality and fast loading. Perfect for virtual tours and detailed property showcases.
+          Upload videos with automatic 1080p HD compression for optimal quality and fast loading.
         </p>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Upload Button */}
           {!isUploading && (
-            <div className="space-y-4">
+            <div>
               <input
                 type="file"
                 id="video-upload"
                 multiple
-                accept=".mp4,.mov,.avi,.mkv,.wmv,.flv,.webm,.m4v,.3gp,.ogv,.ts,.mts,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/x-ms-wmv,video/x-flv,video/webm,video/x-m4v,video/3gpp,video/ogg"
+                accept=".mp4,.mov,.avi,.mkv,.wmv,.flv,.webm,.m4v,.3gp,.ogv,video/*"
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
                     handleFileUpload(Array.from(e.target.files));
@@ -189,7 +135,7 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
               />
               <Button
                 type="button"
-                onClick={() => document.getElementById('video-upload')?.click()}
+                onClick={() => document.getElementById("video-upload")?.click()}
                 className="w-full"
               >
                 <div className="flex items-center gap-2">
@@ -200,9 +146,9 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
             </div>
           )}
 
-          {(isUploading || compressionProgress) && (
+          {isUploading && (
             <div className="text-center py-4 space-y-3">
-              {compressionProgress && (
+              {compressionProgress ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -210,25 +156,28 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
                   </div>
                   <Progress value={compressionProgress.progress} className="w-full max-w-md mx-auto" />
                   <p className="text-xs text-gray-500">
-                    {compressionProgress.phase === 'loading' && 'Initializing compression engine...'}
-                    {compressionProgress.phase === 'compressing' && 'Compressing to 1080p HD...'}
-                    {compressionProgress.phase === 'complete' && 'Compression complete! Uploading...'}
-                    {compressionProgress.phase === 'error' && 'Compression failed, uploading original...'}
+                    {compressionProgress.phase === "loading" && "Initializing compression engine..."}
+                    {compressionProgress.phase === "compressing" && "Compressing to 1080p HD..."}
+                    {compressionProgress.phase === "complete" && "Compression complete! Uploading..."}
+                    {compressionProgress.phase === "error" && "Compression failed, uploading original..."}
                   </p>
                 </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <p className="text-sm text-gray-500">Uploading to Cloudinary... {uploadProgress}%</p>
+                  </div>
+                  <Progress value={uploadProgress} className="w-full max-w-md mx-auto" />
+                </div>
               )}
-              {isUploading && !compressionProgress && (
-                <p className="text-sm text-gray-500">Uploading videos...</p>
-              )}
-              
-              {/* Cancel Button */}
+
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={cancelUpload}
-                className="mt-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-                data-testid="button-cancel-upload"
+                className="text-red-600 border-red-200 hover:bg-red-50"
               >
                 <X className="h-4 w-4 mr-1" />
                 Cancel Upload
@@ -236,66 +185,39 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
             </div>
           )}
 
-          {/* Patient Popup with 3D Effect */}
+          {/* Patient Popup */}
           <AlertDialog open={showPatientPopup}>
             <AlertDialogContent className="sm:max-w-md border-0 shadow-2xl bg-gradient-to-br from-white via-blue-50 to-indigo-100">
               <div className="flex flex-col items-center text-center space-y-6 p-8 relative overflow-hidden">
-                {/* 3D Background Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-400/10 to-pink-400/10 transform rotate-12 scale-110"></div>
-                
-                {/* 3D Logo Container */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-400/10 to-pink-400/10 transform rotate-12 scale-110" />
                 <div className="relative z-10">
-                  <div className="w-24 h-24 relative transform-gpu perspective-1000">
-                    {/* 3D Logo with floating animation */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full opacity-20 blur-xl animate-pulse"></div>
-                    <div className="relative w-full h-full transform-gpu transition-transform duration-1000 hover:scale-110 animate-float">
-                      <div className="absolute inset-0 bg-white rounded-full shadow-2xl transform rotate-6 scale-105 opacity-30"></div>
-                      <div className="absolute inset-0 bg-white rounded-full shadow-xl transform -rotate-3 scale-95 opacity-50"></div>
-                      <div className="relative w-full h-full bg-white rounded-full shadow-lg flex items-center justify-center transform-gpu hover:rotate-y-12 transition-transform duration-500">
-                        <img 
-                          src={logoPath} 
-                          alt="Kinglike Luxury" 
-                          className="w-16 h-16 object-contain transform-gpu hover:scale-110 transition-transform duration-300 drop-shadow-lg"
-                        />
-                      </div>
+                  <div className="w-24 h-24 relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full opacity-20 blur-xl animate-pulse" />
+                    <div className="relative w-full h-full bg-white rounded-full shadow-lg flex items-center justify-center">
+                      <img src={logoPath} alt="Kinglike Luxury" className="w-16 h-16 object-contain drop-shadow-lg" />
                     </div>
                   </div>
                 </div>
-                
-                {/* 3D Text */}
-                <div className="relative z-10">
-                  <AlertDialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent transform-gpu hover:scale-105 transition-transform duration-300 drop-shadow-lg">
-                    Be patient !<br />your videos will be uploaded soon
-                  </AlertDialogTitle>
-                </div>
-                
+                <AlertDialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent relative z-10">
+                  Be patient!<br />Your video will be uploaded soon
+                </AlertDialogTitle>
                 <AlertDialogDescription className="text-sm text-gray-600 relative z-10 font-medium">
-                  We're preparing your videos for optimal quality and fast loading
+                  We're preparing your video for optimal quality and fast loading
                 </AlertDialogDescription>
-                
-                {/* Cancel Button in Popup */}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={cancelUpload}
-                  className="relative z-10 mt-4 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 bg-white/80 backdrop-blur-sm"
-                  data-testid="button-cancel-popup"
+                  className="relative z-10 text-red-600 border-red-200 hover:bg-red-50 bg-white/80"
                 >
                   <X className="h-4 w-4 mr-1" />
                   Cancel
                 </Button>
-                
-                {/* Floating Particles Effect */}
-                <div className="absolute top-4 left-4 w-2 h-2 bg-blue-400 rounded-full opacity-60 animate-bounce"></div>
-                <div className="absolute top-8 right-6 w-1 h-1 bg-purple-400 rounded-full opacity-40 animate-ping"></div>
-                <div className="absolute bottom-6 left-8 w-1.5 h-1.5 bg-indigo-400 rounded-full opacity-50 animate-pulse"></div>
-                <div className="absolute bottom-4 right-4 w-1 h-1 bg-pink-400 rounded-full opacity-30 animate-bounce"></div>
               </div>
             </AlertDialogContent>
           </AlertDialog>
 
-          {/* Video List */}
           {videos.length > 0 && (
             <div className="space-y-3">
               {videos.map((video, index) => (
@@ -306,13 +228,11 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
                     </div>
                     <div>
                       <p className="font-medium text-sm">Property Video {index + 1}</p>
-                      <p className="text-xs text-gray-500">1080p HD Video</p>
+                      <p className="text-xs text-gray-500 truncate max-w-[200px]">{video.split("/").pop()}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-1080p HD
-                    </Badge>
+                    <Badge variant="outline" className="text-xs">1080p HD</Badge>
                     <Button
                       type="button"
                       size="sm"
@@ -336,13 +256,12 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
             </div>
           )}
 
-          {/* Info Section */}
           <div className="bg-blue-50 p-4 rounded-lg">
             <h4 className="font-medium text-blue-900 mb-2">Video Upload Benefits:</h4>
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Automatic 1080p HD compression for optimal quality and size</li>
-              <li>• No quantity restrictions - Add as many videos as needed</li>
-              <li>• Smart compression - only processes large or unoptimized files</li>
+              <li>• No quantity restrictions — add as many videos as needed</li>
+              <li>• Smart compression — only processes large or unoptimized files</li>
               <li>• Perfect for virtual tours, drone footage, and walkthroughs</li>
             </ul>
           </div>
@@ -351,4 +270,3 @@ export function VideoUploader({ onVideosChange, initialVideos = [] }: VideoUploa
     </Card>
   );
 }
-

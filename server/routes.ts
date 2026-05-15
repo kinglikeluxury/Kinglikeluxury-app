@@ -1088,20 +1088,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Photo upload → Cloudinary
-  app.post("/api/photos/upload", isAuthenticated, upload.single("file"), async (req, res) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No file provided" });
-      const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/photos", resourceType: "image" });
-      res.json({ url: result.secureUrl, objectPath: result.secureUrl });
-    } catch (error: any) {
-      console.error("Error uploading photo:", error);
-      const message = error?.message || "Failed to upload photo";
-      res.status(500).json({ error: message });
-    }
+  // Photo upload — handled client-side via unsigned Cloudinary preset (kinglike_unsigned)
+  // This stub is kept for backward compatibility only
+  app.post("/api/photos/upload", isAuthenticated, (req, res) => {
+    res.status(410).json({ error: "Server-side upload removed. Use direct unsigned Cloudinary upload from the client." });
   });
 
-  // Legacy process endpoint (kept for backward compatibility)
   app.post("/api/photos/process", isAuthenticated, async (req, res) => {
     const { photoURL } = req.body;
     res.status(200).json({ objectPath: photoURL || "" });
@@ -1167,17 +1159,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Video upload → Cloudinary
-  app.post("/api/videos/upload", isAuthenticated, upload.single("file"), async (req, res) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No file provided" });
-      const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/videos", resourceType: "video" });
-      res.json({ url: result.secureUrl, objectPath: result.secureUrl });
-    } catch (error: any) {
-      console.error("Error uploading video:", error);
-      const message = error?.message || "Failed to upload video";
-      res.status(500).json({ error: message });
-    }
+  // Video upload — handled client-side via unsigned Cloudinary preset (kinglike_unsigned)
+  app.post("/api/videos/upload", isAuthenticated, (req, res) => {
+    res.status(410).json({ error: "Server-side upload removed. Use direct unsigned Cloudinary upload from the client." });
   });
 
   app.post("/api/videos/process", isAuthenticated, async (req, res) => {
@@ -1185,16 +1169,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ objectPath: videoURL || "" });
   });
 
-  // Audio upload → Cloudinary
-  app.post("/api/audios/upload", isAuthenticated, upload.single("file"), async (req, res) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No file provided" });
-      const result = await uploadToCloudinary(req.file.buffer, { folder: "kinglike/audio", resourceType: "video" });
-      res.json({ url: result.secureUrl, objectPath: result.secureUrl });
-    } catch (error) {
-      console.error("Error uploading audio:", error);
-      res.status(500).json({ error: "Failed to upload audio" });
-    }
+  // Audio upload — handled client-side via unsigned Cloudinary preset (kinglike_unsigned)
+  app.post("/api/audios/upload", isAuthenticated, (req, res) => {
+    res.status(410).json({ error: "Server-side upload removed. Use direct unsigned Cloudinary upload from the client." });
   });
 
   app.post("/api/audios/process", isAuthenticated, async (req, res) => {
