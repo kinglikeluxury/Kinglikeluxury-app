@@ -616,7 +616,7 @@ function PDFTemplate({
 }: any) {
 
   const W   = 794;
-  const dir = isRTL ? "rtl" : "ltr";
+  const dir: "rtl" | "ltr" = isRTL ? "rtl" : "ltr";
   const ff  = isRTL
     ? '"Cairo","Tahoma","Arial Unicode MS","Arial","sans-serif"'
     : '"Cairo","Arial","Helvetica Neue","sans-serif"';
@@ -662,7 +662,7 @@ function PDFTemplate({
     imgWrap1:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0 },
     imgWrap2:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
     imgFill:    { maxWidth: "100%", maxHeight: 420, height: "auto", display: "inline-block" as const, verticalAlign: "bottom" as const },
-    titleBar:   { background: "#f0f4f8", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center" },
+    titleBar:   { background: "#f0f4f8", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as "row" | "row-reverse", justifyContent: "space-between", alignItems: "center" },
     titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476", ...txt() },
     pricePill:  { background: "#3bcac4", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
     priceLbl:   { fontSize: 10, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1, ...txt() },
