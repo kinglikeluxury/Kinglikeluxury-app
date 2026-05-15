@@ -75,6 +75,7 @@
     "express-session": "^1.18.1",
     "framer-motion": "^11.13.1",
     "google-translate-api-x": "^10.7.2",
+    "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "i18next": "^25.0.2",
     "i18next-browser-languagedetector": "^8.0.5",
