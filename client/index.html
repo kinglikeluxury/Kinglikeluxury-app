@@ -24,18 +24,50 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Suppress Replit HMR WebSocket "unknown runtime error" overlay
+      // Suppress Vite "unknown runtime error" overlay (empty HMR errors from Replit)
       (function() {
-        var _origAddEventListener = window.addEventListener.bind(window);
+        // 1. MutationObserver: immediately remove any vite-error-overlay with no real message
+        function removeBlankViteOverlay(node) {
+          if (!node || node.nodeName.toLowerCase() !== 'vite-error-overlay') return;
+          // Remove synchronously first (covers no-shadowRoot case)
+          try {
+            var root = node.shadowRoot;
+            if (!root) { node.remove(); return; }
+            var msgEl = root.querySelector('.message-body');
+            var msg = msgEl ? msgEl.textContent.trim() : '';
+            if (!msg || msg === 'unknown runtime error') node.remove();
+          } catch(e) { node.remove(); }
+        }
+        var obs = new MutationObserver(function(mutations) {
+          mutations.forEach(function(m) {
+            m.addedNodes.forEach(removeBlankViteOverlay);
+          });
+        });
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+        // Also sweep any overlay already in the DOM on load
+        document.addEventListener('DOMContentLoaded', function() {
+          document.querySelectorAll('vite-error-overlay').forEach(removeBlankViteOverlay);
+        });
+
+        // 2. Intercept window.onerror — cancel empty errors before Vite sees them
+        var _origOnerror = window.onerror;
+        window.onerror = function(msg, src, line, col, err) {
+          if (!msg && !err) return true; // swallow empty
+          if (typeof msg === 'string' && msg.trim() === '') return true;
+          if (_origOnerror) return _origOnerror.apply(this, arguments);
+        };
+
+        // 3. Wrap addEventListener to skip empty error events
+        var _orig = window.addEventListener.bind(window);
         window.addEventListener = function(type, listener, options) {
           if (type === 'error') {
-            var wrapped = function(event) {
-              if (!event || (!event.message && !event.filename && event.error == null)) return;
-              return listener.call(this, event);
+            var wrapped = function(e) {
+              if (!e || (!e.message && !e.filename && e.error == null)) return;
+              return listener.call(this, e);
             };
-            return _origAddEventListener(type, wrapped, options);
+            return _orig(type, wrapped, options);
           }
-          return _origAddEventListener(type, listener, options);
+          return _orig(type, listener, options);
         };
       })();
     </script>
