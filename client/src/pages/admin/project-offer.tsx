@@ -246,23 +246,27 @@ export default function ProjectOfferPage() {
     if (!selectedProject) return;
     setGenerating(true);
     try {
-      // 1. Load Cairo Arabic font so html2canvas renders Arabic correctly
-      const existingLink = document.getElementById("cairo-font-link");
-      if (!existingLink) {
+      // 1. Load all Arabic fonts used by the website (same stack as index.css)
+      const arabicFontsHref = "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap";
+      if (!document.getElementById("arabic-fonts-link")) {
         const link = document.createElement("link");
-        link.id   = "cairo-font-link";
+        link.id   = "arabic-fonts-link";
         link.rel  = "stylesheet";
-        link.href = "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap";
+        link.href = arabicFontsHref;
         document.head.appendChild(link);
       }
-      // Wait for all fonts (including Cairo) to be loaded
+      // Wait for all fonts to be fully loaded
       await document.fonts.ready;
-      // Force Cairo to render at least once so the browser caches the glyph shapes
-      const probe = document.createElement("span");
-      probe.style.cssText = "font-family:'Cairo';visibility:hidden;position:fixed;font-size:20px";
-      probe.textContent = "مرحبا بك في النظام";
+      // Force all Arabic fonts to render so the browser caches glyph shapes
+      const probe = document.createElement("div");
+      probe.style.cssText = "visibility:hidden;position:fixed;top:-9999px;font-size:20px;direction:rtl";
+      probe.innerHTML = `
+        <span style="font-family:'Cairo'">مرحباً باتومي جورجيا شقة فيلا</span>
+        <span style="font-family:'Tajawal'">مرحباً باتومي جورجيا شقة فيلا</span>
+        <span style="font-family:'Noto Sans Arabic'">مرحباً باتومي جورجيا شقة فيلا</span>
+      `;
       document.body.appendChild(probe);
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((r) => setTimeout(r, 1500));
       document.body.removeChild(probe);
 
       // 2. Pre-load project images + optional floor plan as base64
@@ -645,7 +649,7 @@ function PDFTemplate({
   const W   = 794;
   const dir: "rtl" | "ltr" = isRTL ? "rtl" : "ltr";
   const ff  = isRTL
-    ? '"Cairo","Tahoma","Arial Unicode MS","Arial","sans-serif"'
+    ? '"Cairo","Tajawal","Noto Sans Arabic","Tahoma","Arial","sans-serif"'
     : '"Cairo","Arial","Helvetica Neue","sans-serif"';
 
   // Use preloaded base64 images when available, else fallback to raw URLs
