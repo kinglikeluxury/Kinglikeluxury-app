@@ -76,27 +76,42 @@ function generateDeliveryDates() {
 
 const { items: DELIVERY_DATES, months: MONTH_NAMES } = generateDeliveryDates();
 
+/* ─── Image → base64 helper ──────────────────────────────────────────────── */
+async function imgToBase64(url: string): Promise<string> {
+  try {
+    const resp = await fetch(url, { mode: "cors", cache: "force-cache" });
+    const blob = await resp.blob();
+    return new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload  = () => res(reader.result as string);
+      reader.onerror = () => rej(new Error("read error"));
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return url; // fallback to original if CORS blocked
+  }
+}
+
 /* ─── Label Maps ──────────────────────────────────────────────────────────── */
 
 type LangCode = "ar"|"en"|"ru"|"ka"|"az"|"tr"|"zh"|"pl"|"he"|"it";
 
 const T: Record<string, Record<LangCode, string>> = {
-  offerTitle:      { ar:"عرض عقاري حصري", en:"Exclusive Real Estate Offer", ru:"Эксклюзивное предложение", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv Təklif", tr:"Özel Gayrimenkul Teklifi", zh:"独家房产报价", pl:"Ekskluzywna Oferta Nieruchomości", he:"הצעת נדל\"ן בלעדית", it:"Offerta Immobiliare Esclusiva" },
-  aptType:         { ar:"نوع الوحدة", en:"Unit Type", ru:"Тип квартиры", ka:"ბინის ტიპი", az:"Vahid növü", tr:"Daire Tipi", zh:"户型", pl:"Typ lokalu", he:"סוג היחידה", it:"Tipo unità" },
-  floor:           { ar:"الطابق", en:"Floor", ru:"Этаж", ka:"სართული", az:"Mərtəbə", tr:"Kat", zh:"楼层", pl:"Piętro", he:"קומה", it:"Piano" },
-  area:            { ar:"المساحة الإجمالية", en:"Total Area", ru:"Общая площадь", ka:"სრული ფართობი", az:"Ümumi Sahə", tr:"Toplam Alan", zh:"总面积", pl:"Powierzchnia całkowita", he:"שטח כולל", it:"Superficie totale" },
-  pricePerMeter:   { ar:"سعر المتر المربع", en:"Price per m²", ru:"Цена за м²", ka:"ფასი მ²-ზე", az:"m² başına qiymət", tr:"m² Fiyatı", zh:"每平米价格", pl:"Cena za m²", he:"מחיר למ\"ר", it:"Prezzo per m²" },
-  totalPrice:      { ar:"السعر الإجمالي", en:"Total Price", ru:"Общая цена", ka:"სრული ფასი", az:"Ümumi qiymət", tr:"Toplam Fiyat", zh:"总价", pl:"Cena całkowita", he:"מחיר כולל", it:"Prezzo totale" },
-  downPayment:     { ar:"الدفعة الأولى", en:"Down Payment", ru:"Первоначальный взнос", ka:"პირველადი შენატანი", az:"İlkin ödəniş", tr:"Peşinat", zh:"首付款", pl:"Wpłata własna", he:"מקדמה", it:"Acconto" },
-  remaining:       { ar:"المبلغ المتبقي", en:"Remaining Balance", ru:"Остаток", ka:"დარჩენილი თანხა", az:"Qalan məbləğ", tr:"Kalan Tutar", zh:"余款", pl:"Pozostała kwota", he:"יתרה", it:"Saldo rimanente" },
-  installments:    { ar:"عدد الأقساط الشهرية", en:"Monthly Installments", ru:"Ежемесячные рассрочки", ka:"თვიური განვადება", az:"Aylıq taksit sayı", tr:"Aylık Taksit Sayısı", zh:"月付期数", pl:"Liczba rat miesięcznych", he:"מספר תשלומים חודשיים", it:"Rate mensili" },
-  monthlyPayment:  { ar:"القسط الشهري", en:"Monthly Payment", ru:"Ежемесячный платёж", ka:"ყოველთვიური გადასახადი", az:"Aylıq ödəniş", tr:"Aylık Taksit", zh:"月供", pl:"Rata miesięczna", he:"תשלום חודשי", it:"Rata mensile" },
-  deliveryType:    { ar:"نوع التشطيب والتسليم", en:"Finishing & Delivery", ru:"Отделка и тип сдачи", ka:"მოსაპირკეთებელი და ჩაბარება", az:"Bitirmə və çatdırılma növü", tr:"Bitişli ve Teslim Türü", zh:"精装交付类型", pl:"Wykończenie i odbiór", he:"סוג גמר ומסירה", it:"Finitura e consegna" },
-  deliveryDate:    { ar:"موعد التسليم المتوقع", en:"Expected Delivery", ru:"Ожидаемая сдача", ka:"მოსალოდნელი ჩაბარება", az:"Gözlənilən çatdırılma", tr:"Tahmini Teslim", zh:"预计交付日期", pl:"Planowany odbiór", he:"מועד מסירה משוער", it:"Consegna prevista" },
-  readyNow:        { ar:"جاهز للتسليم الفوري", en:"Ready for Immediate Delivery", ru:"Готов к немедленной сдаче", ka:"მზადაა დაუყოვნებლივ ჩაბარებისთვის", az:"Dərhal çatdırılmağa hazır", tr:"Hemen Teslime Hazır", zh:"可立即交付", pl:"Gotowy do natychmiastowego odbioru", he:"מוכן למסירה מיידית", it:"Pronto per la consegna immediata" },
-  website:         { ar:"الموقع الإلكتروني", en:"Website", ru:"Сайт", ka:"ვებსაიტი", az:"Vebsayt", tr:"Web Sitesi", zh:"网站", pl:"Strona internetowa", he:"אתר", it:"Sito web" },
-  contact:         { ar:"للتواصل والاستفسار", en:"Contact & Inquiries", ru:"Контакт и запросы", ka:"კონტაქტი", az:"Əlaqə", tr:"İletişim", zh:"联系我们", pl:"Kontakt", he:"צור קשר", it:"Contatti" },
-  exclusiveOffer:  { ar:"عرض حصري من", en:"Exclusive Offer by", ru:"Эксклюзивное предложение от", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv təklif", tr:"Özel Teklif:", zh:"独家报价", pl:"Oferta ekskluzywna od", he:"הצעה בלעדית של", it:"Offerta esclusiva di" },
+  offerTitle:     { ar:"عرض عقاري حصري", en:"Exclusive Property Offer", ru:"Эксклюзивное предложение", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv Əmlak Təklifi", tr:"Özel Gayrimenkul Teklifi", zh:"独家房产报价单", pl:"Ekskluzywna Oferta Nieruchomości", he:"הצעת נדל\"ן בלעדית", it:"Offerta Immobiliare Esclusiva" },
+  aptType:        { ar:"نوع الوحدة السكنية", en:"Unit Type", ru:"Тип объекта", ka:"ბინის ტიპი", az:"Mənzil növü", tr:"Daire Tipi", zh:"户型", pl:"Typ mieszkania", he:"סוג הדירה", it:"Tipologia unità" },
+  floor:          { ar:"الطابق", en:"Floor", ru:"Этаж", ka:"სართული", az:"Mərtəbə", tr:"Kat", zh:"所在楼层", pl:"Piętro", he:"קומה", it:"Piano" },
+  area:           { ar:"المساحة الإجمالية", en:"Total Area", ru:"Общая площадь", ka:"სრული ფართობი", az:"Ümumi sahə", tr:"Toplam Alan", zh:"建筑面积", pl:"Powierzchnia całkowita", he:"שטח כולל", it:"Superficie totale" },
+  pricePerMeter:  { ar:"سعر المتر المربع", en:"Price per m²", ru:"Цена за 1 м²", ka:"ფასი 1 მ²-ზე", az:"1 m² qiyməti", tr:"m² Birim Fiyatı", zh:"每平米单价", pl:"Cena za 1 m²", he:"מחיר למ\"ר", it:"Prezzo al m²" },
+  totalPrice:     { ar:"السعر الإجمالي", en:"Total Price", ru:"Итоговая цена", ka:"სრული ღირებულება", az:"Ümumi qiymət", tr:"Toplam Fiyat", zh:"总价", pl:"Cena całkowita", he:"מחיר כולל", it:"Prezzo totale" },
+  downPayment:    { ar:"الدفعة الأولى", en:"Down Payment", ru:"Первоначальный взнос", ka:"პირველადი შენატანი", az:"İlkin ödəniş", tr:"Peşinat", zh:"首付款", pl:"Wpłata własna", he:"מקדמה", it:"Acconto iniziale" },
+  remaining:      { ar:"المبلغ المتبقي (التقسيط)", en:"Remaining (Installment)", ru:"Остаток (рассрочка)", ka:"დარჩენილი (განვადება)", az:"Qalan məbləğ (taksit)", tr:"Kalan Tutar (Taksit)", zh:"余款（分期）", pl:"Pozostało (rata)", he:"יתרה (תשלומים)", it:"Saldo a rate" },
+  installments:   { ar:"عدد الأقساط الشهرية", en:"No. of Monthly Installments", ru:"Количество месяцев рассрочки", ka:"ყოველთვიური განვადების რაოდენობა", az:"Aylıq taksit sayı", tr:"Aylık Taksit Adedi", zh:"分期期数（月）", pl:"Liczba rat miesięcznych", he:"מספר תשלומים חודשיים", it:"N. rate mensili" },
+  monthlyPayment: { ar:"قيمة القسط الشهري", en:"Monthly Installment", ru:"Ежемесячный платёж", ka:"ყოველთვიური გადასახადი", az:"Aylıq taksit məbləği", tr:"Aylık Taksit Tutarı", zh:"月供金额", pl:"Wysokość raty miesięcznej", he:"תשלום חודשי", it:"Rata mensile" },
+  deliveryType:   { ar:"نوع التشطيب", en:"Finishing Type", ru:"Тип отделки", ka:"მოსაპირკეთებლის ტიპი", az:"Bitirmə növü", tr:"Teslim ve Bitişlik Tipi", zh:"装修交付标准", pl:"Standard wykończenia", he:"סוג הגמר", it:"Tipologia di finitura" },
+  deliveryDate:   { ar:"موعد تسليم المشروع", en:"Project Delivery Date", ru:"Дата сдачи проекта", ka:"პროექტის ჩაბარების თარიღი", az:"Proyektin çatdırılma tarixi", tr:"Proje Teslim Tarihi", zh:"项目交付日期", pl:"Termin oddania projektu", he:"תאריך מסירת הפרויקט", it:"Data consegna progetto" },
+  readyNow:       { ar:"جاهز للتسليم الفوري", en:"Ready for Immediate Delivery", ru:"Готов к немедленной сдаче", ka:"მზადაა — შეიძლება ახლავე ჩაბარება", az:"Dərhal çatdırılmağa hazır", tr:"Hemen Teslime Hazır", zh:"现房可立即交付", pl:"Gotowy — odbiór natychmiastowy", he:"מוכן למסירה מיידית", it:"Pronto per consegna immediata" },
+  contact:        { ar:"للتواصل والاستفسار", en:"Contact & Inquiries", ru:"Связь и вопросы", ka:"კონტაქტი", az:"Əlaqə", tr:"İletişim ve Bilgi", zh:"联系与咨询", pl:"Kontakt i zapytania", he:"צור קשר", it:"Contatti e informazioni" },
+  exclusiveOffer: { ar:"عرض حصري من شركة", en:"Exclusive offer presented by", ru:"Эксклюзивное предложение от", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv təklif:", tr:"Özel Teklif — ", zh:"独家报价由", pl:"Oferta ekskluzywna od", he:"הצעה בלעדית מאת", it:"Offerta esclusiva di" },
 };
 
 function t(key: string, lang: LangCode): string {
@@ -124,6 +139,7 @@ export default function ProjectOfferPage() {
   const [deliveryDate, setDeliveryDate]         = useState("");
   const [pdfLang, setPdfLang]                   = useState<LangCode>("ar");
   const [generating, setGenerating]             = useState(false);
+  const [b64Images, setB64Images]               = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -197,34 +213,56 @@ export default function ProjectOfferPage() {
     if (!selectedProject) return;
     setGenerating(true);
     try {
+      // 1. Pre-load all project images as base64 so html2canvas has no CORS issue
+      const rawUrls: string[] = selectedProject.images?.slice(0, 3) ?? [];
+      const loaded = await Promise.all(rawUrls.map((u: string) => imgToBase64(u)));
+      setB64Images(loaded);
+      // wait for React to re-render with base64 images
+      await new Promise((r) => setTimeout(r, 600));
+
       const el = pdfRef.current;
       if (!el) return;
       el.style.display = "block";
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 400));
+
+      // 2. Capture at scale 3 → sharp @300dpi-equivalent, PNG (lossless)
       const canvas = await html2canvas(el, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
-        allowTaint: false,
+        allowTaint: true,
         backgroundColor: "#ffffff",
         logging: false,
+        imageTimeout: 15000,
       });
       el.style.display = "none";
-      const imgData  = canvas.toDataURL("image/jpeg", 0.92);
-      const pdf      = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pw       = pdf.internal.pageSize.getWidth();
-      const ph       = pdf.internal.pageSize.getHeight();
-      const imgRatio = canvas.height / canvas.width;
-      const imgH     = pw * imgRatio;
-      let rendered = 0;
-      while (rendered < imgH) {
-        if (rendered > 0) pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, -rendered, pw, imgH);
-        rendered += ph;
+
+      // 3. PNG → no lossy compression on the image data
+      const imgData = canvas.toDataURL("image/png");
+
+      // 4. Embed in PDF — split into pages if taller than A4
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pw  = pdf.internal.pageSize.getWidth();   // 210 mm
+      const ph  = pdf.internal.pageSize.getHeight();  // 297 mm
+      // px per mm  =  (canvas.width / scale) / pw
+      const pxPerMm = (canvas.width / 3) / pw;
+      const totalMm = (canvas.height / 3) / pxPerMm;  // total mm height of content
+
+      let offsetMm = 0;
+      let pageIndex = 0;
+      while (offsetMm < totalMm) {
+        if (pageIndex > 0) pdf.addPage();
+        // addImage: x, y (in mm on pdf page), width, height
+        // We shift the image up by offsetMm each page
+        pdf.addImage(imgData, "PNG", 0, -offsetMm, pw, totalMm);
+        offsetMm += ph;
+        pageIndex++;
       }
+
       const fileName = (selectedProject.title || "offer").replace(/\s+/g, "_");
       pdf.save(`${fileName}-offer.pdf`);
     } finally {
       setGenerating(false);
+      setB64Images([]);
     }
   };
 
@@ -470,6 +508,7 @@ export default function ProjectOfferPage() {
         {selectedProject && (
           <PDFTemplate
             project={selectedProject}
+            b64Images={b64Images}
             lang={pdfLang}
             isRTL={isRTL}
             apartmentType={apartmentType}
@@ -499,128 +538,137 @@ export default function ProjectOfferPage() {
 /* ─── PDF Template Component ──────────────────────────────────────────────── */
 
 function PDFTemplate({
-  project, lang, isRTL,
+  project, b64Images, lang, isRTL,
   apartmentType, selectedFloors, totalArea, pricePerMeter,
   totalPrice, paymentPercent, downPayment, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
   getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt
 }: any) {
 
-  const W   = 794;   // A4 px @96dpi
+  const W   = 794;
   const dir = isRTL ? "rtl" : "ltr";
-  const fontFamily = '"Arial", "Helvetica Neue", sans-serif';
+  const ff  = isRTL
+    ? '"Tahoma","Arial Unicode MS","Arial","sans-serif"'
+    : '"Arial","Helvetica Neue","sans-serif"';
 
-  // Build rows array dynamically — only filled fields
-  const rows: { label: string; value: string; highlight?: boolean }[] = [];
-  if (apartmentType)       rows.push({ label: t("aptType", lang),       value: getAptLabel(apartmentType) });
-  if (selectedFloors.length) rows.push({ label: t("floor", lang),       value: floorsLabel(selectedFloors) });
-  if (totalArea)           rows.push({ label: t("area", lang),           value: `${totalArea} m²` });
-  if (pricePerMeter)       rows.push({ label: t("pricePerMeter", lang), value: `$${fmt(parseFloat(pricePerMeter))} / m²` });
-  if (totalPrice)          rows.push({ label: t("totalPrice", lang),    value: `$${fmt(totalPrice)}`, highlight: true });
-  if (paymentPercent)      rows.push({ label: `${t("downPayment", lang)} (${paymentPercent}%)`, value: `$${fmt(downPayment)}` });
-  if (paymentPercent)      rows.push({ label: t("remaining", lang),     value: `$${fmt(remainingBalance)}` });
-  if (installments)        rows.push({ label: t("installments", lang),  value: `${installments}` });
-  if (monthlyInstall > 0)  rows.push({ label: t("monthlyPayment", lang), value: `$${fmt(monthlyInstall)}`, highlight: true });
-  if (deliveryType)        rows.push({ label: t("deliveryType", lang),  value: getDelivLabel(deliveryType) });
-  if (deliveryDate)        rows.push({ label: t("deliveryDate", lang),  value: getDateLabel(deliveryDate) });
+  // Use preloaded base64 images when available, else fallback to raw URLs
+  const imgs: string[] = b64Images?.length
+    ? b64Images
+    : (project.images ?? []);
+  const hero   = imgs[0] ?? null;
+  const thumb1 = imgs[1] ?? null;
+  const thumb2 = imgs[2] ?? null;
 
-  // Images
-  const imgs: string[] = project.images ?? [];
-  const hero    = imgs[0] ?? null;
-  const thumb1  = imgs[1] ?? null;
-  const thumb2  = imgs[2] ?? null;
+  // Build detail rows — only non-empty fields
+  const rows: { label: string; value: string; accent?: boolean }[] = [];
+  if (apartmentType)          rows.push({ label: t("aptType",lang),      value: getAptLabel(apartmentType) });
+  if (selectedFloors?.length) rows.push({ label: t("floor",lang),        value: floorsLabel(selectedFloors) });
+  if (totalArea)              rows.push({ label: t("area",lang),          value: `${totalArea} m²` });
+  if (pricePerMeter)          rows.push({ label: t("pricePerMeter",lang), value: `$${fmt(parseFloat(pricePerMeter))} / m²` });
+  if (paymentPercent && totalPrice > 0)
+    rows.push({ label: `${t("downPayment",lang)} — ${paymentPercent}%`,  value: `$${fmt(downPayment)}` });
+  if (paymentPercent && totalPrice > 0)
+    rows.push({ label: t("remaining",lang),    value: `$${fmt(remainingBalance)}` });
+  if (installments)           rows.push({ label: t("installments",lang),  value: installments });
+  if (monthlyInstall > 0)     rows.push({ label: t("monthlyPayment",lang), value: `$${fmt(monthlyInstall)}`, accent: true });
+  if (deliveryType)           rows.push({ label: t("deliveryType",lang),  value: getDelivLabel(deliveryType) });
+  if (deliveryDate)           rows.push({ label: t("deliveryDate",lang),  value: getDateLabel(deliveryDate) });
+
+  const S = {
+    page:       { width: W, backgroundColor: "#fff", fontFamily: ff, direction: dir, overflow: "hidden" as const },
+    header:     { background: "linear-gradient(120deg,#003d56 0%,#005476 45%,#3bcac4 100%)", padding: "30px 40px 26px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+    hLeft:      { flex: 1, paddingRight: isRTL ? 0 : 24, paddingLeft: isRTL ? 24 : 0 },
+    hTagline:   { fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 3, marginBottom: 8, fontWeight: 400 as const },
+    hTitle:     { fontSize: 30, fontWeight: 900 as const, color: "#fff", lineHeight: 1.25, marginBottom: 8 },
+    hLocation:  { fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 4 },
+    logo:       { height: 90, width: "auto", objectFit: "contain" as const, filter: "brightness(0) invert(1)", flexShrink: 0 },
+    heroImg:    { width: "100%", height: 320, objectFit: "cover" as const, display: "block" as const },
+    thumbRow:   { display: "flex", gap: 4, marginTop: 4 },
+    thumbImg:   { flex: 1, height: 175, objectFit: "cover" as const, display: "block" as const },
+    titleBar:   { background: "#f0f4f8", borderTop: "5px solid #3bcac4", padding: "16px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+    titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476" },
+    pricePill:  { background: "linear-gradient(120deg,#3bcac4,#005476)", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
+    priceLbl:   { fontSize: 10, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1 },
+    priceVal:   { fontSize: 24, fontWeight: 900 as const, color: "#fff" },
+    grid:       { padding: "22px 40px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
+    cell:       { borderRadius: 10, padding: "13px 18px", background: "#f1f5f9", border: "1px solid #dde3ea" },
+    cellAccent: { borderRadius: 10, padding: "13px 18px", background: "linear-gradient(120deg,#005476,#3bcac4)", border: "none" },
+    cellLbl:    { fontSize: 11, color: "#64748b", marginBottom: 5, fontWeight: 500 as const },
+    cellLblA:   { fontSize: 11, color: "rgba(255,255,255,0.75)", marginBottom: 5, fontWeight: 500 as const },
+    cellVal:    { fontSize: 17, fontWeight: 700 as const, color: "#0f172a", lineHeight: 1.3 },
+    cellValA:   { fontSize: 17, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3 },
+    footer:     { background: "#003d56", padding: "22px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
+    fLogo:      { height: 58, width: "auto", objectFit: "contain" as const, filter: "brightness(0) invert(1)", display: "block" as const, marginBottom: 8 },
+    fLabel:     { fontSize: 12, color: "rgba(255,255,255,0.6)" },
+    fWebsite:   { color: "#3bcac4", fontWeight: 700 as const, fontSize: 14, marginBottom: 5, textDecoration: "none" as const },
+    fPhone:     { color: "#fff", fontWeight: 800 as const, fontSize: 20, letterSpacing: 1 },
+  };
 
   return (
-    <div style={{ width: W, backgroundColor: "#fff", fontFamily, direction: dir, overflow: "hidden" }}>
+    <div style={S.page}>
 
-      {/* ── 1. Header gradient banner ────────────────────────────────────── */}
-      <div style={{ background: "linear-gradient(135deg, #005476 0%, #3bcac4 100%)", padding: "28px 36px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
-            {t("exclusiveOffer", lang)} KINGLIKE LUXURY
+      {/* ── Header ── */}
+      <div style={S.header}>
+        {!isRTL && (
+          <div style={S.hLeft}>
+            <div style={S.hTagline}>KINGLIKE LUXURY REAL ESTATE</div>
+            <div style={S.hTitle}>{project.title}</div>
+            {project.location && <div style={S.hLocation}>📍 {project.location}</div>}
           </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", lineHeight: 1.2, maxWidth: 420 }}>
-            {project.title}
-          </div>
-          {project.location && (
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
-              📍 {project.location}
-            </div>
-          )}
-        </div>
-        <img src={logoPath} alt="Kinglike" crossOrigin="anonymous"
-          style={{ height: 80, width: "auto", objectFit: "contain", filter: "brightness(0) invert(1)", flexShrink: 0 }} />
-      </div>
-
-      {/* ── 2. Image grid ────────────────────────────────────────────────── */}
-      {hero && (
-        <div style={{ padding: "0 0 0 0" }}>
-          {/* Hero full-width */}
-          <img src={hero} crossOrigin="anonymous"
-            style={{ width: "100%", height: 300, objectFit: "cover", display: "block" }} />
-          {/* Two thumbnails side by side */}
-          {(thumb1 || thumb2) && (
-            <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
-              {thumb1 && <img src={thumb1} crossOrigin="anonymous"
-                style={{ flex: 1, height: 160, objectFit: "cover" }} />}
-              {thumb2 && <img src={thumb2} crossOrigin="anonymous"
-                style={{ flex: 1, height: 160, objectFit: "cover" }} />}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── 3. Offer title bar ───────────────────────────────────────────── */}
-      <div style={{ background: "#f8f9fa", borderTop: "4px solid #3bcac4", padding: "14px 36px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#005476", letterSpacing: 0.5 }}>
-          {t("offerTitle", lang)}
-        </div>
-        {totalPrice > 0 && (
-          <div style={{ background: "linear-gradient(135deg, #3bcac4, #005476)", borderRadius: 8, padding: "8px 20px", textAlign: "center" }}>
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.85)", letterSpacing: 1, marginBottom: 2 }}>{t("totalPrice", lang).toUpperCase()}</div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: "#fff" }}>${fmt(totalPrice)}</div>
+        )}
+        <img src={logoPath} alt="Kinglike" style={S.logo} />
+        {isRTL && (
+          <div style={{ ...S.hLeft, paddingRight: 0, paddingLeft: 0, marginRight: 24 }}>
+            <div style={S.hTagline}>KINGLIKE LUXURY REAL ESTATE</div>
+            <div style={S.hTitle}>{project.title}</div>
+            {project.location && <div style={S.hLocation}>📍 {project.location}</div>}
           </div>
         )}
       </div>
 
-      {/* ── 4. Details grid ──────────────────────────────────────────────── */}
-      <div style={{ padding: "20px 36px 16px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {rows.filter((r) => r.label !== t("totalPrice", lang)).map((row, i) => (
-            <div key={i} style={{
-              borderRadius: 10,
-              padding: "12px 16px",
-              background: row.highlight ? "linear-gradient(135deg, #005476, #3bcac4)" : "#f1f5f9",
-              border: row.highlight ? "none" : "1px solid #e2e8f0",
-              direction: dir,
-            }}>
-              <div style={{ fontSize: 10, color: row.highlight ? "rgba(255,255,255,0.8)" : "#64748b", marginBottom: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                {row.label}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: row.highlight ? "#fff" : "#1e293b", lineHeight: 1.3 }}>
-                {row.value}
-              </div>
+      {/* ── Images ── */}
+      {hero && (
+        <>
+          <img src={hero} style={S.heroImg} />
+          {(thumb1 || thumb2) && (
+            <div style={S.thumbRow}>
+              {thumb1 && <img src={thumb1} style={S.thumbImg} />}
+              {thumb2 && <img src={thumb2} style={S.thumbImg} />}
             </div>
-          ))}
-        </div>
+          )}
+        </>
+      )}
+
+      {/* ── Title bar with total price ── */}
+      <div style={S.titleBar}>
+        <div style={S.titleText}>{t("offerTitle", lang)}</div>
+        {totalPrice > 0 && (
+          <div style={S.pricePill}>
+            <div style={S.priceLbl}>{t("totalPrice", lang)}</div>
+            <div style={S.priceVal}>${fmt(totalPrice)}</div>
+          </div>
+        )}
       </div>
 
-      {/* ── 5. Footer ────────────────────────────────────────────────────── */}
-      <div style={{ background: "#005476", padding: "20px 36px", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-        <div>
-          <img src={logoPath} alt="Kinglike" crossOrigin="anonymous"
-            style={{ height: 52, width: "auto", objectFit: "contain", filter: "brightness(0) invert(1)", display: "block", marginBottom: 8 }} />
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}>
-            {t("contact", lang)}
+      {/* ── Details grid ── */}
+      <div style={S.grid}>
+        {rows.map((row, i) => (
+          <div key={i} style={row.accent ? S.cellAccent : S.cell}>
+            <div style={row.accent ? S.cellLblA : S.cellLbl}>{row.label}</div>
+            <div style={row.accent ? S.cellValA : S.cellVal}>{row.value}</div>
           </div>
+        ))}
+      </div>
+
+      {/* ── Footer ── */}
+      <div style={S.footer}>
+        <div>
+          <img src={logoPath} alt="Kinglike" style={S.fLogo} />
+          <div style={S.fLabel}>{t("contact", lang)}</div>
         </div>
         <div style={{ textAlign: isRTL ? "left" : "right" }}>
-          <div style={{ color: "#3bcac4", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-            www.kinglikeluxury.app
-          </div>
-          <div style={{ color: "#fff", fontWeight: 700, fontSize: 18, letterSpacing: 1 }}>
-            +995 591 00 00 58
-          </div>
+          <div style={S.fWebsite}>www.kinglikeluxury.app</div>
+          <div style={S.fPhone}>+995 591 00 00 58</div>
         </div>
       </div>
 
