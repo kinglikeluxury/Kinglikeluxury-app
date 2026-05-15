@@ -640,12 +640,14 @@ function PDFTemplate({
 
   const S = {
     page:       { width: W, backgroundColor: "#fff", fontFamily: ff, direction: dir, overflow: "hidden" as const },
-    header:     { background: "linear-gradient(120deg,#003d56 0%,#005476 45%,#3bcac4 100%)", padding: "30px 40px 26px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-    hLeft:      { flex: 1, paddingRight: isRTL ? 0 : 24, paddingLeft: isRTL ? 24 : 0 },
-    hTagline:   { fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 3, marginBottom: 8, fontWeight: 400 as const },
-    hTitle:     { fontSize: 30, fontWeight: 900 as const, color: "#fff", lineHeight: 1.25, marginBottom: 8 },
-    hLocation:  { fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 4 },
-    logo:       { height: 90, width: "auto", objectFit: "contain" as const, filter: "brightness(0) invert(1)", flexShrink: 0 },
+    header:     { background: "#ffffff", borderBottom: "3px solid #3bcac4", padding: "22px 40px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+    hLogo:      { flexShrink: 0 },
+    hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
+    hTagline:   { fontSize: 10, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const, textTransform: "uppercase" as const },
+    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25 },
+    hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
+    hLocation:  { fontSize: 13, color: "#64748b", marginTop: 4, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 },
+    logo:       { height: 80, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
     imgWrap1:   { width: "100%", height: 320, overflow: "hidden" as const, display: "block" as const },
     imgWrap2:   { width: "100%", height: 280, overflow: "hidden" as const, display: "block" as const, marginTop: 4 },
     imgFill:    { width: "100%", height: "100%", objectFit: "cover" as const, display: "block" as const },
@@ -671,23 +673,28 @@ function PDFTemplate({
   return (
     <div style={S.page}>
 
-      {/* ── Header ── */}
-      <div style={S.header}>
-        {!isRTL && (
-          <div style={S.hLeft}>
-            <div style={S.hTagline}>KINGLIKE LUXURY REAL ESTATE</div>
-            <div style={S.hTitle}>{project.title}</div>
-            {project.location && <div style={S.hLocation}>📍 {project.location}</div>}
-          </div>
-        )}
-        <img src={logoPath} alt="Kinglike" style={S.logo} />
-        {isRTL && (
-          <div style={{ ...S.hLeft, paddingRight: 0, paddingLeft: 0, marginRight: 24 }}>
-            <div style={S.hTagline}>KINGLIKE LUXURY REAL ESTATE</div>
-            <div style={S.hTitle}>{project.title}</div>
-            {project.location && <div style={S.hLocation}>📍 {project.location}</div>}
-          </div>
-        )}
+      {/* ── Header — logo LEFT · title CENTER · location RIGHT (always, all langs) ── */}
+      <div style={{ ...S.header, direction: "ltr" }}>
+        {/* Left: Logo */}
+        <div style={S.hLogo}>
+          <img src={logoPath} alt="Kinglike" style={S.logo} />
+        </div>
+
+        {/* Center: tagline + project name */}
+        <div style={S.hCenter}>
+          <div style={S.hTagline}>KINGLIKE LUXURY REAL ESTATE</div>
+          <div style={{ ...S.hTitle, direction: dir }}>{project.title}</div>
+        </div>
+
+        {/* Right: city / country */}
+        <div style={S.hRight}>
+          {project.location && (
+            <div style={{ ...S.hLocation, direction: dir }}>
+              <span>📍</span>
+              <span>{project.location}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Images — stacked vertically, each full width, no stretch ── */}
