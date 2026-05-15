@@ -14,6 +14,19 @@ import { FileDown, X, Building2, ChevronDown } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
+import fp1 from "@assets/Untitled_design_20260515_130154_0000_1778839490182.png";
+import fp2 from "@assets/20260515_125957_0000_1778839490183.png";
+import fp3 from "@assets/20260515_125940_0000_1778839490192.png";
+import fp4 from "@assets/20260515_125858_0000_1778839490192.png";
+import fp5 from "@assets/20260515_125830_0000_1778839490193.png";
+
+const FLOOR_PLANS = [
+  { id: "fp1", src: fp1, label: "4 غرف" },
+  { id: "fp2", src: fp2, label: "استوديو" },
+  { id: "fp3", src: fp3, label: "1+1 (أ)" },
+  { id: "fp4", src: fp4, label: "2+1 (أ)" },
+  { id: "fp5", src: fp5, label: "2+1 (ب)" },
+];
 
 /* ─── Static Data ─────────────────────────────────────────────────────────── */
 
@@ -137,9 +150,11 @@ export default function ProjectOfferPage() {
   const [installments, setInstallments]         = useState("");
   const [deliveryType, setDeliveryType]         = useState("");
   const [deliveryDate, setDeliveryDate]         = useState("");
+  const [selectedFloorPlan, setSelectedFloorPlan] = useState<string>("");
   const [pdfLang, setPdfLang]                   = useState<LangCode>("ar");
   const [generating, setGenerating]             = useState(false);
   const [b64Images, setB64Images]               = useState<string[]>([]);
+  const [floorPlanB64, setFloorPlanB64]         = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -213,11 +228,14 @@ export default function ProjectOfferPage() {
     if (!selectedProject) return;
     setGenerating(true);
     try {
-      // 1. Pre-load all project images as base64 so html2canvas has no CORS issue
-      const rawUrls: string[] = selectedProject.images?.slice(0, 3) ?? [];
-      const loaded = await Promise.all(rawUrls.map((u: string) => imgToBase64(u)));
+      // 1. Pre-load project images + optional floor plan as base64
+      const rawUrls: string[] = selectedProject.images?.slice(0, 2) ?? [];
+      const [loaded, fpB64] = await Promise.all([
+        Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
+        selectedFloorPlan ? imgToBase64(selectedFloorPlan) : Promise.resolve(""),
+      ]);
       setB64Images(loaded);
-      // wait for React to re-render with base64 images
+      setFloorPlanB64(fpB64);
       await new Promise((r) => setTimeout(r, 600));
 
       const el = pdfRef.current;
@@ -263,6 +281,7 @@ export default function ProjectOfferPage() {
     } finally {
       setGenerating(false);
       setB64Images([]);
+      setFloorPlanB64("");
     }
   };
 
@@ -343,6 +362,50 @@ export default function ProjectOfferPage() {
                 <SelectTrigger className="h-9"><SelectValue placeholder="اختر نوع الوحدة" /></SelectTrigger>
                 <SelectContent>{APARTMENT_TYPES.map((tp) => <SelectItem key={tp.value} value={tp.value}>{tp.ar}</SelectItem>)}</SelectContent>
               </Select>
+            </div>
+
+            {/* ── Floor plan picker ── */}
+            <div>
+              <Label className="text-xs text-gray-500 mb-2 block">المخطط الداخلي للشقة <span className="text-gray-400">(اختياري)</span></Label>
+              <div className="grid grid-cols-5 gap-2">
+                {FLOOR_PLANS.map((fp) => (
+                  <button
+                    key={fp.id}
+                    type="button"
+                    onClick={() => setSelectedFloorPlan(selectedFloorPlan === fp.src ? "" : fp.src)}
+                    className={`relative rounded-xl overflow-hidden border-2 transition-all group ${
+                      selectedFloorPlan === fp.src
+                        ? "border-[#3bcac4] shadow-lg shadow-[#3bcac4]/20 scale-[1.04]"
+                        : "border-gray-200 hover:border-[#3bcac4]/50"
+                    }`}
+                  >
+                    <img
+                      src={fp.src}
+                      alt={fp.label}
+                      className="w-full aspect-square object-cover"
+                    />
+                    {selectedFloorPlan === fp.src && (
+                      <div className="absolute inset-0 bg-[#3bcac4]/15 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-full bg-[#3bcac4] flex items-center justify-center shadow">
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentWidth"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      </div>
+                    )}
+                    <div className={`absolute bottom-0 inset-x-0 py-0.5 text-center text-[10px] font-medium ${selectedFloorPlan === fp.src ? "bg-[#3bcac4] text-white" : "bg-black/50 text-white"}`}>
+                      {fp.label}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {selectedFloorPlan && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedFloorPlan("")}
+                  className="mt-1.5 text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> إلغاء الاختيار
+                </button>
+              )}
             </div>
             {/* Floor multi-select */}
             <div>
@@ -509,6 +572,7 @@ export default function ProjectOfferPage() {
           <PDFTemplate
             project={selectedProject}
             b64Images={b64Images}
+            floorPlanB64={floorPlanB64}
             lang={pdfLang}
             isRTL={isRTL}
             apartmentType={apartmentType}
@@ -538,7 +602,7 @@ export default function ProjectOfferPage() {
 /* ─── PDF Template Component ──────────────────────────────────────────────── */
 
 function PDFTemplate({
-  project, b64Images, lang, isRTL,
+  project, b64Images, floorPlanB64, lang, isRTL,
   apartmentType, selectedFloors, totalArea, pricePerMeter,
   totalPrice, paymentPercent, downPayment, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
@@ -650,6 +714,55 @@ function PDFTemplate({
           </div>
         ))}
       </div>
+
+      {/* ── Floor plan section (only if selected) ── */}
+      {floorPlanB64 && (
+        <div style={{ padding: "0 40px 20px" }}>
+          <div style={{
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "2px solid #3bcac4",
+            boxShadow: "0 4px 20px rgba(59,202,196,0.15)",
+          }}>
+            {/* Section label bar */}
+            <div style={{
+              background: "linear-gradient(120deg,#005476,#3bcac4)",
+              padding: "10px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              direction: dir,
+            }}>
+              <div style={{ fontSize: 18 }}>🏗️</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: ff }}>
+                {lang === "ar" ? "المخطط الداخلي للشقة" :
+                 lang === "he" ? "תוכנית הדירה" :
+                 lang === "ru" ? "Планировка квартиры" :
+                 lang === "ka" ? "ბინის გეგმა" :
+                 lang === "az" ? "Mənzil planı" :
+                 lang === "tr" ? "Daire Planı" :
+                 lang === "zh" ? "户型平面图" :
+                 lang === "pl" ? "Rzut mieszkania" :
+                 lang === "it" ? "Planimetria dell'appartamento" :
+                 "Apartment Floor Plan"}
+              </div>
+            </div>
+            {/* Plan image — full width, natural ratio */}
+            <div style={{ background: "#f8f9fa", textAlign: "center" as const }}>
+              <img
+                src={floorPlanB64}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 400,
+                  objectFit: "contain",
+                  display: "inline-block",
+                  padding: "16px",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Footer ── */}
       <div style={S.footer}>
