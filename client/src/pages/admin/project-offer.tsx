@@ -116,6 +116,8 @@ const T: Record<string, Record<LangCode, string>> = {
   area:           { ar:"المساحة الإجمالية", en:"Total Area", ru:"Общая площадь", ka:"სრული ფართობი", az:"Ümumi sahə", tr:"Toplam Alan", zh:"建筑面积", pl:"Powierzchnia całkowita", he:"שטח כולל", it:"Superficie totale" },
   pricePerMeter:  { ar:"سعر المتر المربع", en:"Price per m²", ru:"Цена за 1 м²", ka:"ფასი 1 მ²-ზე", az:"1 m² qiyməti", tr:"m² Birim Fiyatı", zh:"每平米单价", pl:"Cena za 1 m²", he:"מחיר למ\"ר", it:"Prezzo al m²" },
   totalPrice:     { ar:"السعر الإجمالي", en:"Total Price", ru:"Итоговая цена", ka:"სრული ღირებულება", az:"Ümumi qiymət", tr:"Toplam Fiyat", zh:"总价", pl:"Cena całkowita", he:"מחיר כולל", it:"Prezzo totale" },
+  discount:       { ar:"نسبة الخصم", en:"Discount", ru:"Скидка", ka:"ფასდაკლება", az:"Endirim", tr:"İndirim", zh:"折扣", pl:"Zniżka", he:"הנחה", it:"Sconto" },
+  priceAfterDiscount: { ar:"السعر بعد الخصم", en:"Price After Discount", ru:"Цена со скидкой", ka:"ფასი ფასდაკლებით", az:"Endirimdən sonra qiymət", tr:"İndirimli Fiyat", zh:"折后价格", pl:"Cena po zniżce", he:"מחיר לאחר הנחה", it:"Prezzo scontato" },
   downPayment:    { ar:"الدفعة الأولى", en:"Down Payment", ru:"Первоначальный взнос", ka:"პირველადი შენატანი", az:"İlkin ödəniş", tr:"Peşinat", zh:"首付款", pl:"Wpłata własna", he:"מקדמה", it:"Acconto iniziale" },
   remaining:      { ar:"المبلغ المتبقي (التقسيط)", en:"Remaining (Installment)", ru:"Остаток (рассрочка)", ka:"დარჩენილი (განვადება)", az:"Qalan məbləğ (taksit)", tr:"Kalan Tutar (Taksit)", zh:"余款（分期）", pl:"Pozostało (rata)", he:"יתרה (תשלומים)", it:"Saldo a rate" },
   installments:   { ar:"عدد الأقساط الشهرية", en:"No. of Monthly Installments", ru:"Количество месяцев рассрочки", ka:"ყოველთვიური განვადების რაოდენობა", az:"Aylıq taksit sayı", tr:"Aylık Taksit Adedi", zh:"分期期数（月）", pl:"Liczba rat miesięcznych", he:"מספר תשלומים חודשיים", it:"N. rate mensili" },
@@ -151,6 +153,7 @@ export default function ProjectOfferPage() {
   const [deliveryType, setDeliveryType]         = useState("");
   const [deliveryDate, setDeliveryDate]         = useState("");
   const [selectedFloorPlan, setSelectedFloorPlan] = useState<string>("");
+  const [discountPercent, setDiscountPercent]   = useState("");
   const [pdfLang, setPdfLang]                   = useState<LangCode>("ar");
   const [generating, setGenerating]             = useState(false);
   const [b64Images, setB64Images]               = useState<string[]>([]);
@@ -191,8 +194,10 @@ export default function ProjectOfferPage() {
   const selectedProject = allProjects.find((p) => p.id === selectedProjectId);
 
   const totalPrice       = totalArea && pricePerMeter ? parseFloat(totalArea) * parseFloat(pricePerMeter) : 0;
-  const downPayment      = paymentPercent ? (totalPrice * paymentPercent) / 100 : 0;
-  const remainingBalance = totalPrice - downPayment;
+  const discountVal      = discountPercent && parseFloat(discountPercent) > 0 ? parseFloat(discountPercent) : 0;
+  const discountedPrice  = discountVal > 0 ? totalPrice * (1 - discountVal / 100) : totalPrice;
+  const downPayment      = paymentPercent ? (discountedPrice * paymentPercent) / 100 : 0;
+  const remainingBalance = discountedPrice - downPayment;
   const monthlyInstall   = installments && parseInt(installments) > 0 ? remainingBalance / parseInt(installments) : 0;
 
   const toggleFloor = (f: number) =>
@@ -505,6 +510,31 @@ export default function ProjectOfferPage() {
               </div>
             )}
 
+            {/* Discount */}
+            {totalPrice > 0 && (
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">الخصم (%)</Label>
+                <Input
+                  type="number" min="0" max="99" placeholder="مثال: 10"
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(e.target.value)}
+                  className="h-9 text-right" dir="ltr"
+                />
+                {discountVal > 0 && (
+                  <div className="mt-2 rounded-lg border border-[#3bcac4]/40 bg-[#3bcac4]/8 p-3 flex justify-between items-center">
+                    <div className="text-right">
+                      <div className="text-xs text-gray-400 line-through">${fmt(totalPrice)}</div>
+                      <div className="text-xs text-gray-500">خصم {discountVal}%</div>
+                    </div>
+                    <div className="text-left">
+                      <div className="text-xs text-gray-500 mb-0.5">السعر بعد الخصم</div>
+                      <div className="text-xl font-bold text-[#3bcac4]">${fmt(discountedPrice)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Down payment % */}
             <div>
               <Label className="text-xs text-gray-500 mb-1.5 block">الدفعة الأولى (%)</Label>
@@ -617,6 +647,8 @@ export default function ProjectOfferPage() {
             totalArea={totalArea}
             pricePerMeter={pricePerMeter}
             totalPrice={totalPrice}
+            discountVal={discountVal}
+            discountedPrice={discountedPrice}
             paymentPercent={paymentPercent}
             downPayment={downPayment}
             remainingBalance={remainingBalance}
@@ -641,7 +673,7 @@ export default function ProjectOfferPage() {
 function PDFTemplate({
   project, b64Images, floorPlanB64, flagB64, lang, isRTL,
   apartmentType, selectedFloors, totalArea, pricePerMeter,
-  totalPrice, paymentPercent, downPayment, remainingBalance,
+  totalPrice, discountVal, discountedPrice, paymentPercent, downPayment, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
   getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt
 }: any) {
@@ -666,9 +698,13 @@ function PDFTemplate({
   if (selectedFloors?.length) rows.push({ label: t("floor",lang),        value: floorsLabel(selectedFloors) });
   if (totalArea)              rows.push({ label: t("area",lang),          value: `${totalArea} m²` });
   if (pricePerMeter)          rows.push({ label: t("pricePerMeter",lang), value: `$${fmt(parseFloat(pricePerMeter))} / m²` });
-  if (paymentPercent && totalPrice > 0)
+  if (discountVal > 0 && totalPrice > 0) {
+    rows.push({ label: `${t("discount",lang)} — ${discountVal}%`, value: `$${fmt(totalPrice)} ← $${fmt(discountedPrice)}` });
+    rows.push({ label: t("priceAfterDiscount",lang), value: `$${fmt(discountedPrice)}`, accent: true });
+  }
+  if (paymentPercent && discountedPrice > 0)
     rows.push({ label: `${t("downPayment",lang)} — ${paymentPercent}%`,  value: `$${fmt(downPayment)}` });
-  if (paymentPercent && totalPrice > 0)
+  if (paymentPercent && discountedPrice > 0)
     rows.push({ label: t("remaining",lang),    value: `$${fmt(remainingBalance)}` });
   if (installments)           rows.push({ label: t("installments",lang),  value: installments });
   if (monthlyInstall > 0)     rows.push({ label: t("monthlyPayment",lang), value: `$${fmt(monthlyInstall)}`, accent: true });
@@ -760,8 +796,18 @@ function PDFTemplate({
         <div dir={dir} style={S.titleText}>{t("offerTitle", lang)}</div>
         {totalPrice > 0 && (
           <div style={S.pricePill}>
-            <div style={S.priceLbl}>{t("totalPrice", lang)}</div>
-            <div style={S.priceVal}>${fmt(totalPrice)}</div>
+            {discountVal > 0 ? (
+              <>
+                <div style={{ ...S.priceLbl, textDecoration: "line-through", opacity: 0.55, fontSize: 10 }}>${fmt(totalPrice)}</div>
+                <div style={{ fontSize: 10, color: "#3bcac4", fontWeight: 600, marginBottom: 1 }}>{t("discount", lang)} {discountVal}%</div>
+                <div style={S.priceVal}>${fmt(discountedPrice)}</div>
+              </>
+            ) : (
+              <>
+                <div style={S.priceLbl}>{t("totalPrice", lang)}</div>
+                <div style={S.priceVal}>${fmt(totalPrice)}</div>
+              </>
+            )}
           </div>
         )}
       </div>
