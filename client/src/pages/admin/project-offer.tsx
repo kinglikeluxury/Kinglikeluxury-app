@@ -638,34 +638,39 @@ function PDFTemplate({
   if (deliveryType)           rows.push({ label: t("deliveryType",lang),  value: getDelivLabel(deliveryType) });
   if (deliveryDate)           rows.push({ label: t("deliveryDate",lang),  value: getDateLabel(deliveryDate) });
 
+  // ── Helpers for inline RTL on text nodes only (avoids html2canvas RTL canvas-flip bug)
+  const txt  = (extra?: object) => ({ direction: dir, unicodeBidi: "embed" as const, ...(extra ?? {}) });
+  const ta   = isRTL ? "right" : "left";
+
   const S = {
-    page:       { width: W, backgroundColor: "#fff", fontFamily: ff, direction: dir, overflow: "hidden" as const },
+    // IMPORTANT: page is always LTR — RTL applied per-text-element only
+    page:       { width: W, backgroundColor: "#fff", fontFamily: ff, direction: "ltr" as const, overflow: "hidden" as const },
     header:     { background: "#ffffff", borderBottom: "3px solid #3bcac4", padding: "22px 40px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" },
     hLogo:      { flexShrink: 0 },
     hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
-    hTagline:   { fontSize: 10, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const, textTransform: "uppercase" as const },
-    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25 },
+    hTagline:   { fontSize: 10, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
+    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, direction: dir, unicodeBidi: "embed" as const },
     hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
-    hLocation:  { fontSize: 13, color: "#64748b", marginTop: 4, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 },
+    hLocation:  { fontSize: 13, color: "#64748b", marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
     logo:       { height: 80, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
     imgWrap1:   { width: "100%", background: "#000", textAlign: "center" as const, lineHeight: 0 },
     imgWrap2:   { width: "100%", background: "#000", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
     imgFill:    { maxWidth: "100%", maxHeight: 420, height: "auto", display: "inline-block" as const, verticalAlign: "bottom" as const },
-    titleBar:   { background: "#f0f4f8", borderTop: "5px solid #3bcac4", padding: "16px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-    titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476" },
+    titleBar:   { background: "#f0f4f8", borderTop: "5px solid #3bcac4", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center" },
+    titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476", ...txt() },
     pricePill:  { background: "linear-gradient(120deg,#3bcac4,#005476)", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
-    priceLbl:   { fontSize: 10, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1 },
+    priceLbl:   { fontSize: 10, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1, ...txt() },
     priceVal:   { fontSize: 24, fontWeight: 900 as const, color: "#fff" },
     grid:       { padding: "22px 40px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
     cell:       { borderRadius: 10, padding: "13px 18px", background: "#f1f5f9", border: "1px solid #dde3ea" },
     cellAccent: { borderRadius: 10, padding: "13px 18px", background: "linear-gradient(120deg,#005476,#3bcac4)", border: "none" },
-    cellLbl:    { fontSize: 11, color: "#64748b", marginBottom: 5, fontWeight: 500 as const },
-    cellLblA:   { fontSize: 11, color: "rgba(255,255,255,0.75)", marginBottom: 5, fontWeight: 500 as const },
-    cellVal:    { fontSize: 17, fontWeight: 700 as const, color: "#0f172a", lineHeight: 1.3 },
-    cellValA:   { fontSize: 17, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3 },
-    footer:     { background: "#003d56", padding: "22px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
+    cellLbl:    { fontSize: 11, color: "#64748b", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
+    cellLblA:   { fontSize: 11, color: "rgba(255,255,255,0.75)", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
+    cellVal:    { fontSize: 17, fontWeight: 700 as const, color: "#0f172a", lineHeight: 1.3, textAlign: ta, ...txt() },
+    cellValA:   { fontSize: 17, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3, textAlign: ta, ...txt() },
+    footer:     { background: "#003d56", padding: "22px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center", marginTop: 6 },
     fLogo:      { height: 58, width: "auto", objectFit: "contain" as const, filter: "brightness(0) invert(1)", display: "block" as const, marginBottom: 8 },
-    fLabel:     { fontSize: 12, color: "rgba(255,255,255,0.6)" },
+    fLabel:     { fontSize: 12, color: "rgba(255,255,255,0.6)", ...txt() },
     fWebsite:   { color: "#3bcac4", fontWeight: 700 as const, fontSize: 14, marginBottom: 5, textDecoration: "none" as const },
     fPhone:     { color: "#fff", fontWeight: 800 as const, fontSize: 20, letterSpacing: 1 },
   };
@@ -683,16 +688,13 @@ function PDFTemplate({
         {/* Center: tagline + project name */}
         <div style={S.hCenter}>
           <div style={S.hTagline}>KINGLIKE LUXURY REAL ESTATE</div>
-          <div style={{ ...S.hTitle, direction: dir }}>{project.title}</div>
+          <div style={S.hTitle}>{project.title}</div>
         </div>
 
         {/* Right: city / country */}
         <div style={S.hRight}>
           {project.location && (
-            <div style={{ ...S.hLocation, direction: dir }}>
-              <span>📍</span>
-              <span>{project.location}</span>
-            </div>
+            <div style={S.hLocation}>📍 {project.location}</div>
           )}
         </div>
       </div>
@@ -736,12 +738,12 @@ function PDFTemplate({
               background: "linear-gradient(120deg,#005476,#3bcac4)",
               padding: "10px 20px",
               display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               gap: 10,
-              direction: dir,
             }}>
               <div style={{ fontSize: 18 }}>🏗️</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: ff }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
                 {lang === "ar" ? "المخطط الداخلي للشقة" :
                  lang === "he" ? "תוכנית הדירה" :
                  lang === "ru" ? "Планировка квартиры" :
