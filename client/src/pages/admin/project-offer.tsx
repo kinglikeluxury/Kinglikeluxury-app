@@ -155,6 +155,7 @@ export default function ProjectOfferPage() {
   const [generating, setGenerating]             = useState(false);
   const [b64Images, setB64Images]               = useState<string[]>([]);
   const [floorPlanB64, setFloorPlanB64]         = useState<string>("");
+  const [flagB64, setFlagB64]                   = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -223,6 +224,23 @@ export default function ProjectOfferPage() {
   const fmt = (n: number) => new Intl.NumberFormat("en-US").format(Math.round(n));
   const isRTL = pdfLang === "ar" || pdfLang === "he";
 
+  /* ── Draw Georgia flag on a canvas → base64 PNG ── */
+  const makeGeorgiaFlagB64 = (): string => {
+    const c = document.createElement("canvas");
+    c.width = 90; c.height = 60;
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 90, 60);
+    ctx.fillStyle = "#FF0000";
+    ctx.fillRect(37, 0, 16, 60);   // vertical bar
+    ctx.fillRect(0, 22, 90, 16);   // horizontal bar
+    // four small crosses
+    const cross = (x: number, y: number) => {
+      ctx.fillRect(x + 5, y, 6, 15); ctx.fillRect(x, y + 5, 16, 5);
+    };
+    cross(4, 2); cross(52, 2); cross(4, 43); cross(52, 43);
+    return c.toDataURL("image/png");
+  };
+
   /* ── PDF generation ────────────────────────────────────────────────────── */
   const generatePDF = async () => {
     if (!selectedProject) return;
@@ -249,6 +267,7 @@ export default function ProjectOfferPage() {
       ]);
       setB64Images(loaded);
       setFloorPlanB64(fpB64);
+      setFlagB64(makeGeorgiaFlagB64());
       await new Promise((r) => setTimeout(r, 600));
 
       const el = pdfRef.current;
@@ -288,6 +307,7 @@ export default function ProjectOfferPage() {
       setGenerating(false);
       setB64Images([]);
       setFloorPlanB64("");
+      setFlagB64("");
     }
   };
 
@@ -579,6 +599,7 @@ export default function ProjectOfferPage() {
             project={selectedProject}
             b64Images={b64Images}
             floorPlanB64={floorPlanB64}
+            flagB64={flagB64}
             lang={pdfLang}
             isRTL={isRTL}
             apartmentType={apartmentType}
@@ -608,7 +629,7 @@ export default function ProjectOfferPage() {
 /* ─── PDF Template Component ──────────────────────────────────────────────── */
 
 function PDFTemplate({
-  project, b64Images, floorPlanB64, lang, isRTL,
+  project, b64Images, floorPlanB64, flagB64, lang, isRTL,
   apartmentType, selectedFloors, totalArea, pricePerMeter,
   totalPrice, paymentPercent, downPayment, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
@@ -698,7 +719,7 @@ function PDFTemplate({
           <img
             src={logoPath}
             alt="Kinglike"
-            style={{ height: 220, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
+            style={{ height: 320, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
           />
           <div style={S.hTitle}>{project.title}</div>
         </div>
@@ -707,11 +728,13 @@ function PDFTemplate({
         <div style={S.hRight}>
           {project.location && (
             <div style={{ ...S.hLocation, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-              <img
-                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 600'%3E%3Crect width='900' height='600' fill='white'/%3E%3Crect x='375' width='150' height='600' fill='%23FF0000'/%3E%3Crect y='225' width='900' height='150' fill='%23FF0000'/%3E%3Crect x='112' y='75' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='37' y='150' width='210' height='60' fill='%23FF0000'/%3E%3Crect x='727' y='75' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='652' y='150' width='210' height='60' fill='%23FF0000'/%3E%3Crect x='112' y='375' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='37' y='450' width='210' height='60' fill='%23FF0000'/%3E%3Crect x='727' y='375' width='60' height='150' fill='%23FF0000'/%3E%3Crect x='652' y='450' width='210' height='60' fill='%23FF0000'/%3E%3C/svg%3E"
-                alt="GE"
-                style={{ width: 28, height: 19, objectFit: "cover", border: "1px solid #e2e8f0", borderRadius: 2, flexShrink: 0 }}
-              />
+              {flagB64 && (
+                <img
+                  src={flagB64}
+                  alt="GE"
+                  style={{ width: 34, height: 23, objectFit: "fill", border: "1px solid #e2e8f0", borderRadius: 2, flexShrink: 0 }}
+                />
+              )}
               <span>{project.location}</span>
             </div>
           )}
