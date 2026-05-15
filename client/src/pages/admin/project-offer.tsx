@@ -668,11 +668,17 @@ function PDFTemplate({
     cellLblA:   { fontSize: 11, color: "rgba(255,255,255,0.75)", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
     cellVal:    { fontSize: 17, fontWeight: 700 as const, color: "#0f172a", lineHeight: 1.3, textAlign: ta, ...txt() },
     cellValA:   { fontSize: 17, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3, textAlign: ta, ...txt() },
-    footer:     { background: "#003d56", padding: "22px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as const, justifyContent: "space-between", alignItems: "center", marginTop: 6 },
-    fLogo:      { height: 58, width: "auto", objectFit: "contain" as const, filter: "brightness(0) invert(1)", display: "block" as const, marginBottom: 8 },
+    footer:     { background: "#003d56", marginTop: 6 },
+    fBar:       { height: 4, background: "linear-gradient(90deg,#3bcac4 0%,#005476 100%)" },
+    fInner:     { padding: "20px 40px", display: "flex", flexDirection: "row" as const, justifyContent: "space-between", alignItems: "center" },
+    fLogo:      { height: 62, width: "auto", objectFit: "contain" as const, filter: "brightness(0) invert(1)", display: "block" as const },
+    fCenter:    { flex: 1, textAlign: "center" as const },
+    fWebsite:   { color: "#3bcac4", fontWeight: 800 as const, fontSize: 17, letterSpacing: 0.5, display: "block" as const },
+    fTagline:   { color: "rgba(255,255,255,0.55)", fontSize: 11, marginTop: 4 },
+    fRight:     { textAlign: "right" as const, minWidth: 160 },
+    fPhoneLbl:  { fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 3, letterSpacing: 1 },
+    fPhone:     { color: "#fff", fontWeight: 900 as const, fontSize: 20, letterSpacing: 1 },
     fLabel:     { fontSize: 12, color: "rgba(255,255,255,0.6)", ...txt() },
-    fWebsite:   { color: "#3bcac4", fontWeight: 700 as const, fontSize: 14, marginBottom: 5, textDecoration: "none" as const },
-    fPhone:     { color: "#fff", fontWeight: 800 as const, fontSize: 20, letterSpacing: 1 },
   };
 
   return (
@@ -775,13 +781,23 @@ function PDFTemplate({
 
       {/* ── Footer ── */}
       <div style={S.footer}>
-        <div>
-          <img src={logoPath} alt="Kinglike" style={S.fLogo} />
-          <div style={S.fLabel}>{t("contact", lang)}</div>
-        </div>
-        <div style={{ textAlign: isRTL ? "left" : "right" }}>
-          <div style={S.fWebsite}>www.kinglikeluxury.app</div>
-          <div style={S.fPhone}>+995 591 00 00 58</div>
+        {/* Teal gradient top bar */}
+        <div style={S.fBar} />
+        <div style={S.fInner}>
+          {/* Left: Logo */}
+          <div>
+            <img src={logoPath} alt="Kinglike" style={S.fLogo} />
+          </div>
+          {/* Center: website */}
+          <div style={S.fCenter}>
+            <span style={S.fWebsite}>www.kinglikeluxury.app</span>
+            <div style={S.fTagline}>KINGLIKE LUXURY REAL ESTATE</div>
+          </div>
+          {/* Right: phone */}
+          <div style={S.fRight}>
+            <div style={S.fPhoneLbl}>CONTACT</div>
+            <div style={S.fPhone}>+995 591 00 00 58</div>
+          </div>
         </div>
       </div>
 
