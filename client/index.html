@@ -19,58 +19,45 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- CSS: hide vite-error-overlay for blank/unknown HMR errors in Replit -->
+    <style>
+      vite-error-overlay { display: none !important; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+
     <script>
-      // Suppress Vite "unknown runtime error" overlay (empty HMR errors from Replit)
-      (function() {
-        // 1. MutationObserver: immediately remove any vite-error-overlay with no real message
-        function removeBlankViteOverlay(node) {
-          if (!node || node.nodeName.toLowerCase() !== 'vite-error-overlay') return;
-          // Remove synchronously first (covers no-shadowRoot case)
-          try {
-            var root = node.shadowRoot;
-            if (!root) { node.remove(); return; }
-            var msgEl = root.querySelector('.message-body');
-            var msg = msgEl ? msgEl.textContent.trim() : '';
-            if (!msg || msg === 'unknown runtime error') node.remove();
-          } catch(e) { node.remove(); }
-        }
-        var obs = new MutationObserver(function(mutations) {
-          mutations.forEach(function(m) {
-            m.addedNodes.forEach(removeBlankViteOverlay);
-          });
-        });
-        obs.observe(document.documentElement, { childList: true, subtree: true });
-        // Also sweep any overlay already in the DOM on load
-        document.addEventListener('DOMContentLoaded', function() {
-          document.querySelectorAll('vite-error-overlay').forEach(removeBlankViteOverlay);
-        });
-
-        // 2. Intercept window.onerror — cancel empty errors before Vite sees them
-        var _origOnerror = window.onerror;
-        window.onerror = function(msg, src, line, col, err) {
-          if (!msg && !err) return true; // swallow empty
-          if (typeof msg === 'string' && msg.trim() === '') return true;
-          if (_origOnerror) return _origOnerror.apply(this, arguments);
+      // Intercept WebSocket so Vite never receives the blank HMR error event
+      (function () {
+        var _WS = window.WebSocket;
+        window.WebSocket = function (url, protocols) {
+          var ws = protocols ? new _WS(url, protocols) : new _WS(url);
+          ws.addEventListener('message', function (e) {
+            try {
+              var data = JSON.parse(e.data);
+              // Drop Vite error events that have no useful message
+              if (data && data.type === 'error' && (!data.err || !data.err.message)) {
+                Object.defineProperty(e, 'defaultPrevented', { value: true });
+                e.stopImmediatePropagation();
+              }
+            } catch (_) {}
+          }, true);
+          return ws;
         };
+        window.WebSocket.prototype = _WS.prototype;
+        Object.keys(_WS).forEach(function(k){ window.WebSocket[k] = _WS[k]; });
 
-        // 3. Wrap addEventListener to skip empty error events
-        var _orig = window.addEventListener.bind(window);
-        window.addEventListener = function(type, listener, options) {
-          if (type === 'error') {
-            var wrapped = function(e) {
-              if (!e || (!e.message && !e.filename && e.error == null)) return;
-              return listener.call(this, e);
-            };
-            return _orig(type, wrapped, options);
-          }
-          return _orig(type, listener, options);
-        };
+        // Also swallow empty window.onerror events
+        window.addEventListener('error', function (e) {
+          if (!e.message && !e.filename && !e.error) e.stopImmediatePropagation();
+        }, true);
       })();
     </script>
+
+    <script type="module" src="/src/main.tsx"></script>
+
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
