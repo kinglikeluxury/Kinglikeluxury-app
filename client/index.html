@@ -24,6 +24,22 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Suppress Replit HMR WebSocket "unknown runtime error" overlay
+      (function() {
+        var _origAddEventListener = window.addEventListener.bind(window);
+        window.addEventListener = function(type, listener, options) {
+          if (type === 'error') {
+            var wrapped = function(event) {
+              if (!event || (!event.message && !event.filename && event.error == null)) return;
+              return listener.call(this, event);
+            };
+            return _origAddEventListener(type, wrapped, options);
+          }
+          return _origAddEventListener(type, listener, options);
+        };
+      })();
+    </script>
+    <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
