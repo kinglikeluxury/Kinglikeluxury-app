@@ -737,7 +737,7 @@ function PDFTemplate({
     cellValA:   { fontSize: 17, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3, textAlign: ta, ...txt() },
     footer:     { background: "#ffffff", marginTop: 6, borderTop: "1px solid #e2e8f0" },
     fInner:     { padding: "24px 40px", display: "flex", flexDirection: "row" as const, justifyContent: "space-between", alignItems: "center" },
-    fLogo:      { height: 320, width: "auto", objectFit: "contain" as const, display: "block" as const, margin: "0 auto" },
+    fLogo:      { height: 320, width: "auto", objectFit: "contain" as const, display: "block" as const, margin: "0 auto", marginTop: -40 },
     fCenter:    { flex: 1, display: "flex" as const, justifyContent: "center" as const, alignItems: "center" as const },
     fWebsite:   { color: "#3bcac4", fontWeight: 800 as const, fontSize: 15, letterSpacing: 0.5, display: "block" as const },
     fRight:     { textAlign: "right" as const, minWidth: 160 },
