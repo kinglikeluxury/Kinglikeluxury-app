@@ -175,13 +175,13 @@ export default function ProjectOfferPage() {
     return { city: parts[0] || "", country: parts[parts.length - 1] || "" };
   };
 
-  const countries = [...new Set(allProjects.map((p) => locParts(p.location).country).filter(Boolean))];
-  const cities    = [...new Set(
+  const countries = Array.from(new Set(allProjects.map((p) => locParts(p.location).country).filter(Boolean)));
+  const cities    = Array.from(new Set(
     allProjects
       .filter((p) => !selectedCountry || locParts(p.location).country === selectedCountry)
       .map((p) => locParts(p.location).city)
       .filter(Boolean)
-  )];
+  ));
   const filteredProjects = allProjects.filter((p) => {
     const lp = locParts(p.location);
     return (!selectedCountry || lp.country === selectedCountry) && (!selectedCity || lp.city === selectedCity);
@@ -646,7 +646,7 @@ function PDFTemplate({
 
   // ── Helpers for inline RTL on text nodes only (avoids html2canvas RTL canvas-flip bug)
   const txt  = (extra?: object) => ({ direction: dir, unicodeBidi: "embed" as const, ...(extra ?? {}) });
-  const ta   = isRTL ? "right" : "left";
+  const ta: "right" | "left" = isRTL ? "right" : "left";
 
   const S = {
     // IMPORTANT: page is always LTR — RTL applied per-text-element only
