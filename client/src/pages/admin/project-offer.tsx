@@ -11,8 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslation } from "react-i18next";
 import { FileDown, X, Building2, ChevronDown } from "lucide-react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import fp1 from "@assets/Untitled_design_20260515_130154_0000_1778839490182.png";
 import fp2 from "@assets/20260515_125957_0000_1778839490183.png";
@@ -246,35 +244,12 @@ export default function ProjectOfferPage() {
     return c.toDataURL("image/png");
   };
 
-  /* ── PDF generation ────────────────────────────────────────────────────── */
+  /* ── PDF generation — browser print window (perfect Arabic rendering) ─── */
   const generatePDF = async () => {
     if (!selectedProject) return;
     setGenerating(true);
     try {
-      // 1. Load all Arabic fonts used by the website (same stack as index.css)
-      const arabicFontsHref = "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap";
-      if (!document.getElementById("arabic-fonts-link")) {
-        const link = document.createElement("link");
-        link.id   = "arabic-fonts-link";
-        link.rel  = "stylesheet";
-        link.href = arabicFontsHref;
-        document.head.appendChild(link);
-      }
-      // Wait for all fonts to be fully loaded
-      await document.fonts.ready;
-      // Force all Arabic fonts to render so the browser caches glyph shapes
-      const probe = document.createElement("div");
-      probe.style.cssText = "visibility:hidden;position:fixed;top:-9999px;font-size:20px;direction:rtl";
-      probe.innerHTML = `
-        <span style="font-family:'Cairo'">مرحباً باتومي جورجيا شقة فيلا</span>
-        <span style="font-family:'Tajawal'">مرحباً باتومي جورجيا شقة فيلا</span>
-        <span style="font-family:'Noto Sans Arabic'">مرحباً باتومي جورجيا شقة فيلا</span>
-      `;
-      document.body.appendChild(probe);
-      await new Promise((r) => setTimeout(r, 1500));
-      document.body.removeChild(probe);
-
-      // 2. Pre-load project images + optional floor plan as base64
+      // 1. Pre-load images as base64 so they work cross-window
       const rawUrls: string[] = selectedProject.images?.slice(0, 2) ?? [];
       const [loaded, fpB64] = await Promise.all([
         Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
@@ -283,41 +258,60 @@ export default function ProjectOfferPage() {
       setB64Images(loaded);
       setFloorPlanB64(fpB64);
       setFlagB64(makeGeorgiaFlagB64());
-      await new Promise((r) => setTimeout(r, 600));
+
+      // 2. Wait for React to re-render the hidden template with base64 images
+      await new Promise((r) => setTimeout(r, 400));
 
       const el = pdfRef.current;
       if (!el) return;
       el.style.display = "block";
-      await new Promise((r) => setTimeout(r, 500));
-
-      // 3. Capture at scale 3 → sharp @300dpi-equivalent, PNG (lossless)
-      const canvas = await html2canvas(el, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        imageTimeout: 15000,
-      });
+      await new Promise((r) => setTimeout(r, 100));
+      const contentHTML = el.innerHTML;
       el.style.display = "none";
 
-      // 4. PNG data
-      const imgData = canvas.toDataURL("image/png");
-
-      // 5. Single custom-height page — no splitting, no text gets cut
-      const pw       = 210;   // A4 width in mm
-      const totalMm  = Math.round((canvas.height / canvas.width) * pw);
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pw, totalMm] });
-      pdf.addImage(imgData, "PNG", 0, 0, pw, totalMm);
-
-      const floorStr = selectedFloors.length > 0 ? `Floor${floorsLabel(selectedFloors).replace(/\s/g,"")}` : "";
+      // 3. Build filename
+      const floorStr = selectedFloors.length > 0 ? `Floor${floorsLabel(selectedFloors).replace(/\s/g, "")}` : "";
       const parts = [
         selectedProject.title || "offer",
         apartmentType || "",
         floorStr,
         totalPrice > 0 ? `$${fmt(totalPrice)}` : "",
       ].filter(Boolean).map((s) => s.replace(/\s+/g, "_").replace(/[^\w$.\-]/g, ""));
-      pdf.save(`${parts.join("_")}.pdf`);
+      const filename = `${parts.join("_")}.pdf`;
+
+      // 4. Open print window — browser handles Arabic perfectly
+      const printWin = window.open("", "_blank", "width=900,height=1200");
+      if (!printWin) {
+        alert("يرجى السماح بالنوافذ المنبثقة في المتصفح ثم المحاولة مجدداً");
+        return;
+      }
+      printWin.document.write(`<!DOCTYPE html>
+<html dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <title>${filename}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900&family=Tajawal:wght@200;300;400;500;700;800;900&family=Noto+Sans+Arabic:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @media print {
+      @page { size: A4 portrait; margin: 0; }
+      html, body { width: 210mm; }
+    }
+  </style>
+</head>
+<body>
+  ${contentHTML}
+  <script>
+    document.fonts.ready.then(function() {
+      setTimeout(function() { window.print(); }, 800);
+    });
+  <\/script>
+</body>
+</html>`);
+      printWin.document.close();
     } finally {
       setGenerating(false);
       setB64Images([]);
@@ -623,7 +617,7 @@ export default function ProjectOfferPage() {
               className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90 gap-2 h-11 text-base"
             >
               <FileDown className="h-5 w-5" />
-              {generating ? "جارٍ إنشاء الملف..." : "تحميل العرض PDF"}
+              {generating ? "جارٍ التحضير..." : "معاينة وطباعة PDF"}
             </Button>
             {!selectedProject && <p className="text-xs text-center text-gray-400">يرجى اختيار مشروع أولاً</p>}
           </CardContent>
