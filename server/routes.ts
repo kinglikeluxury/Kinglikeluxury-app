@@ -22,7 +22,7 @@ import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment"
 // } from "./objectStorage";
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
-import { uploadToCloudinary } from "./cloudinaryService";
+
 import path from "path";
 import Twilio from "twilio";
 
@@ -1273,70 +1273,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Blog image upload route
-  app.post("/api/blog/upload-image", upload.single('image'), async (req, res) => {
-    try {
-      if (!req.session?.userId) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-      const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({ message: "No image file provided" });
-      }
-
-      const result = await uploadToCloudinary(req.file.buffer, {
-        folder: "kinglike/blog",
-        resourceType: "image",
-      });
-      res.json({ url: result.secureUrl });
-    } catch (error) {
-      console.error('Error uploading blog image:', error);
-      res.status(500).json({ message: "Failed to upload image" });
-    }
+  // Blog image/video upload — handled client-side via unsigned Cloudinary preset (kinglike_unsigned)
+  app.post("/api/blog/upload-image", (req, res) => {
+    res.status(410).json({ message: "Server-side upload removed. Use direct unsigned Cloudinary upload from the client." });
   });
 
-  const blogVideoUpload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 100 * 1024 * 1024 },
-    fileFilter: (_req, file, cb) => {
-      const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
-      if (allowed.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error('Invalid video format. Use MP4, WEBM, MOV, or AVI.'));
-      }
-    }
-  });
-
-  app.post("/api/blog/upload-video", blogVideoUpload.single('video'), async (req, res) => {
-    try {
-      if (!req.session?.userId) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-      const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({ message: "No video file provided" });
-      }
-
-      const result = await uploadToCloudinary(req.file.buffer, {
-        folder: "kinglike/blog",
-        resourceType: "video",
-      });
-      res.json({ url: result.secureUrl });
-    } catch (error: any) {
-      if (error.message?.includes('Invalid video format') || error.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: error.message || "File too large (max 100MB)" });
-      }
-      console.error('Error uploading blog video:', error);
-      res.status(500).json({ message: "Failed to upload video" });
-    }
+  app.post("/api/blog/upload-video", (req, res) => {
+    res.status(410).json({ message: "Server-side upload removed. Use direct unsigned Cloudinary upload from the client." });
   });
 
   // Blog CRUD routes (admin only)

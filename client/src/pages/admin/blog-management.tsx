@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video } from "lucide-react";
+import { uploadToCloudinary } from "@/lib/cloudinaryUpload";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
 
@@ -51,18 +52,11 @@ const BlogManagement = () => {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch('/api/blog/upload-image', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      const { url } = await res.json();
-      setCoverImage(url);
+      const result = await uploadToCloudinary(file, "image");
+      setCoverImage(result.secure_url);
       toast({ title: "تم رفع الصورة بنجاح" });
-    } catch {
+    } catch (err) {
+      console.error("Blog image upload error:", err);
       toast({ title: "فشل رفع الصورة", variant: "destructive" });
     } finally {
       setUploading(false);
@@ -79,25 +73,18 @@ const BlogManagement = () => {
       return;
     }
 
-    if (file.size > 100 * 1024 * 1024) {
-      toast({ title: "حجم الفيديو يجب أن يكون أقل من 100 ميغابايت", variant: "destructive" });
+    if (file.size > 200 * 1024 * 1024) {
+      toast({ title: "حجم الفيديو يجب أن يكون أقل من 200 ميغابايت", variant: "destructive" });
       return;
     }
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('video', file);
-      const res = await fetch('/api/blog/upload-video', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      const { url } = await res.json();
-      setCoverVideo(url);
+      const result = await uploadToCloudinary(file, "video");
+      setCoverVideo(result.secure_url);
       toast({ title: "تم رفع الفيديو بنجاح" });
-    } catch {
+    } catch (err) {
+      console.error("Blog video upload error:", err);
       toast({ title: "فشل رفع الفيديو", variant: "destructive" });
     } finally {
       setUploading(false);
