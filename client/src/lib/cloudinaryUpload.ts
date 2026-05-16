@@ -93,45 +93,26 @@ async function compressImage(file: File): Promise<File> {
   });
 }
 
-// ─── Upload ───────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Upload a file directly to Cloudinary using an unsigned preset.
- * Images are automatically compressed/resized client-side before upload.
- * Videos are sent as-is (Cloudinary handles transcoding server-side via the preset).
- */
-export async function uploadToCloudinary(
-  file: File,
-  resourceType: CloudinaryResourceType = "auto",
-  onProgress?: (pct: number) => void
+function generateUploadId(): string {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function xhrSend(
+  endpoint: string,
+  formData: FormData,
+  extraHeaders: Record<string, string>,
+  onProgress?: (loaded: number, total: number) => void
 ): Promise<CloudinaryUploadResult> {
-  // Compress images before upload
-  const fileToUpload =
-    resourceType === "image" || (resourceType === "auto" && file.type.startsWith("image/"))
-      ? await compressImage(file)
-      : file;
-
-  const effectiveType: CloudinaryResourceType =
-    resourceType === "auto"
-      ? file.type.startsWith("video/")
-        ? "video"
-        : "image"
-      : resourceType;
-
-  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${effectiveType}/upload`;
-
-  const formData = new FormData();
-  formData.append("file", fileToUpload);
-  formData.append("upload_preset", UPLOAD_PRESET);
-
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    xhr.upload.addEventListener("progress", (e) => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    });
+    if (onProgress) {
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) onProgress(e.loaded, e.total);
+      });
+    }
 
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -154,8 +135,90 @@ export async function uploadToCloudinary(
     xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
 
     xhr.open("POST", endpoint);
+    for (const [key, val] of Object.entries(extraHeaders)) {
+      xhr.setRequestHeader(key, val);
+    }
     xhr.send(formData);
+  });
+}
 
-    (xhr as any)._abort = () => xhr.abort();
+// ─── Chunked video upload ──────────────────────────────────────────────────────
+// Splits the file into CHUNK_SIZE pieces and uploads them sequentially.
+// Cloudinary identifies the session via X-Unique-Upload-Id and Content-Range.
+
+const CHUNK_SIZE = 6 * 1024 * 1024; // 6 MB per chunk
+
+async function uploadVideoChunked(
+  file: File,
+  endpoint: string,
+  onProgress?: (pct: number) => void
+): Promise<CloudinaryUploadResult> {
+  const uploadId = generateUploadId();
+  const totalBytes = file.size;
+  let uploadedBytes = 0;
+  let result!: CloudinaryUploadResult;
+
+  let start = 0;
+  while (start < totalBytes) {
+    const end = Math.min(start + CHUNK_SIZE, totalBytes);
+    const chunk = file.slice(start, end);
+
+    const formData = new FormData();
+    formData.append("file", chunk, file.name);
+    formData.append("upload_preset", UPLOAD_PRESET);
+
+    const headers: Record<string, string> = {
+      "X-Unique-Upload-Id": uploadId,
+      "Content-Range": `bytes ${start}-${end - 1}/${totalBytes}`,
+    };
+
+    result = await xhrSend(endpoint, formData, headers, (loaded) => {
+      if (onProgress) {
+        const totalLoaded = uploadedBytes + loaded;
+        onProgress(Math.min(99, Math.round((totalLoaded / totalBytes) * 100)));
+      }
+    });
+
+    uploadedBytes = end;
+    start = end;
+  }
+
+  if (onProgress) onProgress(100);
+  return result;
+}
+
+// ─── Upload ───────────────────────────────────────────────────────────────────
+
+/**
+ * Upload a file directly to Cloudinary using an unsigned preset.
+ * Images are automatically compressed/resized client-side before upload.
+ * Videos use chunked upload (6 MB chunks) to avoid network timeouts on large files.
+ */
+export async function uploadToCloudinary(
+  file: File,
+  resourceType: CloudinaryResourceType = "auto",
+  onProgress?: (pct: number) => void
+): Promise<CloudinaryUploadResult> {
+  const effectiveType: CloudinaryResourceType =
+    resourceType === "auto"
+      ? file.type.startsWith("video/") ? "video" : "image"
+      : resourceType;
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${effectiveType}/upload`;
+
+  // ── Videos: always use chunked upload ──────────────────────────────────────
+  if (effectiveType === "video") {
+    return uploadVideoChunked(file, endpoint, onProgress);
+  }
+
+  // ── Images: compress then single-request upload ────────────────────────────
+  const fileToUpload = await compressImage(file);
+
+  const formData = new FormData();
+  formData.append("file", fileToUpload);
+  formData.append("upload_preset", UPLOAD_PRESET);
+
+  return xhrSend(endpoint, formData, {}, (loaded, total) => {
+    if (onProgress) onProgress(Math.round((loaded / total) * 100));
   });
 }
