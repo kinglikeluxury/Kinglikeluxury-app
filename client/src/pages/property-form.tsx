@@ -2701,7 +2701,7 @@ const PropertyForm = () => {
           {/* Submit Button */}
           <div className="flex justify-between items-center">
             {/* Delete button — admin only, edit mode only */}
-            {isEditMode && user?.isAdmin && (
+            {isEditMode && (user?.isAdmin || existingProperty?.ownerId === user?.id) && (
               <Button
                 type="button"
                 variant="outline"
