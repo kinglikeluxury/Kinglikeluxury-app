@@ -37,13 +37,13 @@ const TRANSLITERATE: Record<string, string> = {
   ć: "c", č: "c", ĉ: "c", Ć: "c", Č: "c",
   đ: "d", ď: "d", Đ: "d", Ď: "d",
   ě: "e", Ě: "e",
-  ĝ: "g", ğ: "g",
+  ĝ: "g",
   ĥ: "h",
   ĵ: "j",
   ĺ: "l", ľ: "l", ļ: "l", ł: "l", Ł: "l",
   ń: "n", ň: "n", ņ: "n",
   ŕ: "r", ř: "r", Ř: "r",
-  ś: "s", š: "s", ŝ: "s", ş: "s", Ś: "s", Š: "s",
+  ś: "s", š: "s", ŝ: "s", Ś: "s", Š: "s",
   ţ: "t", ť: "t", Ţ: "t", Ť: "t",
   ű: "u", ů: "u", Ű: "u", Ů: "u",
   ź: "z", ż: "z", ž: "z", Ź: "z", Ż: "z", Ž: "z",
@@ -63,17 +63,82 @@ export function hasNonAscii(str: string): boolean {
 }
 
 /**
- * Converts a string to a clean URL-safe ASCII slug.
- * Special Latin characters are transliterated; all remaining
- * non-ASCII characters (Arabic, CJK, etc.) are stripped.
+ * Words that add no SEO value and should be stripped from slugs.
+ * "in", "at", "on" are intentionally kept — they add location context
+ * (e.g. "real-estate-in-georgia" is better SEO than "real-estate-georgia").
+ */
+const STOP_WORDS = new Set([
+  // Articles
+  "a", "an", "the",
+  // Conjunctions
+  "and", "or", "but",
+  // Filler prepositions (keep "in", "on", "at" for location value)
+  "to", "for", "of", "with", "by", "through", "from", "into", "about",
+  // Pronouns
+  "i", "you", "we", "he", "she", "it", "they", "them",
+  "your", "my", "our", "its",
+  // Question / intro words
+  "how", "why", "what", "when", "where", "which", "who",
+  // Auxiliary verbs (note: "will" omitted — can be a legal noun e.g. "real estate will")
+  "is", "are", "was", "were", "can", "do", "does",
+  // Filler action verbs
+  "need", "know", "get", "make", "buy", "change",
+  // Vague superlatives / quantifiers (note: "one" omitted — can be meaningful)
+  "most", "least",
+  "everything", "something", "anything", "nothing",
+  "all", "any", "some",
+  "very", "just", "only", "also", "even",
+  // Time fillers
+  "today", "now",
+  // Demonstratives
+  "this", "that", "these", "those",
+  // Common English filler words found in blog titles
+  "considered", "thanks",
+]);
+
+/**
+ * Maximum slug length (characters). Slugs are never cut mid-word.
+ * Google treats the first ~60-70 chars as most significant; beyond ~80
+ * extra words dilute keyword relevance.
+ */
+const MAX_SLUG_LENGTH = 70;
+
+/**
+ * Converts a string to a clean, SEO-optimised ASCII slug:
+ * 1. Transliterates special Latin characters.
+ * 2. Removes stop words (filler words with no SEO value).
+ * 3. Truncates at a whole-word boundary at ≤ MAX_SLUG_LENGTH characters.
  */
 export function toEnglishSlug(text: string): string {
   if (!text) return "";
-  return transliterate(text)
+
+  // Step 1: transliterate, lowercase, collapse to plain words
+  const normalized = transliterate(text)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .substring(0, 80);
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const words = normalized.split(" ").filter((w) => w.length > 0);
+
+  // Step 2: remove stop words; fall back to all words if result too short
+  const filtered = words.filter((w) => !STOP_WORDS.has(w));
+  const useWords = filtered.length >= 3 ? filtered : words;
+
+  // Step 3: accumulate words up to MAX_SLUG_LENGTH — never cut mid-word
+  const parts: string[] = [];
+  let len = 0;
+  for (const word of useWords) {
+    const addition = (len === 0 ? 0 : 1) + word.length; // +1 for hyphen separator
+    if (len > 0 && len + addition > MAX_SLUG_LENGTH) break;
+    parts.push(word);
+    len += addition;
+  }
+
+  // Guarantee at least one word even if the first word alone exceeds the limit
+  if (parts.length === 0 && useWords.length > 0) parts.push(useWords[0]);
+
+  return parts.join("-");
 }
 
 /**
