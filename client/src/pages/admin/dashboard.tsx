@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import { Building, Home, CircleDot, Construction, User, Clock } from "lucide-react";
+import { Building, Home, CircleDot, Construction, User, Clock, Bell } from "lucide-react";
 
 const AdminDashboard = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -90,6 +90,12 @@ const AdminDashboard = () => {
               <Link href="/admin/approvals">
                 <Clock className="mr-2 h-4 w-4" />
                 Pending Approvals
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/notifications">
+                <Bell className="mr-2 h-4 w-4" />
+                الإشعارات
               </Link>
             </Button>
             <Button asChild>

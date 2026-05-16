@@ -21,6 +21,7 @@ import AddProject from "@/pages/admin/add-project";
 import BlogManagement from "@/pages/admin/blog-management";
 import LeadsPage from "@/pages/admin/leads";
 import ProjectOffer from "@/pages/admin/project-offer";
+import NotificationsPage from "@/pages/admin/notifications";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
 import BlogPost from "@/pages/blog-post";
@@ -62,6 +63,7 @@ function Router() {
           <Route path="/admin/blog" component={BlogManagement} />
           <Route path="/admin/leads" component={LeadsPage} />
           <Route path="/admin/project-offer" component={ProjectOffer} />
+          <Route path="/admin/notifications" component={NotificationsPage} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/map" component={MapView} />
           <Route path="/payment/success" component={PaymentSuccess} />

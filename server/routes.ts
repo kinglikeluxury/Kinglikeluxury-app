@@ -25,6 +25,11 @@ import { ObjectStorageService } from "./objectStorage";
 
 import path from "path";
 import Twilio from "twilio";
+import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate } from "./emailService";
+import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
+import { db } from "./db";
+import { notificationTemplates, notificationLogs } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 
 // Configure multer for file uploads - memory storage for Cloudinary
 const upload = multer({ 
@@ -267,6 +272,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
+
+      // Fire-and-forget welcome notifications
+      sendWelcomeEmail(user).catch(() => {});
+      sendWelcomeWhatsApp(user).catch(() => {});
 
       const userResponse: any = {
         id: user.id,
@@ -1586,6 +1595,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Translation endpoint error:', error);
       res.status(500).json({ message: "Translation failed" });
     }
+  });
+
+  // ── Notification Template Routes (Admin) ──────────────────────────────────
+
+  // GET all templates (create defaults if missing)
+  app.get("/api/admin/notification-templates", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const triggers = ["welcome", "weekly_update", "inactive_reminder"];
+      const types = ["email", "whatsapp"];
+      for (const type of types) {
+        for (const trigger of triggers) {
+          await getOrCreateTemplate(type, trigger);
+        }
+      }
+      const templates = await db.select().from(notificationTemplates);
+      res.json(templates);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PUT update a template
+  app.put("/api/admin/notification-templates/:id", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const id = parseInt(req.params.id);
+      const { subject, bodyHtml, bodyText, isActive } = req.body;
+      const [updated] = await db
+        .update(notificationTemplates)
+        .set({ subject, bodyHtml, bodyText, isActive, updatedAt: new Date() })
+        .where(eq(notificationTemplates.id, id))
+        .returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST manual send (bulk or test)
+  app.post("/api/admin/notifications/send", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { trigger, channel } = req.body as { trigger: string; channel: string };
+      let result = { email: null as any, whatsapp: null as any };
+      if (channel === "email" || channel === "all") {
+        result.email = await sendBulkEmail(trigger as any);
+      }
+      if (channel === "whatsapp" || channel === "all") {
+        result.whatsapp = await sendBulkWhatsApp(trigger as any);
+      }
+      res.json({ success: true, result });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET notification logs
+  app.get("/api/admin/notification-logs", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const logs = await db
+        .select()
+        .from(notificationLogs)
+        .orderBy(desc(notificationLogs.sentAt))
+        .limit(200);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET notification system status
+  app.get("/api/admin/notification-status", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    res.json({
+      emailConfigured: isEmailConfigured(),
+      whatsappConfigured: isWhatsAppConfigured(),
+      gmailUser: process.env.GMAIL_USER || null,
+    });
   });
 
   return httpServer;

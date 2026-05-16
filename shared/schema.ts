@@ -256,6 +256,36 @@ export const verificationCodes = pgTable("verification_codes", {
 
 export type VerificationCode = typeof verificationCodes.$inferSelect;
 
+// ── Notification Templates ──────────────────────────────────────────────────
+export const notificationTemplates = pgTable("notification_templates", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull(),        // 'email' | 'whatsapp'
+  trigger: text("trigger").notNull(),  // 'welcome' | 'weekly_update' | 'inactive_reminder'
+  subject: text("subject"),            // email subject (null for whatsapp)
+  bodyHtml: text("body_html"),         // email HTML body
+  bodyText: text("body_text"),         // plain-text / whatsapp body
+  isActive: boolean("is_active").default(true).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertNotificationTemplateSchema = createInsertSchema(notificationTemplates).omit({ id: true, updatedAt: true });
+export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
+export type InsertNotificationTemplate = z.infer<typeof insertNotificationTemplateSchema>;
+
+// ── Notification Logs ───────────────────────────────────────────────────────
+export const notificationLogs = pgTable("notification_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  type: text("type").notNull(),        // 'email' | 'whatsapp'
+  trigger: text("trigger").notNull(),  // 'welcome' | 'weekly_update' | 'inactive_reminder'
+  recipient: text("recipient"),        // email or phone
+  status: text("status").notNull(),    // 'sent' | 'failed'
+  error: text("error"),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+});
+
+export type NotificationLog = typeof notificationLogs.$inferSelect;
+
 export type PropertyWithOwner = Property & { owner: User };
 export type PropertyWithAgent = Property & { 
   agent: {

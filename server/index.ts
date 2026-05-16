@@ -3,6 +3,7 @@ import path from "path";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { startScheduler } from "./schedulerService";
 
 const app = express();
 
@@ -86,4 +87,6 @@ app.use((req, res, next) => {
   server.timeout = 600000;
   server.keepAliveTimeout = 620000;
   server.headersTimeout = 630000;
+
+  startScheduler();
 })();
