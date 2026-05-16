@@ -1737,7 +1737,8 @@ const PropertyForm = () => {
             </Card>
           )}
 
-          {/* Price Section - Updated for rental/sale context */}
+          {/* Price Section - Hidden for off-plan projects */}
+          {propertyType !== PROPERTY_TYPES.PROJECT && (
           <Card>
             <CardHeader>
               <CardTitle>
@@ -1870,6 +1871,7 @@ const PropertyForm = () => {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Ready Status Section */}
           <Card>
