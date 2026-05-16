@@ -18,7 +18,7 @@ const MapView = () => {
   const [isMapReady, setIsMapReady] = useState(false);
 
   const { data: properties = [] } = useQuery<Property[]>({
-    queryKey: ['/api/properties'],
+    queryKey: ['/api/properties?includeAll=true'],
   });
 
   // Properties with valid coordinates

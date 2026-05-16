@@ -135,6 +135,7 @@ export class DatabaseStorage implements IStorage {
     bedrooms?: number;
     phoneNumber?: string;
     whatsappNumber?: string;
+    includeAllTypes?: boolean;
   }): Promise<Property[]> {
     return await withRetry(async () => {
       let query = db.select().from(properties);
@@ -144,7 +145,7 @@ export class DatabaseStorage implements IStorage {
         
         if (filters.type) {
           conditions.push(eq(properties.propertyType, filters.type));
-        } else if (!filters.ownerId) {
+        } else if (!filters.ownerId && !filters.includeAllTypes) {
           // Exclude off-plan projects from general listing — they have their own dedicated page
           conditions.push(sql`${properties.propertyType} != ${PROPERTY_TYPES.PROJECT}`);
         }

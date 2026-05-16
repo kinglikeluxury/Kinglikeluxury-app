@@ -34,6 +34,7 @@ export interface IStorage {
     locationContains?: string;
     minPrice?: number;
     maxPrice?: number;
+    includeAllTypes?: boolean;
   }): Promise<Property[]>;
   getProperty(id: number): Promise<Property | undefined>;
   getPropertyById(id: number): Promise<Property | undefined>;

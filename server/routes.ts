@@ -631,10 +631,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status = PROPERTY_STATUS.APPROVED, // Default to showing only approved properties
         location,
         minPrice,
-        maxPrice
+        maxPrice,
+        includeAll
       } = req.query;
       
       let filters: any = { status };
+
+      // includeAll=true bypasses project exclusion (used by map view)
+      if (includeAll === 'true') {
+        filters.includeAllTypes = true;
+      }
       
       // Handle apartment subtypes (studio, one-bedroom, etc.) by converting to proper filters
       if (type) {
