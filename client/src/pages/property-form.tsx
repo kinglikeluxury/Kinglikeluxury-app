@@ -38,7 +38,7 @@ const toEnglishDigits = (str: string): string => {
 const PropertyForm = () => {
   const { user, isLoading } = useAuth();
   const { t } = useTranslation();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
   
   // Check if we're in edit mode
@@ -2699,7 +2699,36 @@ const PropertyForm = () => {
           )}
 
           {/* Submit Button */}
-          <div className="flex justify-end space-x-4">
+          <div className="flex justify-between items-center">
+            {/* Delete button — admin only, edit mode only */}
+            {isEditMode && user?.isAdmin && (
+              <Button
+                type="button"
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+                onClick={async () => {
+                  const confirmed = window.confirm('هل أنت متأكد من حذف هذا العقار؟ لا يمكن التراجع عن هذا الإجراء.');
+                  if (!confirmed) return;
+                  try {
+                    const res = await fetch(`/api/properties/${propertyId}`, { method: 'DELETE' });
+                    if (res.ok) {
+                      toast({ title: 'تم الحذف', description: 'تم حذف العقار بنجاح.' });
+                      navigate('/admin');
+                    } else {
+                      const data = await res.json();
+                      toast({ title: 'خطأ', description: data.message || 'فشل حذف العقار.', variant: 'destructive' });
+                    }
+                  } catch {
+                    toast({ title: 'خطأ', description: 'حدث خطأ أثناء الحذف.', variant: 'destructive' });
+                  }
+                }}
+              >
+                🗑️ حذف العقار
+              </Button>
+            )}
+            {!isEditMode && <div />}
+
+            <div className="flex space-x-4">
             <Link href={isEditMode ? `/property/${propertyId}` : "/submit-property"}>
               <Button type="button" variant="outline">
                 Cancel
@@ -2732,6 +2761,7 @@ const PropertyForm = () => {
                 {isSubmitting ? 'Submitting...' : `Submit ${getPropertyTypeTitle(propertyType)}`}
               </Button>
             )}
+            </div>
           </div>
         </form>
         
