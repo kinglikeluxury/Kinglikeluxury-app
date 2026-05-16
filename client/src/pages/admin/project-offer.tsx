@@ -114,6 +114,7 @@ const T: Record<string, Record<LangCode, string>> = {
   aptType:        { ar:"نوع الوحدة السكنية", en:"Unit Type", ru:"Тип объекта", ka:"ბინის ტიპი", az:"Mənzil növü", tr:"Daire Tipi", zh:"户型", pl:"Typ mieszkania", he:"סוג הדירה", it:"Tipologia unità" },
   block:          { ar:"البلوك", en:"Block", ru:"Блок", ka:"ბლოკი", az:"Blok", tr:"Blok", zh:"楼栋", pl:"Blok", he:"בלוק", it:"Blocco" },
   floor:          { ar:"الطابق", en:"Floor", ru:"Этаж", ka:"სართული", az:"Mərtəbə", tr:"Kat", zh:"所在楼层", pl:"Piętro", he:"קומה", it:"Piano" },
+  aptNumber:      { ar:"رقم الشقة", en:"Apartment No.", ru:"№ квартиры", ka:"ბინის №", az:"Mənzil №", tr:"Daire No.", zh:"公寓编号", pl:"Nr mieszkania", he:"מס' דירה", it:"N° appartamento" },
   area:           { ar:"المساحة الإجمالية", en:"Total Area", ru:"Общая площадь", ka:"სრული ფართობი", az:"Ümumi sahə", tr:"Toplam Alan", zh:"建筑面积", pl:"Powierzchnia całkowita", he:"שטח כולל", it:"Superficie totale" },
   pricePerMeter:  { ar:"سعر المتر المربع", en:"Price per m²", ru:"Цена за 1 м²", ka:"ფასი 1 მ²-ზე", az:"1 m² qiyməti", tr:"m² Birim Fiyatı", zh:"每平米单价", pl:"Cena za 1 m²", he:"מחיר למ\"ר", it:"Prezzo al m²" },
   totalPrice:     { ar:"السعر الإجمالي", en:"Total Price", ru:"Итоговая цена", ka:"სრული ღირებულება", az:"Ümumi qiymət", tr:"Toplam Fiyat", zh:"总价", pl:"Cena całkowita", he:"מחיר כולל", it:"Prezzo totale" },
@@ -148,6 +149,7 @@ export default function ProjectOfferPage() {
   const [selectedBlock, setSelectedBlock]       = useState("");
   const [selectedFloors, setSelectedFloors]     = useState<number[]>([]);
   const [floorOpen, setFloorOpen]               = useState(false);
+  const [apartmentNumber, setApartmentNumber]   = useState("");
   const [totalArea, setTotalArea]               = useState("");
   const [pricePerMeter, setPricePerMeter]       = useState("");
   const [paymentPercent, setPaymentPercent]     = useState<number | null>(null);
@@ -507,6 +509,17 @@ export default function ProjectOfferPage() {
                 </div>
               )}
             </div>
+            {/* Apartment Number */}
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">رقم الشقة</Label>
+              <input
+                type="text"
+                value={apartmentNumber}
+                onChange={(e) => setApartmentNumber(e.target.value)}
+                placeholder="مثال: 301"
+                className="w-full h-9 border border-input rounded-md px-3 text-sm bg-white text-right placeholder:text-gray-400"
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -667,6 +680,7 @@ export default function ProjectOfferPage() {
             apartmentType={apartmentType}
             selectedBlock={selectedBlock}
             selectedFloors={selectedFloors}
+            apartmentNumber={apartmentNumber}
             totalArea={totalArea}
             pricePerMeter={pricePerMeter}
             totalPrice={totalPrice}
@@ -695,7 +709,7 @@ export default function ProjectOfferPage() {
 
 function PDFTemplate({
   project, b64Images, floorPlanB64, flagB64, lang, isRTL,
-  apartmentType, selectedBlock, selectedFloors, totalArea, pricePerMeter,
+  apartmentType, selectedBlock, selectedFloors, apartmentNumber, totalArea, pricePerMeter,
   totalPrice, discountVal, discountedPrice, paymentPercent, downPayment, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
   getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt
@@ -720,6 +734,7 @@ function PDFTemplate({
   if (apartmentType)          rows.push({ label: t("aptType",lang),      value: getAptLabel(apartmentType) });
   if (selectedBlock)          rows.push({ label: t("block",lang),         value: selectedBlock });
   if (selectedFloors?.length) rows.push({ label: t("floor",lang),        value: floorsLabel(selectedFloors) });
+  if (apartmentNumber)        rows.push({ label: t("aptNumber",lang),     value: apartmentNumber });
   if (totalArea)              rows.push({ label: t("area",lang),          value: `${totalArea} m²` });
   if (pricePerMeter)          rows.push({ label: t("pricePerMeter",lang), value: `$${fmt(parseFloat(pricePerMeter))} / m²` });
   if (discountVal > 0 && totalPrice > 0) {
