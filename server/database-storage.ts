@@ -144,6 +144,9 @@ export class DatabaseStorage implements IStorage {
         
         if (filters.type) {
           conditions.push(eq(properties.propertyType, filters.type));
+        } else if (!filters.ownerId) {
+          // Exclude off-plan projects from general listing — they have their own dedicated page
+          conditions.push(sql`${properties.propertyType} != ${PROPERTY_TYPES.PROJECT}`);
         }
         
         if (filters.status) {
