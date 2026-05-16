@@ -172,7 +172,10 @@ const PropertyForm = () => {
         features: existingProperty.features || [],
         amenities: existingProperty.amenities || [],
         purpose: 'buy',
-        coordinates: { lat: 0, lng: 0 },
+        coordinates: {
+          lat: parseFloat((existingProperty as any).latitude || '0') || 0,
+          lng: parseFloat((existingProperty as any).longitude || '0') || 0,
+        },
         rentalPeriod: '',
         furnished: '',
         securityDeposit: '',
@@ -600,7 +603,7 @@ const PropertyForm = () => {
     });
   };
 
-  // Handle form submission - Show listing type popup first
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -619,6 +622,12 @@ const PropertyForm = () => {
 
     if (!formData.title || !formData.description || !formData.price) {
       alert('Please fill in all required fields (title, description, price).');
+      return;
+    }
+
+    // In edit mode — save directly without asking for listing type again
+    if (isEditMode) {
+      await submitProperty('free');
       return;
     }
     
@@ -718,7 +727,13 @@ const PropertyForm = () => {
         amenities: formData.amenities || [],
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
-        readyStatus: formData.readyStatus || null
+        readyStatus: formData.readyStatus || null,
+        latitude: formData.coordinates?.lat && formData.coordinates.lat !== 0
+          ? formData.coordinates.lat.toString()
+          : (isEditMode && existingProperty ? (existingProperty as any).latitude : null),
+        longitude: formData.coordinates?.lng && formData.coordinates.lng !== 0
+          ? formData.coordinates.lng.toString()
+          : (isEditMode && existingProperty ? (existingProperty as any).longitude : null),
       };
 
       // Add project details if it's a project type

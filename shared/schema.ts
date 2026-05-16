@@ -128,6 +128,7 @@ export const insertPropertySchema = createInsertSchema(properties)
       PROPERTY_TYPES.VILLA,
       PROPERTY_TYPES.LAND,
       PROPERTY_TYPES.PROJECT,
+      PROPERTY_TYPES.COMMERCIAL,
     ]),
     listingType: z
       .enum([LISTING_TYPES.REGULAR, LISTING_TYPES.VIP, LISTING_TYPES.SUPER_VIP])
