@@ -7,6 +7,7 @@ import {
   users,
   properties,
   projects,
+  payments,
   blogPosts,
   verificationCodes,
   contactLogs,
@@ -315,8 +316,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProperty(id: number): Promise<boolean> {
+    // Delete related records first to avoid foreign key constraint violations
+    await db.delete(contactLogs).where(eq(contactLogs.propertyId, id));
+    await db.delete(payments).where(eq(payments.propertyId, id));
+    await db.delete(projects).where(eq(projects.propertyId, id));
     await db.delete(properties).where(eq(properties.id, id));
-    return true; // Assuming success if no error is thrown
+    return true;
   }
 
   // Project operations
