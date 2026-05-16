@@ -4,9 +4,37 @@ import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
-import { writeStaticSitemap } from "./sitemapGenerator";
+import { generateSitemapXml } from "./sitemapGenerator";
 
 const app = express();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SITEMAP & ROBOTS — registered ABSOLUTELY FIRST, before CORS, before
+// express.static, before Vite middleware, before everything.
+// This guarantees no middleware or static-file handler can intercept these URLs
+// and accidentally return index.html (which would make Google think it's HTML).
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/sitemap.xml", async (_req, res) => {
+  try {
+    const xml = await generateSitemapXml();
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.removeHeader("X-Powered-By");
+    res.end(xml);
+  } catch (err) {
+    console.error("[Sitemap] Error:", err);
+    res.status(500).type("text/plain").end("Error generating sitemap");
+  }
+});
+
+app.get("/robots.txt", (_req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.end(
+    "User-agent: *\nAllow: /\n\nSitemap: https://www.kinglikeluxury.app/sitemap.xml\n"
+  );
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.use(
   cors({
@@ -58,9 +86,6 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
-
-  // Generate static sitemap.xml for production (runs after DB is available)
-  writeStaticSitemap().catch(() => {});
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

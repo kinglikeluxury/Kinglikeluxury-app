@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { storage } from "./storage";
 
 const SEO_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
@@ -15,6 +13,14 @@ const STATIC_URLS = [
   { loc: `${BASE_URL}/terms`,         priority: "0.3", changefreq: "yearly" },
 ];
 
+/**
+ * Generates the sitemap XML string dynamically from the database.
+ * This is called directly by the /sitemap.xml Express route in server/index.ts
+ * (registered BEFORE any static-file middleware so it always wins).
+ * We intentionally do NOT write a static sitemap.xml file — doing so would
+ * cause Vite to copy it into dist/public/ and express.static could serve the
+ * stale file instead of this live, DB-driven version.
+ */
 export async function generateSitemapXml(): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
 
@@ -57,25 +63,4 @@ ${hreflangs}
 ${staticEntries}
 ${blogEntries}
 </urlset>`;
-}
-
-export async function writeStaticSitemap(): Promise<void> {
-  try {
-    const xml = await generateSitemapXml();
-
-    const targets = [
-      path.resolve(process.cwd(), "client", "public", "sitemap.xml"),
-      path.resolve(process.cwd(), "dist", "public", "sitemap.xml"),
-    ];
-
-    for (const target of targets) {
-      const dir = path.dirname(target);
-      if (fs.existsSync(dir)) {
-        fs.writeFileSync(target, xml, "utf-8");
-        console.log(`[Sitemap] Written to ${target}`);
-      }
-    }
-  } catch (err) {
-    console.error("[Sitemap] Failed to write static sitemap:", err);
-  }
 }

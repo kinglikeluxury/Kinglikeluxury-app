@@ -31,7 +31,7 @@ import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db } from "./db";
-import { generateSitemapXml } from "./sitemapGenerator";
+
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -76,22 +76,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.redirect(301, `/${lang}/blog/${slug}`);
   });
 
-  app.get("/sitemap.xml", async (_req, res) => {
-    try {
-      const xml = await generateSitemapXml();
-      res.setHeader("Content-Type", "application/xml; charset=utf-8");
-      res.setHeader("Cache-Control", "public, max-age=3600");
-      res.send(xml);
-    } catch (err) {
-      console.error("[Sitemap] Error:", err);
-      res.status(500).type("text/plain").send("Error generating sitemap");
-    }
-  });
-
-  app.get("/robots.txt", (_req, res) => {
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.send(`User-agent: *\nAllow: /\n\nSitemap: ${SEO_BASE}/sitemap.xml\n`);
-  });
 
   // ─── SEO: Canonical + hreflang injection for all visitors ────────────────
   const __routesDirname = path.dirname(fileURLToPath(import.meta.url));
