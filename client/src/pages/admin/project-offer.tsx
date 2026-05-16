@@ -47,7 +47,7 @@ const DELIVERY_TYPES = [
   { value: "half",      ar: "تشطيب نصف جاهز", en: "Semi-Finished", ru: "Полуотделка", ka: "ნახევარი გათავება", az: "Yarı bitmiş", tr: "Yarı Bitişli", zh: "半精装", pl: "Pół-gotowy", he: "גמר חלקי", it: "Semi-rifinito" },
   { value: "full",      ar: "تشطيب كامل (جاهز للسكن والاستثمار)", en: "Fully Finished (Move-in & Investment Ready)", ru: "Полная отделка (под ключ)", ka: "სრული გათავება", az: "Tam bitmiş", tr: "Tam Bitişli (Hazır)", zh: "精装交付", pl: "Pełne wykończenie", he: "גמר מלא (מוכן למגורים)", it: "Completamente rifinito" },
   { value: "full_nofurn", ar: "تشطيب كامل (بدون مفروشات)", en: "Fully Finished (Unfurnished)", ru: "Полная отделка (без мебели)", ka: "სრული გათავება (ავეჯის გარეშე)", az: "Tam bitmiş (mebelssiz)", tr: "Tam Bitişli (Mobilyasız)", zh: "精装交付（无家具）", pl: "Pełne wykończenie (bez mebli)", he: "גמר מלא (ללא ריהוט)", it: "Completamente rifinito (non arredato)" },
-  { value: "furnished", ar: "مفروش بالكامل (تسليم المفتاح)", en: "Fully Furnished (Turnkey)", ru: "Полностью меблирован (под ключ)", ka: "სრულად ავეჯით", az: "Tam mebelli (açar təhvil)", tr: "Tam Eşyalı (Anahtar Teslim)", zh: "全装带家具交付", pl: "W pełni umeblowany (pod klucz)", he: "מרוהט במלואו (מפתח ביד)", it: "Arredato (chiavi in mano)" },
+  { value: "furnished", ar: "تشطيب كامل مع الفرش والكهربائيات (تسليم على المفتاح)", en: "Fully Finished with Furniture & Appliances (Turnkey)", ru: "Полностью меблирован (под ключ)", ka: "სრულად ავეჯით", az: "Tam mebelli (açar təhvil)", tr: "Tam Eşyalı (Anahtar Teslim)", zh: "全装带家具交付", pl: "W pełni umeblowany (pod klucz)", he: "מרוהט במלואו (מפתח ביד)", it: "Arredato (chiavi in mano)" },
 ];
 
 const LANGUAGES = [
