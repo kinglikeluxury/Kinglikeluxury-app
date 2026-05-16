@@ -714,35 +714,35 @@ function PDFTemplate({
     header:     { background: "#ffffff", padding: "22px 40px 30px", display: "flex", justifyContent: "space-between", alignItems: "center" },
     hLogo:      { flexShrink: 0 },
     hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
-    hTagline:   { fontSize: 10, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
-    hTitle:     { fontSize: 26, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
+    hTagline:   { fontSize: 13, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
+    hTitle:     { fontSize: 31, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
     hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
-    hLocation:  { fontSize: 15, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
+    hLocation:  { fontSize: 18, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
     logo:       { height: 160, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
     imgWrap1:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0 },
     imgWrap2:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
     imgFill:    { maxWidth: "100%", maxHeight: 420, height: "auto", display: "inline-block" as const, verticalAlign: "bottom" as const },
     titleBar:   { background: "#f0f4f8", padding: "16px 40px", display: "flex", flexDirection: (isRTL ? "row-reverse" : "row") as "row" | "row-reverse", justifyContent: "space-between", alignItems: "center" },
-    titleText:  { fontSize: 20, fontWeight: 800 as const, color: "#005476", ...txt() },
+    titleText:  { fontSize: 24, fontWeight: 800 as const, color: "#005476", ...txt() },
     pricePill:  { background: "#3bcac4", borderRadius: 10, padding: "10px 24px", textAlign: "center" as const, minWidth: 150 },
-    priceLbl:   { fontSize: 10, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1, ...txt() },
-    priceVal:   { fontSize: 24, fontWeight: 900 as const, color: "#fff" },
+    priceLbl:   { fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 3, letterSpacing: 1, ...txt() },
+    priceVal:   { fontSize: 29, fontWeight: 900 as const, color: "#fff" },
     grid:       { padding: "22px 40px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
     cell:       { borderRadius: 10, padding: "13px 18px", background: "#f1f5f9", border: "1px solid #dde3ea" },
     cellAccent: { borderRadius: 10, padding: "13px 18px", background: "#3bcac4", border: "none" },
-    cellLbl:    { fontSize: 11, color: "#64748b", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
-    cellLblA:   { fontSize: 11, color: "rgba(255,255,255,0.75)", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
-    cellVal:    { fontSize: 17, fontWeight: 700 as const, color: "#0f172a", lineHeight: 1.3, textAlign: ta, ...txt() },
-    cellValA:   { fontSize: 17, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3, textAlign: ta, ...txt() },
+    cellLbl:    { fontSize: 14, color: "#64748b", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
+    cellLblA:   { fontSize: 14, color: "rgba(255,255,255,0.75)", marginBottom: 5, fontWeight: 500 as const, textAlign: ta, ...txt() },
+    cellVal:    { fontSize: 20, fontWeight: 700 as const, color: "#0f172a", lineHeight: 1.3, textAlign: ta, ...txt() },
+    cellValA:   { fontSize: 20, fontWeight: 700 as const, color: "#fff", lineHeight: 1.3, textAlign: ta, ...txt() },
     footer:     { background: "#ffffff", marginTop: 6, borderTop: "1px solid #e2e8f0" },
     fInner:     { padding: "24px 40px", display: "flex", flexDirection: "row" as const, justifyContent: "space-between", alignItems: "center" },
     fLogo:      { height: 320, width: "auto", objectFit: "contain" as const, display: "block" as const, margin: "0 auto", marginTop: -40 },
     fCenter:    { flex: 1, display: "flex" as const, justifyContent: "center" as const, alignItems: "center" as const },
-    fWebsite:   { color: "#3bcac4", fontWeight: 800 as const, fontSize: 15, letterSpacing: 0.5, display: "block" as const },
+    fWebsite:   { color: "#3bcac4", fontWeight: 800 as const, fontSize: 18, letterSpacing: 0.5, display: "block" as const },
     fRight:     { textAlign: "right" as const, minWidth: 160 },
-    fPhoneLbl:  { fontSize: 10, color: "#94a3b8", marginBottom: 3, letterSpacing: 1 },
-    fPhone:     { color: "#005476", fontWeight: 900 as const, fontSize: 20, letterSpacing: 1 },
-    fLabel:     { fontSize: 12, color: "#94a3b8", ...txt() },
+    fPhoneLbl:  { fontSize: 13, color: "#94a3b8", marginBottom: 3, letterSpacing: 1 },
+    fPhone:     { color: "#005476", fontWeight: 900 as const, fontSize: 24, letterSpacing: 1 },
+    fLabel:     { fontSize: 15, color: "#94a3b8", ...txt() },
   };
 
   return (
@@ -791,8 +791,8 @@ function PDFTemplate({
           <div style={S.pricePill}>
             {discountVal > 0 ? (
               <>
-                <div style={{ ...S.priceLbl, textDecoration: "line-through", opacity: 0.55, fontSize: 10 }}>${fmt(totalPrice)}</div>
-                <div style={{ fontSize: 10, color: "#3bcac4", fontWeight: 600, marginBottom: 1 }}>{t("discount", lang)} {discountVal}%</div>
+                <div style={{ ...S.priceLbl, textDecoration: "line-through", opacity: 0.55, fontSize: 13 }}>${fmt(totalPrice)}</div>
+                <div style={{ fontSize: 13, color: "#3bcac4", fontWeight: 600, marginBottom: 1 }}>{t("discount", lang)} {discountVal}%</div>
                 <div style={S.priceVal}>${fmt(discountedPrice)}</div>
               </>
             ) : (
@@ -834,7 +834,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🏗️</div>
-              <div dir={dir} style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 17, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
                 {lang === "ar" ? "المخطط الداخلي للشقة" :
                  lang === "he" ? "תוכנית הדירה" :
                  lang === "ru" ? "Планировка квартиры" :
