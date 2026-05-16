@@ -25,6 +25,8 @@ import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
 
 import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
@@ -91,14 +93,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(`User-agent: *\nAllow: /\n\nSitemap: ${SEO_BASE}/sitemap.xml\n`);
   });
 
-  // ─── SEO: Dynamic meta injection for search engine crawlers ──────────────
+  // ─── SEO: Canonical + hreflang injection for all visitors ────────────────
+  const __routesDirname = path.dirname(fileURLToPath(import.meta.url));
+
   app.get("/:lang/blog/:slug", async (req, res, next) => {
     const { lang, slug } = req.params;
     if (!SEO_LANGS.includes(lang)) return next();
 
     const ua = req.headers["user-agent"] || "";
     const isBot = /googlebot|bingbot|yandexbot|baiduspider|duckduckbot|twitterbot|facebookexternalhit|linkedinbot|whatsapp|slackbot|telegrambot|applebot|semrushbot|ahrefsbot/i.test(ua);
-    if (!isBot) return next();
 
     try {
       let post = await storage.getBlogPostBySlug(slug);
@@ -109,19 +112,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (redirectPost) {
           return res.redirect(301, `/${lang}/blog/${redirectPost.slug}`);
         }
-        return res.status(404).send("Not found");
+        if (isBot) return res.status(404).send("Not found");
+        return next();
       }
 
-      const tr: any   = (post as any).translations?.[lang];
-      const title       = (tr?.title   || (post as any).title   || "Kinglike Luxury Blog").replace(/[<>"&]/g, c => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] || c));
-      const description = (tr?.excerpt || (post as any).excerpt || title).replace(/[<>"&]/g, c => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] || c));
-      const content     = tr?.content  || (post as any).content || "";
+      const safe = (s: string) =>
+        s.replace(/[<>"&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] ?? c));
+
+      const tr: any     = (post as any).translations?.[lang] ?? {};
+      const title       = safe(tr.title   || (post as any).title   || "Kinglike Luxury Blog");
+      const description = safe(tr.excerpt || (post as any).excerpt || title);
+      const content     = tr.content  || (post as any).content || "";
       const image       = (post as any).coverImage || `${SEO_BASE}/icons/icon-512.png`;
       const canonical   = `${SEO_BASE}/${lang}/blog/${slug}`;
       const published   = (post as any).createdAt ? new Date((post as any).createdAt).toISOString() : "";
 
       const hreflangs = SEO_LANGS.map(l =>
-        `  <link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${slug}">`
+        `  <link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${slug}" />`
       ).join("\n");
 
       const jsonLd = JSON.stringify({
@@ -137,8 +144,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
       });
 
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.send(`<!DOCTYPE html>
+      // ── Bots: return a minimal server-rendered page for maximum crawlability
+      if (isBot) {
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.send(`<!DOCTYPE html>
 <html lang="${lang}">
 <head>
   <meta charset="UTF-8">
@@ -162,8 +171,44 @@ ${hreflangs}
 </head>
 <body><article><h1>${title}</h1><p>${description}</p>${content}</article></body>
 </html>`);
+      }
+
+      // ── Regular browsers: inject SEO tags into the SPA shell ──────────────
+      // Tags appear in page source before JS loads — satisfies Google's requirements.
+      const isProd = process.env.NODE_ENV === "production";
+      const indexPath = isProd
+        ? path.resolve(__routesDirname, "public", "index.html")
+        : path.resolve(__routesDirname, "..", "client", "index.html");
+
+      if (!fs.existsSync(indexPath)) return next();
+
+      const seoHead = [
+        `  <title>${title} | Kinglike Luxury</title>`,
+        `  <meta name="description" content="${description}" />`,
+        `  <link rel="canonical" href="${canonical}" />`,
+        hreflangs,
+        `  <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slug}" />`,
+        `  <meta property="og:type" content="article" />`,
+        `  <meta property="og:title" content="${title} | Kinglike Luxury" />`,
+        `  <meta property="og:description" content="${description}" />`,
+        `  <meta property="og:image" content="${image}" />`,
+        `  <meta property="og:url" content="${canonical}" />`,
+        `  <meta property="og:site_name" content="Kinglike Luxury" />`,
+        `  <script type="application/ld+json">${jsonLd}</script>`,
+      ].join("\n");
+
+      // Strip the generic shell title/description then inject article-specific tags
+      let html = fs.readFileSync(indexPath, "utf-8");
+      html = html
+        .replace(/<title>[^<]*<\/title>/, "")
+        .replace(/<meta\s+name="description"[^>]*>/i, "")
+        .replace("</head>", `${seoHead}\n</head>`);
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=300");
+      return res.send(html);
     } catch (err) {
-      console.error("[BotMeta] Error:", err);
+      console.error("[BlogMeta] Error:", err);
       return next();
     }
   });
