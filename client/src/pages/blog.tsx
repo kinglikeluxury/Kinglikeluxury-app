@@ -112,7 +112,7 @@ export default function Blog() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {blogPosts.map((post: any) => (
-              <a key={post.id} href={`/blog/${post.slug}`} className="block h-full">
+              <a key={post.id} href={`/${lang}/blog/${post.slug}`} className="block h-full">
                 <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden cursor-pointer group">
                   {post.coverImage && (
                     <div className="relative h-48 overflow-hidden">

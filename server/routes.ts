@@ -58,6 +58,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const SEO_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
   const SEO_BASE  = "https://www.kinglikeluxury.app";
 
+  // Detects preferred language from Accept-Language header; falls back to "en".
+  function detectPreferredLang(acceptLanguage: string): string {
+    const candidates = acceptLanguage
+      .split(",")
+      .map(l => l.split(";")[0].trim().toLowerCase().substring(0, 2));
+    return candidates.find(l => SEO_LANGS.includes(l)) || "en";
+  }
+
+  // ─── 301 redirect: /blog/:slug → /{lang}/blog/:slug ──────────────────────
+  // MUST be registered BEFORE /:lang/blog/:slug so Express matches it first.
+  app.get("/blog/:slug", (req, res) => {
+    const { slug } = req.params;
+    const lang = detectPreferredLang(req.headers["accept-language"] || "");
+    return res.redirect(301, `/${lang}/blog/${slug}`);
+  });
+
   app.get("/sitemap.xml", async (_req, res) => {
     try {
       const xml = await generateSitemapXml();
@@ -151,7 +167,6 @@ ${hreflangs}
       return next();
     }
   });
-  // ─────────────────────────────────────────────────────────────────────────
 
   // Configure sessions with PostgreSQL store
   app.use(
