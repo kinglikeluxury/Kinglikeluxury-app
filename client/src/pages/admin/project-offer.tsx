@@ -181,13 +181,17 @@ export default function ProjectOfferPage() {
     return { city: parts[0] || "", country: parts[parts.length - 1] || "" };
   };
 
-  const countries = Array.from(new Set(allProjects.map((p) => locParts(p.location).country).filter(Boolean)));
-  const cities    = Array.from(new Set(
-    allProjects
-      .filter((p) => !selectedCountry || locParts(p.location).country === selectedCountry)
-      .map((p) => locParts(p.location).city)
-      .filter(Boolean)
-  ));
+  // Hardcoded countries and cities — not dependent on existing project data
+  const COUNTRY_CITY_MAP: Record<string, string[]> = {
+    "Georgia": ["Tbilisi", "Batumi", "Kutaisi", "Rustavi", "Zugdidi", "Gori", "Poti", "Telavi", "Mtskheta", "Kobuleti", "Borjomi", "Akhaltsikhe", "Senaki", "Anaklia", "Sighnaghi", "Ambrolauri", "Khashuri", "Samtredia", "Zestafoni", "Chiatura"],
+    "UAE": ["Dubai", "Sharjah", "Ras Al Khaimah", "Abu Dhabi", "Ajman", "Fujairah", "Umm Al Quwain"],
+    "Northern Cyprus (TRNC)": ["Lefkoşa (Nicosia)", "Gazimağusa (Famagusta)", "Girne (Kyrenia)", "İskele", "Güzelyurt", "Esentepe"],
+    "Turkey": ["İstanbul", "Trabzon", "Ankara", "İzmir", "Antalya", "Bursa", "Alanya", "Mersin"],
+  };
+
+  const countries = Object.keys(COUNTRY_CITY_MAP);
+  const cities    = selectedCountry ? (COUNTRY_CITY_MAP[selectedCountry] || []) : [];
+
   const filteredProjects = allProjects.filter((p) => {
     const lp = locParts(p.location);
     return (!selectedCountry || lp.country === selectedCountry) && (!selectedCity || lp.city === selectedCity);
