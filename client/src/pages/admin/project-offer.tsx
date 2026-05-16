@@ -112,6 +112,7 @@ type LangCode = "ar"|"en"|"ru"|"ka"|"az"|"tr"|"zh"|"pl"|"he"|"it";
 const T: Record<string, Record<LangCode, string>> = {
   offerTitle:     { ar:"عرض عقاري حصري", en:"Exclusive Property Offer", ru:"Эксклюзивное предложение", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv Əmlak Təklifi", tr:"Özel Gayrimenkul Teklifi", zh:"独家房产报价单", pl:"Ekskluzywna Oferta Nieruchomości", he:"הצעת נדל\"ן בלעדית", it:"Offerta Immobiliare Esclusiva" },
   aptType:        { ar:"نوع الوحدة السكنية", en:"Unit Type", ru:"Тип объекта", ka:"ბინის ტიპი", az:"Mənzil növü", tr:"Daire Tipi", zh:"户型", pl:"Typ mieszkania", he:"סוג הדירה", it:"Tipologia unità" },
+  block:          { ar:"البلوك", en:"Block", ru:"Блок", ka:"ბლოკი", az:"Blok", tr:"Blok", zh:"楼栋", pl:"Blok", he:"בלוק", it:"Blocco" },
   floor:          { ar:"الطابق", en:"Floor", ru:"Этаж", ka:"სართული", az:"Mərtəbə", tr:"Kat", zh:"所在楼层", pl:"Piętro", he:"קומה", it:"Piano" },
   area:           { ar:"المساحة الإجمالية", en:"Total Area", ru:"Общая площадь", ka:"სრული ფართობი", az:"Ümumi sahə", tr:"Toplam Alan", zh:"建筑面积", pl:"Powierzchnia całkowita", he:"שטח כולל", it:"Superficie totale" },
   pricePerMeter:  { ar:"سعر المتر المربع", en:"Price per m²", ru:"Цена за 1 м²", ka:"ფასი 1 მ²-ზე", az:"1 m² qiyməti", tr:"m² Birim Fiyatı", zh:"每平米单价", pl:"Cena za 1 m²", he:"מחיר למ\"ר", it:"Prezzo al m²" },
@@ -144,6 +145,7 @@ export default function ProjectOfferPage() {
   const [selectedCity, setSelectedCity]         = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [apartmentType, setApartmentType]       = useState("");
+  const [selectedBlock, setSelectedBlock]       = useState("");
   const [selectedFloors, setSelectedFloors]     = useState<number[]>([]);
   const [floorOpen, setFloorOpen]               = useState(false);
   const [totalArea, setTotalArea]               = useState("");
@@ -441,6 +443,29 @@ export default function ProjectOfferPage() {
                 </button>
               )}
             </div>
+            {/* Block select */}
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">البلوك</Label>
+              <select
+                value={selectedBlock}
+                onChange={(e) => setSelectedBlock(e.target.value)}
+                className="w-full h-9 border border-input rounded-md px-3 text-sm bg-white text-right"
+              >
+                <option value="">اختر البلوك</option>
+                {Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((letter) => (
+                  <option key={letter} value={letter}>{letter}</option>
+                ))}
+              </select>
+              {selectedBlock && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedBlock("")}
+                  className="mt-1 text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> إلغاء الاختيار
+                </button>
+              )}
+            </div>
             {/* Floor multi-select */}
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">الطابق</Label>
@@ -636,6 +661,7 @@ export default function ProjectOfferPage() {
             lang={pdfLang}
             isRTL={isRTL}
             apartmentType={apartmentType}
+            selectedBlock={selectedBlock}
             selectedFloors={selectedFloors}
             totalArea={totalArea}
             pricePerMeter={pricePerMeter}
@@ -665,7 +691,7 @@ export default function ProjectOfferPage() {
 
 function PDFTemplate({
   project, b64Images, floorPlanB64, flagB64, lang, isRTL,
-  apartmentType, selectedFloors, totalArea, pricePerMeter,
+  apartmentType, selectedBlock, selectedFloors, totalArea, pricePerMeter,
   totalPrice, discountVal, discountedPrice, paymentPercent, downPayment, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
   getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt
@@ -688,6 +714,7 @@ function PDFTemplate({
   // Build detail rows — only non-empty fields
   const rows: { label: string; value: string; accent?: boolean }[] = [];
   if (apartmentType)          rows.push({ label: t("aptType",lang),      value: getAptLabel(apartmentType) });
+  if (selectedBlock)          rows.push({ label: t("block",lang),         value: selectedBlock });
   if (selectedFloors?.length) rows.push({ label: t("floor",lang),        value: floorsLabel(selectedFloors) });
   if (totalArea)              rows.push({ label: t("area",lang),          value: `${totalArea} m²` });
   if (pricePerMeter)          rows.push({ label: t("pricePerMeter",lang), value: `$${fmt(parseFloat(pricePerMeter))} / m²` });
