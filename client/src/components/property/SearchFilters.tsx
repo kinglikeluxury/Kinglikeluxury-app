@@ -12,6 +12,8 @@ import { useTranslation } from "react-i18next";
 interface SearchFiltersProps {
   initialFilters?: {
     type?: string;
+    country?: string;
+    city?: string;
     location?: string;
     minPrice?: number;
     maxPrice?: number;
@@ -26,13 +28,66 @@ const priceRangeOptions = [
   { value: "1000000+", label: "$1M+", min: 1000000, max: null as number | null },
 ];
 
+const getCitiesForCountry = (country: string) => {
+  switch (country) {
+    case "georgia":
+      return [
+        { value: "tbilisi", label: "Tbilisi" },
+        { value: "batumi", label: "Batumi" },
+        { value: "kutaisi", label: "Kutaisi" },
+        { value: "rustavi", label: "Rustavi" },
+        { value: "zugdidi", label: "Zugdidi" },
+        { value: "gori", label: "Gori" },
+        { value: "poti", label: "Poti" },
+        { value: "telavi", label: "Telavi" },
+        { value: "mtskheta", label: "Mtskheta" },
+        { value: "kobuleti", label: "Kobuleti" },
+        { value: "borjomi", label: "Borjomi" },
+        { value: "akhaltsikhe", label: "Akhaltsikhe" },
+        { value: "senaki", label: "Senaki" },
+        { value: "anaklia", label: "Anaklia" },
+        { value: "sighnaghi", label: "Sighnaghi" },
+        { value: "ambrolauri", label: "Ambrolauri" },
+        { value: "khashuri", label: "Khashuri" },
+        { value: "samtredia", label: "Samtredia" },
+        { value: "zestafoni", label: "Zestafoni" },
+        { value: "chiatura", label: "Chiatura" },
+      ];
+    case "uae":
+      return [
+        { value: "dubai", label: "Dubai" },
+        { value: "sharjah", label: "Sharjah" },
+        { value: "rasAlKhaimah", label: "Ras Al Khaimah" },
+      ];
+    case "northern-cyprus":
+      return [
+        { value: "lefkosa", label: "Lefkoşa (Nicosia)" },
+        { value: "gazimağusa", label: "Gazimağusa (Famagusta)" },
+        { value: "girne", label: "Girne (Kyrenia)" },
+        { value: "iskele", label: "İskele" },
+        { value: "guzelyurt", label: "Güzelyurt" },
+        { value: "esentepe", label: "Esentepe" },
+      ];
+    case "turkey":
+      return [
+        { value: "istanbul", label: "İstanbul" },
+        { value: "trabzon", label: "Trabzon" },
+      ];
+    default:
+      return [];
+  }
+};
+
 const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
   const { t } = useTranslation();
   const [, navigate] = useLocation();
   const [propertyType, setPropertyType] = useState<string>(initialFilters?.type || "");
+  const [country, setCountry] = useState<string>(initialFilters?.country || "");
+  const [city, setCity] = useState<string>(initialFilters?.city || "");
   const [location, setLocation] = useState<string>(initialFilters?.location || "");
   const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
   const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
   const priceDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,6 +113,19 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleCountryChange = (value: string) => {
+    setCountry(value);
+    setCity("");
+    setLocation("");
+    setErrors(prev => ({ ...prev, country: false, city: false }));
+  };
+
+  const handleCityChange = (value: string) => {
+    setCity(value);
+    setLocation("");
+    setErrors(prev => ({ ...prev, city: false }));
+  };
+
   const togglePriceRange = (value: string) => {
     setSelectedPriceRanges(prev =>
       prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
@@ -80,16 +148,33 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
   };
 
   const handleSearch = () => {
+    const newErrors: Record<string, boolean> = {};
+
+    if (!country || country === "any") newErrors.country = true;
+    if (!city || city === "any") newErrors.city = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     const params = new URLSearchParams();
-    
+
     if (propertyType && propertyType !== "all") {
       params.append("type", propertyType);
     }
-    
+
+    // Pass city as the location filter (backend uses city param)
+    if (city && city !== "any") {
+      params.append("city", city);
+    }
+
+    // Pass neighborhood/location as location param
     if (location && location !== "any") {
       params.append("location", location);
     }
-    
+
     if (selectedPriceRanges.length > 0) {
       const selected = priceRangeOptions.filter(o => selectedPriceRanges.includes(o.value));
       const allMins = selected.map(o => o.min);
@@ -101,20 +186,75 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
         params.append("maxPrice", Math.max(...allMaxes).toString());
       }
     }
-    
+
     const url = `/properties?${params.toString()}`;
     window.history.pushState({}, '', url);
     window.dispatchEvent(new PopStateEvent('popstate'));
     navigate(url);
   };
 
+  const cities = getCitiesForCountry(country);
+
   return (
     <>
       <Card className="w-full">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="property-type">{t('property.type', 'Property Type')}</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+
+            {/* Country — required */}
+            <div className="lg:col-span-1">
+              <Label className={errors.country ? "text-red-500" : ""}>
+                {t('home.hero.country', 'Country')} <span className="text-red-500">*</span>
+              </Label>
+              <Select value={country} onValueChange={handleCountryChange}>
+                <SelectTrigger className={errors.country ? "border-red-500 ring-red-500" : ""}>
+                  <SelectValue placeholder={t('home.hero.anyCountry', 'Select country')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="georgia">🇬🇪 {t('countries.georgia', 'Georgia')}</SelectItem>
+                  <SelectItem value="uae">🇦🇪 {t('countries.uae', 'UAE')}</SelectItem>
+                  <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus')}</SelectItem>
+                  <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.country && (
+                <p className="text-xs text-red-500 mt-1">{t('validation.required', 'Required')}</p>
+              )}
+            </div>
+
+            {/* City — required */}
+            <div className="lg:col-span-1">
+              <Label className={errors.city ? "text-red-500" : ""}>
+                {t('home.hero.city', 'City')} <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={city}
+                onValueChange={handleCityChange}
+                disabled={!country || cities.length === 0}
+              >
+                <SelectTrigger className={errors.city ? "border-red-500 ring-red-500" : ""}>
+                  <SelectValue placeholder={
+                    !country
+                      ? t('home.hero.selectCountryFirst', 'Select country first')
+                      : t('home.hero.city', 'Select city')
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map(c => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {t(`cities.${c.value}`, c.label)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.city && (
+                <p className="text-xs text-red-500 mt-1">{t('validation.required', 'Required')}</p>
+              )}
+            </div>
+
+            {/* Property Type */}
+            <div className="lg:col-span-1">
+              <Label>{t('property.type', 'Property Type')}</Label>
               <Select value={propertyType} onValueChange={setPropertyType}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('common.all', 'All Types')} />
@@ -129,41 +269,32 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
                 </SelectContent>
               </Select>
             </div>
-            
-            <div>
-              <Label htmlFor="location">{t('property.location', 'Location')}</Label>
-              <Select value={location} onValueChange={setLocation}>
+
+            {/* Location / Neighborhood — optional */}
+            <div className="lg:col-span-1">
+              <Label>{t('property.location', 'Neighborhood')} <span className="text-gray-400 text-xs">({t('common.optional', 'optional')})</span></Label>
+              <Select value={location} onValueChange={setLocation} disabled={!city}>
                 <SelectTrigger>
-                  <SelectValue placeholder={t('property.anyLocation', 'Any location')} />
+                  <SelectValue placeholder={t('property.anyLocation', 'Any area')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="any">{t('property.anyLocation', 'Any location')}</SelectItem>
+                  <SelectItem value="any">{t('property.anyLocation', 'Any area')}</SelectItem>
                   <SelectItem value="rustaveli-avenue">Rustaveli Avenue</SelectItem>
                   <SelectItem value="chavchavadze-avenue">Chavchavadze Avenue</SelectItem>
-                  <SelectItem value="gogebashvili-street">Gogebashvili Street</SelectItem>
-                  <SelectItem value="baratashvili-street">Baratashvili Street</SelectItem>
                   <SelectItem value="agmashenebeli-street">Agmashenebeli Street</SelectItem>
-                  <SelectItem value="pushkin-street">Pushkin Street</SelectItem>
-                  <SelectItem value="gorgiladze-street">Gorgiladze Street</SelectItem>
-                  <SelectItem value="takaishvili-street">Takaishvili Street</SelectItem>
-                  <SelectItem value="ninoshvili-street">Ninoshvili Street</SelectItem>
-                  <SelectItem value="mazniashvili-street">Mazniashvili Street</SelectItem>
-                  <SelectItem value="lermontov-street">Lermontov Street</SelectItem>
-                  <SelectItem value="vazha-pshavela-avenue">Vazha-Pshavela Avenue</SelectItem>
-                  <SelectItem value="aghmashenebeli-avenue">Aghmashenebeli Avenue</SelectItem>
-                  <SelectItem value="sherif-khimshiashvili-street">Sherif Khimshiashvili Street</SelectItem>
-                  <SelectItem value="grishashvili-street">Grishashvili Street</SelectItem>
                   <SelectItem value="kostava-street">Kostava Street</SelectItem>
-                  <SelectItem value="parnavaz-mepe-street">Parnavaz Mepe Street</SelectItem>
-                  <SelectItem value="zurab-gorgiladze-street">Zurab Gorgiladze Street</SelectItem>
+                  <SelectItem value="vazha-pshavela-avenue">Vazha-Pshavela Avenue</SelectItem>
                   <SelectItem value="batumi-boulevard">Batumi Boulevard</SelectItem>
                   <SelectItem value="europe-square">Europe Square</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="relative" ref={priceDropdownRef}>
-              <Label>{t('property.priceRange', 'Price Range')}</Label>
+
+            {/* Price Range — optional */}
+            <div className="relative lg:col-span-1" ref={priceDropdownRef}>
+              <Label>
+                {t('property.priceRange', 'Price Range')} <span className="text-gray-400 text-xs">({t('common.optional', 'optional')})</span>
+              </Label>
               <button
                 type="button"
                 onClick={() => setPriceDropdownOpen(!priceDropdownOpen)}
@@ -198,17 +329,18 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
                 </div>
               )}
             </div>
-            
-            <div className="flex items-end">
+
+            {/* Search Button */}
+            <div className="flex items-end lg:col-span-1">
               <Button className="w-full" onClick={handleSearch}>
                 <Search className="mr-2 h-4 w-4" />
                 {t('common.search', 'Search')}
               </Button>
             </div>
+
           </div>
         </CardContent>
       </Card>
-      
     </>
   );
 };

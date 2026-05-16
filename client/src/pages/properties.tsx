@@ -68,8 +68,24 @@ const Properties = () => {
     staleTime: 0,
   });
 
+  const getCountryFromCity = (city: string): string => {
+    const georgianCities = ["tbilisi", "batumi", "kutaisi", "rustavi", "zugdidi", "gori", "poti", "telavi", "mtskheta", "kobuleti", "borjomi", "akhaltsikhe", "senaki", "anaklia", "sighnaghi", "ambrolauri", "khashuri", "samtredia", "zestafoni", "chiatura"];
+    const uaeCities = ["dubai", "sharjah", "rasAlKhaimah", "ras-al-khaimah"];
+    const cyprusCities = ["lefkosa", "gazimağusa", "girne", "iskele", "guzelyurt", "esentepe"];
+    const turkeyCities = ["istanbul", "trabzon"];
+    if (georgianCities.includes(city)) return "georgia";
+    if (uaeCities.includes(city)) return "uae";
+    if (cyprusCities.includes(city)) return "northern-cyprus";
+    if (turkeyCities.includes(city)) return "turkey";
+    return "";
+  };
+
+  const derivedCountry = filters.city ? getCountryFromCity(filters.city) : "";
+
   const searchFilters = {
     type: filters.type || undefined,
+    country: derivedCountry || undefined,
+    city: filters.city || undefined,
     location: filters.location || undefined,
     minPrice: filters.minPrice ? parseInt(filters.minPrice) : undefined,
     maxPrice: filters.maxPrice ? parseInt(filters.maxPrice) : undefined,
