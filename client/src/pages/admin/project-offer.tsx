@@ -137,6 +137,98 @@ function t(key: string, lang: LangCode): string {
   return T[key]?.[lang] ?? T[key]?.en ?? key;
 }
 
+/* ─── Silk Towers floor-plan highlight helpers ──────────────────────────── */
+
+const SILK_TOWERS_FLOOR_PLAN_URL = "/silk-towers-floor-plan.jpg";
+
+// Normalized coordinates [x1, y1, x2, y2] (0-1 fractions of image width/height)
+// Mapped from the Silk Towers architectural floor plan image
+const SILK_APT_COORDS: Record<string, [number, number, number, number]> = {
+  // Top row — City View (north side), left → right
+  "17": [0.068, 0.278, 0.113, 0.510],
+  "18": [0.113, 0.278, 0.171, 0.510],
+  "19": [0.171, 0.278, 0.229, 0.510],
+  "20": [0.229, 0.278, 0.287, 0.510],
+  "21": [0.287, 0.278, 0.345, 0.510],
+  "22": [0.345, 0.278, 0.403, 0.510],
+  "23": [0.403, 0.278, 0.461, 0.510],
+  "24": [0.461, 0.278, 0.519, 0.510],
+  "25": [0.519, 0.278, 0.577, 0.510],
+  "26": [0.577, 0.278, 0.635, 0.510],
+  "27": [0.635, 0.278, 0.693, 0.510],
+  "28": [0.693, 0.278, 0.751, 0.510],
+  "29": [0.751, 0.278, 0.809, 0.510],
+  "30": [0.809, 0.278, 0.867, 0.510],
+  "31": [0.867, 0.278, 0.920, 0.510],
+  "32": [0.920, 0.278, 0.963, 0.510],
+  // Left side — Mountain View
+  "16": [0.068, 0.510, 0.113, 0.570],
+  // Right side — Sea View
+  "33": [0.920, 0.510, 0.963, 0.570],
+  // Bottom row — Park View (south side), left → right
+  "15": [0.068, 0.570, 0.113, 0.833],
+  "14": [0.113, 0.570, 0.171, 0.833],
+  "13": [0.171, 0.570, 0.229, 0.833],
+  "12": [0.229, 0.570, 0.287, 0.833],
+  "11": [0.287, 0.570, 0.345, 0.833],
+  "10": [0.345, 0.570, 0.403, 0.833],
+  "09": [0.403, 0.570, 0.461, 0.833],
+  "08": [0.461, 0.570, 0.519, 0.833],
+  "07": [0.519, 0.570, 0.577, 0.833],
+  "06": [0.577, 0.570, 0.635, 0.833],
+  "05": [0.635, 0.570, 0.693, 0.833],
+  "04": [0.693, 0.570, 0.751, 0.833],
+  "03": [0.751, 0.570, 0.809, 0.833],
+  "02": [0.809, 0.570, 0.867, 0.833],
+  "01": [0.867, 0.570, 0.920, 0.833],
+  "00": [0.920, 0.570, 0.963, 0.833],
+};
+
+const buildSilkTowersHighlight = async (aptNum: string): Promise<string> => {
+  const key = aptNum.trim().padStart(2, "0");
+  const coords = SILK_APT_COORDS[key] ?? SILK_APT_COORDS[aptNum.trim()];
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    img.onload  = () => resolve();
+    img.onerror = reject;
+    img.src = SILK_TOWERS_FLOOR_PLAN_URL + "?t=" + Date.now();
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  if (coords) {
+    const W = canvas.width, H = canvas.height;
+    const [x1r, y1r, x2r, y2r] = coords;
+    const x1 = x1r * W, y1 = y1r * H;
+    const bw  = (x2r - x1r) * W, bh = (y2r - y1r) * H;
+
+    // Semi-transparent teal fill
+    ctx.fillStyle = "rgba(59,202,196,0.38)";
+    ctx.fillRect(x1, y1, bw, bh);
+
+    // Bold red border
+    ctx.strokeStyle = "#e53e3e";
+    ctx.lineWidth   = Math.max(4, W * 0.004);
+    ctx.strokeRect(x1, y1, bw, bh);
+
+    // Apartment number label
+    const fontSize = Math.round(Math.min(bw, bh) * 0.45);
+    ctx.font      = `bold ${fontSize}px Arial`;
+    ctx.fillStyle = "#e53e3e";
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(aptNum.trim(), x1 + bw / 2, y1 + bh / 2);
+  }
+
+  return canvas.toDataURL("image/jpeg", 0.93);
+};
+
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function ProjectOfferPage() {
@@ -166,6 +258,7 @@ export default function ProjectOfferPage() {
   const [b64Images, setB64Images]               = useState<string[]>([]);
   const [floorPlanB64, setFloorPlanB64]         = useState<string>("");
   const [flagB64, setFlagB64]                   = useState<string>("");
+  const [silkHighlightB64, setSilkHighlightB64] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -282,6 +375,17 @@ export default function ProjectOfferPage() {
       setB64Images(loaded);
       setFloorPlanB64(fpB64);
       setFlagB64(makeGeorgiaFlagB64());
+
+      // 3b. If Silk Towers + apartment number → build highlighted floor plan
+      const isSilk = /silk/i.test(selectedProject.title ?? "") || /سيلك/i.test(selectedProject.title ?? "");
+      if (isSilk && apartmentNumber.trim()) {
+        try {
+          const silkB64 = await buildSilkTowersHighlight(apartmentNumber);
+          setSilkHighlightB64(silkB64);
+        } catch { setSilkHighlightB64(""); }
+      } else {
+        setSilkHighlightB64("");
+      }
 
       // 3. Wait for React to re-render with base64 images
       await new Promise((r) => setTimeout(r, 500));
@@ -732,6 +836,7 @@ export default function ProjectOfferPage() {
             getDateLabel={getDateLabel}
             floorsLabel={floorsLabel}
             fmt={fmt}
+            silkHighlightB64={silkHighlightB64}
           />
         )}
       </div>
@@ -747,7 +852,8 @@ function PDFTemplate({
   totalPrice, discountVal, discountedPrice, paymentPercent, downPayment,
   finalPaymentPercent, finalPaymentAmount, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
-  getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt
+  getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt,
+  silkHighlightB64
 }: any) {
 
   const W   = 794;
@@ -942,6 +1048,73 @@ function PDFTemplate({
                   padding: "16px",
                 }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Silk Towers highlighted floor plan ── */}
+      {silkHighlightB64 && (
+        <div style={{ padding: "0 40px 20px" }}>
+          <div style={{
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "2.5px solid #005476",
+            boxShadow: "0 4px 20px rgba(0,84,118,0.15)",
+          }}>
+            {/* Section label bar */}
+            <div style={{
+              background: "#005476",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <div style={{ fontSize: 18 }}>🗺️</div>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+                {lang === "ar" ? `مخطط الطابق — الشقة رقم ${apartmentNumber}` :
+                 lang === "he" ? `תוכנית הקומה — דירה ${apartmentNumber}` :
+                 lang === "ru" ? `План этажа — квартира ${apartmentNumber}` :
+                 lang === "ka" ? `სართულის გეგმა — ბინა ${apartmentNumber}` :
+                 lang === "az" ? `Mərtəbə planı — mənzil ${apartmentNumber}` :
+                 lang === "tr" ? `Kat Planı — Daire ${apartmentNumber}` :
+                 lang === "zh" ? `楼层平面图 — ${apartmentNumber} 号公寓` :
+                 lang === "pl" ? `Plan piętra — mieszkanie ${apartmentNumber}` :
+                 lang === "it" ? `Planimetria — Appartamento ${apartmentNumber}` :
+                 `Floor Plan — Apartment ${apartmentNumber}`}
+              </div>
+            </div>
+            {/* Highlighted floor plan image */}
+            <div style={{ background: "#f8f9fa", textAlign: "center" as const, padding: "16px" }}>
+              <img
+                src={silkHighlightB64}
+                style={{ maxWidth: "100%", height: "auto", display: "inline-block", borderRadius: 8 }}
+              />
+            </div>
+            {/* Legend */}
+            <div style={{
+              background: "#f0f4f8",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 12,
+              borderTop: "1px solid #dde3ea",
+            }}>
+              <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+                {lang === "ar" ? `الشقة المحددة: رقم ${apartmentNumber}` :
+                 lang === "he" ? `הדירה הנבחרת: מס' ${apartmentNumber}` :
+                 lang === "ru" ? `Выбранная квартира: № ${apartmentNumber}` :
+                 lang === "ka" ? `არჩეული ბინა: № ${apartmentNumber}` :
+                 lang === "az" ? `Seçilmiş mənzil: № ${apartmentNumber}` :
+                 lang === "tr" ? `Seçilen Daire: No. ${apartmentNumber}` :
+                 lang === "zh" ? `所选公寓：${apartmentNumber} 号` :
+                 lang === "pl" ? `Wybrane mieszkanie: nr ${apartmentNumber}` :
+                 lang === "it" ? `Appartamento selezionato: n° ${apartmentNumber}` :
+                 `Selected Apartment: No. ${apartmentNumber}`}
+              </div>
             </div>
           </div>
         </div>
