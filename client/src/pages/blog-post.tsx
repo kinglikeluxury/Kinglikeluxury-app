@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useTranslation } from "react-i18next";
+import { Helmet } from "react-helmet-async";
 import { CalendarDays, User, ArrowLeft, MapPin, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const SUPPORTED_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
+const BASE_URL = "https://www.kinglikeluxury.app";
 
 export default function BlogPost() {
   const { i18n, t } = useTranslation();
@@ -65,7 +69,52 @@ export default function BlogPost() {
     ? new Intl.DateTimeFormat(lang || 'en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(post.createdAt))
     : "";
 
+  const canonicalUrl = `${BASE_URL}/${lang}/blog/${slug}`;
+  const title = post.title || "";
+  const description = post.excerpt || title;
+  const image = post.coverImage || `${BASE_URL}/icons/icon-512.png`;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: title,
+    description: description,
+    image: image,
+    url: canonicalUrl,
+    datePublished: post.createdAt,
+    dateModified: post.updatedAt || post.createdAt,
+    author: { "@type": "Organization", name: "Kinglike Luxury", url: BASE_URL },
+    publisher: {
+      "@type": "Organization",
+      name: "Kinglike Luxury",
+      logo: { "@type": "ImageObject", url: `${BASE_URL}/icons/icon-512.png` },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonicalUrl },
+  };
+
   return (
+    <>
+      <Helmet>
+        <html lang={lang} />
+        <title>{title} | Kinglike Luxury</title>
+        <meta name="description" content={description} />
+        <link rel="canonical" href={canonicalUrl} />
+        {SUPPORTED_LANGS.map((l) => (
+          <link key={l} rel="alternate" hrefLang={l} href={`${BASE_URL}/${l}/blog/${slug}`} />
+        ))}
+        <link rel="alternate" hrefLang="x-default" href={`${BASE_URL}/en/blog/${slug}`} />
+        <meta property="og:type" content="article" />
+        <meta property="og:title" content={`${title} | Kinglike Luxury`} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={image} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:site_name" content="Kinglike Luxury" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${title} | Kinglike Luxury`} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={image} />
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      </Helmet>
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <button
@@ -144,5 +193,6 @@ export default function BlogPost() {
         </div>
       </div>
     </div>
+    </>
   );
 }
