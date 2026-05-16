@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, X, Home, Bed, Bath, Maximize } from 'lucide-react';
-import { Link } from 'wouter';
+import { MapPin } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import type { Property } from '@shared/schema';
 
@@ -11,6 +11,7 @@ delete (L.Icon.Default.prototype as any)._getIconUrl;
 
 const MapView = () => {
   const { t } = useTranslation();
+  const [, navigate] = useLocation();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -77,7 +78,7 @@ const MapView = () => {
       const formatPrice = (p: number) =>
         new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(p);
 
-      const minPrice = property.priceMin ?? property.priceMax ?? 0;
+      const minPrice = property.price ?? 0;
 
       // Price bubble marker
       const icon = L.divIcon({
@@ -115,8 +116,7 @@ const MapView = () => {
       bounds.push([lat, lng]);
 
       marker.on('click', () => {
-        setSelectedProperty(property);
-        map.setView([lat, lng], 15, { animate: true });
+        navigate(`/property/${property.id}`);
       });
     });
 
@@ -150,86 +150,6 @@ const MapView = () => {
       {/* Map */}
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Property Card Popup */}
-      {selectedProperty && (
-        <div className="absolute bottom-4 left-4 right-4 z-20">
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
-            {/* Image */}
-            <div className="relative h-40">
-              {selectedProperty.images?.[0] ? (
-                <img
-                  src={selectedProperty.images[0]}
-                  alt={selectedProperty.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center">
-                  <Home className="h-12 w-12 text-white opacity-50" />
-                </div>
-              )}
-              {selectedProperty.isFeatured && (
-                <span className="absolute top-2 right-2 bg-[#3bcac4] text-white text-xs font-bold px-2 py-1 rounded-full">
-                  Featured
-                </span>
-              )}
-              <button
-                onClick={() => setSelectedProperty(null)}
-                className="absolute top-2 left-2 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-md"
-              >
-                <X className="h-4 w-4 text-gray-600" />
-              </button>
-            </div>
-
-            {/* Info */}
-            <div className="p-3">
-              <h3 className="font-bold text-[#005476] text-base leading-tight mb-1">
-                {selectedProperty.title}
-              </h3>
-              <p className="text-gray-500 text-xs mb-2 flex items-center gap-1">
-                <MapPin className="h-3 w-3" /> {selectedProperty.location}
-              </p>
-
-              <div className="flex items-center gap-3 text-xs text-gray-600 mb-3">
-                {selectedProperty.bedrooms && (
-                  <span className="flex items-center gap-1">
-                    <Bed className="h-3 w-3" /> {selectedProperty.bedrooms}
-                  </span>
-                )}
-                {selectedProperty.bathrooms && (
-                  <span className="flex items-center gap-1">
-                    <Bath className="h-3 w-3" /> {selectedProperty.bathrooms}
-                  </span>
-                )}
-                {selectedProperty.area && (
-                  <span className="flex items-center gap-1">
-                    <Maximize className="h-3 w-3" /> {selectedProperty.area} m²
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  {selectedProperty.priceMin && (
-                    <p className="text-[#005476] font-bold text-sm">
-                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(selectedProperty.priceMin)}
-                      {selectedProperty.priceMax && selectedProperty.priceMax !== selectedProperty.priceMin && (
-                        <span className="text-gray-400 font-normal">
-                          {' '}– {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(selectedProperty.priceMax)}
-                        </span>
-                      )}
-                    </p>
-                  )}
-                </div>
-                <Link href={`/property/${selectedProperty.id}`}>
-                  <button className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white text-xs font-bold px-4 py-2 rounded-full">
-                    {t('property.viewDetails', 'View Details')} →
-                  </button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
