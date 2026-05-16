@@ -146,8 +146,26 @@ const PropertyForm = () => {
       let city = '';
       if (location.includes('Georgia')) {
         country = 'georgia';
-        if (location.includes('Batumi')) city = 'batumi';
-        else if (location.includes('Tbilisi')) city = 'tbilisi';
+        if (location.includes('Tbilisi')) city = 'tbilisi';
+        else if (location.includes('Batumi')) city = 'batumi';
+        else if (location.includes('Kutaisi')) city = 'kutaisi';
+        else if (location.includes('Rustavi')) city = 'rustavi';
+        else if (location.includes('Zugdidi')) city = 'zugdidi';
+        else if (location.includes('Gori')) city = 'gori';
+        else if (location.includes('Poti')) city = 'poti';
+        else if (location.includes('Telavi')) city = 'telavi';
+        else if (location.includes('Mtskheta')) city = 'mtskheta';
+        else if (location.includes('Kobuleti')) city = 'kobuleti';
+        else if (location.includes('Borjomi')) city = 'borjomi';
+        else if (location.includes('Akhaltsikhe')) city = 'akhaltsikhe';
+        else if (location.includes('Senaki')) city = 'senaki';
+        else if (location.includes('Anaklia')) city = 'anaklia';
+        else if (location.includes('Sighnaghi')) city = 'sighnaghi';
+        else if (location.includes('Ambrolauri')) city = 'ambrolauri';
+        else if (location.includes('Khashuri')) city = 'khashuri';
+        else if (location.includes('Samtredia')) city = 'samtredia';
+        else if (location.includes('Zestafoni')) city = 'zestafoni';
+        else if (location.includes('Chiatura')) city = 'chiatura';
       } else if (location.includes('UAE')) {
         country = 'uae';
         if (location.includes('Dubai')) city = 'dubai';
@@ -292,8 +310,26 @@ const PropertyForm = () => {
     switch (country) {
       case "georgia":
         return [
+          { value: "tbilisi", label: "Tbilisi" },
           { value: "batumi", label: "Batumi" },
-          { value: "tbilisi", label: "Tbilisi" }
+          { value: "kutaisi", label: "Kutaisi" },
+          { value: "rustavi", label: "Rustavi" },
+          { value: "zugdidi", label: "Zugdidi" },
+          { value: "gori", label: "Gori" },
+          { value: "poti", label: "Poti" },
+          { value: "telavi", label: "Telavi" },
+          { value: "mtskheta", label: "Mtskheta" },
+          { value: "kobuleti", label: "Kobuleti" },
+          { value: "borjomi", label: "Borjomi" },
+          { value: "akhaltsikhe", label: "Akhaltsikhe" },
+          { value: "senaki", label: "Senaki" },
+          { value: "anaklia", label: "Anaklia" },
+          { value: "sighnaghi", label: "Sighnaghi" },
+          { value: "ambrolauri", label: "Ambrolauri" },
+          { value: "khashuri", label: "Khashuri" },
+          { value: "samtredia", label: "Samtredia" },
+          { value: "zestafoni", label: "Zestafoni" },
+          { value: "chiatura", label: "Chiatura" },
         ];
       case "uae":
         return [
@@ -359,6 +395,158 @@ const PropertyForm = () => {
         { value: "inasaridze-str", label: "Inasaridze Street" },
         { value: "kobaladze-str", label: "Kobaladze Street" },
         { value: "zubalashvili-str", label: "Zubalashvili Street" },
+      ],
+      kutaisi: [
+        { value: "kutaisi-center", label: "City Center" },
+        { value: "kutaisi-white-bridge", label: "White Bridge Area" },
+        { value: "kutaisi-bagrati", label: "Bagrati Cathedral Area" },
+        { value: "kutaisi-gelati", label: "Gelati Area" },
+        { value: "kutaisi-gora", label: "Gora District" },
+        { value: "kutaisi-zugdidis-str", label: "Zugdidi Street" },
+        { value: "kutaisi-chavchavadze", label: "Chavchavadze Street" },
+        { value: "kutaisi-rustaveli", label: "Rustaveli Street" },
+        { value: "kutaisi-tskaltubo", label: "Tskaltubo Road Area" },
+        { value: "kutaisi-airport-area", label: "Airport Area" },
+        { value: "kutaisi-industrial", label: "Industrial District" },
+        { value: "kutaisi-old-town", label: "Old Town" },
+      ],
+      rustavi: [
+        { value: "rustavi-center", label: "City Center" },
+        { value: "rustavi-microdistrict-1", label: "Microdistrict 1" },
+        { value: "rustavi-microdistrict-2", label: "Microdistrict 2" },
+        { value: "rustavi-microdistrict-3", label: "Microdistrict 3" },
+        { value: "rustavi-microdistrict-4", label: "Microdistrict 4" },
+        { value: "rustavi-krtsanisi", label: "Krtsanisi District" },
+        { value: "rustavi-1st-microdistrict", label: "New Rustavi" },
+        { value: "rustavi-gardabani", label: "Gardabani Road Area" },
+        { value: "rustavi-industrial", label: "Industrial Zone" },
+      ],
+      zugdidi: [
+        { value: "zugdidi-center", label: "City Center" },
+        { value: "zugdidi-dadiani-palace", label: "Dadiani Palace Area" },
+        { value: "zugdidi-rustaveli", label: "Rustaveli Street" },
+        { value: "zugdidi-jikia", label: "Jikia Street" },
+        { value: "zugdidi-kostava", label: "Kostava Street" },
+        { value: "zugdidi-gali-str", label: "Gali Street Area" },
+        { value: "zugdidi-anaklia-road", label: "Anaklia Road Area" },
+        { value: "zugdidi-senaki-road", label: "Senaki Road Area" },
+      ],
+      gori: [
+        { value: "gori-center", label: "City Center" },
+        { value: "gori-castle-area", label: "Gori Fortress Area" },
+        { value: "gori-stalin-museum", label: "Stalin Museum Area" },
+        { value: "gori-rustaveli", label: "Rustaveli Street" },
+        { value: "gori-chavchavadze", label: "Chavchavadze Street" },
+        { value: "gori-stalinis-gamziri", label: "Stalinis Gamziri Avenue" },
+        { value: "gori-mtkvari", label: "Mtkvari River Area" },
+        { value: "gori-tskhinvali-road", label: "Tskhinvali Road Area" },
+      ],
+      poti: [
+        { value: "poti-center", label: "City Center" },
+        { value: "poti-port-area", label: "Port Area" },
+        { value: "poti-lighthouse", label: "Lighthouse Area" },
+        { value: "poti-beach", label: "Beach Area" },
+        { value: "poti-paliastomi-lake", label: "Paliastomi Lake Area" },
+        { value: "poti-rustaveli", label: "Rustaveli Street" },
+        { value: "poti-kostava", label: "Kostava Street" },
+        { value: "poti-free-industrial-zone", label: "Free Industrial Zone" },
+      ],
+      telavi: [
+        { value: "telavi-center", label: "City Center" },
+        { value: "telavi-batonis-tsikhe", label: "Batonis Tsikhe Fortress Area" },
+        { value: "telavi-rustaveli", label: "Rustaveli Street" },
+        { value: "telavi-ikalto", label: "Ikalto Road Area" },
+        { value: "telavi-alazani-valley", label: "Alazani Valley View" },
+        { value: "telavi-kizikhi", label: "Kizikhi District" },
+        { value: "telavi-kurdgelauri", label: "Kurdgelauri" },
+        { value: "telavi-akura", label: "Akura Area" },
+      ],
+      mtskheta: [
+        { value: "mtskheta-center", label: "City Center" },
+        { value: "mtskheta-svetitskhoveli", label: "Svetitskhoveli Cathedral Area" },
+        { value: "mtskheta-jvari", label: "Jvari Monastery Area" },
+        { value: "mtskheta-armazi", label: "Armazi Area" },
+        { value: "mtskheta-mtkvari-confluence", label: "River Confluence Area" },
+        { value: "mtskheta-gori-road", label: "Gori Road Area" },
+        { value: "mtskheta-old-town", label: "Old Town" },
+      ],
+      kobuleti: [
+        { value: "kobuleti-center", label: "City Center" },
+        { value: "kobuleti-beach", label: "Kobuleti Beach" },
+        { value: "kobuleti-boulevard", label: "Boulevard Area" },
+        { value: "kobuleti-north", label: "North Kobuleti" },
+        { value: "kobuleti-south", label: "South Kobuleti" },
+        { value: "kobuleti-sea-view", label: "Sea View Area" },
+        { value: "kobuleti-rustaveli", label: "Rustaveli Street" },
+      ],
+      borjomi: [
+        { value: "borjomi-center", label: "City Center" },
+        { value: "borjomi-park", label: "Borjomi Central Park Area" },
+        { value: "borjomi-mineral-springs", label: "Mineral Springs Area" },
+        { value: "borjomi-mtkvari-bank", label: "Mtkvari River Bank" },
+        { value: "borjomi-likani", label: "Likani Area" },
+        { value: "borjomi-bakuriani-road", label: "Bakuriani Road" },
+        { value: "borjomi-old-town", label: "Old Town" },
+      ],
+      akhaltsikhe: [
+        { value: "akhaltsikhe-center", label: "City Center" },
+        { value: "akhaltsikhe-rabati", label: "Rabati Castle Area" },
+        { value: "akhaltsikhe-old-town", label: "Old Town" },
+        { value: "akhaltsikhe-rustaveli", label: "Rustaveli Street" },
+        { value: "akhaltsikhe-potskhovi-river", label: "Potskhovi River Area" },
+        { value: "akhaltsikhe-vardzia-road", label: "Vardzia Road Area" },
+      ],
+      senaki: [
+        { value: "senaki-center", label: "City Center" },
+        { value: "senaki-rustaveli", label: "Rustaveli Street" },
+        { value: "senaki-zugdidi-road", label: "Zugdidi Road Area" },
+        { value: "senaki-poti-road", label: "Poti Road Area" },
+        { value: "senaki-military-base-area", label: "New District" },
+      ],
+      anaklia: [
+        { value: "anaklia-center", label: "City Center" },
+        { value: "anaklia-beach", label: "Anaklia Beach" },
+        { value: "anaklia-deep-sea-port", label: "Deep Sea Port Area" },
+        { value: "anaklia-resort-zone", label: "Resort Zone" },
+        { value: "anaklia-new-development", label: "New Development Zone" },
+      ],
+      sighnaghi: [
+        { value: "sighnaghi-center", label: "City Center" },
+        { value: "sighnaghi-old-town", label: "Old Town (Walled City)" },
+        { value: "sighnaghi-alazani-view", label: "Alazani Valley View" },
+        { value: "sighnaghi-bodbe", label: "Bodbe Monastery Area" },
+        { value: "sighnaghi-walls-area", label: "City Walls Area" },
+      ],
+      ambrolauri: [
+        { value: "ambrolauri-center", label: "City Center" },
+        { value: "ambrolauri-rioni-river", label: "Rioni River Area" },
+        { value: "ambrolauri-rustaveli", label: "Rustaveli Street" },
+        { value: "ambrolauri-khvanchkara", label: "Khvanchkara Wine Area" },
+      ],
+      khashuri: [
+        { value: "khashuri-center", label: "City Center" },
+        { value: "khashuri-rustaveli", label: "Rustaveli Street" },
+        { value: "khashuri-surami", label: "Surami Area" },
+        { value: "khashuri-mtkvari", label: "Mtkvari River Area" },
+      ],
+      samtredia: [
+        { value: "samtredia-center", label: "City Center" },
+        { value: "samtredia-rustaveli", label: "Rustaveli Street" },
+        { value: "samtredia-rioni-river", label: "Rioni River Area" },
+        { value: "samtredia-industrial", label: "Industrial Zone" },
+      ],
+      zestafoni: [
+        { value: "zestafoni-center", label: "City Center" },
+        { value: "zestafoni-rustaveli", label: "Rustaveli Street" },
+        { value: "zestafoni-qvirila-river", label: "Qvirila River Area" },
+        { value: "zestafoni-industrial", label: "Industrial Zone" },
+      ],
+      chiatura: [
+        { value: "chiatura-center", label: "City Center" },
+        { value: "chiatura-cable-car", label: "Cable Car Area" },
+        { value: "chiatura-qvirila-river", label: "Qvirila River Area" },
+        { value: "chiatura-manganese-area", label: "Mining District" },
+        { value: "chiatura-peristsvaleba", label: "Peristsvaleba Area" },
       ],
       tbilisi: [
         { value: "vake", label: "Vake" },
