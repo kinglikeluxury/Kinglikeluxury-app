@@ -4,6 +4,7 @@ import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
+import { writeStaticSitemap } from "./sitemapGenerator";
 
 const app = express();
 
@@ -57,6 +58,9 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+
+  // Generate static sitemap.xml for production (runs after DB is available)
+  writeStaticSitemap().catch(() => {});
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

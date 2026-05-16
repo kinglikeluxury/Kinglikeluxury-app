@@ -28,6 +28,7 @@ import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db } from "./db";
+import { generateSitemapXml } from "./sitemapGenerator";
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -51,6 +52,97 @@ declare module "express-session" {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // ─── SEO: Sitemap & Robots (MUST be first — before any catch-all) ─────────
+  const SEO_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
+  const SEO_BASE  = "https://www.kinglikeluxury.app";
+
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const xml = await generateSitemapXml();
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.send(xml);
+    } catch (err) {
+      console.error("[Sitemap] Error:", err);
+      res.status(500).type("text/plain").send("Error generating sitemap");
+    }
+  });
+
+  app.get("/robots.txt", (_req, res) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.send(`User-agent: *\nAllow: /\n\nSitemap: ${SEO_BASE}/sitemap.xml\n`);
+  });
+
+  // ─── SEO: Dynamic meta injection for search engine crawlers ──────────────
+  app.get("/:lang/blog/:slug", async (req, res, next) => {
+    const { lang, slug } = req.params;
+    if (!SEO_LANGS.includes(lang)) return next();
+
+    const ua = req.headers["user-agent"] || "";
+    const isBot = /googlebot|bingbot|yandexbot|baiduspider|duckduckbot|twitterbot|facebookexternalhit|linkedinbot|whatsapp|slackbot|telegrambot|applebot|semrushbot|ahrefsbot/i.test(ua);
+    if (!isBot) return next();
+
+    try {
+      const post = await storage.getBlogPostBySlug(slug);
+      if (!post) return res.status(404).send("Not found");
+
+      const tr: any   = (post as any).translations?.[lang];
+      const title       = (tr?.title   || (post as any).title   || "Kinglike Luxury Blog").replace(/[<>"&]/g, c => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] || c));
+      const description = (tr?.excerpt || (post as any).excerpt || title).replace(/[<>"&]/g, c => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] || c));
+      const content     = tr?.content  || (post as any).content || "";
+      const image       = (post as any).coverImage || `${SEO_BASE}/icons/icon-512.png`;
+      const canonical   = `${SEO_BASE}/${lang}/blog/${slug}`;
+      const published   = (post as any).createdAt ? new Date((post as any).createdAt).toISOString() : "";
+
+      const hreflangs = SEO_LANGS.map(l =>
+        `  <link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${slug}">`
+      ).join("\n");
+
+      const jsonLd = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        headline: title,
+        description: description,
+        image: image,
+        url: canonical,
+        datePublished: published,
+        author: { "@type": "Organization", name: "Kinglike Luxury", url: SEO_BASE },
+        publisher: { "@type": "Organization", name: "Kinglike Luxury", logo: { "@type": "ImageObject", url: `${SEO_BASE}/icons/icon-512.png` } },
+        mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+      });
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(`<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${title} | Kinglike Luxury</title>
+  <meta name="description" content="${description}">
+  <link rel="canonical" href="${canonical}">
+${hreflangs}
+  <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slug}">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="${title} | Kinglike Luxury">
+  <meta property="og:description" content="${description}">
+  <meta property="og:image" content="${image}">
+  <meta property="og:url" content="${canonical}">
+  <meta property="og:site_name" content="Kinglike Luxury">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title} | Kinglike Luxury">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${image}">
+  <script type="application/ld+json">${jsonLd}</script>
+</head>
+<body><article><h1>${title}</h1><p>${description}</p>${content}</article></body>
+</html>`);
+    } catch (err) {
+      console.error("[BotMeta] Error:", err);
+      return next();
+    }
+  });
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Configure sessions with PostgreSQL store
   app.use(
@@ -1196,144 +1288,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Serve uploaded files
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
-
-  // ─── SEO: Sitemap.xml ────────────────────────────────────────────────────
-  const SEO_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
-  const SEO_BASE  = "https://www.kinglikeluxury.app";
-
-  app.get("/sitemap.xml", async (req, res) => {
-    try {
-      const posts = await storage.getBlogPosts({ published: true });
-      const staticUrls = [
-        { loc: SEO_BASE, priority: "1.0", changefreq: "daily" },
-        { loc: `${SEO_BASE}/blog`, priority: "0.9", changefreq: "daily" },
-        { loc: `${SEO_BASE}/properties`, priority: "0.8", changefreq: "weekly" },
-        { loc: `${SEO_BASE}/projects`, priority: "0.8", changefreq: "weekly" },
-      ];
-
-      const staticEntries = staticUrls.map(u => `  <url>
-    <loc>${u.loc}</loc>
-    <changefreq>${u.changefreq}</changefreq>
-    <priority>${u.priority}</priority>
-  </url>`).join("\n");
-
-      const blogEntries = posts.flatMap((post: any) =>
-        SEO_LANGS.map(lang => {
-          const url = `${SEO_BASE}/${lang}/blog/${post.slug}`;
-          const lastmod = (post.updatedAt || post.createdAt)
-            ? new Date(post.updatedAt || post.createdAt).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0];
-          const hreflangs = SEO_LANGS.map(l =>
-            `    <xhtml:link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${post.slug}"/>`
-          ).join("\n");
-          return `  <url>
-    <loc>${url}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-${hreflangs}
-    <xhtml:link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${post.slug}"/>
-  </url>`;
-        })
-      ).join("\n");
-
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${staticEntries}
-${blogEntries}
-</urlset>`;
-
-      res.setHeader("Content-Type", "application/xml; charset=utf-8");
-      res.setHeader("Cache-Control", "public, max-age=3600");
-      res.send(xml);
-    } catch (err) {
-      console.error("Sitemap error:", err);
-      res.status(500).send("Error generating sitemap");
-    }
-  });
-
-  // ─── SEO: Dynamic meta injection for crawlers on /:lang/blog/:slug ───────
-  app.get("/:lang/blog/:slug", async (req, res, next) => {
-    const { lang, slug } = req.params;
-    if (!SEO_LANGS.includes(lang)) return next();
-
-    const ua = req.headers["user-agent"] || "";
-    const isBot = /googlebot|bingbot|yandexbot|baiduspider|duckduckbot|twitterbot|facebookexternalhit|linkedinbot|whatsapp|slackbot|telegrambot|applebot|semrushbot|ahrefsbot/i.test(ua);
-
-    if (!isBot) return next();
-
-    try {
-      const post = await storage.getBlogPostBySlug(slug);
-      if (!post) return res.status(404).send("Not found");
-
-      const t: any = (post as any).translations?.[lang];
-      const title       = (t?.title   || (post as any).title   || "Kinglike Luxury Blog").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const description = (t?.excerpt || (post as any).excerpt || title).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const content     = (t?.content || (post as any).content || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const image       = (post as any).coverImage || `${SEO_BASE}/icons/icon-512.png`;
-      const canonical   = `${SEO_BASE}/${lang}/blog/${slug}`;
-      const published   = (post as any).createdAt ? new Date((post as any).createdAt).toISOString() : "";
-
-      const hreflangs   = SEO_LANGS.map(l =>
-        `  <link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${slug}">`
-      ).join("\n");
-
-      const jsonLd = JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "BlogPosting",
-        headline: title,
-        description: description,
-        image: image,
-        url: canonical,
-        datePublished: published,
-        author: { "@type": "Organization", name: "Kinglike Luxury", url: SEO_BASE },
-        publisher: {
-          "@type": "Organization",
-          name: "Kinglike Luxury",
-          logo: { "@type": "ImageObject", url: `${SEO_BASE}/icons/icon-512.png` },
-        },
-        mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
-      });
-
-      const html = `<!DOCTYPE html>
-<html lang="${lang}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${title} | Kinglike Luxury</title>
-  <meta name="description" content="${description}">
-  <link rel="canonical" href="${canonical}">
-${hreflangs}
-  <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slug}">
-  <meta property="og:type" content="article">
-  <meta property="og:title" content="${title} | Kinglike Luxury">
-  <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${image}">
-  <meta property="og:url" content="${canonical}">
-  <meta property="og:site_name" content="Kinglike Luxury">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${title} | Kinglike Luxury">
-  <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${image}">
-  <script type="application/ld+json">${jsonLd}</script>
-</head>
-<body>
-  <article>
-    <h1>${title}</h1>
-    <p>${description}</p>
-    ${content}
-  </article>
-</body>
-</html>`;
-
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.send(html);
-    } catch (err) {
-      console.error("Bot meta injection error:", err);
-      return next();
-    }
-  });
 
   // Blog routes
   app.get("/api/blog", async (req, res) => {
