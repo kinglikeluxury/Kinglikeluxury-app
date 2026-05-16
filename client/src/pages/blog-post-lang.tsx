@@ -27,7 +27,14 @@ export default function BlogPostLang() {
   const { data: post, isLoading, error } = useQuery<any>({
     queryKey: ["/api/blog/slug", slug, urlLang],
     queryFn: async () => {
-      const res = await fetch(`/api/blog/slug/${slug}?lang=${urlLang}`, { credentials: "include" });
+      const res = await fetch(`/api/blog/slug/${encodeURIComponent(slug!)}?lang=${urlLang}`, { credentials: "include" });
+      if (res.status === 301) {
+        const data = await res.json();
+        if (data.redirect) {
+          navigate(`/${urlLang}/blog/${data.redirect}`, { replace: true } as any);
+          return null;
+        }
+      }
       if (!res.ok) throw new Error("Blog post not found");
       return res.json();
     },

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 import { CalendarDays, User, ArrowLeft, MapPin, MessageCircle } from "lucide-react";
@@ -15,12 +15,21 @@ export default function BlogPost() {
   const slug = params?.slug;
   const lang = i18n.language;
 
+  const [, navigate] = useLocation();
+
   const { data: post, isLoading, error } = useQuery<any>({
     queryKey: ["/api/blog/slug", slug, lang],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       if (lang) queryParams.set("lang", lang);
-      const res = await fetch(`/api/blog/slug/${slug}?${queryParams.toString()}`, { credentials: "include" });
+      const res = await fetch(`/api/blog/slug/${encodeURIComponent(slug!)}?${queryParams.toString()}`, { credentials: "include" });
+      if (res.status === 301) {
+        const data = await res.json();
+        if (data.redirect) {
+          navigate(`/blog/${data.redirect}`, { replace: true } as any);
+          return null;
+        }
+      }
       if (!res.ok) throw new Error("Blog post not found");
       return res.json();
     },

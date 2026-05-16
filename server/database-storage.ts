@@ -417,14 +417,31 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getBlogPostBySlug(slug: string): Promise<(BlogPost & { author: User }) | undefined> {
+    const decodedSlug = decodeURIComponent(slug);
     const [result] = await db
       .select()
       .from(blogPosts)
       .innerJoin(users, eq(blogPosts.authorId, users.id))
-      .where(eq(blogPosts.slug, slug));
+      .where(eq(blogPosts.slug, decodedSlug));
       
     if (!result) return undefined;
     
+    return {
+      ...result.blog_posts,
+      author: result.users
+    };
+  }
+
+  async getBlogPostByOldSlug(oldSlug: string): Promise<(BlogPost & { author: User }) | undefined> {
+    const decodedSlug = decodeURIComponent(oldSlug);
+    const [result] = await db
+      .select()
+      .from(blogPosts)
+      .innerJoin(users, eq(blogPosts.authorId, users.id))
+      .where(sql`${blogPosts.oldSlugs} @> ARRAY[${decodedSlug}]::text[]`);
+
+    if (!result) return undefined;
+
     return {
       ...result.blog_posts,
       author: result.users

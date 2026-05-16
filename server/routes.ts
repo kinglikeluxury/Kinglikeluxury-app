@@ -14,6 +14,7 @@ import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 import { translateBlogPost } from "./translate";
+import { generateEnglishSlug, hasNonAscii, timestampSlug, toEnglishSlug } from "./slugUtils";
 import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment";
 // TODO: Fix Google Cloud Storage TypeScript compatibility issues
 // import {
@@ -84,8 +85,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!isBot) return next();
 
     try {
-      const post = await storage.getBlogPostBySlug(slug);
-      if (!post) return res.status(404).send("Not found");
+      let post = await storage.getBlogPostBySlug(slug);
+
+      // 301 redirect if this is a legacy (non-English) slug
+      if (!post) {
+        const redirectPost = await storage.getBlogPostByOldSlug(slug);
+        if (redirectPost) {
+          return res.redirect(301, `/${lang}/blog/${redirectPost.slug}`);
+        }
+        return res.status(404).send("Not found");
+      }
 
       const tr: any   = (post as any).translations?.[lang];
       const title       = (tr?.title   || (post as any).title   || "Kinglike Luxury Blog").replace(/[<>"&]/g, c => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] || c));
@@ -1331,12 +1340,18 @@ ${hreflangs}
     try {
       const { slug } = req.params;
       const { lang } = req.query;
-      const blogPost = await storage.getBlogPostBySlug(slug);
-      
+
+      let blogPost = await storage.getBlogPostBySlug(slug);
+
       if (!blogPost) {
+        // Check legacy old slugs for 301 redirect info
+        const redirectPost = await storage.getBlogPostByOldSlug(slug);
+        if (redirectPost) {
+          return res.status(301).json({ redirect: redirectPost.slug });
+        }
         return res.status(404).json({ message: "Blog post not found" });
       }
-      
+
       if (lang) {
         const t = (blogPost as any).translations?.[lang as string];
         if (t) {
@@ -1406,10 +1421,9 @@ ${hreflangs}
         return res.status(400).json({ message: "Title and content are required" });
       }
       
-      let slug = title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF\u0590-\u05FF\u10A0-\u10FF\u4E00-\u9FFF\u0400-\u04FF]+/g, '-').replace(/(^-|-$)/g, '');
-      if (!slug || slug === '-') {
-        slug = `post-${Date.now()}`;
-      }
+      // Generate English-only slug (non-ASCII titles get a timestamp until translation completes)
+      let slug = generateEnglishSlug(title);
+      if (!slug) slug = timestampSlug();
       const finalExcerpt = excerpt || content.substring(0, 200);
 
       const postData = {
@@ -1431,12 +1445,33 @@ ${hreflangs}
       }
 
       const blogPost = await storage.createBlogPost(validated.data);
+      const originalSlug = blogPost.slug;
 
       res.status(201).json(blogPost);
 
       translateBlogPost(title, content, finalExcerpt).then(async (translations) => {
         try {
-          await storage.updateBlogPost(blogPost.id, { translations } as any);
+          const updatePayload: any = { translations };
+          // After we have the English translation, upgrade the slug if it was a timestamp fallback
+          const enTitle = (translations as any)?.en?.title;
+          if (enTitle) {
+            const enSlug = toEnglishSlug(enTitle);
+            if (enSlug && enSlug !== originalSlug) {
+              // Try to use the English slug; if duplicate, keep original
+              try {
+                const existing = await storage.getBlogPostBySlug(enSlug);
+                if (!existing) {
+                  updatePayload.slug = enSlug;
+                  const currentPost = await storage.getBlogPostBySlug(originalSlug);
+                  const prevOld: string[] = (currentPost as any)?.oldSlugs ?? [];
+                  if (!prevOld.includes(originalSlug)) {
+                    updatePayload.oldSlugs = [...prevOld, originalSlug];
+                  }
+                }
+              } catch (_) { /* slug conflict — keep original */ }
+            }
+          }
+          await storage.updateBlogPost(blogPost.id, updatePayload);
           console.log(`Translations saved for blog post ${blogPost.id}`);
         } catch (err) {
           console.error(`Failed to save translations for blog post ${blogPost.id}:`, err);
@@ -1464,9 +1499,15 @@ ${hreflangs}
       const updates: any = {};
       if (title !== undefined) {
         updates.title = title;
-        let newSlug = title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF\u0590-\u05FF\u10A0-\u10FF\u4E00-\u9FFF\u0400-\u04FF]+/g, '-').replace(/(^-|-$)/g, '');
-        if (!newSlug || newSlug === '-') {
-          newSlug = `post-${Date.now()}`;
+        // Get current post to preserve oldSlugs and compute redirect
+        const currentPost = await storage.getBlogPostById(id);
+        let newSlug = generateEnglishSlug(title);
+        if (!newSlug) newSlug = timestampSlug();
+        if (currentPost && currentPost.slug !== newSlug) {
+          const prevOld: string[] = (currentPost as any)?.oldSlugs ?? [];
+          if (!prevOld.includes(currentPost.slug)) {
+            updates.oldSlugs = [...prevOld, currentPost.slug];
+          }
         }
         updates.slug = newSlug;
       }
@@ -1501,6 +1542,42 @@ ${hreflangs}
     } catch (error) {
       console.error('Error updating blog post:', error);
       res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ─── Admin: Migrate all blog slugs to English-only ──────────────────────
+  app.post("/api/admin/migrate-blog-slugs", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+
+      const posts = await storage.getBlogPosts();
+      const results: { id: number; old: string; new: string; skipped?: boolean }[] = [];
+
+      for (const post of posts) {
+        const enTitle = (post as any).translations?.en?.title;
+        const newSlug = enTitle ? toEnglishSlug(enTitle) : generateEnglishSlug(post.title);
+        if (!newSlug || newSlug === post.slug) continue;
+
+        // Check for collision
+        const conflict = await storage.getBlogPostBySlug(newSlug);
+        if (conflict && conflict.id !== post.id) {
+          results.push({ id: post.id, old: post.slug, new: newSlug, skipped: true });
+          continue;
+        }
+
+        const prevOld: string[] = (post as any).oldSlugs ?? [];
+        const oldSlugsUpdated = prevOld.includes(post.slug) ? prevOld : [...prevOld, post.slug];
+        await storage.updateBlogPost(post.id, { slug: newSlug, oldSlugs: oldSlugsUpdated } as any);
+        results.push({ id: post.id, old: post.slug, new: newSlug });
+      }
+
+      console.log(`[MigrateSlugs] Migrated ${results.filter(r => !r.skipped).length} posts`);
+      res.json({ migrated: results.filter(r => !r.skipped).length, skipped: results.filter(r => r.skipped).length, details: results });
+    } catch (error) {
+      console.error("Error migrating slugs:", error);
+      res.status(500).json({ message: "Migration failed" });
     }
   });
 

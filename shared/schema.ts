@@ -216,6 +216,7 @@ export const blogPosts = pgTable("blog_posts", {
   country: text("country").notNull().default("georgia"),
   translations: jsonb("translations").$type<Record<string, { title: string; content: string; excerpt: string }>>(),
   published: boolean("published").notNull().default(true),
+  oldSlugs: text("old_slugs").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

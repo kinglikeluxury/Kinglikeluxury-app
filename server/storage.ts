@@ -56,6 +56,7 @@ export interface IStorage {
   }): Promise<(BlogPost & { author: User })[]>;
   getBlogPostById(id: number): Promise<(BlogPost & { author: User }) | undefined>;
   getBlogPostBySlug(slug: string): Promise<(BlogPost & { author: User }) | undefined>;
+  getBlogPostByOldSlug(oldSlug: string): Promise<(BlogPost & { author: User }) | undefined>;
   createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
   updateBlogPost(id: number, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined>;
   deleteBlogPost(id: number): Promise<boolean>;
@@ -331,6 +332,10 @@ export class MemStorage implements IStorage {
   }
   
   async getBlogPostBySlug(slug: string): Promise<(BlogPost & { author: User }) | undefined> {
+    return undefined;
+  }
+
+  async getBlogPostByOldSlug(oldSlug: string): Promise<(BlogPost & { author: User }) | undefined> {
     return undefined;
   }
   
