@@ -461,11 +461,8 @@ ${metaTags}
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      // Phone registration
-      if (authMethod === 'phone') {
-        if (!phoneNumber) {
-          return res.status(400).json({ message: "Phone number is required" });
-        }
+      // Enforce phone verification whenever a phone number is supplied
+      if (phoneNumber) {
         const isVerified = await storage.isPhoneVerified(phoneNumber);
         if (!isVerified) {
           return res.status(400).json({ message: "Phone number must be verified before registration" });
@@ -474,6 +471,8 @@ ${metaTags}
         if (existingPhone) {
           return res.status(400).json({ message: "Phone number already registered" });
         }
+      } else if (authMethod === 'phone') {
+        return res.status(400).json({ message: "Phone number is required" });
       }
 
       const user = await storage.createUser({
@@ -1614,19 +1613,24 @@ ${metaTags}
       const { title, content, excerpt, coverImage, coverVideo, categories, published, country } = req.body;
       
       const updates: any = {};
+      const currentPost = await storage.getBlogPostById(id);
       if (title !== undefined) {
         updates.title = title;
-        // Get current post to preserve oldSlugs and compute redirect
-        const currentPost = await storage.getBlogPostById(id);
-        let newSlug = generateEnglishSlug(title);
-        if (!newSlug) newSlug = timestampSlug();
-        if (currentPost && currentPost.slug !== newSlug) {
-          const prevOld: string[] = (currentPost as any)?.oldSlugs ?? [];
-          if (!prevOld.includes(currentPost.slug)) {
-            updates.oldSlugs = [...prevOld, currentPost.slug];
+        // If title is ASCII-safe, generate a new English slug.
+        // If non-ASCII (e.g. Arabic), keep the EXISTING slug so we don't
+        // overwrite a good English slug with a new timestamp slug.
+        const asciiSlug = generateEnglishSlug(title);
+        if (asciiSlug) {
+          // Title changed to an ASCII-able value — update slug with 301 redirect
+          if (currentPost && currentPost.slug !== asciiSlug) {
+            const prevOld: string[] = (currentPost as any)?.oldSlugs ?? [];
+            if (!prevOld.includes(currentPost.slug)) {
+              updates.oldSlugs = [...prevOld, currentPost.slug];
+            }
           }
+          updates.slug = asciiSlug;
         }
-        updates.slug = newSlug;
+        // else: non-ASCII title → keep existing slug; translation callback will upgrade it
       }
       if (content !== undefined) updates.content = content;
       if (excerpt !== undefined) updates.excerpt = excerpt;
@@ -1647,9 +1651,27 @@ ${metaTags}
         const finalTitle = title || blogPost.title;
         const finalContent = content || blogPost.content;
         const finalExcerpt = excerpt || blogPost.excerpt;
+        const slugBeforeTranslation = blogPost.slug;
         translateBlogPost(finalTitle, finalContent, finalExcerpt).then(async (translations) => {
           try {
-            await storage.updateBlogPost(id, { translations } as any);
+            const translationUpdate: any = { translations };
+            // After translation, upgrade slug if it's still a timestamp fallback
+            const enTitle = (translations as any)?.en?.title;
+            if (enTitle) {
+              const enSlug = toEnglishSlug(enTitle);
+              const isTimestamp = /^post-\d+$/.test(slugBeforeTranslation);
+              if (enSlug && (isTimestamp || enSlug !== slugBeforeTranslation)) {
+                const conflict = await storage.getBlogPostBySlug(enSlug);
+                if (!conflict || conflict.id === id) {
+                  const prevOld: string[] = (currentPost as any)?.oldSlugs ?? [];
+                  if (!prevOld.includes(slugBeforeTranslation) && isTimestamp) {
+                    translationUpdate.oldSlugs = [...prevOld, slugBeforeTranslation];
+                  }
+                  translationUpdate.slug = enSlug;
+                }
+              }
+            }
+            await storage.updateBlogPost(id, translationUpdate);
             console.log(`Translations updated for blog post ${id}`);
           } catch (err) {
             console.error(`Failed to update translations for blog post ${id}:`, err);

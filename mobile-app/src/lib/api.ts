@@ -87,11 +87,16 @@ export const register = async (userData: {
   whatsappNumber?: string;
 }) => {
   try {
-    const response = await api.post('/auth/register', userData);
+    const payload = {
+      ...userData,
+      authMethod: 'phone',
+    };
+    const response = await api.post('/auth/register', payload);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error);
-    throw error;
+    const msg = error?.response?.data?.message || error?.message || 'Registration failed';
+    throw new Error(msg);
   }
 };
 
