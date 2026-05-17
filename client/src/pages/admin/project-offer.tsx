@@ -526,15 +526,20 @@ export default function ProjectOfferPage() {
       });
       el.style.display = "none";
 
-      // 5. Build filename
-      const floorStr = selectedFloors.length > 0 ? `Floor${floorsLabel(selectedFloors).replace(/\s/g, "")}` : "";
+      // 5. Build filename: ProjectName - Floor - AptNumber - Area - Price
+      const floorStr    = selectedFloors.length > 0 ? `Floor_${floorsLabel(selectedFloors).replace(/\s/g, "_")}` : "";
+      const aptStr      = apartmentNumber.trim() ? `Apt_${apartmentNumber.trim()}` : "";
+      const areaStr     = totalArea ? `${totalArea}m2` : "";
+      const finalAmt    = discountedPrice > 0 ? discountedPrice : totalPrice;
+      const priceStr    = finalAmt > 0 ? `$${fmt(finalAmt)}` : "";
       const parts = [
         selectedProject.title || "offer",
-        apartmentType || "",
         floorStr,
-        totalPrice > 0 ? `$${fmt(totalPrice)}` : "",
+        aptStr,
+        areaStr,
+        priceStr,
       ].filter(Boolean).map((s) => s.replace(/\s+/g, "_").replace(/[^\w$.\-]/g, ""));
-      const filename = `${parts.join("_")}.pdf`;
+      const filename = `${parts.join(" - ")}.pdf`;
 
       // 6. Create PDF and trigger direct download
       const img  = new Image();
