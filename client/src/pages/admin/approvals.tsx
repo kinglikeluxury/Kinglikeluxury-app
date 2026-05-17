@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle, Star } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -63,6 +63,24 @@ const Approvals = () => {
       setOpenPropertyId(null);
       setRejectionReason("");
       setRefundPayment(false);
+    },
+  });
+
+  const topRatedMutation = useMutation({
+    mutationFn: async ({ id, topRated }: { id: number; topRated: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/properties/${id}/top-rated`, { topRated });
+      return response.json();
+    },
+    onSuccess: (_, { topRated }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/properties?status=all'] });
+      toast({
+        title: topRated ? "Top Rated ★ Enabled" : "Top Rated Removed",
+        description: topRated ? "Property marked as Top Rated." : "Top Rated badge removed.",
+      });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Failed", description: "Could not update Top Rated status." });
     },
   });
 
@@ -240,12 +258,25 @@ const Approvals = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex justify-end space-x-2 flex-wrap gap-1">
                             <Button size="sm" variant="outline" asChild>
                               <a href={`/property/${property.id}`} target="_blank" rel="noopener noreferrer">
                                 <Eye className="h-4 w-4 mr-1" />
                                 View
                               </a>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              title={property.topRated ? "Remove Top Rated" : "Mark as Top Rated"}
+                              className={property.topRated
+                                ? "bg-[#3bcac4]/10 text-[#005476] border-[#3bcac4] hover:bg-[#3bcac4]/20"
+                                : "text-gray-400 hover:text-[#005476] hover:border-[#3bcac4]"}
+                              onClick={() => topRatedMutation.mutate({ id: property.id, topRated: !property.topRated })}
+                              disabled={topRatedMutation.isPending}
+                            >
+                              <Star className={`h-4 w-4 ${property.topRated ? "fill-[#3bcac4]" : ""}`} />
                             </Button>
 
                             {currentTab === "pending" && (

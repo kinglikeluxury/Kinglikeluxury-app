@@ -188,7 +188,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
-      return await query.orderBy(desc(properties.createdAt));
+      return await query.orderBy(desc(properties.topRated), desc(properties.createdAt));
     });
   }
 

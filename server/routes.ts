@@ -1135,6 +1135,21 @@ ${metaTags}
   });
 
   // Mark property as sold / unmark
+  // Toggle topRated — admin only
+  app.patch("/api/properties/:id/top-rated", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).json({ message: "Property not found" });
+      const topRated = req.body.topRated === true;
+      const updated = await storage.updateProperty(id, { topRated } as any);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating topRated:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.patch("/api/properties/:id/sold", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
