@@ -197,6 +197,74 @@ ${hreflangs}
     }
   });
 
+  // ─── SEO / OG: Property page meta-tag injection ────────────────────────────
+  // When WhatsApp / any crawler fetches /property/:id, the server responds with
+  // the real OG tags (title, description, og:image = first property photo) so
+  // that the link preview is shown correctly.
+  app.get("/property/:id", async (req, res, next) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return next();
+
+    const ua = req.headers["user-agent"] || "";
+    const isBot = /googlebot|bingbot|yandexbot|baiduspider|duckduckbot|twitterbot|facebookexternalhit|linkedinbot|whatsapp|slackbot|telegrambot|applebot|semrushbot|ahrefsbot/i.test(ua);
+
+    // For regular browsers that are NOT bots, let Vite / the SPA serve the page
+    if (!isBot) return next();
+
+    try {
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).send("Property not found");
+
+      const safe = (s: string) =>
+        String(s).replace(/[<>"&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] ?? c));
+
+      const title       = safe((property as any).title || "Kinglike Luxury Property");
+      const description = safe(
+        ((property as any).description || "").replace(/\n/g, " ").substring(0, 200) ||
+        `${(property as any).propertyType || "Property"} in ${(property as any).location || ""} — Kinglike Luxury`
+      );
+      const images      = (property as any).images as string[];
+      const image       = (Array.isArray(images) && images.length > 0)
+        ? images[0]
+        : `${SEO_BASE}/icons/icon-512.png`;
+      const canonical   = `${SEO_BASE}/property/${id}`;
+
+      const metaTags = `
+  <title>${title} | Kinglike Luxury</title>
+  <meta name="description" content="${description}">
+  <link rel="canonical" href="${canonical}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${title} | Kinglike Luxury">
+  <meta property="og:description" content="${description}">
+  <meta property="og:image" content="${image}">
+  <meta property="og:url" content="${canonical}">
+  <meta property="og:site_name" content="Kinglike Luxury">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title} | Kinglike Luxury">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${image}">`;
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=300");
+      return res.send(`<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+${metaTags}
+</head>
+<body>
+  <h1>${title}</h1>
+  <p>${description}</p>
+  <img src="${image}" alt="${title}" />
+</body>
+</html>`);
+    } catch (err) {
+      console.error("[PropertyMeta] Error:", err);
+      return next();
+    }
+  });
+
   // Configure sessions with PostgreSQL store
   app.use(
     session({
