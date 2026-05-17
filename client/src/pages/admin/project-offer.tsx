@@ -285,9 +285,9 @@ const PETRA_APT_COORDS: Record<string, [number, number, number, number]> = {
 
 const buildPetraHighlight = async (aptNum: string): Promise<string> => {
   const raw = aptNum.trim();
-  // Accept full room number ("1823") or 2-digit suffix ("23")
-  const suffix = raw.length >= 3 ? raw.slice(-2).padStart(2, "0") : raw.padStart(2, "0");
-  const coords = PETRA_APT_COORDS[suffix] ?? PETRA_APT_COORDS[raw];
+  // Accept full room number ("1823") or 2-digit suffix ("23"); empty = no highlight
+  const suffix = raw.length >= 3 ? raw.slice(-2).padStart(2, "0") : raw.length > 0 ? raw.padStart(2, "0") : "";
+  const coords = suffix ? (PETRA_APT_COORDS[suffix] ?? PETRA_APT_COORDS[raw]) : undefined;
 
   const img = new Image();
   img.crossOrigin = "anonymous";
@@ -486,13 +486,13 @@ export default function ProjectOfferPage() {
         setSilkHighlightB64("");
       }
 
-      // 3c. If Petra Sea Resort + apartment number → build highlighted floor plan
+      // 3c. If Petra Sea Resort → always build floor plan (highlighted if apt number given)
       const isPetra = /petra/i.test(selectedProject.title ?? "") || /بترا/i.test(selectedProject.title ?? "");
-      if (isPetra && apartmentNumber.trim()) {
+      if (isPetra) {
         try {
           const petraB64 = await buildPetraHighlight(apartmentNumber);
           setPetraHighlightB64(petraB64);
-        } catch { setPetraHighlightB64(""); }
+        } catch (e) { console.error("Petra highlight error:", e); setPetraHighlightB64(""); }
       } else {
         setPetraHighlightB64("");
       }
