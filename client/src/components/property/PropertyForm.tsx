@@ -812,6 +812,37 @@ const PropertyForm = ({ isAdmin = false }) => {
               )}
             </div>
 
+            {/* Top Rated — available for ALL property types */}
+            <div className="mt-4">
+              <FormField
+                control={form.control}
+                name="topRated"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value || false}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="flex items-center gap-2">
+                      <FormLabel className="font-medium cursor-pointer mb-0">
+                        Top Rated
+                      </FormLabel>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            </div>
+
             {/* Project specific fields */}
             {showProjectFields && (
               <>

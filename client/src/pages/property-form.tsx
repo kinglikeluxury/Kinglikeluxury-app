@@ -2678,25 +2678,23 @@ const PropertyForm = () => {
             />
           </div>
 
-          {/* Top Rated Option - Only for Off-Plan Projects */}
-          {propertyType === 'project' && (
-            <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.topRated}
-                  onChange={(e) => setFormData(prev => ({ ...prev, topRated: e.target.checked }))}
-                  className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
-                />
-                <span className="font-medium text-gray-900">Top Rated Project</span>
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]" />
-                  ))}
-                </div>
-              </label>
-            </div>
-          )}
+          {/* Top Rated Option - Available for ALL property types */}
+          <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
+            <label className="flex items-center space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.topRated || false}
+                onChange={(e) => setFormData(prev => ({ ...prev, topRated: e.target.checked }))}
+                className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
+              />
+              <span className="font-medium text-gray-900">Top Rated</span>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]" />
+                ))}
+              </div>
+            </label>
+          </div>
 
           {/* Submit Button */}
           <div className="flex justify-between items-center">
