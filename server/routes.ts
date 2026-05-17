@@ -224,9 +224,14 @@ ${hreflangs}
         `${(property as any).propertyType || "Property"} in ${(property as any).location || ""} — Kinglike Luxury`
       );
       const images      = (property as any).images as string[];
-      const image       = (Array.isArray(images) && images.length > 0)
+      const rawImage    = (Array.isArray(images) && images.length > 0)
         ? images[0]
         : `${SEO_BASE}/icons/icon-512.png`;
+      // Optimise Cloudinary image for WhatsApp preview: resize to 1200×630,
+      // convert to JPEG and reduce quality so it loads fast (< 1 MB).
+      const image = rawImage.includes("res.cloudinary.com")
+        ? rawImage.replace(/\/upload\//, "/upload/w_1200,h_630,c_fill,f_jpg,q_80/")
+        : rawImage;
       const canonical   = `${SEO_BASE}/property/${id}`;
 
       const metaTags = `
