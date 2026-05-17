@@ -232,6 +232,101 @@ const buildSilkTowersHighlight = async (aptNum: string): Promise<string> => {
   return canvas.toDataURL("image/jpeg", 0.93);
 };
 
+/* ─── Petra Sea Resort floor-plan highlight helpers ─────────────────────── */
+
+const PETRA_SEA_RESORT_FLOOR_PLAN_URL = "/petra-sea-resort-floor-plan.jpg";
+
+// Image: 1394 × 970 px
+// Building footprint: x 0.022–0.979 , y 0.162–0.897
+// Room 1801 = far-left corner unit (full height, narrow)
+// North row (sea/top side):  y 0.162–0.487  — odd numbers 1803,1805…1831
+// South row (garden/bottom): y 0.565–0.897  — even numbers 1802,1804…1832
+// Elevator/stairwell core:   x 0.667–0.742
+// Keys = last 2 digits of the room number  ("01" → 1801/2801/etc.)
+const PETRA_APT_COORDS: Record<string, [number, number, number, number]> = {
+  // ── Left corner unit ─────────────────────────────────────────────────
+  "01": [0.022, 0.162, 0.082, 0.897],
+  // ── North row (sea-facing, top)  y: 0.162 – 0.487 ────────────────────
+  "03": [0.082, 0.162, 0.135, 0.487],
+  "05": [0.135, 0.162, 0.189, 0.487],
+  "07": [0.189, 0.162, 0.242, 0.487],
+  "09": [0.242, 0.162, 0.295, 0.487],
+  "11": [0.295, 0.162, 0.349, 0.487],
+  "13": [0.349, 0.162, 0.402, 0.487],
+  "15": [0.402, 0.162, 0.455, 0.487],
+  "17": [0.455, 0.162, 0.509, 0.487],
+  "19": [0.509, 0.162, 0.562, 0.487],
+  "21": [0.562, 0.162, 0.615, 0.487],
+  "23": [0.615, 0.162, 0.667, 0.487],
+  // elevator core x 0.667–0.742
+  "25": [0.742, 0.162, 0.801, 0.487],
+  "27": [0.801, 0.162, 0.860, 0.487],
+  "29": [0.860, 0.162, 0.919, 0.487],
+  "31": [0.919, 0.162, 0.979, 0.487],
+  // ── South row (garden-facing, bottom)  y: 0.565 – 0.897 ──────────────
+  "02": [0.082, 0.565, 0.135, 0.897],
+  "04": [0.135, 0.565, 0.189, 0.897],
+  "06": [0.189, 0.565, 0.242, 0.897],
+  "08": [0.242, 0.565, 0.295, 0.897],
+  "10": [0.295, 0.565, 0.349, 0.897],
+  "12": [0.349, 0.565, 0.402, 0.897],
+  "14": [0.402, 0.565, 0.455, 0.897],
+  "16": [0.455, 0.565, 0.509, 0.897],
+  "18": [0.509, 0.565, 0.562, 0.897],
+  "20": [0.562, 0.565, 0.615, 0.897],
+  "22": [0.615, 0.565, 0.667, 0.897],
+  // elevator core x 0.667–0.742
+  "24": [0.742, 0.565, 0.789, 0.897],
+  "26": [0.789, 0.565, 0.836, 0.897],
+  "28": [0.836, 0.565, 0.883, 0.897],
+  "30": [0.883, 0.565, 0.930, 0.897],
+  "32": [0.930, 0.565, 0.979, 0.897],
+};
+
+const buildPetraHighlight = async (aptNum: string): Promise<string> => {
+  const raw = aptNum.trim();
+  // Accept full room number ("1823") or 2-digit suffix ("23")
+  const suffix = raw.length >= 3 ? raw.slice(-2).padStart(2, "0") : raw.padStart(2, "0");
+  const coords = PETRA_APT_COORDS[suffix] ?? PETRA_APT_COORDS[raw];
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    img.onload  = () => resolve();
+    img.onerror = reject;
+    img.src = PETRA_SEA_RESORT_FLOOR_PLAN_URL + "?t=" + Date.now();
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  if (coords) {
+    const W = canvas.width, H = canvas.height;
+    const [x1r, y1r, x2r, y2r] = coords;
+    const x1 = x1r * W, y1 = y1r * H;
+    const bw  = (x2r - x1r) * W, bh = (y2r - y1r) * H;
+
+    ctx.fillStyle = "rgba(59,202,196,0.38)";
+    ctx.fillRect(x1, y1, bw, bh);
+
+    ctx.strokeStyle = "#e53e3e";
+    ctx.lineWidth   = Math.max(4, W * 0.004);
+    ctx.strokeRect(x1, y1, bw, bh);
+
+    const fontSize = Math.round(Math.min(bw, bh) * 0.30);
+    ctx.font      = `bold ${fontSize}px Arial`;
+    ctx.fillStyle = "#e53e3e";
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(raw, x1 + bw / 2, y1 + bh / 2);
+  }
+
+  return canvas.toDataURL("image/jpeg", 0.93);
+};
+
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function ProjectOfferPage() {
@@ -262,6 +357,7 @@ export default function ProjectOfferPage() {
   const [floorPlanB64, setFloorPlanB64]         = useState<string>("");
   const [flagB64, setFlagB64]                   = useState<string>("");
   const [silkHighlightB64, setSilkHighlightB64] = useState<string>("");
+  const [petraHighlightB64, setPetraHighlightB64] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -388,6 +484,17 @@ export default function ProjectOfferPage() {
         } catch { setSilkHighlightB64(""); }
       } else {
         setSilkHighlightB64("");
+      }
+
+      // 3c. If Petra Sea Resort + apartment number → build highlighted floor plan
+      const isPetra = /petra/i.test(selectedProject.title ?? "") || /بترا/i.test(selectedProject.title ?? "");
+      if (isPetra && apartmentNumber.trim()) {
+        try {
+          const petraB64 = await buildPetraHighlight(apartmentNumber);
+          setPetraHighlightB64(petraB64);
+        } catch { setPetraHighlightB64(""); }
+      } else {
+        setPetraHighlightB64("");
       }
 
       // 3. Wait for React to re-render with base64 images
@@ -840,6 +947,7 @@ export default function ProjectOfferPage() {
             floorsLabel={floorsLabel}
             fmt={fmt}
             silkHighlightB64={silkHighlightB64}
+            petraHighlightB64={petraHighlightB64}
           />
         )}
       </div>
@@ -856,7 +964,7 @@ function PDFTemplate({
   finalPaymentPercent, finalPaymentAmount, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
   getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt,
-  silkHighlightB64
+  silkHighlightB64, petraHighlightB64
 }: any) {
 
   const W   = 794;
@@ -1117,6 +1225,73 @@ function PDFTemplate({
                  lang === "pl" ? `Wybrane mieszkanie: nr ${apartmentNumber}` :
                  lang === "it" ? `Appartamento selezionato: n° ${apartmentNumber}` :
                  `Selected Apartment: No. ${apartmentNumber}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Petra Sea Resort highlighted floor plan ── */}
+      {petraHighlightB64 && (
+        <div style={{ padding: "0 40px 20px" }}>
+          <div style={{
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "2.5px solid #005476",
+            boxShadow: "0 4px 20px rgba(0,84,118,0.15)",
+          }}>
+            {/* Section label bar */}
+            <div style={{
+              background: "#005476",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <div style={{ fontSize: 18 }}>🗺️</div>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+                {lang === "ar" ? `مخطط الطابق — الغرفة رقم ${apartmentNumber}` :
+                 lang === "he" ? `תוכנית הקומה — חדר ${apartmentNumber}` :
+                 lang === "ru" ? `План этажа — номер ${apartmentNumber}` :
+                 lang === "ka" ? `სართულის გეგმა — ოთახი ${apartmentNumber}` :
+                 lang === "az" ? `Mərtəbə planı — otaq ${apartmentNumber}` :
+                 lang === "tr" ? `Kat Planı — Oda ${apartmentNumber}` :
+                 lang === "zh" ? `楼层平面图 — ${apartmentNumber} 号房` :
+                 lang === "pl" ? `Plan piętra — pokój ${apartmentNumber}` :
+                 lang === "it" ? `Planimetria — Appartamento ${apartmentNumber}` :
+                 `Floor Plan — Unit ${apartmentNumber}`}
+              </div>
+            </div>
+            {/* Highlighted floor plan image */}
+            <div style={{ background: "#f8f9fa", textAlign: "center" as const, padding: "16px" }}>
+              <img
+                src={petraHighlightB64}
+                style={{ maxWidth: "100%", height: "auto", display: "inline-block", borderRadius: 8 }}
+              />
+            </div>
+            {/* Legend */}
+            <div style={{
+              background: "#f0f4f8",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 12,
+              borderTop: "1px solid #dde3ea",
+            }}>
+              <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+                {lang === "ar" ? `الغرفة المحددة: رقم ${apartmentNumber}` :
+                 lang === "he" ? `החדר הנבחר: מס' ${apartmentNumber}` :
+                 lang === "ru" ? `Выбранный номер: ${apartmentNumber}` :
+                 lang === "ka" ? `არჩეული ოთახი: ${apartmentNumber}` :
+                 lang === "az" ? `Seçilmiş otaq: ${apartmentNumber}` :
+                 lang === "tr" ? `Seçilen Oda: ${apartmentNumber}` :
+                 lang === "zh" ? `所选房间：${apartmentNumber}` :
+                 lang === "pl" ? `Wybrany pokój: ${apartmentNumber}` :
+                 lang === "it" ? `Unità selezionata: ${apartmentNumber}` :
+                 `Selected Unit: ${apartmentNumber}`}
               </div>
             </div>
           </div>
