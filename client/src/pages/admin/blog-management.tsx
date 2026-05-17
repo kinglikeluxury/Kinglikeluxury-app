@@ -277,11 +277,11 @@ const BlogManagement = () => {
 
                 <div>
                   <Label>Country / Region *</Label>
-                  <div className="flex gap-3 mt-2">
+                  <div className="grid grid-cols-2 gap-3 mt-2">
                     <button
                       type="button"
                       onClick={() => setCountry("georgia")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
                         country === "georgia"
                           ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
                           : "border-gray-200 hover:border-gray-300 text-gray-500"
@@ -293,7 +293,7 @@ const BlogManagement = () => {
                     <button
                       type="button"
                       onClick={() => setCountry("uae")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
                         country === "uae"
                           ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
                           : "border-gray-200 hover:border-gray-300 text-gray-500"
@@ -305,7 +305,7 @@ const BlogManagement = () => {
                     <button
                       type="button"
                       onClick={() => setCountry("turkey")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
                         country === "turkey"
                           ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
                           : "border-gray-200 hover:border-gray-300 text-gray-500"
@@ -317,14 +317,14 @@ const BlogManagement = () => {
                     <button
                       type="button"
                       onClick={() => setCountry("northern-cyprus")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
                         country === "northern-cyprus"
                           ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
                           : "border-gray-200 hover:border-gray-300 text-gray-500"
                       }`}
                     >
                       <span className="text-xl">🇨🇾</span>
-                      N. Cyprus
+                      N. Cyprus (TRNC)
                     </button>
                   </div>
                 </div>
