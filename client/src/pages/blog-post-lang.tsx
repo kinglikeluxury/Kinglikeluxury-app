@@ -6,6 +6,7 @@ import { CalendarDays, User, ArrowLeft, MapPin, MessageCircle } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect } from "react";
+import { useContentProtection } from "@/hooks/use-content-protection";
 
 const SUPPORTED_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
 const BASE_URL = "https://www.kinglikeluxury.app";
@@ -16,6 +17,9 @@ export default function BlogPostLang() {
   const [, navigate] = useLocation();
   const urlLang = params?.lang ?? "en";
   const slug = params?.slug;
+
+  // Protect content from copying
+  useContentProtection();
 
   // Switch app language to match URL language
   useEffect(() => {
@@ -159,7 +163,7 @@ export default function BlogPostLang() {
             </div>
           ) : null}
 
-          <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
+          <div className="bg-white rounded-xl shadow-sm p-8 md:p-12 protected-content">
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-6">
               {post.country && (
                 <span className="inline-flex items-center gap-1 bg-[#005476]/10 text-[#005476] px-3 py-1 rounded-full font-medium">

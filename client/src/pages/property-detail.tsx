@@ -14,6 +14,7 @@ import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, 
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate, useAutoTranslateArray } from "@/hooks/useAutoTranslate";
+import { useContentProtection } from "@/hooks/use-content-protection";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,6 +23,7 @@ const PropertyDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { toggleFavorite, isFavorite } = useFavorites();
+  useContentProtection();
   const [, navigate] = useLocation();
   const [, params] = useRoute("/property/:id");
   const propertyId = params?.id ? parseInt(params.id) : null;
@@ -625,7 +627,7 @@ const PropertyDetail = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
                 {/* Details Section */}
-                <div className="space-y-6">
+                <div className="space-y-6 protected-content">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Description</h3>
                     <p className="text-gray-700 whitespace-pre-line">{translatedTexts.description || property.description}</p>
