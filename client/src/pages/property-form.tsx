@@ -965,6 +965,16 @@ const PropertyForm = () => {
       
       const result = await response.json();
       console.log(`Property ${isEditMode ? 'updated' : 'created'} successfully:`, result);
+
+      // Always sync topRated via dedicated endpoint (bypasses schema complexity)
+      const savedId = isEditMode ? propertyId : result?.id;
+      if (savedId && user?.isAdmin) {
+        await fetch(`/api/properties/${savedId}/top-rated`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topRated: formData.topRated === true }),
+        });
+      }
       
       if (result.pendingReview) {
         // Show branded popup instead of toast
