@@ -45,24 +45,16 @@ const Footer = () => {
             </h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/properties?type=apartment">
-                  <a className="text-gray-400 hover:text-white">Apartments</a>
-                </Link>
+                <Link href="/properties?type=apartment" className="text-gray-400 hover:text-white">Apartments</Link>
               </li>
               <li>
-                <Link href="/properties?type=villa">
-                  <a className="text-gray-400 hover:text-white">Villas</a>
-                </Link>
+                <Link href="/properties?type=villa" className="text-gray-400 hover:text-white">Villas</Link>
               </li>
               <li>
-                <Link href="/properties?type=land">
-                  <a className="text-gray-400 hover:text-white">Lands</a>
-                </Link>
+                <Link href="/properties?type=land" className="text-gray-400 hover:text-white">Lands</Link>
               </li>
               <li>
-                <Link href="/properties?type=project">
-                  <a className="text-gray-400 hover:text-white">Projects</a>
-                </Link>
+                <Link href="/properties?type=project" className="text-gray-400 hover:text-white">Projects</Link>
               </li>
             </ul>
           </div>
@@ -73,34 +65,22 @@ const Footer = () => {
             </h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/">
-                  <a className="text-gray-400 hover:text-white">Home</a>
-                </Link>
+                <Link href="/" className="text-gray-400 hover:text-white">Home</Link>
               </li>
               <li>
-                <Link href="/submit-property">
-                  <a className="text-gray-400 hover:text-white">Add Property</a>
-                </Link>
+                <Link href="/submit-property" className="text-gray-400 hover:text-white">Add Property</Link>
               </li>
               <li>
-                <Link href="/login">
-                  <a className="text-gray-400 hover:text-white">Login</a>
-                </Link>
+                <Link href="/login" className="text-gray-400 hover:text-white">Login</Link>
               </li>
               <li>
-                <Link href="/register">
-                  <a className="text-gray-400 hover:text-white">Register</a>
-                </Link>
+                <Link href="/register" className="text-gray-400 hover:text-white">Register</Link>
               </li>
               <li>
-                <Link href="/privacy-terms">
-                  <a className="text-gray-400 hover:text-white">Privacy & Terms</a>
-                </Link>
+                <Link href="/privacy-terms" className="text-gray-400 hover:text-white">Privacy & Terms</Link>
               </li>
               <li>
-                <Link href="/privacy-policy">
-                  <a className="text-gray-400 hover:text-white">Privacy Policy</a>
-                </Link>
+                <Link href="/privacy-policy" className="text-gray-400 hover:text-white">Privacy Policy</Link>
               </li>
             </ul>
           </div>
