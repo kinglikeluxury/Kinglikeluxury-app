@@ -916,6 +916,7 @@ const PropertyForm = () => {
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
         readyStatus: formData.readyStatus || null,
+        topRated: formData.topRated === true,
         latitude: formData.coordinates?.lat && formData.coordinates.lat !== 0
           ? formData.coordinates.lat.toString()
           : (isEditMode && existingProperty ? (existingProperty as any).latitude : null),
@@ -932,8 +933,7 @@ const PropertyForm = () => {
             developer: formData.projectDetails?.developer || formData.title,
             completionDate: formData.projectDetails?.completionDate || formData.deliveryDate || 'Q4 2024',
             projectStatus: formData.projectDetails?.projectStatus || 'Now Selling'
-          },
-          topRated: formData.topRated || false
+          }
         } : {})
       };
 
