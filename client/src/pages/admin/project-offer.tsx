@@ -526,7 +526,8 @@ export default function ProjectOfferPage() {
       });
       el.style.display = "none";
 
-      // 5. Build filename: ProjectName - Floor - AptNumber - Area - Price
+      // 5. Build filename: ProjectName - Block(optional) - Floor - AptNumber - Area - Price
+      const blockStr    = selectedBlock.trim() ? `Block_${selectedBlock.trim()}` : "";
       const floorStr    = selectedFloors.length > 0 ? `Floor_${floorsLabel(selectedFloors).replace(/\s/g, "_")}` : "";
       const aptStr      = apartmentNumber.trim() ? `Apt_${apartmentNumber.trim()}` : "";
       const areaStr     = totalArea ? `${totalArea}m2` : "";
@@ -534,6 +535,7 @@ export default function ProjectOfferPage() {
       const priceStr    = finalAmt > 0 ? `$${fmt(finalAmt)}` : "";
       const parts = [
         selectedProject.title || "offer",
+        blockStr,
         floorStr,
         aptStr,
         areaStr,
