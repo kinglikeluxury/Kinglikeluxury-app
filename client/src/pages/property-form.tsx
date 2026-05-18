@@ -1223,6 +1223,7 @@ const PropertyForm = () => {
                 </div>
               </div>
 
+              {propertyType !== PROPERTY_TYPES.PROJECT && (
               <div>
                 <Label htmlFor="customPrice">Or enter price manually (USD)</Label>
                 <div className="relative">
@@ -1245,6 +1246,7 @@ const PropertyForm = () => {
                 </div>
                 <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
               </div>
+              )}
 
               <div>
                 <Label htmlFor="description">Description *</Label>
