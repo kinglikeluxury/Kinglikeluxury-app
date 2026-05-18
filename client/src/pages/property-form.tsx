@@ -1170,7 +1170,7 @@ const PropertyForm = () => {
                   />
                 </div>
                 
-                <div>
+                {user?.isAdmin && <div>
                   <Label htmlFor="price">Price Points (USD) * — select all that apply</Label>
                   {(() => {
                     const priceOptions: number[] = [];
@@ -1236,10 +1236,10 @@ const PropertyForm = () => {
                       </div>
                     );
                   })()}
-                </div>
+                </div>}
               </div>
 
-              {propertyType !== PROPERTY_TYPES.PROJECT && (
+              {user?.isAdmin && propertyType !== PROPERTY_TYPES.PROJECT && (
               <div>
                 <Label htmlFor="customPrice">Or enter price manually (USD)</Label>
                 <div className="relative">
