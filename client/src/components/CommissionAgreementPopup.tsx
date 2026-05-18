@@ -115,9 +115,9 @@ export function CommissionAgreementPopup({
               </p>
             </div>
             <div className="p-4 max-h-48 overflow-y-auto bg-slate-50">
-              <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">
+              <p className="text-sm text-slate-800 whitespace-pre-line leading-7 font-normal">
                 {t("commission.legalText")}
-              </pre>
+              </p>
             </div>
           </div>
 
