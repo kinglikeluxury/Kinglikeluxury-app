@@ -1138,28 +1138,6 @@ const PropertyForm = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Property Type Selection - Show if not provided via URL */}
-          {!propertyType && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Select Property Type</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant={propertyType === value ? "default" : "outline"}
-                      onClick={() => setPropertyType(value)}
-                      className="h-12 text-sm"
-                    >
-                      {value === 'project' ? 'Off-Plan Projects' : value.charAt(0).toUpperCase() + value.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
 
           {/* Basic Information */}
