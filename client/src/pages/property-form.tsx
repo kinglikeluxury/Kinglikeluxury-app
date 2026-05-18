@@ -953,6 +953,7 @@ const PropertyForm = () => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(submissionData)
       });
       
@@ -968,10 +969,11 @@ const PropertyForm = () => {
 
       // Always sync topRated via dedicated endpoint (bypasses schema complexity)
       const savedId = isEditMode ? propertyId : result?.id;
-      if (savedId && user?.isAdmin) {
+      if (savedId) {
         await fetch(`/api/properties/${savedId}/top-rated`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ topRated: formData.topRated === true }),
         });
       }
