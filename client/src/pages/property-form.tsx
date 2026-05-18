@@ -855,8 +855,26 @@ const PropertyForm = () => {
         // Map city codes to full names
         const cityNames = cities.map(city => {
           switch (city) {
-            case 'batumi': return 'Batumi';
             case 'tbilisi': return 'Tbilisi';
+            case 'batumi': return 'Batumi';
+            case 'kutaisi': return 'Kutaisi';
+            case 'rustavi': return 'Rustavi';
+            case 'zugdidi': return 'Zugdidi';
+            case 'gori': return 'Gori';
+            case 'poti': return 'Poti';
+            case 'telavi': return 'Telavi';
+            case 'mtskheta': return 'Mtskheta';
+            case 'kobuleti': return 'Kobuleti';
+            case 'borjomi': return 'Borjomi';
+            case 'akhaltsikhe': return 'Akhaltsikhe';
+            case 'senaki': return 'Senaki';
+            case 'anaklia': return 'Anaklia';
+            case 'sighnaghi': return 'Sighnaghi';
+            case 'ambrolauri': return 'Ambrolauri';
+            case 'khashuri': return 'Khashuri';
+            case 'samtredia': return 'Samtredia';
+            case 'zestafoni': return 'Zestafoni';
+            case 'chiatura': return 'Chiatura';
             case 'dubai': return 'Dubai';
             case 'sharjah': return 'Sharjah';
             case 'rasAlKhaimah': return 'Ras Al Khaimah';
@@ -1359,8 +1377,26 @@ const PropertyForm = () => {
                     <div className="text-sm text-gray-600 mb-2">Select cities:</div>
                     <div className="space-y-2">
                       {[
-                        { value: 'batumi', label: '🇬🇪 Batumi, Georgia', country: 'georgia' },
                         { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia', country: 'georgia' },
+                        { value: 'batumi', label: '🇬🇪 Batumi, Georgia', country: 'georgia' },
+                        { value: 'kutaisi', label: '🇬🇪 Kutaisi, Georgia', country: 'georgia' },
+                        { value: 'rustavi', label: '🇬🇪 Rustavi, Georgia', country: 'georgia' },
+                        { value: 'zugdidi', label: '🇬🇪 Zugdidi, Georgia', country: 'georgia' },
+                        { value: 'gori', label: '🇬🇪 Gori, Georgia', country: 'georgia' },
+                        { value: 'poti', label: '🇬🇪 Poti, Georgia', country: 'georgia' },
+                        { value: 'telavi', label: '🇬🇪 Telavi, Georgia', country: 'georgia' },
+                        { value: 'mtskheta', label: '🇬🇪 Mtskheta, Georgia', country: 'georgia' },
+                        { value: 'kobuleti', label: '🇬🇪 Kobuleti, Georgia', country: 'georgia' },
+                        { value: 'borjomi', label: '🇬🇪 Borjomi, Georgia', country: 'georgia' },
+                        { value: 'akhaltsikhe', label: '🇬🇪 Akhaltsikhe, Georgia', country: 'georgia' },
+                        { value: 'senaki', label: '🇬🇪 Senaki, Georgia', country: 'georgia' },
+                        { value: 'anaklia', label: '🇬🇪 Anaklia, Georgia', country: 'georgia' },
+                        { value: 'sighnaghi', label: '🇬🇪 Sighnaghi, Georgia', country: 'georgia' },
+                        { value: 'ambrolauri', label: '🇬🇪 Ambrolauri, Georgia', country: 'georgia' },
+                        { value: 'khashuri', label: '🇬🇪 Khashuri, Georgia', country: 'georgia' },
+                        { value: 'samtredia', label: '🇬🇪 Samtredia, Georgia', country: 'georgia' },
+                        { value: 'zestafoni', label: '🇬🇪 Zestafoni, Georgia', country: 'georgia' },
+                        { value: 'chiatura', label: '🇬🇪 Chiatura, Georgia', country: 'georgia' },
                         { value: 'dubai', label: '🇦🇪 Dubai, UAE', country: 'uae' },
                         { value: 'sharjah', label: '🇦🇪 Sharjah, UAE', country: 'uae' },
                         { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE', country: 'uae' },
@@ -1410,8 +1446,26 @@ const PropertyForm = () => {
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
                             const cityLabels: Record<string, string> = {
-                              batumi: '🇬🇪 Batumi, Georgia',
                               tbilisi: '🇬🇪 Tbilisi, Georgia',
+                              batumi: '🇬🇪 Batumi, Georgia',
+                              kutaisi: '🇬🇪 Kutaisi, Georgia',
+                              rustavi: '🇬🇪 Rustavi, Georgia',
+                              zugdidi: '🇬🇪 Zugdidi, Georgia',
+                              gori: '🇬🇪 Gori, Georgia',
+                              poti: '🇬🇪 Poti, Georgia',
+                              telavi: '🇬🇪 Telavi, Georgia',
+                              mtskheta: '🇬🇪 Mtskheta, Georgia',
+                              kobuleti: '🇬🇪 Kobuleti, Georgia',
+                              borjomi: '🇬🇪 Borjomi, Georgia',
+                              akhaltsikhe: '🇬🇪 Akhaltsikhe, Georgia',
+                              senaki: '🇬🇪 Senaki, Georgia',
+                              anaklia: '🇬🇪 Anaklia, Georgia',
+                              sighnaghi: '🇬🇪 Sighnaghi, Georgia',
+                              ambrolauri: '🇬🇪 Ambrolauri, Georgia',
+                              khashuri: '🇬🇪 Khashuri, Georgia',
+                              samtredia: '🇬🇪 Samtredia, Georgia',
+                              zestafoni: '🇬🇪 Zestafoni, Georgia',
+                              chiatura: '🇬🇪 Chiatura, Georgia',
                               dubai: '🇦🇪 Dubai, UAE',
                               sharjah: '🇦🇪 Sharjah, UAE',
                               rasAlKhaimah: '🇦🇪 Ras Al Khaimah, UAE',
