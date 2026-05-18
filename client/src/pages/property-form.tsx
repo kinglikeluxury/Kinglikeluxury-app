@@ -1301,7 +1301,9 @@ const PropertyForm = () => {
                       onChange={(e) => {
                         const val = toEnglishDigits(e.target.value);
                         setUserListedPrice(val);
-                        if (val && parseInt(val) > 0) {
+                      }}
+                      onBlur={() => {
+                        if (userListedPrice && parseInt(userListedPrice) > 0 && !commissionAccepted) {
                           setShowCommissionPopup(true);
                         }
                       }}

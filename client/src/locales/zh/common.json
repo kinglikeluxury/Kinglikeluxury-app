@@ -305,5 +305,22 @@
     "esentepe": "埃森特佩",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "佣金协议 — 平台3%费用",
+    "breakdown": "佣金明细（自动计算）：",
+    "listedPrice": "您的挂牌价格",
+    "commission": "平台佣金（3%）",
+    "youReceive": "您实际获得",
+    "contactNote": "任何潜在客户的联系信息都将连同完整的交易详情一并提供给您。",
+    "legalTitle": "法律协议 — 请仔细阅读",
+    "legalText": "佣金协议 — Kinglike Luxury Real Estate\n\n本协议签订于：\n• 平台：Kinglike Luxury Real Estate\n• 房产所有人：提交本房源的注册用户\n\n1. 佣金义务\n通过平台成功出售或转让所列房产后，所有人应支付最终成交价格的百分之三（3%）作为佣金。\n\n2. 付款条款\n佣金应在交易完成后七（7）个工作日内支付。\n\n3. 约束力\n通过电子方式接受本协议，所有人确认该协议具有法律约束力且可强制执行。\n\nKinglike Luxury Real Estate\n代表管理团队电子签署",
+    "agreeText": "我，{{name}}，同意本佣金协议的条款，并确认3%的平台佣金（{{amount}}）将从销售收入中扣除。我理解本协议具有法律约束力。",
+    "signatureLabel": "电子签名：{{name}} — {{date}}",
+    "cancel": "取消",
+    "accept": "接受并继续",
+    "accepted": "佣金协议已接受",
+    "review": "查看",
+    "signedBy": "电子签名"
   }
 }

@@ -305,5 +305,22 @@
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "Umowa Prowizji — 3% opłata platformy",
+    "breakdown": "Podział prowizji (obliczony automatycznie):",
+    "listedPrice": "Twoja cena",
+    "commission": "Prowizja platformy (3%)",
+    "youReceive": "Otrzymasz netto",
+    "contactNote": "O każdym kontakcie od potencjalnych klientów zostaniesz poinformowany ze wszystkimi szczegółami transakcji.",
+    "legalTitle": "Umowa Prawna — Proszę przeczytać uważnie",
+    "legalText": "UMOWA PROWIZJI — Kinglike Luxury Real Estate\n\nNiniejsza Umowa jest zawarta pomiędzy:\n• PLATFORMA: Kinglike Luxury Real Estate\n• WŁAŚCICIEL: Zarejestrowany użytkownik składający to ogłoszenie\n\n1. ZOBOWIĄZANIE DO PROWIZJI\nPo pomyślnej sprzedaży lub przeniesieniu wystawionej nieruchomości za pośrednictwem Platformy, Właściciel zapłaci prowizję równą trzem procentom (3%) ostatecznej ceny transakcji.\n\n2. WARUNKI PŁATNOŚCI\nProwizja jest płatna w ciągu siedmiu (7) dni roboczych od zakończenia transakcji.\n\n3. CHARAKTER WIĄŻĄCY\nAkceptując elektronicznie niniejszą Umowę, Właściciel przyjmuje do wiadomości, że jest ona prawnie wiążąca.\n\nKinglike Luxury Real Estate\nPodpisano elektronicznie w imieniu Zespołu Zarządzającego",
+    "agreeText": "Ja, {{name}}, zgadzam się na warunki niniejszej Umowy Prowizji i przyjmuję do wiadomości, że 3% wpływów ze sprzedaży ({{amount}}) zostanie potrącone na rzecz platformy. Rozumiem, że niniejsza umowa jest prawnie wiążąca.",
+    "signatureLabel": "Podpis elektroniczny: {{name}} — {{date}}",
+    "cancel": "Anuluj",
+    "accept": "Akceptuj i Kontynuuj",
+    "accepted": "Umowa Prowizji Zaakceptowana",
+    "review": "Przejrzyj",
+    "signedBy": "Podpis Elektroniczny"
   }
 }

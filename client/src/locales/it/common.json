@@ -305,5 +305,22 @@
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "Accordo di Commissione — 3% della Piattaforma",
+    "breakdown": "Riepilogo Commissione (calcolato automaticamente):",
+    "listedPrice": "Prezzo Richiesto",
+    "commission": "Commissione Piattaforma (3%)",
+    "youReceive": "Ricevi Netto",
+    "contactNote": "Ogni contatto da potenziali clienti ti sarà comunicato con tutti i dettagli della transazione.",
+    "legalTitle": "Accordo Legale — Si prega di leggere attentamente",
+    "legalText": "ACCORDO DI COMMISSIONE — Kinglike Luxury Real Estate\n\nIl presente Accordo è tra:\n• PIATTAFORMA: Kinglike Luxury Real Estate\n• PROPRIETARIO: L'utente registrato che presenta questo annuncio\n\n1. OBBLIGO DI COMMISSIONE\nIn caso di vendita o trasferimento riuscito dell'immobile tramite la Piattaforma, il Proprietario pagherà una commissione pari al tre percento (3%) del prezzo finale della transazione.\n\n2. TERMINI DI PAGAMENTO\nLa commissione è dovuta entro sette (7) giorni lavorativi dal completamento della transazione.\n\n3. NATURA VINCOLANTE\nAccettando elettronicamente il presente Accordo, il Proprietario riconosce che è legalmente vincolante.\n\nKinglike Luxury Real Estate\nFirmato elettronicamente per conto del Team di Gestione",
+    "agreeText": "Io, {{name}}, accetto i termini del presente Accordo di Commissione e riconosco che il 3% dei proventi della vendita ({{amount}}) sarà trattenuto a favore della piattaforma. Comprendo che questo accordo è legalmente vincolante.",
+    "signatureLabel": "Firma Elettronica: {{name}} — {{date}}",
+    "cancel": "Annulla",
+    "accept": "Accetta e Continua",
+    "accepted": "Accordo di Commissione Accettato",
+    "review": "Rivedi",
+    "signedBy": "Firma Elettronica"
   }
 }

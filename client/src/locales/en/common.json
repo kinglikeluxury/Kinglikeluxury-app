@@ -309,5 +309,22 @@
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "Commission Agreement — 3% Platform Fee",
+    "breakdown": "Commission Breakdown (automatically calculated):",
+    "listedPrice": "Your Listed Price",
+    "commission": "Platform Commission (3%)",
+    "youReceive": "You Receive",
+    "contactNote": "Any contact from prospective clients will be provided to you along with full transaction details.",
+    "legalTitle": "Legal Agreement — Please Read Carefully",
+    "legalText": "COMMISSION AGREEMENT — Kinglike Luxury Real Estate Platform\n\nThis Agreement is between:\n• PLATFORM: Kinglike Luxury Real Estate\n• PROPERTY OWNER: The registered user submitting this listing\n\n1. COMMISSION OBLIGATION\nUpon successful sale or transfer of the listed property through the Platform, the Owner shall pay a commission equal to three percent (3%) of the final transaction price.\n\n2. PAYMENT TERMS\nCommission is payable within seven (7) business days of transaction completion.\n\n3. BINDING NATURE\nBy electronically accepting this Agreement, the Owner acknowledges it is legally binding and enforceable.\n\n4. ELECTRONIC SIGNATURE\nThe Owner's electronic signature (username and timestamp) shall have the same legal effect as a handwritten signature.\n\nKinglike Luxury Real Estate\nPre-signed electronically on behalf of the Management Team",
+    "agreeText": "I, {{name}}, agree to the terms of this Commission Agreement and acknowledge that a 3% platform commission ({{amount}}) will be deducted from the sale proceeds. I understand this agreement is legally binding.",
+    "signatureLabel": "Electronic Signature: {{name}} — {{date}}",
+    "cancel": "Cancel",
+    "accept": "Accept & Continue",
+    "accepted": "Commission Agreement Accepted",
+    "review": "Review",
+    "signedBy": "Electronic Signature"
   }
 }

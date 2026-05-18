@@ -305,5 +305,22 @@
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "Komisyon Müqaviləsi — Platformanın 3% haqqı",
+    "breakdown": "Komisyon hesablaması (avtomatik):",
+    "listedPrice": "Sizin qiymət",
+    "commission": "Platform komisyonu (3%)",
+    "youReceive": "Siz alırsınız",
+    "contactNote": "Potensial müştərilərdən hər hansı bir əlaqə barədə sizə tam məlumat veriləcəkdir.",
+    "legalTitle": "Hüquqi Müqavilə — Lütfən diqqətlə oxuyun",
+    "legalText": "KOMİSYON MÜQAVİLƏSİ — Kinglike Luxury Real Estate\n\nBu müqavilə aşağıdakılar arasında bağlanmışdır:\n• PLATFORMA: Kinglike Luxury Real Estate\n• MÜLKİYYƏT SAHİBİ: Bu elanı təqdim edən qeydiyyatdan keçmiş istifadəçi\n\n1. KOMİSYON ÖHDƏLİYİ\nPlatforma vasitəsilə siyahıya alınmış əmlakın uğurlu satışından sonra Sahib yekun əməliyyat qiymətinin üç faizi (3%) həcmində komisyon ödəməlidir.\n\n2. ÖDƏMƏ ŞƏRTLƏRI\nKomisyon əməliyyatın başa çatmasından sonra yeddi (7) iş günü ərzində ödənilməlidir.\n\n3. MƏCBURİ XARAKTER\nBu müqaviləni elektron qəbul etməklə Sahib onun hüquqi cəhətdən məcburi olduğunu etiraf edir.\n\nKinglike Luxury Real Estate\nİdarəetmə komandası adından elektron imzalanmışdır",
+    "agreeText": "Mən, {{name}}, bu Komisyon Müqaviləsinin şərtlərini qəbul edirəm və satış gəlirindən 3% komisyon ({{amount}}) tutulacağını etiraf edirəm. Bu müqavilənin hüquqi baxımdan məcburi olduğunu başa düşürəm.",
+    "signatureLabel": "Elektron imza: {{name}} — {{date}}",
+    "cancel": "Ləğv et",
+    "accept": "Qəbul et və davam et",
+    "accepted": "Komisyon Müqaviləsi Qəbul Edildi",
+    "review": "İcmal",
+    "signedBy": "Elektron İmza"
   }
 }
