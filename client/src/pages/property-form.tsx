@@ -1240,30 +1240,6 @@ const PropertyForm = () => {
                 </div>}
               </div>
 
-              {user?.isAdmin && propertyType !== PROPERTY_TYPES.PROJECT && (
-              <div>
-                <Label htmlFor="customPrice">Or enter price manually (USD)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
-                  <Input
-                    id="customPrice"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="e.g. 350000"
-                    className="pl-7"
-                    value={customPrice}
-                    onChange={(e) => {
-                      const converted = toEnglishDigits(e.target.value);
-                      setCustomPrice(converted);
-                      if (converted) {
-                        handleInputChange('price', converted);
-                      }
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
-              </div>
-              )}
 
               <div>
                 <Label htmlFor="description">Description *</Label>
