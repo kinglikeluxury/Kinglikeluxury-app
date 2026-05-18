@@ -536,50 +536,46 @@ const Projects = () => {
                   )}
                 </Label>
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Min Price */}
-                  <Select
-                    value={minPrice !== null ? String(minPrice) : 'none'}
-                    onValueChange={(v) => {
-                      const val = v === 'none' ? null : Number(v);
+                  {/* Min Price — native select for guaranteed reliability */}
+                  <select
+                    data-testid="select-min-price"
+                    value={minPrice !== null ? String(minPrice) : ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const val = v === '' ? null : Number(v);
                       setMinPrice(val);
                       if (maxPrice !== null && val !== null && val > maxPrice) setMaxPrice(null);
                     }}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-[#3bcac4]/40 bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-[#3bcac4] focus:border-[#3bcac4] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <SelectTrigger className="border-[#3bcac4]/40 focus:border-[#3bcac4]">
-                      <SelectValue placeholder={t('projects.minPrice', 'Min Price')} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      <SelectItem value="none">{t('projects.noMin', 'No minimum')}</SelectItem>
-                      {priceStepOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={String(opt.value)}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="">{t('projects.noMin', 'No minimum')}</option>
+                    {priceStepOptions.map((opt) => (
+                      <option key={opt.value} value={String(opt.value)}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
 
-                  {/* Max Price */}
-                  <Select
-                    value={maxPrice !== null ? String(maxPrice) : 'none'}
-                    onValueChange={(v) => {
-                      const val = v === 'none' ? null : Number(v);
+                  {/* Max Price — native select */}
+                  <select
+                    data-testid="select-max-price"
+                    value={maxPrice !== null ? String(maxPrice) : ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const val = v === '' ? null : Number(v);
                       setMaxPrice(val);
                     }}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-[#3bcac4]/40 bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-[#3bcac4] focus:border-[#3bcac4] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <SelectTrigger className="border-[#3bcac4]/40 focus:border-[#3bcac4]">
-                      <SelectValue placeholder={t('projects.maxPrice', 'Max Price')} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      <SelectItem value="none">{t('projects.noMax', 'No maximum')}</SelectItem>
-                      {priceStepOptions
-                        .filter((opt) => minPrice === null || opt.value > minPrice)
-                        .map((opt) => (
-                          <SelectItem key={opt.value} value={String(opt.value)}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="">{t('projects.noMax', 'No maximum')}</option>
+                    {priceStepOptions
+                      .filter((opt) => minPrice === null || opt.value > minPrice)
+                      .map((opt) => (
+                        <option key={opt.value} value={String(opt.value)}>
+                          {opt.label}
+                        </option>
+                      ))}
+                  </select>
                 </div>
               </div>
 
