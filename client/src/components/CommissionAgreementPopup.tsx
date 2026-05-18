@@ -19,6 +19,7 @@ interface CommissionAgreementPopupProps {
 }
 
 const COMMISSION_RATE = 0.03;
+const CONTACT_NUMBER = "+995 591 000 058";
 
 export function CommissionAgreementPopup({
   open,
@@ -49,52 +50,79 @@ export function CommissionAgreementPopup({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-[#005476] text-xl flex items-center gap-2">
-            <span className="text-2xl">📋</span>
-            {t("commission.title")}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 overflow-hidden border-0 shadow-2xl">
 
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-[#005476]/10 to-[#3bcac4]/10 rounded-xl p-4 border border-[#3bcac4]/30">
-            <p className="text-sm font-semibold text-[#005476] mb-3">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#005476] to-[#007a9e] px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 rounded-full p-2">
+              <span className="text-2xl">📋</span>
+            </div>
+            <div>
+              <DialogTitle className="text-white text-xl font-bold tracking-tight">
+                {t("commission.title")}
+              </DialogTitle>
+              <p className="text-[#3bcac4] text-sm mt-0.5">Kinglike Luxury Real Estate</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+
+          {/* Price Breakdown */}
+          <div>
+            <p className="text-xs font-bold text-[#005476] uppercase tracking-widest mb-3">
               {t("commission.breakdown")}
             </p>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-white rounded-lg p-3 shadow-sm">
-                <p className="text-xs text-gray-500 mb-1">{t("commission.listedPrice")}</p>
-                <p className="text-base font-bold text-gray-800">{fmt(price)}</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                  {t("commission.listedPrice")}
+                </p>
+                <p className="text-lg font-extrabold text-slate-800">{fmt(price)}</p>
               </div>
-              <div className="bg-white rounded-lg p-3 shadow-sm border border-[#3bcac4]/40">
-                <p className="text-xs text-gray-500 mb-1">{t("commission.commission")}</p>
-                <p className="text-base font-bold text-[#005476]">{fmt(commission)}</p>
+
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide mb-2">
+                  {t("commission.commission")}
+                </p>
+                <p className="text-lg font-extrabold text-red-600">{fmt(commission)}</p>
+                <p className="text-[10px] text-red-400 mt-1">3%</p>
               </div>
-              <div className="bg-[#005476] rounded-lg p-3 shadow-sm">
-                <p className="text-xs text-[#3bcac4] mb-1">{t("commission.youReceive")}</p>
-                <p className="text-base font-bold text-white">{fmt(netPrice)}</p>
+
+              <div className="bg-gradient-to-b from-[#005476] to-[#003a52] rounded-xl p-4 text-center shadow-lg">
+                <p className="text-[10px] font-semibold text-[#3bcac4] uppercase tracking-wide mb-2">
+                  {t("commission.youReceive")}
+                </p>
+                <p className="text-lg font-extrabold text-white">{fmt(netPrice)}</p>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-3 text-center">
-              {t("commission.contactNote")}
-            </p>
+
+            <div className="mt-3 bg-[#3bcac4]/10 border border-[#3bcac4]/40 rounded-lg px-4 py-2.5 flex items-start gap-2">
+              <span className="text-[#005476] mt-0.5">📞</span>
+              <p className="text-xs text-[#005476] font-medium leading-relaxed">
+                {t("commission.contactNote")}
+              </p>
+            </div>
           </div>
 
-          <div className="border border-gray-200 rounded-xl overflow-hidden">
-            <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+          {/* Legal Section */}
+          <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+            <div className="bg-[#005476] px-4 py-2.5 flex items-center gap-2">
+              <span className="text-white text-sm">⚖️</span>
+              <p className="text-xs font-bold text-white uppercase tracking-widest">
                 {t("commission.legalTitle")}
               </p>
             </div>
-            <div className="p-4 max-h-52 overflow-y-auto bg-white">
-              <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
+            <div className="p-4 max-h-48 overflow-y-auto bg-slate-50">
+              <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">
                 {t("commission.legalText")}
               </pre>
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          {/* Agreement Checkbox */}
+          <div className={`rounded-xl p-4 border-2 transition-all duration-200 ${agreed ? "bg-green-50 border-green-400" : "bg-amber-50 border-amber-300"}`}>
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -102,32 +130,53 @@ export function CommissionAgreementPopup({
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#005476] flex-shrink-0"
               />
-              <span className="text-sm text-amber-900">
+              <span className={`text-sm font-medium leading-relaxed ${agreed ? "text-green-800" : "text-amber-900"}`}>
                 {t("commission.agreeText", { name: username, amount: fmt(commission) })}
               </span>
             </label>
             {agreed && (
-              <div className="mt-3 pt-3 border-t border-amber-200">
-                <Badge className="bg-[#005476] text-white text-xs">
-                  ✓ {t("commission.signatureLabel", { name: username, date: now })}
+              <div className="mt-3 pt-3 border-t border-green-300 flex items-center gap-2">
+                <span className="text-green-600 text-sm">✅</span>
+                <Badge className="bg-green-700 text-white text-xs font-medium">
+                  {t("commission.signatureLabel", { name: username, date: now })}
                 </Badge>
               </div>
             )}
           </div>
+
+          {/* Contact Info */}
+          <div className="bg-gradient-to-r from-[#005476] to-[#007a9e] rounded-xl px-5 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-[#3bcac4] text-xs font-semibold uppercase tracking-wider mb-1">
+                للتواصل والاستفسار
+              </p>
+              <p className="text-white font-bold text-lg tracking-wide">{CONTACT_NUMBER}</p>
+            </div>
+            <div className="bg-white/20 rounded-full p-3">
+              <span className="text-2xl">📱</span>
+            </div>
+          </div>
+
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>
+        {/* Footer */}
+        <div className="px-6 pb-6 flex gap-3 justify-end">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-slate-300 text-slate-600 hover:bg-slate-100 font-semibold"
+          >
             {t("commission.cancel")}
           </Button>
           <Button
             onClick={handleAccept}
             disabled={!agreed}
-            className="bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white hover:opacity-90"
+            className="bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white hover:opacity-90 font-bold px-6 shadow-lg disabled:opacity-40"
           >
             {t("commission.accept")}
           </Button>
-        </DialogFooter>
+        </div>
+
       </DialogContent>
     </Dialog>
   );
