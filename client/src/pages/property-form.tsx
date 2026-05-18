@@ -1161,24 +1161,6 @@ const PropertyForm = () => {
             </Card>
           )}
 
-          {/* Show selected property type */}
-          {propertyType && (
-            <div className="p-3 bg-green-50 rounded-lg">
-              <Badge variant="secondary" className="text-green-700 bg-green-100">
-                Property Type: {propertyType === 'project' ? 'Off-Plan Projects' : propertyType.charAt(0).toUpperCase() + propertyType.slice(1)}
-              </Badge>
-              {!urlPropertyType && (
-                <Button 
-                  type="button"
-                  variant="link" 
-                  onClick={() => setPropertyType('')}
-                  className="ml-2 h-auto p-0 text-green-600 hover:text-green-700"
-                >
-                  Change
-                </Button>
-              )}
-            </div>
-          )}
 
           {/* Basic Information */}
           <Card>
