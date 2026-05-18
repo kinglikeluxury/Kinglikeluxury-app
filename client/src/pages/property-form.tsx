@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth";
+import { CommissionAgreementPopup } from "@/components/CommissionAgreementPopup";
 import { Redirect, useLocation, useRoute } from "wouter";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,6 +112,12 @@ const PropertyForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useMapSelection, setUseMapSelection] = useState(false);
   
+  // Commission states
+  const [userListedPrice, setUserListedPrice] = useState('');
+  const [commissionAccepted, setCommissionAccepted] = useState(false);
+  const [commissionSignature, setCommissionSignature] = useState('');
+  const [showCommissionPopup, setShowCommissionPopup] = useState(false);
+
   // Popup states for payment flow
   const [showListingTypePopup, setShowListingTypePopup] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
@@ -959,6 +966,11 @@ const PropertyForm = () => {
             completionDate: formData.projectDetails?.completionDate || formData.deliveryDate || 'Q4 2024',
             projectStatus: formData.projectDetails?.projectStatus || 'Now Selling'
           }
+        } : {}),
+        ...(userListedPrice && !user?.isAdmin ? {
+          userListedPrice: parseInt(userListedPrice.replace(/[^0-9]/g, '')) || null,
+          commissionAccepted: commissionAccepted,
+          commissionSignature: commissionSignature || null,
         } : {})
       };
 
@@ -1265,6 +1277,97 @@ const PropertyForm = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Commission Section — non-admin only */}
+          {!user?.isAdmin && (
+            <Card className="border-[#3bcac4]/40">
+              <CardHeader>
+                <CardTitle className="text-[#005476] flex items-center gap-2">
+                  <span>💰</span> سعر العقار — Property Price
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="userListedPrice">أدخل سعر العقار (USD) *</Label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                    <Input
+                      id="userListedPrice"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 250000"
+                      className="pl-7"
+                      value={userListedPrice}
+                      onChange={(e) => {
+                        const val = toEnglishDigits(e.target.value);
+                        setUserListedPrice(val);
+                        if (val && parseInt(val) > 0) {
+                          setShowCommissionPopup(true);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {userListedPrice && parseInt(userListedPrice) > 0 && (
+                  <div className="bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5 rounded-xl p-4 border border-[#3bcac4]/30">
+                    <p className="text-sm font-semibold text-[#005476] mb-3">حساب العمولة التلقائي:</p>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="bg-white rounded-lg p-3 shadow-sm border">
+                        <p className="text-xs text-gray-500 mb-1">سعرك المطلوب</p>
+                        <p className="text-sm font-bold text-gray-800">
+                          ${parseInt(userListedPrice).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 shadow-sm border border-[#3bcac4]/40">
+                        <p className="text-xs text-gray-500 mb-1">عمولة التطبيق (3%)</p>
+                        <p className="text-sm font-bold text-[#005476]">
+                          ${Math.round(parseInt(userListedPrice) * 0.03).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-[#005476] rounded-lg p-3 shadow-sm">
+                        <p className="text-xs text-[#3bcac4] mb-1">تستلم صافي</p>
+                        <p className="text-sm font-bold text-white">
+                          ${Math.round(parseInt(userListedPrice) * 0.97).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {commissionAccepted && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                    <span className="text-green-600 text-lg">✓</span>
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">تم قبول اتفاقية العمولة</p>
+                      <p className="text-xs text-green-600 font-mono">
+                        التوقيع الإلكتروني: {commissionSignature} — {new Date().toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto text-xs"
+                      onClick={() => setShowCommissionPopup(true)}
+                    >
+                      مراجعة
+                    </Button>
+                  </div>
+                )}
+
+                {!commissionAccepted && userListedPrice && parseInt(userListedPrice) > 0 && (
+                  <Button
+                    type="button"
+                    onClick={() => setShowCommissionPopup(true)}
+                    className="w-full bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white"
+                  >
+                    📋 مراجعة وقبول اتفاقية العمولة
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Location */}
           <Card>
@@ -2817,6 +2920,20 @@ const PropertyForm = () => {
           </div>
         </form>
         
+        {/* Commission Agreement Popup */}
+        {!user?.isAdmin && (
+          <CommissionAgreementPopup
+            open={showCommissionPopup}
+            onClose={() => setShowCommissionPopup(false)}
+            onAccept={(signature) => {
+              setCommissionAccepted(true);
+              setCommissionSignature(signature);
+            }}
+            price={parseInt(userListedPrice) || 0}
+            username={user?.username || 'User'}
+          />
+        )}
+
         {/* Listing Type Selection Popup */}
         <ListingTypePopup
           open={showListingTypePopup}
