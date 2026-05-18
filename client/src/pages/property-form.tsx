@@ -118,6 +118,7 @@ const PropertyForm = () => {
   const [commissionSignature, setCommissionSignature] = useState('');
   const [showCommissionPopup, setShowCommissionPopup] = useState(false);
   const [showPriceTip, setShowPriceTip] = useState(false);
+  const [priceTipType, setPriceTipType] = useState<'high' | 'low' | null>(null);
 
   // Popup states for payment flow
   const [showListingTypePopup, setShowListingTypePopup] = useState(false);
@@ -2782,10 +2783,14 @@ const PropertyForm = () => {
                         const val = toEnglishDigits(e.target.value);
                         const prev = userListedPrice;
                         setUserListedPrice(val);
-                        if (prev && val && val !== prev && parseInt(val) > 0) {
+                        const prevNum = parseInt(prev || '0');
+                        const newNum = parseInt(val || '0');
+                        if (prev && val && val !== prev && newNum > 0) {
                           setShowPriceTip(true);
+                          setPriceTipType(newNum < prevNum ? 'low' : 'high');
                         } else if (!val) {
                           setShowPriceTip(false);
+                          setPriceTipType(null);
                         }
                       }}
                       onBlur={() => {
@@ -2798,7 +2803,7 @@ const PropertyForm = () => {
                 </div>
 
                 {/* ── Price Advisory Tip ── */}
-                {showPriceTip && userListedPrice && parseInt(userListedPrice) > 0 && (
+                {showPriceTip && userListedPrice && parseInt(userListedPrice) > 0 && priceTipType === 'high' && (
                   <div className="relative rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm">
                     <button
                       type="button"
@@ -2821,6 +2826,35 @@ const PropertyForm = () => {
                         </p>
                         <p className="text-xs text-amber-600 mt-2 font-medium">
                           📊 ننصح بمراجعة أسعار العقارات المشابهة في نفس المنطقة قبل تحديد السعر النهائي.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {showPriceTip && userListedPrice && parseInt(userListedPrice) > 0 && priceTipType === 'low' && (
+                  <div className="relative rounded-xl border border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 p-4 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setShowPriceTip(false)}
+                      className="absolute top-2 right-2 text-green-400 hover:text-green-600 text-lg leading-none font-bold"
+                    >
+                      ×
+                    </button>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-green-100 border border-green-300 flex items-center justify-center">
+                        <span className="text-lg">✅</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-green-800 mb-1">
+                          سعر مقبول ومنافس!
+                        </p>
+                        <p className="text-sm text-green-700 leading-relaxed">
+                          ممتاز! تخفيض السعر يزيد من فرص البيع ويجذب عدداً أكبر من المشترين المحتملين.
+                          السعر الجديد <span className="font-bold">تنافسي</span> ومناسب لأسعار السوق.
+                        </p>
+                        <p className="text-xs text-green-600 mt-2 font-medium">
+                          🎯 العقارات ذات الأسعار التنافسية تُباع بشكل أسرع بنسبة تصل إلى 40%.
                         </p>
                       </div>
                     </div>
