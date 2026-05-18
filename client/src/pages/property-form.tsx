@@ -117,6 +117,7 @@ const PropertyForm = () => {
   const [commissionAccepted, setCommissionAccepted] = useState(false);
   const [commissionSignature, setCommissionSignature] = useState('');
   const [showCommissionPopup, setShowCommissionPopup] = useState(false);
+  const [showPriceTip, setShowPriceTip] = useState(false);
 
   // Popup states for payment flow
   const [showListingTypePopup, setShowListingTypePopup] = useState(false);
@@ -1303,13 +1304,44 @@ const PropertyForm = () => {
                         setUserListedPrice(val);
                       }}
                       onBlur={() => {
-                        if (userListedPrice && parseInt(userListedPrice) > 0 && !commissionAccepted) {
-                          setShowCommissionPopup(true);
+                        if (userListedPrice && parseInt(userListedPrice) > 0) {
+                          setShowPriceTip(true);
+                          if (!commissionAccepted) setShowCommissionPopup(true);
                         }
                       }}
                     />
                   </div>
                 </div>
+
+                {/* ── Price Advisory Tip ── */}
+                {showPriceTip && userListedPrice && parseInt(userListedPrice) > 0 && (
+                  <div className="relative rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setShowPriceTip(false)}
+                      className="absolute top-2 right-2 text-amber-400 hover:text-amber-600 text-lg leading-none font-bold"
+                    >
+                      ×
+                    </button>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center">
+                        <span className="text-lg">💡</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-amber-800 mb-1">
+                          تنبيه بخصوص السعر
+                        </p>
+                        <p className="text-sm text-amber-700 leading-relaxed">
+                          السعر الذي أدخلته قد يكون <span className="font-bold">مرتفعاً</span> نسبةً لموقع العقار وأسعار السوق الحالية.
+                          يُرجى مراعاة أن أي زيادة قد تُصعّب إيجاد مشتري، خاصةً عند إضافة عمولة المنصة.
+                        </p>
+                        <p className="text-xs text-amber-600 mt-2 font-medium">
+                          📊 ننصح بمراجعة أسعار العقارات المشابهة في نفس المنطقة قبل تحديد السعر النهائي.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {userListedPrice && parseInt(userListedPrice) > 0 && (
                   <div className="bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5 rounded-xl p-4 border border-[#3bcac4]/30">
