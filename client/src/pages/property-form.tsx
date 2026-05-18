@@ -1828,7 +1828,7 @@ const PropertyForm = () => {
                   <Label htmlFor="purpose">Purpose *</Label>
                   {propertyType === PROPERTY_TYPES.PROJECT || propertyType === PROPERTY_TYPES.LAND ? (
                     <div className="border border-gray-300 rounded-md p-3 bg-gray-50">
-                      <span className="text-sm font-medium">🏠 For Buy</span>
+                      <span className="text-sm font-medium">🏠 For Sell</span>
                     </div>
                   ) : (
                     <Select 
