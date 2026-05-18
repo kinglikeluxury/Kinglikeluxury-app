@@ -1255,135 +1255,6 @@ const PropertyForm = () => {
             </CardContent>
           </Card>
 
-          {/* Commission Section — non-admin only */}
-          {!user?.isAdmin && (
-            <Card className="border-[#3bcac4]/40">
-              <CardHeader>
-                <CardTitle className="text-[#005476] flex items-center gap-2">
-                  <span>💰</span> سعر العقار — Property Price
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="userListedPrice">أدخل سعر العقار (USD) *</Label>
-                  <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
-                    <Input
-                      id="userListedPrice"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="e.g. 250000"
-                      className="pl-7"
-                      value={userListedPrice}
-                      onChange={(e) => {
-                        const val = toEnglishDigits(e.target.value);
-                        const prev = userListedPrice;
-                        setUserListedPrice(val);
-                        if (prev && val && val !== prev && parseInt(val) > 0) {
-                          setShowPriceTip(true);
-                        } else if (!val) {
-                          setShowPriceTip(false);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (userListedPrice && parseInt(userListedPrice) > 0 && !commissionAccepted) {
-                          setShowCommissionPopup(true);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* ── Price Advisory Tip ── */}
-                {showPriceTip && userListedPrice && parseInt(userListedPrice) > 0 && (
-                  <div className="relative rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => setShowPriceTip(false)}
-                      className="absolute top-2 right-2 text-amber-400 hover:text-amber-600 text-lg leading-none font-bold"
-                    >
-                      ×
-                    </button>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center">
-                        <span className="text-lg">💡</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-amber-800 mb-1">
-                          تنبيه بخصوص السعر
-                        </p>
-                        <p className="text-sm text-amber-700 leading-relaxed">
-                          السعر الذي أدخلته قد يكون <span className="font-bold">مرتفعاً</span> نسبةً لموقع العقار وأسعار السوق الحالية.
-                          يُرجى مراعاة أن أي زيادة قد تُصعّب إيجاد مشتري، خاصةً عند إضافة عمولة المنصة.
-                        </p>
-                        <p className="text-xs text-amber-600 mt-2 font-medium">
-                          📊 ننصح بمراجعة أسعار العقارات المشابهة في نفس المنطقة قبل تحديد السعر النهائي.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {userListedPrice && parseInt(userListedPrice) > 0 && (
-                  <div className="bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5 rounded-xl p-4 border border-[#3bcac4]/30">
-                    <p className="text-sm font-semibold text-[#005476] mb-3">حساب العمولة التلقائي:</p>
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      <div className="bg-white rounded-lg p-3 shadow-sm border">
-                        <p className="text-xs text-gray-500 mb-1">سعرك المطلوب</p>
-                        <p className="text-sm font-bold text-gray-800">
-                          ${parseInt(userListedPrice).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 shadow-sm border border-[#3bcac4]/40">
-                        <p className="text-xs text-gray-500 mb-1">عمولة التطبيق (3%)</p>
-                        <p className="text-sm font-bold text-[#005476]">
-                          ${Math.round(parseInt(userListedPrice) * 0.03).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="bg-[#005476] rounded-lg p-3 shadow-sm">
-                        <p className="text-xs text-[#3bcac4] mb-1">تستلم صافي</p>
-                        <p className="text-sm font-bold text-white">
-                          ${Math.round(parseInt(userListedPrice) * 0.97).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {commissionAccepted && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-                    <span className="text-green-600 text-lg">✓</span>
-                    <div>
-                      <p className="text-sm font-semibold text-green-800">تم قبول اتفاقية العمولة</p>
-                      <p className="text-xs text-green-600 font-mono">
-                        التوقيع الإلكتروني: {commissionSignature} — {new Date().toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="ml-auto text-xs"
-                      onClick={() => setShowCommissionPopup(true)}
-                    >
-                      مراجعة
-                    </Button>
-                  </div>
-                )}
-
-                {!commissionAccepted && userListedPrice && parseInt(userListedPrice) > 0 && (
-                  <Button
-                    type="button"
-                    onClick={() => setShowCommissionPopup(true)}
-                    className="w-full bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white"
-                  >
-                    📋 مراجعة وقبول اتفاقية العمولة
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Location */}
           <Card>
             <CardHeader>
@@ -2886,6 +2757,135 @@ const PropertyForm = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Commission Section — non-admin only, shown after amenities */}
+          {!user?.isAdmin && (
+            <Card className="border-[#3bcac4]/40">
+              <CardHeader>
+                <CardTitle className="text-[#005476] flex items-center gap-2">
+                  <span>💰</span> سعر العقار — Property Price
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="userListedPrice">أدخل سعر العقار (USD) *</Label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                    <Input
+                      id="userListedPrice"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 250000"
+                      className="pl-7"
+                      value={userListedPrice}
+                      onChange={(e) => {
+                        const val = toEnglishDigits(e.target.value);
+                        const prev = userListedPrice;
+                        setUserListedPrice(val);
+                        if (prev && val && val !== prev && parseInt(val) > 0) {
+                          setShowPriceTip(true);
+                        } else if (!val) {
+                          setShowPriceTip(false);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (userListedPrice && parseInt(userListedPrice) > 0 && !commissionAccepted) {
+                          setShowCommissionPopup(true);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* ── Price Advisory Tip ── */}
+                {showPriceTip && userListedPrice && parseInt(userListedPrice) > 0 && (
+                  <div className="relative rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setShowPriceTip(false)}
+                      className="absolute top-2 right-2 text-amber-400 hover:text-amber-600 text-lg leading-none font-bold"
+                    >
+                      ×
+                    </button>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center">
+                        <span className="text-lg">💡</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-amber-800 mb-1">
+                          تنبيه بخصوص السعر
+                        </p>
+                        <p className="text-sm text-amber-700 leading-relaxed">
+                          السعر الذي أدخلته قد يكون <span className="font-bold">مرتفعاً</span> نسبةً لموقع العقار وأسعار السوق الحالية.
+                          يُرجى مراعاة أن أي زيادة قد تُصعّب إيجاد مشتري، خاصةً عند إضافة عمولة المنصة.
+                        </p>
+                        <p className="text-xs text-amber-600 mt-2 font-medium">
+                          📊 ننصح بمراجعة أسعار العقارات المشابهة في نفس المنطقة قبل تحديد السعر النهائي.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {userListedPrice && parseInt(userListedPrice) > 0 && (
+                  <div className="bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5 rounded-xl p-4 border border-[#3bcac4]/30">
+                    <p className="text-sm font-semibold text-[#005476] mb-3">حساب العمولة التلقائي:</p>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="bg-white rounded-lg p-3 shadow-sm border">
+                        <p className="text-xs text-gray-500 mb-1">سعرك المطلوب</p>
+                        <p className="text-sm font-bold text-gray-800">
+                          ${parseInt(userListedPrice).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 shadow-sm border border-[#3bcac4]/40">
+                        <p className="text-xs text-gray-500 mb-1">عمولة التطبيق (3%)</p>
+                        <p className="text-sm font-bold text-[#005476]">
+                          ${Math.round(parseInt(userListedPrice) * 0.03).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-[#005476] rounded-lg p-3 shadow-sm">
+                        <p className="text-xs text-[#3bcac4] mb-1">تستلم صافي</p>
+                        <p className="text-sm font-bold text-white">
+                          ${Math.round(parseInt(userListedPrice) * 0.97).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {commissionAccepted && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                    <span className="text-green-600 text-lg">✓</span>
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">تم قبول اتفاقية العمولة</p>
+                      <p className="text-xs text-green-600 font-mono">
+                        التوقيع الإلكتروني: {commissionSignature} — {new Date().toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto text-xs"
+                      onClick={() => setShowCommissionPopup(true)}
+                    >
+                      مراجعة
+                    </Button>
+                  </div>
+                )}
+
+                {!commissionAccepted && userListedPrice && parseInt(userListedPrice) > 0 && (
+                  <Button
+                    type="button"
+                    onClick={() => setShowCommissionPopup(true)}
+                    className="w-full bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white"
+                  >
+                    📋 مراجعة وقبول اتفاقية العمولة
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Photos & Videos Section */}
           <div className="space-y-6">
