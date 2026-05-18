@@ -1,14 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface CommissionAgreementPopupProps {
   open: boolean;
@@ -35,148 +27,201 @@ export function CommissionAgreementPopup({
   const netPrice = price - commission;
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(n);
 
-  const now = new Date().toLocaleDateString(undefined, {
-    year: "numeric", month: "long", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
+  const now = new Date().toLocaleString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   const handleAccept = () => {
     if (!agreed) return;
     onAccept(username);
+    setAgreed(false);
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 overflow-hidden border-0 shadow-2xl">
+      <DialogContent className="max-w-xl p-0 border-0 shadow-2xl rounded-2xl overflow-hidden max-h-[95vh] overflow-y-auto bg-white">
 
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#005476] to-[#007a9e] px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 rounded-full p-2">
-              <span className="text-2xl">📋</span>
+        {/* ═══ HEADER ═══ */}
+        <div className="relative overflow-hidden" style={{ background: "linear-gradient(135deg, #002f45 0%, #005476 50%, #0077a8 100%)" }}>
+          <div className="absolute inset-0 opacity-10"
+            style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.15) 20px, rgba(255,255,255,0.15) 22px)" }} />
+          <div className="relative px-7 py-6">
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#3bcac4]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#3bcac4]/60" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#3bcac4]/30" />
             </div>
-            <div>
-              <DialogTitle className="text-white text-xl font-bold tracking-tight">
-                {t("commission.title")}
-              </DialogTitle>
-              <p className="text-[#3bcac4] text-sm mt-0.5">Kinglike Luxury Real Estate</p>
-            </div>
+            <h2 className="text-white text-2xl font-black tracking-tight leading-tight">
+              {t("commission.title")}
+            </h2>
+            <p className="text-[#3bcac4] text-sm font-semibold mt-1 tracking-wide">
+              KINGLIKE LUXURY REAL ESTATE
+            </p>
           </div>
         </div>
 
         <div className="px-6 py-5 space-y-5">
 
-          {/* Price Breakdown */}
+          {/* ═══ PRICE BREAKDOWN ═══ */}
           <div>
-            <p className="text-xs font-bold text-[#005476] uppercase tracking-widest mb-3">
-              {t("commission.breakdown")}
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-1 h-4 rounded-full bg-[#005476]" />
+              <p className="text-xs font-black text-[#005476] uppercase tracking-[0.15em]">
+                {t("commission.breakdown")}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {/* Listed Price */}
+              <div className="rounded-xl border border-slate-200 bg-white p-3.5 text-center shadow-sm">
+                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center mx-auto mb-2">
+                  <span className="text-base">🏷️</span>
+                </div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-tight mb-1">
                   {t("commission.listedPrice")}
                 </p>
-                <p className="text-lg font-extrabold text-slate-800">{fmt(price)}</p>
+                <p className="text-base font-black text-slate-900">{fmt(price)}</p>
               </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-                <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide mb-2">
+              {/* Commission */}
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-center shadow-sm">
+                <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center mx-auto mb-2">
+                  <span className="text-base">💼</span>
+                </div>
+                <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider leading-tight mb-1">
                   {t("commission.commission")}
                 </p>
-                <p className="text-lg font-extrabold text-red-600">{fmt(commission)}</p>
-                <p className="text-[10px] text-red-400 mt-1">3%</p>
+                <p className="text-base font-black text-red-600">{fmt(commission)}</p>
+                <p className="text-[10px] font-bold text-red-400 mt-0.5">3%</p>
               </div>
 
-              <div className="bg-gradient-to-b from-[#005476] to-[#003a52] rounded-xl p-4 text-center shadow-lg">
-                <p className="text-[10px] font-semibold text-[#3bcac4] uppercase tracking-wide mb-2">
+              {/* Net */}
+              <div className="rounded-xl p-3.5 text-center shadow-md"
+                style={{ background: "linear-gradient(145deg, #005476, #003852)" }}>
+                <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center mx-auto mb-2">
+                  <span className="text-base">✅</span>
+                </div>
+                <p className="text-[10px] font-bold text-[#3bcac4] uppercase tracking-wider leading-tight mb-1">
                   {t("commission.youReceive")}
                 </p>
-                <p className="text-lg font-extrabold text-white">{fmt(netPrice)}</p>
+                <p className="text-base font-black text-white">{fmt(netPrice)}</p>
               </div>
             </div>
 
-            <div className="mt-3 bg-[#3bcac4]/10 border border-[#3bcac4]/40 rounded-lg px-4 py-2.5 flex items-start gap-2">
-              <span className="text-[#005476] mt-0.5">📞</span>
-              <p className="text-xs text-[#005476] font-medium leading-relaxed">
+            {/* Contact note */}
+            <div className="mt-3 flex items-start gap-2.5 bg-[#005476]/8 border border-[#005476]/20 rounded-xl px-4 py-3">
+              <span className="text-[#005476] text-base mt-0.5 flex-shrink-0">ℹ️</span>
+              <p className="text-sm text-[#005476] font-medium leading-relaxed">
                 {t("commission.contactNote")}
               </p>
             </div>
           </div>
 
-          {/* Legal Section */}
-          <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-            <div className="bg-[#005476] px-4 py-2.5 flex items-center gap-2">
-              <span className="text-white text-sm">⚖️</span>
-              <p className="text-xs font-bold text-white uppercase tracking-widest">
-                {t("commission.legalTitle")}
-              </p>
-            </div>
-            <div className="p-4 max-h-48 overflow-y-auto bg-slate-50">
-              <p className="text-sm text-slate-800 whitespace-pre-line leading-7 font-normal">
+          {/* ═══ DIVIDER ═══ */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">⚖️ {t("commission.legalTitle")}</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          {/* ═══ LEGAL TEXT ═══ */}
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="max-h-44 overflow-y-auto px-5 py-4 bg-slate-50/80">
+              <p className="text-sm text-slate-800 whitespace-pre-line leading-7">
                 {t("commission.legalText")}
               </p>
             </div>
           </div>
 
-          {/* Agreement Checkbox */}
-          <div className={`rounded-xl p-4 border-2 transition-all duration-200 ${agreed ? "bg-green-50 border-green-400" : "bg-amber-50 border-amber-300"}`}>
-            <label className="flex items-start gap-3 cursor-pointer">
+          {/* ═══ AGREEMENT ═══ */}
+          <div
+            className={`rounded-xl border-2 p-4 transition-all duration-300 ${
+              agreed
+                ? "bg-emerald-50 border-emerald-400 shadow-emerald-100 shadow-md"
+                : "bg-amber-50 border-amber-300"
+            }`}
+          >
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <div className={`mt-0.5 w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all duration-200 ${
+                agreed ? "bg-emerald-500 border-emerald-500" : "bg-white border-amber-400"
+              }`}>
+                {agreed && <span className="text-white text-xs font-black">✓</span>}
+              </div>
               <input
                 type="checkbox"
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#005476] flex-shrink-0"
+                className="sr-only"
               />
-              <span className={`text-sm font-medium leading-relaxed ${agreed ? "text-green-800" : "text-amber-900"}`}>
+              <span className={`text-sm leading-relaxed font-medium ${agreed ? "text-emerald-900" : "text-amber-900"}`}>
                 {t("commission.agreeText", { name: username, amount: fmt(commission) })}
               </span>
             </label>
+
             {agreed && (
-              <div className="mt-3 pt-3 border-t border-green-300 flex items-center gap-2">
-                <span className="text-green-600 text-sm">✅</span>
-                <Badge className="bg-green-700 text-white text-xs font-medium">
+              <div className="mt-3 pt-3 border-t border-emerald-300 flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-[10px] font-black">✓</span>
+                </div>
+                <p className="text-xs text-emerald-800 font-semibold">
                   {t("commission.signatureLabel", { name: username, date: now })}
-                </Badge>
+                </p>
               </div>
             )}
           </div>
 
-          {/* Contact Info */}
-          <div className="bg-gradient-to-r from-[#005476] to-[#007a9e] rounded-xl px-5 py-4 flex items-center justify-between">
+          {/* ═══ CONTACT BAR ═══ */}
+          <div
+            className="rounded-xl px-5 py-4 flex items-center justify-between shadow-lg"
+            style={{ background: "linear-gradient(135deg, #002f45, #005476, #0077a8)" }}
+          >
             <div>
-              <p className="text-[#3bcac4] text-xs font-semibold uppercase tracking-wider mb-1">
+              <p className="text-[10px] font-black text-[#3bcac4] uppercase tracking-[0.2em] mb-1">
                 للتواصل والاستفسار
               </p>
-              <p className="text-white font-bold text-lg tracking-wide">{CONTACT_NUMBER}</p>
+              <p className="text-white font-black text-xl tracking-widest" style={{ direction: "ltr" }}>
+                {CONTACT_NUMBER}
+              </p>
             </div>
-            <div className="bg-white/20 rounded-full p-3">
+            <div className="w-12 h-12 rounded-full bg-white/15 border border-white/25 flex items-center justify-center">
               <span className="text-2xl">📱</span>
             </div>
           </div>
 
-        </div>
+          {/* ═══ FOOTER BUTTONS ═══ */}
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border-2 border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
+            >
+              {t("commission.cancel")}
+            </button>
+            <button
+              onClick={handleAccept}
+              disabled={!agreed}
+              className="flex-2 flex-[2] py-3 rounded-xl font-black text-sm text-white shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: agreed
+                  ? "linear-gradient(135deg, #005476, #3bcac4)"
+                  : "#94a3b8",
+              }}
+            >
+              {t("commission.accept")}
+            </button>
+          </div>
 
-        {/* Footer */}
-        <div className="px-6 pb-6 flex gap-3 justify-end">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-slate-300 text-slate-600 hover:bg-slate-100 font-semibold"
-          >
-            {t("commission.cancel")}
-          </Button>
-          <Button
-            onClick={handleAccept}
-            disabled={!agreed}
-            className="bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white hover:opacity-90 font-bold px-6 shadow-lg disabled:opacity-40"
-          >
-            {t("commission.accept")}
-          </Button>
         </div>
-
       </DialogContent>
     </Dialog>
   );
