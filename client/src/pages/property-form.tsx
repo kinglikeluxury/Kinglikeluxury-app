@@ -1277,12 +1277,17 @@ const PropertyForm = () => {
                       value={userListedPrice}
                       onChange={(e) => {
                         const val = toEnglishDigits(e.target.value);
+                        const prev = userListedPrice;
                         setUserListedPrice(val);
+                        if (prev && val && val !== prev && parseInt(val) > 0) {
+                          setShowPriceTip(true);
+                        } else if (!val) {
+                          setShowPriceTip(false);
+                        }
                       }}
                       onBlur={() => {
-                        if (userListedPrice && parseInt(userListedPrice) > 0) {
-                          setShowPriceTip(true);
-                          if (!commissionAccepted) setShowCommissionPopup(true);
+                        if (userListedPrice && parseInt(userListedPrice) > 0 && !commissionAccepted) {
+                          setShowCommissionPopup(true);
                         }
                       }}
                     />
