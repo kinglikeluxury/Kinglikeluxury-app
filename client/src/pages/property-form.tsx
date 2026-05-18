@@ -904,8 +904,15 @@ const PropertyForm = () => {
         propertyType: propertyType, // Ensure propertyType is set
         ownerId: user.id,
         location: getLocationString() || (isEditMode && existingProperty ? existingProperty.location : 'Not specified'),
-        price: parseInt(String(formData.price).replace(/[^0-9]/g, '')) || 0,
-        area: formData.area || String(parseInt(formData.price) || 100),
+        price: (() => {
+          const prices = String(formData.price).split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+          return prices.length ? Math.min(...prices) : 0;
+        })(),
+        priceMax: (() => {
+          const prices = String(formData.price).split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+          return prices.length > 1 ? Math.max(...prices) : null;
+        })(),
+        area: formData.area || String(parseInt(String(formData.price).split(',')[0]) || 100),
         bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : (formData.bedrooms || 1),
         bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : (formData.bathrooms || 1),
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
@@ -1174,52 +1181,71 @@ const PropertyForm = () => {
                 </div>
                 
                 <div>
-                  <Label htmlFor="price">Price Range (USD) *</Label>
-                  <Select 
-                    value={formData.price} 
-                    onValueChange={(value) => handleInputChange('price', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select price range" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="25000">$0 - $25,000</SelectItem>
-                      <SelectItem value="50000">$25,000 - $50,000</SelectItem>
-                      <SelectItem value="75000">$50,000 - $75,000</SelectItem>
-                      <SelectItem value="100000">$75,000 - $100,000</SelectItem>
-                      <SelectItem value="125000">$100,000 - $125,000</SelectItem>
-                      <SelectItem value="150000">$125,000 - $150,000</SelectItem>
-                      <SelectItem value="175000">$150,000 - $175,000</SelectItem>
-                      <SelectItem value="200000">$175,000 - $200,000</SelectItem>
-                      <SelectItem value="225000">$200,000 - $225,000</SelectItem>
-                      <SelectItem value="250000">$225,000 - $250,000</SelectItem>
-                      <SelectItem value="275000">$250,000 - $275,000</SelectItem>
-                      <SelectItem value="300000">$275,000 - $300,000</SelectItem>
-                      <SelectItem value="325000">$300,000 - $325,000</SelectItem>
-                      <SelectItem value="350000">$325,000 - $350,000</SelectItem>
-                      <SelectItem value="375000">$350,000 - $375,000</SelectItem>
-                      <SelectItem value="400000">$375,000 - $400,000</SelectItem>
-                      <SelectItem value="425000">$400,000 - $425,000</SelectItem>
-                      <SelectItem value="450000">$425,000 - $450,000</SelectItem>
-                      <SelectItem value="475000">$450,000 - $475,000</SelectItem>
-                      <SelectItem value="500000">$475,000 - $500,000</SelectItem>
-                      <SelectItem value="600000">$500,000 - $600,000</SelectItem>
-                      <SelectItem value="700000">$600,000 - $700,000</SelectItem>
-                      <SelectItem value="800000">$700,000 - $800,000</SelectItem>
-                      <SelectItem value="900000">$800,000 - $900,000</SelectItem>
-                      <SelectItem value="1000000">$900,000 - $1,000,000</SelectItem>
-                      <SelectItem value="1100000">$1,000,000 - $1,100,000</SelectItem>
-                      <SelectItem value="1200000">$1,100,000 - $1,200,000</SelectItem>
-                      <SelectItem value="1300000">$1,200,000 - $1,300,000</SelectItem>
-                      <SelectItem value="1400000">$1,300,000 - $1,400,000</SelectItem>
-                      <SelectItem value="1500000">$1,400,000 - $1,500,000</SelectItem>
-                      <SelectItem value="1600000">$1,500,000 - $1,600,000</SelectItem>
-                      <SelectItem value="1700000">$1,600,000 - $1,700,000</SelectItem>
-                      <SelectItem value="1800000">$1,700,000 - $1,800,000</SelectItem>
-                      <SelectItem value="1900000">$1,800,000 - $1,900,000</SelectItem>
-                      <SelectItem value="2000000">$1,900,000 - $2,000,000</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="price">Price Points (USD) * — select all that apply</Label>
+                  {(() => {
+                    const priceOptions: number[] = [];
+                    for (let v = 40000; v <= 500000; v += 5000) priceOptions.push(v);
+                    for (let v = 550000; v <= 1000000; v += 50000) priceOptions.push(v);
+                    for (let v = 1100000; v <= 2000000; v += 100000) priceOptions.push(v);
+
+                    const fmtP = (n: number) =>
+                      n >= 1000000
+                        ? `$${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
+                        : `$${(n / 1000).toFixed(0)}K`;
+
+                    const selectedPrices = formData.price
+                      ? formData.price.split(',').map(Number).filter(Boolean)
+                      : [];
+
+                    const togglePrice = (val: number) => {
+                      let next: number[];
+                      if (selectedPrices.includes(val)) {
+                        next = selectedPrices.filter(p => p !== val);
+                      } else {
+                        next = [...selectedPrices, val];
+                      }
+                      next.sort((a, b) => a - b);
+                      handleInputChange('price', next.join(','));
+                    };
+
+                    return (
+                      <div>
+                        <div className="border border-gray-300 rounded-md p-3 bg-white">
+                          <div className="text-xs text-gray-500 mb-2">Select one or more price points:</div>
+                          <div className="grid grid-cols-3 md:grid-cols-4 gap-1 max-h-52 overflow-y-auto pr-1">
+                            {priceOptions.map((val) => {
+                              const checked = selectedPrices.includes(val);
+                              return (
+                                <label
+                                  key={val}
+                                  className={`flex items-center gap-1 cursor-pointer rounded px-2 py-1 text-xs hover:bg-gray-50 ${checked ? 'bg-[#3bcac4]/10 font-semibold text-[#005476]' : ''}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => togglePrice(val)}
+                                    className="rounded border-gray-300 accent-[#3bcac4]"
+                                  />
+                                  {fmtP(val)}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {selectedPrices.length > 0 && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Users will see:</span>
+                            <Badge className="bg-[#005476] text-white text-xs">
+                              {selectedPrices.length === 1
+                                ? fmtP(selectedPrices[0])
+                                : `${fmtP(Math.min(...selectedPrices))} — ${fmtP(Math.max(...selectedPrices))}`}
+                            </Badge>
+                            <span className="text-xs text-gray-400">({selectedPrices.length} selected)</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

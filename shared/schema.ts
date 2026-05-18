@@ -112,6 +112,7 @@ export const properties = pgTable("properties", {
   readyStatus: text("ready_status"),
   topRated: boolean("top_rated").default(false),
   isSold: boolean("is_sold").default(false).notNull(),
+  priceMax: integer("price_max"),
 });
 
 export const insertPropertySchema = createInsertSchema(properties)

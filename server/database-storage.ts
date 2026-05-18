@@ -231,6 +231,9 @@ export class DatabaseStorage implements IStorage {
         updatedAt: properties.updatedAt,
         listingType: properties.listingType,
         listingExpiresAt: properties.listingExpiresAt,
+        topRated: properties.topRated,
+        isSold: properties.isSold,
+        priceMax: properties.priceMax,
         
         // Agent fields
         agent: {

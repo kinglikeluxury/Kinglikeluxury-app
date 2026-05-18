@@ -119,7 +119,9 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
               </Badge>
             )}
             <Badge variant="outline" className="bg-[#005476] text-white border-[#005476]">
-              {getPriceRange(propertyData.price)}
+              {(propertyData as any).priceMax
+                ? `$${(propertyData.price / 1000).toFixed(0)}K — $${((propertyData as any).priceMax / 1000).toFixed(0)}K`
+                : getPriceRange(propertyData.price)}
             </Badge>
           </div>
           <Link href={`/property/${project.propertyId}`}>
