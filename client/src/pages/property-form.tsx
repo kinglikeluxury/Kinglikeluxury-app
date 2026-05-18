@@ -1904,7 +1904,7 @@ const PropertyForm = () => {
                         <SelectValue placeholder="Select purpose" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="buy">🏠 For Buy</SelectItem>
+                        <SelectItem value="buy">🏠 For Sale</SelectItem>
                         <SelectItem value="rent">🏡 For Rent</SelectItem>
                       </SelectContent>
                     </Select>
