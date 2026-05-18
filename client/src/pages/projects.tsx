@@ -186,8 +186,8 @@ const Projects = () => {
   const [selectedPurpose, setSelectedPurpose] = useState("");
   const [selectedDeliveryYear, setSelectedDeliveryYear] = useState("");
 
-  const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
-  const [priceExpanded, setPriceExpanded] = useState(false);
+  const [minPrice, setMinPrice] = useState<number | null>(null);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [bedroomCount, setBedroomCount] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterErrors, setFilterErrors] = useState<Record<string, boolean>>({});
@@ -228,44 +228,17 @@ const Projects = () => {
     }
   }, [selectedType]);
 
-  useEffect(() => {
-    if (selectedPriceRanges.length > 0) {
-      setFilterErrors(prev => ({ ...prev, priceRange: false }));
-    }
-  }, [selectedPriceRanges]);
-
-
-  const priceRangeOptions = [
-    { value: "50000-100000", label: "$50,000 - $100,000" },
-    { value: "100001-150000", label: "$100,000 - $150,000" },
-    { value: "150001-200000", label: "$150,000 - $200,000" },
-    { value: "200001-300000", label: "$200,000 - $300,000" },
-    { value: "300001-400000", label: "$300,000 - $400,000" },
-    { value: "400001-500000", label: "$400,000 - $500,000" },
-    { value: "500001-750000", label: "$500,000 - $750,000" },
-    { value: "750001-1000000", label: "$750,000 - $1,000,000" },
-    { value: "1000001-2000000", label: "$1,000,000 - $2,000,000" },
-  ];
-
-  const togglePriceRange = (value: string) => {
-    setSelectedPriceRanges(prev => 
-      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
-    );
-  };
-
-  const getPriceDisplayText = () => {
-    if (selectedPriceRanges.length === 0) return t('projects.fromPrice', 'From');
-    const allMins: number[] = [];
-    const allMaxs: number[] = [];
-    selectedPriceRanges.forEach(range => {
-      const [min, max] = range.split('-').map(Number);
-      allMins.push(min);
-      allMaxs.push(max);
-    });
-    const globalMin = Math.min(...allMins);
-    const globalMax = Math.max(...allMaxs);
-    return `$${globalMin.toLocaleString()} - $${globalMax.toLocaleString()}`;
-  };
+  // Generate price options: $40K–$500K in $5K steps, then larger steps up to $5M
+  const priceStepOptions = (() => {
+    const opts: { value: number; label: string }[] = [];
+    const fmt = (n: number) => n >= 1_000_000
+      ? `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
+      : `$${(n / 1000).toFixed(0)}K`;
+    for (let v = 40_000; v <= 500_000; v += 5_000) opts.push({ value: v, label: fmt(v) });
+    for (let v = 550_000; v <= 1_000_000; v += 50_000) opts.push({ value: v, label: fmt(v) });
+    for (let v = 1_100_000; v <= 5_000_000; v += 100_000) opts.push({ value: v, label: fmt(v) });
+    return opts;
+  })();
 
   // Fetch projects data
   const { data: projects = [], isLoading, error } = useQuery<Project[]>({
@@ -322,15 +295,8 @@ const Projects = () => {
     }
 
     const projectPrice = propertyData.price || project.price || 0;
-    if (selectedPriceRanges.length > 0) {
-      const allMins = selectedPriceRanges.map(r => parseInt(r.split('-')[0]));
-      const allMaxs = selectedPriceRanges.map(r => parseInt(r.split('-')[1]));
-      const globalMin = Math.min(...allMins);
-      const globalMax = Math.max(...allMaxs);
-      if (projectPrice < globalMin || projectPrice > globalMax) {
-        return false;
-      }
-    }
+    if (minPrice !== null && projectPrice < minPrice) return false;
+    if (maxPrice !== null && projectPrice > maxPrice) return false;
 
     const projectBedrooms = propertyData.bedrooms || project.bedrooms;
     if (bedroomCount && bedroomCount !== 'any' && projectBedrooms !== parseInt(bedroomCount)) {
@@ -460,6 +426,8 @@ const Projects = () => {
     setSelectedCountry("");
     setSelectedCity("");
     setSelectedDeliveryYear("");
+    setMinPrice(null);
+    setMaxPrice(null);
   };
 
   // Count active filters
@@ -467,6 +435,8 @@ const Projects = () => {
     selectedCountry,
     selectedCity,
     selectedDeliveryYear && selectedDeliveryYear !== 'any' ? selectedDeliveryYear : '',
+    minPrice !== null ? 'min' : '',
+    maxPrice !== null ? 'max' : '',
   ].filter(Boolean).length;
 
   // Handle promotion banner click
@@ -553,6 +523,65 @@ const Projects = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+              {/* Price Range — Min / Max */}
+              <div className="md:col-span-3">
+                <Label className="flex items-center gap-1 mb-1">
+                  <DollarSign className="h-4 w-4 text-[#3bcac4]" />
+                  {t('projects.priceRange', 'Price Range')}
+                  {(minPrice !== null || maxPrice !== null) && (
+                    <span className="ml-2 text-xs font-semibold text-[#005476]">
+                      {minPrice !== null ? `$${minPrice.toLocaleString()}` : '$40K'} — {maxPrice !== null ? `$${maxPrice.toLocaleString()}` : t('projects.noLimit', 'No limit')}
+                    </span>
+                  )}
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Min Price */}
+                  <Select
+                    value={minPrice !== null ? String(minPrice) : 'none'}
+                    onValueChange={(v) => {
+                      const val = v === 'none' ? null : Number(v);
+                      setMinPrice(val);
+                      if (maxPrice !== null && val !== null && val > maxPrice) setMaxPrice(null);
+                    }}
+                  >
+                    <SelectTrigger className="border-[#3bcac4]/40 focus:border-[#3bcac4]">
+                      <SelectValue placeholder={t('projects.minPrice', 'Min Price')} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      <SelectItem value="none">{t('projects.noMin', 'No minimum')}</SelectItem>
+                      {priceStepOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={String(opt.value)}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Max Price */}
+                  <Select
+                    value={maxPrice !== null ? String(maxPrice) : 'none'}
+                    onValueChange={(v) => {
+                      const val = v === 'none' ? null : Number(v);
+                      setMaxPrice(val);
+                    }}
+                  >
+                    <SelectTrigger className="border-[#3bcac4]/40 focus:border-[#3bcac4]">
+                      <SelectValue placeholder={t('projects.maxPrice', 'Max Price')} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      <SelectItem value="none">{t('projects.noMax', 'No maximum')}</SelectItem>
+                      {priceStepOptions
+                        .filter((opt) => minPrice === null || opt.value > minPrice)
+                        .map((opt) => (
+                          <SelectItem key={opt.value} value={String(opt.value)}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
               {/* Country */}
               <div>
