@@ -264,7 +264,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select()
         .from(properties)
         .where(eq(properties.propertyType, propertyType))
-        .orderBy(desc(properties.createdAt));
+        .orderBy(desc(properties.topRated), desc(properties.createdAt));
       return result;
     } catch (error) {
       console.error('Error fetching properties by type:', error);
@@ -336,7 +336,8 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select()
       .from(projects)
-      .innerJoin(properties, eq(projects.propertyId, properties.id));
+      .innerJoin(properties, eq(projects.propertyId, properties.id))
+      .orderBy(desc(properties.topRated), desc(projects.id));
       
     return results.map(({ projects, properties }) => ({
       ...projects,
