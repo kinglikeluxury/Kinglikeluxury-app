@@ -829,11 +829,16 @@ const PropertyForm = () => {
 
   const submitLockRef = useRef(false);
   const submitProperty = async (listingType: 'free' | 'featured' = 'free', expirationDate?: string) => {
-    if (isSubmitting || submitLockRef.current) return;
+    console.log('📋 submitProperty called. isSubmitting:', isSubmitting, 'lockRef:', submitLockRef.current);
+    if (isSubmitting || submitLockRef.current) {
+      console.log('⛔ submitProperty blocked by lock');
+      return;
+    }
     submitLockRef.current = true;
     setIsSubmitting(true);
     
     try {
+      console.log('✅ Step 1: user check. user?.id =', user?.id, 'propertyType =', propertyType);
       // Transform location data: combine country+city into location format for database
       const getLocationString = () => {
         const cities = formData.city ? formData.city.split(',') : [];
@@ -979,25 +984,28 @@ const PropertyForm = () => {
         } : {}),
       };
 
-      console.log('🚀 Submitting property with data:', {
+      console.log('🚀 Step 2: Submitting property with data:', {
         propertyType: submissionData.propertyType,
         area: submissionData.area,
         price: submissionData.price,
+        bedrooms: submissionData.bedrooms,
+        bathrooms: submissionData.bathrooms,
         title: submissionData.title,
-        listingType: submissionData.listingType
+        listingType: submissionData.listingType,
+        location: submissionData.location,
       });
       
       // Submit to API
       const apiUrl = isEditMode ? `/api/properties/${propertyId}` : '/api/properties';
       const method = isEditMode ? 'PATCH' : 'POST';
+      console.log('🌐 Step 3: About to fetch', method, apiUrl);
       const response = await fetch(apiUrl, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(submissionData)
+        body: JSON.stringify(submissionData),
       });
+      console.log('📡 Step 4: fetch complete, status =', response.status);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -1041,7 +1049,8 @@ const PropertyForm = () => {
       
     } catch (error) {
       console.error('Error submitting property:', error);
-      alert('Failed to create property. Please try again.');
+      const errMsg = error instanceof Error ? error.message : String(error);
+      alert(`Failed to create property: ${errMsg}`);
       throw error; // Re-throw for payment handler to catch
     } finally {
       setIsSubmitting(false);

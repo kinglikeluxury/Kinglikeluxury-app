@@ -68,25 +68,22 @@ const RegisterScreen = () => {
     try {
       setLoading(true);
 
-      // Step 1 — create the account
-      await register({
-        username,
-        email: email || undefined,
-        password,
+      // Step 1 — send verification code FIRST (server requires phone verified before account creation)
+      await sendVerificationCode(trimmedPhone);
+
+      // Step 2 — navigate to verification screen; account is created only after phone verified
+      navigation.navigate('PhoneVerification', {
         phoneNumber: trimmedPhone,
-        whatsappNumber: whatsappNumber || undefined,
+        onVerified: async () => {
+          await register({
+            username,
+            email: email || undefined,
+            password,
+            phoneNumber: trimmedPhone,
+            whatsappNumber: whatsappNumber || undefined,
+          });
+        },
       });
-
-      // Step 2 — send verification code (required)
-      try {
-        await sendVerificationCode(trimmedPhone);
-      } catch (sendErr: any) {
-        // Code send failed — still navigate so user can retry from verification screen
-        console.warn('Failed to send verification code:', sendErr?.message);
-      }
-
-      // Step 3 — go directly to verification screen (no skip)
-      navigation.navigate('PhoneVerification', { phoneNumber: trimmedPhone });
     } catch (error: any) {
       Alert.alert(t('auth.registerError'), error.message || t('auth.registerError'));
     } finally {
