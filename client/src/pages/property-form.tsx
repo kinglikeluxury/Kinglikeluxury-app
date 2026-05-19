@@ -819,6 +819,11 @@ const PropertyForm = () => {
       return;
     }
 
+    if (propertyType === PROPERTY_TYPES.APARTMENT && !formData.floorNumber) {
+      alert('Please enter the floor number.');
+      return;
+    }
+
     // In edit mode — save directly without asking for listing type again
     if (isEditMode) {
       await submitProperty('free');
@@ -1930,13 +1935,14 @@ const PropertyForm = () => {
 
                   {propertyType === PROPERTY_TYPES.APARTMENT && (
                     <div>
-                      <Label htmlFor="floorNumber">Floor Number</Label>
+                      <Label htmlFor="floorNumber">Floor Number *</Label>
                       <Input
                         id="floorNumber"
                         type="number"
                         value={formData.floorNumber}
                         onChange={(e) => handleInputChange('floorNumber', e.target.value)}
                         placeholder="Which floor"
+                        required
                       />
                     </div>
                   )}
