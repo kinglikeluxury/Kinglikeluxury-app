@@ -1229,6 +1229,27 @@ const PropertyForm = () => {
               </div>
 
 
+              {!user?.isAdmin && (
+                <div>
+                  <Label htmlFor="userPrice">Property Price (USD) *</Label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                    <Input
+                      id="userPrice"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 250000"
+                      className="pl-7"
+                      value={formData.price || ''}
+                      onChange={(e) => {
+                        const val = toEnglishDigits(e.target.value).replace(/[^0-9]/g, '');
+                        handleInputChange('price', val);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Label htmlFor="description">Description *</Label>
                 <Textarea
