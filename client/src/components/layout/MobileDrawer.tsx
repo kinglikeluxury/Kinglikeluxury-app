@@ -243,39 +243,34 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto py-2" style={{ overscrollBehavior: 'contain' }}>
 
-          {/* Browse section — visible to all */}
-          <div className="mb-2">
-            <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              {t("drawer.browse", "Browse")}
-            </p>
-            <div className="bg-white">
-              {renderItem({ label: t("nav.home", "Home"), path: "/", icon: Home })}
-              {renderItem({ label: t("propertyTypes.apartment", "Properties"), path: "/properties", icon: Building2 })}
-              {renderItem({ label: t("nav.projects", "Projects"), path: "/projects", icon: FolderOpen })}
-              {renderItem({ label: t("nav.blog", "Blog"), path: "/blog", icon: BookOpen })}
-              {renderItem({ label: t("nav.map", "Map"), path: "/map", icon: Map })}
-              {renderItem({
-                label: t("favorites.title", "Favorites"),
-                path: "/favorites",
-                icon: Heart,
-                badge: favorites.length,
-                protected: !user,
-              })}
-              {renderItem({
-                label: t("property.myProperties", "My Properties"),
-                path: "/properties?myProperties=true",
-                icon: Star,
-                protected: !user,
-              })}
-              {renderItem({
-                label: t("property.submit", "Add Property"),
-                path: "/submit-property",
-                icon: PlusCircle,
-                protected: !user,
-              })}
-              {renderItem({ label: t("nav.privacyPolicy", "Privacy Policy"), path: "/privacy-policy", icon: Shield })}
-              {renderItem({ label: t("nav.termsConditions", "Terms & Conditions"), path: "/terms", icon: FileText })}
-            </div>
+          {/* Main nav — visible to all */}
+          <div className="bg-white mb-2">
+            {renderItem({ label: t("nav.home", "الرئيسية"), path: "/", icon: Home })}
+            {renderItem({ label: t("propertyTypes.apartment", "شقق"), path: "/properties?type=apartment", icon: Building2 })}
+            {renderItem({ label: t("nav.projects", "المشاريع"), path: "/projects", icon: FolderOpen })}
+            {renderItem({ label: t("nav.blog", "المدونة"), path: "/blog", icon: BookOpen })}
+            {renderItem({ label: t("nav.map", "الخريطة"), path: "/map", icon: Map })}
+            {renderItem({
+              label: t("favorites.title", "المفضلة"),
+              path: "/favorites",
+              icon: Heart,
+              badge: favorites.length,
+              protected: !user,
+            })}
+            {renderItem({
+              label: t("property.myProperties", "عقاراتي"),
+              path: "/properties?myProperties=true",
+              icon: Star,
+              protected: !user,
+            })}
+            {renderItem({
+              label: t("property.submit", "إضافة عقار"),
+              path: "/submit-property",
+              icon: PlusCircle,
+              protected: !user,
+            })}
+            {renderItem({ label: t("nav.privacyPolicy", "سياسة الخصوصية"), path: "/privacy-policy", icon: Shield })}
+            {renderItem({ label: t("nav.termsConditions", "الشروط والأحكام"), path: "/terms", icon: FileText })}
           </div>
 
           {/* Admin section */}
@@ -294,79 +289,80 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             </div>
           )}
 
-          {/* Settings */}
-          <div className="mb-2">
-            <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              {t("drawer.settings", "Settings")}
-            </p>
-            <div className="bg-white">
-              {renderItem({ label: t("nav.privacyTerms", "Privacy & Terms"), path: "/privacy-terms", icon: Lock })}
-              <button
-                onClick={() => setLangExpanded(!langExpanded)}
-                className="flex items-center justify-between w-full px-5 py-3.5 active:bg-gray-50"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <img src={getFlagUrl(i18n.language)} alt="" className="w-5 h-4 object-cover rounded-sm" />
-                  </div>
-                  <span className="text-[15px] font-medium text-gray-800">
-                    {t("nav.language", "Language")} — {languages[i18n.language as keyof typeof languages]?.name || "English"}
-                  </span>
-                </div>
-                {langExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-              </button>
+          {/* Divider */}
+          <div className="mx-5 border-t border-gray-200 my-1" />
 
-              {langExpanded && (
-                <div className="px-4 pb-3 grid grid-cols-2 gap-2">
-                  {Object.entries(languages).map(([code, { name }]) => {
-                    const active = i18n.language === code;
-                    return (
-                      <button
-                        key={code}
-                        onClick={() => { i18n.changeLanguage(code); setLangExpanded(false); }}
-                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all"
-                        style={{
-                          borderColor: active ? "#3bcac4" : "#e5e7eb",
-                          background: active ? "#f0fdfc" : "#fff",
-                        }}
-                      >
-                        <img src={getFlagUrl(code)} alt="" className="w-6 h-4 object-cover rounded-sm flex-shrink-0" />
-                        <span className="text-[13px] font-medium truncate" style={{ color: active ? "#3bcac4" : "#374151" }}>
-                          {name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Change password + Sign out */}
-        {user && (
-          <div className="border-t border-gray-200 bg-white">
-            <Link
-              href="/change-password"
-              onClick={() => { onClose(); }}
-              className="flex items-center gap-3.5 w-full px-5 py-4 text-gray-700 active:bg-gray-50"
-            >
-              <div className="w-8 h-8 rounded-full bg-[#3bcac4]/10 flex items-center justify-center">
-                <KeyRound className="w-4 h-4 text-[#3bcac4]" />
-              </div>
-              <span className="text-[15px] font-medium">{t("auth.changePassword", "Change Password")}</span>
-            </Link>
+          {/* Language switcher */}
+          <div className="bg-white mb-2">
             <button
-              onClick={handleLogout}
-              className="flex items-center gap-3.5 w-full px-5 py-4 text-red-500 active:bg-red-50"
+              onClick={() => setLangExpanded(!langExpanded)}
+              className="flex items-center justify-between w-full px-5 py-3.5 active:bg-gray-50"
             >
-              <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
-                <LogOut className="w-4 h-4 text-red-500" />
+              <div className="flex items-center gap-3.5">
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <img src={getFlagUrl(i18n.language)} alt="" className="w-5 h-4 object-cover rounded-sm" />
+                </div>
+                <span className="text-[15px] font-medium text-gray-800">
+                  {t("nav.language", "اللغة")} — {languages[i18n.language as keyof typeof languages]?.name || "English"}
+                </span>
               </div>
-              <span className="text-[15px] font-medium">{t("auth.logout", "Sign out")}</span>
+              {langExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
             </button>
+
+            {langExpanded && (
+              <div className="px-4 pb-3 grid grid-cols-2 gap-2">
+                {Object.entries(languages).map(([code, { name }]) => {
+                  const active = i18n.language === code;
+                  return (
+                    <button
+                      key={code}
+                      onClick={() => { i18n.changeLanguage(code); setLangExpanded(false); }}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all"
+                      style={{
+                        borderColor: active ? "#3bcac4" : "#e5e7eb",
+                        background: active ? "#f0fdfc" : "#fff",
+                      }}
+                    >
+                      <img src={getFlagUrl(code)} alt="" className="w-6 h-4 object-cover rounded-sm flex-shrink-0" />
+                      <span className="text-[13px] font-medium truncate" style={{ color: active ? "#3bcac4" : "#374151" }}>
+                        {name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Divider */}
+          {user && <div className="mx-5 border-t border-gray-200 my-1" />}
+
+          {/* Change password + Sign out (in-scroll, not pinned) */}
+          {user && (
+            <div className="bg-white mb-4">
+              <Link
+                href="/change-password"
+                onClick={() => { onClose(); }}
+                className="flex items-center gap-3.5 w-full px-5 py-3.5 text-gray-700 active:bg-gray-50"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#3bcac4]/10 flex items-center justify-center flex-shrink-0">
+                  <KeyRound className="w-4 h-4 text-[#3bcac4]" />
+                </div>
+                <span className="text-[15px] font-medium">{t("auth.changePassword", "تغيير كلمة السر")}</span>
+                <ChevronRight className="w-4 h-4 text-gray-300 ml-auto" />
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3.5 w-full px-5 py-3.5 text-red-500 active:bg-red-50"
+              >
+                <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                  <LogOut className="w-4 h-4 text-red-500" />
+                </div>
+                <span className="text-[15px] font-medium">{t("auth.logout", "تسجيل الخروج")}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
