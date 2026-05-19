@@ -46,8 +46,9 @@ const PropertyForm = () => {
   const propertyId = params?.id ? parseInt(params.id) : null;
   const isEditMode = !!propertyId;
   
-  // Get property type from URL params
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  // Get property type from URL params — use window.location.search because
+  // wouter's useLocation() does not include the query string
+  const urlParams = new URLSearchParams(window.location.search);
   const urlPropertyType = urlParams.get('type') || '';
   
   // Property type state (can be set from URL or form selection)
@@ -2813,9 +2814,8 @@ const PropertyForm = () => {
               </Button>
             ) : (
               <Button 
-                type="button" 
+                type="submit"
                 disabled={isSubmitting}
-                onClick={() => { if (!isSubmitting) setShowListingTypePopup(true); }}
                 data-testid="button-submit-property"
                 className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
               >
