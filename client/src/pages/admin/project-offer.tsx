@@ -1054,9 +1054,9 @@ function PDFTemplate({
     fLogo:      { height: 320, width: "auto", objectFit: "contain" as const, display: "block" as const, margin: "0 auto", marginTop: -40 },
     fCenter:    { flex: 1, display: "flex" as const, justifyContent: "center" as const, alignItems: "center" as const },
     fWebsite:   { color: "#3bcac4", fontWeight: 800 as const, fontSize: 22, letterSpacing: 0.5, display: "block" as const },
-    fRight:     { textAlign: "right" as const, minWidth: 220, flexShrink: 0 },
+    fRight:     { textAlign: "right" as const, minWidth: 290, flexShrink: 0 },
     fPhoneLbl:  { fontSize: 16, color: "#94a3b8", marginBottom: 3, letterSpacing: 1, whiteSpace: "nowrap" as const },
-    fPhone:     { color: "#005476", fontWeight: 900 as const, fontSize: 30, letterSpacing: 1, whiteSpace: "nowrap" as const },
+    fPhone:     { color: "#005476", fontWeight: 900 as const, fontSize: 24, letterSpacing: 0.5, whiteSpace: "nowrap" as const },
     fLabel:     { fontSize: 18, color: "#94a3b8", ...txt() },
   };
 
@@ -1073,9 +1073,9 @@ function PDFTemplate({
           <img
             src={logoPath}
             alt="Kinglike"
-            style={{ height: 320, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
+            style={{ height: 160, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
           />
-          <div style={S.hTitle}>{project.title}</div>
+          <div style={{ ...S.hTitle, fontSize: 34, whiteSpace: "nowrap" as const, overflow: "visible" as const }}>{project.title}</div>
         </div>
 
         {/* Right: city / country */}
