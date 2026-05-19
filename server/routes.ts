@@ -382,7 +382,7 @@ ${metaTags}
         await twilioClient.messages.create({
           body: `Kinglike Luxury - رمز التحقق: ${code} (صالح 10 دقائق)`,
           to: phoneNumber,
-          from: fromNumber,
+          ...(msgSid ? { messagingServiceSid: msgSid } : { from: fromNumber }),
         });
         console.log(`✅ SMS OTP sent to ${phoneNumber}`);
       }
