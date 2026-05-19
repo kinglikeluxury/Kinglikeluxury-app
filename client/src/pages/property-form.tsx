@@ -1245,16 +1245,20 @@ const PropertyForm = () => {
                       handleInputChange('price', next.join(','));
                     };
 
+                    // Full number formatter: 88000 → $88,000
+                    const fmtFull = (n: number) =>
+                      '$' + n.toLocaleString('en-US');
+
                     // Preview badge for whichever mode is active
                     const previewPrice = customPrice
                       ? (() => {
                           const n = parseInt(customPrice.replace(/[^0-9]/g, ''));
-                          return isNaN(n) ? null : fmtP(n);
+                          return isNaN(n) ? null : fmtFull(n);
                         })()
                       : selectedPrices.length > 0
                         ? selectedPrices.length === 1
-                          ? fmtP(selectedPrices[0])
-                          : `${fmtP(Math.min(...selectedPrices))} — ${fmtP(Math.max(...selectedPrices))}`
+                          ? fmtFull(selectedPrices[0])
+                          : `${fmtFull(Math.min(...selectedPrices))} — ${fmtFull(Math.max(...selectedPrices))}`
                         : null;
 
                     return (
