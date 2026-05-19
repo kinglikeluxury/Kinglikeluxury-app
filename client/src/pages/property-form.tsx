@@ -1231,6 +1231,10 @@ const PropertyForm = () => {
                       : [];
 
                     const togglePrice = (val: number) => {
+                      // Using checkboxes clears any manual price
+                      if (customPrice) {
+                        setCustomPrice('');
+                      }
                       let next: number[];
                       if (selectedPrices.includes(val)) {
                         next = selectedPrices.filter(p => p !== val);
@@ -1241,9 +1245,22 @@ const PropertyForm = () => {
                       handleInputChange('price', next.join(','));
                     };
 
+                    // Preview badge for whichever mode is active
+                    const previewPrice = customPrice
+                      ? (() => {
+                          const n = parseInt(customPrice.replace(/[^0-9]/g, ''));
+                          return isNaN(n) ? null : fmtP(n);
+                        })()
+                      : selectedPrices.length > 0
+                        ? selectedPrices.length === 1
+                          ? fmtP(selectedPrices[0])
+                          : `${fmtP(Math.min(...selectedPrices))} — ${fmtP(Math.max(...selectedPrices))}`
+                        : null;
+
                     return (
-                      <div>
-                        <div className="border border-gray-300 rounded-md p-3 bg-white">
+                      <div className="space-y-3">
+                        {/* Checkbox price grid */}
+                        <div className={`border border-gray-300 rounded-md p-3 bg-white ${customPrice ? 'opacity-40 pointer-events-none' : ''}`}>
                           <div className="text-xs text-gray-500 mb-2">Select one or more price points:</div>
                           <div className="grid grid-cols-3 md:grid-cols-4 gap-1 max-h-52 overflow-y-auto pr-1">
                             {priceOptions.map((val) => {
@@ -1265,15 +1282,42 @@ const PropertyForm = () => {
                             })}
                           </div>
                         </div>
-                        {selectedPrices.length > 0 && (
-                          <div className="mt-2 flex items-center gap-2">
+
+                        {/* Manual price input */}
+                        <div className="flex items-center gap-2">
+                          <div className="h-px flex-1 bg-gray-200" />
+                          <span className="text-xs text-gray-400 shrink-0">or enter custom price</span>
+                          <div className="h-px flex-1 bg-gray-200" />
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">$</span>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="e.g. 275000"
+                            className="pl-7 text-sm"
+                            value={customPrice}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9]/g, '');
+                              setCustomPrice(val);
+                              // Custom price overrides the checkboxes — store directly in formData.price
+                              handleInputChange('price', val);
+                              // Clear checkbox selections
+                              if (val) {
+                                // no-op: selectedPrices computed from formData.price which is now just the number
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {/* Preview */}
+                        {previewPrice && (
+                          <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500">Users will see:</span>
-                            <Badge className="bg-[#005476] text-white text-xs">
-                              {selectedPrices.length === 1
-                                ? fmtP(selectedPrices[0])
-                                : `${fmtP(Math.min(...selectedPrices))} — ${fmtP(Math.max(...selectedPrices))}`}
-                            </Badge>
-                            <span className="text-xs text-gray-400">({selectedPrices.length} selected)</span>
+                            <Badge className="bg-[#005476] text-white text-xs">{previewPrice}</Badge>
+                            {!customPrice && selectedPrices.length > 1 && (
+                              <span className="text-xs text-gray-400">({selectedPrices.length} selected)</span>
+                            )}
                           </div>
                         )}
                       </div>
