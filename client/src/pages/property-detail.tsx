@@ -277,13 +277,18 @@ const PropertyDetail = () => {
     return areaStr;
   };
 
-  const getPriceRange = (price?: number) => {
+  const getPriceRange = (price?: number, priceMax?: number | null) => {
     if (!price) return "";
-    
-    // Convert stored price value back to the range format used in the form
+
+    // If priceMax is set and different from price, show full range
+    if (priceMax && priceMax !== price) {
+      return `${formatPrice(price)} — ${formatPrice(priceMax)}`;
+    }
+
+    // Legacy lookup table for properties stored with old bucketed prices
     const priceRanges: { [key: number]: string } = {
       25000: "$0 - $25,000",
-      50000: "$25,000 - $50,000", 
+      50000: "$25,000 - $50,000",
       75000: "$50,000 - $75,000",
       100000: "$75,000 - $100,000",
       125000: "$100,000 - $125,000",
@@ -318,8 +323,7 @@ const PropertyDetail = () => {
       1900000: "$1,800,000 - $1,900,000",
       2000000: "$1,900,000 - $2,000,000"
     };
-    
-    // Return the range if found, otherwise fall back to single price format
+
     return priceRanges[price] || formatPrice(price);
   };
 
@@ -439,7 +443,7 @@ const PropertyDetail = () => {
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-0">
-                  <span className="text-3xl font-bold text-primary-600">{getPriceRange(property.price)}</span>
+                  <span className="text-3xl font-bold text-primary-600">{getPriceRange(property.price, (property as any).priceMax)}</span>
                 </div>
               </div>
               
@@ -756,7 +760,7 @@ const PropertyDetail = () => {
                     <div className="space-y-4">
                       <div className="flex justify-between">
                         <span className="text-gray-500">Price between:</span>
-                        <span className="font-medium">{getPriceRange(property.price)}</span>
+                        <span className="font-medium">{getPriceRange(property.price, (property as any).priceMax)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Property Type:</span>
