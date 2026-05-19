@@ -1079,9 +1079,11 @@ ${metaTags}
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('❌ Property creation ZodError:', JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
-      res.status(500).json({ message: "Server error" });
+      console.error('❌ Property creation error:', error);
+      res.status(500).json({ message: (error as Error).message || "Server error" });
     }
   });
 

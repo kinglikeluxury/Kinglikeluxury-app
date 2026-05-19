@@ -39,7 +39,7 @@ const RegisterScreen = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleRegister = async () => {
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !phoneNumber || !password || !confirmPassword) {
       Alert.alert(t('common.error'), t('auth.required'));
       return;
     }
@@ -49,8 +49,9 @@ const RegisterScreen = () => {
       return;
     }
 
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      Alert.alert(t('common.error'), t('auth.invalidEmail'));
+    const trimmedPhone = phoneNumber.replace(/\s+/g, '');
+    if (trimmedPhone.length < 7 || !trimmedPhone.startsWith('+')) {
+      Alert.alert(t('common.error'), t('auth.invalidPhone', 'Please enter a valid phone number with country code (e.g. +995...)'));
       return;
     }
 
@@ -66,35 +67,26 @@ const RegisterScreen = () => {
 
     try {
       setLoading(true);
+
+      // Step 1 — create the account
       await register({
         username,
-        email,
+        email: email || undefined,
         password,
-        phoneNumber: phoneNumber || undefined,
+        phoneNumber: trimmedPhone,
         whatsappNumber: whatsappNumber || undefined,
       });
 
-      // If phone number provided, send verification code and go to verification screen
-      if (phoneNumber) {
-        try {
-          const result = await sendVerificationCode(phoneNumber);
-          const method = result?.method === 'whatsapp' ? 'WhatsApp' : 'SMS';
-          Alert.alert(
-            t('common.success', 'Success'),
-            t('auth.registerSuccessVerify', `Account created! A verification code has been sent to your phone via ${method}.`),
-            [{ text: 'OK', onPress: () => navigation.navigate('PhoneVerification', { phoneNumber }) }]
-          );
-        } catch {
-          // Verification send failed — still go home, user can verify later
-          Alert.alert(t('common.success'), t('auth.registerSuccess'), [
-            { text: 'OK', onPress: () => navigation.navigate('Home') },
-          ]);
-        }
-      } else {
-        Alert.alert(t('common.success'), t('auth.registerSuccess'), [
-          { text: 'OK', onPress: () => navigation.navigate('Home') },
-        ]);
+      // Step 2 — send verification code (required)
+      try {
+        await sendVerificationCode(trimmedPhone);
+      } catch (sendErr: any) {
+        // Code send failed — still navigate so user can retry from verification screen
+        console.warn('Failed to send verification code:', sendErr?.message);
       }
+
+      // Step 3 — go directly to verification screen (no skip)
+      navigation.navigate('PhoneVerification', { phoneNumber: trimmedPhone });
     } catch (error: any) {
       Alert.alert(t('auth.registerError'), error.message || t('auth.registerError'));
     } finally {
@@ -176,7 +168,7 @@ const RegisterScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, isRTL && styles.rtlText]}>{t('auth.phoneNumber')} ({t('common.optional', 'Optional')})</Text>
+            <Text style={[styles.label, isRTL && styles.rtlText]}>{t('auth.phoneNumber')} *</Text>
             <TextInput
               style={[styles.input, isRTL && styles.rtlInput]}
               placeholder="+995 XXX XXX XXX"

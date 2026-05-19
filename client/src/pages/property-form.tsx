@@ -936,8 +936,20 @@ const PropertyForm = () => {
           return prices.length > 1 ? Math.max(...prices) : null;
         })(),
         area: formData.area || String(parseInt(String(formData.price).split(',')[0]) || 100),
-        bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : (formData.bedrooms || 1),
-        bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : (formData.bathrooms || 1),
+        bedrooms: (() => {
+          if (propertyType === 'land') return null;
+          if (Array.isArray(formData.bedrooms)) {
+            return formData.bedrooms.length > 0 ? Math.max(...formData.bedrooms.map(Number)) : 1;
+          }
+          return (formData.bedrooms as any) || 1;
+        })(),
+        bathrooms: (() => {
+          if (propertyType === 'land') return null;
+          if (Array.isArray(formData.bathrooms)) {
+            return formData.bathrooms.length > 0 ? Math.max(...formData.bathrooms.map(Number)) : 1;
+          }
+          return (formData.bathrooms as any) || 1;
+        })(),
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
         images: formData.images || [],
         videos: formData.videos || [],

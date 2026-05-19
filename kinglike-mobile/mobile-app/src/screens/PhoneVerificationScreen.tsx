@@ -187,10 +187,6 @@ const PhoneVerificationScreen = () => {
           )}
         </View>
 
-        {/* Skip */}
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.skipRow}>
-          <Text style={styles.skipText}>{t('auth.skipVerification', 'Skip for now')}</Text>
-        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -289,14 +285,6 @@ const styles = StyleSheet.create({
   countdown: {
     color: '#9ca3af',
     fontSize: 14,
-  },
-  skipRow: {
-    marginTop: SPACING.sm,
-  },
-  skipText: {
-    color: '#9ca3af',
-    fontSize: 13,
-    textDecorationLine: 'underline',
   },
 });
 
