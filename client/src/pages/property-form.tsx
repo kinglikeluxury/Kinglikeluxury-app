@@ -944,22 +944,50 @@ const PropertyForm = () => {
         area: formData.area || String(parseInt(String(formData.price).split(',')[0]) || 100),
         bedrooms: (() => {
           if (propertyType === 'land') return null;
-          if (Array.isArray(formData.bedrooms)) {
-            return formData.bedrooms.length > 0 ? Math.max(...formData.bedrooms.map(Number)) : 1;
+          if (Array.isArray(formData.bedrooms) && formData.bedrooms.length > 0) {
+            // Map text labels to numeric bedroom counts
+            const bedroomCountMap: Record<string, number> = {
+              '🏠 Studio Apartment': 0,
+              '🛏️ One Bedroom': 1,
+              '🛏️ Two Bedrooms': 2,
+              '🛏️ Three Bedrooms': 3,
+              '🛏️ Four Bedrooms': 4,
+              '🛏️ Five+ Bedrooms': 5,
+              '🏰 Penthouse': 4,
+              '🏡 Duplex': 3,
+              '🏘️ Townhouse': 3,
+              '🏛️ Loft': 1,
+              '🌿 Garden Apartment': 2,
+              '🏢 High-rise Unit': 2,
+              '🏡 Villa': 4,
+            };
+            const nums = formData.bedrooms
+              .map(b => bedroomCountMap[b] ?? Number(b))
+              .filter(n => !isNaN(n));
+            return nums.length > 0 ? Math.max(...nums) : 1;
           }
-          return (formData.bedrooms as any) || 1;
+          if (!Array.isArray(formData.bedrooms)) return (formData.bedrooms as any) || 1;
+          return 1;
         })(),
         bathrooms: (() => {
           if (propertyType === 'land') return null;
-          if (Array.isArray(formData.bathrooms)) {
-            return formData.bathrooms.length > 0 ? Math.max(...formData.bathrooms.map(Number)) : 1;
+          if (Array.isArray(formData.bathrooms) && formData.bathrooms.length > 0) {
+            // Each selected bathroom type counts as 1
+            return formData.bathrooms.length;
           }
-          return (formData.bathrooms as any) || 1;
+          if (!Array.isArray(formData.bathrooms)) return (formData.bathrooms as any) || 1;
+          return 1;
         })(),
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
         images: formData.images || [],
         videos: formData.videos || [],
-        features: formData.features || [],
+        features: [
+          ...(formData.features || []),
+          // Include the selected bedroom/bathroom configuration labels as features
+          // so they appear on the property detail page
+          ...(Array.isArray(formData.bedrooms) ? formData.bedrooms : []),
+          ...(Array.isArray(formData.bathrooms) ? formData.bathrooms : []),
+        ].filter(Boolean),
         amenities: formData.amenities || [],
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),

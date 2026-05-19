@@ -653,7 +653,9 @@ const PropertyDetail = () => {
                       {property.bedrooms !== null && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">Bedrooms</span>
-                          <span className="font-medium">{property.bedrooms}</span>
+                          <span className="font-medium">
+                            {property.bedrooms === 0 ? 'Studio' : property.bedrooms}
+                          </span>
                         </div>
                       )}
                       {property.bathrooms !== null && (
@@ -767,7 +769,7 @@ const PropertyDetail = () => {
                       {property.bedrooms !== null && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Bedrooms:</span>
-                          <span>{property.bedrooms}</span>
+                          <span>{property.bedrooms === 0 ? 'Studio' : property.bedrooms}</span>
                         </div>
                       )}
                       {property.bathrooms !== null && (
