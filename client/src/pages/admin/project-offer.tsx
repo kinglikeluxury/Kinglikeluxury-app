@@ -494,8 +494,8 @@ export default function ProjectOfferPage() {
         setSilkHighlightB64("");
       }
 
-      // 3c. If Petra Sea Resort → always build floor plan (highlighted if apt number given)
-      const isPetra = /petra/i.test(selectedProject.title ?? "") || /بترا/i.test(selectedProject.title ?? "");
+      // 3c. If Petra Sea Resort (specifically) → always build floor plan (highlighted if apt number given)
+      const isPetra = /petra\s*sea/i.test(selectedProject.title ?? "") || /بترا\s*سي/i.test(selectedProject.title ?? "");
       if (isPetra) {
         try {
           const petraB64 = await buildPetraHighlight(apartmentNumber);
