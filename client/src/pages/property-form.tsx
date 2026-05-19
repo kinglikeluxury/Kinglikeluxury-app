@@ -112,6 +112,10 @@ const PropertyForm = () => {
   const [useMapSelection, setUseMapSelection] = useState(false);
   
 
+  // City dropdown states
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
+
   // Popup states for payment flow
   const [showListingTypePopup, setShowListingTypePopup] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
@@ -1331,306 +1335,238 @@ const PropertyForm = () => {
                     <Label htmlFor="city">City *</Label>
                   </div>
 
-                  <div className="border border-gray-300 rounded-md p-3 bg-white">
-                    <div className="text-sm text-gray-600 mb-2">Select cities:</div>
-                    <div className="space-y-2">
-                      {[
-                        { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia', country: 'georgia' },
-                        { value: 'batumi', label: '🇬🇪 Batumi, Georgia', country: 'georgia' },
-                        { value: 'kutaisi', label: '🇬🇪 Kutaisi, Georgia', country: 'georgia' },
-                        { value: 'rustavi', label: '🇬🇪 Rustavi, Georgia', country: 'georgia' },
-                        { value: 'zugdidi', label: '🇬🇪 Zugdidi, Georgia', country: 'georgia' },
-                        { value: 'gori', label: '🇬🇪 Gori, Georgia', country: 'georgia' },
-                        { value: 'poti', label: '🇬🇪 Poti, Georgia', country: 'georgia' },
-                        { value: 'telavi', label: '🇬🇪 Telavi, Georgia', country: 'georgia' },
-                        { value: 'mtskheta', label: '🇬🇪 Mtskheta, Georgia', country: 'georgia' },
-                        { value: 'kobuleti', label: '🇬🇪 Kobuleti, Georgia', country: 'georgia' },
-                        { value: 'borjomi', label: '🇬🇪 Borjomi, Georgia', country: 'georgia' },
-                        { value: 'akhaltsikhe', label: '🇬🇪 Akhaltsikhe, Georgia', country: 'georgia' },
-                        { value: 'senaki', label: '🇬🇪 Senaki, Georgia', country: 'georgia' },
-                        { value: 'anaklia', label: '🇬🇪 Anaklia, Georgia', country: 'georgia' },
-                        { value: 'sighnaghi', label: '🇬🇪 Sighnaghi, Georgia', country: 'georgia' },
-                        { value: 'ambrolauri', label: '🇬🇪 Ambrolauri, Georgia', country: 'georgia' },
-                        { value: 'khashuri', label: '🇬🇪 Khashuri, Georgia', country: 'georgia' },
-                        { value: 'samtredia', label: '🇬🇪 Samtredia, Georgia', country: 'georgia' },
-                        { value: 'zestafoni', label: '🇬🇪 Zestafoni, Georgia', country: 'georgia' },
-                        { value: 'chiatura', label: '🇬🇪 Chiatura, Georgia', country: 'georgia' },
-                        { value: 'dubai', label: '🇦🇪 Dubai, UAE', country: 'uae' },
-                        { value: 'abuDhabi', label: '🇦🇪 Abu Dhabi, UAE', country: 'uae' },
-                        { value: 'sharjah', label: '🇦🇪 Sharjah, UAE', country: 'uae' },
-                        { value: 'ajman', label: '🇦🇪 Ajman, UAE', country: 'uae' },
-                        { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE', country: 'uae' },
-                        { value: 'fujairah', label: '🇦🇪 Fujairah, UAE', country: 'uae' },
-                        { value: 'ummAlQuwain', label: '🇦🇪 Umm Al Quwain, UAE', country: 'uae' },
-                        { value: 'alAin', label: '🇦🇪 Al Ain, UAE', country: 'uae' },
-                        { value: 'khorfakkan', label: '🇦🇪 Khor Fakkan, UAE', country: 'uae' },
-                        { value: 'kalbaCity', label: '🇦🇪 Kalba City, UAE', country: 'uae' },
-                        { value: 'dibbaAlHisn', label: '🇦🇪 Dibba Al Hisn, UAE', country: 'uae' },
-                        { value: 'dhaid', label: '🇦🇪 Dhaid, UAE', country: 'uae' },
-                        { value: 'madinatZayed', label: '🇦🇪 Madinat Zayed, UAE', country: 'uae' },
-                        { value: 'ruwais', label: '🇦🇪 Ruwais, UAE', country: 'uae' },
-                        { value: 'alMirfa', label: '🇦🇪 Al Mirfa, UAE', country: 'uae' },
-                        { value: 'lefkosa', label: '🇨🇾 Lefkoşa (Nicosia), TRNC', country: 'northern-cyprus' },
-                        { value: 'gazimağusa', label: '🇨🇾 Gazimağusa (Famagusta), TRNC', country: 'northern-cyprus' },
-                        { value: 'girne', label: '🇨🇾 Girne (Kyrenia), TRNC', country: 'northern-cyprus' },
-                        { value: 'iskele', label: '🇨🇾 İskele, TRNC', country: 'northern-cyprus' },
-                        { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
-                        { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
-                        { value: 'istanbul', label: '🇹🇷 İstanbul, Turkey', country: 'turkey' },
-                        { value: 'ankara', label: '🇹🇷 Ankara, Turkey', country: 'turkey' },
-                        { value: 'izmir', label: '🇹🇷 İzmir, Turkey', country: 'turkey' },
-                        { value: 'bursa', label: '🇹🇷 Bursa, Turkey', country: 'turkey' },
-                        { value: 'antalya', label: '🇹🇷 Antalya, Turkey', country: 'turkey' },
-                        { value: 'adana', label: '🇹🇷 Adana, Turkey', country: 'turkey' },
-                        { value: 'konya', label: '🇹🇷 Konya, Turkey', country: 'turkey' },
-                        { value: 'gaziantep', label: '🇹🇷 Gaziantep, Turkey', country: 'turkey' },
-                        { value: 'mersin', label: '🇹🇷 Mersin, Turkey', country: 'turkey' },
-                        { value: 'kocaeli', label: '🇹🇷 Kocaeli, Turkey', country: 'turkey' },
-                        { value: 'trabzon', label: '🇹🇷 Trabzon, Turkey', country: 'turkey' },
-                        { value: 'samsun', label: '🇹🇷 Samsun, Turkey', country: 'turkey' },
-                        { value: 'kayseri', label: '🇹🇷 Kayseri, Turkey', country: 'turkey' },
-                        { value: 'eskisehir', label: '🇹🇷 Eskişehir, Turkey', country: 'turkey' },
-                        { value: 'diyarbakir', label: '🇹🇷 Diyarbakır, Turkey', country: 'turkey' },
-                        { value: 'denizli', label: '🇹🇷 Denizli, Turkey', country: 'turkey' },
-                        { value: 'sakarya', label: '🇹🇷 Sakarya, Turkey', country: 'turkey' },
-                        { value: 'manisa', label: '🇹🇷 Manisa, Turkey', country: 'turkey' },
-                        { value: 'tekirdag', label: '🇹🇷 Tekirdağ, Turkey', country: 'turkey' },
-                        { value: 'mugla', label: '🇹🇷 Muğla, Turkey', country: 'turkey' },
-                        { value: 'balikesir', label: '🇹🇷 Balıkesir, Turkey', country: 'turkey' },
-                        { value: 'aydin', label: '🇹🇷 Aydın, Turkey', country: 'turkey' },
-                        { value: 'hatay', label: '🇹🇷 Hatay, Turkey', country: 'turkey' },
-                        { value: 'kahramanmaras', label: '🇹🇷 Kahramanmaraş, Turkey', country: 'turkey' },
-                        { value: 'van', label: '🇹🇷 Van, Turkey', country: 'turkey' },
-                        { value: 'malatya', label: '🇹🇷 Malatya, Turkey', country: 'turkey' },
-                        { value: 'sanliurfa', label: '🇹🇷 Şanlıurfa, Turkey', country: 'turkey' },
-                        { value: 'mardin', label: '🇹🇷 Mardin, Turkey', country: 'turkey' },
-                        { value: 'erzurum', label: '🇹🇷 Erzurum, Turkey', country: 'turkey' },
-                        { value: 'ordu', label: '🇹🇷 Ordu, Turkey', country: 'turkey' },
-                        { value: 'zonguldak', label: '🇹🇷 Zonguldak, Turkey', country: 'turkey' },
-                        { value: 'elazig', label: '🇹🇷 Elazığ, Turkey', country: 'turkey' },
-                        { value: 'afyonkarahisar', label: '🇹🇷 Afyonkarahisar, Turkey', country: 'turkey' },
-                        { value: 'batman', label: '🇹🇷 Batman, Turkey', country: 'turkey' },
-                        { value: 'sivas', label: '🇹🇷 Sivas, Turkey', country: 'turkey' },
-                        { value: 'tokat', label: '🇹🇷 Tokat, Turkey', country: 'turkey' },
-                        { value: 'corum', label: '🇹🇷 Çorum, Turkey', country: 'turkey' },
-                        { value: 'adiyaman', label: '🇹🇷 Adıyaman, Turkey', country: 'turkey' },
-                        { value: 'rize', label: '🇹🇷 Rize, Turkey', country: 'turkey' },
-                        { value: 'isparta', label: '🇹🇷 Isparta, Turkey', country: 'turkey' },
-                        { value: 'burdur', label: '🇹🇷 Burdur, Turkey', country: 'turkey' },
-                        { value: 'canakkale', label: '🇹🇷 Çanakkale, Turkey', country: 'turkey' },
-                        { value: 'edirne', label: '🇹🇷 Edirne, Turkey', country: 'turkey' },
-                        { value: 'kirklareli', label: '🇹🇷 Kırklareli, Turkey', country: 'turkey' },
-                        { value: 'yalova', label: '🇹🇷 Yalova, Turkey', country: 'turkey' },
-                        { value: 'bolu', label: '🇹🇷 Bolu, Turkey', country: 'turkey' },
-                        { value: 'duzce', label: '🇹🇷 Düzce, Turkey', country: 'turkey' },
-                        { value: 'karabuk', label: '🇹🇷 Karabük, Turkey', country: 'turkey' },
-                        { value: 'bartin', label: '🇹🇷 Bartın, Turkey', country: 'turkey' },
-                        { value: 'kastamonu', label: '🇹🇷 Kastamonu, Turkey', country: 'turkey' },
-                        { value: 'sinop', label: '🇹🇷 Sinop, Turkey', country: 'turkey' },
-                        { value: 'giresun', label: '🇹🇷 Giresun, Turkey', country: 'turkey' },
-                        { value: 'gumushane', label: '🇹🇷 Gümüşhane, Turkey', country: 'turkey' },
-                        { value: 'artvin', label: '🇹🇷 Artvin, Turkey', country: 'turkey' },
-                        { value: 'ardahan', label: '🇹🇷 Ardahan, Turkey', country: 'turkey' },
-                        { value: 'kars', label: '🇹🇷 Kars, Turkey', country: 'turkey' },
-                        { value: 'igdir', label: '🇹🇷 Iğdır, Turkey', country: 'turkey' },
-                        { value: 'agri', label: '🇹🇷 Ağrı, Turkey', country: 'turkey' },
-                        { value: 'mus', label: '🇹🇷 Muş, Turkey', country: 'turkey' },
-                        { value: 'bitlis', label: '🇹🇷 Bitlis, Turkey', country: 'turkey' },
-                        { value: 'siirt', label: '🇹🇷 Siirt, Turkey', country: 'turkey' },
-                        { value: 'sirnak', label: '🇹🇷 Şırnak, Turkey', country: 'turkey' },
-                        { value: 'hakkari', label: '🇹🇷 Hakkari, Turkey', country: 'turkey' },
-                        { value: 'bingol', label: '🇹🇷 Bingöl, Turkey', country: 'turkey' },
-                        { value: 'tunceli', label: '🇹🇷 Tunceli, Turkey', country: 'turkey' },
-                        { value: 'elazig', label: '🇹🇷 Elazığ, Turkey', country: 'turkey' },
-                        { value: 'erzincan', label: '🇹🇷 Erzincan, Turkey', country: 'turkey' },
-                        { value: 'amasya', label: '🇹🇷 Amasya, Turkey', country: 'turkey' },
-                        { value: 'cankiri', label: '🇹🇷 Çankırı, Turkey', country: 'turkey' },
-                        { value: 'kirsehir', label: '🇹🇷 Kırşehir, Turkey', country: 'turkey' },
-                        { value: 'nevsehir', label: '🇹🇷 Nevşehir, Turkey', country: 'turkey' },
-                        { value: 'nigde', label: '🇹🇷 Niğde, Turkey', country: 'turkey' },
-                        { value: 'aksaray', label: '🇹🇷 Aksaray, Turkey', country: 'turkey' },
-                        { value: 'karaman', label: '🇹🇷 Karaman, Turkey', country: 'turkey' },
-                        { value: 'konya2', label: '🇹🇷 Konya, Turkey', country: 'turkey' },
-                        { value: 'kutahya', label: '🇹🇷 Kütahya, Turkey', country: 'turkey' },
-                        { value: 'usak', label: '🇹🇷 Uşak, Turkey', country: 'turkey' },
-                        { value: 'bilecik', label: '🇹🇷 Bilecik, Turkey', country: 'turkey' },
-                        { value: 'yozgat', label: '🇹🇷 Yozgat, Turkey', country: 'turkey' },
-                        { value: 'kirikkale', label: '🇹🇷 Kırıkkale, Turkey', country: 'turkey' },
-                        { value: 'bayburt', label: '🇹🇷 Bayburt, Turkey', country: 'turkey' },
-                        { value: 'osmaniye', label: '🇹🇷 Osmaniye, Turkey', country: 'turkey' },
-                        { value: 'kilis', label: '🇹🇷 Kilis, Turkey', country: 'turkey' },
-                      ].filter((cityOption) => {
-                        const selectedCountry = formData.country;
-                        if (!selectedCountry) return true;
-                        return cityOption.country === selectedCountry;
-                      }).map((cityOption) => {
-                        const isSelected = Array.isArray(formData.city) 
-                          ? formData.city.includes(cityOption.value)
-                          : formData.city ? formData.city.split(',').includes(cityOption.value) : false;
-                        
-                        return (
-                          <label key={cityOption.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
-                                let newCities;
-                                if (e.target.checked) {
-                                  newCities = [...currentCities, cityOption.value];
-                                } else {
-                                  newCities = currentCities.filter(c => c !== cityOption.value);
-                                }
-                                handleInputChange('city', newCities.join(','));
-                                setUseMapSelection(false);
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm font-medium">{cityOption.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {formData.city && (formData.city.includes(',') || formData.city.length > 0) && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
-                            const cityLabels: Record<string, string> = {
-                              tbilisi: '🇬🇪 Tbilisi, Georgia',
-                              batumi: '🇬🇪 Batumi, Georgia',
-                              kutaisi: '🇬🇪 Kutaisi, Georgia',
-                              rustavi: '🇬🇪 Rustavi, Georgia',
-                              zugdidi: '🇬🇪 Zugdidi, Georgia',
-                              gori: '🇬🇪 Gori, Georgia',
-                              poti: '🇬🇪 Poti, Georgia',
-                              telavi: '🇬🇪 Telavi, Georgia',
-                              mtskheta: '🇬🇪 Mtskheta, Georgia',
-                              kobuleti: '🇬🇪 Kobuleti, Georgia',
-                              borjomi: '🇬🇪 Borjomi, Georgia',
-                              akhaltsikhe: '🇬🇪 Akhaltsikhe, Georgia',
-                              senaki: '🇬🇪 Senaki, Georgia',
-                              anaklia: '🇬🇪 Anaklia, Georgia',
-                              sighnaghi: '🇬🇪 Sighnaghi, Georgia',
-                              ambrolauri: '🇬🇪 Ambrolauri, Georgia',
-                              khashuri: '🇬🇪 Khashuri, Georgia',
-                              samtredia: '🇬🇪 Samtredia, Georgia',
-                              zestafoni: '🇬🇪 Zestafoni, Georgia',
-                              chiatura: '🇬🇪 Chiatura, Georgia',
-                              dubai: '🇦🇪 Dubai, UAE',
-                              abuDhabi: '🇦🇪 Abu Dhabi, UAE',
-                              sharjah: '🇦🇪 Sharjah, UAE',
-                              ajman: '🇦🇪 Ajman, UAE',
-                              rasAlKhaimah: '🇦🇪 Ras Al Khaimah, UAE',
-                              fujairah: '🇦🇪 Fujairah, UAE',
-                              ummAlQuwain: '🇦🇪 Umm Al Quwain, UAE',
-                              alAin: '🇦🇪 Al Ain, UAE',
-                              khorfakkan: '🇦🇪 Khor Fakkan, UAE',
-                              kalbaCity: '🇦🇪 Kalba City, UAE',
-                              dibbaAlHisn: '🇦🇪 Dibba Al Hisn, UAE',
-                              dhaid: '🇦🇪 Dhaid, UAE',
-                              madinatZayed: '🇦🇪 Madinat Zayed, UAE',
-                              ruwais: '🇦🇪 Ruwais, UAE',
-                              alMirfa: '🇦🇪 Al Mirfa, UAE',
-                              lefkosa: '🇨🇾 Lefkoşa (Nicosia), TRNC',
-                              'gazimağusa': '🇨🇾 Gazimağusa (Famagusta), TRNC',
-                              girne: '🇨🇾 Girne (Kyrenia), TRNC',
-                              iskele: '🇨🇾 İskele, TRNC',
-                              guzelyurt: '🇨🇾 Güzelyurt, TRNC',
-                              esentepe: '🇨🇾 Esentepe, TRNC',
-                              istanbul: '🇹🇷 İstanbul, Turkey',
-                              ankara: '🇹🇷 Ankara, Turkey',
-                              izmir: '🇹🇷 İzmir, Turkey',
-                              bursa: '🇹🇷 Bursa, Turkey',
-                              antalya: '🇹🇷 Antalya, Turkey',
-                              adana: '🇹🇷 Adana, Turkey',
-                              konya: '🇹🇷 Konya, Turkey',
-                              gaziantep: '🇹🇷 Gaziantep, Turkey',
-                              mersin: '🇹🇷 Mersin, Turkey',
-                              kocaeli: '🇹🇷 Kocaeli, Turkey',
-                              trabzon: '🇹🇷 Trabzon, Turkey',
-                              samsun: '🇹🇷 Samsun, Turkey',
-                              kayseri: '🇹🇷 Kayseri, Turkey',
-                              eskisehir: '🇹🇷 Eskişehir, Turkey',
-                              diyarbakir: '🇹🇷 Diyarbakır, Turkey',
-                              denizli: '🇹🇷 Denizli, Turkey',
-                              sakarya: '🇹🇷 Sakarya, Turkey',
-                              manisa: '🇹🇷 Manisa, Turkey',
-                              tekirdag: '🇹🇷 Tekirdağ, Turkey',
-                              mugla: '🇹🇷 Muğla, Turkey',
-                              balikesir: '🇹🇷 Balıkesir, Turkey',
-                              aydin: '🇹🇷 Aydın, Turkey',
-                              hatay: '🇹🇷 Hatay, Turkey',
-                              kahramanmaras: '🇹🇷 Kahramanmaraş, Turkey',
-                              van: '🇹🇷 Van, Turkey',
-                              malatya: '🇹🇷 Malatya, Turkey',
-                              sanliurfa: '🇹🇷 Şanlıurfa, Turkey',
-                              mardin: '🇹🇷 Mardin, Turkey',
-                              erzurum: '🇹🇷 Erzurum, Turkey',
-                              ordu: '🇹🇷 Ordu, Turkey',
-                              zonguldak: '🇹🇷 Zonguldak, Turkey',
-                              elazig: '🇹🇷 Elazığ, Turkey',
-                              afyonkarahisar: '🇹🇷 Afyonkarahisar, Turkey',
-                              batman: '🇹🇷 Batman, Turkey',
-                              sivas: '🇹🇷 Sivas, Turkey',
-                              tokat: '🇹🇷 Tokat, Turkey',
-                              corum: '🇹🇷 Çorum, Turkey',
-                              adiyaman: '🇹🇷 Adıyaman, Turkey',
-                              rize: '🇹🇷 Rize, Turkey',
-                              isparta: '🇹🇷 Isparta, Turkey',
-                              burdur: '🇹🇷 Burdur, Turkey',
-                              canakkale: '🇹🇷 Çanakkale, Turkey',
-                              edirne: '🇹🇷 Edirne, Turkey',
-                              kirklareli: '🇹🇷 Kırklareli, Turkey',
-                              yalova: '🇹🇷 Yalova, Turkey',
-                              bolu: '🇹🇷 Bolu, Turkey',
-                              duzce: '🇹🇷 Düzce, Turkey',
-                              karabuk: '🇹🇷 Karabük, Turkey',
-                              bartin: '🇹🇷 Bartın, Turkey',
-                              kastamonu: '🇹🇷 Kastamonu, Turkey',
-                              sinop: '🇹🇷 Sinop, Turkey',
-                              giresun: '🇹🇷 Giresun, Turkey',
-                              gumushane: '🇹🇷 Gümüşhane, Turkey',
-                              artvin: '🇹🇷 Artvin, Turkey',
-                              ardahan: '🇹🇷 Ardahan, Turkey',
-                              kars: '🇹🇷 Kars, Turkey',
-                              igdir: '🇹🇷 Iğdır, Turkey',
-                              agri: '🇹🇷 Ağrı, Turkey',
-                              mus: '🇹🇷 Muş, Turkey',
-                              bitlis: '🇹🇷 Bitlis, Turkey',
-                              siirt: '🇹🇷 Siirt, Turkey',
-                              sirnak: '🇹🇷 Şırnak, Turkey',
-                              hakkari: '🇹🇷 Hakkari, Turkey',
-                              bingol: '🇹🇷 Bingöl, Turkey',
-                              tunceli: '🇹🇷 Tunceli, Turkey',
-                              erzincan: '🇹🇷 Erzincan, Turkey',
-                              amasya: '🇹🇷 Amasya, Turkey',
-                              cankiri: '🇹🇷 Çankırı, Turkey',
-                              kirsehir: '🇹🇷 Kırşehir, Turkey',
-                              nevsehir: '🇹🇷 Nevşehir, Turkey',
-                              nigde: '🇹🇷 Niğde, Turkey',
-                              aksaray: '🇹🇷 Aksaray, Turkey',
-                              karaman: '🇹🇷 Karaman, Turkey',
-                              kutahya: '🇹🇷 Kütahya, Turkey',
-                              usak: '🇹🇷 Uşak, Turkey',
-                              bilecik: '🇹🇷 Bilecik, Turkey',
-                              yozgat: '🇹🇷 Yozgat, Turkey',
-                              kirikkale: '🇹🇷 Kırıkkale, Turkey',
-                              bayburt: '🇹🇷 Bayburt, Turkey',
-                              osmaniye: '🇹🇷 Osmaniye, Turkey',
-                              kilis: '🇹🇷 Kilis, Turkey',
-                            };
-                            const cityName = cityLabels[cityValue] || cityValue;
-                            return (
-                              <Badge key={cityValue} variant="secondary" className="text-xs">
-                                {cityName}
+                  {(() => {
+                    const allCities = [
+                      { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia', country: 'georgia' },
+                      { value: 'batumi', label: '🇬🇪 Batumi, Georgia', country: 'georgia' },
+                      { value: 'kutaisi', label: '🇬🇪 Kutaisi, Georgia', country: 'georgia' },
+                      { value: 'rustavi', label: '🇬🇪 Rustavi, Georgia', country: 'georgia' },
+                      { value: 'zugdidi', label: '🇬🇪 Zugdidi, Georgia', country: 'georgia' },
+                      { value: 'gori', label: '🇬🇪 Gori, Georgia', country: 'georgia' },
+                      { value: 'poti', label: '🇬🇪 Poti, Georgia', country: 'georgia' },
+                      { value: 'telavi', label: '🇬🇪 Telavi, Georgia', country: 'georgia' },
+                      { value: 'mtskheta', label: '🇬🇪 Mtskheta, Georgia', country: 'georgia' },
+                      { value: 'kobuleti', label: '🇬🇪 Kobuleti, Georgia', country: 'georgia' },
+                      { value: 'borjomi', label: '🇬🇪 Borjomi, Georgia', country: 'georgia' },
+                      { value: 'akhaltsikhe', label: '🇬🇪 Akhaltsikhe, Georgia', country: 'georgia' },
+                      { value: 'senaki', label: '🇬🇪 Senaki, Georgia', country: 'georgia' },
+                      { value: 'anaklia', label: '🇬🇪 Anaklia, Georgia', country: 'georgia' },
+                      { value: 'sighnaghi', label: '🇬🇪 Sighnaghi, Georgia', country: 'georgia' },
+                      { value: 'ambrolauri', label: '🇬🇪 Ambrolauri, Georgia', country: 'georgia' },
+                      { value: 'khashuri', label: '🇬🇪 Khashuri, Georgia', country: 'georgia' },
+                      { value: 'samtredia', label: '🇬🇪 Samtredia, Georgia', country: 'georgia' },
+                      { value: 'zestafoni', label: '🇬🇪 Zestafoni, Georgia', country: 'georgia' },
+                      { value: 'chiatura', label: '🇬🇪 Chiatura, Georgia', country: 'georgia' },
+                      { value: 'dubai', label: '🇦🇪 Dubai, UAE', country: 'uae' },
+                      { value: 'abuDhabi', label: '🇦🇪 Abu Dhabi, UAE', country: 'uae' },
+                      { value: 'sharjah', label: '🇦🇪 Sharjah, UAE', country: 'uae' },
+                      { value: 'ajman', label: '🇦🇪 Ajman, UAE', country: 'uae' },
+                      { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE', country: 'uae' },
+                      { value: 'fujairah', label: '🇦🇪 Fujairah, UAE', country: 'uae' },
+                      { value: 'ummAlQuwain', label: '🇦🇪 Umm Al Quwain, UAE', country: 'uae' },
+                      { value: 'alAin', label: '🇦🇪 Al Ain, UAE', country: 'uae' },
+                      { value: 'khorfakkan', label: '🇦🇪 Khor Fakkan, UAE', country: 'uae' },
+                      { value: 'kalbaCity', label: '🇦🇪 Kalba City, UAE', country: 'uae' },
+                      { value: 'dibbaAlHisn', label: '🇦🇪 Dibba Al Hisn, UAE', country: 'uae' },
+                      { value: 'dhaid', label: '🇦🇪 Dhaid, UAE', country: 'uae' },
+                      { value: 'madinatZayed', label: '🇦🇪 Madinat Zayed, UAE', country: 'uae' },
+                      { value: 'ruwais', label: '🇦🇪 Ruwais, UAE', country: 'uae' },
+                      { value: 'alMirfa', label: '🇦🇪 Al Mirfa, UAE', country: 'uae' },
+                      { value: 'lefkosa', label: '🇨🇾 Lefkoşa (Nicosia), TRNC', country: 'northern-cyprus' },
+                      { value: 'gazimağusa', label: '🇨🇾 Gazimağusa (Famagusta), TRNC', country: 'northern-cyprus' },
+                      { value: 'girne', label: '🇨🇾 Girne (Kyrenia), TRNC', country: 'northern-cyprus' },
+                      { value: 'iskele', label: '🇨🇾 İskele, TRNC', country: 'northern-cyprus' },
+                      { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
+                      { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
+                      { value: 'istanbul', label: '🇹🇷 İstanbul, Turkey', country: 'turkey' },
+                      { value: 'ankara', label: '🇹🇷 Ankara, Turkey', country: 'turkey' },
+                      { value: 'izmir', label: '🇹🇷 İzmir, Turkey', country: 'turkey' },
+                      { value: 'bursa', label: '🇹🇷 Bursa, Turkey', country: 'turkey' },
+                      { value: 'antalya', label: '🇹🇷 Antalya, Turkey', country: 'turkey' },
+                      { value: 'adana', label: '🇹🇷 Adana, Turkey', country: 'turkey' },
+                      { value: 'konya', label: '🇹🇷 Konya, Turkey', country: 'turkey' },
+                      { value: 'gaziantep', label: '🇹🇷 Gaziantep, Turkey', country: 'turkey' },
+                      { value: 'mersin', label: '🇹🇷 Mersin, Turkey', country: 'turkey' },
+                      { value: 'kocaeli', label: '🇹🇷 Kocaeli, Turkey', country: 'turkey' },
+                      { value: 'trabzon', label: '🇹🇷 Trabzon, Turkey', country: 'turkey' },
+                      { value: 'samsun', label: '🇹🇷 Samsun, Turkey', country: 'turkey' },
+                      { value: 'kayseri', label: '🇹🇷 Kayseri, Turkey', country: 'turkey' },
+                      { value: 'eskisehir', label: '🇹🇷 Eskişehir, Turkey', country: 'turkey' },
+                      { value: 'diyarbakir', label: '🇹🇷 Diyarbakır, Turkey', country: 'turkey' },
+                      { value: 'denizli', label: '🇹🇷 Denizli, Turkey', country: 'turkey' },
+                      { value: 'sakarya', label: '🇹🇷 Sakarya, Turkey', country: 'turkey' },
+                      { value: 'manisa', label: '🇹🇷 Manisa, Turkey', country: 'turkey' },
+                      { value: 'tekirdag', label: '🇹🇷 Tekirdağ, Turkey', country: 'turkey' },
+                      { value: 'mugla', label: '🇹🇷 Muğla, Turkey', country: 'turkey' },
+                      { value: 'balikesir', label: '🇹🇷 Balıkesir, Turkey', country: 'turkey' },
+                      { value: 'aydin', label: '🇹🇷 Aydın, Turkey', country: 'turkey' },
+                      { value: 'hatay', label: '🇹🇷 Hatay, Turkey', country: 'turkey' },
+                      { value: 'kahramanmaras', label: '🇹🇷 Kahramanmaraş, Turkey', country: 'turkey' },
+                      { value: 'van', label: '🇹🇷 Van, Turkey', country: 'turkey' },
+                      { value: 'malatya', label: '🇹🇷 Malatya, Turkey', country: 'turkey' },
+                      { value: 'sanliurfa', label: '🇹🇷 Şanlıurfa, Turkey', country: 'turkey' },
+                      { value: 'mardin', label: '🇹🇷 Mardin, Turkey', country: 'turkey' },
+                      { value: 'erzurum', label: '🇹🇷 Erzurum, Turkey', country: 'turkey' },
+                      { value: 'ordu', label: '🇹🇷 Ordu, Turkey', country: 'turkey' },
+                      { value: 'zonguldak', label: '🇹🇷 Zonguldak, Turkey', country: 'turkey' },
+                      { value: 'elazig', label: '🇹🇷 Elazığ, Turkey', country: 'turkey' },
+                      { value: 'afyonkarahisar', label: '🇹🇷 Afyonkarahisar, Turkey', country: 'turkey' },
+                      { value: 'batman', label: '🇹🇷 Batman, Turkey', country: 'turkey' },
+                      { value: 'sivas', label: '🇹🇷 Sivas, Turkey', country: 'turkey' },
+                      { value: 'tokat', label: '🇹🇷 Tokat, Turkey', country: 'turkey' },
+                      { value: 'corum', label: '🇹🇷 Çorum, Turkey', country: 'turkey' },
+                      { value: 'adiyaman', label: '🇹🇷 Adıyaman, Turkey', country: 'turkey' },
+                      { value: 'rize', label: '🇹🇷 Rize, Turkey', country: 'turkey' },
+                      { value: 'isparta', label: '🇹🇷 Isparta, Turkey', country: 'turkey' },
+                      { value: 'burdur', label: '🇹🇷 Burdur, Turkey', country: 'turkey' },
+                      { value: 'canakkale', label: '🇹🇷 Çanakkale, Turkey', country: 'turkey' },
+                      { value: 'edirne', label: '🇹🇷 Edirne, Turkey', country: 'turkey' },
+                      { value: 'kirklareli', label: '🇹🇷 Kırklareli, Turkey', country: 'turkey' },
+                      { value: 'yalova', label: '🇹🇷 Yalova, Turkey', country: 'turkey' },
+                      { value: 'bolu', label: '🇹🇷 Bolu, Turkey', country: 'turkey' },
+                      { value: 'duzce', label: '🇹🇷 Düzce, Turkey', country: 'turkey' },
+                      { value: 'karabuk', label: '🇹🇷 Karabük, Turkey', country: 'turkey' },
+                      { value: 'bartin', label: '🇹🇷 Bartın, Turkey', country: 'turkey' },
+                      { value: 'kastamonu', label: '🇹🇷 Kastamonu, Turkey', country: 'turkey' },
+                      { value: 'sinop', label: '🇹🇷 Sinop, Turkey', country: 'turkey' },
+                      { value: 'giresun', label: '🇹🇷 Giresun, Turkey', country: 'turkey' },
+                      { value: 'gumushane', label: '🇹🇷 Gümüşhane, Turkey', country: 'turkey' },
+                      { value: 'artvin', label: '🇹🇷 Artvin, Turkey', country: 'turkey' },
+                      { value: 'ardahan', label: '🇹🇷 Ardahan, Turkey', country: 'turkey' },
+                      { value: 'kars', label: '🇹🇷 Kars, Turkey', country: 'turkey' },
+                      { value: 'igdir', label: '🇹🇷 Iğdır, Turkey', country: 'turkey' },
+                      { value: 'agri', label: '🇹🇷 Ağrı, Turkey', country: 'turkey' },
+                      { value: 'mus', label: '🇹🇷 Muş, Turkey', country: 'turkey' },
+                      { value: 'bitlis', label: '🇹🇷 Bitlis, Turkey', country: 'turkey' },
+                      { value: 'siirt', label: '🇹🇷 Siirt, Turkey', country: 'turkey' },
+                      { value: 'sirnak', label: '🇹🇷 Şırnak, Turkey', country: 'turkey' },
+                      { value: 'hakkari', label: '🇹🇷 Hakkari, Turkey', country: 'turkey' },
+                      { value: 'bingol', label: '🇹🇷 Bingöl, Turkey', country: 'turkey' },
+                      { value: 'tunceli', label: '🇹🇷 Tunceli, Turkey', country: 'turkey' },
+                      { value: 'erzincan', label: '🇹🇷 Erzincan, Turkey', country: 'turkey' },
+                      { value: 'amasya', label: '🇹🇷 Amasya, Turkey', country: 'turkey' },
+                      { value: 'cankiri', label: '🇹🇷 Çankırı, Turkey', country: 'turkey' },
+                      { value: 'kirsehir', label: '🇹🇷 Kırşehir, Turkey', country: 'turkey' },
+                      { value: 'nevsehir', label: '🇹🇷 Nevşehir, Turkey', country: 'turkey' },
+                      { value: 'nigde', label: '🇹🇷 Niğde, Turkey', country: 'turkey' },
+                      { value: 'aksaray', label: '🇹🇷 Aksaray, Turkey', country: 'turkey' },
+                      { value: 'karaman', label: '🇹🇷 Karaman, Turkey', country: 'turkey' },
+                      { value: 'kutahya', label: '🇹🇷 Kütahya, Turkey', country: 'turkey' },
+                      { value: 'usak', label: '🇹🇷 Uşak, Turkey', country: 'turkey' },
+                      { value: 'bilecik', label: '🇹🇷 Bilecik, Turkey', country: 'turkey' },
+                      { value: 'yozgat', label: '🇹🇷 Yozgat, Turkey', country: 'turkey' },
+                      { value: 'kirikkale', label: '🇹🇷 Kırıkkale, Turkey', country: 'turkey' },
+                      { value: 'bayburt', label: '🇹🇷 Bayburt, Turkey', country: 'turkey' },
+                      { value: 'osmaniye', label: '🇹🇷 Osmaniye, Turkey', country: 'turkey' },
+                      { value: 'kilis', label: '🇹🇷 Kilis, Turkey', country: 'turkey' },
+                    ];
+
+                    const selectedCountry = formData.country as string;
+                    const filtered = allCities
+                      .filter(c => !selectedCountry || c.country === selectedCountry)
+                      .filter(c => c.label.toLowerCase().includes(citySearch.toLowerCase()));
+
+                    const selectedCities = Array.isArray(formData.city)
+                      ? formData.city
+                      : formData.city ? formData.city.split(',').filter(Boolean) : [];
+
+                    const toggleCity = (val: string) => {
+                      let next: string[];
+                      if (selectedCities.includes(val)) {
+                        next = selectedCities.filter(c => c !== val);
+                      } else {
+                        next = [...selectedCities, val];
+                      }
+                      handleInputChange('city', next.join(','));
+                      setUseMapSelection(false);
+                    };
+
+                    const getLabelForValue = (val: string) =>
+                      allCities.find(c => c.value === val)?.label || val;
+
+                    return (
+                      <div className="relative">
+                        {/* Trigger Button */}
+                        <button
+                          type="button"
+                          onClick={() => setCityDropdownOpen(prev => !prev)}
+                          className="w-full flex items-center justify-between border border-gray-300 rounded-md px-3 py-2 bg-white text-sm hover:border-[#3bcac4] focus:outline-none focus:ring-2 focus:ring-[#3bcac4]/30 transition-colors"
+                        >
+                          <span className={selectedCities.length === 0 ? 'text-gray-400' : 'text-gray-800'}>
+                            {selectedCities.length === 0
+                              ? 'Select city...'
+                              : selectedCities.length === 1
+                                ? getLabelForValue(selectedCities[0])
+                                : `${selectedCities.length} cities selected`}
+                          </span>
+                          <svg className={`h-4 w-4 text-gray-400 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+
+                        {/* Dropdown Panel */}
+                        {cityDropdownOpen && (
+                          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                            {/* Search */}
+                            <div className="p-2 border-b border-gray-100">
+                              <div className="relative">
+                                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                <input
+                                  type="text"
+                                  value={citySearch}
+                                  onChange={e => setCitySearch(e.target.value)}
+                                  placeholder="Search city..."
+                                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3bcac4]/30"
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+
+                            {/* City List */}
+                            <div className="max-h-56 overflow-y-auto p-1">
+                              {filtered.length === 0 ? (
+                                <div className="text-center text-sm text-gray-400 py-4">No cities found</div>
+                              ) : (
+                                filtered.map(cityOption => {
+                                  const isSelected = selectedCities.includes(cityOption.value);
+                                  return (
+                                    <label
+                                      key={cityOption.value}
+                                      className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm hover:bg-gray-50 ${isSelected ? 'bg-[#3bcac4]/10 font-medium text-[#005476]' : 'text-gray-700'}`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => toggleCity(cityOption.value)}
+                                        className="rounded border-gray-300 accent-[#3bcac4]"
+                                      />
+                                      {cityOption.label}
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-2 border-t border-gray-100 flex justify-between items-center">
+                              <span className="text-xs text-gray-400">{selectedCities.length} selected</span>
+                              <button type="button" onClick={() => setCityDropdownOpen(false)} className="text-xs text-[#005476] font-medium hover:underline">Done</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Selected Badges */}
+                        {selectedCities.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {selectedCities.map(val => (
+                              <Badge key={val} variant="secondary" className="text-xs flex items-center gap-1">
+                                {getLabelForValue(val)}
+                                <button type="button" onClick={() => toggleCity(val)} className="ml-1 hover:text-red-500">×</button>
                               </Badge>
-                            );
-                          })}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 <div>
