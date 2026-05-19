@@ -41,6 +41,19 @@ const APARTMENT_TYPES = [
   { value: "townhouse", ar: "تاون هاوس", en: "Townhouse", ru: "Таунхаус", ka: "ტაუნჰაუსი", az: "Taunhaus", tr: "Townhouse", zh: "联排别墅", pl: "Dom szeregowy", he: "בית עירוני", it: "Villetta a schiera" },
 ];
 
+const VIEW_TYPES = [
+  { value: "city_batumi",    ar: "اطلالة على مدينة باتومي",                                              en: "City View – Batumi",                          ru: "Вид на город Батуми",                      ka: "ბათუმის ქალაქის ხედი",            az: "Batumi şəhər mənzərəsi",         tr: "Batum Şehir Manzarası",                zh: "巴统城市景观",           pl: "Widok na miasto Batumi",             he: "נוף לעיר באטומי",             it: "Vista sulla città di Batumi" },
+  { value: "city_tbilisi",   ar: "اطلالة على مدينة تبليسي",                                              en: "City View – Tbilisi",                         ru: "Вид на город Тбилиси",                     ka: "თბილისის ქალაქის ხედი",           az: "Tbilisi şəhər mənzərəsi",        tr: "Tiflis Şehir Manzarası",               zh: "第比利斯城市景观",        pl: "Widok na miasto Tbilisi",            he: "נוף לעיר טביליסי",            it: "Vista sulla città di Tbilisi" },
+  { value: "sea_partial",    ar: "إطلالة بحرية جزئية",                                                   en: "Partial Sea View",                            ru: "Частичный вид на море",                    ka: "ნაწილობრივი ზღვის ხედი",          az: "Qismən dəniz mənzərəsi",         tr: "Kısmi Deniz Manzarası",                zh: "部分海景",               pl: "Częściowy widok na morze",           he: "נוף ים חלקי",                 it: "Vista mare parziale" },
+  { value: "sea_full",       ar: "إطلالة بحرية كاملة",                                                   en: "Full Sea View",                               ru: "Полный вид на море",                       ka: "სრული ზღვის ხედი",                az: "Tam dəniz mənzərəsi",            tr: "Tam Deniz Manzarası",                  zh: "全海景",                 pl: "Pełny widok na morze",               he: "נוף ים מלא",                  it: "Vista mare completa" },
+  { value: "panoramic_sea_batumi", ar: "إطلالة بانورامية على البحر وعلى مدينة باتومي",                  en: "Panoramic Sea & Batumi City View",            ru: "Панорамный вид на море и Батуми",          ka: "პანორამული ზღვისა და ბათუმის ხედი", az: "Dəniz və Batumi panoramik mənzərəsi", tr: "Panoramik Deniz ve Batum Manzarası",  zh: "海景与巴统全景",          pl: "Panoramiczny widok na morze i Batumi", he: "נוף פנורמי ים ובאטומי",      it: "Vista panoramica mare e Batumi" },
+  { value: "panoramic_ali_nino", ar: "اطلالة بانورامية على البحر وعلى تمثال علي ونينو وبرج الحروف الأبجدية", en: "Panoramic Sea, Ali & Nino Statue & Alphabet Tower View", ru: "Панорамный вид на море, Али и Нино, Башня алфавита", ka: "პანორამული ხედი — ზღვა, ალი და ნინო, ანბანის კოშკი", az: "Dəniz, Əli və Nino, Əlifba Qülləsi panoramik mənzərəsi", tr: "Panoramik Deniz, Ali ve Nino Heykeli ve Alfabe Kulesi Manzarası", zh: "海景、阿里尼诺雕像及字母塔全景", pl: "Panoramiczny widok na morze, pomnik Ali i Nino oraz Wieżę Alfabetu", he: "נוף פנורמי — ים, פסל עלי ונינו ומגדל האלפבית", it: "Vista panoramica mare, statua Ali & Nino e Torre dell'Alfabeto" },
+  { value: "sea_batumi_city", ar: "اطلالة على البحر وعلى مدينة باتومي",                                  en: "Sea & Batumi City View",                      ru: "Вид на море и город Батуми",               ka: "ზღვისა და ბათუმის ხედი",          az: "Dəniz və Batumi şəhər mənzərəsi", tr: "Deniz ve Batum Şehir Manzarası",      zh: "海景与巴统城市景观",      pl: "Widok na morze i miasto Batumi",     he: "נוף ים ועיר באטומי",          it: "Vista mare e città di Batumi" },
+  { value: "panoramic_palm_island", ar: "اطلالة بانورامية على البحر وعلى جزيرة النخيل",                 en: "Panoramic Sea & Palm Island View",            ru: "Панорамный вид на море и Пальмовый остров", ka: "პანორამული ხედი — ზღვა და პალმების კუნძული", az: "Dəniz və Xurma adası panoramik mənzərəsi", tr: "Panoramik Deniz ve Palm Adası Manzarası", zh: "海景与棕榈岛全景",        pl: "Panoramiczny widok na morze i Wyspę Palm", he: "נוף פנורמי — ים ואי הדקלים", it: "Vista panoramica mare e Isola delle Palme" },
+  { value: "mountain",       ar: "اطلالة جبلية",                                                         en: "Mountain View",                               ru: "Вид на горы",                              ka: "მთის ხედი",                       az: "Dağ mənzərəsi",                  tr: "Dağ Manzarası",                        zh: "山景",                   pl: "Widok na góry",                      he: "נוף הרים",                    it: "Vista sulla montagna" },
+  { value: "city_river_tbilisi", ar: "اطلالة على المدينة وعلى النهر بتبليسي",                            en: "City & River View – Tbilisi",                 ru: "Вид на город и реку в Тбилиси",            ka: "ქალაქისა და მდინარის ხედი — თბილისი", az: "Tbilisidə şəhər və çay mənzərəsi", tr: "Şehir ve Nehir Manzarası – Tiflis",   zh: "第比利斯城市与河流景观",    pl: "Widok na miasto i rzekę – Tbilisi",  he: "נוף עיר ונהר — טביליסי",     it: "Vista città e fiume – Tbilisi" },
+];
+
 const DELIVERY_TYPES = [
   { value: "black",     ar: "هيكل خام (على الأسود)", en: "Shell & Core", ru: "Черновая отделка", ka: "შავი კარკასი", az: "Qara karkasla", tr: "Ham Teslim (Sıfır)", zh: "毛坯交付", pl: "Stan surowy", he: "גלם (קירות חשופים)", it: "Grezzo" },
   { value: "white",     ar: "تشطيب أبيض (جدران ناعمة)", en: "White Box (Plastered)", ru: "Белая отделка", ka: "თეთრი მოსაპირკეთებელი", az: "Ağ çərçivə", tr: "Beyaz Teslim (Sıva Dahil)", zh: "白盒交付", pl: "Stan deweloperski", he: "קופסה לבנה", it: "Scatola bianca" },
@@ -129,6 +142,7 @@ const T: Record<string, Record<LangCode, string>> = {
   deliveryType:   { ar:"نوع التشطيب", en:"Finishing Type", ru:"Тип отделки", ka:"მოსაპირკეთებლის ტიპი", az:"Bitirmə növü", tr:"Teslim ve Bitişlik Tipi", zh:"装修交付标准", pl:"Standard wykończenia", he:"סוג הגמר", it:"Tipologia di finitura" },
   deliveryDate:   { ar:"موعد تسليم المشروع", en:"Project Delivery Date", ru:"Дата сдачи проекта", ka:"პროექტის ჩაბარების თარიღი", az:"Proyektin çatdırılma tarixi", tr:"Proje Teslim Tarihi", zh:"项目交付日期", pl:"Termin oddania projektu", he:"תאריך מסירת הפרויקט", it:"Data consegna progetto" },
   readyNow:       { ar:"جاهز للتسليم الفوري", en:"Ready for Immediate Delivery", ru:"Готов к немедленной сдаче", ka:"მზადაა — შეიძლება ახლავე ჩაბარება", az:"Dərhal çatdırılmağa hazır", tr:"Hemen Teslime Hazır", zh:"现房可立即交付", pl:"Gotowy — odbiór natychmiastowy", he:"מוכן למסירה מיידית", it:"Pronto per consegna immediata" },
+  viewType:       { ar:"الإطلالة", en:"View", ru:"Вид", ka:"ხედი", az:"Mənzərə", tr:"Manzara", zh:"景观", pl:"Widok", he:"נוף", it:"Vista" },
   contact:        { ar:"للتواصل والاستفسار", en:"Contact & Inquiries", ru:"Связь и вопросы", ka:"კონტაქტი", az:"Əlaqə", tr:"İletişim ve Bilgi", zh:"联系与咨询", pl:"Kontakt i zapytania", he:"צור קשר", it:"Contatti e informazioni" },
   exclusiveOffer: { ar:"عرض حصري من شركة", en:"Exclusive offer presented by", ru:"Эксклюзивное предложение от", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv təklif:", tr:"Özel Teklif — ", zh:"独家报价由", pl:"Oferta ekskluzywna od", he:"הצעה בלעדית מאת", it:"Offerta esclusiva di" },
 };
@@ -346,6 +360,7 @@ export default function ProjectOfferPage() {
   const [selectedCity, setSelectedCity]         = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [apartmentType, setApartmentType]       = useState("");
+  const [viewType, setViewType]                 = useState("");
   const [selectedBlock, setSelectedBlock]       = useState("");
   const [selectedFloors, setSelectedFloors]     = useState<number[]>([]);
   const [floorOpen, setFloorOpen]               = useState(false);
@@ -422,6 +437,7 @@ export default function ProjectOfferPage() {
 
   const getAptLabel     = (val: string) => getLangVal(APARTMENT_TYPES.find((t) => t.value === val), pdfLang);
   const getDelivLabel   = (val: string) => getLangVal(DELIVERY_TYPES.find((t) => t.value === val), pdfLang);
+  const getViewLabel    = (val: string) => getLangVal(VIEW_TYPES.find((t) => t.value === val), pdfLang);
 
   const getDateLabel = (val: string): string => {
     if (val === "ready") return t("readyNow", pdfLang);
@@ -637,6 +653,19 @@ export default function ProjectOfferPage() {
                 <SelectTrigger className="h-9"><SelectValue placeholder="اختر نوع الوحدة" /></SelectTrigger>
                 <SelectContent>{APARTMENT_TYPES.map((tp) => <SelectItem key={tp.value} value={tp.value}>{tp.ar}</SelectItem>)}</SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">الإطلالة <span className="text-gray-400">(اختياري)</span></Label>
+              <Select value={viewType} onValueChange={setViewType}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="اختر نوع الإطلالة" /></SelectTrigger>
+                <SelectContent>
+                  {VIEW_TYPES.map((vt) => <SelectItem key={vt.value} value={vt.value}>{vt.ar}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {viewType && (
+                <button type="button" onClick={() => setViewType("")} className="mt-1 text-xs text-gray-400 hover:text-red-500">✕ إزالة الإطلالة</button>
+              )}
             </div>
 
             {/* ── Floor plan picker ── */}
@@ -958,9 +987,11 @@ export default function ProjectOfferPage() {
             deliveryDate={deliveryDate}
             getAptLabel={getAptLabel}
             getDelivLabel={getDelivLabel}
+            getViewLabel={getViewLabel}
             getDateLabel={getDateLabel}
             floorsLabel={floorsLabel}
             fmt={fmt}
+            viewType={viewType}
             silkHighlightB64={silkHighlightB64}
             petraHighlightB64={petraHighlightB64}
           />
@@ -978,8 +1009,8 @@ function PDFTemplate({
   totalPrice, discountVal, discountedPrice, paymentPercent, downPayment,
   finalPaymentPercent, finalPaymentAmount, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
-  getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt,
-  silkHighlightB64, petraHighlightB64
+  getAptLabel, getDelivLabel, getViewLabel, getDateLabel, floorsLabel, fmt,
+  viewType, silkHighlightB64, petraHighlightB64
 }: any) {
 
   const W   = 794;
@@ -999,6 +1030,7 @@ function PDFTemplate({
   // Build detail rows — only non-empty fields
   const rows: { label: string; value: string; accent?: boolean }[] = [];
   if (apartmentType)          rows.push({ label: t("aptType",lang),      value: getAptLabel(apartmentType) });
+  if (viewType)               rows.push({ label: t("viewType",lang),     value: getViewLabel(viewType) });
   if (selectedBlock)          rows.push({ label: t("block",lang),         value: selectedBlock });
   if (selectedFloors?.length) rows.push({ label: t("floor",lang),        value: floorsLabel(selectedFloors) });
   if (apartmentNumber)        rows.push({ label: t("aptNumber",lang),     value: apartmentNumber });
