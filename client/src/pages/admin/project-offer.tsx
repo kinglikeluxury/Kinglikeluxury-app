@@ -349,6 +349,90 @@ const buildPetraHighlight = async (aptNum: string): Promise<string> => {
   return canvas.toDataURL("image/jpeg", 0.93);
 };
 
+/* ─── Ambassadori Batumi Island floor-plan highlight helpers ────────────── */
+
+const AMBASSADORI_FLOOR_PLAN_URL = "/ambassadori-floor-plan.jpg";
+
+// Image: 1600 × 621 px
+// Building footprint: x 0.044–0.956, y 0.161–0.935
+// Elevator core: x 0.416–0.494
+// Horizontal corridor: y 0.532
+// Top row (even):   02,04,06,08,10 | [elev] | 12,14,16,18,20,22
+// Bottom row (odd): 01,03,07,09,11 | [elev] | 13,15,17,19,21,23 + corner 25,24
+const AMBASSADORI_APT_COORDS: Record<string, [number, number, number, number]> = {
+  // ── Top row (y: 0.161 → 0.532) ──────────────────────────────────────────
+  "02": [0.044, 0.161, 0.118, 0.532],
+  "04": [0.118, 0.161, 0.193, 0.532],
+  "06": [0.193, 0.161, 0.267, 0.532],
+  "08": [0.267, 0.161, 0.342, 0.532],
+  "10": [0.342, 0.161, 0.416, 0.532],
+  // elevator core x 0.416–0.494
+  "12": [0.494, 0.161, 0.571, 0.532],
+  "14": [0.571, 0.161, 0.648, 0.532],
+  "16": [0.648, 0.161, 0.725, 0.532],
+  "18": [0.725, 0.161, 0.802, 0.532],
+  "20": [0.802, 0.161, 0.879, 0.532],
+  "22": [0.879, 0.161, 0.956, 0.532],
+  // ── Bottom row (y: 0.532 → 0.935) ────────────────────────────────────────
+  "01": [0.044, 0.532, 0.118, 0.935],
+  "03": [0.118, 0.532, 0.193, 0.935],
+  "07": [0.193, 0.532, 0.267, 0.935],
+  "09": [0.267, 0.532, 0.342, 0.935],
+  "11": [0.342, 0.532, 0.416, 0.935],
+  // elevator core x 0.416–0.494
+  "13": [0.494, 0.532, 0.552, 0.935],
+  "15": [0.552, 0.532, 0.610, 0.935],
+  "17": [0.610, 0.532, 0.668, 0.935],
+  "19": [0.668, 0.532, 0.726, 0.935],
+  "21": [0.726, 0.532, 0.784, 0.935],
+  "23": [0.784, 0.532, 0.840, 0.935],
+  "25": [0.840, 0.532, 0.898, 0.735],  // corner top-right
+  "24": [0.840, 0.735, 0.956, 0.935],  // corner bottom-right
+};
+
+const buildAmbassadoriHighlight = async (aptNum: string): Promise<string> => {
+  const raw = aptNum.trim();
+  const key = raw.padStart(2, "0");
+  const coords = AMBASSADORI_APT_COORDS[key] ?? AMBASSADORI_APT_COORDS[raw];
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    img.onload  = () => resolve();
+    img.onerror = reject;
+    img.src = AMBASSADORI_FLOOR_PLAN_URL + "?t=" + Date.now();
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  if (coords) {
+    const W = canvas.width, H = canvas.height;
+    const [x1r, y1r, x2r, y2r] = coords;
+    const x1 = x1r * W, y1 = y1r * H;
+    const bw  = (x2r - x1r) * W, bh = (y2r - y1r) * H;
+
+    ctx.fillStyle = "rgba(59,202,196,0.38)";
+    ctx.fillRect(x1, y1, bw, bh);
+
+    ctx.strokeStyle = "#e53e3e";
+    ctx.lineWidth   = Math.max(4, W * 0.004);
+    ctx.strokeRect(x1, y1, bw, bh);
+
+    const fontSize = Math.round(Math.min(bw, bh) * 0.35);
+    ctx.font      = `bold ${fontSize}px Arial`;
+    ctx.fillStyle = "#e53e3e";
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(raw, x1 + bw / 2, y1 + bh / 2);
+  }
+
+  return canvas.toDataURL("image/jpeg", 0.93);
+};
+
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function ProjectOfferPage() {
@@ -381,6 +465,7 @@ export default function ProjectOfferPage() {
   const [flagB64, setFlagB64]                   = useState<string>("");
   const [silkHighlightB64, setSilkHighlightB64] = useState<string>("");
   const [petraHighlightB64, setPetraHighlightB64] = useState<string>("");
+  const [ambassadoriHighlightB64, setAmbassadoriHighlightB64] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -519,6 +604,17 @@ export default function ProjectOfferPage() {
         } catch (e) { console.error("Petra highlight error:", e); setPetraHighlightB64(""); }
       } else {
         setPetraHighlightB64("");
+      }
+
+      // 3d. If Ambassadori → build highlighted floor plan
+      const isAmbassadori = /ambassadori/i.test(selectedProject.title ?? "") || /أمباسادوري/i.test(selectedProject.title ?? "");
+      if (isAmbassadori) {
+        try {
+          const ambB64 = await buildAmbassadoriHighlight(apartmentNumber);
+          setAmbassadoriHighlightB64(ambB64);
+        } catch (e) { console.error("Ambassadori highlight error:", e); setAmbassadoriHighlightB64(""); }
+      } else {
+        setAmbassadoriHighlightB64("");
       }
 
       // 3. Wait for React to re-render with base64 images
@@ -997,6 +1093,7 @@ export default function ProjectOfferPage() {
             viewType={viewType}
             silkHighlightB64={silkHighlightB64}
             petraHighlightB64={petraHighlightB64}
+            ambassadoriHighlightB64={ambassadoriHighlightB64}
           />
         )}
       </div>
@@ -1013,7 +1110,7 @@ function PDFTemplate({
   finalPaymentPercent, finalPaymentAmount, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
   getAptLabel, getDelivLabel, getViewLabel, getDateLabel, floorsLabel, fmt,
-  viewType, silkHighlightB64, petraHighlightB64
+  viewType, silkHighlightB64, petraHighlightB64, ambassadoriHighlightB64
 }: any) {
 
   const W   = 794;
@@ -1340,6 +1437,69 @@ function PDFTemplate({
                  lang === "tr" ? `Seçilen Oda: ${apartmentNumber}` :
                  lang === "zh" ? `所选房间：${apartmentNumber}` :
                  lang === "pl" ? `Wybrany pokój: ${apartmentNumber}` :
+                 lang === "it" ? `Unità selezionata: ${apartmentNumber}` :
+                 `Selected Unit: ${apartmentNumber}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ambassadoriHighlightB64 && (
+        <div style={{ padding: "0 40px 20px" }}>
+          <div style={{
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "2.5px solid #005476",
+            boxShadow: "0 4px 20px rgba(0,84,118,0.15)",
+          }}>
+            <div style={{
+              background: "#005476",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <div style={{ fontSize: 18 }}>🗺️</div>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+                {lang === "ar" ? `مخطط الطابق — الشقة رقم ${apartmentNumber}` :
+                 lang === "he" ? `תוכנית הקומה — דירה ${apartmentNumber}` :
+                 lang === "ru" ? `План этажа — квартира ${apartmentNumber}` :
+                 lang === "ka" ? `სართულის გეგმა — ბინა ${apartmentNumber}` :
+                 lang === "az" ? `Mərtəbə planı — mənzil ${apartmentNumber}` :
+                 lang === "tr" ? `Kat Planı — Daire ${apartmentNumber}` :
+                 lang === "zh" ? `楼层平面图 — ${apartmentNumber} 号公寓` :
+                 lang === "pl" ? `Plan piętra — mieszkanie ${apartmentNumber}` :
+                 lang === "it" ? `Planimetria — Appartamento ${apartmentNumber}` :
+                 `Floor Plan — Unit ${apartmentNumber}`}
+              </div>
+            </div>
+            <div style={{ background: "#f8f9fa", textAlign: "center" as const, padding: "16px" }}>
+              <img
+                src={ambassadoriHighlightB64}
+                style={{ maxWidth: "100%", height: "auto", display: "inline-block", borderRadius: 8 }}
+              />
+            </div>
+            <div style={{
+              background: "#f0f4f8",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 12,
+              borderTop: "1px solid #dde3ea",
+            }}>
+              <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+                {lang === "ar" ? `الشقة المحددة: رقم ${apartmentNumber}` :
+                 lang === "he" ? `הדירה הנבחרת: מס' ${apartmentNumber}` :
+                 lang === "ru" ? `Выбранная квартира: ${apartmentNumber}` :
+                 lang === "ka" ? `არჩეული ბინა: ${apartmentNumber}` :
+                 lang === "az" ? `Seçilmiş mənzil: ${apartmentNumber}` :
+                 lang === "tr" ? `Seçilen Daire: ${apartmentNumber}` :
+                 lang === "zh" ? `所选公寓：${apartmentNumber}` :
+                 lang === "pl" ? `Wybrane mieszkanie: ${apartmentNumber}` :
                  lang === "it" ? `Unità selezionata: ${apartmentNumber}` :
                  `Selected Unit: ${apartmentNumber}`}
               </div>
