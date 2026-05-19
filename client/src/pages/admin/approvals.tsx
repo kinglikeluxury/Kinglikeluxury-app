@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle, Star, FileText } from "lucide-react";
+import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle, Star } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -30,132 +30,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
-const COMMISSION_RATE = 0.03;
-
-const generateCommissionPDF = async (property: Property) => {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF();
-  const pageW = doc.internal.pageSize.getWidth();
-
-  const teal = [59, 202, 196] as [number, number, number];
-  const navy = [0, 84, 118] as [number, number, number];
-
-  doc.setFillColor(...navy);
-  doc.rect(0, 0, pageW, 35, "F");
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("KINGLIKE LUXURY REAL ESTATE", pageW / 2, 14, { align: "center" });
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.text("COMMISSION AGREEMENT — OFFICIAL DOCUMENT", pageW / 2, 24, { align: "center" });
-
-  doc.setFillColor(...teal);
-  doc.rect(0, 35, pageW, 3, "F");
-
-  let y = 50;
-  doc.setTextColor(0, 0, 0);
-
-  const section = (title: string) => {
-    doc.setFillColor(240, 248, 255);
-    doc.rect(10, y - 5, pageW - 20, 10, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...navy);
-    doc.text(title, 14, y + 1);
-    doc.setTextColor(0, 0, 0);
-    y += 12;
-  };
-
-  const row = (label: string, value: string) => {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(label + ":", 14, y);
-    doc.setFont("helvetica", "normal");
-    doc.text(value, 70, y);
-    y += 8;
-  };
-
-  section("PROPERTY DETAILS");
-  row("Property ID", String(property.id));
-  row("Title", property.title);
-  row("Type", property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1));
-  row("Location", property.location);
-  row("Status", property.status);
-  y += 4;
-
-  const listedPrice = (property as any).userListedPrice || property.price;
-  const commission = Math.round(listedPrice * COMMISSION_RATE);
-  const netAmount = listedPrice - commission;
-  const fmt = (n: number) => `$${n.toLocaleString("en-US")}`;
-
-  section("COMMISSION BREAKDOWN");
-  row("Listed Price (Owner's Price)", fmt(listedPrice));
-  row("Platform Commission (3%)", fmt(commission));
-  row("Net Amount to Owner", fmt(netAmount));
-  y += 4;
-
-  section("AGREEMENT DETAILS");
-  const sig = (property as any).commissionSignature || "N/A";
-  const acceptedAt = (property as any).commissionAcceptedAt
-    ? new Date((property as any).commissionAcceptedAt).toLocaleString("en-US", {
-        year: "numeric", month: "long", day: "numeric",
-        hour: "2-digit", minute: "2-digit"
-      })
-    : "N/A";
-  row("Owner Electronic Signature", sig);
-  row("Agreement Accepted At", acceptedAt);
-  row("Commission Rate", "3% of sale price");
-  y += 8;
-
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(80, 80, 80);
-  const legalLines = [
-    "The owner has agreed to pay Kinglike Luxury Real Estate a commission of 3% of the final",
-    "transaction price upon successful sale, lease, or transfer of the listed property.",
-    "This agreement was electronically signed and is legally binding.",
-  ];
-  legalLines.forEach(line => { doc.text(line, 14, y); y += 6; });
-
-  y += 10;
-  doc.setFillColor(...teal);
-  doc.rect(10, y, (pageW - 20) / 2 - 5, 0.5, "F");
-  doc.rect(pageW / 2 + 5, y, (pageW - 20) / 2 - 5, 0.5, "F");
-  y += 10;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...navy);
-  doc.text("Platform Authorized Signature:", 14, y);
-  doc.text("Owner Electronic Signature:", pageW / 2 + 5, y);
-  y += 8;
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(12);
-  doc.setTextColor(...teal);
-  doc.text("Kinglike Luxury Real Estate", 14, y);
-  doc.text(sig, pageW / 2 + 5, y);
-  y += 6;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  doc.text("Pre-signed electronically — Management Team", 14, y);
-  doc.text(acceptedAt, pageW / 2 + 5, y);
-
-  doc.setFillColor(...navy);
-  doc.rect(0, doc.internal.pageSize.getHeight() - 12, pageW, 12, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
-  doc.text(
-    "Kinglike Luxury Real Estate | Confidential Commission Agreement",
-    pageW / 2,
-    doc.internal.pageSize.getHeight() - 4,
-    { align: "center" }
-  );
-
-  doc.save(`commission-agreement-property-${property.id}.pdf`);
-};
 
 const Approvals = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -393,18 +267,6 @@ const Approvals = () => {
                               </a>
                             </Button>
 
-                            {(property as any).commissionAccepted && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-[#005476]/10 text-[#005476] border-[#005476]/30 hover:bg-[#005476]/20"
-                                onClick={() => generateCommissionPDF(property)}
-                                title="Download Commission Agreement PDF"
-                              >
-                                <FileText className="h-4 w-4 mr-1" />
-                                PDF
-                              </Button>
-                            )}
 
                             <Button
                               size="sm"

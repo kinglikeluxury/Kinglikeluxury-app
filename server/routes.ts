@@ -1054,7 +1054,6 @@ ${metaTags}
       const property = await storage.createProperty({
         ...propertyData,
         ownerId: req.session.userId!,
-        ...(propertyData.commissionAccepted ? { commissionAcceptedAt: new Date() } : {})
       });
       
       if (isAdminUser) {

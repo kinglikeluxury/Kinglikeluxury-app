@@ -113,10 +113,7 @@ export const properties = pgTable("properties", {
   topRated: boolean("top_rated").default(false),
   isSold: boolean("is_sold").default(false).notNull(),
   priceMax: integer("price_max"),
-  userListedPrice: integer("user_listed_price"),
-  commissionAccepted: boolean("commission_accepted").default(false),
-  commissionAcceptedAt: timestamp("commission_accepted_at"),
-  commissionSignature: text("commission_signature"),
+
 });
 
 export const insertPropertySchema = createInsertSchema(properties)
@@ -126,7 +123,6 @@ export const insertPropertySchema = createInsertSchema(properties)
     createdAt: true,
     updatedAt: true,
     listingExpiresAt: true,
-    commissionAcceptedAt: true,
   })
   .extend({
     propertyType: z.enum([
