@@ -723,6 +723,9 @@ export default function ProjectOfferPage() {
                 {Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((letter) => (
                   <option key={letter} value={letter}>{letter}</option>
                 ))}
+                {["D1","D2","D3","D4","K1","K2","K3","K4","K5","K6"].map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
               </select>
               {selectedBlock && (
                 <button
