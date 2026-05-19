@@ -28,7 +28,8 @@ import {
   SlidersHorizontal,
   ArrowRight,
   User,
-  ChevronDown
+  ChevronDown,
+  Star
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
@@ -48,6 +49,7 @@ interface Project {
   area: number;
   bedrooms?: number;
   bathrooms?: number;
+  topRated?: boolean | null;
   features: string[];
   amenities: string[];
   images: string[];
@@ -104,6 +106,18 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
         >
           <Heart className={`h-5 w-5 transition-colors ${isFavorite(project.propertyId) ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-600'}`} />
         </button>
+        {((project as any).topRated || (propertyData as any).topRated) && (
+          <div className="absolute bottom-2 left-2 z-10">
+            <Badge className="bg-white border border-white shadow-md flex items-center gap-1 px-2 py-1">
+              <span className="text-xs font-semibold text-[#005476]">Top Rated</span>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} className="h-3 w-3 fill-[#3bcac4] text-[#3bcac4]" />
+                ))}
+              </div>
+            </Badge>
+          </div>
+        )}
       </div>
       <CardContent className="p-6 flex-1 flex flex-col justify-between">
         <div className="flex-1">
