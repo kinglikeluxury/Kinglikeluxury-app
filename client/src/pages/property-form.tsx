@@ -1667,66 +1667,6 @@ const PropertyForm = () => {
                   })()}
                 </div>
 
-                <div>
-                  <Label htmlFor="area">Area (m²) *</Label>
-                  <div className="border border-gray-300 rounded-md p-3 bg-white">
-                    <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                      {[
-                        ...Array.from({length: 76}, (_, i) => 25 + i),
-                        ...Array.from({length: 40}, (_, i) => 100 + (i + 1) * 10),
-                        ...Array.from({length: 10}, (_, i) => 500 + (i + 1) * 50),
-                        ...Array.from({length: 40}, (_, i) => 1000 + (i + 1) * 100),
-                      ].map((num) => String(num)).map((areaValue) => {
-                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
-                        const isSelected = selectedAreas.includes(areaValue);
-                        
-                        return (
-                          <label key={areaValue} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
-                                let newAreas;
-                                if (e.target.checked) {
-                                  newAreas = [...currentAreas, areaValue];
-                                } else {
-                                  newAreas = currentAreas.filter(area => area !== areaValue);
-                                }
-                                handleInputChange('area', newAreas.join(','));
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm">{areaValue} m²</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {formData.area && (formData.area.includes(',') || formData.area.length > 0) && (() => {
-                      const selectedAreas = (Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter(a => a);
-                      const numericAreas = selectedAreas.map(v => parseInt(v)).filter(v => !isNaN(v));
-                      return (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          {numericAreas.length > 1 ? (
-                            <div className="flex items-center gap-2">
-                              <div className="text-xs text-gray-500">Users will see:</div>
-                              <Badge variant="default" className="bg-[#005476] text-white text-sm">
-                                {Math.min(...numericAreas)} - {Math.max(...numericAreas)} m²
-                              </Badge>
-                              <span className="text-xs text-gray-400">({numericAreas.length} selected)</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <div className="text-xs text-gray-500">Selected:</div>
-                              <Badge variant="secondary" className="text-xs">{selectedAreas[0]} m²</Badge>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
               </div>
 
               <div>
@@ -2000,6 +1940,66 @@ const PropertyForm = () => {
                       />
                     </div>
                   )}
+                </div>
+
+                <div>
+                  <Label htmlFor="area">Area (m²) *</Label>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white">
+                    <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                      {[
+                        ...Array.from({length: 76}, (_, i) => 25 + i),
+                        ...Array.from({length: 40}, (_, i) => 100 + (i + 1) * 10),
+                        ...Array.from({length: 10}, (_, i) => 500 + (i + 1) * 50),
+                        ...Array.from({length: 40}, (_, i) => 1000 + (i + 1) * 100),
+                      ].map((num) => String(num)).map((areaValue) => {
+                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
+                        const isSelected = selectedAreas.includes(areaValue);
+                        return (
+                          <label key={areaValue} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
+                                let newAreas;
+                                if (e.target.checked) {
+                                  newAreas = [...currentAreas, areaValue];
+                                } else {
+                                  newAreas = currentAreas.filter(area => area !== areaValue);
+                                }
+                                handleInputChange('area', newAreas.join(','));
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{areaValue} m²</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.area && (formData.area.includes(',') || formData.area.length > 0) && (() => {
+                      const selectedAreas = (Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter(a => a);
+                      const numericAreas = selectedAreas.map(v => parseInt(v)).filter(v => !isNaN(v));
+                      return (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          {numericAreas.length > 1 ? (
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-gray-500">Users will see:</div>
+                              <Badge variant="default" className="bg-[#005476] text-white text-sm">
+                                {Math.min(...numericAreas)} - {Math.max(...numericAreas)} m²
+                              </Badge>
+                              <span className="text-xs text-gray-400">({numericAreas.length} selected)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-gray-500">Selected:</div>
+                              <Badge variant="secondary" className="text-xs">{selectedAreas[0]} m²</Badge>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div>
