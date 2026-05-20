@@ -370,7 +370,7 @@ const AMBASSADORI_APT_COORDS: Record<string, [number, number, number, number]> =
   // elevator core x 0.416–0.494
   "12": [0.494, 0.161, 0.571, 0.532],
   "14": [0.571, 0.161, 0.648, 0.532],
-  "16": [0.648, 0.161, 0.725, 0.532],
+  "16": [0.668, 0.161, 0.725, 0.532],
   "18": [0.725, 0.161, 0.802, 0.532],
   "20": [0.802, 0.161, 0.879, 0.532],
   "22": [0.879, 0.161, 0.956, 0.532],
@@ -1148,8 +1148,8 @@ function PDFTemplate({
     hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
     hTagline:   { fontSize: 17, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
     hTitle:     { fontSize: 40, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
-    hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
-    hLocation:  { fontSize: 22, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
+    hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 190 },
+    hLocation:  { fontSize: 22, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const },
     logo:       { height: 160, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
     imgWrap1:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0 },
     imgWrap2:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
@@ -1266,7 +1266,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🏗️</div>
-              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? "المخطط الداخلي للشقة" :
                  lang === "he" ? "תוכנית הדירה" :
                  lang === "ru" ? "Планировка квартиры" :
@@ -1346,7 +1346,7 @@ function PDFTemplate({
               borderTop: "1px solid #dde3ea",
             }}>
               <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
-              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `الشقة المحددة: رقم ${apartmentNumber}` :
                  lang === "he" ? `הדירה הנבחרת: מס' ${apartmentNumber}` :
                  lang === "ru" ? `Выбранная квартира: № ${apartmentNumber}` :
@@ -1413,7 +1413,7 @@ function PDFTemplate({
               borderTop: "1px solid #dde3ea",
             }}>
               <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
-              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `الغرفة المحددة: رقم ${apartmentNumber}` :
                  lang === "he" ? `החדר הנבחר: מס' ${apartmentNumber}` :
                  lang === "ru" ? `Выбранный номер: ${apartmentNumber}` :
@@ -1476,7 +1476,7 @@ function PDFTemplate({
               borderTop: "1px solid #dde3ea",
             }}>
               <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
-              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `الشقة المحددة: رقم ${apartmentNumber}` :
                  lang === "he" ? `הדירה הנבחרת: מס' ${apartmentNumber}` :
                  lang === "ru" ? `Выбранная квартира: ${apartmentNumber}` :
