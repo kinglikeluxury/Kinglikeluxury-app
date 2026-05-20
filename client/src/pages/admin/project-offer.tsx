@@ -205,12 +205,12 @@ const buildSilkTowersHighlight = async (aptNum: string): Promise<string> => {
   const key = aptNum.trim().padStart(2, "0");
   const coords = SILK_APT_COORDS[key] ?? SILK_APT_COORDS[aptNum.trim()];
 
+  const dataUrl = await imgToBase64(SILK_TOWERS_FLOOR_PLAN_URL);
   const img = new Image();
-  img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
     img.onload  = () => resolve();
     img.onerror = reject;
-    img.src = SILK_TOWERS_FLOOR_PLAN_URL + "?t=" + Date.now();
+    img.src = dataUrl;
   });
 
   const canvas = document.createElement("canvas");
@@ -311,12 +311,12 @@ const buildPetraHighlight = async (aptNum: string): Promise<string> => {
   const suffix = raw.length >= 3 ? raw.slice(-2).padStart(2, "0") : raw.length > 0 ? raw.padStart(2, "0") : "";
   const coords = suffix ? (PETRA_APT_COORDS[suffix] ?? PETRA_APT_COORDS[raw]) : undefined;
 
+  const dataUrl = await imgToBase64(PETRA_SEA_RESORT_FLOOR_PLAN_URL);
   const img = new Image();
-  img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
     img.onload  = () => resolve();
     img.onerror = reject;
-    img.src = PETRA_SEA_RESORT_FLOOR_PLAN_URL + "?t=" + Date.now();
+    img.src = dataUrl;
   });
 
   const canvas = document.createElement("canvas");
@@ -395,12 +395,12 @@ const buildAmbassadoriHighlight = async (aptNum: string): Promise<string> => {
   const key = raw.padStart(2, "0");
   const coords = AMBASSADORI_APT_COORDS[key] ?? AMBASSADORI_APT_COORDS[raw];
 
+  const dataUrl = await imgToBase64(AMBASSADORI_FLOOR_PLAN_URL);
   const img = new Image();
-  img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
     img.onload  = () => resolve();
     img.onerror = reject;
-    img.src = AMBASSADORI_FLOOR_PLAN_URL + "?t=" + Date.now();
+    img.src = dataUrl;
   });
 
   const canvas = document.createElement("canvas");
