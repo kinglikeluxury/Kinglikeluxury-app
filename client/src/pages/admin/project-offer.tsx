@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
@@ -576,55 +577,39 @@ export default function ProjectOfferPage() {
 
       // 2. Pre-load all images as base64 (required for html-to-image cross-origin)
       const rawUrls: string[] = selectedProject.images?.slice(0, 2) ?? [];
-      const [loaded, fpB64] = await Promise.all([
+      const isSilk        = /silk/i.test(selectedProject.title ?? "")         || /سيلك/i.test(selectedProject.title ?? "");
+      const isPetra       = /petra\s*sea/i.test(selectedProject.title ?? "")  || /بترا\s*سي/i.test(selectedProject.title ?? "");
+      const isAmbassadori = /ambassadori/i.test(selectedProject.title ?? "")  || /أمباسادوري/i.test(selectedProject.title ?? "");
+
+      const [loaded, fpB64, silkB64, petraB64, ambB64] = await Promise.all([
         Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
         selectedFloorPlan ? imgToBase64(selectedFloorPlan) : Promise.resolve(""),
+        isSilk && apartmentNumber.trim()
+          ? buildSilkTowersHighlight(apartmentNumber).catch(() => "")
+          : Promise.resolve(""),
+        isPetra
+          ? buildPetraHighlight(apartmentNumber).catch((e) => { console.error("Petra highlight error:", e); return ""; })
+          : Promise.resolve(""),
+        isAmbassadori
+          ? buildAmbassadoriHighlight(apartmentNumber).catch((e) => { console.error("Ambassadori highlight error:", e); return ""; })
+          : Promise.resolve(""),
       ]);
-      setB64Images(loaded);
-      setFloorPlanB64(fpB64);
-      setFlagB64(makeGeorgiaFlagB64());
 
-      // 3b. If Silk Towers + apartment number → build highlighted floor plan
-      const isSilk = /silk/i.test(selectedProject.title ?? "") || /سيلك/i.test(selectedProject.title ?? "");
-      if (isSilk && apartmentNumber.trim()) {
-        try {
-          const silkB64 = await buildSilkTowersHighlight(apartmentNumber);
-          setSilkHighlightB64(silkB64);
-        } catch { setSilkHighlightB64(""); }
-      } else {
-        setSilkHighlightB64("");
-      }
-
-      // 3c. If Petra Sea Resort (specifically) → always build floor plan (highlighted if apt number given)
-      const isPetra = /petra\s*sea/i.test(selectedProject.title ?? "") || /بترا\s*سي/i.test(selectedProject.title ?? "");
-      if (isPetra) {
-        try {
-          const petraB64 = await buildPetraHighlight(apartmentNumber);
-          setPetraHighlightB64(petraB64);
-        } catch (e) { console.error("Petra highlight error:", e); setPetraHighlightB64(""); }
-      } else {
-        setPetraHighlightB64("");
-      }
-
-      // 3d. If Ambassadori → build highlighted floor plan
-      const isAmbassadori = /ambassadori/i.test(selectedProject.title ?? "") || /أمباسادوري/i.test(selectedProject.title ?? "");
-      if (isAmbassadori) {
-        try {
-          const ambB64 = await buildAmbassadoriHighlight(apartmentNumber);
-          setAmbassadoriHighlightB64(ambB64);
-        } catch (e) { console.error("Ambassadori highlight error:", e); setAmbassadoriHighlightB64(""); }
-      } else {
-        setAmbassadoriHighlightB64("");
-      }
-
-      // 3. Wait for React to re-render with base64 images
-      await new Promise((r) => setTimeout(r, 500));
+      // Force-sync all state updates into the DOM in one shot before capture
+      flushSync(() => {
+        setB64Images(loaded);
+        setFloorPlanB64(fpB64);
+        setFlagB64(makeGeorgiaFlagB64());
+        setSilkHighlightB64(silkB64);
+        setPetraHighlightB64(petraB64);
+        setAmbassadoriHighlightB64(ambB64);
+      });
 
       const el = pdfRef.current;
       if (!el) return;
       el.style.display = "block";
-      // Let browser lay out the element before capture
-      await new Promise((r) => setTimeout(r, 300));
+      // Give the browser time to decode and paint all images (especially floor plan)
+      await new Promise((r) => setTimeout(r, 800));
 
       // 4. Capture via html-to-image (SVG foreignObject → proper Arabic shaping)
       const dataUrl = await toPng(el, {
