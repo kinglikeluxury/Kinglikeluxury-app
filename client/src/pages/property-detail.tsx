@@ -140,7 +140,6 @@ const PropertyDetail = () => {
   const isLoading = isLoadingProperty || (property?.propertyType === 'project' && isLoadingProject);
 
   const translatedTexts = useAutoTranslate({
-    title: property?.title,
     description: property?.description,
   });
   const translatedFeatures = useAutoTranslateArray(property?.features || []);
@@ -404,7 +403,7 @@ const PropertyDetail = () => {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-3xl font-bold text-gray-900">{translatedTexts.title || property.title}</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
                     <button
                       onClick={() => toggleFavorite({ id: property.id, title: property.title, price: property.price, type: property.propertyType })}
                       className={`p-2 rounded-full border-2 transition-all ${isFavorite(property.id) ? 'border-[#3bcac4] bg-[#3bcac4]/10 hover:bg-[#3bcac4]/20' : 'border-gray-300 bg-white hover:bg-gray-50'}`}

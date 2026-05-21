@@ -42,7 +42,7 @@ const PropertyCard = ({
   const { t } = useTranslation();
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorited = isFavorite(id);
-  const translatedTitle = useAutoTranslateText(title);
+  const translatedTitle = title;
   const getPropertyTypeColor = () => {
     // Use consistent Kinglike blue color (#005476) for all property types
     return "bg-[#005476] text-white";

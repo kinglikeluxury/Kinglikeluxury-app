@@ -77,7 +77,6 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
   const propertyData = project.property || project;
 
   const translated = useAutoTranslate({
-    title: propertyData.title || '',
     description: propertyData.description || '',
   });
 
@@ -90,7 +89,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
           <img
             className="h-64 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
             src={projectImage}
-            alt={translated.title}
+            alt={propertyData.title}
           />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
@@ -141,7 +140,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
           <Link href={`/property/${project.propertyId}`}>
             <a className="block">
               <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
-                {translated.title}
+                {propertyData.title}
               </h3>
               <p className="text-base text-gray-600 mb-4 line-clamp-2">
                 {translated.description?.slice(0, 120)}{translated.description?.length > 120 ? '...' : ''}
