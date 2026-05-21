@@ -39,13 +39,13 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="bg-white shadow-sm sticky top-0 z-30">
+      <nav className="bg-white shadow-sm sticky top-0 z-30 overflow-visible">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-24 sm:h-16">
+          <div className="flex justify-between h-16 sm:h-14 overflow-visible">
             {/* Logo */}
-            <div className="flex items-center">
+            <div className="flex items-center overflow-visible">
               <Link href="/">
-                <img src={logoPath} alt="Kinglike Luxury" className="h-20 sm:h-20 w-auto" />
+                <img src={logoPath} alt="Kinglike Luxury" className="h-24 sm:h-24 w-auto" />
               </Link>
               {/* Desktop nav links */}
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
