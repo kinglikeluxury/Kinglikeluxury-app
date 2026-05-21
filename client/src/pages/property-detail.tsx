@@ -70,7 +70,26 @@ const PropertyDetail = () => {
     if (!property) return;
     const currentDomain = window.location.origin;
     const propertyLink = `${currentDomain}/property/${property.id}`;
-    const message = `🏠 *${property.title}*\n\n💰 *Price:* ${getPriceRange(property.price)}\n📍 *Location:* ${property.location}\n🏡 *Type:* ${getPropertyTypeName(property.propertyType)}\n📐 *Area:* ${property.area} m²${property.bedrooms ? `\n🛏️ *Bedrooms:* ${property.bedrooms}` : ''}${property.bathrooms ? `\n🚿 *Bathrooms:* ${property.bathrooms}` : ''}${property.floorNumber ? `\n🏢 *Floor:* ${property.floorNumber}` : ''}\n\n📸 *Images:* ${property.images?.length || 0} photos${property.videos?.length ? `\n🎥 *Videos:* ${property.videos.length} property videos` : ''}\n\n✨ Check out this amazing property!\n\n🔗 ${propertyLink}\n\n🏢 *Kinglike Luxury Real Estate*`;
+    const message = [
+      `🏠 *${property.title}*`,
+      ``,
+      `💰 *${t('share.price')}:* ${getPriceRange(property.price)}`,
+      `📍 *${t('share.location')}:* ${property.location}`,
+      `🏡 *${t('share.type')}:* ${getPropertyTypeName(property.propertyType)}`,
+      `📐 *${t('share.area')}:* ${property.area} m²`,
+      ...(property.bedrooms ? [`🛏️ *${t('share.bedrooms')}:* ${property.bedrooms}`] : []),
+      ...(property.bathrooms ? [`🚿 *${t('share.bathrooms')}:* ${property.bathrooms}`] : []),
+      ...(property.floorNumber ? [`🏢 *${t('share.floor')}:* ${property.floorNumber}`] : []),
+      ``,
+      `📸 *${t('share.images')}:* ${property.images?.length || 0} ${t('share.photos')}`,
+      ...(property.videos?.length ? [`🎥 *${t('share.images')}:* ${property.videos.length} ${t('share.propertyVideos')}`] : []),
+      ``,
+      `✨ ${t('share.checkOut')}`,
+      ``,
+      `🔗 ${propertyLink}`,
+      ``,
+      `🏢 *Kinglike Luxury Real Estate*`,
+    ].join('\n');
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -808,7 +827,7 @@ const PropertyDetail = () => {
                     >
                       <span className="flex items-center justify-center">
                         <Share2 className="mr-2 h-4 w-4" />
-                        Share Property on WhatsApp
+                        {t('share.whatsappBtn')}
                       </span>
                     </Button>
                     

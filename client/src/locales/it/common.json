@@ -81,6 +81,20 @@
     "soldConfirmDesc": "Sull'immagine di copertina apparirà un banner 'VENDUTO'.",
     "availableConfirmDesc": "Il banner 'VENDUTO' verrà rimosso da questa proprietà."
   },
+  "share": {
+    "price": "Prezzo",
+    "location": "Posizione",
+    "type": "Tipo",
+    "area": "Superficie",
+    "bedrooms": "Camere da letto",
+    "bathrooms": "Bagni",
+    "floor": "Piano",
+    "images": "Immagini",
+    "photos": "foto",
+    "propertyVideos": "video dell'immobile",
+    "checkOut": "Dai un'occhiata a questo straordinario immobile!",
+    "whatsappBtn": "Condividi su WhatsApp"
+  },
   "propertyTypes": {
     "apartment": "Appartamenti",
     "villa": "Ville",

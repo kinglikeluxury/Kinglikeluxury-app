@@ -81,6 +81,20 @@
     "soldConfirmDesc": "Na zdjęciu okładki nieruchomości pojawi się baner 'SPRZEDANE'.",
     "availableConfirmDesc": "Baner 'SPRZEDANE' zostanie usunięty z tej nieruchomości."
   },
+  "share": {
+    "price": "Cena",
+    "location": "Lokalizacja",
+    "type": "Typ",
+    "area": "Powierzchnia",
+    "bedrooms": "Sypialnie",
+    "bathrooms": "Łazienki",
+    "floor": "Piętro",
+    "images": "Zdjęcia",
+    "photos": "zdjęć",
+    "propertyVideos": "filmów o nieruchomości",
+    "checkOut": "Sprawdź tę wspaniałą nieruchomość!",
+    "whatsappBtn": "Udostępnij na WhatsApp"
+  },
   "propertyTypes": {
     "apartment": "Mieszkania",
     "villa": "Wille",

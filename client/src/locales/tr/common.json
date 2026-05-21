@@ -81,6 +81,20 @@
     "soldConfirmDesc": "Mülkün kapak görselinde 'SATILDI' afişi görünecek.",
     "availableConfirmDesc": "'SATILDI' afişi bu mülkten kaldırılacak."
   },
+  "share": {
+    "price": "Fiyat",
+    "location": "Konum",
+    "type": "Tür",
+    "area": "Alan",
+    "bedrooms": "Yatak Odası",
+    "bathrooms": "Banyo",
+    "floor": "Kat",
+    "images": "Görseller",
+    "photos": "fotoğraf",
+    "propertyVideos": "mülk videoları",
+    "checkOut": "Bu harika mülke göz atın!",
+    "whatsappBtn": "WhatsApp'ta Paylaş"
+  },
   "propertyTypes": {
     "apartment": "Daireler",
     "villa": "Villalar",

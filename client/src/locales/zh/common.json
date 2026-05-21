@@ -81,6 +81,20 @@
     "soldConfirmDesc": "房产封面图片上将显示'已售出'标识。",
     "availableConfirmDesc": "将从该房产中移除'已售出'标识。"
   },
+  "share": {
+    "price": "价格",
+    "location": "位置",
+    "type": "类型",
+    "area": "面积",
+    "bedrooms": "卧室",
+    "bathrooms": "卫生间",
+    "floor": "楼层",
+    "images": "图片",
+    "photos": "张图片",
+    "propertyVideos": "个房产视频",
+    "checkOut": "来看看这个精彩的房产！",
+    "whatsappBtn": "在WhatsApp上分享"
+  },
   "propertyTypes": {
     "apartment": "公寓",
     "villa": "别墅",

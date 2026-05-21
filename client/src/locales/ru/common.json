@@ -81,6 +81,20 @@
     "soldConfirmDesc": "На обложке объекта появится баннер «ПРОДАНО».",
     "availableConfirmDesc": "Баннер «ПРОДАНО» будет удалён с этого объекта."
   },
+  "share": {
+    "price": "Цена",
+    "location": "Местоположение",
+    "type": "Тип",
+    "area": "Площадь",
+    "bedrooms": "Спальни",
+    "bathrooms": "Ванные",
+    "floor": "Этаж",
+    "images": "Фото",
+    "photos": "фото",
+    "propertyVideos": "видео объекта",
+    "checkOut": "Посмотрите этот замечательный объект!",
+    "whatsappBtn": "Поделиться в WhatsApp"
+  },
   "propertyTypes": {
     "apartment": "Квартиры",
     "villa": "Виллы",

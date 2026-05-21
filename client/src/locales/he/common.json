@@ -81,6 +81,20 @@
     "soldConfirmDesc": "על תמונת הכריכה של הנכס יופיע באנר 'נמכר'.",
     "availableConfirmDesc": "הבאנר 'נמכר' יוסר מהנכס הזה."
   },
+  "share": {
+    "price": "מחיר",
+    "location": "מיקום",
+    "type": "סוג",
+    "area": "שטח",
+    "bedrooms": "חדרי שינה",
+    "bathrooms": "חדרי אמבטיה",
+    "floor": "קומה",
+    "images": "תמונות",
+    "photos": "תמונות",
+    "propertyVideos": "סרטוני נכס",
+    "checkOut": "בדקו את הנכס המדהים הזה!",
+    "whatsappBtn": "שתף נכס בוואטסאפ"
+  },
   "propertyTypes": {
     "apartment": "דירות",
     "villa": "וילות",

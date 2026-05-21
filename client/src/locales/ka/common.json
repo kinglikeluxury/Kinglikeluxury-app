@@ -81,6 +81,20 @@
     "soldConfirmDesc": "ქონების სქემაზე გამოჩნდება 'გაყიდულია' ბანერი.",
     "availableConfirmDesc": "'გაყიდულია' ბანერი მოიხსნება ამ ქონებიდან."
   },
+  "share": {
+    "price": "ფასი",
+    "location": "მდებარეობა",
+    "type": "ტიპი",
+    "area": "ფართი",
+    "bedrooms": "საძინებელი",
+    "bathrooms": "სააბაზანო",
+    "floor": "სართული",
+    "images": "ფოტოები",
+    "photos": "ფოტო",
+    "propertyVideos": "ობიექტის ვიდეო",
+    "checkOut": "გაეცანით ამ საოცარ ობიექტს!",
+    "whatsappBtn": "გაზიარება WhatsApp-ზე"
+  },
   "propertyTypes": {
     "apartment": "ბინები",
     "villa": "ვილები",

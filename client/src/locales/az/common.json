@@ -81,6 +81,20 @@
     "soldConfirmDesc": "Əmlakın üz qabığında 'SATILDI' banneri görünəcək.",
     "availableConfirmDesc": "'SATILDI' banneri bu əmlakdan silinəcək."
   },
+  "share": {
+    "price": "Qiymət",
+    "location": "Yer",
+    "type": "Növ",
+    "area": "Sahə",
+    "bedrooms": "Yataq otaqları",
+    "bathrooms": "Hamamlar",
+    "floor": "Mərtəbə",
+    "images": "Şəkillər",
+    "photos": "şəkil",
+    "propertyVideos": "əmlak videoları",
+    "checkOut": "Bu əla əmlaka baxın!",
+    "whatsappBtn": "WhatsApp-da paylaş"
+  },
   "propertyTypes": {
     "apartment": "Mənzillər",
     "villa": "Villalar",

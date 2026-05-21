@@ -88,6 +88,20 @@
     "project": "مشاريع على الخارطة",
     "commercial": "مساحات تجارية"
   },
+  "share": {
+    "price": "السعر",
+    "location": "الموقع",
+    "type": "النوع",
+    "area": "المساحة",
+    "bedrooms": "غرف النوم",
+    "bathrooms": "الحمامات",
+    "floor": "الطابق",
+    "images": "الصور",
+    "photos": "صور",
+    "propertyVideos": "فيديوهات العقار",
+    "checkOut": "اطلع على هذا العقار الرائع!",
+    "whatsappBtn": "مشاركة على واتساب"
+  },
   "auth": {
     "login": "تسجيل الدخول",
     "register": "إنشاء حساب",
