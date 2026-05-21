@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Building, Home, CircleDot, Construction, User, Clock, Bell } from "lucide-react";
+import { slugifyProperty } from "@/lib/slugify";
 
 const AdminDashboard = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -354,7 +355,7 @@ const AdminDashboard = () => {
                               <td className="p-2">${property.price.toLocaleString()}</td>
                               <td className="p-2 text-center">
                                 <Button variant="outline" size="sm" asChild>
-                                  <Link href={`/property/${property.id}`}>View</Link>
+                                  <Link href={`/property/${slugifyProperty(property.title, property.location, property.id)}`}>View</Link>
                                 </Button>
                               </td>
                             </tr>

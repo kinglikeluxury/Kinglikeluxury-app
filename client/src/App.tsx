@@ -54,7 +54,7 @@ function Router() {
           <Route path="/blog" component={Blog} />
           <Route path="/blog/:slug" component={BlogPost} />
           <Route path="/:lang/blog/:slug" component={BlogPostLang} />
-          <Route path="/property/:id" component={PropertyDetail} />
+          <Route path="/property/:slug" component={PropertyDetail} />
           <Route path="/submit-property" component={SubmitProperty} />
           <Route path="/submit-property/form" component={PropertyForm} />
           <Route path="/property/:id/edit" component={PropertyForm} />

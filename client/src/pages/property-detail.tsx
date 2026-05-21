@@ -14,6 +14,7 @@ import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, 
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate, useAutoTranslateArray } from "@/hooks/useAutoTranslate";
+import { slugifyProperty, extractIdFromSlug } from "@/lib/slugify";
 import { useContentProtection } from "@/hooks/use-content-protection";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,8 +26,8 @@ const PropertyDetail = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
   useContentProtection();
   const [, navigate] = useLocation();
-  const [, params] = useRoute("/property/:id");
-  const propertyId = params?.id ? parseInt(params.id) : null;
+  const [, params] = useRoute("/property/:slug");
+  const propertyId = params?.slug ? extractIdFromSlug(params.slug) : null;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
@@ -69,7 +70,7 @@ const PropertyDetail = () => {
   const handleWhatsAppShare = () => {
     if (!property) return;
     const currentDomain = window.location.origin;
-    const propertyLink = `${currentDomain}/property/${property.id}`;
+    const propertyLink = `${currentDomain}/property/${slugifyProperty(property.title, property.location, property.id)}`;
     const message = [
       `🏠 *${property.title}*`,
       ``,
@@ -107,7 +108,7 @@ const PropertyDetail = () => {
         description: t("auth.loginToContact", "سجّل دخولك أولاً للتواصل مع صاحب العقار"),
         variant: "destructive",
       });
-      navigate(`/login?redirect=/property/${property.id}`);
+      navigate(`/login?redirect=/property/${slugifyProperty(property.title, property.location, property.id)}`);
       return;
     }
 
@@ -123,7 +124,7 @@ const PropertyDetail = () => {
       PLATFORM_WHATSAPP;
 
     const digits = rawNumber.replace(/[^0-9]/g, "");
-    const propertyLink = `${window.location.origin}/property/${property.id}`;
+    const propertyLink = `${window.location.origin}/property/${slugifyProperty(property.title, property.location, property.id)}`;
     const msg =
       `مرحباً،\nوجدت هذا العقار "${property.title}" على تطبيق Kinglike Luxury.\nهل يمكنني الحصول على مزيد من المعلومات؟\n${propertyLink}`;
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -433,7 +434,7 @@ const PropertyDetail = () => {
                     {user && (user.id === property.ownerId || user.isAdmin) && (
                       <>
                         <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
-                          <Link href={`/property/${property.id}/edit`}>
+                          <Link href={`/property/${property.id}/edit`} data-numeric-id={property.id}>
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Link>
@@ -861,7 +862,7 @@ const PropertyDetail = () => {
                         <Button
                           variant="outline"
                           className="w-full mt-3 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4] hover:text-white font-medium"
-                          onClick={() => { navigate(`/login?redirect=/property/${property.id}`); }}
+                          onClick={() => { navigate(`/login?redirect=/property/${slugifyProperty(property.title, property.location, property.id)}`); }}
                         >
                           📞 {t("auth.loginToViewPhone", "سجّل للاطلاع على الرقم")}
                         </Button>

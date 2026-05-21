@@ -7,6 +7,7 @@ import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslateText } from "@/hooks/useAutoTranslate";
+import { slugifyProperty } from "@/lib/slugify";
 
 interface PropertyCardProps {
   id: number;
@@ -129,7 +130,7 @@ const PropertyCard = ({
   return (
     <Card className="overflow-hidden h-full flex flex-col">
       <div className="relative">
-        <Link href={`/property/${id}`} className="block">
+        <Link href={`/property/${slugifyProperty(title, location, id)}`} className="block">
           <div className="relative">
             <img
               src={images && images.length > 0 ? images[0] : "https://via.placeholder.com/800x600?text=No+Image"}
@@ -230,7 +231,7 @@ const PropertyCard = ({
         
         <div className="mt-4 mt-auto">
           <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
-            <Link href={`/property/${id}`}>
+            <Link href={`/property/${slugifyProperty(title, location, id)}`}>
               <span className="flex items-center justify-center">
                 {t('property.viewDetails', 'View Details')}
                 <ArrowRight className="ml-2 h-4 w-4" />

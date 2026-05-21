@@ -126,6 +126,7 @@ const PropertyForm = () => {
   const [paymentSuccessDetails, setPaymentSuccessDetails] = useState<{
     propertyId: string;
     propertyTitle: string;
+    propertyLocation: string;
     durationDays: number;
     amount: number;
   } | null>(null);
@@ -1078,7 +1079,10 @@ const PropertyForm = () => {
         return result;
       }
       
-      const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
+      const { slugifyProperty: sp } = await import('@/lib/slugify');
+      const redirectUrl = isEditMode
+        ? `/property/${propertyId}/edit`
+        : `/property/${sp(result.title || '', result.location || '', result.id)}`;
       window.location.href = redirectUrl;
       
     } catch (error) {
@@ -1158,6 +1162,7 @@ const PropertyForm = () => {
       setPaymentSuccessDetails({
         propertyId: savedPropertyId.toString(),
         propertyTitle: formData.title,
+        propertyLocation: formData.location || '',
         durationDays: days,
         amount: amount
       });
@@ -2946,6 +2951,7 @@ const PropertyForm = () => {
             }}
             propertyId={paymentSuccessDetails.propertyId}
             propertyTitle={paymentSuccessDetails.propertyTitle}
+            propertyLocation={paymentSuccessDetails.propertyLocation}
             durationDays={paymentSuccessDetails.durationDays}
             amount={paymentSuccessDetails.amount}
           />

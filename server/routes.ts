@@ -201,8 +201,20 @@ ${hreflangs}
   // When WhatsApp / any crawler fetches /property/:id, the server responds with
   // the real OG tags (title, description, og:image = first property photo) so
   // that the link preview is shown correctly.
+  // Inline slug utility (server-side)
+  const serverSlugify = (str: string) =>
+    str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ").trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+
+  const buildPropertySlug = (title: string, location: string, id: number) => {
+    const [city = "", country = ""] = location.split(",").map(s => s.trim());
+    return [serverSlugify(title), serverSlugify(city), serverSlugify(country), String(id)].filter(Boolean).join("-");
+  };
+
   app.get("/property/:id", async (req, res, next) => {
-    const id = parseInt(req.params.id, 10);
+    // Support both numeric IDs and SEO slugs like "title-city-country-52"
+    const rawParam = req.params.id;
+    const id = parseInt(rawParam.split("-").pop() || rawParam, 10);
     if (isNaN(id)) return next();
 
     const ua = req.headers["user-agent"] || "";
@@ -232,7 +244,8 @@ ${hreflangs}
       const image = rawImage.includes("res.cloudinary.com")
         ? rawImage.replace(/\/upload\//, "/upload/w_1200,h_630,c_fill,f_jpg,q_80/")
         : rawImage;
-      const canonical   = `${SEO_BASE}/property/${id}`;
+      const slug = buildPropertySlug((property as any).title || "", (property as any).location || "", id);
+      const canonical   = `${SEO_BASE}/property/${slug}`;
 
       const metaTags = `
   <title>${title} | Kinglike Luxury</title>

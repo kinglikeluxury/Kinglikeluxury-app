@@ -35,6 +35,7 @@ import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+import { slugifyProperty } from "@/lib/slugify";
 
 interface Project {
   id: number | string;
@@ -85,7 +86,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
   return (
     <Card className="overflow-hidden flex flex-col">
       <div className="flex-shrink-0 relative">
-        <Link href={`/property/${project.propertyId}`} className="block">
+        <Link href={`/property/${slugifyProperty(propertyData.title || '', propertyData.location || '', project.propertyId as number)}`} className="block">
           <img
             className="h-64 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
             src={projectImage}
@@ -137,15 +138,13 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
                 : getPriceRange(propertyData.price)}
             </Badge>
           </div>
-          <Link href={`/property/${project.propertyId}`}>
-            <a className="block">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
-                {propertyData.title}
-              </h3>
-              <p className="text-base text-gray-600 mb-4 line-clamp-2">
-                {translated.description?.slice(0, 120)}{translated.description?.length > 120 ? '...' : ''}
-              </p>
-            </a>
+          <Link href={`/property/${slugifyProperty(propertyData.title || '', propertyData.location || '', project.propertyId as number)}`} className="block">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
+              {propertyData.title}
+            </h3>
+            <p className="text-base text-gray-600 mb-4 line-clamp-2">
+              {translated.description?.slice(0, 120)}{translated.description?.length > 120 ? '...' : ''}
+            </p>
           </Link>
           <div className="space-y-2">
             <div className="flex items-center text-sm text-gray-500">
@@ -174,7 +173,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
         </div>
         <div className="mt-6 pt-4 border-t border-gray-100">
           <Button asChild className="w-full">
-            <Link href={`/property/${project.propertyId}`}>
+            <Link href={`/property/${slugifyProperty(propertyData.title || '', propertyData.location || '', project.propertyId as number)}`}>
               <span className="flex items-center justify-center">
                 {t('projects.viewDetails', 'View Project Details')}
                 <ArrowRight className="ml-2 h-4 w-4" />
