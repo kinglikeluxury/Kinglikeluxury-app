@@ -45,7 +45,7 @@ const Navbar = () => {
             {/* Logo */}
             <div className="flex items-center overflow-visible">
               <Link href="/">
-                <img src={logoPath} alt="Kinglike Luxury" className="h-48 sm:h-48 w-auto -translate-y-2" />
+                <img src={logoPath} alt="Kinglike Luxury" className="h-48 sm:h-48 w-auto translate-y-3" />
               </Link>
               {/* Desktop nav links */}
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
