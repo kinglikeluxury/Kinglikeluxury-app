@@ -361,19 +361,20 @@ const AMBASSADORI_FLOOR_PLAN_URL = "/ambassadori-floor-plan.jpg";
 // Top row (even):   02,04,06,08,10 | [elev] | 12,14,16,18,20,22
 // Bottom row (odd): 01,03,07,09,11 | [elev] | 13,15,17,19,21,23 + corner 25,24
 const AMBASSADORI_APT_COORDS: Record<string, [number, number, number, number]> = {
-  // ── Top row (y: 0.161 → 0.532) ──────────────────────────────────────────
-  "02": [0.044, 0.161, 0.118, 0.532],
-  "04": [0.118, 0.161, 0.193, 0.532],
-  "06": [0.193, 0.161, 0.267, 0.532],
-  "08": [0.267, 0.161, 0.342, 0.532],
-  "10": [0.342, 0.161, 0.416, 0.532],
+  // ── Top row (y: 0.161 → 0.532) — width 0.054 centred in each 0.074-wide slot ──
+  "02": [0.054, 0.161, 0.108, 0.532],
+  "04": [0.128, 0.161, 0.183, 0.532],
+  "06": [0.203, 0.161, 0.257, 0.532],
+  "08": [0.277, 0.161, 0.332, 0.532],
+  "10": [0.352, 0.161, 0.406, 0.532],
   // elevator core x 0.416–0.494
-  "12": [0.494, 0.161, 0.571, 0.532],
-  "14": [0.571, 0.161, 0.648, 0.532],
-  "16": [0.668, 0.161, 0.725, 0.532],
-  "18": [0.725, 0.161, 0.802, 0.532],
-  "20": [0.802, 0.161, 0.879, 0.532],
-  "22": [0.879, 0.161, 0.956, 0.532],
+  // width 0.057 centred in each 0.077-wide slot (±0.010 padding)
+  "12": [0.504, 0.161, 0.561, 0.532],
+  "14": [0.581, 0.161, 0.638, 0.532],
+  "16": [0.658, 0.161, 0.715, 0.532],
+  "18": [0.735, 0.161, 0.792, 0.532],
+  "20": [0.812, 0.161, 0.869, 0.532],
+  "22": [0.889, 0.161, 0.946, 0.532],
   // ── Bottom row (y: 0.532 → 0.935) ────────────────────────────────────────
   "01": [0.044, 0.532, 0.118, 0.935],
   "03": [0.118, 0.532, 0.193, 0.935],
@@ -1315,7 +1316,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🗺️</div>
-              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `مخطط الطابق — الشقة رقم ${apartmentNumber}` :
                  lang === "he" ? `תוכנית הקומה — דירה ${apartmentNumber}` :
                  lang === "ru" ? `План этажа — квартира ${apartmentNumber}` :
@@ -1382,7 +1383,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🗺️</div>
-              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `مخطط الطابق — الغرفة رقم ${apartmentNumber}` :
                  lang === "he" ? `תוכנית הקומה — חדר ${apartmentNumber}` :
                  lang === "ru" ? `План этажа — номер ${apartmentNumber}` :
@@ -1447,7 +1448,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🗺️</div>
-              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `مخطط الطابق — الشقة رقم ${apartmentNumber}` :
                  lang === "he" ? `תוכנית הקומה — דירה ${apartmentNumber}` :
                  lang === "ru" ? `План этажа — квартира ${apartmentNumber}` :
