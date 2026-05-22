@@ -2223,11 +2223,13 @@ const PropertyForm = () => {
                       max={13000}
                       value={formData.area && !formData.area.includes(',') ? formData.area : ''}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '') { handleInputChange('area', ''); return; }
-                        const num = parseInt(val);
-                        if (!isNaN(num) && num >= 100 && num <= 13000) {
-                          handleInputChange('area', String(num));
+                        handleInputChange('area', e.target.value);
+                      }}
+                      onBlur={(e) => {
+                        const num = parseInt(e.target.value);
+                        if (!isNaN(num)) {
+                          const clamped = Math.min(13000, Math.max(100, num));
+                          handleInputChange('area', String(clamped));
                         }
                       }}
                       placeholder="100 – 13000"
@@ -2235,7 +2237,7 @@ const PropertyForm = () => {
                     />
                     <span className="text-sm font-medium text-gray-600 whitespace-nowrap">m²</span>
                   </div>
-                  {formData.area && !formData.area.includes(',') && parseInt(formData.area) >= 100 && (
+                  {formData.area && !formData.area.includes(',') && parseInt(formData.area) >= 1 && (
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-xs text-gray-500">{t('land.selected', 'Selected')}:</span>
                       <span className="bg-[#005476] text-white text-sm font-semibold px-3 py-0.5 rounded-full">
