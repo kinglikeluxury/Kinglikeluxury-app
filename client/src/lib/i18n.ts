@@ -12,10 +12,12 @@ import trCommon from '../locales/tr/common.json';
 import zhCommon from '../locales/zh/common.json';
 import plCommon from '../locales/pl/common.json';
 import itCommon from '../locales/it/common.json';
+import faCommon from '../locales/fa/common.json';
 
 export const languages = {
   en: { name: 'English', dir: 'ltr', flagCode: 'gb' },
   ar: { name: 'العربية', dir: 'rtl', flagCode: 'ae' },
+  fa: { name: 'فارسی', dir: 'rtl', flagCode: 'ir' },
   he: { name: 'עברית', dir: 'rtl', flagCode: 'il' },
   ru: { name: 'Русский', dir: 'ltr', flagCode: 'ru' },
   ka: { name: 'ქართული', dir: 'ltr', flagCode: 'ge' },
@@ -51,6 +53,7 @@ i18n
     resources: {
       en: { common: enCommon },
       ar: { common: arCommon },
+      fa: { common: faCommon },
       he: { common: heCommon },
       ru: { common: ruCommon },
       ka: { common: kaCommon },
