@@ -352,6 +352,9 @@
     "internet": "אינטרנט",
     "gas": "גז",
     "asphaltRoad": "כביש אספלט",
-    "fenced": "מגודר"
+    "fenced": "מגודר",
+    "areaLabel": "שטח (מ²)",
+    "selectArea": "בחר שטח קרקע:",
+    "selected": "נבחר"
   }
 }

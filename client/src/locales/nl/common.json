@@ -360,6 +360,9 @@
     "internet": "Internet",
     "gas": "Gas",
     "asphaltRoad": "Asfaltwweg",
-    "fenced": "Omheind"
+    "fenced": "Omheind",
+    "areaLabel": "Oppervlakte (m²)",
+    "selectArea": "Selecteer grondoppervlakte:",
+    "selected": "Geselecteerd"
   }
 }

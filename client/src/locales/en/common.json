@@ -356,6 +356,9 @@
     "internet": "Internet",
     "gas": "Gas",
     "asphaltRoad": "Asphalt Road",
-    "fenced": "Fenced"
+    "fenced": "Fenced",
+    "areaLabel": "Area (m²)",
+    "selectArea": "Select land area:",
+    "selected": "Selected"
   }
 }

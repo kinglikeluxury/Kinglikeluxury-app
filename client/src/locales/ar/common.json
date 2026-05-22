@@ -356,6 +356,9 @@
     "internet": "انترنت",
     "gas": "غاز",
     "asphaltRoad": "طريق إسفلت",
-    "fenced": "مسيّجة"
+    "fenced": "مسيّجة",
+    "areaLabel": "المساحة (م²)",
+    "selectArea": "اختر مساحة الأرض:",
+    "selected": "المحدد"
   }
 }

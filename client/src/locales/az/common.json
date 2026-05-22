@@ -352,6 +352,9 @@
     "internet": "İnternet",
     "gas": "Qaz",
     "asphaltRoad": "Asfalt Yol",
-    "fenced": "Hasarlanmış"
+    "fenced": "Hasarlanmış",
+    "areaLabel": "Sahə (m²)",
+    "selectArea": "Torpaq sahəsini seçin:",
+    "selected": "Seçildi"
   }
 }

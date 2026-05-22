@@ -360,6 +360,9 @@
     "internet": "Internet",
     "gas": "Gas",
     "asphaltRoad": "Asfaltsväg",
-    "fenced": "Inhägnad"
+    "fenced": "Inhägnad",
+    "areaLabel": "Yta (m²)",
+    "selectArea": "Välj markareal:",
+    "selected": "Vald"
   }
 }

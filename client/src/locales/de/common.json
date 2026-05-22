@@ -360,6 +360,9 @@
     "internet": "Internet",
     "gas": "Gas",
     "asphaltRoad": "Asphaltstraße",
-    "fenced": "Eingezäunt"
+    "fenced": "Eingezäunt",
+    "areaLabel": "Fläche (m²)",
+    "selectArea": "Grundstücksfläche auswählen:",
+    "selected": "Ausgewählt"
   }
 }

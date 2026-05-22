@@ -352,6 +352,9 @@
     "internet": "网络",
     "gas": "天然气",
     "asphaltRoad": "沥青路",
-    "fenced": "已围栏"
+    "fenced": "已围栏",
+    "areaLabel": "面积 (m²)",
+    "selectArea": "选择土地面积:",
+    "selected": "已选"
   }
 }

@@ -360,6 +360,9 @@
     "internet": "Internet",
     "gas": "Gaz",
     "asphaltRoad": "Route Asphaltée",
-    "fenced": "Clôturé"
+    "fenced": "Clôturé",
+    "areaLabel": "Superficie (m²)",
+    "selectArea": "Sélectionner la superficie:",
+    "selected": "Sélectionné"
   }
 }

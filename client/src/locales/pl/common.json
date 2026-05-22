@@ -352,6 +352,9 @@
     "internet": "Internet",
     "gas": "Gaz",
     "asphaltRoad": "Droga Asfaltowa",
-    "fenced": "Ogrodzona"
+    "fenced": "Ogrodzona",
+    "areaLabel": "Powierzchnia (m²)",
+    "selectArea": "Wybierz powierzchnię działki:",
+    "selected": "Wybrano"
   }
 }

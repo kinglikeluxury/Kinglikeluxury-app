@@ -352,6 +352,9 @@
     "internet": "İnternet",
     "gas": "Gaz",
     "asphaltRoad": "Asfalt Yol",
-    "fenced": "Çitli"
+    "fenced": "Çitli",
+    "areaLabel": "Alan (m²)",
+    "selectArea": "Arazi alanını seçin:",
+    "selected": "Seçildi"
   }
 }

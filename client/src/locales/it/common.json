@@ -352,6 +352,9 @@
     "internet": "Internet",
     "gas": "Gas",
     "asphaltRoad": "Strada Asfaltata",
-    "fenced": "Recintato"
+    "fenced": "Recintato",
+    "areaLabel": "Area (m²)",
+    "selectArea": "Seleziona l'area del terreno:",
+    "selected": "Selezionato"
   }
 }
