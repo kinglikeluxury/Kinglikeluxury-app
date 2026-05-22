@@ -103,7 +103,10 @@ const PropertyForm = () => {
     // Ready status
     readyStatus: '',
     // Top rated for off-plan projects
-    topRated: false
+    topRated: false,
+    // Land-specific fields
+    landType: '',
+    landFeatures: [] as string[],
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -218,7 +221,9 @@ const PropertyForm = () => {
         },
         deliveryDate: '',
         readyStatus: (existingProperty as any).readyStatus || '',
-        topRated: existingProperty.topRated || false
+        topRated: existingProperty.topRated || false,
+        landType: (existingProperty as any).landType || '',
+        landFeatures: (existingProperty as any).landFeatures || [],
       });
       
       // Set property type
@@ -995,6 +1000,8 @@ const PropertyForm = () => {
           ...(Array.isArray(formData.bathrooms) ? formData.bathrooms : []),
         ].filter(Boolean),
         amenities: formData.amenities || [],
+        landType: propertyType === 'land' ? (formData.landType || null) : null,
+        landFeatures: propertyType === 'land' ? (formData.landFeatures || []) : [],
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
         readyStatus: formData.readyStatus || null,
@@ -2163,6 +2170,71 @@ const PropertyForm = () => {
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Land Details — only shown for land type */}
+          {propertyType === PROPERTY_TYPES.LAND && (
+            <Card>
+              <CardHeader>
+                <CardTitle>🌍 تفاصيل الأرض / Land Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Land Type */}
+                <div>
+                  <Label>نوع الأرض / Land Type *</Label>
+                  <Select
+                    value={formData.landType || ''}
+                    onValueChange={(v) => handleInputChange('landType', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر نوع الأرض / Select land type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="agricultural">🌾 أرض زراعية / Agricultural Land</SelectItem>
+                      <SelectItem value="non-agricultural">🏗️ أرض غير زراعية / Non-Agricultural Land</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Land Features */}
+                <div>
+                  <Label>الأرض تتضمن / Land Includes</Label>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white mt-1">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {[
+                        { key: 'electricity', ar: 'كهرباء', en: 'Electricity', icon: '⚡' },
+                        { key: 'water', ar: 'ماء', en: 'Water', icon: '💧' },
+                        { key: 'internet', ar: 'انترنت', en: 'Internet', icon: '🌐' },
+                        { key: 'gas', ar: 'غاز', en: 'Gas', icon: '🔥' },
+                        { key: 'asphalt-road', ar: 'طريق إسفلت', en: 'Asphalt Road', icon: '🛣️' },
+                        { key: 'fenced', ar: 'مسيّجة', en: 'Fenced', icon: '🚧' },
+                      ].map((item) => (
+                        <label
+                          key={item.key}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={(formData.landFeatures || []).includes(item.key)}
+                            onChange={(e) => {
+                              const current = formData.landFeatures || [];
+                              const updated = e.target.checked
+                                ? [...current, item.key]
+                                : current.filter((f: string) => f !== item.key);
+                              setFormData(prev => ({ ...prev, landFeatures: updated }));
+                            }}
+                            className="rounded border-gray-300 accent-[#3bcac4]"
+                          />
+                          <span className="text-sm font-medium">
+                            {item.icon} {item.ar} / {item.en}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}

@@ -113,6 +113,8 @@ export const properties = pgTable("properties", {
   topRated: boolean("top_rated").default(false),
   isSold: boolean("is_sold").default(false).notNull(),
   priceMax: integer("price_max"),
+  landType: text("land_type"), // "agricultural" | "non-agricultural" — only for land type
+  landFeatures: jsonb("land_features").$type<string[]>().default([]), // electricity, water, etc.
 
 });
 
@@ -143,6 +145,8 @@ export const insertPropertySchema = createInsertSchema(properties)
     floorNumber: z.number().optional().nullable(),
     bedrooms: z.number().optional().nullable(),
     bathrooms: z.number().optional().nullable(),
+    landType: z.string().optional().nullable(),
+    landFeatures: z.array(z.string()).optional().default([]),
   });
 
 // Project details (for construction projects)

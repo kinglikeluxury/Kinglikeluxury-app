@@ -693,6 +693,14 @@ const PropertyDetail = () => {
                           <span className="font-medium">{(property as any).floorNumber}</span>
                         </div>
                       )}
+                      {property.propertyType === 'land' && (property as any).landType && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">نوع الأرض / Land Type</span>
+                          <span className="font-medium">
+                            {(property as any).landType === 'agricultural' ? '🌾 أرض زراعية / Agricultural' : '🏗️ أرض غير زراعية / Non-Agricultural'}
+                          </span>
+                        </div>
+                      )}
                       {(property as any).readyStatus && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">Ready Status</span>
@@ -709,6 +717,39 @@ const PropertyDetail = () => {
                 </div>
 
                 <Separator />
+
+                {/* Land Features Section */}
+                {property.propertyType === 'land' && (property as any).landFeatures?.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">🌍 الأرض تتضمن / Land Includes</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {((property as any).landFeatures as string[]).map((feat: string) => {
+                          const map: Record<string, { ar: string; en: string; icon: string }> = {
+                            electricity: { ar: 'كهرباء', en: 'Electricity', icon: '⚡' },
+                            water: { ar: 'ماء', en: 'Water', icon: '💧' },
+                            internet: { ar: 'انترنت', en: 'Internet', icon: '🌐' },
+                            gas: { ar: 'غاز', en: 'Gas', icon: '🔥' },
+                            'asphalt-road': { ar: 'طريق إسفلت', en: 'Asphalt Road', icon: '🛣️' },
+                            fenced: { ar: 'مسيّجة', en: 'Fenced', icon: '🚧' },
+                          };
+                          const info = map[feat];
+                          if (!info) return null;
+                          return (
+                            <div key={feat} className="flex items-center gap-2 bg-[#3bcac4]/10 border border-[#3bcac4]/30 rounded-lg p-3">
+                              <span className="text-xl">{info.icon}</span>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-[#005476]">{info.ar}</span>
+                                <span className="text-xs text-gray-500">{info.en}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Features Section */}
                 <div>
@@ -811,6 +852,14 @@ const PropertyDetail = () => {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Floor:</span>
                           <span>{(property as any).floorNumber}</span>
+                        </div>
+                      )}
+                      {property.propertyType === 'land' && (property as any).landType && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Land Type:</span>
+                          <span className="font-medium text-sm">
+                            {(property as any).landType === 'agricultural' ? '🌾 زراعية' : '🏗️ غير زراعية'}
+                          </span>
                         </div>
                       )}
                       <div className="flex justify-between">
