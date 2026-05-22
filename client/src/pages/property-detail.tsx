@@ -678,6 +678,22 @@ const PropertyDetail = () => {
                         <span className="text-gray-500 text-sm">Area</span>
                         <span className="font-medium">{getAreaDisplay(property.area)} m²</span>
                       </div>
+                      {(() => {
+                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
+                        const minPrice = prices.length ? Math.min(...prices) : 0;
+                        const minArea = areas.length ? Math.min(...areas) : 0;
+                        if (minPrice > 0 && minArea > 0) {
+                          const ppm = Math.round(minPrice / minArea);
+                          return (
+                            <div className="flex flex-col p-4 bg-gradient-to-br from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
+                              <span className="text-gray-500 text-sm">{t('property.pricePerMeter', 'Price per m²')}</span>
+                              <span className="font-bold text-[#005476]">${ppm.toLocaleString()} / m²</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {property.bedrooms !== null && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">Bedrooms</span>
@@ -857,6 +873,22 @@ const PropertyDetail = () => {
                         <span className="text-gray-500">Area:</span>
                         <span>{getAreaDisplay(property.area)} m²</span>
                       </div>
+                      {(() => {
+                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
+                        const minPrice = prices.length ? Math.min(...prices) : 0;
+                        const minArea = areas.length ? Math.min(...areas) : 0;
+                        if (minPrice > 0 && minArea > 0) {
+                          const ppm = Math.round(minPrice / minArea);
+                          return (
+                            <div className="flex justify-between items-center py-1 px-2 bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
+                              <span className="text-gray-600 font-medium">💡 {t('property.pricePerMeter', 'Price per m²')}</span>
+                              <span className="font-bold text-[#005476]">${ppm.toLocaleString()} / m²</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {property.bedrooms !== null && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Bedrooms:</span>

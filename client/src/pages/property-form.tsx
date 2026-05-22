@@ -1389,6 +1389,26 @@ const PropertyForm = () => {
                 </div>
               )}
 
+              {/* Price per m² — auto calculated */}
+              {(() => {
+                const prices = String(formData.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+                const areas = String(formData.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
+                const minPrice = prices.length ? Math.min(...prices) : 0;
+                const minArea = areas.length ? Math.min(...areas) : 0;
+                if (minPrice > 0 && minArea > 0) {
+                  const pricePerM2 = Math.round(minPrice / minArea);
+                  return (
+                    <div className="p-3 bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/30 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-700">💡 سعر المتر / Price per m²</span>
+                      <span className="text-base font-bold text-[#005476]">
+                        ${pricePerM2.toLocaleString()} <span className="text-xs font-normal">/ m²</span>
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div>
                 <Label htmlFor="description">Description *</Label>
                 <Textarea
