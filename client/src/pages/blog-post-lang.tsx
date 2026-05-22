@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect } from "react";
 import { useContentProtection } from "@/hooks/use-content-protection";
 
-const SUPPORTED_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
+const SUPPORTED_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];
 const BASE_URL = "https://www.kinglikeluxury.app";
 
 export default function BlogPostLang() {
@@ -198,6 +198,7 @@ export default function BlogPostLang() {
                 {[
                   { code: "en", label: "English" },
                   { code: "ar", label: "العربية" },
+                  { code: "fa", label: "فارسی" },
                   { code: "tr", label: "Türkçe" },
                   { code: "ru", label: "Русский" },
                   { code: "ka", label: "ქართული" },
@@ -205,6 +206,11 @@ export default function BlogPostLang() {
                   { code: "he", label: "עברית" },
                   { code: "zh", label: "中文" },
                   { code: "pl", label: "Polski" },
+                  { code: "it", label: "Italiano" },
+                  { code: "nl", label: "Nederlands" },
+                  { code: "de", label: "Deutsch" },
+                  { code: "sv", label: "Svenska" },
+                  { code: "fr", label: "Français" },
                 ].map((l) => (
                   <a
                     key={l.code}

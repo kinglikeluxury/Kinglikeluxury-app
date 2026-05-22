@@ -13,7 +13,7 @@ import {
 import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
-import { translateBlogPost } from "./translate";
+import { translateBlogPost, translateText, detectLanguage } from "./translate";
 import { generateEnglishSlug, hasNonAscii, timestampSlug, toEnglishSlug } from "./slugUtils";
 import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment";
 // TODO: Fix Google Cloud Storage TypeScript compatibility issues
@@ -57,7 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // ─── SEO: Sitemap & Robots (MUST be first — before any catch-all) ─────────
-  const SEO_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
+  const SEO_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];
   const SEO_BASE  = "https://www.kinglikeluxury.app";
 
   // Detects preferred language from Accept-Language header; falls back to "en".
@@ -1747,6 +1747,56 @@ ${metaTags}
     } catch (error) {
       console.error("Error migrating slugs:", error);
       res.status(500).json({ message: "Migration failed" });
+    }
+  });
+
+  // ─── Admin: Re-translate all blog posts for missing languages ────────────
+  app.post("/api/admin/retranslate-blogs", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+
+      const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];
+      const posts = await storage.getBlogPosts();
+      res.json({ message: "Re-translation started in background", total: posts.length });
+
+      // Run in background after response
+      (async () => {
+        let updated = 0;
+        for (const post of posts) {
+          const existingTranslations: any = (post as any).translations ?? {};
+          const missingLangs = NEW_LANGS.filter(l => !existingTranslations[l]);
+          if (missingLangs.length === 0) continue;
+
+          try {
+            const detectedLang = await detectLanguage(post.title + " " + post.content.substring(0, 200));
+            const sourceLang = detectedLang;
+            const sourceTitle   = existingTranslations[sourceLang]?.title   ?? existingTranslations["en"]?.title   ?? post.title;
+            const sourceContent = existingTranslations[sourceLang]?.content ?? existingTranslations["en"]?.content ?? post.content;
+            const sourceExcerpt = existingTranslations[sourceLang]?.excerpt ?? existingTranslations["en"]?.excerpt ?? post.excerpt ?? "";
+
+            const newTranslations: any = { ...existingTranslations };
+            for (const lang of missingLangs) {
+              const [tTitle, tContent, tExcerpt] = await Promise.all([
+                translateText(sourceTitle, lang, sourceLang),
+                translateText(sourceContent, lang, sourceLang),
+                translateText(sourceExcerpt, lang, sourceLang),
+              ]);
+              newTranslations[lang] = { title: tTitle, content: tContent, excerpt: tExcerpt };
+            }
+            await storage.updateBlogPost(post.id, { translations: newTranslations } as any);
+            updated++;
+            console.log(`[Retranslate] Post ${post.id} updated with langs: ${missingLangs.join(", ")}`);
+          } catch (err) {
+            console.error(`[Retranslate] Failed for post ${post.id}:`, err);
+          }
+        }
+        console.log(`[Retranslate] Done — updated ${updated}/${posts.length} posts`);
+      })();
+    } catch (error) {
+      console.error("Error starting retranslation:", error);
+      res.status(500).json({ message: "Failed to start retranslation" });
     }
   });
 
