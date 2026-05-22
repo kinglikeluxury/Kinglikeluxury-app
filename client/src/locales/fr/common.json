@@ -347,5 +347,19 @@
   },
   "badges": {
     "bestPrice": "Meilleur Prix"
+  },
+  "land": {
+    "details": "Détails du Terrain",
+    "landType": "Type de Terrain",
+    "selectLandType": "Sélectionner le type de terrain...",
+    "agricultural": "Terrain Agricole",
+    "nonAgricultural": "Terrain Non Agricole",
+    "includes": "Le Terrain Comprend",
+    "electricity": "Électricité",
+    "water": "Eau",
+    "internet": "Internet",
+    "gas": "Gaz",
+    "asphaltRoad": "Route Asphaltée",
+    "fenced": "Clôturé"
   }
 }

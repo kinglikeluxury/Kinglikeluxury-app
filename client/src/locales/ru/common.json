@@ -339,5 +339,19 @@
   },
   "badges": {
     "bestPrice": "Лучшая цена"
+  },
+  "land": {
+    "details": "Сведения об участке",
+    "landType": "Тип участка",
+    "selectLandType": "Выберите тип участка...",
+    "agricultural": "Сельскохозяйственный",
+    "nonAgricultural": "Несельскохозяйственный",
+    "includes": "Участок включает",
+    "electricity": "Электричество",
+    "water": "Вода",
+    "internet": "Интернет",
+    "gas": "Газ",
+    "asphaltRoad": "Асфальтированная дорога",
+    "fenced": "Огорожен"
   }
 }

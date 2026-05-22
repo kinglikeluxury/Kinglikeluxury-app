@@ -339,5 +339,19 @@
   },
   "badges": {
     "bestPrice": "Najlepsza Cena"
+  },
+  "land": {
+    "details": "Szczegóły Działki",
+    "landType": "Rodzaj Działki",
+    "selectLandType": "Wybierz rodzaj działki...",
+    "agricultural": "Grunt Rolny",
+    "nonAgricultural": "Grunt Nierolny",
+    "includes": "Działka Zawiera",
+    "electricity": "Prąd",
+    "water": "Woda",
+    "internet": "Internet",
+    "gas": "Gaz",
+    "asphaltRoad": "Droga Asfaltowa",
+    "fenced": "Ogrodzona"
   }
 }

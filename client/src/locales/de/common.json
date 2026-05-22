@@ -347,5 +347,19 @@
   },
   "badges": {
     "bestPrice": "Bester Preis"
+  },
+  "land": {
+    "details": "Grundstücksdetails",
+    "landType": "Grundstückstyp",
+    "selectLandType": "Grundstückstyp auswählen...",
+    "agricultural": "Landwirtschaftsfläche",
+    "nonAgricultural": "Nicht-Landwirtschaftsfläche",
+    "includes": "Grundstück enthält",
+    "electricity": "Strom",
+    "water": "Wasser",
+    "internet": "Internet",
+    "gas": "Gas",
+    "asphaltRoad": "Asphaltstraße",
+    "fenced": "Eingezäunt"
   }
 }

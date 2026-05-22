@@ -344,5 +344,19 @@
   },
   "badges": {
     "bestPrice": "بهترین قیمت"
+  },
+  "land": {
+    "details": "جزئیات زمین",
+    "landType": "نوع زمین",
+    "selectLandType": "نوع زمین را انتخاب کنید...",
+    "agricultural": "زمین کشاورزی",
+    "nonAgricultural": "زمین غیرکشاورزی",
+    "includes": "زمین شامل",
+    "electricity": "برق",
+    "water": "آب",
+    "internet": "اینترنت",
+    "gas": "گاز",
+    "asphaltRoad": "جاده آسفالت",
+    "fenced": "حصارکشی شده"
   }
 }

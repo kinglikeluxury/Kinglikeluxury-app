@@ -339,5 +339,19 @@
   },
   "badges": {
     "bestPrice": "מחיר הכי טוב"
+  },
+  "land": {
+    "details": "פרטי הקרקע",
+    "landType": "סוג קרקע",
+    "selectLandType": "בחר סוג קרקע...",
+    "agricultural": "קרקע חקלאית",
+    "nonAgricultural": "קרקע לא חקלאית",
+    "includes": "הקרקע כוללת",
+    "electricity": "חשמל",
+    "water": "מים",
+    "internet": "אינטרנט",
+    "gas": "גז",
+    "asphaltRoad": "כביש אספלט",
+    "fenced": "מגודר"
   }
 }

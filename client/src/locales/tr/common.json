@@ -339,5 +339,19 @@
   },
   "badges": {
     "bestPrice": "En İyi Fiyat"
+  },
+  "land": {
+    "details": "Arazi Detayları",
+    "landType": "Arazi Türü",
+    "selectLandType": "Arazi türünü seçin...",
+    "agricultural": "Tarım Arazisi",
+    "nonAgricultural": "Tarım Dışı Arazi",
+    "includes": "Arazi İçeriyor",
+    "electricity": "Elektrik",
+    "water": "Su",
+    "internet": "İnternet",
+    "gas": "Gaz",
+    "asphaltRoad": "Asfalt Yol",
+    "fenced": "Çitli"
   }
 }

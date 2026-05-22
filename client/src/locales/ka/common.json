@@ -339,5 +339,19 @@
   },
   "badges": {
     "bestPrice": "საუკეთესო ფასი"
+  },
+  "land": {
+    "details": "მიწის დეტალები",
+    "landType": "მიწის ტიპი",
+    "selectLandType": "აირჩიეთ მიწის ტიპი...",
+    "agricultural": "სასოფლო-სამეურნეო",
+    "nonAgricultural": "არასასოფლო-სამეურნეო",
+    "includes": "მიწა მოიცავს",
+    "electricity": "ელექტრობა",
+    "water": "წყალი",
+    "internet": "ინტერნეტი",
+    "gas": "გაზი",
+    "asphaltRoad": "ასფალტის გზა",
+    "fenced": "შემოღობილი"
   }
 }

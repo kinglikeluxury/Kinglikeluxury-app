@@ -347,5 +347,19 @@
   },
   "badges": {
     "bestPrice": "Bästa Pris"
+  },
+  "land": {
+    "details": "Markdetaljer",
+    "landType": "Marktyp",
+    "selectLandType": "Välj marktyp...",
+    "agricultural": "Jordbruksmark",
+    "nonAgricultural": "Icke-jordbruksmark",
+    "includes": "Marken Inkluderar",
+    "electricity": "El",
+    "water": "Vatten",
+    "internet": "Internet",
+    "gas": "Gas",
+    "asphaltRoad": "Asfaltsväg",
+    "fenced": "Inhägnad"
   }
 }

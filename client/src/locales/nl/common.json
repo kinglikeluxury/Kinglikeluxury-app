@@ -347,5 +347,19 @@
   },
   "badges": {
     "bestPrice": "Beste Prijs"
+  },
+  "land": {
+    "details": "Grond Details",
+    "landType": "Type Grond",
+    "selectLandType": "Selecteer type grond...",
+    "agricultural": "Landbouwgrond",
+    "nonAgricultural": "Niet-landbouwgrond",
+    "includes": "Grond Bevat",
+    "electricity": "Elektriciteit",
+    "water": "Water",
+    "internet": "Internet",
+    "gas": "Gas",
+    "asphaltRoad": "Asfaltwweg",
+    "fenced": "Omheind"
   }
 }

@@ -2210,38 +2210,38 @@ const PropertyForm = () => {
           {propertyType === PROPERTY_TYPES.LAND && (
             <Card>
               <CardHeader>
-                <CardTitle>🌍 تفاصيل الأرض / Land Details</CardTitle>
+                <CardTitle>🌍 {t('land.details', 'Land Details')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Land Type */}
                 <div>
-                  <Label>نوع الأرض / Land Type *</Label>
+                  <Label>{t('land.landType', 'Land Type')} *</Label>
                   <Select
                     value={formData.landType || ''}
                     onValueChange={(v) => handleInputChange('landType', v)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="اختر نوع الأرض / Select land type..." />
+                      <SelectValue placeholder={t('land.selectLandType', 'Select land type...')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="agricultural">🌾 أرض زراعية / Agricultural Land</SelectItem>
-                      <SelectItem value="non-agricultural">🏗️ أرض غير زراعية / Non-Agricultural Land</SelectItem>
+                      <SelectItem value="agricultural">🌾 {t('land.agricultural', 'Agricultural Land')}</SelectItem>
+                      <SelectItem value="non-agricultural">🏗️ {t('land.nonAgricultural', 'Non-Agricultural Land')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {/* Land Features */}
                 <div>
-                  <Label>الأرض تتضمن / Land Includes</Label>
+                  <Label>{t('land.includes', 'Land Includes')}</Label>
                   <div className="border border-gray-300 rounded-md p-3 bg-white mt-1">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {[
-                        { key: 'electricity', ar: 'كهرباء', en: 'Electricity', icon: '⚡' },
-                        { key: 'water', ar: 'ماء', en: 'Water', icon: '💧' },
-                        { key: 'internet', ar: 'انترنت', en: 'Internet', icon: '🌐' },
-                        { key: 'gas', ar: 'غاز', en: 'Gas', icon: '🔥' },
-                        { key: 'asphalt-road', ar: 'طريق إسفلت', en: 'Asphalt Road', icon: '🛣️' },
-                        { key: 'fenced', ar: 'مسيّجة', en: 'Fenced', icon: '🚧' },
+                        { key: 'electricity', label: t('land.electricity', 'Electricity'), icon: '⚡' },
+                        { key: 'water', label: t('land.water', 'Water'), icon: '💧' },
+                        { key: 'internet', label: t('land.internet', 'Internet'), icon: '🌐' },
+                        { key: 'gas', label: t('land.gas', 'Gas'), icon: '🔥' },
+                        { key: 'asphalt-road', label: t('land.asphaltRoad', 'Asphalt Road'), icon: '🛣️' },
+                        { key: 'fenced', label: t('land.fenced', 'Fenced'), icon: '🚧' },
                       ].map((item) => (
                         <label
                           key={item.key}
@@ -2260,7 +2260,7 @@ const PropertyForm = () => {
                             className="rounded border-gray-300 accent-[#3bcac4]"
                           />
                           <span className="text-sm font-medium">
-                            {item.icon} {item.ar} / {item.en}
+                            {item.icon} {item.label}
                           </span>
                         </label>
                       ))}

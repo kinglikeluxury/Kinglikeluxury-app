@@ -339,5 +339,19 @@
   },
   "badges": {
     "bestPrice": "最优价格"
+  },
+  "land": {
+    "details": "土地详情",
+    "landType": "土地类型",
+    "selectLandType": "选择土地类型...",
+    "agricultural": "农业用地",
+    "nonAgricultural": "非农业用地",
+    "includes": "土地包含",
+    "electricity": "电力",
+    "water": "水",
+    "internet": "网络",
+    "gas": "天然气",
+    "asphaltRoad": "沥青路",
+    "fenced": "已围栏"
   }
 }

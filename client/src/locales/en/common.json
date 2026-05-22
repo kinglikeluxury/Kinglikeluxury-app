@@ -343,5 +343,19 @@
   },
   "badges": {
     "bestPrice": "Best Price"
+  },
+  "land": {
+    "details": "Land Details",
+    "landType": "Land Type",
+    "selectLandType": "Select land type...",
+    "agricultural": "Agricultural Land",
+    "nonAgricultural": "Non-Agricultural Land",
+    "includes": "Land Includes",
+    "electricity": "Electricity",
+    "water": "Water",
+    "internet": "Internet",
+    "gas": "Gas",
+    "asphaltRoad": "Asphalt Road",
+    "fenced": "Fenced"
   }
 }

@@ -339,5 +339,19 @@
   },
   "badges": {
     "bestPrice": "Ən Yaxşı Qiymət"
+  },
+  "land": {
+    "details": "Torpaq Detalları",
+    "landType": "Torpaq Növü",
+    "selectLandType": "Torpaq növünü seçin...",
+    "agricultural": "Kənd Təsərrüfatı Torpağı",
+    "nonAgricultural": "Qeyri-Kənd Torpağı",
+    "includes": "Torpaq Daxildir",
+    "electricity": "Elektrik",
+    "water": "Su",
+    "internet": "İnternet",
+    "gas": "Qaz",
+    "asphaltRoad": "Asfalt Yol",
+    "fenced": "Hasarlanmış"
   }
 }

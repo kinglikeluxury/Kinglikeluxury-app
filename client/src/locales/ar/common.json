@@ -343,5 +343,19 @@
   },
   "badges": {
     "bestPrice": "أفضل سعر"
+  },
+  "land": {
+    "details": "تفاصيل الأرض",
+    "landType": "نوع الأرض",
+    "selectLandType": "اختر نوع الأرض...",
+    "agricultural": "أرض زراعية",
+    "nonAgricultural": "أرض غير زراعية",
+    "includes": "الأرض تتضمن",
+    "electricity": "كهرباء",
+    "water": "ماء",
+    "internet": "انترنت",
+    "gas": "غاز",
+    "asphaltRoad": "طريق إسفلت",
+    "fenced": "مسيّجة"
   }
 }
