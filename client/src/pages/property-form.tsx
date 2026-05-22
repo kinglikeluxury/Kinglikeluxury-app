@@ -1246,23 +1246,13 @@ const PropertyForm = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="title">{user?.isAdmin ? 'Project Name * (any language)' : 'main text *'}</Label>
+                  <Label htmlFor="title">{user?.isAdmin ? 'Project Name *' : 'main text *'}</Label>
                   <Input
                     id="title"
                     value={formData.title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     placeholder="Enter property title"
                     required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="titleEn">English Title <span className="text-gray-400 text-xs">(optional — shown when app is in English)</span></Label>
-                  <Input
-                    id="titleEn"
-                    value={(formData as any).titleEn || ''}
-                    onChange={(e) => handleInputChange('titleEn', e.target.value)}
-                    placeholder="Enter English title"
-                    dir="ltr"
                   />
                 </div>
                 
@@ -1434,17 +1424,6 @@ const PropertyForm = () => {
                   placeholder="Describe your property..."
                   rows={4}
                   required
-                />
-              </div>
-              <div>
-                <Label htmlFor="descriptionEn">English Description <span className="text-gray-400 text-xs">(optional — shown when app is in English)</span></Label>
-                <Textarea
-                  id="descriptionEn"
-                  value={(formData as any).descriptionEn || ''}
-                  onChange={(e) => handleInputChange('descriptionEn', e.target.value)}
-                  placeholder="Describe your property in English..."
-                  rows={3}
-                  dir="ltr"
                 />
               </div>
             </CardContent>
