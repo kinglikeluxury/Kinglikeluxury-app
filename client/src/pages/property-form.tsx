@@ -1981,16 +1981,28 @@ const PropertyForm = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="area">Area (m²) *</Label>
+                  <Label htmlFor="area">
+                    {propertyType === PROPERTY_TYPES.LAND ? '📐 المساحة / Area (m²) *' : 'Area (m²) *'}
+                  </Label>
                   <div className="border border-gray-300 rounded-md p-3 bg-white">
-                    <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                      {[
+                    <div className="text-sm text-gray-600 mb-2">
+                      {propertyType === PROPERTY_TYPES.LAND ? 'اختر مساحة الأرض / Select land area:' : 'Select multiple areas:'}
+                    </div>
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
+                      {(propertyType === PROPERTY_TYPES.LAND ? [
+                        // 100 → 1000 كل 100
+                        ...Array.from({length: 10}, (_, i) => (i + 1) * 100),
+                        // 1000 → 5000 كل 500
+                        ...Array.from({length: 8}, (_, i) => 1500 + i * 500),
+                        // 5000 → 13000 كل 1000
+                        ...Array.from({length: 8}, (_, i) => 6000 + i * 1000),
+                        13000,
+                      ] : [
                         ...Array.from({length: 76}, (_, i) => 25 + i),
                         ...Array.from({length: 40}, (_, i) => 100 + (i + 1) * 10),
                         ...Array.from({length: 10}, (_, i) => 500 + (i + 1) * 50),
                         ...Array.from({length: 40}, (_, i) => 1000 + (i + 1) * 100),
-                      ].map((num) => String(num)).map((areaValue) => {
+                      ]).map((num) => String(num)).map((areaValue) => {
                         const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
                         const isSelected = selectedAreas.includes(areaValue);
                         return (
