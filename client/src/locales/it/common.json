@@ -336,5 +336,8 @@
     "accepted": "Accordo di Commissione Accettato",
     "review": "Rivedi",
     "signedBy": "Firma Elettronica"
+  },
+  "badges": {
+    "bestPrice": "Miglior Prezzo"
   }
 }

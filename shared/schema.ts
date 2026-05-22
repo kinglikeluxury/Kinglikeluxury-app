@@ -111,6 +111,7 @@ export const properties = pgTable("properties", {
   listingExpiresAt: timestamp("listing_expires_at"),
   readyStatus: text("ready_status"),
   topRated: boolean("top_rated").default(false),
+  bestPrice: boolean("best_price").default(false),
   isSold: boolean("is_sold").default(false).notNull(),
   priceMax: integer("price_max"),
   landType: text("land_type"), // "agricultural" | "non-agricultural" — only for land type

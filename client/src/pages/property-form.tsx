@@ -104,6 +104,7 @@ const PropertyForm = () => {
     readyStatus: '',
     // Top rated for off-plan projects
     topRated: false,
+    bestPrice: false,
     // Land-specific fields
     landType: '',
     landFeatures: [] as string[],
@@ -226,6 +227,7 @@ const PropertyForm = () => {
         deliveryDate: '',
         readyStatus: (existingProperty as any).readyStatus || '',
         topRated: existingProperty.topRated || false,
+        bestPrice: (existingProperty as any).bestPrice || false,
         landType: (existingProperty as any).landType || '',
         landFeatures: (existingProperty as any).landFeatures || [],
         paymentMethod: (existingProperty as any).paymentMethod || '',
@@ -1071,7 +1073,7 @@ const PropertyForm = () => {
       const result = await response.json();
       console.log(`Property ${isEditMode ? 'updated' : 'created'} successfully:`, result);
 
-      // Always sync topRated via dedicated endpoint (bypasses schema complexity)
+      // Always sync topRated and bestPrice via dedicated endpoints (bypasses schema complexity)
       const savedId = isEditMode ? propertyId : result?.id;
       if (savedId) {
         await fetch(`/api/properties/${savedId}/top-rated`, {
@@ -1079,6 +1081,12 @@ const PropertyForm = () => {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ topRated: formData.topRated === true }),
+        });
+        await fetch(`/api/properties/${savedId}/best-price`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ bestPrice: formData.bestPrice === true }),
         });
       }
       
@@ -2998,23 +3006,37 @@ const PropertyForm = () => {
             />
           </div>
 
-          {/* Top Rated Option - Admin only */}
+          {/* Top Rated & Best Price Options - Admin only */}
           {user?.isAdmin && (
-            <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.topRated || false}
-                  onChange={(e) => setFormData(prev => ({ ...prev, topRated: e.target.checked }))}
-                  className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
-                />
-                <span className="font-medium text-gray-900">Top Rated</span>
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]" />
-                  ))}
-                </div>
-              </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.topRated || false}
+                    onChange={(e) => setFormData(prev => ({ ...prev, topRated: e.target.checked }))}
+                    className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
+                  />
+                  <span className="font-medium text-gray-900">Top Rated</span>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star key={star} className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]" />
+                    ))}
+                  </div>
+                </label>
+              </div>
+              <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.bestPrice || false}
+                    onChange={(e) => setFormData(prev => ({ ...prev, bestPrice: e.target.checked }))}
+                    className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
+                  />
+                  <span className="font-medium text-gray-900">Best Price</span>
+                  <span className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-0.5 rounded-full">💰</span>
+                </label>
+              </div>
             </div>
           )}
 

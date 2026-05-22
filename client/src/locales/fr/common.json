@@ -344,5 +344,8 @@
     "accepted": "Accord de commission accepté",
     "review": "Réviser",
     "signedBy": "Signature électronique"
+  },
+  "badges": {
+    "bestPrice": "Meilleur Prix"
   }
 }

@@ -336,5 +336,8 @@
     "accepted": "Komisyon Müqaviləsi Qəbul Edildi",
     "review": "İcmal",
     "signedBy": "Elektron İmza"
+  },
+  "badges": {
+    "bestPrice": "Ən Yaxşı Qiymət"
   }
 }

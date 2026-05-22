@@ -1165,6 +1165,21 @@ ${metaTags}
     }
   });
 
+  // Toggle bestPrice — admin only
+  app.patch("/api/properties/:id/best-price", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).json({ message: "Property not found" });
+      const bestPrice = req.body.bestPrice === true;
+      const updated = await storage.updateProperty(id, { bestPrice } as any);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating bestPrice:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.patch("/api/properties/:id/sold", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

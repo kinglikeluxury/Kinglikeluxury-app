@@ -340,5 +340,8 @@
     "accepted": "Commission Agreement Accepted",
     "review": "Review",
     "signedBy": "Electronic Signature"
+  },
+  "badges": {
+    "bestPrice": "Best Price"
   }
 }

@@ -137,6 +137,7 @@ const Properties = () => {
                     images={property.images}
                     status={property.status}
                     topRated={property.topRated}
+                    bestPrice={(property as any).bestPrice}
                     isSold={(property as any).isSold}
                   />
                 ))}

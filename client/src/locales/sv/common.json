@@ -344,5 +344,8 @@
     "accepted": "Provisionsavtal accepterat",
     "review": "Granska",
     "signedBy": "Elektronisk underskrift"
+  },
+  "badges": {
+    "bestPrice": "Bästa Pris"
   }
 }

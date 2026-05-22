@@ -487,6 +487,11 @@ const PropertyDetail = () => {
                     </div>
                   </Badge>
                 )}
+                {(property as any).bestPrice && (
+                  <Badge className="bg-[#3bcac4] text-white font-bold px-3 py-1 shadow-md">
+                    {t('badges.bestPrice', 'Best Price')}
+                  </Badge>
+                )}
               </div>
             </div>
             

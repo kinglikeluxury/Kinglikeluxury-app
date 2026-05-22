@@ -336,5 +336,8 @@
     "accepted": "Komisyon Sözleşmesi Kabul Edildi",
     "review": "İncele",
     "signedBy": "Elektronik İmza"
+  },
+  "badges": {
+    "bestPrice": "En İyi Fiyat"
   }
 }

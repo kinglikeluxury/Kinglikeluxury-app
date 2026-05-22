@@ -344,5 +344,8 @@
     "accepted": "Provisionsvereinbarung akzeptiert",
     "review": "Überprüfen",
     "signedBy": "Elektronische Unterschrift"
+  },
+  "badges": {
+    "bestPrice": "Bester Preis"
   }
 }

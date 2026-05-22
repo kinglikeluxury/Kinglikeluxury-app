@@ -344,5 +344,8 @@
     "accepted": "Commissieovereenkomst geaccepteerd",
     "review": "Beoordelen",
     "signedBy": "Elektronische handtekening"
+  },
+  "badges": {
+    "bestPrice": "Beste Prijs"
   }
 }

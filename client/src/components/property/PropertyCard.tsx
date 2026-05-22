@@ -22,6 +22,7 @@ interface PropertyCardProps {
   status: string;
   isFeatured?: boolean;
   topRated?: boolean | null;
+  bestPrice?: boolean | null;
   isSold?: boolean | null;
 }
 
@@ -38,6 +39,7 @@ const PropertyCard = ({
   status,
   isFeatured = false,
   topRated = false,
+  bestPrice = false,
   isSold = false,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
@@ -185,6 +187,13 @@ const PropertyCard = ({
                   <Star key={star} className="h-3 w-3 fill-[#3bcac4] text-[#3bcac4]" />
                 ))}
               </div>
+            </Badge>
+          </div>
+        )}
+        {bestPrice && (
+          <div className="absolute bottom-2 right-2">
+            <Badge className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-1 shadow-md">
+              {t('badges.bestPrice', 'Best Price')}
             </Badge>
           </div>
         )}

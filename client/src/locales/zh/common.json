@@ -336,5 +336,8 @@
     "accepted": "佣金协议已接受",
     "review": "查看",
     "signedBy": "电子签名"
+  },
+  "badges": {
+    "bestPrice": "最优价格"
   }
 }

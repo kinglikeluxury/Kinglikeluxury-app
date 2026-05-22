@@ -336,5 +336,8 @@
     "accepted": "Umowa Prowizji Zaakceptowana",
     "review": "Przejrzyj",
     "signedBy": "Podpis Elektroniczny"
+  },
+  "badges": {
+    "bestPrice": "Najlepsza Cena"
   }
 }
