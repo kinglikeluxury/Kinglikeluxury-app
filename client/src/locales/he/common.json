@@ -339,7 +339,9 @@
     "signedBy": "חתימה אלקטרונית"
   },
   "badges": {
-    "bestPrice": "מחיר הכי טוב"
+    "bestPrice": "מחיר הכי טוב",
+    "acceptablePrice": "מחיר סביר",
+    "highPrice": "מחיר גבוה"
   },
   "land": {
     "details": "פרטי הקרקע",

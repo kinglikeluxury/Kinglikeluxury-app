@@ -339,7 +339,9 @@
     "signedBy": "ელექტრონული ხელმოწერა"
   },
   "badges": {
-    "bestPrice": "საუკეთესო ფასი"
+    "bestPrice": "საუკეთესო ფასი",
+    "acceptablePrice": "მისაღები ფასი",
+    "highPrice": "მაღალი ფასი"
   },
   "land": {
     "details": "მიწის დეტალები",

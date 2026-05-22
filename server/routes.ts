@@ -1180,6 +1180,36 @@ ${metaTags}
     }
   });
 
+  // Toggle acceptablePrice — admin only
+  app.patch("/api/properties/:id/acceptable-price", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).json({ message: "Property not found" });
+      const acceptablePrice = req.body.acceptablePrice === true;
+      const updated = await storage.updateProperty(id, { acceptablePrice } as any);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating acceptablePrice:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Toggle highPrice — admin only
+  app.patch("/api/properties/:id/high-price", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).json({ message: "Property not found" });
+      const highPrice = req.body.highPrice === true;
+      const updated = await storage.updateProperty(id, { highPrice } as any);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating highPrice:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.patch("/api/properties/:id/sold", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

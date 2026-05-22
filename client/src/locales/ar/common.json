@@ -343,7 +343,9 @@
     "signedBy": "التوقيع الإلكتروني"
   },
   "badges": {
-    "bestPrice": "أفضل سعر"
+    "bestPrice": "أفضل سعر",
+    "acceptablePrice": "سعر مناسب",
+    "highPrice": "سعر مرتفع"
   },
   "land": {
     "details": "تفاصيل الأرض",

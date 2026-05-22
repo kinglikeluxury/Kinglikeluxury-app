@@ -339,7 +339,9 @@
     "signedBy": "Электронная подпись"
   },
   "badges": {
-    "bestPrice": "Лучшая цена"
+    "bestPrice": "Лучшая цена",
+    "acceptablePrice": "Приемлемая цена",
+    "highPrice": "Высокая цена"
   },
   "land": {
     "details": "Сведения об участке",

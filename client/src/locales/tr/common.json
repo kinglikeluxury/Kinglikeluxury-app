@@ -339,7 +339,9 @@
     "signedBy": "Elektronik İmza"
   },
   "badges": {
-    "bestPrice": "En İyi Fiyat"
+    "bestPrice": "En İyi Fiyat",
+    "acceptablePrice": "Uygun Fiyat",
+    "highPrice": "Yüksek Fiyat"
   },
   "land": {
     "details": "Arazi Detayları",

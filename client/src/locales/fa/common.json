@@ -344,7 +344,9 @@
     "signedBy": "امضای الکترونیکی"
   },
   "badges": {
-    "bestPrice": "بهترین قیمت"
+    "bestPrice": "بهترین قیمت",
+    "acceptablePrice": "قیمت مناسب",
+    "highPrice": "قیمت بالا"
   },
   "land": {
     "details": "جزئیات زمین",

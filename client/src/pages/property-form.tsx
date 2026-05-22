@@ -107,6 +107,8 @@ const PropertyForm = () => {
     // Top rated for off-plan projects
     topRated: false,
     bestPrice: false,
+    acceptablePrice: false,
+    highPrice: false,
     // Land-specific fields
     landType: '',
     landFeatures: [] as string[],
@@ -232,6 +234,8 @@ const PropertyForm = () => {
         readyStatus: (existingProperty as any).readyStatus || '',
         topRated: existingProperty.topRated || false,
         bestPrice: (existingProperty as any).bestPrice || false,
+        acceptablePrice: (existingProperty as any).acceptablePrice || false,
+        highPrice: (existingProperty as any).highPrice || false,
         landType: (existingProperty as any).landType || '',
         landFeatures: (existingProperty as any).landFeatures || [],
         paymentMethod: (existingProperty as any).paymentMethod || '',
@@ -1093,6 +1097,18 @@ const PropertyForm = () => {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ bestPrice: formData.bestPrice === true }),
+        });
+        await fetch(`/api/properties/${savedId}/acceptable-price`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ acceptablePrice: (formData as any).acceptablePrice === true }),
+        });
+        await fetch(`/api/properties/${savedId}/high-price`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ highPrice: (formData as any).highPrice === true }),
         });
       }
       
@@ -3107,6 +3123,30 @@ const PropertyForm = () => {
                   />
                   <span className="font-medium text-gray-900">Best Price</span>
                   <span className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-0.5 rounded-full">💰</span>
+                </label>
+              </div>
+              <div className="rounded-lg border p-4 bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={(formData as any).acceptablePrice || false}
+                    onChange={(e) => setFormData(prev => ({ ...prev, acceptablePrice: e.target.checked }))}
+                    className="h-5 w-5 rounded border-gray-300 text-[#005476] focus:ring-[#005476]"
+                  />
+                  <span className="font-medium text-gray-900">Acceptable Price</span>
+                  <span className="bg-[#005476] text-white text-xs font-bold px-2 py-0.5 rounded-full">✅</span>
+                </label>
+              </div>
+              <div className="rounded-lg border p-4 bg-gradient-to-r from-slate-100 to-slate-50">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={(formData as any).highPrice || false}
+                    onChange={(e) => setFormData(prev => ({ ...prev, highPrice: e.target.checked }))}
+                    className="h-5 w-5 rounded border-gray-300 text-slate-600 focus:ring-slate-400"
+                  />
+                  <span className="font-medium text-gray-900">High Price</span>
+                  <span className="bg-slate-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">📈</span>
                 </label>
               </div>
             </div>

@@ -339,7 +339,9 @@
     "signedBy": "Elektron İmza"
   },
   "badges": {
-    "bestPrice": "Ən Yaxşı Qiymət"
+    "bestPrice": "Ən Yaxşı Qiymət",
+    "acceptablePrice": "Məqbul Qiymət",
+    "highPrice": "Yüksək Qiymət"
   },
   "land": {
     "details": "Torpaq Detalları",

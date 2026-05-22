@@ -138,6 +138,8 @@ const Properties = () => {
                     status={property.status}
                     topRated={property.topRated}
                     bestPrice={(property as any).bestPrice}
+                    acceptablePrice={(property as any).acceptablePrice}
+                    highPrice={(property as any).highPrice}
                     isSold={(property as any).isSold}
                   />
                 ))}

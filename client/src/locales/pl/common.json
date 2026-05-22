@@ -339,7 +339,9 @@
     "signedBy": "Podpis Elektroniczny"
   },
   "badges": {
-    "bestPrice": "Najlepsza Cena"
+    "bestPrice": "Najlepsza Cena",
+    "acceptablePrice": "Akceptowalna Cena",
+    "highPrice": "Wysoka Cena"
   },
   "land": {
     "details": "Szczegóły Działki",

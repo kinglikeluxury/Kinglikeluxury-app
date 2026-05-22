@@ -339,7 +339,9 @@
     "signedBy": "电子签名"
   },
   "badges": {
-    "bestPrice": "最优价格"
+    "bestPrice": "最优价格",
+    "acceptablePrice": "合理价格",
+    "highPrice": "高价"
   },
   "land": {
     "details": "土地详情",

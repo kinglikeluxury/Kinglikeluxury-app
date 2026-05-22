@@ -343,7 +343,9 @@
     "signedBy": "Electronic Signature"
   },
   "badges": {
-    "bestPrice": "Best Price"
+    "bestPrice": "Best Price",
+    "acceptablePrice": "Acceptable Price",
+    "highPrice": "High Price"
   },
   "land": {
     "details": "Land Details",

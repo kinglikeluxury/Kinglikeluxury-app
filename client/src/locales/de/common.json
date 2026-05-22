@@ -347,7 +347,9 @@
     "signedBy": "Elektronische Unterschrift"
   },
   "badges": {
-    "bestPrice": "Bester Preis"
+    "bestPrice": "Bester Preis",
+    "acceptablePrice": "Akzeptabler Preis",
+    "highPrice": "Hoher Preis"
   },
   "land": {
     "details": "Grundstücksdetails",

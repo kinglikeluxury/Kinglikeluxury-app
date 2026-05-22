@@ -347,7 +347,9 @@
     "signedBy": "Elektronische handtekening"
   },
   "badges": {
-    "bestPrice": "Beste Prijs"
+    "bestPrice": "Beste Prijs",
+    "acceptablePrice": "Aanvaardbare Prijs",
+    "highPrice": "Hoge Prijs"
   },
   "land": {
     "details": "Grond Details",

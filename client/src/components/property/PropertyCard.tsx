@@ -23,6 +23,8 @@ interface PropertyCardProps {
   isFeatured?: boolean;
   topRated?: boolean | null;
   bestPrice?: boolean | null;
+  acceptablePrice?: boolean | null;
+  highPrice?: boolean | null;
   isSold?: boolean | null;
 }
 
@@ -40,6 +42,8 @@ const PropertyCard = ({
   isFeatured = false,
   topRated = false,
   bestPrice = false,
+  acceptablePrice = false,
+  highPrice = false,
   isSold = false,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
@@ -190,13 +194,23 @@ const PropertyCard = ({
             </Badge>
           </div>
         )}
-        {bestPrice && (
-          <div className="absolute bottom-2 right-2">
+        <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1">
+          {bestPrice && (
             <Badge className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-1 shadow-md">
               {t('badges.bestPrice', 'Best Price')}
             </Badge>
-          </div>
-        )}
+          )}
+          {acceptablePrice && (
+            <Badge className="bg-[#005476] text-white text-xs font-bold px-2 py-1 shadow-md">
+              {t('badges.acceptablePrice', 'Acceptable Price')}
+            </Badge>
+          )}
+          {highPrice && (
+            <Badge className="bg-slate-600 text-white text-xs font-bold px-2 py-1 shadow-md">
+              {t('badges.highPrice', 'High Price')}
+            </Badge>
+          )}
+        </div>
       </div>
       <CardContent className="p-4 flex-1 flex flex-col">
         <div className="flex justify-between items-start mb-1">

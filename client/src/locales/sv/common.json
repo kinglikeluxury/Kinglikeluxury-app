@@ -347,7 +347,9 @@
     "signedBy": "Elektronisk underskrift"
   },
   "badges": {
-    "bestPrice": "Bästa Pris"
+    "bestPrice": "Bästa Pris",
+    "acceptablePrice": "Acceptabelt Pris",
+    "highPrice": "Högt Pris"
   },
   "land": {
     "details": "Markdetaljer",

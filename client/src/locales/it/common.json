@@ -339,7 +339,9 @@
     "signedBy": "Firma Elettronica"
   },
   "badges": {
-    "bestPrice": "Miglior Prezzo"
+    "bestPrice": "Miglior Prezzo",
+    "acceptablePrice": "Prezzo Accettabile",
+    "highPrice": "Prezzo Alto"
   },
   "land": {
     "details": "Dettagli Terreno",
