@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -23,6 +23,17 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const [location, navigate] = useLocation();
   const [langExpanded, setLangExpanded] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [adminSearchId, setAdminSearchId] = useState("");
+
+  const handleAdminSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = adminSearchId.trim();
+    if (id && !isNaN(Number(id))) {
+      navigate(`/property/${id}`);
+      setAdminSearchId("");
+      onClose();
+    }
+  };
 
   const handleNav = () => {
     setShowLoginPrompt(false);
@@ -285,6 +296,32 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen })}
                 {renderItem({ label: `👥 ${t("admin.leads", "Leads Database")}`, path: "/admin/leads", icon: Users })}
                 {renderItem({ label: `📄 إنشاء عرض للمشاريع`, path: "/admin/project-offer", icon: FileText })}
+
+                {/* Property ID Search */}
+                <div className="px-5 py-3.5 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Search className="w-3 h-3" />
+                    بحث بـ Property ID
+                  </p>
+                  <form onSubmit={handleAdminSearch} className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={adminSearchId}
+                      onChange={(e) => setAdminSearchId(e.target.value)}
+                      placeholder="أدخل رقم العقار..."
+                      className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-[#3bcac4] min-w-0"
+                      style={{ direction: "ltr" }}
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-2 rounded-xl text-white flex items-center justify-center flex-shrink-0"
+                      style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
+                    >
+                      <Search className="w-4 h-4" />
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           )}

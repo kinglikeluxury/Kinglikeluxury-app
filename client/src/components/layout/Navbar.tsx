@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut } from "lucide-react";
+import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
@@ -18,14 +18,24 @@ import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 
 const Navbar = () => {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { user, logout } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [adminSearchId, setAdminSearchId] = useState("");
   const { favorites, removeFromFavorites } = useFavorites();
   const { t } = useTranslation();
 
   const handleLogout = async () => {
     await logout();
+  };
+
+  const handleAdminSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = adminSearchId.trim();
+    if (id && !isNaN(Number(id))) {
+      navigate(`/property/${id}`);
+      setAdminSearchId("");
+    }
   };
 
   const navLinks = [
@@ -175,6 +185,30 @@ const Navbar = () => {
                           <DropdownMenuItem asChild><Link href="/admin/blog">{t("admin.blogManagement", "Blog")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/leads">👥 {t("admin.leads", "Leads Database")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 py-1.5">
+                            <p className="text-[10px] text-gray-400 font-semibold uppercase mb-1.5 flex items-center gap-1">
+                              <Search className="w-3 h-3" /> Search by Property ID
+                            </p>
+                            <form onSubmit={handleAdminSearch} className="flex gap-1">
+                              <input
+                                type="number"
+                                min="1"
+                                value={adminSearchId}
+                                onChange={(e) => setAdminSearchId(e.target.value)}
+                                placeholder="Property ID..."
+                                className="flex-1 text-sm border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:border-[#3bcac4] min-w-0"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                type="submit"
+                                className="px-2 py-1 rounded-md text-white text-sm font-medium flex-shrink-0"
+                                style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
+                              >
+                                <Search className="w-3.5 h-3.5" />
+                              </button>
+                            </form>
+                          </div>
                         </>
                       )}
 
