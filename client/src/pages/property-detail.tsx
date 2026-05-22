@@ -687,6 +687,12 @@ const PropertyDetail = () => {
                           <span className="font-medium">{property.bathrooms}</span>
                         </div>
                       )}
+                      {(property as any).floorNumber !== null && (property as any).floorNumber !== undefined && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">Floor</span>
+                          <span className="font-medium">{(property as any).floorNumber}</span>
+                        </div>
+                      )}
                       {(property as any).readyStatus && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">Ready Status</span>
@@ -799,6 +805,12 @@ const PropertyDetail = () => {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Bathrooms:</span>
                           <span>{property.bathrooms}</span>
+                        </div>
+                      )}
+                      {(property as any).floorNumber !== null && (property as any).floorNumber !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Floor:</span>
+                          <span>{(property as any).floorNumber}</span>
                         </div>
                       )}
                       <div className="flex justify-between">
