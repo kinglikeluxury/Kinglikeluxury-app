@@ -2216,52 +2216,33 @@ const PropertyForm = () => {
                 {/* Land Area Selection */}
                 <div>
                   <Label htmlFor="area">📐 {t('land.areaLabel', 'Area (m²)')} *</Label>
-                  <div className="border border-gray-300 rounded-md p-3 bg-white">
-                    <div className="text-sm text-gray-600 mb-2">{t('land.selectArea', 'Select land area:')}</div>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
-                      {[
-                        ...Array.from({length: 10}, (_, i) => (i + 1) * 100),
-                        ...Array.from({length: 8}, (_, i) => 1500 + i * 500),
-                        ...Array.from({length: 8}, (_, i) => 6000 + i * 1000),
-                        13000,
-                      ].map((num) => String(num)).map((areaValue) => {
-                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
-                        const isSelected = selectedAreas.includes(areaValue);
-                        return (
-                          <label key={areaValue} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
-                                const newAreas = e.target.checked
-                                  ? [...currentAreas, areaValue]
-                                  : currentAreas.filter((a: string) => a !== areaValue);
-                                handleInputChange('area', newAreas.join(','));
-                              }}
-                              className="rounded border-gray-300 accent-[#3bcac4]"
-                            />
-                            <span className="text-sm">{areaValue} m²</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {formData.area && formData.area.length > 0 && (() => {
-                      const selectedAreas = (Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter((a: string) => a);
-                      const numericAreas = selectedAreas.map((v: string) => parseInt(v)).filter((v: number) => !isNaN(v));
-                      if (numericAreas.length === 0) return null;
-                      return (
-                        <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-2">
-                          <span className="text-xs text-gray-500">{t('land.selected', 'Selected')}:</span>
-                          <span className="bg-[#005476] text-white text-sm font-semibold px-3 py-0.5 rounded-full">
-                            {numericAreas.length > 1
-                              ? `${Math.min(...numericAreas)} - ${Math.max(...numericAreas)} m²`
-                              : `${numericAreas[0]} m²`}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={100}
+                      max={13000}
+                      value={formData.area && !formData.area.includes(',') ? formData.area : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') { handleInputChange('area', ''); return; }
+                        const num = parseInt(val);
+                        if (!isNaN(num) && num >= 100 && num <= 13000) {
+                          handleInputChange('area', String(num));
+                        }
+                      }}
+                      placeholder="100 – 13000"
+                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4]"
+                    />
+                    <span className="text-sm font-medium text-gray-600 whitespace-nowrap">m²</span>
                   </div>
+                  {formData.area && !formData.area.includes(',') && parseInt(formData.area) >= 100 && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-gray-500">{t('land.selected', 'Selected')}:</span>
+                      <span className="bg-[#005476] text-white text-sm font-semibold px-3 py-0.5 rounded-full">
+                        {formData.area} m²
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Land Type */}
