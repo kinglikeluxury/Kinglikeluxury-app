@@ -712,6 +712,22 @@ const PropertyDetail = () => {
                           </span>
                         </div>
                       )}
+                      {(property as any).paymentMethod && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">طريقة الدفع / Payment</span>
+                          <span className="font-medium">
+                            {(property as any).paymentMethod === 'cash'
+                              ? '💵 نقدي / Cash'
+                              : '📋 أقساط / Installments'}
+                          </span>
+                          {(property as any).paymentMethod === 'installments' && (property as any).downPaymentPercent && (
+                            <span className="text-sm text-[#3bcac4] mt-1">
+                              دفعة أولى {(property as any).downPaymentPercent}%
+                              {(property as any).installmentDuration && ` · ${(property as any).installmentDuration.replace('-', ' ')}`}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -107,6 +107,10 @@ const PropertyForm = () => {
     // Land-specific fields
     landType: '',
     landFeatures: [] as string[],
+    // Payment method fields
+    paymentMethod: '',
+    downPaymentPercent: '',
+    installmentDuration: '',
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -224,6 +228,9 @@ const PropertyForm = () => {
         topRated: existingProperty.topRated || false,
         landType: (existingProperty as any).landType || '',
         landFeatures: (existingProperty as any).landFeatures || [],
+        paymentMethod: (existingProperty as any).paymentMethod || '',
+        downPaymentPercent: (existingProperty as any).downPaymentPercent?.toString() || '',
+        installmentDuration: (existingProperty as any).installmentDuration || '',
       });
       
       // Set property type
@@ -1002,6 +1009,11 @@ const PropertyForm = () => {
         amenities: formData.amenities || [],
         landType: propertyType === 'land' ? (formData.landType || null) : null,
         landFeatures: propertyType === 'land' ? (formData.landFeatures || []) : [],
+        paymentMethod: formData.paymentMethod || null,
+        downPaymentPercent: formData.paymentMethod === 'installments' && formData.downPaymentPercent
+          ? parseInt(formData.downPaymentPercent) : null,
+        installmentDuration: formData.paymentMethod === 'installments'
+          ? (formData.installmentDuration || null) : null,
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
         readyStatus: formData.readyStatus || null,
@@ -2235,6 +2247,107 @@ const PropertyForm = () => {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Payment Method — for all types except project */}
+          {propertyType !== PROPERTY_TYPES.PROJECT && (
+            <Card>
+              <CardHeader>
+                <CardTitle>💳 طريقة الدفع / Payment Method</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'cash', ar: 'نقدي', en: 'Cash', sub: 'أقساط غير متوفرة', icon: '💵' },
+                    { value: 'installments', ar: 'أقساط', en: 'Installments', sub: 'Installments available', icon: '📋' },
+                  ].map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={`flex flex-col items-center justify-center gap-1 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        formData.paymentMethod === opt.value
+                          ? 'border-[#3bcac4] bg-[#3bcac4]/10'
+                          : 'border-gray-200 hover:border-[#3bcac4]/50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={opt.value}
+                        checked={formData.paymentMethod === opt.value}
+                        onChange={() => handleInputChange('paymentMethod', opt.value)}
+                        className="sr-only"
+                      />
+                      <span className="text-2xl">{opt.icon}</span>
+                      <span className="font-semibold text-[#005476]">{opt.ar}</span>
+                      <span className="text-xs text-gray-400">{opt.sub}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {formData.paymentMethod === 'installments' && (
+                  <div className="space-y-4 pt-2 border-t border-gray-100">
+                    {/* Down Payment */}
+                    <div>
+                      <Label>دفعة أولى / Down Payment (%)</Label>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-2">
+                        {[10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => handleInputChange('downPaymentPercent', pct.toString())}
+                            className={`py-2 rounded-lg text-sm font-medium border transition-all ${
+                              formData.downPaymentPercent === pct.toString()
+                                ? 'bg-[#005476] text-white border-[#005476]'
+                                : 'bg-white text-gray-700 border-gray-200 hover:border-[#3bcac4]'
+                            }`}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Installment Duration */}
+                    <div>
+                      <Label>أقساط لمدة / Installment Duration</Label>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
+                        {[
+                          { value: '1-month',   label: '1 شهر' },
+                          { value: '2-months',  label: '2 شهر' },
+                          { value: '3-months',  label: '3 شهور' },
+                          { value: '4-months',  label: '4 شهور' },
+                          { value: '5-months',  label: '5 شهور' },
+                          { value: '6-months',  label: '6 شهور' },
+                          { value: '7-months',  label: '7 شهور' },
+                          { value: '8-months',  label: '8 شهور' },
+                          { value: '9-months',  label: '9 شهور' },
+                          { value: '10-months', label: '10 شهور' },
+                          { value: '11-months', label: '11 شهر' },
+                          { value: '12-months', label: '12 شهر / سنة' },
+                          { value: '18-months', label: '18 شهر' },
+                          { value: '24-months', label: '24 شهر / سنتان' },
+                          { value: '30-months', label: '30 شهر' },
+                          { value: '36-months', label: '36 شهر / 3 سنوات' },
+                        ].map((dur) => (
+                          <button
+                            key={dur.value}
+                            type="button"
+                            onClick={() => handleInputChange('installmentDuration', dur.value)}
+                            className={`py-2 px-1 rounded-lg text-xs font-medium border transition-all ${
+                              formData.installmentDuration === dur.value
+                                ? 'bg-[#005476] text-white border-[#005476]'
+                                : 'bg-white text-gray-700 border-gray-200 hover:border-[#3bcac4]'
+                            }`}
+                          >
+                            {dur.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

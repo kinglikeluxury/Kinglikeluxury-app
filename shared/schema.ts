@@ -115,6 +115,9 @@ export const properties = pgTable("properties", {
   priceMax: integer("price_max"),
   landType: text("land_type"), // "agricultural" | "non-agricultural" — only for land type
   landFeatures: jsonb("land_features").$type<string[]>().default([]), // electricity, water, etc.
+  paymentMethod: text("payment_method"), // "cash" | "installments"
+  downPaymentPercent: integer("down_payment_percent"), // e.g. 10, 15, 20 ... 90
+  installmentDuration: text("installment_duration"), // e.g. "1-month", "6-months", "2-years"
 
 });
 
@@ -147,6 +150,9 @@ export const insertPropertySchema = createInsertSchema(properties)
     bathrooms: z.number().optional().nullable(),
     landType: z.string().optional().nullable(),
     landFeatures: z.array(z.string()).optional().default([]),
+    paymentMethod: z.string().optional().nullable(),
+    downPaymentPercent: z.number().optional().nullable(),
+    installmentDuration: z.string().optional().nullable(),
   });
 
 // Project details (for construction projects)
