@@ -119,6 +119,8 @@ export const properties = pgTable("properties", {
   paymentMethod: text("payment_method"), // "cash" | "installments"
   downPaymentPercent: integer("down_payment_percent"), // e.g. 10, 15, 20 ... 90
   installmentDuration: text("installment_duration"), // e.g. "1-month", "6-months", "2-years"
+  titleEn: text("title_en"), // Optional English title for multilingual display
+  descriptionEn: text("description_en"), // Optional English description
 
 });
 

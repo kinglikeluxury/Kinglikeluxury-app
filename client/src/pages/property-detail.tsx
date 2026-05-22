@@ -20,7 +20,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const PropertyDetail = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const getLocalizedText = (text: string, textEn?: string | null) => {
+    if (lang === 'en' && textEn) return textEn;
+    return text;
+  };
   const { user } = useAuth();
   const { toast } = useToast();
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -423,7 +428,7 @@ const PropertyDetail = () => {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-3xl font-bold text-gray-900">{property.title}</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">{getLocalizedText(property.title, (property as any).titleEn)}</h1>
                     <button
                       onClick={() => toggleFavorite({ id: property.id, title: property.title, price: property.price, type: property.propertyType })}
                       className={`p-2 rounded-full border-2 transition-all ${isFavorite(property.id) ? 'border-[#3bcac4] bg-[#3bcac4]/10 hover:bg-[#3bcac4]/20' : 'border-gray-300 bg-white hover:bg-gray-50'}`}
@@ -658,7 +663,7 @@ const PropertyDetail = () => {
                 <div className="space-y-6 protected-content">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Description</h3>
-                    <p className="text-gray-700 whitespace-pre-line">{translatedTexts.description || property.description}</p>
+                    <p className="text-gray-700 whitespace-pre-line">{getLocalizedText(translatedTexts.description || property.description, (property as any).descriptionEn)}</p>
                   </div>
                   
                   <Separator />

@@ -67,7 +67,9 @@ const PropertyForm = () => {
   // Form state
   const [formData, setFormData] = useState({
     title: '',
+    titleEn: '',
     description: '',
+    descriptionEn: '',
     price: '',
     location: '',
     country: '',
@@ -193,7 +195,9 @@ const PropertyForm = () => {
       // Update all form data
       setFormData({
         title: existingProperty.title || '',
+        titleEn: (existingProperty as any).titleEn || '',
         description: existingProperty.description || '',
+        descriptionEn: (existingProperty as any).descriptionEn || '',
         price: existingProperty.price?.toString() || '',
         location: existingProperty.location || '',
         country,
@@ -949,7 +953,9 @@ const PropertyForm = () => {
       // Prepare property data
       const propertyData = {
         title: formData.title,
+        titleEn: (formData as any).titleEn || null,
         description: formData.description,
+        descriptionEn: (formData as any).descriptionEn || null,
         propertyType: propertyType, // Ensure propertyType is set
         ownerId: user.id,
         location: getLocationString() || (isEditMode && existingProperty ? existingProperty.location : 'Not specified'),
@@ -1240,13 +1246,23 @@ const PropertyForm = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="title">{user?.isAdmin ? 'Project Name *' : 'main text *'}</Label>
+                  <Label htmlFor="title">{user?.isAdmin ? 'Project Name * (any language)' : 'main text *'}</Label>
                   <Input
                     id="title"
                     value={formData.title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     placeholder="Enter property title"
                     required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="titleEn">English Title <span className="text-gray-400 text-xs">(optional — shown when app is in English)</span></Label>
+                  <Input
+                    id="titleEn"
+                    value={(formData as any).titleEn || ''}
+                    onChange={(e) => handleInputChange('titleEn', e.target.value)}
+                    placeholder="Enter English title"
+                    dir="ltr"
                   />
                 </div>
                 
@@ -1418,6 +1434,17 @@ const PropertyForm = () => {
                   placeholder="Describe your property..."
                   rows={4}
                   required
+                />
+              </div>
+              <div>
+                <Label htmlFor="descriptionEn">English Description <span className="text-gray-400 text-xs">(optional — shown when app is in English)</span></Label>
+                <Textarea
+                  id="descriptionEn"
+                  value={(formData as any).descriptionEn || ''}
+                  onChange={(e) => handleInputChange('descriptionEn', e.target.value)}
+                  placeholder="Describe your property in English..."
+                  rows={3}
+                  dir="ltr"
                 />
               </div>
             </CardContent>
