@@ -2313,24 +2313,10 @@ const PropertyForm = () => {
                     <div>
                       <Label>أقساط لمدة / Installment Duration</Label>
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
-                        {[
-                          { value: '1-month',   label: '1 شهر' },
-                          { value: '2-months',  label: '2 شهر' },
-                          { value: '3-months',  label: '3 شهور' },
-                          { value: '4-months',  label: '4 شهور' },
-                          { value: '5-months',  label: '5 شهور' },
-                          { value: '6-months',  label: '6 شهور' },
-                          { value: '7-months',  label: '7 شهور' },
-                          { value: '8-months',  label: '8 شهور' },
-                          { value: '9-months',  label: '9 شهور' },
-                          { value: '10-months', label: '10 شهور' },
-                          { value: '11-months', label: '11 شهر' },
-                          { value: '12-months', label: '12 شهر / سنة' },
-                          { value: '18-months', label: '18 شهر' },
-                          { value: '24-months', label: '24 شهر / سنتان' },
-                          { value: '30-months', label: '30 شهر' },
-                          { value: '36-months', label: '36 شهر / 3 سنوات' },
-                        ].map((dur) => (
+                        {Array.from({ length: 36 }, (_, i) => i + 1).map((n) => ({
+                          value: n === 1 ? '1-month' : `${n}-months`,
+                          label: n === 12 ? '12 شهر (سنة)' : n === 24 ? '24 شهر (سنتان)' : n === 36 ? '36 شهر (3 سنوات)' : `${n} شهر`,
+                        })).map((dur) => (
                           <button
                             key={dur.value}
                             type="button"
