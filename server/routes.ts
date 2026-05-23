@@ -1074,22 +1074,26 @@ ${metaTags}
         await storage.updatePropertyStatus(property.id, PROPERTY_STATUS.APPROVED);
         property.status = PROPERTY_STATUS.APPROVED;
       } else {
-        // Notify admin about new property needing approval
-        try {
-          const owner = await storage.getUser(req.session.userId!);
-          sendNewPropertyNotification({
-            id: property.id,
-            title: property.title,
-            propertyType: property.propertyType,
-            price: property.price,
-            location: property.location,
-            ownerName: owner?.username,
-            ownerEmail: owner?.email,
-            ownerPhone: owner?.phoneNumber,
-          }).catch((err) => console.error("[Email] Notification error:", err));
-        } catch (err) {
-          console.error("[Email] Could not fetch owner for notification:", err);
-        }
+        // Notify admin about new property needing approval (fire-and-forget with full logging)
+        (async () => {
+          try {
+            console.log(`[Email] 🔔 New property #${property.id} submitted by user ${req.session.userId} — sending admin notification...`);
+            const owner = await storage.getUser(req.session.userId!);
+            await sendNewPropertyNotification({
+              id: property.id,
+              title: property.title,
+              propertyType: property.propertyType,
+              price: property.price,
+              location: property.location,
+              ownerName: owner?.username,
+              ownerEmail: owner?.email,
+              ownerPhone: owner?.phoneNumber,
+            });
+            console.log(`[Email] ✅ Admin notification complete for property #${property.id}`);
+          } catch (err: any) {
+            console.error(`[Email] ❌ Notification failed for property #${property.id}:`, err.message);
+          }
+        })();
       }
       
       if (
