@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import { Building, Home, CircleDot, Construction, User, Clock, Bell } from "lucide-react";
+import { Building, Home, CircleDot, Construction, User, Clock, Bell, Mail } from "lucide-react";
 import { slugifyProperty } from "@/lib/slugify";
 
 const AdminDashboard = () => {
@@ -97,6 +97,12 @@ const AdminDashboard = () => {
               <Link href="/admin/notifications">
                 <Bell className="mr-2 h-4 w-4" />
                 الإشعارات
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/email-campaign">
+                <Mail className="mr-2 h-4 w-4" />
+                حملة إيميل
               </Link>
             </Button>
             <Button asChild>

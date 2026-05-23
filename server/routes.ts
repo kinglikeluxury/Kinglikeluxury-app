@@ -2122,6 +2122,85 @@ ${metaTags}
     }
   });
 
+  // POST email campaign — send custom emails to a list of recipients
+  app.post("/api/admin/email-campaign", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    const { recipients, subject, bodyText, imageUrl, appLink } = req.body;
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ message: "recipients required" });
+    }
+    if (!subject || !bodyText) {
+      return res.status(400).json({ message: "subject and bodyText required" });
+    }
+
+    const GMAIL_USER = process.env.GMAIL_USER;
+    const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
+    if (!GMAIL_USER || !GMAIL_PASS) {
+      return res.status(503).json({ message: "Email not configured" });
+    }
+
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.default.createTransport({
+      service: "gmail",
+      auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+    });
+
+    const imageBlock = imageUrl
+      ? `<div style="padding:0 32px 24px"><img src="${imageUrl}" alt="offer" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px" /></div>`
+      : "";
+
+    const appLinkBlock = appLink
+      ? `<div style="text-align:center;padding:8px 0 24px">
+           <a href="${appLink}" style="display:inline-block;background:linear-gradient(135deg,#3bcac4,#005476);color:#fff;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:15px">
+             استكشف العقارات →
+           </a>
+         </div>`
+      : "";
+
+    const html = `
+<div style="background:#f0f9f9;padding:40px 20px;font-family:Arial,Helvetica,sans-serif;direction:rtl">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,84,118,0.10)">
+    <div style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:40px;text-align:center">
+      <h1 style="color:#fff;margin:0;font-size:26px;font-weight:800">Kinglike Luxury</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px">منصة العقارات الفاخرة</p>
+    </div>
+    ${imageBlock}
+    <div style="padding:${imageUrl ? "0" : "32px"} 32px 24px">
+      <h2 style="color:#005476;margin-top:${imageUrl ? "24px" : "0"};font-size:20px">${subject}</h2>
+      <p style="color:#444;line-height:1.9;font-size:15px;white-space:pre-wrap">${bodyText.replace(/</g, "&lt;")}</p>
+    </div>
+    ${appLinkBlock}
+    <div style="background:#f0f9f9;padding:20px;text-align:center;color:#aaa;font-size:12px">
+      © Kinglike Luxury Real Estate Platform
+    </div>
+  </div>
+</div>`;
+
+    const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
+    for (const r of recipients) {
+      const email = typeof r === "string" ? r : r.email;
+      if (!email) continue;
+      try {
+        await transporter.sendMail({
+          from: `"Kinglike Luxury" <${GMAIL_USER}>`,
+          to: email,
+          subject,
+          html,
+          text: `${bodyText}\n\n${appLink || ""}`,
+        });
+        results.push({ email, status: "sent" });
+        await new Promise(resolve => setTimeout(resolve, 150));
+      } catch (err: any) {
+        results.push({ email, status: "failed", error: err.message });
+      }
+    }
+
+    const sent = results.filter(r => r.status === "sent").length;
+    const failed = results.filter(r => r.status === "failed").length;
+    console.log(`[EmailCampaign] ${sent} sent, ${failed} failed`);
+    res.json({ success: true, sent, failed, results });
+  });
+
   // GET notification system status
   app.get("/api/admin/notification-status", async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
