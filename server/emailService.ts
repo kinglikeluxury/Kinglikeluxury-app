@@ -1,10 +1,12 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { db } from "./db";
 import { notificationTemplates, notificationLogs, users } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 function createTransporter() {
   if (!GMAIL_USER || !GMAIL_PASS) return null;
@@ -190,12 +192,6 @@ export async function sendNewPropertyNotification(property: {
   ownerEmail?: string | null;
   ownerPhone?: string | null;
 }) {
-  const transporter = createTransporter();
-  if (!transporter) {
-    console.log("[Email] Gmail not configured — skipping admin notification for property #" + property.id);
-    return;
-  }
-
   const ADMIN_EMAIL = "info@kinglikeluxury.app";
 
   const typeLabels: Record<string, string> = {
@@ -265,16 +261,41 @@ export async function sendNewPropertyNotification(property: {
   </div>
 </div>`;
 
+  const subject = `🏠 عقار جديد بحاجة للمراجعة — ${property.title}`;
+
+  // Try Resend first (preferred)
+  if (RESEND_API_KEY) {
+    try {
+      const resend = new Resend(RESEND_API_KEY);
+      await resend.emails.send({
+        from: "Kinglike Luxury <onboarding@resend.dev>",
+        to: ADMIN_EMAIL,
+        subject,
+        html,
+      });
+      console.log(`[Email/Resend] Admin notification sent for property #${property.id}`);
+      return;
+    } catch (err: any) {
+      console.error("[Email/Resend] Failed:", err.message);
+    }
+  }
+
+  // Fallback to Gmail SMTP
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.log("[Email] No email provider configured — skipping admin notification for property #" + property.id);
+    return;
+  }
   try {
     await transporter.sendMail({
       from: `"Kinglike Luxury" <${GMAIL_USER}>`,
       to: ADMIN_EMAIL,
-      subject: `🏠 عقار جديد بحاجة للمراجعة — ${property.title}`,
+      subject,
       html,
     });
-    console.log(`[Email] Admin notification sent for property #${property.id}: "${property.title}"`);
+    console.log(`[Email/Gmail] Admin notification sent for property #${property.id}`);
   } catch (err: any) {
-    console.error("[Email] Failed to send admin notification:", err.message);
+    console.error("[Email/Gmail] Failed to send admin notification:", err.message);
   }
 }
 
