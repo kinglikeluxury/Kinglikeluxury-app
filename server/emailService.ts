@@ -180,6 +180,104 @@ export async function sendWelcomeEmail(user: { id: number; username: string; ema
   }
 }
 
+export async function sendNewPropertyNotification(property: {
+  id: number;
+  title: string;
+  propertyType: string;
+  price: number;
+  location: string;
+  ownerName?: string;
+  ownerEmail?: string | null;
+  ownerPhone?: string | null;
+}) {
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.log("[Email] Gmail not configured — skipping admin notification for property #" + property.id);
+    return;
+  }
+
+  const ADMIN_EMAIL = "info@kinglikeluxury.app";
+
+  const typeLabels: Record<string, string> = {
+    apartment: "شقة / Apartment",
+    villa: "فيلا / Villa",
+    land: "أرض / Land",
+    commercial: "تجاري / Commercial",
+    project: "مشروع / Project",
+  };
+
+  const priceFormatted = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+  }).format(property.price);
+
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl">
+  <div style="background:linear-gradient(135deg,#3bcac4,#005476);padding:30px;border-radius:12px 12px 0 0">
+    <h1 style="color:#fff;margin:0;font-size:22px">🏠 عقار جديد يحتاج موافقة</h1>
+    <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px">New Property Pending Approval</p>
+  </div>
+  <div style="background:#f9fafb;padding:28px;border:1px solid #e5e7eb">
+    <table style="width:100%;border-collapse:collapse">
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:40%">رقم العقار / ID</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#111827">#${property.id}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">العنوان / Title</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#111827">${property.title}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">النوع / Type</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${typeLabels[property.propertyType] || property.propertyType}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">السعر / Price</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#005476;font-weight:bold">${priceFormatted}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">الموقع / Location</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${property.location}</td>
+      </tr>
+      ${property.ownerName ? `<tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">صاحب العقار</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${property.ownerName}</td>
+      </tr>` : ""}
+      ${property.ownerPhone ? `<tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">الهاتف / Phone</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${property.ownerPhone}</td>
+      </tr>` : ""}
+      ${property.ownerEmail ? `<tr>
+        <td style="padding:10px 0;color:#6b7280">البريد / Email</td>
+        <td style="padding:10px 0;color:#111827">${property.ownerEmail}</td>
+      </tr>` : ""}
+    </table>
+    <div style="text-align:center;margin-top:28px">
+      <a href="https://kinglikeluxury.app/admin/dashboard"
+         style="background:linear-gradient(135deg,#3bcac4,#005476);color:#fff;padding:14px 30px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;display:inline-block">
+        مراجعة العقار والموافقة عليه ←
+      </a>
+    </div>
+  </div>
+  <div style="background:#005476;padding:14px;border-radius:0 0 12px 12px;text-align:center">
+    <p style="color:rgba(255,255,255,0.7);margin:0;font-size:12px">Kinglike Luxury · info@kinglikeluxury.app</p>
+  </div>
+</div>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"Kinglike Luxury" <${GMAIL_USER}>`,
+      to: ADMIN_EMAIL,
+      subject: `🏠 عقار جديد بحاجة للمراجعة — ${property.title}`,
+      html,
+    });
+    console.log(`[Email] Admin notification sent for property #${property.id}: "${property.title}"`);
+  } catch (err: any) {
+    console.error("[Email] Failed to send admin notification:", err.message);
+  }
+}
+
 export async function sendBulkEmail(trigger: "weekly_update" | "inactive_reminder") {
   const transporter = createTransporter();
   if (!transporter) {

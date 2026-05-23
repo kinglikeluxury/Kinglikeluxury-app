@@ -13,6 +13,7 @@ import {
 import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
+import { sendNewPropertyNotification } from "./emailService";
 import { translateBlogPost, translateText, detectLanguage } from "./translate";
 import { generateEnglishSlug, hasNonAscii, timestampSlug, toEnglishSlug } from "./slugUtils";
 import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment";
@@ -1072,6 +1073,23 @@ ${metaTags}
       if (isAdminUser) {
         await storage.updatePropertyStatus(property.id, PROPERTY_STATUS.APPROVED);
         property.status = PROPERTY_STATUS.APPROVED;
+      } else {
+        // Notify admin about new property needing approval
+        try {
+          const owner = await storage.getUser(req.session.userId!);
+          sendNewPropertyNotification({
+            id: property.id,
+            title: property.title,
+            propertyType: property.propertyType,
+            price: property.price,
+            location: property.location,
+            ownerName: owner?.username,
+            ownerEmail: owner?.email,
+            ownerPhone: owner?.phoneNumber,
+          }).catch((err) => console.error("[Email] Notification error:", err));
+        } catch (err) {
+          console.error("[Email] Could not fetch owner for notification:", err);
+        }
       }
       
       if (
