@@ -2157,6 +2157,8 @@ ${metaTags}
          </div>`
       : "";
 
+    const logoUrl = `${req.protocol}://${req.get("host")}/watermark-logo.png`;
+
     const html = `
 <div style="background:#f0f9f9;padding:40px 20px;font-family:Arial,Helvetica,sans-serif;direction:rtl">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,84,118,0.10)">
@@ -2170,8 +2172,9 @@ ${metaTags}
       <p style="color:#444;line-height:1.9;font-size:15px;white-space:pre-wrap">${bodyText.replace(/</g, "&lt;")}</p>
     </div>
     ${appLinkBlock}
-    <div style="background:#f0f9f9;padding:20px;text-align:center;color:#aaa;font-size:12px">
-      © Kinglike Luxury Real Estate Platform
+    <div style="background:#f0f9f9;padding:28px 20px 20px;text-align:center;border-top:1px solid #e5f5f5">
+      <img src="${logoUrl}" alt="Kinglike Luxury" style="height:56px;width:auto;object-fit:contain;display:inline-block;margin-bottom:10px" />
+      <div style="color:#aaa;font-size:12px">© Kinglike Luxury Real Estate Platform</div>
     </div>
   </div>
 </div>`;

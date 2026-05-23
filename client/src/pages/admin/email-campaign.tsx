@@ -417,8 +417,9 @@ export default function EmailCampaignPage() {
                     </div>
                   )}
                 </div>
-                <div className="bg-gray-50 px-6 py-3 text-center text-gray-400 text-xs">
-                  © Kinglike Luxury Real Estate
+                <div className="bg-gray-50 px-6 py-5 text-center border-t border-gray-100">
+                  <img src="/watermark-logo.png" alt="Kinglike Luxury" className="h-12 w-auto object-contain inline-block mb-2" />
+                  <div className="text-gray-400 text-xs">© Kinglike Luxury Real Estate Platform</div>
                 </div>
               </div>
             </CardContent>
