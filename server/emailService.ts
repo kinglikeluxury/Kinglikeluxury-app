@@ -6,7 +6,6 @@ import { eq, and } from "drizzle-orm";
 
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 function createTransporter() {
   if (!GMAIL_USER || !GMAIL_PASS) return null;
@@ -263,18 +262,25 @@ export async function sendNewPropertyNotification(property: {
 
   const subject = `🏠 عقار جديد بحاجة للمراجعة — ${property.title}`;
 
+  const resendKey = process.env.RESEND_API_KEY;
+  console.log(`[Email] Sending notification for property #${property.id} — Resend key set: ${!!resendKey}`);
+
   // Try Resend first (preferred)
-  if (RESEND_API_KEY) {
+  if (resendKey) {
     try {
-      const resend = new Resend(RESEND_API_KEY);
-      await resend.emails.send({
+      const resend = new Resend(resendKey);
+      const result = await resend.emails.send({
         from: "Kinglike Luxury <onboarding@resend.dev>",
         to: ADMIN_EMAIL,
         subject,
         html,
       });
-      console.log(`[Email/Resend] Admin notification sent for property #${property.id}`);
-      return;
+      if (result.error) {
+        console.error("[Email/Resend] API error:", JSON.stringify(result.error));
+      } else {
+        console.log(`[Email/Resend] ✅ Sent for property #${property.id} — ID: ${result.data?.id}`);
+        return;
+      }
     } catch (err: any) {
       console.error("[Email/Resend] Failed:", err.message);
     }
@@ -283,7 +289,7 @@ export async function sendNewPropertyNotification(property: {
   // Fallback to Gmail SMTP
   const transporter = createTransporter();
   if (!transporter) {
-    console.log("[Email] No email provider configured — skipping admin notification for property #" + property.id);
+    console.log("[Email] ⚠️ No email provider configured — skipping notification for property #" + property.id);
     return;
   }
   try {
@@ -293,9 +299,9 @@ export async function sendNewPropertyNotification(property: {
       subject,
       html,
     });
-    console.log(`[Email/Gmail] Admin notification sent for property #${property.id}`);
+    console.log(`[Email/Gmail] ✅ Sent for property #${property.id}`);
   } catch (err: any) {
-    console.error("[Email/Gmail] Failed to send admin notification:", err.message);
+    console.error("[Email/Gmail] Failed:", err.message);
   }
 }
 
