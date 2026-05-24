@@ -454,5 +454,41 @@
       "deleteSlot": "删除",
       "adminNotes": "管理员备注"
     }
+  },
+  "notifications": {
+    "title": "通知",
+    "empty": "暂无通知",
+    "emptyHint": "当管理员确认您的预约后，更新将显示在这里",
+    "markAllRead": "全部标为已读",
+    "markRead": "标为已读",
+    "joinMeeting": "加入会议",
+    "allCaughtUp": "所有通知已读",
+    "unread": "{{count}} 条未读",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 咨询预约已收到",
+        "message": "您的{{consultationType}}咨询预约（通过{{consultationMethod}}，{{slotDate}} {{slotTime}}）已收到，我们将尽快确认。"
+      },
+      "consultation_confirmed": {
+        "title": "✅ 咨询已确认",
+        "message": "您的{{consultationType}}咨询（{{slotDate}} {{slotTime}}）已确认。"
+      },
+      "consultation_rejected": {
+        "title": "❌ 咨询不可用",
+        "message": "很遗憾，您的{{consultationType}}咨询（{{slotDate}}）无法安排。请重新预约。"
+      },
+      "consultation_cancelled": {
+        "title": "咨询已取消",
+        "message": "您的{{consultationType}}咨询（{{slotDate}}）已取消。"
+      },
+      "consultation_completed": {
+        "title": "✔️ 咨询已完成",
+        "message": "您的{{consultationType}}咨询已完成。感谢选择Kinglike Luxury！"
+      },
+      "test": {
+        "title": "🔔 测试通知",
+        "message": "这是一条测试通知。"
+      }
+    }
   }
 }

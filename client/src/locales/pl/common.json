@@ -454,5 +454,41 @@
       "deleteSlot": "Usuń",
       "adminNotes": "Notatki admina"
     }
+  },
+  "notifications": {
+    "title": "Powiadomienia",
+    "empty": "Brak powiadomień",
+    "emptyHint": "Aktualizacje pojawią się tutaj, gdy administrator potwierdzi Twoje rezerwacje",
+    "markAllRead": "Oznacz wszystkie jako przeczytane",
+    "markRead": "Oznacz jako przeczytane",
+    "joinMeeting": "Dołącz do spotkania",
+    "allCaughtUp": "Wszystkie powiadomienia przeczytane",
+    "unread": "{{count}} nieprzeczytanych",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Prośba o konsultację otrzymana",
+        "message": "Twoja prośba o konsultację ({{consultationType}}) przez {{consultationMethod}} w dniu {{slotDate}} o {{slotTime}} została otrzymana."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Konsultacja potwierdzona",
+        "message": "Twoja konsultacja ({{consultationType}}) w dniu {{slotDate}} o {{slotTime}} została potwierdzona."
+      },
+      "consultation_rejected": {
+        "title": "❌ Konsultacja niedostępna",
+        "message": "Niestety konsultacja ({{consultationType}}) w dniu {{slotDate}} nie może być zaplanowana. Zarezerwuj nowy termin."
+      },
+      "consultation_cancelled": {
+        "title": "Konsultacja anulowana",
+        "message": "Twoja konsultacja ({{consultationType}}) w dniu {{slotDate}} została anulowana."
+      },
+      "consultation_completed": {
+        "title": "✔️ Konsultacja zakończona",
+        "message": "Twoja konsultacja ({{consultationType}}) została zakończona. Dziękujemy za wybór Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 Powiadomienie testowe",
+        "message": "To jest powiadomienie testowe."
+      }
+    }
   }
 }

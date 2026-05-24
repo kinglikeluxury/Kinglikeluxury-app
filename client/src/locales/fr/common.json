@@ -462,5 +462,41 @@
       "deleteSlot": "Supprimer",
       "adminNotes": "Notes admin"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Aucune notification",
+    "emptyHint": "Les mises à jour apparaîtront ici quand l'administrateur confirmera vos réservations",
+    "markAllRead": "Tout marquer comme lu",
+    "markRead": "Marquer comme lu",
+    "joinMeeting": "Rejoindre la réunion",
+    "allCaughtUp": "Tout est à jour",
+    "unread": "{{count}} non lu",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Demande de consultation reçue",
+        "message": "Votre demande de consultation ({{consultationType}}) via {{consultationMethod}} le {{slotDate}} à {{slotTime}} a été reçue."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Consultation confirmée",
+        "message": "Votre consultation ({{consultationType}}) le {{slotDate}} à {{slotTime}} a été confirmée."
+      },
+      "consultation_rejected": {
+        "title": "❌ Consultation non disponible",
+        "message": "Malheureusement votre consultation ({{consultationType}}) le {{slotDate}} n'a pu être planifiée."
+      },
+      "consultation_cancelled": {
+        "title": "Consultation annulée",
+        "message": "Votre consultation ({{consultationType}}) le {{slotDate}} a été annulée."
+      },
+      "consultation_completed": {
+        "title": "✔️ Consultation terminée",
+        "message": "Votre consultation ({{consultationType}}) est terminée. Merci de choisir Kinglike Luxury !"
+      },
+      "test": {
+        "title": "🔔 Notification de test",
+        "message": "Ceci est une notification de test."
+      }
+    }
   }
 }

@@ -454,5 +454,41 @@
       "deleteSlot": "Sil",
       "adminNotes": "Admin qeydləri"
     }
+  },
+  "notifications": {
+    "title": "Bildirişlər",
+    "empty": "Hələlik bildiriş yoxdur",
+    "emptyHint": "Admin rezervasiyalarınızı təsdiqləyəndə yeniləmələr burada görünəcək",
+    "markAllRead": "Hamısını oxunmuş işarələ",
+    "markRead": "Oxunmuş işarələ",
+    "joinMeeting": "Görüşə qoşul",
+    "allCaughtUp": "Bütün bildirişlər oxunub",
+    "unread": "{{count}} oxunmamış",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Konsultasiya Talebi Qəbul Edildi",
+        "message": "{{consultationType}} konsultasiya sorğunuz {{consultationMethod}} vasitəsilə {{slotDate}} tarixində {{slotTime}} saatında qəbul edildi."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Konsultasiya Təsdiqləndi",
+        "message": "{{consultationType}} konsultasiyanız {{slotDate}} tarixində {{slotTime}} saatında təsdiqləndi."
+      },
+      "consultation_rejected": {
+        "title": "❌ Konsultasiya Mövcud Deyil",
+        "message": "Təəssüf ki, {{consultationType}} konsultasiyanız {{slotDate}} tarixinə planlaşdırıla bilmədi."
+      },
+      "consultation_cancelled": {
+        "title": "Konsultasiya Ləğv Edildi",
+        "message": "{{consultationType}} konsultasiyanız {{slotDate}} tarixinə ləğv edildi."
+      },
+      "consultation_completed": {
+        "title": "✔️ Konsultasiya Tamamlandı",
+        "message": "{{consultationType}} konsultasiyanız tamamlandı. Kinglike Luxury-i seçdiyiniz üçün təşəkkür edirik!"
+      },
+      "test": {
+        "title": "🔔 Test Bildirişi",
+        "message": "Bu test bildirişidir."
+      }
+    }
   }
 }

@@ -454,5 +454,41 @@
       "deleteSlot": "წაშლა",
       "adminNotes": "ადმინის შენიშვნები"
     }
+  },
+  "notifications": {
+    "title": "შეტყობინებები",
+    "empty": "შეტყობინება ჯერ არ არის",
+    "emptyHint": "განახლებები გამოჩნდება, როდესაც ადმინი დაადასტურებს თქვენს ჯავშნებს",
+    "markAllRead": "ყველა წაკითხულად მონიშვნა",
+    "markRead": "წაკითხულად მონიშვნა",
+    "joinMeeting": "შეხვედრაზე შესვლა",
+    "allCaughtUp": "ყველა შეტყობინება წაკითხულია",
+    "unread": "{{count}} წაუკითხავი",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 კონსულტაციის მოთხოვნა მიღებულია",
+        "message": "თქვენი {{consultationType}} კონსულტაციის მოთხოვნა {{consultationMethod}}-ის მეშვეობით {{slotDate}}-ს {{slotTime}} საათზე მიღებულია."
+      },
+      "consultation_confirmed": {
+        "title": "✅ კონსულტაცია დადასტურებულია",
+        "message": "თქვენი {{consultationType}} კონსულტაცია {{slotDate}}-ს {{slotTime}} საათზე დადასტურებულია."
+      },
+      "consultation_rejected": {
+        "title": "❌ კონსულტაცია მიუწვდომელია",
+        "message": "სამწუხაროდ, {{consultationType}} კონსულტაცია {{slotDate}}-ს ვერ დაიგეგმა. გთხოვთ, ახალი დრო შეარჩიოთ."
+      },
+      "consultation_cancelled": {
+        "title": "კონსულტაცია გაუქმებულია",
+        "message": "{{consultationType}} კონსულტაცია {{slotDate}}-ს გაუქმებულია."
+      },
+      "consultation_completed": {
+        "title": "✔️ კონსულტაცია დასრულებულია",
+        "message": "{{consultationType}} კონსულტაცია წარმატებით დასრულდა. გმადლობთ Kinglike Luxury-ის არჩევისთვის!"
+      },
+      "test": {
+        "title": "🔔 სატესტო შეტყობინება",
+        "message": "ეს სატესტო შეტყობინებაა."
+      }
+    }
   }
 }

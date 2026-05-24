@@ -459,5 +459,41 @@
       "deleteSlot": "حذف",
       "adminNotes": "یادداشت‌های مدیر"
     }
+  },
+  "notifications": {
+    "title": "اعلان‌ها",
+    "empty": "هنوز اعلانی وجود ندارد",
+    "emptyHint": "وقتی مدیر رزروهای شما را تأیید کند، به‌روزرسانی‌ها اینجا نشان داده می‌شوند",
+    "markAllRead": "علامت‌گذاری همه به عنوان خوانده شده",
+    "markRead": "علامت‌گذاری به عنوان خوانده شده",
+    "joinMeeting": "پیوستن به جلسه",
+    "allCaughtUp": "همه خوانده شدند",
+    "unread": "{{count}} خوانده نشده",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 درخواست مشاوره دریافت شد",
+        "message": "درخواست مشاوره شما ({{consultationType}}) از طریق {{consultationMethod}} در {{slotDate}} ساعت {{slotTime}} دریافت شد."
+      },
+      "consultation_confirmed": {
+        "title": "✅ مشاوره تأیید شد",
+        "message": "مشاوره شما ({{consultationType}}) در {{slotDate}} ساعت {{slotTime}} تأیید شد."
+      },
+      "consultation_rejected": {
+        "title": "❌ مشاوره در دسترس نیست",
+        "message": "متأسفانه مشاوره شما ({{consultationType}}) در {{slotDate}} قابل برنامه‌ریزی نیست."
+      },
+      "consultation_cancelled": {
+        "title": "مشاوره لغو شد",
+        "message": "مشاوره شما ({{consultationType}}) در {{slotDate}} لغو شد."
+      },
+      "consultation_completed": {
+        "title": "✔️ مشاوره تکمیل شد",
+        "message": "مشاوره شما ({{consultationType}}) تکمیل شد. ممنون از انتخاب Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 اعلان آزمایشی",
+        "message": "این یک اعلان آزمایشی است."
+      }
+    }
   }
 }

@@ -454,5 +454,41 @@
       "deleteSlot": "Удалить слот",
       "adminNotes": "Заметки администратора"
     }
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "empty": "Уведомлений пока нет",
+    "emptyHint": "Здесь появятся обновления когда администратор подтвердит ваши бронирования",
+    "markAllRead": "Отметить все прочитанными",
+    "markRead": "Отметить прочитанным",
+    "joinMeeting": "Присоединиться",
+    "allCaughtUp": "Всё прочитано",
+    "unread": "{{count}} непрочитанных",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Заявка на консультацию получена",
+        "message": "Ваша заявка на консультацию ({{consultationType}}) через {{consultationMethod}} на {{slotDate}} в {{slotTime}} получена. Мы подтвердим её в ближайшее время."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Консультация подтверждена",
+        "message": "Ваша консультация ({{consultationType}}) на {{slotDate}} в {{slotTime}} подтверждена."
+      },
+      "consultation_rejected": {
+        "title": "❌ Консультация недоступна",
+        "message": "К сожалению, консультация ({{consultationType}}) на {{slotDate}} не может быть запланирована. Пожалуйста, выберите другое время."
+      },
+      "consultation_cancelled": {
+        "title": "Консультация отменена",
+        "message": "Ваша консультация ({{consultationType}}) на {{slotDate}} отменена."
+      },
+      "consultation_completed": {
+        "title": "✔️ Консультация завершена",
+        "message": "Ваша консультация ({{consultationType}}) завершена. Спасибо за выбор Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 Тестовое уведомление",
+        "message": "Это тестовое уведомление."
+      }
+    }
   }
 }

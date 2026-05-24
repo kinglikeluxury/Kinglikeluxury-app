@@ -454,5 +454,41 @@
       "deleteSlot": "Sil",
       "adminNotes": "Yönetici Notları"
     }
+  },
+  "notifications": {
+    "title": "Bildirimler",
+    "empty": "Henüz bildirim yok",
+    "emptyHint": "Yönetici rezervasyonlarınızı onayladığında güncellemeler burada görünecek",
+    "markAllRead": "Tümünü okundu işaretle",
+    "markRead": "Okundu işaretle",
+    "joinMeeting": "Toplantıya Katıl",
+    "allCaughtUp": "Tüm bildirimler okundu",
+    "unread": "{{count}} okunmamış",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Danışmanlık Talebi Alındı",
+        "message": "{{consultationType}} danışmanlık talebiniz {{consultationMethod}} aracılığıyla {{slotDate}} tarihinde {{slotTime}} saatinde alındı. Kısa sürede onaylayacağız."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Danışmanlık Onaylandı",
+        "message": "{{consultationType}} danışmanlığınız {{slotDate}} tarihinde {{slotTime}} saatinde onaylandı."
+      },
+      "consultation_rejected": {
+        "title": "❌ Danışmanlık Mevcut Değil",
+        "message": "Maalesef {{consultationType}} danışmanlığınız {{slotDate}} tarihinde planlanamadı. Lütfen yeni bir slot seçin."
+      },
+      "consultation_cancelled": {
+        "title": "Danışmanlık İptal Edildi",
+        "message": "{{consultationType}} danışmanlığınız {{slotDate}} tarihinde iptal edildi."
+      },
+      "consultation_completed": {
+        "title": "✔️ Danışmanlık Tamamlandı",
+        "message": "{{consultationType}} danışmanlığınız tamamlandı. Kinglike Luxury'i seçtiğiniz için teşekkürler!"
+      },
+      "test": {
+        "title": "🔔 Test Bildirimi",
+        "message": "Bu bir test bildirimidir."
+      }
+    }
   }
 }

@@ -462,5 +462,41 @@
       "deleteSlot": "Ta bort",
       "adminNotes": "Admin-anteckningar"
     }
+  },
+  "notifications": {
+    "title": "Aviseringar",
+    "empty": "Inga aviseringar ännu",
+    "emptyHint": "Uppdateringar visas här när administratören bekräftar dina bokningar",
+    "markAllRead": "Markera alla som lästa",
+    "markRead": "Markera som läst",
+    "joinMeeting": "Gå med i mötet",
+    "allCaughtUp": "Allt läst",
+    "unread": "{{count}} oläst",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Konsultationsförfrågan mottagen",
+        "message": "Din konsultationsförfrågan ({{consultationType}}) via {{consultationMethod}} den {{slotDate}} kl {{slotTime}} har mottagits."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Konsultation bekräftad",
+        "message": "Din konsultation ({{consultationType}}) den {{slotDate}} kl {{slotTime}} har bekräftats."
+      },
+      "consultation_rejected": {
+        "title": "❌ Konsultation ej tillgänglig",
+        "message": "Tyvärr kunde din konsultation ({{consultationType}}) den {{slotDate}} inte schemaläggas."
+      },
+      "consultation_cancelled": {
+        "title": "Konsultation avbokad",
+        "message": "Din konsultation ({{consultationType}}) den {{slotDate}} har avbokats."
+      },
+      "consultation_completed": {
+        "title": "✔️ Konsultation avslutad",
+        "message": "Din konsultation ({{consultationType}}) är avslutad. Tack för att du valde Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 Testavisering",
+        "message": "Detta är en testavisering."
+      }
+    }
   }
 }

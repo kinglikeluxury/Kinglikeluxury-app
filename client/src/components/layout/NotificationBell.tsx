@@ -6,6 +6,22 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { UserNotification } from "@shared/schema";
 import { useTranslation } from "react-i18next";
+import { TFunction } from "i18next";
+
+/** Translate notification title/message using i18n keys + stored data fields. */
+function getNotifContent(n: UserNotification, t: TFunction) {
+  const data = (n.data as any) || {};
+  const translatedType   = data.consultationType
+    ? t(`consultation.types.${data.consultationType}`, data.consultationType)
+    : "";
+  const translatedMethod = data.consultationMethod
+    ? t(`consultation.methods.${data.consultationMethod}`, data.consultationMethod)
+    : "";
+  const vars = { ...data, consultationType: translatedType, consultationMethod: translatedMethod };
+  const title   = t(`notifications.types.${n.type}.title`,   { defaultValue: n.title,   ...vars });
+  const message = t(`notifications.types.${n.type}.message`, { defaultValue: n.message, ...vars });
+  return { title, message };
+}
 
 export default function NotificationBell() {
   const { user } = useAuth();
@@ -13,7 +29,6 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Auto-close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -25,7 +40,7 @@ export default function NotificationBell() {
   const { data: notifications = [] } = useQuery<UserNotification[]>({
     queryKey: ["/api/notifications"],
     enabled: !!user,
-    refetchInterval: 30_000, // poll every 30s
+    refetchInterval: 30_000,
   });
 
   const unread = notifications.filter(n => !n.isRead).length;
@@ -49,7 +64,7 @@ export default function NotificationBell() {
       <button
         onClick={() => setOpen(o => !o)}
         className="relative p-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none"
-        aria-label="Notifications"
+        aria-label={t("notifications.title", "Notifications")}
       >
         <Bell className={`h-5 w-5 ${unread > 0 ? "text-[#3bcac4]" : "text-gray-400"}`} />
         {unread > 0 && (
@@ -66,7 +81,7 @@ export default function NotificationBell() {
             <span className="font-semibold text-gray-900 text-sm">
               {t("notifications.title", "Notifications")}
               {unread > 0 && (
-                <span className="ml-2 bg-[#3bcac4] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                <span className="ml-2 bg-[#005476] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                   {unread}
                 </span>
               )}
@@ -95,34 +110,43 @@ export default function NotificationBell() {
                 {t("notifications.empty", "No notifications yet")}
               </div>
             ) : (
-              recent.map(n => (
-                <div
-                  key={n.id}
-                  className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.isRead ? "bg-[#f0fdfc]" : ""}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${!n.isRead ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]" : "bg-gray-100"}`}>
-                      <Calendar className={`w-3.5 h-3.5 ${!n.isRead ? "text-white" : "text-gray-400"}`} />
+              recent.map(n => {
+                const { title, message } = getNotifContent(n, t);
+                return (
+                  <div
+                    key={n.id}
+                    className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.isRead ? "bg-[#f0fdfc]" : ""}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        !n.isRead ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]" : "bg-gray-100"
+                      }`}>
+                        <Calendar className={`w-3.5 h-3.5 ${!n.isRead ? "text-white" : "text-gray-400"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-semibold ${!n.isRead ? "text-[#005476]" : "text-gray-700"}`}>
+                          {title}
+                        </p>
+                        <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed line-clamp-2">
+                          {message}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {new Date(n.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                      {!n.isRead && (
+                        <button
+                          onClick={() => markReadMutation.mutate(n.id)}
+                          className="text-[#3bcac4] hover:text-[#005476] flex-shrink-0 mt-0.5"
+                          title={t("notifications.markRead", "Mark as read")}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-semibold ${!n.isRead ? "text-[#005476]" : "text-gray-700"}`}>{n.title}</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">
-                        {new Date(n.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    {!n.isRead && (
-                      <button
-                        onClick={() => markReadMutation.mutate(n.id)}
-                        className="text-[#3bcac4] hover:text-[#005476] flex-shrink-0 mt-0.5"
-                        title="Mark as read"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 

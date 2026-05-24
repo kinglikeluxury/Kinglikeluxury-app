@@ -7,22 +7,53 @@ import { Bell, Check, CheckCheck, Calendar, Video, Phone, Monitor, MessageSquare
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UserNotification } from "@shared/schema";
+import { TFunction } from "i18next";
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   consultation_confirmed: Calendar,
   consultation_rejected: Calendar,
   consultation_cancelled: Calendar,
+  consultation_pending: Calendar,
+  consultation_completed: Calendar,
   consultation_booked: Calendar,
   test: Bell,
 };
 
 const TYPE_COLORS: Record<string, string> = {
+  consultation_pending:   "bg-blue-100 text-blue-800",
   consultation_confirmed: "bg-green-100 text-green-800",
-  consultation_rejected: "bg-red-100 text-red-800",
+  consultation_rejected:  "bg-red-100 text-red-800",
   consultation_cancelled: "bg-gray-100 text-gray-600",
-  consultation_booked: "bg-blue-100 text-blue-800",
+  consultation_completed: "bg-teal-100 text-teal-800",
   test: "bg-purple-100 text-purple-800",
 };
+
+/** Translate a notification's title and message using i18n keys + stored data. */
+function getNotifContent(n: UserNotification, t: TFunction) {
+  const data = (n.data as any) || {};
+
+  // Translate consultation type/method using existing keys
+  const translatedType   = data.consultationType
+    ? t(`consultation.types.${data.consultationType}`, data.consultationType)
+    : "";
+  const translatedMethod = data.consultationMethod
+    ? t(`consultation.methods.${data.consultationMethod}`, data.consultationMethod)
+    : "";
+
+  const vars = {
+    ...data,
+    consultationType:   translatedType,
+    consultationMethod: translatedMethod,
+  };
+
+  const titleKey   = `notifications.types.${n.type}.title`;
+  const messageKey = `notifications.types.${n.type}.message`;
+
+  const title   = t(titleKey,   { defaultValue: n.title,   ...vars });
+  const message = t(messageKey, { defaultValue: n.message, ...vars });
+
+  return { title, message };
+}
 
 export default function NotificationsPage() {
   const { t } = useTranslation();
@@ -45,10 +76,7 @@ export default function NotificationsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
   });
 
-  if (!user) {
-    navigate("/login");
-    return null;
-  }
+  if (!user) { navigate("/login"); return null; }
 
   const unread = notifications.filter(n => !n.isRead).length;
 
@@ -63,7 +91,9 @@ export default function NotificationsPage() {
               {t("notifications.title", "Notifications")}
             </h1>
             <p className="text-white/70 text-sm mt-1">
-              {unread > 0 ? `${unread} unread` : "All caught up"}
+              {unread > 0
+                ? t("notifications.unread", "{{count}} unread", { count: unread })
+                : t("notifications.allCaughtUp", "All caught up")}
             </p>
           </div>
           {unread > 0 && (
@@ -74,11 +104,9 @@ export default function NotificationsPage() {
               size="sm"
               className="border-white/40 text-white hover:bg-white/20 bg-transparent"
             >
-              {markAllMutation.isPending ? (
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              ) : (
-                <CheckCheck className="w-3 h-3 mr-1" />
-              )}
+              {markAllMutation.isPending
+                ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                : <CheckCheck className="w-3 h-3 mr-1" />}
               {t("notifications.markAllRead", "Mark all read")}
             </Button>
           )}
@@ -104,24 +132,36 @@ export default function NotificationsPage() {
               const Icon = TYPE_ICONS[n.type] || Bell;
               const colorClass = TYPE_COLORS[n.type] || "bg-gray-100 text-gray-600";
               const data = n.data as any;
+              const { title, message } = getNotifContent(n, t);
+
               return (
                 <div
                   key={n.id}
-                  className={`bg-white rounded-2xl shadow-sm border p-5 transition-all ${!n.isRead ? "border-[#3bcac4]/30 shadow-[#3bcac4]/10 shadow-md" : "border-gray-100"}`}
+                  className={`bg-white rounded-2xl shadow-sm border p-5 transition-all ${
+                    !n.isRead
+                      ? "border-[#3bcac4]/30 shadow-[#3bcac4]/10 shadow-md"
+                      : "border-gray-100"
+                  }`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${!n.isRead ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]" : "bg-gray-100"}`}>
+                    <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      !n.isRead ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]" : "bg-gray-100"
+                    }`}>
                       <Icon className={`w-5 h-5 ${!n.isRead ? "text-white" : "text-gray-400"}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className={`font-semibold text-sm ${!n.isRead ? "text-[#005476]" : "text-gray-800"}`}>{n.title}</span>
-                        <Badge className={`text-[10px] px-1.5 py-0.5 ${colorClass}`}>{n.type.replace(/_/g, " ")}</Badge>
+                        <span className={`font-semibold text-sm ${!n.isRead ? "text-[#005476]" : "text-gray-800"}`}>
+                          {title}
+                        </span>
+                        <Badge className={`text-[10px] px-1.5 py-0.5 ${colorClass}`}>
+                          {n.type.replace(/_/g, " ")}
+                        </Badge>
                         {!n.isRead && (
                           <span className="w-2 h-2 rounded-full bg-[#3bcac4] inline-block" />
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 leading-relaxed mb-2">{n.message}</p>
+                      <p className="text-sm text-gray-600 leading-relaxed mb-2">{message}</p>
                       {data?.meetingLink && (
                         <a
                           href={data.meetingLink}
@@ -130,7 +170,7 @@ export default function NotificationsPage() {
                           className="inline-flex items-center gap-1.5 text-xs font-medium text-[#3bcac4] hover:text-[#005476] bg-[#f0fdfc] px-3 py-1.5 rounded-lg border border-[#3bcac4]/20 mb-2"
                         >
                           <Monitor className="w-3 h-3" />
-                          Join Meeting
+                          {t("notifications.joinMeeting", "Join Meeting")}
                         </a>
                       )}
                       <div className="flex items-center justify-between">
@@ -144,7 +184,7 @@ export default function NotificationsPage() {
                             className="text-xs text-[#3bcac4] hover:text-[#005476] font-medium flex items-center gap-1"
                           >
                             <Check className="w-3 h-3" />
-                            Mark read
+                            {t("notifications.markRead", "Mark read")}
                           </button>
                         )}
                       </div>

@@ -458,5 +458,41 @@
       "deleteSlot": "حذف الوقت",
       "adminNotes": "ملاحظات الإدارة"
     }
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "empty": "لا توجد إشعارات بعد",
+    "emptyHint": "ستظهر التحديثات هنا عندما يؤكد الأدمن حجوزاتك",
+    "markAllRead": "تعيين الكل كمقروء",
+    "markRead": "تعيين كمقروء",
+    "joinMeeting": "انضمام للاجتماع",
+    "allCaughtUp": "لا توجد إشعارات جديدة",
+    "unread": "{{count}} غير مقروء",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 تم استلام طلب الاستشارة",
+        "message": "تم استلام طلب استشارتك ({{consultationType}}) عبر {{consultationMethod}} بتاريخ {{slotDate}} الساعة {{slotTime}}. سيتم تأكيدها قريباً."
+      },
+      "consultation_confirmed": {
+        "title": "✅ تم تأكيد الاستشارة",
+        "message": "تم تأكيد استشارتك ({{consultationType}}) بتاريخ {{slotDate}} الساعة {{slotTime}}."
+      },
+      "consultation_rejected": {
+        "title": "❌ الاستشارة غير متاحة",
+        "message": "للأسف لم يمكن جدولة استشارتك ({{consultationType}}) بتاريخ {{slotDate}}. يرجى حجز موعد جديد."
+      },
+      "consultation_cancelled": {
+        "title": "تم إلغاء الاستشارة",
+        "message": "تم إلغاء استشارتك ({{consultationType}}) بتاريخ {{slotDate}}."
+      },
+      "consultation_completed": {
+        "title": "✔️ اكتملت الاستشارة",
+        "message": "تمت استشارتك ({{consultationType}}) بنجاح. شكراً لاختيارك Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 إشعار تجريبي",
+        "message": "هذا إشعار تجريبي."
+      }
+    }
   }
 }

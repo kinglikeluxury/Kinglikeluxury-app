@@ -458,5 +458,41 @@
       "deleteSlot": "Delete Slot",
       "adminNotes": "Admin Notes"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet",
+    "emptyHint": "You'll see updates here when admin confirms your bookings",
+    "markAllRead": "Mark all read",
+    "markRead": "Mark read",
+    "joinMeeting": "Join Meeting",
+    "allCaughtUp": "All caught up",
+    "unread": "{{count}} unread",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Consultation Booking Received",
+        "message": "Your {{consultationType}} consultation via {{consultationMethod}} on {{slotDate}} at {{slotTime}} has been received. We will confirm it shortly."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Consultation Confirmed",
+        "message": "Your {{consultationType}} consultation on {{slotDate}} at {{slotTime}} has been confirmed."
+      },
+      "consultation_rejected": {
+        "title": "❌ Consultation Not Available",
+        "message": "Unfortunately your {{consultationType}} consultation on {{slotDate}} could not be scheduled. Please book a new slot."
+      },
+      "consultation_cancelled": {
+        "title": "Consultation Cancelled",
+        "message": "Your {{consultationType}} consultation on {{slotDate}} has been cancelled."
+      },
+      "consultation_completed": {
+        "title": "✔️ Consultation Completed",
+        "message": "Your {{consultationType}} consultation has been completed. Thank you for choosing Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 Test Notification",
+        "message": "This is a test notification."
+      }
+    }
   }
 }

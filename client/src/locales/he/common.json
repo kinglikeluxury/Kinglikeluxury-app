@@ -454,5 +454,41 @@
       "deleteSlot": "מחק",
       "adminNotes": "הערות מנהל"
     }
+  },
+  "notifications": {
+    "title": "התראות",
+    "empty": "אין התראות עדיין",
+    "emptyHint": "עדכונים יופיעו כאן כאשר המנהל יאשר את ההזמנות שלך",
+    "markAllRead": "סמן הכל כנקרא",
+    "markRead": "סמן כנקרא",
+    "joinMeeting": "הצטרף לפגישה",
+    "allCaughtUp": "הכל מעודכן",
+    "unread": "{{count}} לא נקרא",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 בקשת הייעוץ התקבלה",
+        "message": "בקשת הייעוץ שלך ({{consultationType}}) דרך {{consultationMethod}} בתאריך {{slotDate}} בשעה {{slotTime}} התקבלה. נאשר אותה בקרוב."
+      },
+      "consultation_confirmed": {
+        "title": "✅ הייעוץ אושר",
+        "message": "הייעוץ שלך ({{consultationType}}) בתאריך {{slotDate}} בשעה {{slotTime}} אושר."
+      },
+      "consultation_rejected": {
+        "title": "❌ הייעוץ אינו זמין",
+        "message": "לצערנו לא ניתן לתזמן את הייעוץ ({{consultationType}}) בתאריך {{slotDate}}. אנא הזמן מועד חדש."
+      },
+      "consultation_cancelled": {
+        "title": "הייעוץ בוטל",
+        "message": "הייעוץ שלך ({{consultationType}}) בתאריך {{slotDate}} בוטל."
+      },
+      "consultation_completed": {
+        "title": "✔️ הייעוץ הושלם",
+        "message": "הייעוץ שלך ({{consultationType}}) הושלם. תודה שבחרת ב-Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 התראת בדיקה",
+        "message": "זוהי התראת בדיקה."
+      }
+    }
   }
 }

@@ -462,5 +462,41 @@
       "deleteSlot": "Verwijderen",
       "adminNotes": "Admin-notities"
     }
+  },
+  "notifications": {
+    "title": "Meldingen",
+    "empty": "Nog geen meldingen",
+    "emptyHint": "Updates verschijnen hier wanneer de beheerder uw boekingen bevestigt",
+    "markAllRead": "Alles als gelezen markeren",
+    "markRead": "Als gelezen markeren",
+    "joinMeeting": "Deelnemen aan vergadering",
+    "allCaughtUp": "Alles gelezen",
+    "unread": "{{count}} ongelezen",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Consultatieverzoek ontvangen",
+        "message": "Uw consultatieverzoek ({{consultationType}}) via {{consultationMethod}} op {{slotDate}} om {{slotTime}} is ontvangen."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Consultatie bevestigd",
+        "message": "Uw consultatie ({{consultationType}}) op {{slotDate}} om {{slotTime}} is bevestigd."
+      },
+      "consultation_rejected": {
+        "title": "❌ Consultatie niet beschikbaar",
+        "message": "Helaas kon uw consultatie ({{consultationType}}) op {{slotDate}} niet worden gepland."
+      },
+      "consultation_cancelled": {
+        "title": "Consultatie geannuleerd",
+        "message": "Uw consultatie ({{consultationType}}) op {{slotDate}} is geannuleerd."
+      },
+      "consultation_completed": {
+        "title": "✔️ Consultatie voltooid",
+        "message": "Uw consultatie ({{consultationType}}) is voltooid. Bedankt voor het kiezen van Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 Testmelding",
+        "message": "Dit is een testmelding."
+      }
+    }
   }
 }
