@@ -466,7 +466,7 @@ export default function EmailCampaignPage() {
           <CheckCircle2 className="w-5 h-5 text-[#3bcac4] flex-shrink-0 mt-0.5" />
           <div>
             <div className="font-medium text-[#005476]">الإرسال عبر Resend</div>
-            <div className="text-gray-500 text-xs mt-0.5">سترسل الإيميلات من <span dir="ltr" className="font-mono">onboarding@resend.dev</span> باسم Kinglike Luxury</div>
+            <div className="text-gray-500 text-xs mt-0.5">سترسل الإيميلات من <span dir="ltr" className="font-mono">info@kinglikeluxury.app</span> باسم Kinglike Luxury</div>
           </div>
         </div>
 

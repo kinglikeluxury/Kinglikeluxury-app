@@ -2193,7 +2193,7 @@ ${metaTags}
       if (!email) continue;
       try {
         const result = await resend.emails.send({
-          from: "Kinglike Luxury <onboarding@resend.dev>",
+          from: "Kinglike Luxury <info@kinglikeluxury.app>",
           to: email,
           subject,
           html,
