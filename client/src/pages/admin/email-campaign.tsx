@@ -48,8 +48,8 @@ export default function EmailCampaignPage() {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
   }, [user, authLoading, navigate]);
 
-  const { data: projects } = useQuery<Project[]>({ queryKey: ["/api/projects"], enabled: !!user?.isAdmin });
-  const { data: properties } = useQuery<Property[]>({ queryKey: ["/api/properties?status=all"], enabled: !!user?.isAdmin });
+  const { data: projects } = useQuery<any[]>({ queryKey: ["/api/projects"], enabled: !!user?.isAdmin });
+  const { data: properties } = useQuery<Property[]>({ queryKey: ["/api/properties"], enabled: !!user?.isAdmin });
 
   const sendMutation = useMutation({
     mutationFn: (data: {
@@ -119,18 +119,7 @@ export default function EmailCampaignPage() {
     e.target.value = "";
   };
 
-  const effectiveImageUrl = (() => {
-    if (imageSource === "url") return imageUrl.trim();
-    if (imageSource === "project") {
-      const p = projects?.find(p => p.id === selectedProjectId);
-      return p?.images?.[0] ?? "";
-    }
-    if (imageSource === "property") {
-      const p = properties?.find(p => p.id === selectedPropertyId);
-      return (p?.images as string[])?.[0] ?? "";
-    }
-    return "";
-  })();
+  const effectiveImageUrl = imageUrl.trim();
 
   const handleSend = () => {
     if (!subject.trim()) { toast({ title: "مطلوب", description: "أدخل عنوان الإيميل", variant: "destructive" }); return; }
@@ -262,7 +251,10 @@ export default function EmailCampaignPage() {
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     {!projects?.length && <p className="text-sm text-gray-400 text-center py-4">لا توجد مشاريع</p>}
                     {projects?.map(project => {
-                      const imgs = project.images as string[] | undefined ?? [];
+                      const imgs: string[] = (project.images && project.images.length > 0)
+                        ? project.images
+                        : (project.property?.images ?? []);
+                      const projectTitle = project.title || project.property?.title || project.developer || "";
                       const isExpanded = expandedProjectId === project.id;
                       const isSelected = selectedProjectId === project.id;
                       return (
@@ -279,7 +271,7 @@ export default function EmailCampaignPage() {
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-[#005476] truncate">{project.title}</div>
+                              <div className="text-sm font-medium text-[#005476] truncate">{projectTitle}</div>
                               <div className="text-xs text-gray-400">{imgs.length} صورة</div>
                             </div>
                             {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
