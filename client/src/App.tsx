@@ -40,8 +40,9 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import PrivacyTerms from "@/pages/privacy-terms";
 import InstallPWA from "@/components/InstallPWA";
+import SplashScreen from "@/components/SplashScreen";
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getLanguageDirection } from "./lib/i18n";
 
 function Router() {
@@ -97,7 +98,8 @@ function Router() {
 
 function App() {
   const { i18n } = useTranslation();
-  
+  const [splashDone, setSplashDone] = useState(false);
+
   useEffect(() => {
     document.documentElement.dir = getLanguageDirection(i18n.language);
     document.documentElement.lang = i18n.language;
@@ -110,7 +112,16 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <InstallPWA />
-            <Router />
+            {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
+            <div
+              style={{
+                opacity: splashDone ? 1 : 0,
+                transition: "opacity 0.5s ease-in-out",
+                pointerEvents: splashDone ? "auto" : "none",
+              }}
+            >
+              <Router />
+            </div>
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
