@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -296,6 +296,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen })}
                 {renderItem({ label: `👥 ${t("admin.leads", "Leads Database")}`, path: "/admin/leads", icon: Users })}
                 {renderItem({ label: `📄 إنشاء عرض للمشاريع`, path: "/admin/project-offer", icon: FileText })}
+                {renderItem({ label: `✉️ حملة إيميل`, path: "/admin/email-campaign", icon: Mail })}
 
                 {/* Property ID Search */}
                 <div className="px-5 py-3.5 border-t border-gray-100">

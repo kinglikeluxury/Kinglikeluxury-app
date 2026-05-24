@@ -185,6 +185,7 @@ const Navbar = () => {
                           <DropdownMenuItem asChild><Link href="/admin/blog">{t("admin.blogManagement", "Blog")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/leads">👥 {t("admin.leads", "Leads Database")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ حملة إيميل</Link></DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <div className="px-2 py-1.5">
                             <p className="text-[10px] text-gray-400 font-semibold uppercase mb-1.5 flex items-center gap-1">
