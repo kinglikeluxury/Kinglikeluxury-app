@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail, CalendarDays, Bell
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail, CalendarDays, Bell, Sparkles
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -277,6 +277,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.blog", "المدونة"), path: "/blog", icon: BookOpen })}
             {renderItem({ label: t("nav.map", "الخريطة"), path: "/map", icon: Map })}
             {renderItem({ label: t("consultation.menuLabel", "Book Consultation"), path: "/consultation", icon: CalendarDays })}
+            {renderItem({ label: t("aiAdvisor.menuLabel", "AI Investment Advisor"), path: "/ai-advisor", icon: Sparkles, highlight: true })}
             {renderItem({ label: t("notifications.title", "Notifications"), path: "/notifications", icon: Bell, badge: unreadCount, highlight: unreadCount > 0 })}
             {renderItem({
               label: t("favorites.title", "المفضلة"),
@@ -315,6 +316,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: `📄 إنشاء عرض للمشاريع`, path: "/admin/project-offer", icon: FileText })}
                 {renderItem({ label: `✉️ حملة إيميل`, path: "/admin/email-campaign", icon: Mail })}
                 {renderItem({ label: t("consultation.admin.title"), path: "/admin/consultations", icon: CalendarDays })}
+                {renderItem({ label: `🤖 AI Leads`, path: "/admin/ai-leads", icon: Sparkles })}
 
                 {/* Property ID Search */}
                 <div className="px-5 py-3.5 border-t border-gray-100">

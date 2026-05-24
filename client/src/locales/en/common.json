@@ -494,5 +494,28 @@
         "message": "This is a test notification."
       }
     }
+  },
+  "aiAdvisor": {
+    "menuLabel": "AI Investment Advisor",
+    "title": "AI Investment Advisor",
+    "subtitle": "Kinglike Luxury — Premium Advisory",
+    "welcome": "Welcome to AI Advisor",
+    "welcomeDesc": "I'll help you find the best real estate opportunities based on your goals, budget, and preferences.",
+    "startChat": "Start Conversation",
+    "newChat": "New chat",
+    "placeholder": "Type your message...",
+    "disclaimer": "AI responses are for guidance only. Final recommendations from our advisory team.",
+    "loginRequired": "Login Required",
+    "loginHint": "Please log in to access the AI Investment Advisor.",
+    "unavailable": "AI Advisor is temporarily unavailable. Please book a consultation with our team.",
+    "homeCta": {
+      "title": "Find the best property for your goals",
+      "subtitle": "Our AI advisor will understand your investment goals, budget, and preferences — then our team prepares personalized opportunities for you.",
+      "button": "Start Now"
+    },
+    "propertyCta": {
+      "label": "Ask AI if this project fits you",
+      "button": "Ask AI Advisor"
+    }
   }
 }

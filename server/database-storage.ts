@@ -1,4 +1,4 @@
-import { eq, and, like, ilike, gte, lte, desc, or, isNull, sql } from "drizzle-orm";
+import { eq, and, like, ilike, gte, lte, desc, or, isNull, sql, gte as gteOp } from "drizzle-orm";
 import { db, withRetry } from "./db";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -17,6 +17,9 @@ import {
   consultationTimeSlots,
   consultationBookings,
   userNotifications,
+  aiConversations,
+  aiMessages,
+  investorProfiles,
   type ContactLog,
   type User,
   type InsertUser,
@@ -32,6 +35,9 @@ import {
   type InsertConsultationBooking,
   type UserNotification,
   type InsertUserNotification,
+  type AiConversation,
+  type AiMessage,
+  type InvestorProfile,
   PROPERTY_STATUS,
   PROPERTY_TYPES,
   AUTH_METHODS
@@ -758,5 +764,70 @@ export class DatabaseStorage implements IStorage {
 
   async deletePushSubscriptionByEndpoint(endpoint: string): Promise<void> {
     await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  // ── AI Advisor ──────────────────────────────────────────────────────────────
+
+  async createAiConversation(userId: number, language: string): Promise<AiConversation> {
+    const [conv] = await db.insert(aiConversations).values({ userId, language, status: "active", messageCount: 0 }).returning();
+    return conv;
+  }
+
+  async addAiMessage(conversationId: number, role: string, content: string): Promise<AiMessage> {
+    const [msg] = await db.insert(aiMessages).values({ conversationId, role, content }).returning();
+    return msg;
+  }
+
+  async getAiMessages(conversationId: number): Promise<AiMessage[]> {
+    return await db.select().from(aiMessages).where(eq(aiMessages.conversationId, conversationId)).orderBy(aiMessages.createdAt);
+  }
+
+  async upsertInvestorProfile(data: { conversationId: number; userId: number; [key: string]: any }): Promise<InvestorProfile> {
+    const existing = await db.select().from(investorProfiles).where(eq(investorProfiles.conversationId, data.conversationId));
+    if (existing.length > 0) {
+      const [updated] = await db.update(investorProfiles)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(investorProfiles.conversationId, data.conversationId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(investorProfiles).values({ ...data }).returning();
+      return created;
+    }
+  }
+
+  async getAllInvestorProfiles(): Promise<(InvestorProfile & { username?: string; conversation?: AiMessage[] })[]> {
+    const profiles = await db.select().from(investorProfiles).orderBy(desc(investorProfiles.createdAt));
+    const result = await Promise.all(profiles.map(async (p) => {
+      const [userRow] = await db.select({ username: users.username }).from(users).where(eq(users.id, p.userId));
+      const msgs = p.conversationId ? await this.getAiMessages(p.conversationId) : [];
+      return { ...p, username: userRow?.username, conversation: msgs };
+    }));
+    return result;
+  }
+
+  async getInvestorProfileByConversation(conversationId: number): Promise<InvestorProfile | undefined> {
+    const [profile] = await db.select().from(investorProfiles).where(eq(investorProfiles.conversationId, conversationId));
+    return profile;
+  }
+
+  async incrementConversationMessages(conversationId: number): Promise<void> {
+    await db.update(aiConversations)
+      .set({ messageCount: sql`${aiConversations.messageCount} + 1`, updatedAt: new Date() })
+      .where(eq(aiConversations.id, conversationId));
+  }
+
+  async completeConversation(conversationId: number): Promise<void> {
+    await db.update(aiConversations)
+      .set({ status: "completed", updatedAt: new Date() })
+      .where(eq(aiConversations.id, conversationId));
+  }
+
+  async countTodayConversations(userId: number): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rows = await db.select().from(aiConversations)
+      .where(and(eq(aiConversations.userId, userId), gte(aiConversations.createdAt, today)));
+    return rows.length;
   }
 }

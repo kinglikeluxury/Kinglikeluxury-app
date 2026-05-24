@@ -39,6 +39,8 @@ import ForgotPassword from "@/pages/forgot-password";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import PrivacyTerms from "@/pages/privacy-terms";
+import AiAdvisorPage from "@/pages/ai-advisor";
+import AiLeadsPage from "@/pages/admin/ai-leads";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
 import { useTranslation } from "react-i18next";
@@ -74,6 +76,8 @@ function Router() {
           <Route path="/admin/notifications" component={AdminNotificationsPage} />
           <Route path="/admin/email-campaign" component={EmailCampaignPage} />
           <Route path="/admin/consultations" component={AdminConsultations} />
+          <Route path="/admin/ai-leads" component={AiLeadsPage} />
+          <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />
           <Route path="/notifications" component={UserNotificationsPage} />
           <Route path="/favorites" component={Favorites} />

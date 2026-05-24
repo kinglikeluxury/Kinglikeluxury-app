@@ -115,6 +115,17 @@ export interface IStorage {
   savePushSubscription(data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription>;
   getPushSubscriptionsByUserId(userId: number): Promise<import("@shared/schema").PushSubscription[]>;
   deletePushSubscriptionByEndpoint(endpoint: string): Promise<void>;
+
+  // AI Advisor operations
+  createAiConversation(userId: number, language: string): Promise<import("@shared/schema").AiConversation>;
+  addAiMessage(conversationId: number, role: string, content: string): Promise<import("@shared/schema").AiMessage>;
+  getAiMessages(conversationId: number): Promise<import("@shared/schema").AiMessage[]>;
+  upsertInvestorProfile(data: { conversationId: number; userId: number; accountPhone?: string; [key: string]: any }): Promise<import("@shared/schema").InvestorProfile>;
+  getAllInvestorProfiles(): Promise<(import("@shared/schema").InvestorProfile & { username?: string; conversation?: import("@shared/schema").AiMessage[] })[]>;
+  getInvestorProfileByConversation(conversationId: number): Promise<import("@shared/schema").InvestorProfile | undefined>;
+  incrementConversationMessages(conversationId: number): Promise<void>;
+  completeConversation(conversationId: number): Promise<void>;
+  countTodayConversations(userId: number): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -490,6 +501,17 @@ export class MemStorage implements IStorage {
   async savePushSubscription(_data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription> { throw new Error("Not implemented"); }
   async getPushSubscriptionsByUserId(_userId: number): Promise<import("@shared/schema").PushSubscription[]> { return []; }
   async deletePushSubscriptionByEndpoint(_endpoint: string): Promise<void> {}
+
+  // AI Advisor stubs
+  async createAiConversation(_userId: number, _language: string): Promise<import("@shared/schema").AiConversation> { throw new Error("Not implemented"); }
+  async addAiMessage(_conversationId: number, _role: string, _content: string): Promise<import("@shared/schema").AiMessage> { throw new Error("Not implemented"); }
+  async getAiMessages(_conversationId: number): Promise<import("@shared/schema").AiMessage[]> { return []; }
+  async upsertInvestorProfile(_data: any): Promise<import("@shared/schema").InvestorProfile> { throw new Error("Not implemented"); }
+  async getAllInvestorProfiles(): Promise<any[]> { return []; }
+  async getInvestorProfileByConversation(_conversationId: number): Promise<import("@shared/schema").InvestorProfile | undefined> { return undefined; }
+  async incrementConversationMessages(_conversationId: number): Promise<void> {}
+  async completeConversation(_conversationId: number): Promise<void> {}
+  async countTodayConversations(_userId: number): Promise<number> { return 0; }
 }
 
 // Import the DatabaseStorage class

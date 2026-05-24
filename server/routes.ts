@@ -394,14 +394,21 @@ ${metaTags}
         });
         console.log(`✅ WhatsApp OTP sent to ${phoneNumber}`);
       } catch (waError: any) {
-        // WhatsApp failed — fallback to SMS via Messaging Service or phone number
+        // WhatsApp failed — fallback to SMS
         console.warn(`⚠️ WhatsApp failed (${waError.code}), falling back to SMS...`);
         method = "sms";
-        await twilioClient.messages.create({
-          body: `Kinglike Luxury - رمز التحقق: ${code} (صالح 10 دقائق)`,
-          to: phoneNumber,
-          ...(msgSid ? { messagingServiceSid: msgSid } : { from: fromNumber }),
-        });
+        const smsBody = `Kinglike Luxury - رمز التحقق: ${code} (صالح 10 دقائق)`;
+        // 2️⃣ Try messaging service SID first, then fall back to direct phone number
+        try {
+          if (msgSid) {
+            await twilioClient.messages.create({ body: smsBody, to: phoneNumber, messagingServiceSid: msgSid });
+          } else {
+            throw new Error("No messaging service SID");
+          }
+        } catch {
+          // 3️⃣ Final fallback: send directly from Twilio phone number
+          await twilioClient.messages.create({ body: smsBody, to: phoneNumber, from: fromNumber });
+        }
         console.log(`✅ SMS OTP sent to ${phoneNumber}`);
       }
 
@@ -2711,6 +2718,161 @@ ${metaTags}
     }
 
     res.json(results);
+  });
+
+  // ── AI Investment Advisor ────────────────────────────────────────────────────
+  const { chatWithAdvisor, isAiAvailable, computeLeadScore } = await import("./aiAdvisor");
+
+  // Rate limit map: userId -> { count, date }
+  const aiRateLimits = new Map<number, { count: number; date: string }>();
+  const MAX_MSGS_PER_CONVERSATION = 40;
+  const MAX_CONVS_PER_DAY = 5;
+
+  // POST /api/ai/start — begin a new conversation
+  app.post("/api/ai/start", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    const userId = req.session.userId;
+
+    if (!isAiAvailable()) {
+      return res.json({
+        conversationId: null,
+        greeting: "AI advisor is temporarily unavailable. Please book a consultation with our team.",
+      });
+    }
+
+    try {
+      // Rate limit: max 5 conversations per day
+      const todayCount = await storage.countTodayConversations(userId);
+      if (todayCount >= MAX_CONVS_PER_DAY) {
+        return res.status(429).json({ message: "Daily conversation limit reached. Please try again tomorrow." });
+      }
+
+      const lang = req.body.language || "en";
+      const conv = await storage.createAiConversation(userId, lang);
+
+      // Build greeting
+      const user = await storage.getUser(userId);
+      const userPhone = user?.phoneNumber || user?.whatsappNumber || undefined;
+
+      const greetingMessages: Record<string, string> = {
+        ar: "مرحباً 👋 أنا المستشار الذكي من Kinglike Luxury. سأساعدك على فهم أفضل الخيارات العقارية المناسبة لهدفك وميزانيتك، ثم يمكن لفريقنا تجهيز استشارة خاصة لك.\n\nما هو هدفك الرئيسي من الشراء؟ 🏠\n• استثمار\n• سكن\n• دخل إيجاري\n• إعادة بيع\n• منزل للعطلات\n• إقامة أو جنسية\n• أسلوب حياة فاخر",
+        ru: "Привет 👋 Я ИИ-консультант Kinglike Luxury. Помогу понять ваши цели и подберу подходящие варианты недвижимости.\n\nКакова ваша главная цель покупки?\n• Инвестиции\n• Проживание\n• Арендный доход\n• Перепродажа\n• Дача/отдых\n• ВНЖ/гражданство\n• Роскошный образ жизни",
+        tr: "Merhaba 👋 Ben Kinglike Luxury AI Danışmanıyım. Hedeflerinizi anlamak ve size en uygun gayrimenkul fırsatlarını hazırlamak için buradayım.\n\nSatın alma amacınız nedir?\n• Yatırım\n• Oturma\n• Kira geliri\n• Yeniden satış\n• Tatil evi\n• Oturma izni/vatandaşlık\n• Lüks yaşam tarzı",
+        default: "Hello 👋 I'm the Kinglike Luxury AI Investment Advisor. I'll help understand your goals and prepare suitable real estate opportunities for you.\n\nWhat is your main purpose for buying? 🏠\n• Investment\n• Living / Residence\n• Rental income\n• Resale profit\n• Holiday home\n• Residency or citizenship\n• Luxury lifestyle",
+      };
+
+      const greeting = greetingMessages[lang] || greetingMessages.default;
+      await storage.addAiMessage(conv.id, "assistant", greeting);
+      await storage.incrementConversationMessages(conv.id);
+
+      res.json({ conversationId: conv.id, greeting });
+    } catch (err: any) {
+      console.error("[AI] start error:", err.message);
+      res.status(500).json({ message: "Failed to start conversation" });
+    }
+  });
+
+  // POST /api/ai/chat — send a message
+  app.post("/api/ai/chat", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    const userId = req.session.userId;
+
+    if (!isAiAvailable()) {
+      return res.json({ message: "AI advisor is temporarily unavailable. Please book a consultation with our team." });
+    }
+
+    const { conversationId, message, language } = req.body;
+    if (!conversationId || !message?.trim()) return res.status(400).json({ message: "Missing fields" });
+
+    // Rate limit: max 40 messages per conversation
+    const msgs = await storage.getAiMessages(conversationId);
+    if (msgs.length >= MAX_MSGS_PER_CONVERSATION) {
+      return res.json({ message: "We have gathered enough information. Our advisory team will contact you shortly with personalized recommendations. Thank you!" });
+    }
+
+    try {
+      // Save user message
+      await storage.addAiMessage(conversationId, "user", message.trim());
+      await storage.incrementConversationMessages(conversationId);
+
+      const user = await storage.getUser(userId);
+      const userPhone = user?.phoneNumber || user?.whatsappNumber || undefined;
+
+      // Build message history for OpenAI
+      const history = [...msgs, { role: "user", content: message.trim() }].map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+
+      const aiResp = await chatWithAdvisor(history, language || "en", userPhone);
+
+      // Save assistant response
+      await storage.addAiMessage(conversationId, "assistant", aiResp.message);
+      await storage.incrementConversationMessages(conversationId);
+
+      // Upsert investor profile if we have data
+      if (aiResp.profileData && Object.keys(aiResp.profileData).length > 0) {
+        const score = computeLeadScore(aiResp.profileData);
+        const profileData = {
+          conversationId,
+          userId,
+          accountPhone: userPhone,
+          ...aiResp.profileData,
+          leadScore: aiResp.profileData.leadScore || score,
+          language: language || "en",
+        };
+        await storage.upsertInvestorProfile(profileData);
+
+        // Notify admin if lead is hot
+        if (score === "hot" || aiResp.profileData.leadScore === "hot") {
+          try {
+            await storage.createUserNotification({
+              userId: 1, // admin
+              type: "consultation_pending",
+              title: "🔥 Hot AI Lead",
+              message: `New hot lead from ${userPhone || "unknown"} — Goal: ${aiResp.profileData.goal || "?"}, Budget: ${aiResp.profileData.budget || "?"}`,
+              data: { leadType: "ai_hot", conversationId, userId },
+              isRead: false,
+            });
+          } catch (_) {}
+
+          // Send admin email
+          const resendKey = process.env.RESEND_API_KEY;
+          if (resendKey) {
+            try {
+              const { Resend } = await import("resend");
+              const resend = new Resend(resendKey);
+              await resend.emails.send({
+                from: "noreply@kinglikeluxury.com",
+                to: "admin@kinglikeluxury.com",
+                subject: "🔥 Hot AI Lead — Kinglike Luxury",
+                html: `<h2>New Hot Lead</h2><p>Phone: ${userPhone || "N/A"}</p><p>Goal: ${aiResp.profileData.goal || "?"}</p><p>Budget: ${aiResp.profileData.budget || "?"}</p><p>Country: ${aiResp.profileData.country || "?"}</p><p>Timeline: ${aiResp.profileData.timeline || "?"}</p><p>Email: ${aiResp.profileData.email || "?"}</p><p>WhatsApp: ${aiResp.profileData.whatsappContactNumber || "?"}</p><p>Summary: ${aiResp.profileData.summary || "N/A"}</p>`,
+              });
+            } catch (_) {}
+          }
+        }
+      }
+
+      res.json({ message: aiResp.message });
+    } catch (err: any) {
+      console.error("[AI] chat error:", err.message);
+      if (err.message === "AI_UNAVAILABLE") {
+        return res.json({ message: "AI advisor is temporarily unavailable. Please book a consultation with our team." });
+      }
+      res.status(500).json({ message: "Failed to process message" });
+    }
+  });
+
+  // GET /api/admin/ai-leads — admin view all investor profiles
+  app.get("/api/admin/ai-leads", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const profiles = await storage.getAllInvestorProfiles();
+      res.json(profiles);
+    } catch (err: any) {
+      console.error("[AI] admin leads error:", err.message);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
   });
 
   return httpServer;

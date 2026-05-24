@@ -417,6 +417,61 @@ export const insertUserNotificationSchema = createInsertSchema(userNotifications
 export type UserNotification = typeof userNotifications.$inferSelect;
 export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;
 
+// ── AI Advisor ───────────────────────────────────────────────────────────────
+
+export const aiConversations = pgTable("ai_conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  language: text("language").default("en"),
+  status: text("status").default("active"), // active | completed | abandoned
+  messageCount: integer("message_count").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const aiMessages = pgTable("ai_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").references(() => aiConversations.id, { onDelete: "cascade" }).notNull(),
+  role: text("role").notNull(), // user | assistant
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const investorProfiles = pgTable("investor_profiles", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").references(() => aiConversations.id),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  accountPhone: text("account_phone"),
+  whatsappContactNumber: text("whatsapp_contact_number"),
+  email: text("email"),
+  language: text("language"),
+  goal: text("goal"),
+  budget: text("budget"),
+  paymentPreference: text("payment_preference"),
+  country: text("country"),
+  city: text("city"),
+  interestedProject: text("interested_project"),
+  timeline: text("timeline"),
+  communicationMethod: text("communication_method"),
+  summary: text("summary"),
+  leadScore: text("lead_score").default("cold"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const aiLeadScores = pgTable("ai_lead_scores", {
+  id: serial("id").primaryKey(),
+  investorProfileId: integer("investor_profile_id").references(() => investorProfiles.id, { onDelete: "cascade" }).notNull(),
+  score: text("score").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type AiConversation = typeof aiConversations.$inferSelect;
+export type AiMessage = typeof aiMessages.$inferSelect;
+export type InvestorProfile = typeof investorProfiles.$inferSelect;
+export type AiLeadScore = typeof aiLeadScores.$inferSelect;
+
 // ── Push Subscriptions ───────────────────────────────────────────────────────
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),

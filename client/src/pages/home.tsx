@@ -5,12 +5,14 @@ import LatestProjects from "@/components/home/LatestProjects";
 import CallToAction from "@/components/home/CallToAction";
 import HowItWorks from "@/components/home/HowItWorks";
 import BlogSection from "@/components/home/BlogSection";
+import AiAdvisorCTA from "@/components/home/AiAdvisorCTA";
 
 const Home = () => {
   return (
     <div>
       <Hero />
       <CategorySection />
+      <AiAdvisorCTA />
       <FeaturedProperties />
       <CallToAction />
       <LatestProjects />
