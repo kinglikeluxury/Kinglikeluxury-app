@@ -2133,17 +2133,12 @@ ${metaTags}
       return res.status(400).json({ message: "subject and bodyText required" });
     }
 
+    const RESEND_KEY = process.env.RESEND_API_KEY;
     const GMAIL_USER = process.env.GMAIL_USER;
     const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
-    if (!GMAIL_USER || !GMAIL_PASS) {
+    if (!RESEND_KEY && (!GMAIL_USER || !GMAIL_PASS)) {
       return res.status(503).json({ message: "Email not configured" });
     }
-
-    const nodemailer = await import("nodemailer");
-    const transporter = nodemailer.default.createTransport({
-      service: "gmail",
-      auth: { user: GMAIL_USER, pass: GMAIL_PASS },
-    });
 
     const imageBlock = imageUrl
       ? `<div style="padding:0 32px 24px"><img src="${imageUrl}" alt="offer" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px" /></div>`
@@ -2180,21 +2175,55 @@ ${metaTags}
 </div>`;
 
     const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
-    for (const r of recipients) {
-      const email = typeof r === "string" ? r : r.email;
-      if (!email) continue;
-      try {
-        await transporter.sendMail({
-          from: `"Kinglike Luxury" <${GMAIL_USER}>`,
-          to: email,
-          subject,
-          html,
-          text: `${bodyText}\n\n${appLink || ""}`,
-        });
-        results.push({ email, status: "sent" });
-        await new Promise(resolve => setTimeout(resolve, 150));
-      } catch (err: any) {
-        results.push({ email, status: "failed", error: err.message });
+
+    if (RESEND_KEY) {
+      // Use Resend (preferred — no auth issues)
+      const { Resend } = await import("resend");
+      const resend = new Resend(RESEND_KEY);
+      for (const r of recipients) {
+        const email = typeof r === "string" ? r : r.email;
+        if (!email) continue;
+        try {
+          const result = await resend.emails.send({
+            from: "Kinglike Luxury <onboarding@resend.dev>",
+            to: email,
+            subject,
+            html,
+            text: `${bodyText}\n\n${appLink || ""}`,
+          });
+          if (result.error) {
+            results.push({ email, status: "failed", error: result.error.message });
+          } else {
+            results.push({ email, status: "sent" });
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (err: any) {
+          results.push({ email, status: "failed", error: err.message });
+        }
+      }
+    } else {
+      // Fallback: Gmail SMTP
+      const nodemailer = await import("nodemailer");
+      const transporter = nodemailer.default.createTransport({
+        service: "gmail",
+        auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+      });
+      for (const r of recipients) {
+        const email = typeof r === "string" ? r : r.email;
+        if (!email) continue;
+        try {
+          await transporter.sendMail({
+            from: `"Kinglike Luxury" <${GMAIL_USER}>`,
+            to: email,
+            subject,
+            html,
+            text: `${bodyText}\n\n${appLink || ""}`,
+          });
+          results.push({ email, status: "sent" });
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (err: any) {
+          results.push({ email, status: "failed", error: err.message });
+        }
       }
     }
 

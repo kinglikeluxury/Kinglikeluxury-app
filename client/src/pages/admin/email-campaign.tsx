@@ -456,15 +456,12 @@ export default function EmailCampaignPage() {
           </Card>
         )}
 
-        {/* Gmail config warning */}
-        <div className="flex gap-3 items-start bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
-          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <div className="font-medium text-amber-800">إعداد Gmail للإرسال</div>
-            <div className="text-amber-700 leading-relaxed">
-              إذا ظهر خطأ "Invalid login"، يجب استخدام <strong>App Password</strong> من Google وليس كلمة المرور العادية:<br />
-              <span className="text-xs">Google Account ← Security ← 2-Step Verification ← App Passwords ← أنشئ كلمة مرور للتطبيق وضعها في GMAIL_APP_PASSWORD</span>
-            </div>
+        {/* Sender info */}
+        <div className="flex gap-3 items-start bg-[#f0fafa] border border-[#3bcac4]/30 rounded-xl p-4 text-sm">
+          <CheckCircle2 className="w-5 h-5 text-[#3bcac4] flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium text-[#005476]">الإرسال عبر Resend</div>
+            <div className="text-gray-500 text-xs mt-0.5">سترسل الإيميلات من <span dir="ltr" className="font-mono">onboarding@resend.dev</span> باسم Kinglike Luxury</div>
           </div>
         </div>
 
