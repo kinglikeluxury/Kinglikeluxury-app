@@ -12,7 +12,7 @@ import {
 import {
   Calendar, Clock, Trash2, Plus, Phone, Mail, Globe, Building2,
   MessageSquare, CheckCircle, XCircle, Loader2, StickyNote, Link as LinkIcon,
-  Users, TrendingUp, CreditCard, Video, Monitor
+  CreditCard, Video, Monitor, Send, Wifi, WifiOff, AlertTriangle
 } from "lucide-react";
 import { ConsultationTimeSlot, ConsultationBooking } from "@shared/schema";
 
@@ -31,10 +31,27 @@ const METHOD_ICONS: Record<string, ElementType> = {
   whatsapp_voice: Phone,
 };
 
+interface DeliveryBadgeProps {
+  label: string;
+  result?: { sent: boolean; error?: string; sid?: string; id?: number };
+}
+
+function DeliveryBadge({ label, result }: DeliveryBadgeProps) {
+  if (!result) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${result.sent ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+      title={result.error || (result.sent ? "Delivered" : "Failed")}>
+      {result.sent ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
+      {label}: {result.sent ? "✓" : "✗"}
+      {!result.sent && result.error && <span className="ml-0.5 opacity-70 truncate max-w-[120px]" title={result.error}>{result.error.slice(0, 30)}</span>}
+    </span>
+  );
+}
+
 export default function AdminConsultations() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"bookings" | "slots">("bookings");
+  const [activeTab, setActiveTab] = useState<"bookings" | "slots" | "test">("bookings");
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("all");
@@ -50,6 +67,15 @@ export default function AdminConsultations() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [meetingLinkInput, setMeetingLinkInput] = useState("");
   const [adminNotesInput, setAdminNotesInput] = useState("");
+
+  // Delivery status map: bookingId → delivery
+  const [deliveryStatus, setDeliveryStatus] = useState<Record<number, any>>({});
+
+  // Test notification form
+  const [testPhone, setTestPhone] = useState("");
+  const [testEmail, setTestEmail] = useState("");
+  const [testUserId, setTestUserId] = useState("");
+  const [testResult, setTestResult] = useState<any>(null);
 
   // Fetch bookings
   const { data: rawBookings, isLoading: bookingsLoading } = useQuery<ConsultationBooking[]>({
@@ -96,12 +122,38 @@ export default function AdminConsultations() {
 
   const updateBookingMutation = useMutation({
     mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/admin/consultation/bookings/${id}`, data),
-    onSuccess: () => {
+    onSuccess: (result: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/consultation/bookings"] });
       setEditingId(null);
-      toast({ title: "Updated successfully" });
+      if (result?.delivery) {
+        setDeliveryStatus(prev => ({ ...prev, [variables.id]: result.delivery }));
+      }
+      const d = result?.delivery;
+      const smsOk = d?.sms?.sent;
+      const emailOk = d?.email?.sent;
+      const inAppOk = d?.inApp?.sent;
+      toast({
+        title: "Booking updated",
+        description: d
+          ? `SMS: ${smsOk ? "✓" : "✗"} | Email: ${emailOk ? "✓" : "✗"} | In-App: ${inAppOk ? "✓" : "✗"}`
+          : "Updated successfully",
+      });
     },
     onError: () => toast({ title: t("common.error", "Error"), variant: "destructive" }),
+  });
+
+  const testNotifMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/admin/test-notifications", {
+        phone: testPhone || undefined,
+        email: testEmail || undefined,
+        userId: testUserId ? parseInt(testUserId) : undefined,
+      }),
+    onSuccess: (result: any) => {
+      setTestResult(result);
+      toast({ title: "Test sent — see results below" });
+    },
+    onError: () => toast({ title: "Test failed", variant: "destructive" }),
   });
 
   const updateStatus = (id: number, status: string, meetingLink?: string, adminNotes?: string) => {
@@ -121,17 +173,19 @@ export default function AdminConsultations() {
       </div>
 
       {/* Tabs */}
-      <div className="max-w-5xl mx-auto px-4 -mt-px">
-        <div className="bg-white rounded-t-none border-b flex">
-          {(["bookings", "slots"] as const).map(tab => (
+      <div className="max-w-5xl mx-auto px-4">
+        <div className="bg-white border-b flex overflow-x-auto">
+          {(["bookings", "slots", "test"] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3.5 text-sm font-semibold transition-colors border-b-2 ${
+              className={`px-5 py-3.5 text-sm font-semibold transition-colors border-b-2 whitespace-nowrap ${
                 activeTab === tab ? "border-[#3bcac4] text-[#005476]" : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
-              {tab === "bookings" ? t("consultation.admin.bookingsTab") : t("consultation.admin.slotsTab")}
+              {tab === "bookings" ? t("consultation.admin.bookingsTab")
+                : tab === "slots" ? t("consultation.admin.slotsTab")
+                : "🔔 Test Notifications"}
             </button>
           ))}
         </div>
@@ -139,7 +193,7 @@ export default function AdminConsultations() {
 
       <div className="max-w-5xl mx-auto px-4 py-6">
 
-        {/* BOOKINGS TAB */}
+        {/* ── BOOKINGS TAB ── */}
         {activeTab === "bookings" && (
           <div>
             {/* Filters */}
@@ -191,8 +245,9 @@ export default function AdminConsultations() {
               <div className="space-y-4">
                 {bookings.map(b => {
                   const MethodIcon = METHOD_ICONS[b.consultationMethod] || MessageSquare;
-                  const isWA = b.consultationMethod === "whatsapp_video" || b.consultationMethod === "whatsapp_voice";
+                  const isWA = b.consultationMethod.startsWith("whatsapp");
                   const isEditing = editingId === b.id;
+                  const ds = deliveryStatus[b.id];
                   return (
                     <div key={b.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
@@ -211,10 +266,17 @@ export default function AdminConsultations() {
                             {t(`consultation.types.${b.consultationType}`)}
                           </span>
                         </div>
-                        <span className="text-xs text-gray-400">
-                          {new Date(b.createdAt).toLocaleDateString()}
-                        </span>
+                        <span className="text-xs text-gray-400">{new Date(b.createdAt).toLocaleDateString()}</span>
                       </div>
+
+                      {/* Delivery status badges (shown after action) */}
+                      {ds && (
+                        <div className="flex flex-wrap gap-2 mb-3 p-2 bg-gray-50 rounded-xl">
+                          <DeliveryBadge label="SMS" result={ds.sms} />
+                          <DeliveryBadge label="Email" result={ds.email} />
+                          <DeliveryBadge label="In-App" result={ds.inApp} />
+                        </div>
+                      )}
 
                       {/* Details grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -284,7 +346,7 @@ export default function AdminConsultations() {
                         </div>
                       )}
 
-                      {/* Inline edit (for confirming) */}
+                      {/* Inline edit for confirming */}
                       {isEditing && (
                         <div className="bg-teal-50 rounded-xl p-4 mb-4 space-y-3 border border-teal-200">
                           {!isWA && (
@@ -315,7 +377,9 @@ export default function AdminConsultations() {
                               style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
                               className="text-white flex-1"
                             >
-                              {updateBookingMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                              {updateBookingMutation.isPending
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <CheckCircle className="w-3 h-3 mr-1" />}
                               {t("consultation.admin.confirm")}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="flex-1">
@@ -359,10 +423,9 @@ export default function AdminConsultations() {
           </div>
         )}
 
-        {/* SLOTS TAB */}
+        {/* ── SLOTS TAB ── */}
         {activeTab === "slots" && (
           <div>
-            {/* Add slot form */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
               <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <Plus className="w-4 h-4 text-[#3bcac4]" />
@@ -371,54 +434,32 @@ export default function AdminConsultations() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div>
                   <label className="text-xs font-medium text-gray-500 mb-1 block">{t("consultation.admin.slotDate")}</label>
-                  <input
-                    type="date"
-                    value={newDate}
-                    min={today}
-                    onChange={e => setNewDate(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]"
-                    dir="ltr"
-                  />
+                  <input type="date" value={newDate} min={today} onChange={e => setNewDate(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]" dir="ltr" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500 mb-1 block">{t("consultation.admin.slotStart")}</label>
-                  <input
-                    type="time"
-                    value={newStart}
-                    onChange={e => setNewStart(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]"
-                    dir="ltr"
-                  />
+                  <input type="time" value={newStart} onChange={e => setNewStart(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]" dir="ltr" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500 mb-1 block">{t("consultation.admin.slotEnd")}</label>
-                  <input
-                    type="time"
-                    value={newEnd}
-                    onChange={e => setNewEnd(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]"
-                    dir="ltr"
-                  />
+                  <input type="time" value={newEnd} onChange={e => setNewEnd(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]" dir="ltr" />
                 </div>
               </div>
-              <Button
-                onClick={() => addSlotMutation.mutate()}
-                disabled={!newDate || !newStart || !newEnd || addSlotMutation.isPending}
-                style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
-                className="text-white"
-              >
+              <Button onClick={() => addSlotMutation.mutate()} disabled={!newDate || !newStart || !newEnd || addSlotMutation.isPending}
+                style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }} className="text-white">
                 {addSlotMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
                 {t("consultation.admin.addSlot")}
               </Button>
             </div>
 
-            {/* Slots list */}
             {slotsLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="animate-spin w-8 h-8 text-[#3bcac4]" /></div>
             ) : slots.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center text-gray-400">
-                <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>{t("consultation.admin.noSlots")}</p>
+                <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>{t("consultation.admin.noSlots")}</p>
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -438,13 +479,8 @@ export default function AdminConsultations() {
                       <Badge className={slot.isAvailable ? "bg-green-100 text-green-700 text-xs" : "bg-gray-100 text-gray-500 text-xs"}>
                         {slot.isAvailable ? "Available" : "Booked"}
                       </Badge>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteSlotMutation.mutate(slot.id)}
-                        disabled={deleteSlotMutation.isPending}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => deleteSlotMutation.mutate(slot.id)}
+                        disabled={deleteSlotMutation.isPending} className="text-red-500 hover:text-red-700 hover:bg-red-50">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -452,6 +488,104 @@ export default function AdminConsultations() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── TEST NOTIFICATIONS TAB ── */}
+        {activeTab === "test" && (
+          <div className="max-w-lg">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h3 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+                <Send className="w-5 h-5 text-[#3bcac4]" />
+                Test Notification Channels
+              </h3>
+              <p className="text-sm text-gray-500 mb-5">Send test messages to verify SMS, email, and in-app notifications are working correctly.</p>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">📱 Phone number for SMS test</label>
+                  <Input value={testPhone} onChange={e => setTestPhone(e.target.value)}
+                    placeholder="+995599123456" dir="ltr" className="font-mono" />
+                  <p className="text-[10px] text-gray-400 mt-1">Include country code. Leave empty to skip SMS.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">✉️ Email address for email test</label>
+                  <Input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)}
+                    placeholder="test@example.com" dir="ltr" />
+                  <p className="text-[10px] text-gray-400 mt-1">Leave empty to skip email.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">🔔 User ID for in-app notification test</label>
+                  <Input type="number" value={testUserId} onChange={e => setTestUserId(e.target.value)}
+                    placeholder="User ID (e.g. 1)" dir="ltr" />
+                  <p className="text-[10px] text-gray-400 mt-1">Leave empty to skip in-app. Check the user's Notifications page after sending.</p>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => testNotifMutation.mutate()}
+                disabled={testNotifMutation.isPending || (!testPhone && !testEmail && !testUserId)}
+                style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
+                className="text-white w-full"
+              >
+                {testNotifMutation.isPending
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</>
+                  : <><Send className="w-4 h-4 mr-2" />Send Test Notifications</>}
+              </Button>
+
+              {/* Test results */}
+              {testResult && (
+                <div className="mt-5 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">Delivery Results</p>
+                  <div className="space-y-2">
+                    {Object.entries(testResult).map(([key, val]: [string, any]) => (
+                      <div key={key} className="flex items-start gap-3">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${val.sent ? "bg-green-100" : "bg-red-100"}`}>
+                          {val.sent
+                            ? <CheckCircle className="w-3 h-3 text-green-600" />
+                            : <XCircle className="w-3 h-3 text-red-600" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 capitalize">
+                            {key === "sms" ? "📱 SMS" : key === "email" ? "✉️ Email" : "🔔 In-App"}
+                            <span className={`ml-2 text-xs font-bold ${val.sent ? "text-green-600" : "text-red-600"}`}>
+                              {val.sent ? "SENT" : "FAILED"}
+                            </span>
+                          </p>
+                          {val.sid && <p className="text-[11px] text-gray-500 font-mono">ID: {val.sid}</p>}
+                          {val.error && (
+                            <p className="text-[11px] text-red-500 flex items-center gap-1 mt-0.5">
+                              <AlertTriangle className="w-3 h-3" />{val.error}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Env var status */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mt-4">
+              <h4 className="font-semibold text-gray-700 text-sm mb-3">Environment Variable Status</h4>
+              <div className="space-y-2 text-xs">
+                {[
+                  { name: "TWILIO_ACCOUNT_SID", key: "twilio_sid" },
+                  { name: "TWILIO_AUTH_TOKEN", key: "twilio_token" },
+                  { name: "TWILIO_MESSAGING_SERVICE_SID", key: "twilio_msg" },
+                  { name: "TWILIO_PHONE_NUMBER", key: "twilio_phone" },
+                  { name: "RESEND_API_KEY", key: "resend" },
+                ].map(({ name }) => (
+                  <div key={name} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0" />
+                    <span className="font-mono text-gray-600">{name}</span>
+                    <span className="text-gray-400">(check server logs for status)</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-3">Run a test and check server console for detailed delivery logs.</p>
+            </div>
           </div>
         )}
       </div>

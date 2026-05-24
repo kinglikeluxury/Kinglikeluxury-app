@@ -14,6 +14,7 @@ import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCirc
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
+import NotificationBell from "./NotificationBell";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 
@@ -121,6 +122,7 @@ const Navbar = () => {
               </DropdownMenu>
 
               <LanguageSwitcher />
+              <NotificationBell />
 
               {user ? (
                 <>

@@ -13,6 +13,7 @@ import {
   contactLogs,
   consultationTimeSlots,
   consultationBookings,
+  userNotifications,
   type ContactLog,
   type User,
   type InsertUser,
@@ -26,6 +27,8 @@ import {
   type InsertConsultationTimeSlot,
   type ConsultationBooking,
   type InsertConsultationBooking,
+  type UserNotification,
+  type InsertUserNotification,
   PROPERTY_STATUS,
   PROPERTY_TYPES,
   AUTH_METHODS
@@ -679,5 +682,51 @@ export class DatabaseStorage implements IStorage {
       .where(eq(consultationBookings.id, id))
       .returning();
     return updated;
+  }
+
+  async getConsultationSlotById(id: number): Promise<ConsultationTimeSlot | undefined> {
+    const [slot] = await db
+      .select()
+      .from(consultationTimeSlots)
+      .where(eq(consultationTimeSlots.id, id));
+    return slot;
+  }
+
+  // ── User Notifications ──────────────────────────────────────────────────────
+
+  async createUserNotification(data: InsertUserNotification): Promise<UserNotification> {
+    const [notif] = await db.insert(userNotifications).values(data).returning();
+    console.log(`[Notification] ✓ In-app created for userId=${data.userId} type=${data.type}`);
+    return notif;
+  }
+
+  async getUserNotifications(userId: number): Promise<UserNotification[]> {
+    return await db
+      .select()
+      .from(userNotifications)
+      .where(eq(userNotifications.userId, userId))
+      .orderBy(desc(userNotifications.createdAt));
+  }
+
+  async markNotificationRead(id: number): Promise<void> {
+    await db
+      .update(userNotifications)
+      .set({ isRead: true })
+      .where(eq(userNotifications.id, id));
+  }
+
+  async markAllNotificationsRead(userId: number): Promise<void> {
+    await db
+      .update(userNotifications)
+      .set({ isRead: true })
+      .where(and(eq(userNotifications.userId, userId), eq(userNotifications.isRead, false)));
+  }
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const result = await db
+      .select()
+      .from(userNotifications)
+      .where(and(eq(userNotifications.userId, userId), eq(userNotifications.isRead, false)));
+    return result.length;
   }
 }

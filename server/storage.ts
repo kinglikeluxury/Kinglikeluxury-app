@@ -102,6 +102,14 @@ export interface IStorage {
   getConsultationBookingById(id: number): Promise<import("@shared/schema").ConsultationBooking | undefined>;
   getUserConsultationBookings(userId: number): Promise<import("@shared/schema").ConsultationBooking[]>;
   updateConsultationBooking(id: number, data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined>;
+  getConsultationSlotById(id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined>;
+
+  // User Notification operations
+  createUserNotification(data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification>;
+  getUserNotifications(userId: number): Promise<import("@shared/schema").UserNotification[]>;
+  markNotificationRead(id: number): Promise<void>;
+  markAllNotificationsRead(userId: number): Promise<void>;
+  getUnreadNotificationCount(userId: number): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -468,6 +476,12 @@ export class MemStorage implements IStorage {
   async getConsultationBookingById(_id: number): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
   async getUserConsultationBookings(_userId: number): Promise<import("@shared/schema").ConsultationBooking[]> { return []; }
   async updateConsultationBooking(_id: number, _data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
+  async getConsultationSlotById(_id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined> { return undefined; }
+  async createUserNotification(_data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification> { throw new Error("Not implemented"); }
+  async getUserNotifications(_userId: number): Promise<import("@shared/schema").UserNotification[]> { return []; }
+  async markNotificationRead(_id: number): Promise<void> {}
+  async markAllNotificationsRead(_userId: number): Promise<void> {}
+  async getUnreadNotificationCount(_userId: number): Promise<number> { return 0; }
 }
 
 // Import the DatabaseStorage class

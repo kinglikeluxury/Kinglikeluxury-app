@@ -400,3 +400,19 @@ export const insertConsultationBookingSchema = createInsertSchema(consultationBo
 });
 export type ConsultationBooking = typeof consultationBookings.$inferSelect;
 export type InsertConsultationBooking = z.infer<typeof insertConsultationBookingSchema>;
+
+// ── User Notifications ──────────────────────────────────────────────────────
+export const userNotifications = pgTable("user_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  type: text("type").notNull(), // consultation_confirmed | consultation_rejected | consultation_cancelled | test
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  data: jsonb("data").$type<Record<string, any>>(),
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUserNotificationSchema = createInsertSchema(userNotifications).omit({ id: true, createdAt: true });
+export type UserNotification = typeof userNotifications.$inferSelect;
+export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;

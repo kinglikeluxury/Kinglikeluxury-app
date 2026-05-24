@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail, CalendarDays
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail, CalendarDays, Bell
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -262,6 +262,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.blog", "المدونة"), path: "/blog", icon: BookOpen })}
             {renderItem({ label: t("nav.map", "الخريطة"), path: "/map", icon: Map })}
             {renderItem({ label: t("consultation.menuLabel", "Book Consultation"), path: "/consultation", icon: CalendarDays })}
+            {renderItem({ label: t("notifications.title", "Notifications"), path: "/notifications", icon: Bell })}
             {renderItem({
               label: t("favorites.title", "المفضلة"),
               path: "/favorites",
