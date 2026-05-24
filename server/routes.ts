@@ -2136,6 +2136,7 @@ ${metaTags}
     const RESEND_KEY = process.env.RESEND_API_KEY;
     const GMAIL_USER = process.env.GMAIL_USER;
     const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
+    console.log(`[EmailCampaign] RESEND_KEY set: ${!!RESEND_KEY}, GMAIL_USER set: ${!!GMAIL_USER}, GMAIL_PASS set: ${!!GMAIL_PASS}`);
     if (!RESEND_KEY && (!GMAIL_USER || !GMAIL_PASS)) {
       return res.status(503).json({ message: "Email not configured" });
     }
