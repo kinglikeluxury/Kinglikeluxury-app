@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import { Resend } from "resend";
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -2134,11 +2135,8 @@ ${metaTags}
     }
 
     const RESEND_KEY = process.env.RESEND_API_KEY;
-    const GMAIL_USER = process.env.GMAIL_USER;
-    const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
-    console.log(`[EmailCampaign] RESEND_KEY set: ${!!RESEND_KEY}, GMAIL_USER set: ${!!GMAIL_USER}, GMAIL_PASS set: ${!!GMAIL_PASS}`);
-    if (!RESEND_KEY && (!GMAIL_USER || !GMAIL_PASS)) {
-      return res.status(503).json({ message: "Email not configured" });
+    if (!RESEND_KEY) {
+      return res.status(503).json({ message: "RESEND_API_KEY not configured" });
     }
 
     const imageBlock = imageUrl
@@ -2175,62 +2173,34 @@ ${metaTags}
   </div>
 </div>`;
 
+    const resend = new Resend(RESEND_KEY);
     const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
 
-    if (RESEND_KEY) {
-      // Use Resend (preferred — no auth issues)
-      const { Resend } = await import("resend");
-      const resend = new Resend(RESEND_KEY);
-      for (const r of recipients) {
-        const email = typeof r === "string" ? r : r.email;
-        if (!email) continue;
-        try {
-          const result = await resend.emails.send({
-            from: "Kinglike Luxury <onboarding@resend.dev>",
-            to: email,
-            subject,
-            html,
-            text: `${bodyText}\n\n${appLink || ""}`,
-          });
-          if (result.error) {
-            results.push({ email, status: "failed", error: result.error.message });
-          } else {
-            results.push({ email, status: "sent" });
-          }
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (err: any) {
-          results.push({ email, status: "failed", error: err.message });
-        }
-      }
-    } else {
-      // Fallback: Gmail SMTP
-      const nodemailer = await import("nodemailer");
-      const transporter = nodemailer.default.createTransport({
-        service: "gmail",
-        auth: { user: GMAIL_USER, pass: GMAIL_PASS },
-      });
-      for (const r of recipients) {
-        const email = typeof r === "string" ? r : r.email;
-        if (!email) continue;
-        try {
-          await transporter.sendMail({
-            from: `"Kinglike Luxury" <${GMAIL_USER}>`,
-            to: email,
-            subject,
-            html,
-            text: `${bodyText}\n\n${appLink || ""}`,
-          });
+    for (const r of recipients) {
+      const email = typeof r === "string" ? r : r.email;
+      if (!email) continue;
+      try {
+        const result = await resend.emails.send({
+          from: "Kinglike Luxury <onboarding@resend.dev>",
+          to: email,
+          subject,
+          html,
+          text: `${bodyText}\n\n${appLink || ""}`,
+        });
+        if (result.error) {
+          results.push({ email, status: "failed", error: result.error.message });
+        } else {
           results.push({ email, status: "sent" });
-          await new Promise(resolve => setTimeout(resolve, 150));
-        } catch (err: any) {
-          results.push({ email, status: "failed", error: err.message });
         }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (err: any) {
+        results.push({ email, status: "failed", error: err.message });
       }
     }
 
     const sent = results.filter(r => r.status === "sent").length;
     const failed = results.filter(r => r.status === "failed").length;
-    console.log(`[EmailCampaign] ${sent} sent, ${failed} failed`);
+    console.log(`[EmailCampaign] sent=${sent} failed=${failed}`);
     res.json({ success: true, sent, failed, results });
   });
 
