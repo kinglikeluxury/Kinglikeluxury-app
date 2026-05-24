@@ -1,6 +1,7 @@
 import { apiRequest } from "./queryClient";
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { subscribeToPush, isPushSupported } from "./push-notifications";
 
 export type User = {
   id: number;
@@ -59,6 +60,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         title: "Login successful",
         description: `Welcome back, ${userData.username}!`,
       });
+      // Silently attempt push subscription after login
+      if (isPushSupported()) {
+        subscribeToPush().catch(() => {});
+      }
       return userData;
     } catch (error) {
       toast({

@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Video, Phone, Monitor, MessageSquare, ChevronRight, ChevronLeft,
   CheckCircle, Calendar, Clock, Globe, DollarSign, FileText, Mail,
-  MapPin, Building2, Users, TrendingUp, CreditCard, Loader2
+  MapPin, Building2, Users, TrendingUp, CreditCard, Loader2, AlertCircle
 } from "lucide-react";
 import { Link } from "wouter";
 import { ConsultationTimeSlot } from "@shared/schema";
+import { CountryCodePicker } from "@/components/ui/country-code-picker";
 
 const COUNTRIES = ["georgia", "turkey", "dubai", "north_cyprus"] as const;
 const TYPES = ["investment", "viewing", "residency", "installment"] as const;
@@ -27,6 +28,10 @@ const typeIcons: Record<string, React.ElementType> = {
 const methodIcons: Record<string, React.ElementType> = {
   google_meet: Monitor, zoom: Video, whatsapp_video: Video, whatsapp_voice: Phone
 };
+
+function isValidEmail(e: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
 
 export default function ConsultationBooking() {
   const { t, i18n } = useTranslation();
@@ -46,28 +51,31 @@ export default function ConsultationBooking() {
   const [consultationType, setConsultationType] = useState("");
   const [consultationMethod, setConsultationMethod] = useState("");
   const [whatsappChoice, setWhatsappChoice] = useState<"same" | "different" | null>(null);
-  const [customWhatsapp, setCustomWhatsapp] = useState("");
+  const [customWhatsappDialCode, setCustomWhatsappDialCode] = useState("+971");
+  const [customWhatsappLocal, setCustomWhatsappLocal] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [budget, setBudget] = useState("");
   const [notes, setNotes] = useState("");
   const [email, setEmail] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const isWhatsApp = consultationMethod === "whatsapp_video" || consultationMethod === "whatsapp_voice";
+  const customWhatsapp = `${customWhatsappDialCode}${customWhatsappLocal.replace(/\s+/g, "")}`;
+
+  const emailError = emailTouched && (!email || !isValidEmail(email));
+  const emailValid = email && isValidEmail(email);
 
   const { data: slots = [], isLoading: slotsLoading } = useQuery<ConsultationTimeSlot[]>({
     queryKey: ["/api/consultation/slots", selectedDate],
-    queryFn: () =>
-      fetch(`/api/consultation/slots?date=${selectedDate}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/consultation/slots?date=${selectedDate}`).then(r => r.json()),
     enabled: !!selectedDate,
   });
 
   const bookMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/consultation/bookings", data),
-    onSuccess: () => {
-      setSubmitted(true);
-    },
+    onSuccess: () => setSubmitted(true),
     onError: (err: any) => {
       toast({ title: t("common.error", "Error"), description: err.message, variant: "destructive" });
     },
@@ -75,8 +83,13 @@ export default function ConsultationBooking() {
 
   const handleSubmit = () => {
     if (!user || !selectedSlotId || !country || !consultationType || !consultationMethod) return;
+    if (!emailValid) {
+      setEmailTouched(true);
+      toast({ title: "Email required", description: "Please enter a valid email address for booking confirmation.", variant: "destructive" });
+      return;
+    }
     const whatsappContactNumber = isWhatsApp
-      ? whatsappChoice === "different" ? customWhatsapp : user.phoneNumber
+      ? (whatsappChoice === "different" ? customWhatsapp : user.phoneNumber)
       : undefined;
 
     bookMutation.mutate({
@@ -86,7 +99,7 @@ export default function ConsultationBooking() {
       slotId: selectedSlotId,
       budget: budget || undefined,
       notes: notes || undefined,
-      email: email || undefined,
+      email,
       whatsappContactNumber,
       propertyId: propId ? parseInt(propId) : undefined,
       propertyTitle: propTitle || undefined,
@@ -99,14 +112,14 @@ export default function ConsultationBooking() {
     if (step === 2) {
       if (!consultationMethod) return false;
       if (isWhatsApp && whatsappChoice === null) return false;
-      if (isWhatsApp && whatsappChoice === "different" && !customWhatsapp.trim()) return false;
+      if (isWhatsApp && whatsappChoice === "different" && !customWhatsappLocal.trim()) return false;
       return true;
     }
     if (step === 3) return !!selectedSlotId;
-    return true;
+    // Step 4: email required
+    return emailValid;
   };
 
-  // Today's date as minimum
   const today = new Date().toISOString().split("T")[0];
 
   if (!user) {
@@ -136,7 +149,8 @@ export default function ConsultationBooking() {
             <CheckCircle className="w-10 h-10 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">{t("consultation.success")}</h2>
-          <p className="text-gray-500 mb-6">{t("consultation.successMessage")}</p>
+          <p className="text-gray-500 mb-2">{t("consultation.successMessage")}</p>
+          <p className="text-sm text-[#3bcac4] font-medium mb-6">📧 A confirmation email has been sent to {email}</p>
           <Button onClick={() => navigate("/")} style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }} className="w-full">
             {t("nav.home")}
           </Button>
@@ -237,7 +251,7 @@ export default function ConsultationBooking() {
             </div>
           )}
 
-          {/* STEP 2: Method */}
+          {/* STEP 2: Method + WhatsApp */}
           {step === 2 && (
             <div>
               <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
@@ -251,13 +265,13 @@ export default function ConsultationBooking() {
                   return (
                     <button
                       key={method}
-                      onClick={() => { setConsultationMethod(method); setWhatsappChoice(null); setCustomWhatsapp(""); }}
+                      onClick={() => { setConsultationMethod(method); setWhatsappChoice(null); setCustomWhatsappLocal(""); }}
                       className="w-full rounded-xl p-4 border-2 flex items-center gap-3 transition-all text-left"
                       style={{ borderColor: consultationMethod === method ? "#3bcac4" : "#e5e7eb", background: consultationMethod === method ? "#f0fdfc" : "#fff" }}
                     >
                       <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                         style={{ background: isWA ? "#25D366" : consultationMethod === method ? "linear-gradient(135deg, #3bcac4, #005476)" : "#f3f4f6" }}>
-                        <Icon className="w-4 h-4 text-white" style={{ color: (!isWA && consultationMethod !== method) ? "#6b7280" : "#fff" }} />
+                        <Icon className="w-4 h-4" style={{ color: (!isWA && consultationMethod !== method) ? "#6b7280" : "#fff" }} />
                       </div>
                       <span className="font-medium text-[14px]" style={{ color: consultationMethod === method ? "#005476" : "#374151" }}>
                         {t(`consultation.methods.${method}`)}
@@ -268,37 +282,54 @@ export default function ConsultationBooking() {
                 })}
               </div>
 
-              {/* WhatsApp number logic */}
+              {/* WhatsApp number confirmation */}
               {isWhatsApp && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <p className="text-sm font-semibold text-green-800 mb-1">{t("consultation.whatsappConfirmTitle")}</p>
-                  <p className="text-xs text-green-700 mb-1">{t("consultation.whatsappQuestion")}</p>
-                  <p className="text-sm font-bold text-gray-800 mb-3 font-mono" dir="ltr">{user.phoneNumber}</p>
+                  <p className="text-sm font-bold text-green-800 mb-1">
+                    💬 {t("consultation.whatsappConfirmTitle", "WhatsApp Contact Number")}
+                  </p>
+                  <p className="text-xs text-green-700 mb-1">
+                    {t("consultation.whatsappQuestion", "Is this the WhatsApp number our team should use?")}
+                  </p>
+                  <p className="text-sm font-bold text-gray-800 mb-3 font-mono bg-white/70 rounded-lg px-3 py-2" dir="ltr">
+                    {user.phoneNumber}
+                  </p>
                   <div className="flex gap-2 flex-col">
                     <button
                       onClick={() => setWhatsappChoice("same")}
-                      className="w-full py-2.5 rounded-xl text-sm font-medium border-2 transition-all"
+                      className="w-full py-2.5 rounded-xl text-sm font-medium border-2 transition-all flex items-center justify-center gap-2"
                       style={{ borderColor: whatsappChoice === "same" ? "#3bcac4" : "#d1fae5", background: whatsappChoice === "same" ? "#f0fdfc" : "#fff", color: whatsappChoice === "same" ? "#005476" : "#374151" }}
                     >
-                      ✓ {t("consultation.useThisNumber")}
+                      {whatsappChoice === "same" && <CheckCircle className="w-4 h-4 text-[#3bcac4]" />}
+                      ✓ {t("consultation.useThisNumber", "Yes, use this number")}
                     </button>
                     <button
                       onClick={() => setWhatsappChoice("different")}
-                      className="w-full py-2.5 rounded-xl text-sm font-medium border-2 transition-all"
+                      className="w-full py-2.5 rounded-xl text-sm font-medium border-2 transition-all flex items-center justify-center gap-2"
                       style={{ borderColor: whatsappChoice === "different" ? "#3bcac4" : "#d1fae5", background: whatsappChoice === "different" ? "#f0fdfc" : "#fff", color: whatsappChoice === "different" ? "#005476" : "#374151" }}
                     >
-                      {t("consultation.useDifferentNumber")}
+                      {whatsappChoice === "different" && <CheckCircle className="w-4 h-4 text-[#3bcac4]" />}
+                      {t("consultation.useDifferentNumber", "No, use a different number")}
                     </button>
                   </div>
                   {whatsappChoice === "different" && (
-                    <div className="mt-3">
-                      <Input
-                        value={customWhatsapp}
-                        onChange={e => setCustomWhatsapp(e.target.value)}
-                        placeholder={t("consultation.enterWhatsappNumber")}
-                        dir="ltr"
-                        className="border-green-300 focus:border-green-500"
-                      />
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-green-700 font-medium">Enter the WhatsApp number to use for this booking:</p>
+                      <div className="flex gap-2">
+                        <CountryCodePicker value={customWhatsappDialCode} onChange={setCustomWhatsappDialCode} />
+                        <Input
+                          value={customWhatsappLocal}
+                          onChange={e => setCustomWhatsappLocal(e.target.value)}
+                          placeholder={t("consultation.enterWhatsappNumber", "50 123 4567")}
+                          dir="ltr"
+                          className="flex-1 border-green-300 focus:border-green-500"
+                        />
+                      </div>
+                      {customWhatsappLocal && (
+                        <p className="text-xs text-green-600 font-mono">
+                          Will save as: {customWhatsapp}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -344,9 +375,7 @@ export default function ConsultationBooking() {
                           <p className="font-bold text-[13px]" style={{ color: selectedSlotId === slot.id ? "#005476" : "#374151" }} dir="ltr">
                             {slot.startTime} – {slot.endTime}
                           </p>
-                          {selectedSlotId === slot.id && (
-                            <p className="text-[10px] font-medium mt-0.5" style={{ color: "#3bcac4" }}>✓</p>
-                          )}
+                          {selectedSlotId === slot.id && <p className="text-[10px] font-medium mt-0.5" style={{ color: "#3bcac4" }}>✓</p>}
                         </button>
                       ))}
                     </div>
@@ -356,13 +385,45 @@ export default function ConsultationBooking() {
             </div>
           )}
 
-          {/* STEP 4: Budget + Notes + Email */}
+          {/* STEP 4: Budget + Notes + Email (required) */}
           {step === 4 && (
             <div className="space-y-5">
+              {/* Email — required, shown first */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-1">
+                  <Mail className="w-4 h-4" style={{ color: "#3bcac4" }} />
+                  {t("consultation.email", "Email Address")}
+                  <span className="text-red-500 text-xs font-bold ml-1">* Required</span>
+                </label>
+                <p className="text-xs text-gray-400 mb-2">Used only for booking confirmation and communication. Not used for login.</p>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setEmailTouched(true); }}
+                  onBlur={() => setEmailTouched(true)}
+                  placeholder="your@email.com"
+                  dir="ltr"
+                  className={`${emailError ? "border-red-400 focus:border-red-500" : emailValid ? "border-green-400" : "border-gray-200 focus:border-[#3bcac4]"}`}
+                />
+                {emailError && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Please enter a valid email address
+                  </p>
+                )}
+                {emailValid && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Confirmation will be sent to {email}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
                   <DollarSign className="w-4 h-4" style={{ color: "#3bcac4" }} />
                   {t("consultation.budget")}
+                  <span className="text-gray-400 text-xs font-normal ml-1">(optional)</span>
                 </label>
                 <Input
                   value={budget}
@@ -376,6 +437,7 @@ export default function ConsultationBooking() {
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
                   <FileText className="w-4 h-4" style={{ color: "#3bcac4" }} />
                   {t("consultation.notes")}
+                  <span className="text-gray-400 text-xs font-normal ml-1">(optional)</span>
                 </label>
                 <Textarea
                   value={notes}
@@ -385,29 +447,16 @@ export default function ConsultationBooking() {
                   className="border-gray-200 focus:border-[#3bcac4] resize-none"
                 />
               </div>
-              <div>
-                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
-                  <Mail className="w-4 h-4" style={{ color: "#3bcac4" }} />
-                  {t("consultation.email")}
-                </label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder={t("consultation.emailPlaceholder")}
-                  dir="ltr"
-                  className="border-gray-200 focus:border-[#3bcac4]"
-                />
-              </div>
 
               {/* Summary */}
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-2">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Summary</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Booking Summary</p>
                 {[
                   { label: t("consultation.country"), value: t(`consultation.countries.${country}`) },
                   { label: t("consultation.consultationType"), value: t(`consultation.types.${consultationType}`) },
                   { label: t("consultation.consultationMethod"), value: t(`consultation.methods.${consultationMethod}`) },
                   { label: t("consultation.date"), value: selectedDate },
+                  ...(isWhatsApp ? [{ label: "WhatsApp", value: whatsappChoice === "different" ? customWhatsapp : (user.phoneNumber || "") }] : []),
                 ].map(item => (
                   <div key={item.label} className="flex justify-between text-sm">
                     <span className="text-gray-500">{item.label}</span>
@@ -443,9 +492,9 @@ export default function ConsultationBooking() {
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={bookMutation.isPending}
-                className="flex-1 text-white font-semibold"
-                style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
+                disabled={bookMutation.isPending || !emailValid}
+                className="flex-1 text-white font-semibold disabled:opacity-50"
+                style={{ background: (emailValid && !bookMutation.isPending) ? "linear-gradient(135deg, #3bcac4, #005476)" : undefined }}
               >
                 {bookMutation.isPending ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t("consultation.submitting")}</>

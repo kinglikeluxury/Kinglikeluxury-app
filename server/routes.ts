@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { Resend } from "resend";
-import { sendSMS, sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail } from "./notificationService";
+import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
 import pg from "pg";
 const { Pool } = pg;
 import { storage } from "./storage";
@@ -2323,67 +2323,29 @@ ${metaTags}
         userLanguage: userLanguage || "en",
       });
 
-      // Send SMS confirmation to user
-      if (twilioClient && user.phoneNumber) {
-        try {
-          const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-          const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-          const slotInfo = slot ? `${slot.date} ${slot.startTime}–${slot.endTime}` : "";
-          const smsBody = `Kinglike Luxury: Your consultation has been booked for ${slotInfo}. Type: ${consultationType}. Method: ${consultationMethod}. We will confirm shortly.`;
-          const msgData: any = { body: smsBody, to: user.phoneNumber };
-          if (msgSid) msgData.messagingServiceSid = msgSid;
-          else if (fromNumber) msgData.from = fromNumber;
-          await twilioClient.messages.create(msgData);
-        } catch (smsErr) {
-          console.error("[Consultation] SMS send error:", smsErr);
-        }
+      // Email is required for booking confirmation
+      if (!email) {
+        return res.status(400).json({ message: "Email address is required for booking confirmation" });
       }
 
-      // Send email if provided
-      if (email) {
-        try {
-          const resendKey = process.env.RESEND_API_KEY;
-          if (resendKey) {
-            const resend = new Resend(resendKey);
-            const slotInfo = slot ? `${slot.date} ${slot.startTime}–${slot.endTime}` : "";
-            await resend.emails.send({
-              from: "Kinglike Luxury <info@kinglikeluxury.app>",
-              to: [email],
-              subject: "Consultation Booking Confirmed – Kinglike Luxury",
-              html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
-                <h2 style="color:#005476">Your Consultation Has Been Booked</h2>
-                <p>Thank you for booking a consultation with Kinglike Luxury.</p>
-                <table style="width:100%;border-collapse:collapse">
-                  <tr><td style="padding:8px;color:#666">Date & Time:</td><td style="padding:8px;font-weight:bold">${slotInfo}</td></tr>
-                  <tr><td style="padding:8px;color:#666">Country:</td><td style="padding:8px">${country}</td></tr>
-                  <tr><td style="padding:8px;color:#666">Type:</td><td style="padding:8px">${consultationType}</td></tr>
-                  <tr><td style="padding:8px;color:#666">Method:</td><td style="padding:8px">${consultationMethod}</td></tr>
-                  ${notes ? `<tr><td style="padding:8px;color:#666">Notes:</td><td style="padding:8px">${notes}</td></tr>` : ""}
-                </table>
-                <p style="color:#3bcac4;margin-top:20px">We will confirm your appointment shortly.</p>
-                <p style="color:#666;font-size:12px">Kinglike Luxury Real Estate</p>
-              </div>`,
-            });
-          }
-        } catch (emailErr) {
-          console.error("[Consultation] Email send error:", emailErr);
-        }
-      }
-
-      // Notify admin via SMS
-      const adminPhone = process.env.ADMIN_PHONE_NUMBER;
-      if (twilioClient && adminPhone) {
-        try {
-          const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-          const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-          const slotInfo = slot ? `${slot.date} ${slot.startTime}` : "";
-          const adminSms = `New consultation booking #${booking.id}: ${consultationType} via ${consultationMethod} on ${slotInfo}. User: ${user.phoneNumber}`;
-          const msgData: any = { body: adminSms, to: adminPhone };
-          if (msgSid) msgData.messagingServiceSid = msgSid;
-          else if (fromNumber) msgData.from = fromNumber;
-          await twilioClient.messages.create(msgData);
-        } catch {}
-      }
+      // Send booking received email via notificationService
+      const slotDate = slot?.date || "TBD";
+      const slotTime = slot ? `${slot.startTime} – ${slot.endTime}` : "TBD";
+      const whatsappNum = req.body.whatsappContactNumber || user.phoneNumber || "";
+      const emailResult = await sendEmail({
+        to: email,
+        subject: "📅 Consultation Booking Received – Kinglike Luxury",
+        html: buildConsultationBookedEmail({
+          type: consultationType,
+          method: consultationMethod,
+          date: slotDate,
+          time: slotTime,
+          country,
+          clientName: user.username,
+          whatsappNumber: (consultationMethod.startsWith("whatsapp") && whatsappNum) ? whatsappNum : undefined,
+        }),
+      });
+      console.log(`[Consultation] Booking #${booking.id} email: ${emailResult.sent ? "✓" : "✗ " + emailResult.error}`);
 
       res.json(booking);
     } catch (err: any) {
@@ -2462,75 +2424,69 @@ ${metaTags}
         const finalMeetingLink = meetingLink || existing.meetingLink || "";
 
         // Build notification content
-        let smsBody = "";
         let notifTitle = "";
         let notifMessage = "";
         let notifType = "";
 
         if (isConfirmed) {
-          notifType  = "consultation_confirmed";
-          notifTitle = "✅ Consultation Confirmed – Kinglike Luxury";
+          notifType    = "consultation_confirmed";
+          notifTitle   = "✅ Consultation Confirmed – Kinglike Luxury";
           notifMessage = `Your ${typeLabel} consultation on ${slotDate} at ${slotTime} has been confirmed.`;
           if (finalMeetingLink) notifMessage += ` Meeting: ${finalMeetingLink}`;
           else if (isWhatsApp) notifMessage += " Our team will contact you via WhatsApp.";
-
-          smsBody = `Kinglike Luxury: Your ${typeLabel} consultation on ${slotDate} at ${slotTime} is CONFIRMED via ${methodLabel}.`;
-          if (finalMeetingLink) smsBody += ` Link: ${finalMeetingLink}`;
-          else if (isWhatsApp) smsBody += ` Team will contact via WhatsApp.`;
-
         } else if (isRejected) {
-          notifType  = "consultation_rejected";
-          notifTitle = "❌ Consultation Not Available – Kinglike Luxury";
+          notifType    = "consultation_rejected";
+          notifTitle   = "❌ Consultation Not Available – Kinglike Luxury";
           notifMessage = `Unfortunately your ${typeLabel} consultation on ${slotDate} could not be scheduled. Please book a new slot.`;
-          smsBody = `Kinglike Luxury: Your ${typeLabel} consultation on ${slotDate} was not confirmed. Please book a new time.`;
-
         } else if (isCancelled) {
-          notifType  = "consultation_cancelled";
-          notifTitle = "Consultation Cancelled – Kinglike Luxury";
+          notifType    = "consultation_cancelled";
+          notifTitle   = "Consultation Cancelled – Kinglike Luxury";
           notifMessage = `Your ${typeLabel} consultation on ${slotDate} has been cancelled.`;
-          smsBody = `Kinglike Luxury: Your consultation on ${slotDate} has been cancelled.`;
-
         } else if (isCompleted) {
-          notifType  = "consultation_completed";
-          notifTitle = "Consultation Completed – Kinglike Luxury";
+          notifType    = "consultation_completed";
+          notifTitle   = "Consultation Completed – Kinglike Luxury";
           notifMessage = `Your ${typeLabel} consultation has been marked as completed. Thank you for choosing Kinglike Luxury!`;
-          smsBody = `Kinglike Luxury: Thank you! Your consultation has been completed.`;
         }
 
-        // 1. SMS
-        console.log(`[Consultation] Sending SMS to ${existing.userPhone} for booking #${id} status=${status}`);
-        delivery.sms = await sendSMS(existing.userPhone, smsBody);
-
-        // 2. Email (if provided)
-        if (existing.email && isConfirmed) {
-          console.log(`[Consultation] Sending email to ${existing.email} for booking #${id}`);
-          delivery.email = await sendEmail({
-            to: existing.email,
-            subject: "✅ Consultation Confirmed – Kinglike Luxury",
-            html: buildConsultationConfirmEmail({
-              type: existing.consultationType,
-              method: existing.consultationMethod,
-              date: slotDate,
-              time: slotTime,
-              meetingLink: finalMeetingLink || undefined,
-              country: existing.country,
-            }),
-          });
-        } else if (existing.email && (isRejected || isCancelled)) {
-          delivery.email = await sendEmail({
-            to: existing.email,
-            subject: `Consultation Update – Kinglike Luxury`,
-            html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px">
-              <h2 style="color:#005476">${notifTitle}</h2>
-              <p>${notifMessage}</p>
-              <p style="color:#aaa;font-size:12px">Kinglike Luxury Real Estate</p>
-            </div>`,
-          });
-        } else if (!existing.email) {
-          delivery.email = { sent: false, error: "No email on file" };
+        // 1. Email (primary confirmation channel)
+        if (existing.email) {
+          console.log(`[Consultation] Sending email to ${existing.email} for booking #${id} status=${status}`);
+          if (isConfirmed) {
+            // Get whatsapp number for booking owner
+            const bookingUser = existing.userId ? await storage.getUser(existing.userId) : null;
+            delivery.email = await sendEmail({
+              to: existing.email,
+              subject: "✅ Consultation Confirmed – Kinglike Luxury",
+              html: buildConsultationConfirmEmail({
+                type: existing.consultationType,
+                method: existing.consultationMethod,
+                date: slotDate,
+                time: slotTime,
+                meetingLink: finalMeetingLink || undefined,
+                country: existing.country,
+                clientName: bookingUser?.username,
+                whatsappNumber: isWhatsApp ? (existing.whatsappContactNumber || existing.userPhone || undefined) : undefined,
+              }),
+            });
+          } else {
+            delivery.email = await sendEmail({
+              to: existing.email,
+              subject: `Consultation Update – Kinglike Luxury`,
+              html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px">
+                <div style="background:linear-gradient(135deg,#3bcac4,#005476);padding:16px;border-radius:6px;margin-bottom:20px;text-align:center">
+                  <h1 style="color:#fff;margin:0;font-size:18px">Kinglike Luxury</h1>
+                </div>
+                <h2 style="color:#005476">${notifTitle}</h2>
+                <p style="color:#374151">${notifMessage}</p>
+                <p style="color:#aaa;font-size:12px">Kinglike Luxury Real Estate</p>
+              </div>`,
+            });
+          }
+        } else {
+          delivery.email = { sent: false, error: "No email on booking record" };
         }
 
-        // 3. In-app notification
+        // 2. In-app notification
         if (existing.userId) {
           try {
             const notif = await storage.createUserNotification({
@@ -2549,6 +2505,7 @@ ${metaTags}
               isRead: false,
             });
             delivery.inApp = { sent: true, id: notif.id };
+            console.log(`[Notification] ✓ In-app created id=${notif.id} for userId=${existing.userId}`);
           } catch (err: any) {
             console.error(`[Notification] In-app failed: ${err.message}`);
             delivery.inApp = { sent: false, error: err.message };
@@ -2557,7 +2514,47 @@ ${metaTags}
           delivery.inApp = { sent: false, error: "No userId on booking" };
         }
 
-        console.log(`[Consultation] Booking #${id} → status=${status} | SMS: ${delivery.sms?.sent ? "✓" : "✗"} | Email: ${delivery.email?.sent ? "✓" : "✗ " + delivery.email?.error || ""} | InApp: ${delivery.inApp?.sent ? "✓" : "✗"}`);
+        // 3. Web Push notification
+        if (existing.userId) {
+          try {
+            const subscriptions = await storage.getPushSubscriptionsByUserId(existing.userId);
+            if (subscriptions.length === 0) {
+              delivery.push = { sent: false, error: "No push subscription on file" };
+            } else {
+              const pushResults: any[] = [];
+              for (const sub of subscriptions) {
+                const result = await sendPushNotification(
+                  { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+                  {
+                    title: notifTitle,
+                    body: notifMessage,
+                    data: {
+                      bookingId: id,
+                      slotDate,
+                      slotTime,
+                      meetingLink: finalMeetingLink || null,
+                      consultationType: existing.consultationType,
+                    },
+                  }
+                );
+                // If subscription expired, clean it up
+                if (!result.sent && result.error === "subscription_expired") {
+                  await storage.deletePushSubscriptionByEndpoint(sub.endpoint);
+                }
+                pushResults.push(result);
+              }
+              const sent = pushResults.filter(r => r.sent).length;
+              delivery.push = { sent: sent > 0, count: pushResults.length, successCount: sent };
+            }
+          } catch (err: any) {
+            console.error(`[Push] Error: ${err.message}`);
+            delivery.push = { sent: false, error: err.message };
+          }
+        } else {
+          delivery.push = { sent: false, error: "No userId on booking" };
+        }
+
+        console.log(`[Booking #${id}] status=${status} | Email: ${delivery.email?.sent ? "✓" : "✗"} | InApp: ${delivery.inApp?.sent ? "✓" : "✗"} | Push: ${delivery.push?.sent ? "✓" : "✗"}`);
       }
 
       res.json({ booking: updated, delivery });
@@ -2602,20 +2599,55 @@ ${metaTags}
     }
   });
 
+  // ── Push Subscription API ───────────────────────────────────────────────────
+
+  // Return VAPID public key to client (needed to create subscription)
+  app.get("/api/push/vapid-key", (_req, res) => {
+    const key = process.env.VAPID_PUBLIC_KEY;
+    if (!key) return res.status(503).json({ error: "Push notifications not configured" });
+    res.json({ publicKey: key });
+  });
+
+  // Save push subscription
+  app.post("/api/push/subscribe", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const { endpoint, p256dh, auth, userAgent } = req.body;
+      if (!endpoint || !p256dh || !auth) {
+        return res.status(400).json({ message: "endpoint, p256dh, auth required" });
+      }
+      const sub = await storage.savePushSubscription({
+        userId: req.session.userId,
+        endpoint,
+        p256dh,
+        auth,
+        userAgent: userAgent || null,
+      });
+      res.json({ success: true, id: sub.id });
+    } catch (err: any) {
+      console.error("[Push] Subscribe error:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Remove push subscription
+  app.delete("/api/push/unsubscribe", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const { endpoint } = req.body;
+      if (endpoint) await storage.deletePushSubscriptionByEndpoint(endpoint);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Admin: Test Notifications ───────────────────────────────────────────────
 
   app.post("/api/admin/test-notifications", async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
-    const { phone, email, userId, channels } = req.body;
+    const { email, userId, channels } = req.body;
     const results: Record<string, any> = {};
-
-    if (!channels || channels.includes("sms")) {
-      if (phone) {
-        results.sms = await sendSMS(phone, "Kinglike Luxury: This is a test SMS from the admin panel. ✓");
-      } else {
-        results.sms = { sent: false, error: "No phone number provided" };
-      }
-    }
 
     if (!channels || channels.includes("email")) {
       if (email) {

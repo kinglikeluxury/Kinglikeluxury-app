@@ -4,6 +4,9 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import {
+  pushSubscriptions,
+  InsertPushSubscription,
+  PushSubscription,
   users,
   properties,
   projects,
@@ -728,5 +731,32 @@ export class DatabaseStorage implements IStorage {
       .from(userNotifications)
       .where(and(eq(userNotifications.userId, userId), eq(userNotifications.isRead, false)));
     return result.length;
+  }
+
+  // ── Push Subscriptions ──────────────────────────────────────────────────────
+
+  async savePushSubscription(data: InsertPushSubscription): Promise<PushSubscription> {
+    // Upsert: update keys if endpoint already exists
+    const [sub] = await db
+      .insert(pushSubscriptions)
+      .values(data)
+      .onConflictDoUpdate({
+        target: pushSubscriptions.endpoint,
+        set: { p256dh: data.p256dh, auth: data.auth, userAgent: data.userAgent },
+      })
+      .returning();
+    console.log(`[Push] ✓ Subscription saved for userId=${data.userId}`);
+    return sub;
+  }
+
+  async getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]> {
+    return await db
+      .select()
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, userId));
+  }
+
+  async deletePushSubscriptionByEndpoint(endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
   }
 }

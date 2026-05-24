@@ -72,7 +72,6 @@ export default function AdminConsultations() {
   const [deliveryStatus, setDeliveryStatus] = useState<Record<number, any>>({});
 
   // Test notification form
-  const [testPhone, setTestPhone] = useState("");
   const [testEmail, setTestEmail] = useState("");
   const [testUserId, setTestUserId] = useState("");
   const [testResult, setTestResult] = useState<any>(null);
@@ -129,13 +128,13 @@ export default function AdminConsultations() {
         setDeliveryStatus(prev => ({ ...prev, [variables.id]: result.delivery }));
       }
       const d = result?.delivery;
-      const smsOk = d?.sms?.sent;
       const emailOk = d?.email?.sent;
       const inAppOk = d?.inApp?.sent;
+      const pushOk = d?.push?.sent;
       toast({
         title: "Booking updated",
         description: d
-          ? `SMS: ${smsOk ? "✓" : "✗"} | Email: ${emailOk ? "✓" : "✗"} | In-App: ${inAppOk ? "✓" : "✗"}`
+          ? `Email: ${emailOk ? "✓" : "✗"} | In-App: ${inAppOk ? "✓" : "✗"} | Push: ${pushOk ? "✓" : "✗"}`
           : "Updated successfully",
       });
     },
@@ -145,7 +144,6 @@ export default function AdminConsultations() {
   const testNotifMutation = useMutation({
     mutationFn: () =>
       apiRequest("POST", "/api/admin/test-notifications", {
-        phone: testPhone || undefined,
         email: testEmail || undefined,
         userId: testUserId ? parseInt(testUserId) : undefined,
       }),
@@ -272,9 +270,9 @@ export default function AdminConsultations() {
                       {/* Delivery status badges (shown after action) */}
                       {ds && (
                         <div className="flex flex-wrap gap-2 mb-3 p-2 bg-gray-50 rounded-xl">
-                          <DeliveryBadge label="SMS" result={ds.sms} />
                           <DeliveryBadge label="Email" result={ds.email} />
                           <DeliveryBadge label="In-App" result={ds.inApp} />
+                          <DeliveryBadge label="Push" result={ds.push} />
                         </div>
                       )}
 
@@ -499,15 +497,9 @@ export default function AdminConsultations() {
                 <Send className="w-5 h-5 text-[#3bcac4]" />
                 Test Notification Channels
               </h3>
-              <p className="text-sm text-gray-500 mb-5">Send test messages to verify SMS, email, and in-app notifications are working correctly.</p>
+              <p className="text-sm text-gray-500 mb-5">Send test messages to verify email and in-app notifications are working correctly.</p>
 
               <div className="space-y-4 mb-6">
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">📱 Phone number for SMS test</label>
-                  <Input value={testPhone} onChange={e => setTestPhone(e.target.value)}
-                    placeholder="+995599123456" dir="ltr" className="font-mono" />
-                  <p className="text-[10px] text-gray-400 mt-1">Include country code. Leave empty to skip SMS.</p>
-                </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">✉️ Email address for email test</label>
                   <Input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)}
@@ -515,16 +507,16 @@ export default function AdminConsultations() {
                   <p className="text-[10px] text-gray-400 mt-1">Leave empty to skip email.</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">🔔 User ID for in-app notification test</label>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">🔔 User ID for in-app + push notification test</label>
                   <Input type="number" value={testUserId} onChange={e => setTestUserId(e.target.value)}
                     placeholder="User ID (e.g. 1)" dir="ltr" />
-                  <p className="text-[10px] text-gray-400 mt-1">Leave empty to skip in-app. Check the user's Notifications page after sending.</p>
+                  <p className="text-[10px] text-gray-400 mt-1">Leave empty to skip. User must have push enabled for push test to work.</p>
                 </div>
               </div>
 
               <Button
                 onClick={() => testNotifMutation.mutate()}
-                disabled={testNotifMutation.isPending || (!testPhone && !testEmail && !testUserId)}
+                disabled={testNotifMutation.isPending || (!testEmail && !testUserId)}
                 style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
                 className="text-white w-full"
               >
@@ -547,7 +539,7 @@ export default function AdminConsultations() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-800 capitalize">
-                            {key === "sms" ? "📱 SMS" : key === "email" ? "✉️ Email" : "🔔 In-App"}
+                            {key === "email" ? "✉️ Email" : key === "inApp" ? "🔔 In-App" : key === "push" ? "📲 Push" : key}
                             <span className={`ml-2 text-xs font-bold ${val.sent ? "text-green-600" : "text-red-600"}`}>
                               {val.sent ? "SENT" : "FAILED"}
                             </span>
@@ -571,16 +563,15 @@ export default function AdminConsultations() {
               <h4 className="font-semibold text-gray-700 text-sm mb-3">Environment Variable Status</h4>
               <div className="space-y-2 text-xs">
                 {[
-                  { name: "TWILIO_ACCOUNT_SID", key: "twilio_sid" },
-                  { name: "TWILIO_AUTH_TOKEN", key: "twilio_token" },
-                  { name: "TWILIO_MESSAGING_SERVICE_SID", key: "twilio_msg" },
-                  { name: "TWILIO_PHONE_NUMBER", key: "twilio_phone" },
-                  { name: "RESEND_API_KEY", key: "resend" },
-                ].map(({ name }) => (
+                  { name: "RESEND_API_KEY", note: "Email confirmations" },
+                  { name: "VAPID_PUBLIC_KEY", note: "Web Push (PWA)" },
+                  { name: "VAPID_PRIVATE_KEY", note: "Web Push (PWA)" },
+                  { name: "VAPID_SUBJECT", note: "Web Push contact" },
+                ].map(({ name, note }) => (
                   <div key={name} className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0" />
                     <span className="font-mono text-gray-600">{name}</span>
-                    <span className="text-gray-400">(check server logs for status)</span>
+                    <span className="text-gray-400">— {note}</span>
                   </div>
                 ))}
               </div>

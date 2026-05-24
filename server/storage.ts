@@ -110,6 +110,11 @@ export interface IStorage {
   markNotificationRead(id: number): Promise<void>;
   markAllNotificationsRead(userId: number): Promise<void>;
   getUnreadNotificationCount(userId: number): Promise<number>;
+
+  // Push Subscription operations
+  savePushSubscription(data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription>;
+  getPushSubscriptionsByUserId(userId: number): Promise<import("@shared/schema").PushSubscription[]>;
+  deletePushSubscriptionByEndpoint(endpoint: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -482,6 +487,9 @@ export class MemStorage implements IStorage {
   async markNotificationRead(_id: number): Promise<void> {}
   async markAllNotificationsRead(_userId: number): Promise<void> {}
   async getUnreadNotificationCount(_userId: number): Promise<number> { return 0; }
+  async savePushSubscription(_data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription> { throw new Error("Not implemented"); }
+  async getPushSubscriptionsByUserId(_userId: number): Promise<import("@shared/schema").PushSubscription[]> { return []; }
+  async deletePushSubscriptionByEndpoint(_endpoint: string): Promise<void> {}
 }
 
 // Import the DatabaseStorage class
