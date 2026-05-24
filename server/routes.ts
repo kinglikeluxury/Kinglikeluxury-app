@@ -2,6 +2,8 @@ import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { Resend } from "resend";
+import pg from "pg";
+const { Pool } = pg;
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -2135,8 +2137,16 @@ ${metaTags}
       return res.status(400).json({ message: "subject and bodyText required" });
     }
 
-    const RESEND_KEY = process.env.RESEND_API_KEY;
-    console.log(`[EmailCampaign] RESEND_API_KEY available: ${!!RESEND_KEY}`);
+    let RESEND_KEY = process.env.RESEND_API_KEY;
+    if (!RESEND_KEY) {
+      try {
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+        const r = await pool.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
+        await pool.end();
+        if (r.rows.length > 0) RESEND_KEY = r.rows[0].value;
+      } catch {}
+    }
+    console.log(`[EmailCampaign] RESEND_API_KEY available: ${!!RESEND_KEY} (len=${(RESEND_KEY||'').length})`);
     if (!RESEND_KEY) {
       return res.status(503).json({ message: "RESEND_API_KEY not configured" });
     }

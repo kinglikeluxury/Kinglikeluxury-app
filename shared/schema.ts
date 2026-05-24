@@ -317,3 +317,9 @@ export type PropertyWithAgent = Property & {
 };
 export type ProjectWithProperty = Project & { property: Property };
 export type BlogPostWithAuthor = BlogPost & { author: User };
+
+// App settings — persistent key-value store for admin config
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
