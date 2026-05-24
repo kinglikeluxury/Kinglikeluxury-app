@@ -2347,6 +2347,30 @@ ${metaTags}
       });
       console.log(`[Consultation] Booking #${booking.id} email: ${emailResult.sent ? "✓" : "✗ " + emailResult.error}`);
 
+      // Create in-app notification so user sees it immediately
+      try {
+        const typeLabel = consultationType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+        const methodLabel = consultationMethod.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+        await storage.createUserNotification({
+          userId: user.id,
+          type: "consultation_pending",
+          title: "📅 Consultation Booking Received",
+          message: `Your ${typeLabel} consultation via ${methodLabel} on ${slotDate} at ${slotTime} has been received. We will confirm it shortly.`,
+          data: {
+            bookingId: booking.id,
+            slotDate,
+            slotTime,
+            consultationType,
+            consultationMethod,
+            country,
+          },
+          isRead: false,
+        });
+        console.log(`[Consultation] In-app notification created for userId=${user.id} booking #${booking.id}`);
+      } catch (notifErr: any) {
+        console.error(`[Consultation] In-app notification failed: ${notifErr.message}`);
+      }
+
       res.json(booking);
     } catch (err: any) {
       console.error("[Consultation] booking error:", err);
