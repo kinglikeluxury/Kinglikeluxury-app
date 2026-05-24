@@ -2721,12 +2721,29 @@ ${metaTags}
   });
 
   // ── AI Investment Advisor ────────────────────────────────────────────────────
+  // Security: OPENAI_API_KEY is ONLY read server-side in aiAdvisor.ts.
+  // It is NEVER passed to the frontend or included in any HTTP response.
+  // All AI communication flows: Frontend → /api/ai/* → aiAdvisor.ts → OpenAI API
   const { chatWithAdvisor, isAiAvailable, computeLeadScore } = await import("./aiAdvisor");
 
-  // Rate limit map: userId -> { count, date }
-  const aiRateLimits = new Map<number, { count: number; date: string }>();
   const MAX_MSGS_PER_CONVERSATION = 40;
   const MAX_CONVS_PER_DAY = 5;
+  const MAX_MSGS_PER_MINUTE = 8; // per-user sliding window rate limit
+
+  // Per-user sliding-window rate limiter (in-memory, resets on server restart)
+  const aiMinuteWindows = new Map<number, number[]>(); // userId -> timestamps[]
+
+  function isRateLimited(userId: number): boolean {
+    const now = Date.now();
+    const window = 60_000; // 1 minute
+    const timestamps = (aiMinuteWindows.get(userId) || []).filter(t => now - t < window);
+    aiMinuteWindows.set(userId, timestamps);
+    if (timestamps.length >= MAX_MSGS_PER_MINUTE) return true;
+    timestamps.push(now);
+    return false;
+  }
+
+  const AI_UNAVAILABLE_MSG = "AI advisor is temporarily unavailable. Please try again later.";
 
   // POST /api/ai/start — begin a new conversation
   app.post("/api/ai/start", async (req, res) => {
@@ -2734,10 +2751,8 @@ ${metaTags}
     const userId = req.session.userId;
 
     if (!isAiAvailable()) {
-      return res.json({
-        conversationId: null,
-        greeting: "AI advisor is temporarily unavailable. Please book a consultation with our team.",
-      });
+      console.warn(`[AI] /api/ai/start — key missing, userId=${userId}`);
+      return res.json({ conversationId: null, greeting: AI_UNAVAILABLE_MSG });
     }
 
     try {
@@ -2778,7 +2793,14 @@ ${metaTags}
     const userId = req.session.userId;
 
     if (!isAiAvailable()) {
-      return res.json({ message: "AI advisor is temporarily unavailable. Please book a consultation with our team." });
+      console.warn(`[AI] /api/ai/chat — key missing, userId=${userId}`);
+      return res.json({ message: AI_UNAVAILABLE_MSG });
+    }
+
+    // Per-minute rate limit
+    if (isRateLimited(userId)) {
+      console.warn(`[AI] rate limit hit — userId=${userId}`);
+      return res.status(429).json({ message: "Too many messages. Please wait a moment before sending again." });
     }
 
     const { conversationId, message, language } = req.body;
@@ -2804,7 +2826,7 @@ ${metaTags}
         content: m.content,
       }));
 
-      const aiResp = await chatWithAdvisor(history, language || "en", userPhone);
+      const aiResp = await chatWithAdvisor(history, language || "en", userPhone, userId);
 
       // Save assistant response
       await storage.addAiMessage(conversationId, "assistant", aiResp.message);
@@ -2855,11 +2877,16 @@ ${metaTags}
 
       res.json({ message: aiResp.message });
     } catch (err: any) {
-      console.error("[AI] chat error:", err.message);
-      if (err.message === "AI_UNAVAILABLE") {
-        return res.json({ message: "AI advisor is temporarily unavailable. Please book a consultation with our team." });
+      const code = err?.status ?? err?.code ?? "unknown";
+      console.error(`[AI] chat error — userId=${userId} code=${code} message=${err.message}`);
+      if (err.message === "AI_UNAVAILABLE" || code === "insufficient_quota" || code === 429) {
+        return res.json({ message: AI_UNAVAILABLE_MSG });
       }
-      res.status(500).json({ message: "Failed to process message" });
+      if (code === 401) {
+        console.error("[AI] Invalid API key — check OPENAI_API_KEY secret");
+        return res.json({ message: AI_UNAVAILABLE_MSG });
+      }
+      res.json({ message: AI_UNAVAILABLE_MSG });
     }
   });
 

@@ -1,11 +1,15 @@
 import OpenAI from "openai";
 
+// ── Security: API key lives ONLY on the server. Never sent to frontend. ────────
 const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
 export const isAiAvailable = () => !!apiKey;
 
 let openai: OpenAI | null = null;
 if (apiKey) {
   openai = new OpenAI({ apiKey });
+  console.log("[AI] OpenAI client initialised ✓");
+} else {
+  console.warn("[AI] OPENAI_API_KEY not set — AI Advisor disabled");
 }
 
 const SYSTEM_PROMPT = `You are the Kinglike Luxury AI Investment Advisor — a premium, professional, calm, and friendly real estate consultant.
@@ -86,25 +90,38 @@ function extractProfileData(text: string): { clean: string; data?: Record<string
 export async function chatWithAdvisor(
   messages: ChatMessage[],
   appLanguage: string = "en",
-  userPhone?: string
+  userPhone?: string,
+  userId?: number
 ): Promise<AiResponse> {
-  if (!openai) throw new Error("AI_UNAVAILABLE");
+  if (!openai) {
+    console.error("[AI] chatWithAdvisor called but OpenAI client not initialised");
+    throw new Error("AI_UNAVAILABLE");
+  }
 
   const contextNote = `Current app language: ${appLanguage}. User's verified phone: ${userPhone || "unknown"}.`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT + "\n\nCONTEXT: " + contextNote },
-      ...messages.map((m) => ({ role: m.role, content: m.content })),
-    ],
-    max_tokens: 500,
-    temperature: 0.7,
-  });
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT + "\n\nCONTEXT: " + contextNote },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
 
-  const raw = completion.choices[0]?.message?.content || "";
-  const { clean, data } = extractProfileData(raw);
-  return { message: clean, profileData: data };
+    const raw = completion.choices[0]?.message?.content || "";
+    const { clean, data } = extractProfileData(raw);
+
+    console.log(`[AI] response ok — userId=${userId ?? "?"} lang=${appLanguage} tokens=${completion.usage?.total_tokens ?? "?"}`);
+    return { message: clean, profileData: data };
+
+  } catch (err: any) {
+    const code = err?.status ?? err?.code ?? "unknown";
+    console.error(`[AI] OpenAI error — userId=${userId ?? "?"} code=${code} message=${err.message}`);
+    throw err;
+  }
 }
 
 export function computeLeadScore(profile: Record<string, any>): "hot" | "warm" | "cold" {
