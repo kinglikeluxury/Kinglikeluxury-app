@@ -4,7 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
-import { Send, Bot, User, Loader2, Crown, RefreshCw, Sparkles } from "lucide-react";
+import { Send, User, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import crownIcon from "@assets/crown-icon.png";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -97,7 +98,10 @@ export default function AiAdvisorPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#3bcac4]/10 to-[#005476]/10">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full mx-4 text-center">
-          <Crown className="w-16 h-16 mx-auto mb-4 text-[#3bcac4]" />
+          <div className="w-16 h-16 rounded-full bg-white mx-auto mb-4 flex items-center justify-center shadow-lg"
+            style={{ boxShadow: "0 4px 20px rgba(59,202,196,0.35)" }}>
+            <img src={crownIcon} alt="" className="w-10 h-10 object-contain" draggable={false} />
+          </div>
           <h2 className="text-xl font-bold text-[#005476] mb-2">{t("aiAdvisor.loginRequired", "Login Required")}</h2>
           <p className="text-gray-500 mb-6 text-sm">{t("aiAdvisor.loginHint", "Please log in to access the AI Investment Advisor.")}</p>
           <Button onClick={() => navigate("/login")} className="w-full" style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}>
@@ -115,12 +119,13 @@ export default function AiAdvisorPage() {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-md flex-shrink-0"
+                style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+                <img src={crownIcon} alt="" className="w-7 h-7 object-contain" draggable={false} />
               </div>
               <div>
-                <h1 className="text-lg font-bold">{t("aiAdvisor.title", "AI Investment Advisor")}</h1>
-                <p className="text-white/70 text-xs">{t("aiAdvisor.subtitle", "Kinglike Luxury — Premium Advisory")}</p>
+                <h1 className="text-lg font-bold tracking-tight">Kinglike AI Advisor</h1>
+                <p className="text-white/75 text-xs font-light tracking-wide">Luxury Real Estate Intelligence</p>
               </div>
             </div>
             {started && (
@@ -137,8 +142,9 @@ export default function AiAdvisorPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 max-w-2xl mx-auto w-full">
         {!started ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-16">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}>
-              <Crown className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-6 shadow-lg"
+              style={{ boxShadow: "0 4px 24px rgba(59,202,196,0.35), 0 2px 8px rgba(0,0,0,0.10)" }}>
+              <img src={crownIcon} alt="" className="w-12 h-12 object-contain" draggable={false} />
             </div>
             <h2 className="text-2xl font-bold text-[#005476] mb-3">{t("aiAdvisor.welcome", "Welcome to AI Advisor")}</h2>
             <p className="text-gray-500 max-w-sm mb-8 leading-relaxed text-sm">
@@ -167,12 +173,11 @@ export default function AiAdvisorPage() {
             {convState.messages.map((msg) => (
               <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  msg.role === "assistant"
-                    ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]"
-                    : "bg-gray-200"
-                }`}>
+                  msg.role === "assistant" ? "bg-white shadow-sm" : "bg-gray-200"
+                }`}
+                  style={msg.role === "assistant" ? { border: "1.5px solid rgba(59,202,196,0.35)" } : {}}>
                   {msg.role === "assistant"
-                    ? <Bot className="w-4 h-4 text-white" />
+                    ? <img src={crownIcon} alt="" className="w-5 h-5 object-contain" draggable={false} />
                     : <User className="w-4 h-4 text-gray-500" />}
                 </div>
                 <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
@@ -188,8 +193,9 @@ export default function AiAdvisorPage() {
             ))}
             {chatMutation.isPending && (
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm"
+                  style={{ border: "1.5px solid rgba(59,202,196,0.35)" }}>
+                  <img src={crownIcon} alt="" className="w-5 h-5 object-contain" draggable={false} />
                 </div>
                 <div className="bg-white shadow-sm border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3">
                   <div className="flex gap-1 items-center h-5">

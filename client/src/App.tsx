@@ -41,6 +41,7 @@ import Terms from "@/pages/terms";
 import PrivacyTerms from "@/pages/privacy-terms";
 import AiAdvisorPage from "@/pages/ai-advisor";
 import AiLeadsPage from "@/pages/admin/ai-leads";
+import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
 import { useTranslation } from "react-i18next";
@@ -96,6 +97,7 @@ function Router() {
         <Footer />
       </div>
       <BottomNav />
+      <FloatingAIButton />
     </div>
   );
 }
