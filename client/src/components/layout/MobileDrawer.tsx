@@ -96,12 +96,14 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
     path,
     icon: Icon,
     badge,
+    highlight,
     protected: isProtected,
   }: {
     label: string;
     path: string;
     icon: React.ElementType;
     badge?: number;
+    highlight?: boolean;
     protected?: boolean;
   }) => {
     const active = isActive(path);
@@ -117,10 +119,15 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             style={{
               background: active
                 ? "linear-gradient(135deg, #3bcac4, #005476)"
+                : highlight
+                ? "#e8f0f5"
                 : "#f3f4f6",
             }}
           >
-            <Icon className="w-4 h-4" style={{ color: active ? "#fff" : "#6b7280" }} />
+            <Icon
+              className="w-4 h-4"
+              style={{ color: active ? "#fff" : highlight ? "#005476" : "#6b7280" }}
+            />
           </div>
           <span
             className="text-[15px] font-medium"
@@ -270,7 +277,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.blog", "المدونة"), path: "/blog", icon: BookOpen })}
             {renderItem({ label: t("nav.map", "الخريطة"), path: "/map", icon: Map })}
             {renderItem({ label: t("consultation.menuLabel", "Book Consultation"), path: "/consultation", icon: CalendarDays })}
-            {renderItem({ label: t("notifications.title", "Notifications"), path: "/notifications", icon: Bell, badge: unreadCount })}
+            {renderItem({ label: t("notifications.title", "Notifications"), path: "/notifications", icon: Bell, badge: unreadCount, highlight: unreadCount > 0 })}
             {renderItem({
               label: t("favorites.title", "المفضلة"),
               path: "/favorites",
