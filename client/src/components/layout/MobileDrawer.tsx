@@ -10,6 +10,8 @@ import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/hooks/use-favorites";
 import { languages, getFlagUrl } from "@/lib/i18n";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
+import { useQuery } from "@tanstack/react-query";
+import type { UserNotification } from "@shared/schema";
 
 interface MobileDrawerProps {
   isOpen: boolean;
@@ -20,6 +22,12 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const { favorites } = useFavorites();
+
+  const { data: notifications = [] } = useQuery<UserNotification[]>({
+    queryKey: ["/api/notifications"],
+    enabled: !!user,
+  });
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
   const [location, navigate] = useLocation();
   const [langExpanded, setLangExpanded] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -125,9 +133,9 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           {badge !== undefined && badge > 0 && (
             <span
               className="text-xs text-white font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
-              style={{ background: "#3bcac4" }}
+              style={{ background: "#005476" }}
             >
-              {badge}
+              {badge > 99 ? "99+" : badge}
             </span>
           )}
           <ChevronRight className="w-4 h-4 text-gray-300" />
@@ -262,7 +270,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.blog", "المدونة"), path: "/blog", icon: BookOpen })}
             {renderItem({ label: t("nav.map", "الخريطة"), path: "/map", icon: Map })}
             {renderItem({ label: t("consultation.menuLabel", "Book Consultation"), path: "/consultation", icon: CalendarDays })}
-            {renderItem({ label: t("notifications.title", "Notifications"), path: "/notifications", icon: Bell })}
+            {renderItem({ label: t("notifications.title", "Notifications"), path: "/notifications", icon: Bell, badge: unreadCount })}
             {renderItem({
               label: t("favorites.title", "المفضلة"),
               path: "/favorites",
