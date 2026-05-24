@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Mail, Send, Upload, X, Image, Link2, Users,
   CheckCircle2, AlertCircle, Loader2, Trash2, Plus, FileText,
-  Building2, Home, ChevronDown, ChevronUp
+  Building2, Home, ChevronDown, ChevronUp, UserCheck, AlertTriangle
 } from "lucide-react";
 import type { Project, Property } from "@shared/schema";
 
@@ -50,6 +50,7 @@ export default function EmailCampaignPage() {
 
   const { data: projects } = useQuery<any[]>({ queryKey: ["/api/projects"], enabled: !!user?.isAdmin });
   const { data: properties } = useQuery<Property[]>({ queryKey: ["/api/properties"], enabled: !!user?.isAdmin });
+  const { data: registeredLeads } = useQuery<{ email: string; username: string }[]>({ queryKey: ["/api/admin/leads"], enabled: !!user?.isAdmin });
 
   const sendMutation = useMutation({
     mutationFn: (data: {
@@ -119,6 +120,28 @@ export default function EmailCampaignPage() {
     e.target.value = "";
   };
 
+  const importRegisteredUsers = () => {
+    if (!registeredLeads?.length) {
+      toast({ title: "لا يوجد مستخدمون", description: "لا توجد حسابات مسجلة بإيميل" });
+      return;
+    }
+    const withEmail = registeredLeads.filter(l => l.email && l.email.trim());
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const added: Recipient[] = [];
+    for (const lead of withEmail) {
+      const email = lead.email.trim().toLowerCase();
+      if (emailRegex.test(email) && !recipients.some(r => r.email === email)) {
+        added.push({ email, name: lead.username });
+      }
+    }
+    if (added.length === 0) {
+      toast({ title: "لا جديد", description: "كل المستخدمين ذوي الإيميل موجودون بالفعل في القائمة" });
+      return;
+    }
+    setRecipients(prev => [...prev, ...added]);
+    toast({ title: `تم الاستيراد ✓`, description: `أُضيف ${added.length} مستخدم مسجّل` });
+  };
+
   const effectiveImageUrl = imageUrl.trim();
 
   const handleSend = () => {
@@ -162,9 +185,24 @@ export default function EmailCampaignPage() {
             <CardTitle className="flex items-center gap-2 text-[#005476]">
               <Users className="w-5 h-5" />قائمة المستلمين
             </CardTitle>
-            <CardDescription>أضف الإيميلات يدوياً أو ارفع ملف CSV</CardDescription>
+            <CardDescription>يمكنك الإرسال لأي إيميل — سواء كان مسجلاً في التطبيق أم لا</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Import registered users */}
+            <div className="flex items-center justify-between bg-[#f0fafa] border border-[#3bcac4]/30 rounded-lg px-4 py-3">
+              <div>
+                <div className="text-sm font-medium text-[#005476]">المستخدمون المسجلون</div>
+                <div className="text-xs text-gray-500">
+                  {registeredLeads ? `${registeredLeads.filter(l => l.email).length} مستخدم لديه إيميل` : "جاري التحميل..."}
+                </div>
+              </div>
+              <Button onClick={importRegisteredUsers} size="sm" variant="outline"
+                className="border-[#3bcac4] text-[#005476] gap-1.5">
+                <UserCheck className="w-4 h-4" />
+                استيراد الكل
+              </Button>
+            </div>
+
             <div className="flex gap-2">
               <Input placeholder="example@email.com" value={emailInput} onChange={e => setEmailInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && addEmail()} className="flex-1 text-left" dir="ltr" />
@@ -175,7 +213,7 @@ export default function EmailCampaignPage() {
             <div className="space-y-2">
               <Textarea placeholder="أو الصق الإيميلات هنا مفصولة بفاصلة أو سطر جديد..."
                 value={csvText} onChange={e => setCsvText(e.target.value)} rows={3} dir="ltr" className="text-sm text-left" />
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button onClick={handleCsvParse} variant="outline" size="sm" disabled={!csvText.trim()} className="border-[#3bcac4] text-[#005476]">
                   <FileText className="w-4 h-4 mr-1" />استيراد من النص
                 </Button>
@@ -417,6 +455,18 @@ export default function EmailCampaignPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Gmail config warning */}
+        <div className="flex gap-3 items-start bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="font-medium text-amber-800">إعداد Gmail للإرسال</div>
+            <div className="text-amber-700 leading-relaxed">
+              إذا ظهر خطأ "Invalid login"، يجب استخدام <strong>App Password</strong> من Google وليس كلمة المرور العادية:<br />
+              <span className="text-xs">Google Account ← Security ← 2-Step Verification ← App Passwords ← أنشئ كلمة مرور للتطبيق وضعها في GMAIL_APP_PASSWORD</span>
+            </div>
+          </div>
+        </div>
 
         {/* Send bar */}
         <div className="flex items-center justify-between bg-white rounded-xl border p-4">
