@@ -91,6 +91,17 @@ export interface IStorage {
   }): Promise<void>;
   completeBOGPayment(bogOrderId: string): Promise<void>;
   getBOGPaymentByPropertyId(propertyId: number): Promise<{ bogOrderId: string; amount: number; status: string } | null>;
+
+  // Consultation operations
+  getConsultationTimeSlots(date?: string): Promise<import("@shared/schema").ConsultationTimeSlot[]>;
+  createConsultationTimeSlot(data: import("@shared/schema").InsertConsultationTimeSlot): Promise<import("@shared/schema").ConsultationTimeSlot>;
+  deleteConsultationTimeSlot(id: number): Promise<boolean>;
+  getAvailableSlotsForDate(date: string): Promise<import("@shared/schema").ConsultationTimeSlot[]>;
+  createConsultationBooking(data: import("@shared/schema").InsertConsultationBooking): Promise<import("@shared/schema").ConsultationBooking>;
+  getConsultationBookings(filters?: { status?: string; country?: string; method?: string }): Promise<import("@shared/schema").ConsultationBooking[]>;
+  getConsultationBookingById(id: number): Promise<import("@shared/schema").ConsultationBooking | undefined>;
+  getUserConsultationBookings(userId: number): Promise<import("@shared/schema").ConsultationBooking[]>;
+  updateConsultationBooking(id: number, data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -446,6 +457,17 @@ export class MemStorage implements IStorage {
     }
     return null;
   }
+
+  // Consultation stubs for MemStorage
+  async getConsultationTimeSlots(_date?: string): Promise<import("@shared/schema").ConsultationTimeSlot[]> { return []; }
+  async createConsultationTimeSlot(_data: import("@shared/schema").InsertConsultationTimeSlot): Promise<import("@shared/schema").ConsultationTimeSlot> { throw new Error("Not implemented"); }
+  async deleteConsultationTimeSlot(_id: number): Promise<boolean> { return false; }
+  async getAvailableSlotsForDate(_date: string): Promise<import("@shared/schema").ConsultationTimeSlot[]> { return []; }
+  async createConsultationBooking(_data: import("@shared/schema").InsertConsultationBooking): Promise<import("@shared/schema").ConsultationBooking> { throw new Error("Not implemented"); }
+  async getConsultationBookings(_filters?: { status?: string; country?: string; method?: string }): Promise<import("@shared/schema").ConsultationBooking[]> { return []; }
+  async getConsultationBookingById(_id: number): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
+  async getUserConsultationBookings(_userId: number): Promise<import("@shared/schema").ConsultationBooking[]> { return []; }
+  async updateConsultationBooking(_id: number, _data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
 }
 
 // Import the DatabaseStorage class

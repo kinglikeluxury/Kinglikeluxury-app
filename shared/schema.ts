@@ -323,3 +323,80 @@ export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+// ── Consultation Feature ─────────────────────────────────────────────────────
+
+export const CONSULTATION_COUNTRIES = {
+  GEORGIA: "georgia",
+  TURKEY: "turkey",
+  DUBAI: "dubai",
+  NORTH_CYPRUS: "north_cyprus",
+} as const;
+
+export const CONSULTATION_TYPES = {
+  INVESTMENT: "investment",
+  VIEWING: "viewing",
+  RESIDENCY: "residency",
+  INSTALLMENT: "installment",
+} as const;
+
+export const CONSULTATION_METHODS = {
+  GOOGLE_MEET: "google_meet",
+  ZOOM: "zoom",
+  WHATSAPP_VIDEO: "whatsapp_video",
+  WHATSAPP_VOICE: "whatsapp_voice",
+} as const;
+
+export const CONSULTATION_STATUS = {
+  PENDING: "pending",
+  CONFIRMED: "confirmed",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+  REJECTED: "rejected",
+} as const;
+
+export const consultationTimeSlots = pgTable("consultation_time_slots", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  isAvailable: boolean("is_available").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertConsultationTimeSlotSchema = createInsertSchema(consultationTimeSlots).omit({ id: true, createdAt: true });
+export type ConsultationTimeSlot = typeof consultationTimeSlots.$inferSelect;
+export type InsertConsultationTimeSlot = z.infer<typeof insertConsultationTimeSlotSchema>;
+
+export const consultationBookings = pgTable("consultation_bookings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  propertyId: integer("property_id").references(() => properties.id),
+  propertyTitle: text("property_title"),
+  slotId: integer("slot_id").references(() => consultationTimeSlots.id),
+  country: text("country").notNull(),
+  consultationType: text("consultation_type").notNull(),
+  consultationMethod: text("consultation_method").notNull(),
+  status: text("status").notNull().default("pending"),
+  budget: text("budget"),
+  notes: text("notes"),
+  email: text("email"),
+  whatsappContactNumber: text("whatsapp_contact_number"),
+  meetingLink: text("meeting_link"),
+  userPhone: text("user_phone").notNull(),
+  userLanguage: text("user_language").default("en"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertConsultationBookingSchema = createInsertSchema(consultationBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  status: true,
+  meetingLink: true,
+  adminNotes: true,
+});
+export type ConsultationBooking = typeof consultationBookings.$inferSelect;
+export type InsertConsultationBooking = z.infer<typeof insertConsultationBookingSchema>;

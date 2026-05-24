@@ -2230,5 +2230,262 @@ ${metaTags}
     });
   });
 
+  // ── Consultation Feature ────────────────────────────────────────────────────
+
+  // GET available slots for a date (public)
+  app.get("/api/consultation/slots", async (req, res) => {
+    try {
+      const { date } = req.query;
+      if (!date || typeof date !== "string") {
+        return res.status(400).json({ message: "date query param required (YYYY-MM-DD)" });
+      }
+      const slots = await storage.getAvailableSlotsForDate(date);
+      res.json(slots);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // GET all slots (admin)
+  app.get("/api/admin/consultation/slots", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const slots = await storage.getConsultationTimeSlots();
+      res.json(slots);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // POST create slot (admin)
+  app.post("/api/admin/consultation/slots", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { date, startTime, endTime } = req.body;
+      if (!date || !startTime || !endTime) {
+        return res.status(400).json({ message: "date, startTime, endTime required" });
+      }
+      const slot = await storage.createConsultationTimeSlot({ date, startTime, endTime, isAvailable: true });
+      res.json(slot);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // DELETE slot (admin)
+  app.delete("/api/admin/consultation/slots/:id", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const id = parseInt(req.params.id);
+      const ok = await storage.deleteConsultationTimeSlot(id);
+      res.json({ success: ok });
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // POST create booking (auth required)
+  app.post("/api/consultation/bookings", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const user = await storage.getUser(req.session.userId);
+      if (!user) return res.status(401).json({ message: "User not found" });
+
+      const {
+        country, consultationType, consultationMethod, slotId, budget, notes,
+        email, whatsappContactNumber, propertyId, propertyTitle, userLanguage,
+      } = req.body;
+
+      if (!country || !consultationType || !consultationMethod || !slotId) {
+        return res.status(400).json({ message: "country, consultationType, consultationMethod, slotId required" });
+      }
+
+      // Check slot still available
+      const slot = (await storage.getConsultationTimeSlots(undefined)).find(s => s.id === slotId);
+      if (!slot || !slot.isAvailable) {
+        return res.status(409).json({ message: "Time slot no longer available" });
+      }
+
+      const booking = await storage.createConsultationBooking({
+        userId: user.id,
+        propertyId: propertyId || null,
+        propertyTitle: propertyTitle || null,
+        slotId,
+        country,
+        consultationType,
+        consultationMethod,
+        budget: budget || null,
+        notes: notes || null,
+        email: email || null,
+        whatsappContactNumber: whatsappContactNumber || null,
+        userPhone: user.phoneNumber || "",
+        userLanguage: userLanguage || "en",
+      });
+
+      // Send SMS confirmation to user
+      if (twilioClient && user.phoneNumber) {
+        try {
+          const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+          const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+          const slotInfo = slot ? `${slot.date} ${slot.startTime}–${slot.endTime}` : "";
+          const smsBody = `Kinglike Luxury: Your consultation has been booked for ${slotInfo}. Type: ${consultationType}. Method: ${consultationMethod}. We will confirm shortly.`;
+          const msgData: any = { body: smsBody, to: user.phoneNumber };
+          if (msgSid) msgData.messagingServiceSid = msgSid;
+          else if (fromNumber) msgData.from = fromNumber;
+          await twilioClient.messages.create(msgData);
+        } catch (smsErr) {
+          console.error("[Consultation] SMS send error:", smsErr);
+        }
+      }
+
+      // Send email if provided
+      if (email) {
+        try {
+          const resendKey = process.env.RESEND_API_KEY;
+          if (resendKey) {
+            const resend = new Resend(resendKey);
+            const slotInfo = slot ? `${slot.date} ${slot.startTime}–${slot.endTime}` : "";
+            await resend.emails.send({
+              from: "Kinglike Luxury <info@kinglikeluxury.app>",
+              to: [email],
+              subject: "Consultation Booking Confirmed – Kinglike Luxury",
+              html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+                <h2 style="color:#005476">Your Consultation Has Been Booked</h2>
+                <p>Thank you for booking a consultation with Kinglike Luxury.</p>
+                <table style="width:100%;border-collapse:collapse">
+                  <tr><td style="padding:8px;color:#666">Date & Time:</td><td style="padding:8px;font-weight:bold">${slotInfo}</td></tr>
+                  <tr><td style="padding:8px;color:#666">Country:</td><td style="padding:8px">${country}</td></tr>
+                  <tr><td style="padding:8px;color:#666">Type:</td><td style="padding:8px">${consultationType}</td></tr>
+                  <tr><td style="padding:8px;color:#666">Method:</td><td style="padding:8px">${consultationMethod}</td></tr>
+                  ${notes ? `<tr><td style="padding:8px;color:#666">Notes:</td><td style="padding:8px">${notes}</td></tr>` : ""}
+                </table>
+                <p style="color:#3bcac4;margin-top:20px">We will confirm your appointment shortly.</p>
+                <p style="color:#666;font-size:12px">Kinglike Luxury Real Estate</p>
+              </div>`,
+            });
+          }
+        } catch (emailErr) {
+          console.error("[Consultation] Email send error:", emailErr);
+        }
+      }
+
+      // Notify admin via SMS
+      const adminPhone = process.env.ADMIN_PHONE_NUMBER;
+      if (twilioClient && adminPhone) {
+        try {
+          const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+          const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+          const slotInfo = slot ? `${slot.date} ${slot.startTime}` : "";
+          const adminSms = `New consultation booking #${booking.id}: ${consultationType} via ${consultationMethod} on ${slotInfo}. User: ${user.phoneNumber}`;
+          const msgData: any = { body: adminSms, to: adminPhone };
+          if (msgSid) msgData.messagingServiceSid = msgSid;
+          else if (fromNumber) msgData.from = fromNumber;
+          await twilioClient.messages.create(msgData);
+        } catch {}
+      }
+
+      res.json(booking);
+    } catch (err: any) {
+      console.error("[Consultation] booking error:", err);
+      res.status(500).json({ message: err.message || "Server error" });
+    }
+  });
+
+  // GET user's bookings
+  app.get("/api/consultation/bookings/mine", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const bookings = await storage.getUserConsultationBookings(req.session.userId);
+      res.json(bookings);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // GET all bookings (admin)
+  app.get("/api/admin/consultation/bookings", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { status, country, method } = req.query;
+      const bookings = await storage.getConsultationBookings({
+        status: typeof status === "string" ? status : undefined,
+        country: typeof country === "string" ? country : undefined,
+        method: typeof method === "string" ? method : undefined,
+      });
+      res.json(bookings);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // PATCH update booking (admin)
+  app.patch("/api/admin/consultation/bookings/:id", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const id = parseInt(req.params.id);
+      const { status, meetingLink, adminNotes } = req.body;
+
+      const existing = await storage.getConsultationBookingById(id);
+      if (!existing) return res.status(404).json({ message: "Booking not found" });
+
+      const updated = await storage.updateConsultationBooking(id, {
+        ...(status && { status }),
+        ...(meetingLink !== undefined && { meetingLink }),
+        ...(adminNotes !== undefined && { adminNotes }),
+      });
+
+      // If confirming, send SMS notification to user
+      if (status === "confirmed" && existing.userPhone) {
+        try {
+          if (twilioClient) {
+            const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+            const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+            let smsBody = `Kinglike Luxury: Your consultation booking #${id} has been CONFIRMED.`;
+            if (meetingLink) smsBody += ` Meeting link: ${meetingLink}`;
+            else if (["whatsapp_video", "whatsapp_voice"].includes(existing.consultationMethod)) {
+              smsBody += ` Our team will contact you via WhatsApp at the scheduled time.`;
+            }
+            const msgData: any = { body: smsBody, to: existing.userPhone };
+            if (msgSid) msgData.messagingServiceSid = msgSid;
+            else if (fromNumber) msgData.from = fromNumber;
+            await twilioClient.messages.create(msgData);
+          }
+        } catch (smsErr) {
+          console.error("[Consultation] Confirm SMS error:", smsErr);
+        }
+
+        // Send confirmation email if available
+        if (existing.email) {
+          try {
+            const resendKey = process.env.RESEND_API_KEY;
+            if (resendKey) {
+              const resend = new Resend(resendKey);
+              let methodInfo = "";
+              if (meetingLink) methodInfo = `<p><strong>Meeting Link:</strong> <a href="${meetingLink}">${meetingLink}</a></p>`;
+              else if (["whatsapp_video", "whatsapp_voice"].includes(existing.consultationMethod)) {
+                methodInfo = `<p>Our team will contact you via WhatsApp at the scheduled time.</p>`;
+              }
+              await resend.emails.send({
+                from: "Kinglike Luxury <info@kinglikeluxury.app>",
+                to: [existing.email],
+                subject: "Consultation Confirmed – Kinglike Luxury",
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+                  <h2 style="color:#3bcac4">Your Consultation is Confirmed!</h2>
+                  <p>Your consultation has been confirmed by our team.</p>
+                  ${methodInfo}
+                  <p style="color:#666;font-size:12px">Kinglike Luxury Real Estate</p>
+                </div>`,
+              });
+            }
+          } catch {}
+        }
+      }
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Server error" });
+    }
+  });
+
   return httpServer;
 }

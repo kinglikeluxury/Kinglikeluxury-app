@@ -24,6 +24,8 @@ import LeadsPage from "@/pages/admin/leads";
 import ProjectOffer from "@/pages/admin/project-offer";
 import NotificationsPage from "@/pages/admin/notifications";
 import EmailCampaignPage from "@/pages/admin/email-campaign";
+import ConsultationBooking from "@/pages/consultation-booking";
+import AdminConsultations from "@/pages/admin/consultations";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
 import BlogPost from "@/pages/blog-post";
@@ -69,6 +71,8 @@ function Router() {
           <Route path="/admin/project-offer" component={ProjectOffer} />
           <Route path="/admin/notifications" component={NotificationsPage} />
           <Route path="/admin/email-campaign" component={EmailCampaignPage} />
+          <Route path="/admin/consultations" component={AdminConsultations} />
+          <Route path="/consultation" component={ConsultationBooking} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/map" component={MapView} />
           <Route path="/payment/success" component={PaymentSuccess} />

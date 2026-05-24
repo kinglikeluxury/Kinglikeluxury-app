@@ -11,6 +11,8 @@ import {
   blogPosts,
   verificationCodes,
   contactLogs,
+  consultationTimeSlots,
+  consultationBookings,
   type ContactLog,
   type User,
   type InsertUser,
@@ -20,6 +22,10 @@ import {
   type InsertProject,
   type BlogPost,
   type InsertBlogPost,
+  type ConsultationTimeSlot,
+  type InsertConsultationTimeSlot,
+  type ConsultationBooking,
+  type InsertConsultationBooking,
   PROPERTY_STATUS,
   PROPERTY_TYPES,
   AUTH_METHODS
@@ -574,5 +580,104 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return null;
+  }
+
+  // ── Consultation operations ──────────────────────────────────────────────────
+
+  async getConsultationTimeSlots(date?: string): Promise<ConsultationTimeSlot[]> {
+    if (date) {
+      return await db
+        .select()
+        .from(consultationTimeSlots)
+        .where(eq(consultationTimeSlots.date, date))
+        .orderBy(consultationTimeSlots.startTime);
+    }
+    return await db
+      .select()
+      .from(consultationTimeSlots)
+      .orderBy(desc(consultationTimeSlots.createdAt));
+  }
+
+  async createConsultationTimeSlot(data: InsertConsultationTimeSlot): Promise<ConsultationTimeSlot> {
+    const [slot] = await db.insert(consultationTimeSlots).values(data).returning();
+    return slot;
+  }
+
+  async deleteConsultationTimeSlot(id: number): Promise<boolean> {
+    const result = await db.delete(consultationTimeSlots).where(eq(consultationTimeSlots.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getAvailableSlotsForDate(date: string): Promise<ConsultationTimeSlot[]> {
+    return await db
+      .select()
+      .from(consultationTimeSlots)
+      .where(and(eq(consultationTimeSlots.date, date), eq(consultationTimeSlots.isAvailable, true)))
+      .orderBy(consultationTimeSlots.startTime);
+  }
+
+  async createConsultationBooking(data: InsertConsultationBooking): Promise<ConsultationBooking> {
+    const [booking] = await db
+      .insert(consultationBookings)
+      .values({ ...data, status: "pending" })
+      .returning();
+    if (data.slotId) {
+      await db
+        .update(consultationTimeSlots)
+        .set({ isAvailable: false })
+        .where(eq(consultationTimeSlots.id, data.slotId));
+    }
+    return booking;
+  }
+
+  async getConsultationBookings(filters?: {
+    status?: string;
+    country?: string;
+    method?: string;
+  }): Promise<ConsultationBooking[]> {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(consultationBookings.status, filters.status));
+    if (filters?.country) conditions.push(eq(consultationBookings.country, filters.country));
+    if (filters?.method) conditions.push(eq(consultationBookings.consultationMethod, filters.method));
+
+    if (conditions.length > 0) {
+      return await db
+        .select()
+        .from(consultationBookings)
+        .where(and(...conditions))
+        .orderBy(desc(consultationBookings.createdAt));
+    }
+    return await db
+      .select()
+      .from(consultationBookings)
+      .orderBy(desc(consultationBookings.createdAt));
+  }
+
+  async getConsultationBookingById(id: number): Promise<ConsultationBooking | undefined> {
+    const [booking] = await db
+      .select()
+      .from(consultationBookings)
+      .where(eq(consultationBookings.id, id));
+    return booking;
+  }
+
+  async getUserConsultationBookings(userId: number): Promise<ConsultationBooking[]> {
+    return await db
+      .select()
+      .from(consultationBookings)
+      .where(eq(consultationBookings.userId, userId))
+      .orderBy(desc(consultationBookings.createdAt));
+  }
+
+  async updateConsultationBooking(
+    id: number,
+    data: Partial<ConsultationBooking>
+  ): Promise<ConsultationBooking | undefined> {
+    const [updated] = await db
+      .update(consultationBookings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(consultationBookings.id, id))
+      .returning();
+    return updated;
   }
 }
