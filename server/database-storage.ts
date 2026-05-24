@@ -811,6 +811,14 @@ export class DatabaseStorage implements IStorage {
     return profile;
   }
 
+  async getLatestInvestorProfileByUser(userId: number): Promise<InvestorProfile | undefined> {
+    const [profile] = await db.select().from(investorProfiles)
+      .where(eq(investorProfiles.userId, userId))
+      .orderBy(desc(investorProfiles.updatedAt))
+      .limit(1);
+    return profile;
+  }
+
   async incrementConversationMessages(conversationId: number): Promise<void> {
     await db.update(aiConversations)
       .set({ messageCount: sql`${aiConversations.messageCount} + 1`, updatedAt: new Date() })

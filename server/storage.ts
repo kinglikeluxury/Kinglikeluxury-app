@@ -123,6 +123,7 @@ export interface IStorage {
   upsertInvestorProfile(data: { conversationId: number; userId: number; accountPhone?: string; [key: string]: any }): Promise<import("@shared/schema").InvestorProfile>;
   getAllInvestorProfiles(): Promise<(import("@shared/schema").InvestorProfile & { username?: string; conversation?: import("@shared/schema").AiMessage[] })[]>;
   getInvestorProfileByConversation(conversationId: number): Promise<import("@shared/schema").InvestorProfile | undefined>;
+  getLatestInvestorProfileByUser(userId: number): Promise<import("@shared/schema").InvestorProfile | undefined>;
   incrementConversationMessages(conversationId: number): Promise<void>;
   completeConversation(conversationId: number): Promise<void>;
   countTodayConversations(userId: number): Promise<number>;
@@ -509,6 +510,7 @@ export class MemStorage implements IStorage {
   async upsertInvestorProfile(_data: any): Promise<import("@shared/schema").InvestorProfile> { throw new Error("Not implemented"); }
   async getAllInvestorProfiles(): Promise<any[]> { return []; }
   async getInvestorProfileByConversation(_conversationId: number): Promise<import("@shared/schema").InvestorProfile | undefined> { return undefined; }
+  async getLatestInvestorProfileByUser(_userId: number): Promise<import("@shared/schema").InvestorProfile | undefined> { return undefined; }
   async incrementConversationMessages(_conversationId: number): Promise<void> {}
   async completeConversation(_conversationId: number): Promise<void> {}
   async countTodayConversations(_userId: number): Promise<number> { return 0; }

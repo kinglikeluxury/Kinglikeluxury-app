@@ -164,7 +164,7 @@ export default function AiAdvisorPage() {
             </Button>
             {startMutation.isError && (
               <p className="mt-4 text-sm text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200">
-                {t("aiAdvisor.unavailable", "AI Advisor is temporarily unavailable. Please book a consultation with our team.")}
+                {t("aiAdvisor.unavailable", "AI Advisor is temporarily unavailable. Please try again later.")}
               </p>
             )}
           </div>

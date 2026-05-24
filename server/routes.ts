@@ -2765,24 +2765,43 @@ ${metaTags}
       const lang = req.body.language || "en";
       const conv = await storage.createAiConversation(userId, lang);
 
-      // Build greeting
       const user = await storage.getUser(userId);
       const userPhone = user?.phoneNumber || user?.whatsappNumber || undefined;
 
-      const greetingMessages: Record<string, string> = {
-        ar: "مرحباً 👋 أنا المستشار الذكي من Kinglike Luxury. سأساعدك على فهم أفضل الخيارات العقارية المناسبة لهدفك وميزانيتك، ثم يمكن لفريقنا تجهيز استشارة خاصة لك.\n\nما هو هدفك الرئيسي من الشراء؟ 🏠\n• استثمار\n• سكن\n• دخل إيجاري\n• إعادة بيع\n• منزل للعطلات\n• إقامة أو جنسية\n• أسلوب حياة فاخر",
-        ru: "Привет 👋 Я ИИ-консультант Kinglike Luxury. Помогу понять ваши цели и подберу подходящие варианты недвижимости.\n\nКакова ваша главная цель покупки?\n• Инвестиции\n• Проживание\n• Арендный доход\n• Перепродажа\n• Дача/отдых\n• ВНЖ/гражданство\n• Роскошный образ жизни",
-        tr: "Merhaba 👋 Ben Kinglike Luxury AI Danışmanıyım. Hedeflerinizi anlamak ve size en uygun gayrimenkul fırsatlarını hazırlamak için buradayım.\n\nSatın alma amacınız nedir?\n• Yatırım\n• Oturma\n• Kira geliri\n• Yeniden satış\n• Tatil evi\n• Oturma izni/vatandaşlık\n• Lüks yaşam tarzı",
-        default: "Hello 👋 I'm the Kinglike Luxury AI Investment Advisor. I'll help understand your goals and prepare suitable real estate opportunities for you.\n\nWhat is your main purpose for buying? 🏠\n• Investment\n• Living / Residence\n• Rental income\n• Resale profit\n• Holiday home\n• Residency or citizenship\n• Luxury lifestyle",
-      };
+      // Check for previous investor profile (memory feature)
+      const previousProfile = await storage.getLatestInvestorProfileByUser(userId);
+      let triggerMessage: string;
 
-      const greeting = greetingMessages[lang] || greetingMessages.default;
+      if (previousProfile && (previousProfile.goal || previousProfile.budget || previousProfile.country)) {
+        const mem = {
+          goal: previousProfile.goal,
+          budget: previousProfile.budget,
+          country: previousProfile.country,
+          city: previousProfile.city,
+          timeline: previousProfile.timeline,
+        };
+        triggerMessage = `[PREVIOUS PROFILE: ${JSON.stringify(mem)}] The user is returning. Greet them warmly by name referencing their previous interest. Ask if their goal has changed or if they want to continue from where they left off.`;
+        console.log(`[AI] /api/ai/start — returning user userId=${userId} with previous profile`);
+      } else {
+        triggerMessage = "[NEW USER] Start with a warm premium greeting introducing yourself as the Kinglike Luxury AI Investment Advisor, then ask about their main purchase goal.";
+        console.log(`[AI] /api/ai/start — new user userId=${userId}`);
+      }
+
+      // Generate AI greeting (personalised for new or returning users)
+      const aiResp = await chatWithAdvisor(
+        [{ role: "user", content: triggerMessage }],
+        lang,
+        userPhone,
+        userId
+      );
+
+      const greeting = aiResp.message;
       await storage.addAiMessage(conv.id, "assistant", greeting);
       await storage.incrementConversationMessages(conv.id);
 
       res.json({ conversationId: conv.id, greeting });
     } catch (err: any) {
-      console.error("[AI] start error:", err.message);
+      console.error(`[AI] start error — userId=${req.session.userId} message=${err.message}`);
       res.status(500).json({ message: "Failed to start conversation" });
     }
   });
