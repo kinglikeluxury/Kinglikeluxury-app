@@ -2224,9 +2224,9 @@ ${metaTags}
   app.get("/api/admin/notification-status", async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     res.json({
-      emailConfigured: isEmailConfigured(),
+      emailConfigured: await isEmailConfigured(),
       whatsappConfigured: isWhatsAppConfigured(),
-      gmailUser: process.env.GMAIL_USER || null,
+      emailSender: "info@kinglikeluxury.app",
     });
   });
 
