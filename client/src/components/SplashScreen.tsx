@@ -135,48 +135,18 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         className="kl-splash-wrap fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white"
         style={{ opacity: phase === "out" ? 0 : 1, pointerEvents: phase === "out" ? "none" : "auto" }}
       >
-        {/* Crown logo */}
-        <div className={`kl-crown${phase !== "in" ? " hold" : ""}`} style={{ width: "min(50vw, 180px)" }}>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
-            <g transform="translate(10, 15) scale(0.8)">
-              <path d="M10 65 L18 30 L35 50 L50 15 L65 50 L82 30 L90 65 Z" fill="#3bcac4" />
-              <rect x="10" y="65" width="80" height="10" rx="3" fill="#3bcac4" />
-              <rect x="47" y="10" width="6" height="6" rx="1" fill="#005476" transform="rotate(45 50 13)" />
-              <rect x="31" y="44" width="6" height="6" rx="1" fill="#005476" transform="rotate(45 34 47)" />
-              <rect x="63" y="44" width="6" height="6" rx="1" fill="#005476" transform="rotate(45 66 47)" />
-            </g>
-          </svg>
-        </div>
-
-        {/* KINGLIKE */}
-        <h1
-          className={`kl-brand-name${phase !== "in" ? " shimmer" : ""} mt-6 font-bold tracking-[0.35em] uppercase`}
-          style={{
-            fontSize: "clamp(22px, 6vw, 38px)",
-            color: "#005476",
-          }}
+        {/* Kinglike Luxury logo — transparent PNG, no white padding */}
+        <div
+          className={`kl-crown${phase !== "in" ? " hold" : ""}`}
+          style={{ width: "min(78vw, 560px)" }}
         >
-          KINGLIKE
-        </h1>
-
-        {/* Divider */}
-        <div className="kl-divider flex items-center gap-2 mt-2">
-          <span className="kl-dot inline-block w-1 h-1 rounded-full bg-[#3bcac4]" />
-          <span className="kl-dot inline-block w-1 h-1 rounded-full bg-[#3bcac4]" />
-          <span className="kl-dot inline-block w-1 h-1 rounded-full bg-[#3bcac4]" />
+          <img
+            src="/kinglike-logo-clean.png"
+            alt="Kinglike Luxury"
+            style={{ width: "100%", height: "auto", display: "block" }}
+            draggable={false}
+          />
         </div>
-
-        {/* LUXURY subtitle */}
-        <p
-          className="kl-subtitle mt-2 tracking-[0.55em] uppercase font-light"
-          style={{
-            fontSize: "clamp(10px, 2.5vw, 14px)",
-            color: "#005476",
-            opacity: 0,
-          }}
-        >
-          LUXURY
-        </p>
       </div>
     </>
   );
