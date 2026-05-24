@@ -71,8 +71,13 @@ export default function EmailCampaignPage() {
         description: `${sent} إيميل تم إرساله بنجاح${failed > 0 ? ` · ${failed} فشل` : ""}`,
       });
     },
-    onError: () => {
-      toast({ title: "خطأ في الإرسال", description: "تعذر الإرسال، تحقق من الإعدادات", variant: "destructive" });
+    onError: async (err: any) => {
+      let detail = "تعذر الإرسال، تحقق من الإعدادات";
+      try {
+        const msg = err?.message || "";
+        if (msg.includes(":")) detail = msg.split(":").slice(1).join(":").trim();
+      } catch {}
+      toast({ title: "خطأ في الإرسال", description: detail, variant: "destructive" });
     },
   });
 

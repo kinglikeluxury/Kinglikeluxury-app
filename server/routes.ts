@@ -2125,6 +2125,7 @@ ${metaTags}
 
   // POST email campaign — send custom emails to a list of recipients
   app.post("/api/admin/email-campaign", async (req, res) => {
+    try {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     const { recipients, subject, bodyText, imageUrl, appLink } = req.body;
     if (!Array.isArray(recipients) || recipients.length === 0) {
@@ -2135,6 +2136,7 @@ ${metaTags}
     }
 
     const RESEND_KEY = process.env.RESEND_API_KEY;
+    console.log(`[EmailCampaign] RESEND_API_KEY available: ${!!RESEND_KEY}`);
     if (!RESEND_KEY) {
       return res.status(503).json({ message: "RESEND_API_KEY not configured" });
     }
@@ -2202,6 +2204,10 @@ ${metaTags}
     const failed = results.filter(r => r.status === "failed").length;
     console.log(`[EmailCampaign] sent=${sent} failed=${failed}`);
     res.json({ success: true, sent, failed, results });
+    } catch (err: any) {
+      console.error(`[EmailCampaign] Unhandled error:`, err.message);
+      res.status(500).json({ message: err.message || "Server error" });
+    }
   });
 
   // GET notification system status
