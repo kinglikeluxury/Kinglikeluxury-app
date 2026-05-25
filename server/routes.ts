@@ -2724,7 +2724,7 @@ ${metaTags}
   // Security: OPENAI_API_KEY is ONLY read server-side in aiAdvisor.ts.
   // It is NEVER passed to the frontend or included in any HTTP response.
   // All AI communication flows: Frontend → /api/ai/* → aiAdvisor.ts → OpenAI API
-  const { chatWithAdvisor, isAiAvailable, computeLeadScore, buildScoreReason } = await import("./aiAdvisor");
+  const { chatWithAdvisor, streamChatWithAdvisor, extractProfileData, isAiAvailable, computeLeadScore, buildScoreReason } = await import("./aiAdvisor");
 
   const MAX_MSGS_PER_CONVERSATION = 40;
   const MAX_CONVS_PER_DAY = 5;
@@ -2806,63 +2806,76 @@ ${metaTags}
     }
   });
 
-  // POST /api/ai/chat — send a message
+  // POST /api/ai/chat — streaming SSE response
   app.post("/api/ai/chat", async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
     const userId = req.session.userId;
 
     if (!isAiAvailable()) {
-      console.warn(`[AI] /api/ai/chat — key missing, userId=${userId}`);
       return res.json({ message: AI_UNAVAILABLE_MSG });
     }
-
-    // Per-minute rate limit
     if (isRateLimited(userId)) {
-      console.warn(`[AI] rate limit hit — userId=${userId}`);
-      return res.status(429).json({ message: "Too many messages. Please wait a moment before sending again." });
+      return res.status(429).json({ message: "Too many messages. Please wait a moment." });
     }
 
     const { conversationId, message, language } = req.body;
     if (!conversationId || !message?.trim()) return res.status(400).json({ message: "Missing fields" });
 
-    // Rate limit: max 40 messages per conversation
     const msgs = await storage.getAiMessages(conversationId);
     if (msgs.length >= MAX_MSGS_PER_CONVERSATION) {
-      return res.json({ message: "We have gathered enough information. Our advisory team will contact you shortly with personalized recommendations. Thank you!" });
+      return res.json({ message: language === "ar"
+        ? "شكراً! جمعنا معلومات كافية. سيتواصل معك فريقنا قريباً بتوصيات مخصصة لك."
+        : "Thank you! We have enough information. Our advisory team will contact you shortly with personalized recommendations." });
     }
 
+    // Save user message first
+    await storage.addAiMessage(conversationId, "user", message.trim());
+    await storage.incrementConversationMessages(conversationId);
+
+    const [user, existingProfile] = await Promise.all([
+      storage.getUser(userId),
+      storage.getInvestorProfileByConversation(conversationId),
+    ]);
+    const userPhone = user?.phoneNumber || user?.whatsappNumber || undefined;
+    const currentScore = (existingProfile?.leadScore as "hot" | "warm" | "cold") || "cold";
+
+    const history = [...msgs, { role: "user", content: message.trim() }].map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
+    // ── SSE headers ──────────────────────────────────────────────────────────
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const send = (data: object) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
     try {
-      // Save user message
-      await storage.addAiMessage(conversationId, "user", message.trim());
-      await storage.incrementConversationMessages(conversationId);
+      const aiResp = await streamChatWithAdvisor(
+        history,
+        language || "en",
+        userPhone,
+        userId,
+        currentScore,
+        (delta: string) => send({ t: delta }),
+      );
 
-      const [user, existingProfile] = await Promise.all([
-        storage.getUser(userId),
-        storage.getInvestorProfileByConversation(conversationId),
-      ]);
-      const userPhone = user?.phoneNumber || user?.whatsappNumber || undefined;
-      const currentScore = (existingProfile?.leadScore as "hot" | "warm" | "cold") || "cold";
-
-      // Build message history for OpenAI
-      const history = [...msgs, { role: "user", content: message.trim() }].map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
-
-      // Pass current lead score so AI adapts its strategy
-      const aiResp = await chatWithAdvisor(history, language || "en", userPhone, userId, currentScore);
-
-      // Save assistant response
+      // Save full clean response to DB
       await storage.addAiMessage(conversationId, "assistant", aiResp.message);
       await storage.incrementConversationMessages(conversationId);
 
-      // Upsert investor profile if AI extracted data
+      // Update investor profile
       let finalScore: "hot" | "warm" | "cold" = currentScore;
       if (aiResp.profileData && Object.keys(aiResp.profileData).length > 0) {
         const merged = { ...(existingProfile || {}), ...aiResp.profileData };
         finalScore = computeLeadScore(merged);
         const scoreReason = aiResp.profileData.scoreReason || buildScoreReason(merged, finalScore);
-        const profileData = {
+        await storage.upsertInvestorProfile({
           conversationId,
           userId,
           accountPhone: userPhone,
@@ -2870,27 +2883,22 @@ ${metaTags}
           leadScore: aiResp.profileData.leadScore || finalScore,
           scoreReason,
           language: language || "en",
-        };
-        await storage.upsertInvestorProfile(profileData);
+        });
 
-        // Fire admin notification when hot lead AND has both WhatsApp + email
+        // Fire hot lead notification
         const hasWhatsApp = !!(aiResp.profileData.whatsappContactNumber || existingProfile?.whatsappContactNumber);
         const hasEmail = !!(aiResp.profileData.email || existingProfile?.email);
         const wasAlreadyHot = existingProfile?.leadScore === "hot";
-
         if (finalScore === "hot" && hasWhatsApp && hasEmail && !wasAlreadyHot) {
-          console.log(`[AI] 🔥 Hot lead ready — userId=${userId} has WhatsApp + email`);
+          console.log(`[AI] 🔥 Hot lead — userId=${userId}`);
           try {
             await storage.createUserNotification({
-              userId: 1,
-              type: "consultation_pending",
-              title: "🔥 Hot AI Lead Ready for Follow-Up",
+              userId: 1, type: "consultation_pending",
+              title: "🔥 Hot AI Lead Ready",
               message: `Hot lead from ${userPhone || aiResp.profileData.whatsappContactNumber || "unknown"} — Goal: ${merged.goal || "?"}, Budget: ${merged.budget || "?"}, Country: ${merged.country || "?"}`,
-              data: { leadType: "ai_hot", conversationId, userId },
-              isRead: false,
+              data: { leadType: "ai_hot", conversationId, userId }, isRead: false,
             });
           } catch (_) {}
-
           const resendKey = process.env.RESEND_API_KEY;
           if (resendKey) {
             try {
@@ -2900,38 +2908,26 @@ ${metaTags}
                 from: "noreply@kinglikeluxury.com",
                 to: "admin@kinglikeluxury.com",
                 subject: "🔥 Hot AI Lead Ready — Kinglike Luxury",
-                html: `
-                  <h2 style="color:#005476">🔥 Hot AI Lead Ready for Follow-Up</h2>
-                  <table style="border-collapse:collapse;width:100%;font-family:sans-serif">
-                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">Goal</td><td style="padding:6px 12px">${merged.goal || "N/A"}</td></tr>
-                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Budget</td><td style="padding:6px 12px">${merged.budget || "N/A"}</td></tr>
-                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">Country</td><td style="padding:6px 12px">${merged.country || "N/A"}${merged.city ? ` — ${merged.city}` : ""}</td></tr>
-                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Timeline</td><td style="padding:6px 12px">${merged.timeline || "N/A"}</td></tr>
-                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">WhatsApp</td><td style="padding:6px 12px">${merged.whatsappContactNumber || userPhone || "N/A"}</td></tr>
-                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Email</td><td style="padding:6px 12px">${merged.email || "N/A"}</td></tr>
-                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">Communication</td><td style="padding:6px 12px">${merged.communicationMethod || "N/A"}</td></tr>
-                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Score Reason</td><td style="padding:6px 12px">${scoreReason}</td></tr>
-                  </table>
-                  <p style="margin-top:16px;color:#3bcac4;font-weight:bold">→ Recommended action: Call immediately on WhatsApp</p>
-                `,
+                html: `<h2 style="color:#005476">🔥 Hot AI Lead</h2>
+                  <p>Goal: ${merged.goal || "N/A"} | Budget: ${merged.budget || "N/A"} | Country: ${merged.country || "N/A"}${merged.city ? ` — ${merged.city}` : ""}</p>
+                  <p>WhatsApp: ${merged.whatsappContactNumber || userPhone || "N/A"} | Email: ${merged.email || "N/A"}</p>
+                  <p>Timeline: ${merged.timeline || "N/A"} | Score reason: ${scoreReason}</p>
+                  <p style="color:#3bcac4;font-weight:bold">→ Call immediately on WhatsApp</p>`,
               });
             } catch (_) {}
           }
         }
       }
 
-      res.json({ message: aiResp.message, leadScore: finalScore });
+      // Final SSE event — includes clean message so client can store it
+      send({ done: true, message: aiResp.message, leadScore: finalScore });
+      res.end();
+
     } catch (err: any) {
       const code = err?.status ?? err?.code ?? "unknown";
-      console.error(`[AI] chat error — userId=${userId} code=${code} message=${err.message}`);
-      if (err.message === "AI_UNAVAILABLE" || code === "insufficient_quota" || code === 429) {
-        return res.json({ message: AI_UNAVAILABLE_MSG });
-      }
-      if (code === 401) {
-        console.error("[AI] Invalid API key — check OPENAI_API_KEY secret");
-        return res.json({ message: AI_UNAVAILABLE_MSG });
-      }
-      res.json({ message: AI_UNAVAILABLE_MSG });
+      console.error(`[AI] stream error — userId=${userId} code=${code} msg=${err.message}`);
+      send({ error: true, message: AI_UNAVAILABLE_MSG });
+      res.end();
     }
   });
 

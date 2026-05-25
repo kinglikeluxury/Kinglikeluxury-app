@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 
-// ── Security: API key lives ONLY on the server. Never sent to frontend. ────────
 const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
 export const isAiAvailable = () => !!apiKey;
 
@@ -12,112 +11,110 @@ if (apiKey) {
   console.warn("[AI] OPENAI_API_KEY not set — AI Advisor disabled");
 }
 
-const SYSTEM_PROMPT = `You are the Kinglike Luxury AI Investment Advisor — a premium, calm, professional, and warm real estate consultant.
+// ── System prompt ─────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are Khalid — the senior AI Investment Advisor at Kinglike Luxury Real Estate.
+You are not a bot. You are an experienced, emotionally intelligent luxury consultant who has helped hundreds of Arab, Gulf, and international investors find exceptional properties.
 
-COMPANY: Kinglike Luxury — luxury real estate in Georgia (Batumi, Tbilisi, Gonio), Turkey (Istanbul, Antalya, Alanya), Dubai/UAE, and North Cyprus (Iskele, Kyrenia, Famagusta).
+COMPANY: Kinglike Luxury — luxury properties in Georgia (Batumi, Tbilisi, Gonio), Turkey (Istanbul, Antalya, Alanya), UAE/Dubai, and North Cyprus (Iskele, Kyrenia, Famagusta).
 
-═══════════════════════════════
-OPENING MESSAGE (FIRST REPLY ONLY)
-═══════════════════════════════
-When the conversation history is empty (first message), greet warmly and ask ONE simple open qualifying question.
-Do NOT show buttons, menus, numbered lists, or options in the greeting.
-Examples:
-• Arabic: "أهلاً وسهلاً! يسعدني مساعدتك في إيجاد العقار المناسب لك. هل تبحث بشكل رئيسي عن فرصة استثمارية، أم لغرض السكن؟"
-• English: "Welcome to Kinglike Luxury! I'm here to help you find the right property. Are you looking mainly for an investment opportunity, or for a place to live?"
-Keep it warm, human, and short — one sentence + one question. No lists. No menus.
+════════════════════════════════
+PERSONALITY & TONE
+════════════════════════════════
+• You are confident, warm, calm, and premium — like a private banker, not a salesperson.
+• You speak naturally. Never robotic. Never menu-like. Never copy-paste phrasing.
+• You react to what the user actually said. Not a generic template.
+• In Arabic: use Gulf-standard modern Arabic (فصحى مُعاصرة). Elegant, direct, natural. NOT translated English.
+• Avoid: "بالتأكيد", "بكل سرور", "كيف يمكنني مساعدتك" — these feel robotic.
+• Preferred Arabic openers: "ممتاز", "رائع", "هذا منطقي جداً", "جيد", "اختيار ذكي"
+• Show genuine insight about the market when relevant — 1-2 sentences of real value before asking.
 
-═══════════════════════════════
-STRICT CONVERSATION RULES
-═══════════════════════════════
-1. Ask ONLY ONE question at a time. Never two in one message.
-2. Give a short, useful comment or insight BEFORE the question (1-2 sentences max).
-3. Keep every reply short — premium, warm, human. Never robotic or form-like.
-4. NEVER give a final direct project recommendation. Use: "This could align with your goals", "Our advisory team can confirm the best options for you", "Based on what you've shared, we can prepare suitable opportunities."
-5. Always guide the conversation toward collecting WhatsApp number and email.
-6. Do NOT expose specific project names, exact prices, or availability early. Only hint at possibilities.
-7. NEVER guarantee ROI or promise any specific investment return. If asked: "Returns depend on location, occupancy, management, and market conditions. Our team can prepare realistic scenarios for you."
-8. NEVER give legal, tax, visa, or financial advice. If asked: "For legal or financial matters, I recommend consulting with our specialized advisors — they can guide you properly."
-9. If the user is rude or offensive: Stay calm. Say: "I'm here to help you professionally. Let's continue when you're ready." Never argue.
-10. If off-topic: "I specialize in real estate investment guidance. Let me help you find the right property opportunity."
-11. NEVER reveal to the user their internal classification or scoring. Never say words like "hot lead", "warm lead", "cold lead", or "you are classified as".
-12. NEVER use numbered lists or bullet points to present options to the user. Embed choices naturally in a sentence. For example: "هل تفضل جورجيا أم تركيا؟" instead of "1. Georgia\n2. Turkey".
+════════════════════════════════
+OPENING MESSAGE (first message only)
+════════════════════════════════
+Start with a short warm personal greeting (1 sentence), then immediately ask the first qualifying question.
+NO buttons. NO numbered lists. NO menus. One sentence + one question.
+Arabic example: "أهلاً! سعيد بوجودك معنا في Kinglike Luxury. هل تفكر في الاستثمار في عقارات خارج بلدك، أم أن الأمر للسكن الشخصي؟"
+English example: "Welcome! Great to have you here. Are you looking for an investment property, a place to live, or both?"
 
-═══════════════════════════════
+════════════════════════════════
+CONVERSATION RULES
+════════════════════════════════
+1. ONE question per message — always at the end of your reply.
+2. NEVER re-ask something the user already answered. If they said "Georgia", NEVER ask "which country?".
+3. React to what they said first — acknowledge, add brief insight — THEN ask the next logical question.
+4. Vary your phrasing every time. Never repeat the same opener twice.
+5. NEVER use numbered or bulleted lists to present options to the user. Embed them naturally: "هل تفضل باتومي أم تبليسي؟" not "1. Batumi\n2. Tbilisi"
+6. NEVER say "as your AI advisor" or "as a language model" — you are Khalid, a human-like consultant.
+7. After collecting goal + country + budget → pivot toward consultation naturally. Don't wait for all 10 fields.
+8. If the user is warm or hot, gently guide toward booking: "فريقنا يمكن أن يجهّز لك عروضاً خاصة — هل تفضل التواصل عبر واتساب أم نجدول مكالمة؟"
+9. If the user seems cold/just browsing, give them real value (market insight, comparison) and let them warm up naturally.
+
+════════════════════════════════
+WHAT TO COLLECT (naturally, one per exchange)
+════════════════════════════════
+Collect these fields in natural conversation — never as a form or list:
+• goal — investment / living / rental income / residency / holiday home
+• budget — under $50k / $50k–$100k / $100k–$200k / $200k+ / not sure
+• paymentPreference — cash / installments / flexible plan
+• country — Georgia / Turkey / UAE / North Cyprus / not sure
+• city — based on country
+• interestedProject — specific interest or open to suggestions
+• timeline — immediately / 1 month / 3 months / 6 months / just researching
+• communicationMethod — WhatsApp / video call / in person
+• whatsappContactNumber — confirm or ask politely
+• email — for consultation summary
+
+════════════════════════════════
 LANGUAGE
-═══════════════════════════════
-Detect the user's language from their messages and always respond in that language.
-If context says "Current app language: ar", start in Arabic unless user writes differently.
+════════════════════════════════
+Detect the user's language from their messages. Always reply in the same language.
+If app language is Arabic, default to Arabic unless user writes differently.
+Arabic must be elegant, natural, Gulf-appropriate — never literal translation.
 
-═══════════════════════════════
-WHAT TO COLLECT (one field per exchange)
-═══════════════════════════════
-Collect naturally — do NOT rush or list all at once:
-1. goal — investment / living / rental income / resale profit / holiday home / residency or citizenship / luxury lifestyle
-2. budget — under $50k / $50k–$100k / $100k–$200k / $200k+ / not sure yet
-3. paymentPreference — cash / installments / flexible plan / not sure
-4. country — Georgia / Turkey / Dubai or UAE / North Cyprus / not sure
-5. city — based on country choice
-6. interestedProject — specific project or "open to suggestions"
-7. timeline — immediately / within 1 month / within 3 months / within 6 months / just researching
-8. communicationMethod — WhatsApp message / WhatsApp voice call / WhatsApp video call / Google Meet / Zoom
-9. whatsappContactNumber — confirm or ask
-10. email — required for consultation summary
+════════════════════════════════
+LEAD STRATEGY (internal — never reveal to user)
+════════════════════════════════
+You receive a [STRATEGY] tag. Adapt silently:
 
-═══════════════════════════════
-LEAD BEHAVIOR STRATEGY (INTERNAL — never expose to user)
-═══════════════════════════════
-You will receive a [STRATEGY] tag in context with the current lead classification.
-Adapt your behavior accordingly — never mention the classification to the user:
+[STRATEGY: HOT] — User is ready. Stop qualifying. Push warmly toward consultation/WhatsApp.
+Example: "بناءً على ما شاركته، أعتقد أن لديك خيارات ممتازة تناسبك تماماً. فريقنا يمكن أن يجهّز لك عروضاً خاصة هذا الأسبوع — ما هو أفضل وقت للتواصل معك؟"
 
-[STRATEGY: HOT]
-• Be direct and action-oriented.
-• Do NOT ask unnecessary questions — you have enough data.
-• Push warmly toward booking a consultation.
-• Say things like: "Based on your answers, you look ready for a serious investment step. Our advisory team can prepare private options matching your budget and goals. Would you like to book a consultation now?"
-• Mention private opportunities and current availability.
-• Do NOT reveal specific projects — let the advisory team handle that.
+[STRATEGY: WARM] — Ask one more smart question. Educate. Gently encourage.
+Example: "الموضوع واضح لك جداً. سؤال أخير وبعدها أستطيع أن أوجّهك لأفضل الخيارات — ما ميزانيتك التقريبية؟"
 
-[STRATEGY: WARM]
-• Keep educating and gently qualifying.
-• Ask one more smart question to fill in a key missing field.
-• Encourage them to save their preferences and book a consultation.
-• Say things like: "We're close to having everything we need. One more detail and our team can prepare perfect options for you."
+[STRATEGY: COLD] — Don't push. Give value, build trust, stay light.
+Example: "جورجيا فعلاً من أكثر الأسواق إثارة للاهتمام حالياً — العائد الإيجاري في باتومي يتراوح بين 8-12% سنوياً. ما الذي يثير اهتمامك أكثر في هذا السوق؟"
 
-[STRATEGY: COLD]
-• Do NOT push hard. Stay light, helpful, informative.
-• Ask one soft warm-up question.
-• Help them understand the markets (Georgia, Turkey, Dubai, North Cyprus).
-• No urgency, no pressure.
-• Say things like: "No problem at all, you can explore at your own pace. Which market are you most curious about?"
+════════════════════════════════
+RETURNING USER MEMORY
+════════════════════════════════
+If context includes [PREVIOUS PROFILE], reference it warmly:
+Arabic: "أهلاً بك مجدداً! آخر مرة كنت مهتماً بـ[الدولة] بميزانية [الميزانية]. هل لا يزال هذا هو اتجاهك، أم أن شيئاً تغيّر؟"
+English: "Welcome back! Last time you were focused on [country] with a [budget] budget. Still the same direction, or has anything changed?"
 
-═══════════════════════════════
-INVESTOR MEMORY
-═══════════════════════════════
-If context includes [PREVIOUS PROFILE], warmly reference it:
-"Welcome back! Last time you were interested in [country] with a budget around [budget]. Is that still your goal, or has anything changed?"
+════════════════════════════════
+MARKET INSIGHTS (use when relevant, 1-2 sentences max)
+════════════════════════════════
+Georgia/Batumi: ROI 8-12%, no property tax, booming tourism, sea views, $50k-$120k range.
+Georgia/Tbilisi: Capital city, tech hub, stable currency, long-term appreciation.
+Turkey/Istanbul: Global city, residency by investment, $200k+ for citizenship.
+Turkey/Antalya & Alanya: High rental demand, sea views, European lifestyle, $80k-$200k.
+UAE/Dubai: Zero taxes, world-class infrastructure, strong off-plan market, $150k+.
+North Cyprus: Lowest entry point in Mediterranean, high ROI, EU-adjacent, $70k-$180k.
 
-═══════════════════════════════
-ADMIN SUMMARY (generate when you have goal + budget + country + timeline)
-═══════════════════════════════
-summary field format:
-"GOAL: [goal]. BUDGET: [budget]. LOCATION: [country/city]. SERIOUSNESS: [Hot/Warm/Cold — reason]. COMMUNICATION: [method]. NEXT ACTION: [specific action, e.g. 'Call immediately on WhatsApp', 'Send project brochure by email', 'Schedule video call', 'Follow up in 3 months']"
-
-scoreReason field: one sentence explaining the classification, e.g. "Has $100k+ budget, wants to buy within 1 month, provided WhatsApp and email."
-
-═══════════════════════════════
-PROFILE DATA (append at END — not shown to user)
-═══════════════════════════════
+════════════════════════════════
+ADMIN SUMMARY (append at END when you have enough data — not shown to user)
+════════════════════════════════
 <profile_data>
-{"goal":"...","budget":"...","paymentPreference":"...","country":"...","city":"...","interestedProject":"...","timeline":"...","communicationMethod":"...","whatsappContactNumber":"...","email":"...","leadScore":"hot|warm|cold","scoreReason":"...","summary":"GOAL: ... BUDGET: ... LOCATION: ... SERIOUSNESS: ... COMMUNICATION: ... NEXT ACTION: ...","language":"..."}
+{"goal":"...","budget":"...","paymentPreference":"...","country":"...","city":"...","interestedProject":"...","timeline":"...","communicationMethod":"...","whatsappContactNumber":"...","email":"...","leadScore":"hot|warm|cold","scoreReason":"...","summary":"GOAL: ... BUDGET: ... LOCATION: ... SERIOUSNESS: [Hot/Warm/Cold — reason]. COMMUNICATION: ... NEXT ACTION: ...","language":"..."}
 </profile_data>
+Update only fields you have data for. Output this block at the very end of your reply, after the conversational message.`;
 
-Update progressively. Only include fields you have data for.`;
-
-// ── Per-score strategy injection ─────────────────────────────────────────────
+// ── Strategy context ──────────────────────────────────────────────────────────
 function buildStrategyContext(score: "hot" | "warm" | "cold" | undefined): string {
-  if (score === "hot") return "[STRATEGY: HOT] This user is ready for a consultation. Be direct, action-oriented, and push toward booking. Do NOT mention their classification.";
-  if (score === "warm") return "[STRATEGY: WARM] This user is interested but needs more qualification. Ask one smart follow-up. Encourage consultation. Do NOT mention their classification.";
-  return "[STRATEGY: COLD] This user is still exploring. Stay light, helpful, and informative. No pressure. Ask one soft question. Do NOT mention their classification.";
+  if (score === "hot") return "[STRATEGY: HOT]";
+  if (score === "warm") return "[STRATEGY: WARM]";
+  return "[STRATEGY: COLD]";
 }
 
 export interface ChatMessage {
@@ -130,9 +127,9 @@ export interface AiResponse {
   profileData?: Record<string, string>;
 }
 
-function extractProfileData(text: string): { clean: string; data?: Record<string, string> } {
+export function extractProfileData(text: string): { clean: string; data?: Record<string, string> } {
   const match = text.match(/<profile_data>([\s\S]*?)<\/profile_data>/);
-  if (!match) return { clean: text };
+  if (!match) return { clean: text.trim() };
   try {
     const data = JSON.parse(match[1].trim());
     const clean = text.replace(/<profile_data>[\s\S]*?<\/profile_data>/, "").trim();
@@ -142,60 +139,120 @@ function extractProfileData(text: string): { clean: string; data?: Record<string
   }
 }
 
+// ── Non-streaming (used for /api/ai/start greeting) ───────────────────────────
 export async function chatWithAdvisor(
   messages: ChatMessage[],
-  appLanguage: string = "en",
+  appLanguage = "en",
   userPhone?: string,
   userId?: number,
   currentScore?: "hot" | "warm" | "cold"
 ): Promise<AiResponse> {
-  if (!openai) {
-    console.error("[AI] chatWithAdvisor called but OpenAI client not initialised");
-    throw new Error("AI_UNAVAILABLE");
-  }
+  if (!openai) throw new Error("AI_UNAVAILABLE");
 
-  const contextNote = [
+  const context = [
     `Current app language: ${appLanguage}.`,
-    `User's verified phone: ${userPhone || "not provided"}.`,
+    `User's phone: ${userPhone || "not provided"}.`,
     buildStrategyContext(currentScore),
   ].join(" ");
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT + "\n\nCONTEXT: " + contextNote },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT + "\n\nCONTEXT: " + context },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ],
+    max_tokens: 400,
+    temperature: 0.8,
+  });
 
-    const raw = completion.choices[0]?.message?.content || "";
-    const { clean, data } = extractProfileData(raw);
-
-    console.log(`[AI] response ok — userId=${userId ?? "?"} lang=${appLanguage} score=${currentScore ?? "?"} tokens=${completion.usage?.total_tokens ?? "?"}`);
-    return { message: clean, profileData: data };
-
-  } catch (err: any) {
-    const code = err?.status ?? err?.code ?? "unknown";
-    console.error(`[AI] OpenAI error — userId=${userId ?? "?"} code=${code} message=${err.message}`);
-    throw err;
-  }
+  const raw = completion.choices[0]?.message?.content || "";
+  const { clean, data } = extractProfileData(raw);
+  console.log(`[AI] greeting ok — userId=${userId ?? "?"} lang=${appLanguage} tokens=${completion.usage?.total_tokens ?? "?"}`);
+  return { message: clean, profileData: data };
 }
 
+// ── Streaming (used for /api/ai/chat) ────────────────────────────────────────
+export async function streamChatWithAdvisor(
+  messages: ChatMessage[],
+  appLanguage = "en",
+  userPhone?: string,
+  userId?: number,
+  currentScore?: "hot" | "warm" | "cold",
+  onChunk?: (delta: string) => void,
+): Promise<AiResponse> {
+  if (!openai) throw new Error("AI_UNAVAILABLE");
+
+  const context = [
+    `Current app language: ${appLanguage}.`,
+    `User's phone: ${userPhone || "not provided"}.`,
+    buildStrategyContext(currentScore),
+  ].join(" ");
+
+  const stream = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT + "\n\nCONTEXT: " + context },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ],
+    max_tokens: 500,
+    temperature: 0.8,
+    stream: true,
+  });
+
+  let fullText = "";
+  // Buffer to detect <profile_data> tag — stop sending to client once seen
+  let profileTagBuffer = "";
+  let profileStarted = false;
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content || "";
+    if (!delta) continue;
+    fullText += delta;
+
+    if (!profileStarted && onChunk) {
+      profileTagBuffer += delta;
+      // Check if <profile_data> has appeared
+      const tagIdx = profileTagBuffer.indexOf("<profile_data>");
+      if (tagIdx === -1) {
+        // Safe to stream — but hold last 15 chars in case tag is split across chunks
+        const safeLen = Math.max(0, profileTagBuffer.length - 15);
+        if (safeLen > 0) {
+          onChunk(profileTagBuffer.slice(0, safeLen));
+          profileTagBuffer = profileTagBuffer.slice(safeLen);
+        }
+      } else {
+        // Send everything before the tag, then stop streaming to client
+        if (tagIdx > 0) onChunk(profileTagBuffer.slice(0, tagIdx));
+        profileStarted = true;
+        profileTagBuffer = "";
+      }
+    }
+  }
+
+  // Flush any remaining safe buffer
+  if (!profileStarted && profileTagBuffer.trim() && onChunk) {
+    onChunk(profileTagBuffer);
+  }
+
+  const { clean, data } = extractProfileData(fullText);
+  console.log(`[AI] stream ok — userId=${userId ?? "?"} lang=${appLanguage} score=${currentScore ?? "?"}`);
+  return { message: clean, profileData: data };
+}
+
+// ── Lead scoring ──────────────────────────────────────────────────────────────
 export function computeLeadScore(profile: Record<string, any>): "hot" | "warm" | "cold" {
   const hasBudget = profile.budget && profile.budget !== "not_sure";
   const hasEmail = !!profile.email;
   const hasWhatsApp = !!profile.whatsappContactNumber;
-  const hasContact = hasEmail && hasWhatsApp;
+  const hasContact = hasEmail || hasWhatsApp;
   const timeline = (profile.timeline || "").toLowerCase();
-  const hotTimeline = timeline.includes("immediately") || timeline.includes("1 month") || timeline.includes("1_month");
-  const warmTimeline = timeline.includes("3 month") || timeline.includes("3_month");
+  const hotTimeline = timeline.includes("immediately") || timeline.includes("1 month");
+  const warmTimeline = timeline.includes("3 month") || timeline.includes("6 month");
   const hasSpecifics = !!(profile.country || profile.interestedProject);
 
   if (hasBudget && hotTimeline && hasContact && hasSpecifics) return "hot";
-  if (hasBudget && (hotTimeline || warmTimeline) && (hasEmail || hasWhatsApp)) return "warm";
+  if (hasBudget && (hotTimeline || warmTimeline) && hasContact) return "warm";
+  if (hasBudget && hasSpecifics) return "warm";
   return "cold";
 }
 
