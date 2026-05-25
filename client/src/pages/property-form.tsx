@@ -268,9 +268,9 @@ const PropertyForm = () => {
     return <Redirect to="/login" />;
   }
 
-  // Check if user can access this property type
-  const canAddOffPlan = user.email === "info@kinglikeluxury.com" || user.email === "tarekalimam@gmail.com";
-  if (propertyType === PROPERTY_TYPES.PROJECT && !canAddOffPlan) {
+  // Check if user can access this property type (admins and edit mode always allowed)
+  const canAddOffPlan = user.isAdmin || user.email === "info@kinglikeluxury.com" || user.email === "tarekalimam@gmail.com";
+  if (propertyType === PROPERTY_TYPES.PROJECT && !canAddOffPlan && !isEditMode) {
     return <Redirect to="/submit-property" />;
   }
 

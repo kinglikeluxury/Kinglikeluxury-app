@@ -439,7 +439,7 @@ const PropertyDetail = () => {
                     {user && (user.id === property.ownerId || user.isAdmin) && (
                       <>
                         <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
-                          <Link href={`/property/${property.id}/edit`} data-numeric-id={property.id}>
+                          <Link href={`/property/${property.id}/edit?type=${property.propertyType || ''}`} data-numeric-id={property.id}>
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Link>
