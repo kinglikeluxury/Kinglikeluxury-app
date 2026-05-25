@@ -15,12 +15,14 @@ import {
   QrCode,
   CheckCircle
 } from "lucide-react";
+import { slugifyProperty } from "@/lib/slugify";
 
 interface PostPaymentChoicesPopupProps {
   open: boolean;
   onClose: () => void;
   propertyId: string;
   propertyTitle: string;
+  propertyLocation: string;
   durationDays: number;
   amount: number;
 }
@@ -29,13 +31,19 @@ export function PostPaymentChoicesPopup({
   open, 
   onClose, 
   propertyId, 
-  propertyTitle, 
+  propertyTitle,
+  propertyLocation,
   durationDays, 
   amount 
 }: PostPaymentChoicesPopupProps) {
   
+  const numericId = parseInt(propertyId, 10);
+  const propertySlug = !isNaN(numericId)
+    ? slugifyProperty(propertyTitle, propertyLocation, numericId)
+    : propertyId;
+
   const handleViewProperty = () => {
-    window.location.href = `/property/${propertyId}`;
+    window.location.href = `/property/${propertySlug}`;
   };
 
   const handleUpgradeToSuperVIP = () => {
@@ -48,7 +56,7 @@ export function PostPaymentChoicesPopup({
   };
 
   const handleShareListing = () => {
-    const shareUrl = `${window.location.origin}/property/${propertyId}`;
+    const shareUrl = `${window.location.origin}/property/${propertySlug}`;
     if (navigator.share) {
       navigator.share({
         title: propertyTitle,

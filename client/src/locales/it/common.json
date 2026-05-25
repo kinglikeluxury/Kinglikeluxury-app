@@ -73,6 +73,7 @@
     "selectedRange": "Selezionato",
     "noResults": "Nessuna proprietà trovata",
     "tryAdjustingFilters": "Prova a modificare i filtri",
+    "pricePerMeter": "Prezzo per m²",
     "viewAll": "Vedi tutte le proprietà",
     "sold": "VENDUTO",
     "markAsSold": "Segna come venduto",
@@ -80,6 +81,20 @@
     "soldConfirmTitle": "Segnare come venduto?",
     "soldConfirmDesc": "Sull'immagine di copertina apparirà un banner 'VENDUTO'.",
     "availableConfirmDesc": "Il banner 'VENDUTO' verrà rimosso da questa proprietà."
+  },
+  "share": {
+    "price": "Prezzo",
+    "location": "Posizione",
+    "type": "Tipo",
+    "area": "Superficie",
+    "bedrooms": "Camere da letto",
+    "bathrooms": "Bagni",
+    "floor": "Piano",
+    "images": "Immagini",
+    "photos": "foto",
+    "propertyVideos": "video dell'immobile",
+    "checkOut": "Dai un'occhiata a questo straordinario immobile!",
+    "whatsappBtn": "Condividi su WhatsApp"
   },
   "propertyTypes": {
     "apartment": "Appartamenti",
@@ -305,5 +320,175 @@
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "Accordo di Commissione — 3% della Piattaforma",
+    "breakdown": "Riepilogo Commissione (calcolato automaticamente):",
+    "listedPrice": "Prezzo Richiesto",
+    "commission": "Commissione Piattaforma (3%)",
+    "youReceive": "Ricevi Netto",
+    "contactNote": "I clienti interessati ci contattano — coordiniamo con te in esclusiva per organizzare l'acquisto.",
+    "legalTitle": "Accordo Legale — Si prega di leggere attentamente",
+    "legalText": "ACCORDO DI COMMISSIONE — Kinglike Luxury Real Estate\n\nIl presente Accordo è tra:\n• PIATTAFORMA: Kinglike Luxury Real Estate\n• PROPRIETARIO: L'utente registrato che presenta questo annuncio\n\n1. OBBLIGO DI COMMISSIONE\nIn caso di vendita o trasferimento riuscito dell'immobile tramite la Piattaforma, il Proprietario pagherà una commissione pari al tre percento (3%) del prezzo finale della transazione.\n\n2. TERMINI DI PAGAMENTO\nLa commissione diventa esigibile immediatamente al completamento della transazione di vendita, senza alcun periodo di grazia.\n\n3. CONTATTO CON IL CLIENTE E COORDINAMENTO\nQualsiasi potenziale acquirente interessato al tuo immobile ci contatterà direttamente. Noi ci metteremo in contatto con te per coordinare e organizzare il processo di acquisto. Tutte le comunicazioni con i clienti riguardanti il tuo annuncio vengono gestite esclusivamente tramite la nostra piattaforma.\n\n4. UTILIZZO DELLE TUE INFORMAZIONI\nInviando questo annuncio, riconosci e accetti che le tue informazioni di contatto e i dettagli dell'immobile possano essere utilizzati da Kinglike Luxury Real Estate per facilitare le comunicazioni riguardanti il tuo immobile pubblicizzato, incluso il coordinamento con i potenziali acquirenti.\n\n5. ESCLUSIVITA' DEL CONTATTO\nTutte le comunicazioni acquirente-venditore relative a questo annuncio saranno condotte esclusivamente tramite Kinglike Luxury Real Estate. Qualsiasi tentativo di aggirare la piattaforma non esenta il Proprietario dall'obbligo di commissione.\n\n6. LEGGE APPLICABILE — GEORGIA\nIl presente Accordo è disciplinato dalle leggi della Georgia. Ai sensi dell'articolo 317 del Codice Civile della Georgia (Legge della Georgia n. 786 del 26 giugno 1997 e successive modifiche), le obbligazioni derivanti dal presente Accordo sono giuridicamente vincolanti ed esecutive. La Piattaforma si riserva il diritto di ricorrere a tutti i rimedi legali disponibili per il recupero della commissione.\n\nKinglike Luxury Real Estate\nFirmato elettronicamente per conto del Team di Gestione",
+    "agreeText": "Io, {{name}}, accetto i termini del presente Accordo di Commissione e riconosco che il 3% dei proventi della vendita ({{amount}}) sarà trattenuto a favore della piattaforma. Comprendo che questo accordo è legalmente vincolante.",
+    "signatureLabel": "Firma Elettronica: {{name}} — {{date}}",
+    "cancel": "Annulla",
+    "accept": "Accetta e Continua",
+    "accepted": "Accordo di Commissione Accettato",
+    "review": "Rivedi",
+    "signedBy": "Firma Elettronica"
+  },
+  "badges": {
+    "bestPrice": "Miglior Prezzo",
+    "acceptablePrice": "Prezzo Accettabile",
+    "highPrice": "Prezzo Alto"
+  },
+  "land": {
+    "details": "Dettagli Terreno",
+    "landType": "Tipo di Terreno",
+    "selectLandType": "Seleziona il tipo di terreno...",
+    "agricultural": "Terreno Agricolo",
+    "nonAgricultural": "Terreno Non Agricolo",
+    "includes": "Il Terreno Include",
+    "electricity": "Elettricità",
+    "water": "Acqua",
+    "internet": "Internet",
+    "gas": "Gas",
+    "asphaltRoad": "Strada Asfaltata",
+    "fenced": "Recintato",
+    "areaLabel": "Area (m²)",
+    "selectArea": "Seleziona l'area del terreno:",
+    "selected": "Selezionato"
+  },
+  "consultation": {
+    "title": "Prenota una consulenza",
+    "subtitle": "Pianifica una consulenza gratuita con i nostri esperti",
+    "menuLabel": "Prenota consulenza",
+    "bookNow": "Prenota ora",
+    "bookConsultation": "Prenota una consulenza",
+    "forProperty": "Consulenza per questa proprietà",
+    "country": "Paese",
+    "selectCountry": "Seleziona paese",
+    "consultationType": "Tipo di consulenza",
+    "selectType": "Seleziona tipo",
+    "consultationMethod": "Metodo di contatto",
+    "selectMethod": "Seleziona metodo",
+    "date": "Data preferita",
+    "timeSlot": "Slot disponibile",
+    "selectSlot": "Seleziona slot",
+    "noSlotsForDate": "Nessuno slot disponibile per questa data",
+    "budget": "Budget (USD)",
+    "budgetPlaceholder": "es. 100.000",
+    "notes": "Note aggiuntive",
+    "notesPlaceholder": "Domande o requisiti specifici...",
+    "email": "Email (opzionale)",
+    "emailPlaceholder": "Per la conferma",
+    "whatsappConfirmTitle": "Numero WhatsApp",
+    "whatsappQuestion": "Questo è il tuo numero WhatsApp?",
+    "yourPhone": "Il tuo numero verificato:",
+    "useThisNumber": "Sì, usa questo numero",
+    "useDifferentNumber": "No, altro numero",
+    "enterWhatsappNumber": "Inserisci numero WhatsApp",
+    "submit": "Conferma prenotazione",
+    "submitting": "Prenotazione...",
+    "success": "Prenotazione inviata!",
+    "successMessage": "La tua consulenza è stata prenotata. Confermeremo presto.",
+    "loginRequired": "Accedi per prenotare",
+    "loginBtn": "Accedi",
+    "step": "Passaggio",
+    "of": "di",
+    "countries": {
+      "georgia": "Georgia",
+      "turkey": "Turchia",
+      "dubai": "Dubai",
+      "north_cyprus": "Cipro del Nord"
+    },
+    "types": {
+      "investment": "Consulenza investimenti",
+      "viewing": "Visita proprietà",
+      "residency": "Consulenza residenza",
+      "installment": "Piani a rate"
+    },
+    "methods": {
+      "google_meet": "Google Meet",
+      "zoom": "Riunione Zoom",
+      "whatsapp_video": "Videochiamata WhatsApp",
+      "whatsapp_voice": "Chiamata vocale WhatsApp"
+    },
+    "status": {
+      "pending": "In attesa",
+      "confirmed": "Confermato",
+      "completed": "Completato",
+      "cancelled": "Annullato",
+      "rejected": "Rifiutato"
+    },
+    "admin": {
+      "title": "Prenotazioni consulenze",
+      "addSlot": "Aggiungi slot",
+      "slotsTab": "Slot orari",
+      "bookingsTab": "Prenotazioni",
+      "allStatuses": "Tutti gli stati",
+      "allCountries": "Tutti i paesi",
+      "allMethods": "Tutti i metodi",
+      "userPhone": "Telefono account",
+      "whatsappNumber": "WhatsApp",
+      "email": "Email",
+      "budget": "Budget",
+      "notes": "Note",
+      "property": "Proprietà",
+      "method": "Metodo",
+      "language": "Lingua app",
+      "confirm": "Conferma",
+      "reject": "Rifiuta",
+      "complete": "Completa",
+      "cancel": "Annulla",
+      "meetingLink": "Link riunione",
+      "meetingLinkPlaceholder": "https://meet.google.com/...",
+      "whatsappMessage": "Il nostro team ti contatterà via WhatsApp ora stabilita.",
+      "noBookings": "Nessuna prenotazione",
+      "slotDate": "Data",
+      "slotStart": "Ora inizio",
+      "slotEnd": "Ora fine",
+      "slotAdded": "Slot aggiunto",
+      "noSlots": "Nessuno slot",
+      "deleteSlot": "Elimina",
+      "adminNotes": "Note admin"
+    }
+  },
+  "notifications": {
+    "title": "Notifiche",
+    "empty": "Nessuna notifica",
+    "emptyHint": "Gli aggiornamenti appariranno qui quando l'amministratore confermerà le tue prenotazioni",
+    "markAllRead": "Segna tutto come letto",
+    "markRead": "Segna come letto",
+    "joinMeeting": "Partecipa alla riunione",
+    "allCaughtUp": "Tutto aggiornato",
+    "unread": "{{count}} non letto",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 Richiesta di consulenza ricevuta",
+        "message": "La tua richiesta di consulenza ({{consultationType}}) tramite {{consultationMethod}} il {{slotDate}} alle {{slotTime}} è stata ricevuta."
+      },
+      "consultation_confirmed": {
+        "title": "✅ Consulenza confermata",
+        "message": "La tua consulenza ({{consultationType}}) il {{slotDate}} alle {{slotTime}} è stata confermata."
+      },
+      "consultation_rejected": {
+        "title": "❌ Consulenza non disponibile",
+        "message": "Purtroppo la tua consulenza ({{consultationType}}) il {{slotDate}} non può essere programmata."
+      },
+      "consultation_cancelled": {
+        "title": "Consulenza annullata",
+        "message": "La tua consulenza ({{consultationType}}) il {{slotDate}} è stata annullata."
+      },
+      "consultation_completed": {
+        "title": "✔️ Consulenza completata",
+        "message": "La tua consulenza ({{consultationType}}) è stata completata. Grazie per aver scelto Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 Notifica di prova",
+        "message": "Questa è una notifica di prova."
+      }
+    }
   }
 }

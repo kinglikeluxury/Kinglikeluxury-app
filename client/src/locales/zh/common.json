@@ -73,6 +73,7 @@
     "selectedRange": "已选",
     "noResults": "未找到房产",
     "tryAdjustingFilters": "尝试调整筛选条件",
+    "pricePerMeter": "每平方米价格",
     "viewAll": "查看所有房产",
     "sold": "已售出",
     "markAsSold": "标记为已售出",
@@ -80,6 +81,20 @@
     "soldConfirmTitle": "标记为已售出？",
     "soldConfirmDesc": "房产封面图片上将显示'已售出'标识。",
     "availableConfirmDesc": "将从该房产中移除'已售出'标识。"
+  },
+  "share": {
+    "price": "价格",
+    "location": "位置",
+    "type": "类型",
+    "area": "面积",
+    "bedrooms": "卧室",
+    "bathrooms": "卫生间",
+    "floor": "楼层",
+    "images": "图片",
+    "photos": "张图片",
+    "propertyVideos": "个房产视频",
+    "checkOut": "来看看这个精彩的房产！",
+    "whatsappBtn": "在WhatsApp上分享"
   },
   "propertyTypes": {
     "apartment": "公寓",
@@ -305,5 +320,175 @@
     "esentepe": "埃森特佩",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "佣金协议 — 平台3%费用",
+    "breakdown": "佣金明细（自动计算）：",
+    "listedPrice": "您的挂牌价格",
+    "commission": "平台佣金（3%）",
+    "youReceive": "您实际获得",
+    "contactNote": "感兴趣的客户联系我们 — 我们独家与您协调安排购买事宜。",
+    "legalTitle": "法律协议 — 请仔细阅读",
+    "legalText": "佣金协议 — Kinglike Luxury Real Estate\n\n本协议签订于：\n• 平台：Kinglike Luxury Real Estate\n• 房产所有人：提交本房源的注册用户\n\n1. 佣金义务\n通过平台成功出售或转让所列房产后，所有人应支付最终成交价格的百分之三（3%）作为佣金。\n\n2. 付款条款\n佣金于销售交易完成后立即到期，不设任何宽限期。\n\n3. 客户联系与协调\n任何对您房源感兴趣的潜在买家将直接与我们联系。我们随后将与您联系，协调并安排购买流程。有关您房源的所有客户沟通均通过我们的平台独家处理。\n\n4. 您的信息使用\n通过提交此房源，您确认并同意您的联系信息和房产详情可能被 Kinglike Luxury Real Estate 用于促进与您所列房产相关的沟通，包括与潜在买家的协调。\n\n5. 联系的独家性\n与本房源相关的所有买卖双方沟通均应独家通过 Kinglike Luxury Real Estate 进行。任何绕过平台直接联系的尝试均不免除所有人的佣金义务。\n\n6. 适用法律 — 格鲁吉亚\n本协议受格鲁吉亚法律管辖。根据格鲁吉亚《民法典》第317条（1997年6月26日格鲁吉亚第786号法律及其修订版），本协议产生的义务具有法律约束力且可强制执行。平台保留采取一切可用法律手段追收佣金的权利。\n\nKinglike Luxury Real Estate\n代表管理团队电子签署",
+    "agreeText": "我，{{name}}，同意本佣金协议的条款，并确认3%的平台佣金（{{amount}}）将从销售收入中扣除。我理解本协议具有法律约束力。",
+    "signatureLabel": "电子签名：{{name}} — {{date}}",
+    "cancel": "取消",
+    "accept": "接受并继续",
+    "accepted": "佣金协议已接受",
+    "review": "查看",
+    "signedBy": "电子签名"
+  },
+  "badges": {
+    "bestPrice": "最优价格",
+    "acceptablePrice": "合理价格",
+    "highPrice": "高价"
+  },
+  "land": {
+    "details": "土地详情",
+    "landType": "土地类型",
+    "selectLandType": "选择土地类型...",
+    "agricultural": "农业用地",
+    "nonAgricultural": "非农业用地",
+    "includes": "土地包含",
+    "electricity": "电力",
+    "water": "水",
+    "internet": "网络",
+    "gas": "天然气",
+    "asphaltRoad": "沥青路",
+    "fenced": "已围栏",
+    "areaLabel": "面积 (m²)",
+    "selectArea": "选择土地面积:",
+    "selected": "已选"
+  },
+  "consultation": {
+    "title": "预约咨询",
+    "subtitle": "与我们的房地产专家预约免费咨询",
+    "menuLabel": "预约咨询",
+    "bookNow": "立即预约",
+    "bookConsultation": "预约咨询",
+    "forProperty": "关于此房产的咨询",
+    "country": "国家",
+    "selectCountry": "选择国家",
+    "consultationType": "咨询类型",
+    "selectType": "选择类型",
+    "consultationMethod": "联系方式",
+    "selectMethod": "选择方式",
+    "date": "首选日期",
+    "timeSlot": "可用时间段",
+    "selectSlot": "选择时间段",
+    "noSlotsForDate": "该日期暂无可用时段",
+    "budget": "预算（美元）",
+    "budgetPlaceholder": "例如：100,000",
+    "notes": "附加说明",
+    "notesPlaceholder": "任何具体问题或要求...",
+    "email": "电子邮件（可选）",
+    "emailPlaceholder": "用于预约确认",
+    "whatsappConfirmTitle": "WhatsApp联系号码",
+    "whatsappQuestion": "这是您的WhatsApp号码吗？",
+    "yourPhone": "您的已验证手机号码：",
+    "useThisNumber": "是，使用此号码",
+    "useDifferentNumber": "否，使用其他号码",
+    "enterWhatsappNumber": "输入WhatsApp号码",
+    "submit": "确认预约",
+    "submitting": "预约中...",
+    "success": "预约已提交！",
+    "successMessage": "您的咨询已预约。我们将尽快确认您的预约。",
+    "loginRequired": "请登录以预约咨询",
+    "loginBtn": "登录",
+    "step": "步骤",
+    "of": "/",
+    "countries": {
+      "georgia": "格鲁吉亚",
+      "turkey": "土耳其",
+      "dubai": "迪拜",
+      "north_cyprus": "北塞浦路斯"
+    },
+    "types": {
+      "investment": "投资咨询",
+      "viewing": "看房",
+      "residency": "居留咨询",
+      "installment": "分期付款计划"
+    },
+    "methods": {
+      "google_meet": "Google Meet",
+      "zoom": "Zoom会议",
+      "whatsapp_video": "WhatsApp视频通话",
+      "whatsapp_voice": "WhatsApp语音通话"
+    },
+    "status": {
+      "pending": "待处理",
+      "confirmed": "已确认",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "rejected": "已拒绝"
+    },
+    "admin": {
+      "title": "咨询预约",
+      "addSlot": "添加时段",
+      "slotsTab": "时间段",
+      "bookingsTab": "预约",
+      "allStatuses": "所有状态",
+      "allCountries": "所有国家",
+      "allMethods": "所有方式",
+      "userPhone": "账号电话",
+      "whatsappNumber": "WhatsApp",
+      "email": "电子邮件",
+      "budget": "预算",
+      "notes": "备注",
+      "property": "房产",
+      "method": "方式",
+      "language": "应用语言",
+      "confirm": "确认",
+      "reject": "拒绝",
+      "complete": "完成",
+      "cancel": "取消",
+      "meetingLink": "会议链接",
+      "meetingLinkPlaceholder": "https://meet.google.com/...",
+      "whatsappMessage": "我们的团队将在预定时间通过WhatsApp联系您。",
+      "noBookings": "暂无预约",
+      "slotDate": "日期",
+      "slotStart": "开始时间",
+      "slotEnd": "结束时间",
+      "slotAdded": "时段已添加",
+      "noSlots": "暂无时段",
+      "deleteSlot": "删除",
+      "adminNotes": "管理员备注"
+    }
+  },
+  "notifications": {
+    "title": "通知",
+    "empty": "暂无通知",
+    "emptyHint": "当管理员确认您的预约后，更新将显示在这里",
+    "markAllRead": "全部标为已读",
+    "markRead": "标为已读",
+    "joinMeeting": "加入会议",
+    "allCaughtUp": "所有通知已读",
+    "unread": "{{count}} 条未读",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 咨询预约已收到",
+        "message": "您的{{consultationType}}咨询预约（通过{{consultationMethod}}，{{slotDate}} {{slotTime}}）已收到，我们将尽快确认。"
+      },
+      "consultation_confirmed": {
+        "title": "✅ 咨询已确认",
+        "message": "您的{{consultationType}}咨询（{{slotDate}} {{slotTime}}）已确认。"
+      },
+      "consultation_rejected": {
+        "title": "❌ 咨询不可用",
+        "message": "很遗憾，您的{{consultationType}}咨询（{{slotDate}}）无法安排。请重新预约。"
+      },
+      "consultation_cancelled": {
+        "title": "咨询已取消",
+        "message": "您的{{consultationType}}咨询（{{slotDate}}）已取消。"
+      },
+      "consultation_completed": {
+        "title": "✔️ 咨询已完成",
+        "message": "您的{{consultationType}}咨询已完成。感谢选择Kinglike Luxury！"
+      },
+      "test": {
+        "title": "🔔 测试通知",
+        "message": "这是一条测试通知。"
+      }
+    }
   }
 }

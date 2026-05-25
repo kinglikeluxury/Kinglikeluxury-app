@@ -95,6 +95,9 @@ const FeaturedProperties = () => {
                   status={property.status}
                   isFeatured={true}
                   topRated={property.topRated}
+                  bestPrice={(property as any).bestPrice}
+                  acceptablePrice={(property as any).acceptablePrice}
+                  highPrice={(property as any).highPrice}
                   isSold={(property as any).isSold}
                 />
               ))

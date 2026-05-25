@@ -39,7 +39,7 @@ const RegisterScreen = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleRegister = async () => {
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !phoneNumber || !password || !confirmPassword) {
       Alert.alert(t('common.error'), t('auth.required'));
       return;
     }
@@ -49,8 +49,9 @@ const RegisterScreen = () => {
       return;
     }
 
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      Alert.alert(t('common.error'), t('auth.invalidEmail'));
+    const trimmedPhone = phoneNumber.replace(/\s+/g, '');
+    if (trimmedPhone.length < 7 || !trimmedPhone.startsWith('+')) {
+      Alert.alert(t('common.error'), t('auth.invalidPhone', 'Please enter a valid phone number with country code (e.g. +995...)'));
       return;
     }
 
@@ -66,35 +67,23 @@ const RegisterScreen = () => {
 
     try {
       setLoading(true);
-      await register({
-        username,
-        email,
-        password,
-        phoneNumber: phoneNumber || undefined,
-        whatsappNumber: whatsappNumber || undefined,
-      });
 
-      // If phone number provided, send verification code and go to verification screen
-      if (phoneNumber) {
-        try {
-          const result = await sendVerificationCode(phoneNumber);
-          const method = result?.method === 'whatsapp' ? 'WhatsApp' : 'SMS';
-          Alert.alert(
-            t('common.success', 'Success'),
-            t('auth.registerSuccessVerify', `Account created! A verification code has been sent to your phone via ${method}.`),
-            [{ text: 'OK', onPress: () => navigation.navigate('PhoneVerification', { phoneNumber }) }]
-          );
-        } catch {
-          // Verification send failed — still go home, user can verify later
-          Alert.alert(t('common.success'), t('auth.registerSuccess'), [
-            { text: 'OK', onPress: () => navigation.navigate('Home') },
-          ]);
-        }
-      } else {
-        Alert.alert(t('common.success'), t('auth.registerSuccess'), [
-          { text: 'OK', onPress: () => navigation.navigate('Home') },
-        ]);
-      }
+      // Step 1 — send verification code FIRST (server requires phone verified before account creation)
+      await sendVerificationCode(trimmedPhone);
+
+      // Step 2 — navigate to verification screen; account is created only after phone verified
+      navigation.navigate('PhoneVerification', {
+        phoneNumber: trimmedPhone,
+        onVerified: async () => {
+          await register({
+            username,
+            email: email || undefined,
+            password,
+            phoneNumber: trimmedPhone,
+            whatsappNumber: whatsappNumber || undefined,
+          });
+        },
+      });
     } catch (error: any) {
       Alert.alert(t('auth.registerError'), error.message || t('auth.registerError'));
     } finally {
@@ -176,7 +165,7 @@ const RegisterScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, isRTL && styles.rtlText]}>{t('auth.phoneNumber')} ({t('common.optional', 'Optional')})</Text>
+            <Text style={[styles.label, isRTL && styles.rtlText]}>{t('auth.phoneNumber')} *</Text>
             <TextInput
               style={[styles.input, isRTL && styles.rtlInput]}
               placeholder="+995 XXX XXX XXX"

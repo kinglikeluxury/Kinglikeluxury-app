@@ -1,0 +1,499 @@
+{
+  "common": {
+    "searchCountry": "جستجوی کشور...",
+    "noCountriesFound": "کشوری یافت نشد",
+    "loading": "در حال بارگذاری...",
+    "all": "همه انواع",
+    "category": "دسته‌بندی",
+    "search": "جستجو",
+    "exclusive": "انحصاری KINGLIKE",
+    "comingSoon": "به زودی"
+  },
+  "score": {
+    "propertyScore": "امتیاز ملک",
+    "location": "موقعیت",
+    "value": "ارزش",
+    "amenities": "امکانات",
+    "condition": "وضعیت",
+    "investment": "سرمایه‌گذاری",
+    "excellent": "عالی",
+    "good": "خوب",
+    "average": "متوسط",
+    "fair": "قابل قبول",
+    "poor": "ضعیف",
+    "locationDetails": "موقعیت ملک را بر اساس نزدیکی به امکانات، حمل‌ونقل و کیفیت محله ارزیابی می‌کند",
+    "valueDetails": "بررسی می‌کند که آیا قیمت ملک نسبت به املاک مشابه در منطقه منصفانه است",
+    "amenitiesDetails": "در دسترس بودن و کیفیت امکانات و ویژگی‌های ملک را ارزیابی می‌کند",
+    "conditionDetails": "وضعیت فیزیکی و نگهداری ملک را ارزیابی می‌کند",
+    "investmentDetails": "پتانسیل افزایش ارزش و درآمد اجاره را نشان می‌دهد",
+    "overallScoreDetails": "امتیاز کلی بر اساس تمام جنبه‌های ملک"
+  },
+  "nav": {
+    "home": "خانه",
+    "properties": "املاک",
+    "projects": "پروژه‌ها",
+    "about": "درباره ما",
+    "contact": "تماس",
+    "blog": "وبلاگ",
+    "login": "ورود",
+    "register": "ثبت‌نام",
+    "submit": "ثبت ملک",
+    "admin": "پنل مدیریت",
+    "logout": "خروج",
+    "profile": "پروفایل من",
+    "language": "زبان",
+    "map": "نقشه",
+    "privacyPolicy": "سیاست حریم خصوصی",
+    "privacyTerms": "حریم خصوصی و شرایط",
+    "termsConditions": "شرایط و ضوابط"
+  },
+  "drawer": {
+    "browse": "مرور",
+    "account": "حساب من",
+    "admin": "ابزارهای مدیریت",
+    "settings": "تنظیمات"
+  },
+  "property": {
+    "heroTitle": "ملک ایده‌آل خود را بیابید",
+    "heroSubtitle": "آپارتمان‌ها، ویلاها، زمین‌ها و پروژه‌های ساختمانی متناسب با نیاز شما را کشف کنید",
+    "type": "نوع ملک",
+    "location": "موقعیت",
+    "anyLocation": "هر موقعیتی",
+    "priceRange": "محدوده قیمت",
+    "anyPrice": "هر قیمتی",
+    "listings": "+۱۲۰ آگهی",
+    "listings2": "+۸۵ آگهی",
+    "listings3": "+۶۳ آگهی",
+    "listings4": "+۴۲ آگهی",
+    "submit": "افزودن ملک",
+    "uploadProperties": "آگهی ملک خود را ثبت کنید",
+    "myProperties": "املاک من",
+    "viewProject": "مشاهده جزئیات پروژه",
+    "viewAllProjects": "مشاهده همه پروژه‌ها",
+    "selectedRange": "انتخاب شده",
+    "noResults": "ملکی یافت نشد",
+    "tryAdjustingFilters": "فیلترها را تغییر دهید",
+    "pricePerMeter": "قیمت هر متر مربع",
+    "viewAll": "مشاهده همه املاک",
+    "sold": "فروخته شد",
+    "markAsSold": "علامت‌گذاری به عنوان فروخته شده",
+    "markAsAvailable": "علامت‌گذاری به عنوان موجود",
+    "soldConfirmTitle": "علامت‌گذاری به عنوان فروخته شده؟",
+    "soldConfirmDesc": "این کار یک بنر «فروخته شد» روی تصویر اصلی ملک نمایش می‌دهد.",
+    "availableConfirmDesc": "این کار بنر «فروخته شد» را از این ملک حذف می‌کند."
+  },
+  "share": {
+    "price": "قیمت",
+    "location": "موقعیت",
+    "type": "نوع",
+    "area": "متراژ",
+    "bedrooms": "اتاق‌خواب",
+    "bathrooms": "سرویس بهداشتی",
+    "floor": "طبقه",
+    "images": "تصاویر",
+    "photos": "عکس",
+    "propertyVideos": "ویدیوهای ملک",
+    "checkOut": "این ملک فوق‌العاده را ببینید!",
+    "whatsappBtn": "اشتراک‌گذاری ملک در واتساپ"
+  },
+  "propertyTypes": {
+    "apartment": "آپارتمان‌ها",
+    "villa": "ویلاها",
+    "land": "زمین‌ها",
+    "project": "پروژه‌های پیش‌فروش",
+    "commercial": "فضاهای تجاری"
+  },
+  "auth": {
+    "login": "ورود",
+    "register": "ثبت‌نام",
+    "logout": "خروج",
+    "forgotPassword": "رمز عبور را فراموش کردید؟",
+    "alreadyAccount": "قبلاً حساب دارید؟",
+    "noAccount": "حساب ندارید؟",
+    "changePassword": "تغییر رمز عبور",
+    "changePasswordDesc": "رمز عبور فعلی را وارد کنید، سپس رمز جدید را انتخاب کنید",
+    "currentPassword": "رمز عبور فعلی",
+    "newPassword": "رمز عبور جدید",
+    "confirmNewPassword": "تأیید رمز عبور جدید",
+    "passwordChanged": "رمز عبور با موفقیت تغییر یافت",
+    "passwordError": "خطا در تغییر رمز عبور",
+    "currentPasswordWrong": "رمز عبور فعلی اشتباه است",
+    "registerTitle": "ایجاد حساب",
+    "registerSubtitle": "به Kinglike Luxury بپیوندید و بهترین املاک لوکس را کشف کنید",
+    "username": "نام کاربری",
+    "password": "رمز عبور",
+    "phone": "شماره تلفن",
+    "enterPasswordFirst": "ابتدا رمز عبور را وارد کنید",
+    "privacyTitle": "توافق‌نامه حریم خصوصی",
+    "privacyText": "با سیاست حریم خصوصی و شرایط استفاده از Kinglike Luxury موافقم و با پردازش اطلاعاتم طبق این سیاست رضایت دارم.",
+    "privacyPolicy": "سیاست حریم خصوصی",
+    "termsOfUse": "شرایط استفاده",
+    "sendCode": "ارسال کد تأیید",
+    "sending": "در حال ارسال...",
+    "sentViaWhatsapp": "کد از طریق واتساپ ارسال شد",
+    "sentViaSms": "کد از طریق پیامک ارسال شد",
+    "verificationCode": "کد تأیید",
+    "verifyAndRegister": "تأیید و تکمیل ثبت‌نام",
+    "verifying": "در حال تأیید و ثبت‌نام...",
+    "noCode": "کد را دریافت نکردید؟",
+    "changeData": "تغییر اطلاعات",
+    "resend": "ارسال مجدد",
+    "phoneAlreadyRegistered": "این شماره قبلاً ثبت شده است",
+    "useLogin": "ورود",
+    "useDifferentNumber": "استفاده از شماره دیگر",
+    "successMsg": "ثبت‌نام با موفقیت انجام شد!",
+    "hasAccount": "قبلاً حساب دارید؟",
+    "privacyRequired": "پذیرش الزامی است",
+    "privacyRequiredDesc": "ابتدا باید سیاست حریم خصوصی را بپذیرید",
+    "invalidNumber": "شماره نامعتبر",
+    "invalidNumberDesc": "لطفاً یک شماره تلفن معتبر وارد کنید",
+    "invalidCode": "کد نامعتبر",
+    "invalidCodeDesc": "کد ۶ رقمی را وارد کنید",
+    "sendFailed": "ارسال ناموفق",
+    "loginToViewPhone": "برای مشاهده شماره وارد شوید"
+  },
+  "favorites": {
+    "title": "علاقه‌مندی‌ها",
+    "empty": "هنوز علاقه‌مندی‌ای ندارید",
+    "add": "افزودن به علاقه‌مندی‌ها",
+    "remove": "حذف از علاقه‌مندی‌ها",
+    "viewAll": "مشاهده همه علاقه‌مندی‌ها"
+  },
+  "categories": {
+    "title": "مرور بر اساس دسته‌بندی",
+    "selectFilters": "فیلترها را انتخاب کنید"
+  },
+  "admin": {
+    "onlyListings": "آگهی‌های اختصاصی مدیر",
+    "dashboard": "داشبورد مدیریت",
+    "approvals": "تأیید املاک",
+    "createProject": "افزودن پروژه",
+    "blogManagement": "مدیریت وبلاگ",
+    "leads": "پایگاه داده مشتریان"
+  },
+  "blog": {
+    "title": "وبلاگ مسکن",
+    "subtitle": "آخرین اخبار، نکات و بینش‌ها",
+    "loading": "در حال بارگذاری مطالب...",
+    "noPosts": "مطلبی یافت نشد",
+    "noPostsDescription": "بعداً برای مطالب جدید مراجعه کنید",
+    "notFound": "مطلب یافت نشد",
+    "notFoundDesc": "مقاله‌ای که دنبالش هستید وجود ندارد",
+    "backToBlog": "بازگشت به وبلاگ",
+    "allCountries": "همه کشورها",
+    "interestedQuestion": "می‌خواهید بیشتر بدانید؟ مستقیم در واتساپ با ما تماس بگیرید",
+    "contactWhatsApp": "تماس در واتساپ",
+    "whatsappMessage": "سلام، مقاله «",
+    "whatsappMessageEnd": "» را خواندم و می‌خواهم اطلاعات بیشتری کسب کنم."
+  },
+  "projects": {
+    "title": "پروژه‌های پیش‌فروش",
+    "subtitle": "پروژه‌های انحصاری در حال احداث",
+    "loading": "در حال بارگذاری پروژه‌ها...",
+    "noProjects": "پروژه‌ای یافت نشد",
+    "noProjectsHint": "فیلترها را تنظیم کنید",
+    "error": "بارگذاری پروژه‌ها ناموفق بود",
+    "smartFilters": "فیلترهای هوشمند",
+    "selectCountry": "انتخاب کشور",
+    "selectCountryFirst": "ابتدا یک کشور انتخاب کنید",
+    "selectDeliveryDate": "انتخاب تاریخ تحویل",
+    "searchButton": "جستجو",
+    "clearAll": "پاک کردن همه",
+    "clearAllFilters": "پاک کردن همه فیلترها",
+    "filtersApplied": "فیلتر اعمال شده",
+    "projectsFound": "پروژه یافت شد",
+    "active": "فعال",
+    "completion": "تکمیل",
+    "deliveryDate": "تاریخ تحویل",
+    "allDate": "همه تاریخ‌ها",
+    "developer": "سازنده",
+    "fromPrice": "از",
+    "viewDetails": "مشاهده جزئیات",
+    "addProject": "افزودن پروژه",
+    "bed": "اتاق",
+    "bath": "حمام",
+    "sqm": "متر مربع",
+    "countryRequired": "لطفاً یک کشور انتخاب کنید",
+    "selectRequired": "لطفاً تاریخ تحویل را انتخاب کنید",
+    "selectRequiredHint": "یک سال تحویل را انتخاب کنید تا پروژه‌ها نمایش داده شوند",
+    "promoTitle": "به این پروژه علاقه‌مند هستید؟",
+    "promoSubtitle": "برای اطلاعات بیشتر و پیشنهادات انحصاری از طریق واتساپ با ما تماس بگیرید.",
+    "promoWhatsapp": "تماس از طریق واتساپ",
+    "whatsappMessage": "سلام، به این پروژه علاقه‌مند هستم."
+  },
+  "projectStatus": {
+    "nowSelling": "در حال فروش",
+    "underConstruction": "در حال ساخت",
+    "completed": "تکمیل شده",
+    "comingSoon": "به زودی",
+    "soldOut": "فروخته شد",
+    "preLaunch": "پیش از راه‌اندازی"
+  },
+  "home": {
+    "cta": {
+      "title": "ملکی برای فروش یا اجاره دارید؟",
+      "subtitle": "آن را به صورت رایگان در پلتفرم ما ثبت کنید.",
+      "description": "با آپلود ملک خود امروز، به هزاران خریدار و مستأجر بالقوه دسترسی پیدا کنید.",
+      "uploadButton": "آپلود ملک",
+      "browseButton": "مرور آگهی‌ها"
+    },
+    "projects": {
+      "title": "آخرین پروژه‌های ساختمانی",
+      "subtitle": "پروژه‌های انحصاری در حال توسعه",
+      "noResults": "پروژه‌ای یافت نشد",
+      "completion": "تکمیل:",
+      "developer": "سازنده:"
+    },
+    "featured": {
+      "title": "املاک ویژه",
+      "noResults": "ملک ویژه‌ای موجود نیست"
+    },
+    "howItWorks": {
+      "title": "چگونه کار می‌کند",
+      "subtitle": "مراحل ساده ثبت ملک در پلتفرم ما",
+      "createAccount": {
+        "title": "ایجاد حساب",
+        "description": "برای دسترسی به تمام امکانات پلتفرم، یک حساب رایگان ایجاد کنید."
+      },
+      "submitProperty": {
+        "title": "ثبت ملک",
+        "description": "فرم جزئیات ملک را پر کنید و عکس‌های با کیفیت آپلود کنید."
+      },
+      "getApproved": {
+        "title": "دریافت تأیید",
+        "description": "پس از بررسی و تأیید، ملک شما در پلتفرم ما فهرست می‌شود."
+      }
+    },
+    "insights": {
+      "title": "بینش‌های مسکن",
+      "subtitle": "با آخرین روندها و تحلیل‌های بازار به‌روز باشید",
+      "readArticle": "خواندن مقاله",
+      "viewAllButton": "مشاهده همه مقالات",
+      "categories": {
+        "buyingGuide": "راهنمای خرید",
+        "design": "طراحی",
+        "investment": "سرمایه‌گذاری",
+        "luxuryHomes": "خانه‌های لوکس",
+        "marketAnalysis": "تحلیل بازار",
+        "propertyValue": "ارزش ملک"
+      },
+      "posts": {
+        "post1": {
+          "title": "چگونه ملک لوکس ایده‌آل را انتخاب کنیم",
+          "excerpt": "عوامل کلیدی برای سرمایه‌گذاری در مسکن لوکس.",
+          "author": "تیم Kinglike"
+        },
+        "post2": {
+          "title": "روندهای بازار مسکن ۲۰۲۴",
+          "excerpt": "مروری بر آخرین روندهایی که بازار مسکن لوکس را شکل می‌دهند.",
+          "author": "تیم Kinglike"
+        },
+        "post3": {
+          "title": "طراحی داخلی برای خانه‌های لوکس",
+          "excerpt": "بهترین نکات طراحی برای افزایش ارزش و جذابیت ملک شما.",
+          "author": "تیم Kinglike"
+        }
+      }
+    },
+    "hero": {
+      "country": "کشور",
+      "anyCountry": "هر کشوری",
+      "city": "شهر",
+      "purpose": "هدف",
+      "anyPurpose": "هر هدفی",
+      "toBuy": "خرید",
+      "forRent": "اجاره"
+    }
+  },
+  "countries": {
+    "georgia": "گرجستان",
+    "uae": "امارات متحده عربی",
+    "northernCyprus": "قبرس شمالی (TRNC)",
+    "turkey": "ترکیه"
+  },
+  "cities": {
+    "batumi": "باتومی",
+    "tbilisi": "تفلیس",
+    "dubai": "دبی",
+    "sharjah": "شارجه",
+    "rasAlKhaimah": "رأس‌الخیمه",
+    "lefkosa": "لفکوشا (نیکوزیا)",
+    "gazimağusa": "گازیماگوسا (فاماگوستا)",
+    "girne": "گیرنه (کیرنیا)",
+    "iskele": "ایسکله",
+    "guzelyurt": "گوزلیورت",
+    "esentepe": "اسن‌تپه",
+    "istanbul": "استانبول",
+    "trabzon": "طرابوزان"
+  },
+  "commission": {
+    "title": "توافق‌نامه کمیسیون — ۳٪ کارمزد پلتفرم",
+    "breakdown": "تفکیک کمیسیون (محاسبه خودکار):",
+    "listedPrice": "قیمت درج شده",
+    "commission": "کمیسیون پلتفرم (۳٪)",
+    "youReceive": "دریافتی شما",
+    "contactNote": "مشتریان علاقه‌مند با ما تماس می‌گیرند — ما برای ترتیب خرید به صورت انحصاری با شما هماهنگ می‌کنیم.",
+    "legalTitle": "توافق‌نامه قانونی — لطفاً با دقت بخوانید",
+    "legalText": "توافق‌نامه کمیسیون — پلتفرم مسکن لوکس Kinglike\n\nاین توافق‌نامه بین:\n• پلتفرم: مسکن لوکس Kinglike\n• مالک ملک: کاربر ثبت‌نام شده که این آگهی را ارسال می‌کند\n\n۱. تعهد کمیسیون\nپس از فروش یا انتقال موفق ملک فهرست‌شده از طریق پلتفرم، مالک موظف است کمیسیونی معادل سه درصد (۳٪) از قیمت نهایی معامله پرداخت کند.\n\n۲. شرایط پرداخت\nکمیسیون بلافاصله پس از تکمیل معامله فروش قابل پرداخت است.\n\n۳. تماس با مشتری و هماهنگی\nهر مشتری بالقوه‌ای که به ملک فهرست‌شده شما علاقه‌مند باشد، مستقیماً با ما تماس می‌گیرد. سپس ما با شما تماس خواهیم گرفت تا فرآیند خرید را هماهنگ و ترتیب دهیم.\n\n۴. استفاده از اطلاعات شما\nبا ارسال این آگهی، تأیید می‌کنید که اطلاعات تماس و جزئیات ملک شما ممکن است توسط مسکن لوکس Kinglike برای تسهیل ارتباط استفاده شود.\n\n۵. انحصاری بودن تماس\nتمام ارتباطات خریدار-فروشنده مربوط به این آگهی باید به طور انحصاری از طریق مسکن لوکس Kinglike انجام شود.\n\n۶. قانون حاکم — گرجستان\nاین توافق‌نامه تابع قوانین گرجستان است.",
+    "agreeText": "من، {{name}}، با شرایط این توافق‌نامه کمیسیون موافقم و تأیید می‌کنم که کارمزد پلتفرم ۳٪ ({{amount}}) از درآمد فروش کسر خواهد شد.",
+    "signatureLabel": "امضای الکترونیکی: {{name}} — {{date}}",
+    "cancel": "لغو",
+    "accept": "پذیرش و ادامه",
+    "accepted": "توافق‌نامه کمیسیون پذیرفته شد",
+    "review": "بررسی",
+    "signedBy": "امضای الکترونیکی"
+  },
+  "badges": {
+    "bestPrice": "بهترین قیمت",
+    "acceptablePrice": "قیمت مناسب",
+    "highPrice": "قیمت بالا"
+  },
+  "land": {
+    "details": "جزئیات زمین",
+    "landType": "نوع زمین",
+    "selectLandType": "نوع زمین را انتخاب کنید...",
+    "agricultural": "زمین کشاورزی",
+    "nonAgricultural": "زمین غیرکشاورزی",
+    "includes": "زمین شامل",
+    "electricity": "برق",
+    "water": "آب",
+    "internet": "اینترنت",
+    "gas": "گاز",
+    "asphaltRoad": "جاده آسفالت",
+    "fenced": "حصارکشی شده",
+    "areaLabel": "مساحت (م²)",
+    "selectArea": "مساحت زمین را انتخاب کنید:",
+    "selected": "انتخاب شده"
+  },
+  "consultation": {
+    "title": "رزرو مشاوره",
+    "subtitle": "یک مشاوره رایگان با کارشناسان ما برنامه‌ریزی کنید",
+    "menuLabel": "رزرو مشاوره",
+    "bookNow": "رزرو کنید",
+    "bookConsultation": "رزرو مشاوره",
+    "forProperty": "مشاوره برای این ملک",
+    "country": "کشور",
+    "selectCountry": "کشور را انتخاب کنید",
+    "consultationType": "نوع مشاوره",
+    "selectType": "نوع را انتخاب کنید",
+    "consultationMethod": "روش ارتباط",
+    "selectMethod": "روش را انتخاب کنید",
+    "date": "تاریخ مورد نظر",
+    "timeSlot": "زمان موجود",
+    "selectSlot": "زمان را انتخاب کنید",
+    "noSlotsForDate": "هیچ زمانی برای این تاریخ موجود نیست",
+    "budget": "بودجه (دلار)",
+    "budgetPlaceholder": "مثلاً 100,000",
+    "notes": "یادداشت‌های اضافی",
+    "notesPlaceholder": "سوالات یا نیازمندی‌های خاص...",
+    "email": "ایمیل (اختیاری)",
+    "emailPlaceholder": "برای تأیید رزرو",
+    "whatsappConfirmTitle": "شماره واتساپ",
+    "whatsappQuestion": "آیا این شماره واتساپ شماست؟",
+    "yourPhone": "شماره تلفن تأییدشده شما:",
+    "useThisNumber": "بله، از این شماره استفاده کنید",
+    "useDifferentNumber": "خیر، شماره دیگری",
+    "enterWhatsappNumber": "شماره واتساپ را وارد کنید",
+    "submit": "تأیید رزرو",
+    "submitting": "در حال رزرو...",
+    "success": "رزرو ارسال شد!",
+    "successMessage": "مشاوره شما رزرو شد. به زودی وقت شما تأیید خواهد شد.",
+    "loginRequired": "برای رزرو وارد شوید",
+    "loginBtn": "ورود",
+    "step": "مرحله",
+    "of": "از",
+    "countries": {
+      "georgia": "گرجستان",
+      "turkey": "ترکیه",
+      "dubai": "دبی",
+      "north_cyprus": "قبرس شمالی"
+    },
+    "types": {
+      "investment": "مشاوره سرمایه‌گذاری",
+      "viewing": "بازدید از ملک",
+      "residency": "مشاوره اقامت",
+      "installment": "طرح‌های اقساطی"
+    },
+    "methods": {
+      "google_meet": "Google Meet",
+      "zoom": "جلسه Zoom",
+      "whatsapp_video": "تماس تصویری واتساپ",
+      "whatsapp_voice": "تماس صوتی واتساپ"
+    },
+    "status": {
+      "pending": "در انتظار",
+      "confirmed": "تأیید شده",
+      "completed": "تکمیل شده",
+      "cancelled": "لغو شده",
+      "rejected": "رد شده"
+    },
+    "admin": {
+      "title": "رزروهای مشاوره",
+      "addSlot": "افزودن بازه زمانی",
+      "slotsTab": "بازه‌های زمانی",
+      "bookingsTab": "رزروها",
+      "allStatuses": "همه وضعیت‌ها",
+      "allCountries": "همه کشورها",
+      "allMethods": "همه روش‌ها",
+      "userPhone": "تلفن حساب",
+      "whatsappNumber": "واتساپ",
+      "email": "ایمیل",
+      "budget": "بودجه",
+      "notes": "یادداشت‌ها",
+      "property": "ملک",
+      "method": "روش",
+      "language": "زبان برنامه",
+      "confirm": "تأیید",
+      "reject": "رد",
+      "complete": "تکمیل",
+      "cancel": "لغو",
+      "meetingLink": "لینک جلسه",
+      "meetingLinkPlaceholder": "https://meet.google.com/...",
+      "whatsappMessage": "تیم ما در زمان مقرر از طریق واتساپ با شما تماس خواهد گرفت.",
+      "noBookings": "رزروی یافت نشد",
+      "slotDate": "تاریخ",
+      "slotStart": "زمان شروع",
+      "slotEnd": "زمان پایان",
+      "slotAdded": "بازه زمانی اضافه شد",
+      "noSlots": "هنوز بازه‌ای وجود ندارد",
+      "deleteSlot": "حذف",
+      "adminNotes": "یادداشت‌های مدیر"
+    }
+  },
+  "notifications": {
+    "title": "اعلان‌ها",
+    "empty": "هنوز اعلانی وجود ندارد",
+    "emptyHint": "وقتی مدیر رزروهای شما را تأیید کند، به‌روزرسانی‌ها اینجا نشان داده می‌شوند",
+    "markAllRead": "علامت‌گذاری همه به عنوان خوانده شده",
+    "markRead": "علامت‌گذاری به عنوان خوانده شده",
+    "joinMeeting": "پیوستن به جلسه",
+    "allCaughtUp": "همه خوانده شدند",
+    "unread": "{{count}} خوانده نشده",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 درخواست مشاوره دریافت شد",
+        "message": "درخواست مشاوره شما ({{consultationType}}) از طریق {{consultationMethod}} در {{slotDate}} ساعت {{slotTime}} دریافت شد."
+      },
+      "consultation_confirmed": {
+        "title": "✅ مشاوره تأیید شد",
+        "message": "مشاوره شما ({{consultationType}}) در {{slotDate}} ساعت {{slotTime}} تأیید شد."
+      },
+      "consultation_rejected": {
+        "title": "❌ مشاوره در دسترس نیست",
+        "message": "متأسفانه مشاوره شما ({{consultationType}}) در {{slotDate}} قابل برنامه‌ریزی نیست."
+      },
+      "consultation_cancelled": {
+        "title": "مشاوره لغو شد",
+        "message": "مشاوره شما ({{consultationType}}) در {{slotDate}} لغو شد."
+      },
+      "consultation_completed": {
+        "title": "✔️ مشاوره تکمیل شد",
+        "message": "مشاوره شما ({{consultationType}}) تکمیل شد. ممنون از انتخاب Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 اعلان آزمایشی",
+        "message": "این یک اعلان آزمایشی است."
+      }
+    }
+  }
+}

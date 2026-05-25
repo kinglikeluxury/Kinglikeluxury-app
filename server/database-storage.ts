@@ -1,9 +1,12 @@
-import { eq, and, like, ilike, gte, lte, desc, or, isNull, sql } from "drizzle-orm";
+import { eq, and, like, ilike, gte, lte, desc, or, isNull, sql, gte as gteOp } from "drizzle-orm";
 import { db, withRetry } from "./db";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import {
+  pushSubscriptions,
+  InsertPushSubscription,
+  PushSubscription,
   users,
   properties,
   projects,
@@ -11,6 +14,12 @@ import {
   blogPosts,
   verificationCodes,
   contactLogs,
+  consultationTimeSlots,
+  consultationBookings,
+  userNotifications,
+  aiConversations,
+  aiMessages,
+  investorProfiles,
   type ContactLog,
   type User,
   type InsertUser,
@@ -20,6 +29,15 @@ import {
   type InsertProject,
   type BlogPost,
   type InsertBlogPost,
+  type ConsultationTimeSlot,
+  type InsertConsultationTimeSlot,
+  type ConsultationBooking,
+  type InsertConsultationBooking,
+  type UserNotification,
+  type InsertUserNotification,
+  type AiConversation,
+  type AiMessage,
+  type InvestorProfile,
   PROPERTY_STATUS,
   PROPERTY_TYPES,
   AUTH_METHODS
@@ -231,6 +249,9 @@ export class DatabaseStorage implements IStorage {
         updatedAt: properties.updatedAt,
         listingType: properties.listingType,
         listingExpiresAt: properties.listingExpiresAt,
+        topRated: properties.topRated,
+        isSold: properties.isSold,
+        priceMax: properties.priceMax,
         
         // Agent fields
         agent: {
@@ -261,7 +282,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select()
         .from(properties)
         .where(eq(properties.propertyType, propertyType))
-        .orderBy(desc(properties.createdAt));
+        .orderBy(desc(properties.topRated), desc(properties.createdAt));
       return result;
     } catch (error) {
       console.error('Error fetching properties by type:', error);
@@ -333,7 +354,8 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select()
       .from(projects)
-      .innerJoin(properties, eq(projects.propertyId, properties.id));
+      .innerJoin(properties, eq(projects.propertyId, properties.id))
+      .orderBy(desc(properties.topRated), desc(projects.id));
       
     return results.map(({ projects, properties }) => ({
       ...projects,
@@ -570,5 +592,250 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return null;
+  }
+
+  // ── Consultation operations ──────────────────────────────────────────────────
+
+  async getConsultationTimeSlots(date?: string): Promise<ConsultationTimeSlot[]> {
+    if (date) {
+      return await db
+        .select()
+        .from(consultationTimeSlots)
+        .where(eq(consultationTimeSlots.date, date))
+        .orderBy(consultationTimeSlots.startTime);
+    }
+    return await db
+      .select()
+      .from(consultationTimeSlots)
+      .orderBy(desc(consultationTimeSlots.createdAt));
+  }
+
+  async createConsultationTimeSlot(data: InsertConsultationTimeSlot): Promise<ConsultationTimeSlot> {
+    const [slot] = await db.insert(consultationTimeSlots).values(data).returning();
+    return slot;
+  }
+
+  async deleteConsultationTimeSlot(id: number): Promise<boolean> {
+    const result = await db.delete(consultationTimeSlots).where(eq(consultationTimeSlots.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getAvailableSlotsForDate(date: string): Promise<ConsultationTimeSlot[]> {
+    return await db
+      .select()
+      .from(consultationTimeSlots)
+      .where(and(eq(consultationTimeSlots.date, date), eq(consultationTimeSlots.isAvailable, true)))
+      .orderBy(consultationTimeSlots.startTime);
+  }
+
+  async createConsultationBooking(data: InsertConsultationBooking): Promise<ConsultationBooking> {
+    const [booking] = await db
+      .insert(consultationBookings)
+      .values({ ...data, status: "pending" })
+      .returning();
+    if (data.slotId) {
+      await db
+        .update(consultationTimeSlots)
+        .set({ isAvailable: false })
+        .where(eq(consultationTimeSlots.id, data.slotId));
+    }
+    return booking;
+  }
+
+  async getConsultationBookings(filters?: {
+    status?: string;
+    country?: string;
+    method?: string;
+  }): Promise<ConsultationBooking[]> {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(consultationBookings.status, filters.status));
+    if (filters?.country) conditions.push(eq(consultationBookings.country, filters.country));
+    if (filters?.method) conditions.push(eq(consultationBookings.consultationMethod, filters.method));
+
+    if (conditions.length > 0) {
+      return await db
+        .select()
+        .from(consultationBookings)
+        .where(and(...conditions))
+        .orderBy(desc(consultationBookings.createdAt));
+    }
+    return await db
+      .select()
+      .from(consultationBookings)
+      .orderBy(desc(consultationBookings.createdAt));
+  }
+
+  async getConsultationBookingById(id: number): Promise<ConsultationBooking | undefined> {
+    const [booking] = await db
+      .select()
+      .from(consultationBookings)
+      .where(eq(consultationBookings.id, id));
+    return booking;
+  }
+
+  async getUserConsultationBookings(userId: number): Promise<ConsultationBooking[]> {
+    return await db
+      .select()
+      .from(consultationBookings)
+      .where(eq(consultationBookings.userId, userId))
+      .orderBy(desc(consultationBookings.createdAt));
+  }
+
+  async updateConsultationBooking(
+    id: number,
+    data: Partial<ConsultationBooking>
+  ): Promise<ConsultationBooking | undefined> {
+    const [updated] = await db
+      .update(consultationBookings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(consultationBookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getConsultationSlotById(id: number): Promise<ConsultationTimeSlot | undefined> {
+    const [slot] = await db
+      .select()
+      .from(consultationTimeSlots)
+      .where(eq(consultationTimeSlots.id, id));
+    return slot;
+  }
+
+  // ── User Notifications ──────────────────────────────────────────────────────
+
+  async createUserNotification(data: InsertUserNotification): Promise<UserNotification> {
+    const [notif] = await db.insert(userNotifications).values(data).returning();
+    console.log(`[Notification] ✓ In-app created for userId=${data.userId} type=${data.type}`);
+    return notif;
+  }
+
+  async getUserNotifications(userId: number): Promise<UserNotification[]> {
+    return await db
+      .select()
+      .from(userNotifications)
+      .where(eq(userNotifications.userId, userId))
+      .orderBy(desc(userNotifications.createdAt));
+  }
+
+  async markNotificationRead(id: number): Promise<void> {
+    await db
+      .update(userNotifications)
+      .set({ isRead: true })
+      .where(eq(userNotifications.id, id));
+  }
+
+  async markAllNotificationsRead(userId: number): Promise<void> {
+    await db
+      .update(userNotifications)
+      .set({ isRead: true })
+      .where(and(eq(userNotifications.userId, userId), eq(userNotifications.isRead, false)));
+  }
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const result = await db
+      .select()
+      .from(userNotifications)
+      .where(and(eq(userNotifications.userId, userId), eq(userNotifications.isRead, false)));
+    return result.length;
+  }
+
+  // ── Push Subscriptions ──────────────────────────────────────────────────────
+
+  async savePushSubscription(data: InsertPushSubscription): Promise<PushSubscription> {
+    // Upsert: update keys if endpoint already exists
+    const [sub] = await db
+      .insert(pushSubscriptions)
+      .values(data)
+      .onConflictDoUpdate({
+        target: pushSubscriptions.endpoint,
+        set: { p256dh: data.p256dh, auth: data.auth, userAgent: data.userAgent },
+      })
+      .returning();
+    console.log(`[Push] ✓ Subscription saved for userId=${data.userId}`);
+    return sub;
+  }
+
+  async getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]> {
+    return await db
+      .select()
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, userId));
+  }
+
+  async deletePushSubscriptionByEndpoint(endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  // ── AI Advisor ──────────────────────────────────────────────────────────────
+
+  async createAiConversation(userId: number, language: string): Promise<AiConversation> {
+    const [conv] = await db.insert(aiConversations).values({ userId, language, status: "active", messageCount: 0 }).returning();
+    return conv;
+  }
+
+  async addAiMessage(conversationId: number, role: string, content: string): Promise<AiMessage> {
+    const [msg] = await db.insert(aiMessages).values({ conversationId, role, content }).returning();
+    return msg;
+  }
+
+  async getAiMessages(conversationId: number): Promise<AiMessage[]> {
+    return await db.select().from(aiMessages).where(eq(aiMessages.conversationId, conversationId)).orderBy(aiMessages.createdAt);
+  }
+
+  async upsertInvestorProfile(data: { conversationId: number; userId: number; [key: string]: any }): Promise<InvestorProfile> {
+    const existing = await db.select().from(investorProfiles).where(eq(investorProfiles.conversationId, data.conversationId));
+    if (existing.length > 0) {
+      const [updated] = await db.update(investorProfiles)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(investorProfiles.conversationId, data.conversationId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(investorProfiles).values({ ...data }).returning();
+      return created;
+    }
+  }
+
+  async getAllInvestorProfiles(): Promise<(InvestorProfile & { username?: string; conversation?: AiMessage[] })[]> {
+    const profiles = await db.select().from(investorProfiles).orderBy(desc(investorProfiles.createdAt));
+    const result = await Promise.all(profiles.map(async (p) => {
+      const [userRow] = await db.select({ username: users.username }).from(users).where(eq(users.id, p.userId));
+      const msgs = p.conversationId ? await this.getAiMessages(p.conversationId) : [];
+      return { ...p, username: userRow?.username, conversation: msgs };
+    }));
+    return result;
+  }
+
+  async getInvestorProfileByConversation(conversationId: number): Promise<InvestorProfile | undefined> {
+    const [profile] = await db.select().from(investorProfiles).where(eq(investorProfiles.conversationId, conversationId));
+    return profile;
+  }
+
+  async getLatestInvestorProfileByUser(userId: number): Promise<InvestorProfile | undefined> {
+    const [profile] = await db.select().from(investorProfiles)
+      .where(eq(investorProfiles.userId, userId))
+      .orderBy(desc(investorProfiles.updatedAt))
+      .limit(1);
+    return profile;
+  }
+
+  async incrementConversationMessages(conversationId: number): Promise<void> {
+    await db.update(aiConversations)
+      .set({ messageCount: sql`${aiConversations.messageCount} + 1`, updatedAt: new Date() })
+      .where(eq(aiConversations.id, conversationId));
+  }
+
+  async completeConversation(conversationId: number): Promise<void> {
+    await db.update(aiConversations)
+      .set({ status: "completed", updatedAt: new Date() })
+      .where(eq(aiConversations.id, conversationId));
+  }
+
+  async countTodayConversations(userId: number): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rows = await db.select().from(aiConversations)
+      .where(and(eq(aiConversations.userId, userId), gte(aiConversations.createdAt, today)));
+    return rows.length;
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
@@ -39,6 +40,19 @@ const APARTMENT_TYPES = [
   { value: "5+1",    ar: "5 غرف نوم + صالة", en: "5 Bedrooms + Living", ru: "5 спален + гостиная", ka: "5 საძინებელი", az: "5 yataqlı", tr: "5+1", zh: "五居室", pl: "5 sypialni", he: "5 חדרי שינה", it: "5 camere da letto" },
   { value: "villa",  ar: "فيلا مستقلة", en: "Standalone Villa", ru: "Отдельная вилла", ka: "ვილა", az: "Ayrıca Villa", tr: "Müstakil Villa", zh: "独立别墅", pl: "Willa wolnostojąca", he: "וילה עצמאית", it: "Villa indipendente" },
   { value: "townhouse", ar: "تاون هاوس", en: "Townhouse", ru: "Таунхаус", ka: "ტაუნჰაუსი", az: "Taunhaus", tr: "Townhouse", zh: "联排别墅", pl: "Dom szeregowy", he: "בית עירוני", it: "Villetta a schiera" },
+];
+
+const VIEW_TYPES = [
+  { value: "city_batumi",    ar: "اطلالة على مدينة باتومي",                                              en: "City View – Batumi",                          ru: "Вид на город Батуми",                      ka: "ბათუმის ქალაქის ხედი",            az: "Batumi şəhər mənzərəsi",         tr: "Batum Şehir Manzarası",                zh: "巴统城市景观",           pl: "Widok na miasto Batumi",             he: "נוף לעיר באטומי",             it: "Vista sulla città di Batumi" },
+  { value: "city_tbilisi",   ar: "اطلالة على مدينة تبليسي",                                              en: "City View – Tbilisi",                         ru: "Вид на город Тбилиси",                     ka: "თბილისის ქალაქის ხედი",           az: "Tbilisi şəhər mənzərəsi",        tr: "Tiflis Şehir Manzarası",               zh: "第比利斯城市景观",        pl: "Widok na miasto Tbilisi",            he: "נוף לעיר טביליסי",            it: "Vista sulla città di Tbilisi" },
+  { value: "sea_partial",    ar: "إطلالة بحرية جزئية",                                                   en: "Partial Sea View",                            ru: "Частичный вид на море",                    ka: "ნაწილობრივი ზღვის ხედი",          az: "Qismən dəniz mənzərəsi",         tr: "Kısmi Deniz Manzarası",                zh: "部分海景",               pl: "Częściowy widok na morze",           he: "נוף ים חלקי",                 it: "Vista mare parziale" },
+  { value: "sea_full",       ar: "إطلالة بحرية كاملة",                                                   en: "Full Sea View",                               ru: "Полный вид на море",                       ka: "სრული ზღვის ხედი",                az: "Tam dəniz mənzərəsi",            tr: "Tam Deniz Manzarası",                  zh: "全海景",                 pl: "Pełny widok na morze",               he: "נוף ים מלא",                  it: "Vista mare completa" },
+  { value: "panoramic_sea_batumi", ar: "إطلالة بانورامية على البحر وعلى مدينة باتومي",                  en: "Panoramic Sea & Batumi City View",            ru: "Панорамный вид на море и Батуми",          ka: "პანორამული ზღვისა და ბათუმის ხედი", az: "Dəniz və Batumi panoramik mənzərəsi", tr: "Panoramik Deniz ve Batum Manzarası",  zh: "海景与巴统全景",          pl: "Panoramiczny widok na morze i Batumi", he: "נוף פנורמי ים ובאטומי",      it: "Vista panoramica mare e Batumi" },
+  { value: "panoramic_ali_nino", ar: "اطلالة بانورامية على البحر وعلى تمثال علي ونينو وبرج الحروف الأبجدية", en: "Panoramic Sea, Ali & Nino Statue & Alphabet Tower View", ru: "Панорамный вид на море, Али и Нино, Башня алфавита", ka: "პანორამული ხედი — ზღვა, ალი და ნინო, ანბანის კოშკი", az: "Dəniz, Əli və Nino, Əlifba Qülləsi panoramik mənzərəsi", tr: "Panoramik Deniz, Ali ve Nino Heykeli ve Alfabe Kulesi Manzarası", zh: "海景、阿里尼诺雕像及字母塔全景", pl: "Panoramiczny widok na morze, pomnik Ali i Nino oraz Wieżę Alfabetu", he: "נוף פנורמי — ים, פסל עלי ונינו ומגדל האלפבית", it: "Vista panoramica mare, statua Ali & Nino e Torre dell'Alfabeto" },
+  { value: "sea_batumi_city", ar: "اطلالة على البحر وعلى مدينة باتومي",                                  en: "Sea & Batumi City View",                      ru: "Вид на море и город Батуми",               ka: "ზღვისა და ბათუმის ხედი",          az: "Dəniz və Batumi şəhər mənzərəsi", tr: "Deniz ve Batum Şehir Manzarası",      zh: "海景与巴统城市景观",      pl: "Widok na morze i miasto Batumi",     he: "נוף ים ועיר באטומי",          it: "Vista mare e città di Batumi" },
+  { value: "panoramic_palm_island", ar: "اطلالة بانورامية على البحر وعلى جزيرة النخيل",                 en: "Panoramic Sea & Palm Island View",            ru: "Панорамный вид на море и Пальмовый остров", ka: "პანორამული ხედი — ზღვა და პალმების კუნძული", az: "Dəniz və Xurma adası panoramik mənzərəsi", tr: "Panoramik Deniz ve Palm Adası Manzarası", zh: "海景与棕榈岛全景",        pl: "Panoramiczny widok na morze i Wyspę Palm", he: "נוף פנורמי — ים ואי הדקלים", it: "Vista panoramica mare e Isola delle Palme" },
+  { value: "mountain",       ar: "اطلالة جبلية",                                                         en: "Mountain View",                               ru: "Вид на горы",                              ka: "მთის ხედი",                       az: "Dağ mənzərəsi",                  tr: "Dağ Manzarası",                        zh: "山景",                   pl: "Widok na góry",                      he: "נוף הרים",                    it: "Vista sulla montagna" },
+  { value: "city_river_tbilisi", ar: "اطلالة على المدينة وعلى النهر بتبليسي",                            en: "City & River View – Tbilisi",                 ru: "Вид на город и реку в Тбилиси",            ka: "ქალაქისა და მდინარის ხედი — თბილისი", az: "Tbilisidə şəhər və çay mənzərəsi", tr: "Şehir ve Nehir Manzarası – Tiflis",   zh: "第比利斯城市与河流景观",    pl: "Widok na miasto i rzekę – Tbilisi",  he: "נוף עיר ונהר — טביליסי",     it: "Vista città e fiume – Tbilisi" },
 ];
 
 const DELIVERY_TYPES = [
@@ -129,6 +143,7 @@ const T: Record<string, Record<LangCode, string>> = {
   deliveryType:   { ar:"نوع التشطيب", en:"Finishing Type", ru:"Тип отделки", ka:"მოსაპირკეთებლის ტიპი", az:"Bitirmə növü", tr:"Teslim ve Bitişlik Tipi", zh:"装修交付标准", pl:"Standard wykończenia", he:"סוג הגמר", it:"Tipologia di finitura" },
   deliveryDate:   { ar:"موعد تسليم المشروع", en:"Project Delivery Date", ru:"Дата сдачи проекта", ka:"პროექტის ჩაბარების თარიღი", az:"Proyektin çatdırılma tarixi", tr:"Proje Teslim Tarihi", zh:"项目交付日期", pl:"Termin oddania projektu", he:"תאריך מסירת הפרויקט", it:"Data consegna progetto" },
   readyNow:       { ar:"جاهز للتسليم الفوري", en:"Ready for Immediate Delivery", ru:"Готов к немедленной сдаче", ka:"მზადაა — შეიძლება ახლავე ჩაბარება", az:"Dərhal çatdırılmağa hazır", tr:"Hemen Teslime Hazır", zh:"现房可立即交付", pl:"Gotowy — odbiór natychmiastowy", he:"מוכן למסירה מיידית", it:"Pronto per consegna immediata" },
+  viewType:       { ar:"الإطلالة", en:"View", ru:"Вид", ka:"ხედი", az:"Mənzərə", tr:"Manzara", zh:"景观", pl:"Widok", he:"נוף", it:"Vista" },
   contact:        { ar:"للتواصل والاستفسار", en:"Contact & Inquiries", ru:"Связь и вопросы", ka:"კონტაქტი", az:"Əlaqə", tr:"İletişim ve Bilgi", zh:"联系与咨询", pl:"Kontakt i zapytania", he:"צור קשר", it:"Contatti e informazioni" },
   exclusiveOffer: { ar:"عرض حصري من شركة", en:"Exclusive offer presented by", ru:"Эксклюзивное предложение от", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv təklif:", tr:"Özel Teklif — ", zh:"独家报价由", pl:"Oferta ekskluzywna od", he:"הצעה בלעדית מאת", it:"Offerta esclusiva di" },
 };
@@ -191,12 +206,12 @@ const buildSilkTowersHighlight = async (aptNum: string): Promise<string> => {
   const key = aptNum.trim().padStart(2, "0");
   const coords = SILK_APT_COORDS[key] ?? SILK_APT_COORDS[aptNum.trim()];
 
+  const dataUrl = await imgToBase64(SILK_TOWERS_FLOOR_PLAN_URL);
   const img = new Image();
-  img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
     img.onload  = () => resolve();
     img.onerror = reject;
-    img.src = SILK_TOWERS_FLOOR_PLAN_URL + "?t=" + Date.now();
+    img.src = dataUrl;
   });
 
   const canvas = document.createElement("canvas");
@@ -297,12 +312,12 @@ const buildPetraHighlight = async (aptNum: string): Promise<string> => {
   const suffix = raw.length >= 3 ? raw.slice(-2).padStart(2, "0") : raw.length > 0 ? raw.padStart(2, "0") : "";
   const coords = suffix ? (PETRA_APT_COORDS[suffix] ?? PETRA_APT_COORDS[raw]) : undefined;
 
+  const dataUrl = await imgToBase64(PETRA_SEA_RESORT_FLOOR_PLAN_URL);
   const img = new Image();
-  img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
     img.onload  = () => resolve();
     img.onerror = reject;
-    img.src = PETRA_SEA_RESORT_FLOOR_PLAN_URL + "?t=" + Date.now();
+    img.src = dataUrl;
   });
 
   const canvas = document.createElement("canvas");
@@ -335,6 +350,94 @@ const buildPetraHighlight = async (aptNum: string): Promise<string> => {
   return canvas.toDataURL("image/jpeg", 0.93);
 };
 
+/* ─── Ambassadori Batumi Island floor-plan highlight helpers ────────────── */
+
+const AMBASSADORI_FLOOR_PLAN_URL = "/ambassadori-floor-plan.jpg";
+
+// Image: 1600 × 621 px
+// Building footprint: x 0.044–0.956, y 0.161–0.935
+// Elevator/stair core: x ~0.509–0.581 (top row), x ~0.481–0.494 (bottom row)
+// Horizontal corridor: y 0.532
+// Top row (even):   02(wide),04,06,08,10 | [elev] | 12,14,16,18,20,22
+// Bottom row (odd): 01(wide),03,05,07,09,11 | [elev] | 13,15,17,19,21,23 + corner 25,24
+// NOTE: apt 02 & 01 are large corner units (~109 m²), wider than normal apartments.
+// All coordinates recalibrated from the actual floor plan image.
+const AMBASSADORI_APT_COORDS: Record<string, [number, number, number, number]> = {
+  // ── Top row (y: 0.161 → 0.532) ───────────────────────────────────────────
+  "02": [0.044, 0.161, 0.163, 0.532],  // large corner unit (109 m²)
+  "04": [0.163, 0.161, 0.260, 0.532],
+  "06": [0.260, 0.161, 0.348, 0.532],
+  "08": [0.348, 0.161, 0.428, 0.532],
+  "10": [0.428, 0.161, 0.509, 0.532],
+  // elevator/stair core x 0.509–0.577
+  // Right section: 12(medium) + 14,16,18,20(regular) + 22(wide corner, mirrors apt 02)
+  "12": [0.509, 0.161, 0.577, 0.532],
+  "14": [0.577, 0.161, 0.645, 0.532],
+  "16": [0.645, 0.161, 0.713, 0.532],
+  "18": [0.713, 0.161, 0.781, 0.532],
+  "20": [0.781, 0.161, 0.840, 0.532],
+  "22": [0.840, 0.161, 0.953, 0.532],  // wide corner unit (mirrors apt 02 on left)
+  // ── Bottom row (y: 0.532 → 0.935) ────────────────────────────────────────
+  "01": [0.044, 0.532, 0.150, 0.935],  // large corner unit (108 m²)
+  "03": [0.150, 0.532, 0.227, 0.935],
+  "05": [0.227, 0.532, 0.283, 0.935],
+  "07": [0.283, 0.532, 0.350, 0.935],
+  "09": [0.350, 0.532, 0.416, 0.935],
+  "11": [0.416, 0.532, 0.481, 0.935],
+  // elevator/stair core x 0.481–0.494
+  "13": [0.494, 0.532, 0.552, 0.935],
+  "15": [0.552, 0.532, 0.610, 0.935],
+  "17": [0.610, 0.532, 0.668, 0.935],
+  "19": [0.668, 0.532, 0.726, 0.935],
+  "21": [0.726, 0.532, 0.784, 0.935],
+  "23": [0.784, 0.532, 0.840, 0.935],
+  "25": [0.840, 0.532, 0.898, 0.735],  // corner top-right
+  "24": [0.840, 0.735, 0.956, 0.935],  // corner bottom-right
+};
+
+const buildAmbassadoriHighlight = async (aptNum: string): Promise<string> => {
+  const raw = aptNum.trim();
+  const key = raw.padStart(2, "0");
+  const coords = AMBASSADORI_APT_COORDS[key] ?? AMBASSADORI_APT_COORDS[raw];
+
+  const dataUrl = await imgToBase64(AMBASSADORI_FLOOR_PLAN_URL);
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload  = () => resolve();
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  if (coords) {
+    const W = canvas.width, H = canvas.height;
+    const [x1r, y1r, x2r, y2r] = coords;
+    const x1 = x1r * W, y1 = y1r * H;
+    const bw  = (x2r - x1r) * W, bh = (y2r - y1r) * H;
+
+    ctx.fillStyle = "rgba(59,202,196,0.38)";
+    ctx.fillRect(x1, y1, bw, bh);
+
+    ctx.strokeStyle = "#e53e3e";
+    ctx.lineWidth   = Math.max(4, W * 0.004);
+    ctx.strokeRect(x1, y1, bw, bh);
+
+    const fontSize = Math.round(Math.min(bw, bh) * 0.35);
+    ctx.font      = `bold ${fontSize}px Arial`;
+    ctx.fillStyle = "#e53e3e";
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(raw, x1 + bw / 2, y1 + bh / 2);
+  }
+
+  return canvas.toDataURL("image/jpeg", 0.93);
+};
+
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function ProjectOfferPage() {
@@ -346,6 +449,7 @@ export default function ProjectOfferPage() {
   const [selectedCity, setSelectedCity]         = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [apartmentType, setApartmentType]       = useState("");
+  const [viewType, setViewType]                 = useState("");
   const [selectedBlock, setSelectedBlock]       = useState("");
   const [selectedFloors, setSelectedFloors]     = useState<number[]>([]);
   const [floorOpen, setFloorOpen]               = useState(false);
@@ -366,6 +470,7 @@ export default function ProjectOfferPage() {
   const [flagB64, setFlagB64]                   = useState<string>("");
   const [silkHighlightB64, setSilkHighlightB64] = useState<string>("");
   const [petraHighlightB64, setPetraHighlightB64] = useState<string>("");
+  const [ambassadoriHighlightB64, setAmbassadoriHighlightB64] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -422,6 +527,7 @@ export default function ProjectOfferPage() {
 
   const getAptLabel     = (val: string) => getLangVal(APARTMENT_TYPES.find((t) => t.value === val), pdfLang);
   const getDelivLabel   = (val: string) => getLangVal(DELIVERY_TYPES.find((t) => t.value === val), pdfLang);
+  const getViewLabel    = (val: string) => getLangVal(VIEW_TYPES.find((t) => t.value === val), pdfLang);
 
   const getDateLabel = (val: string): string => {
     if (val === "ready") return t("readyNow", pdfLang);
@@ -475,44 +581,39 @@ export default function ProjectOfferPage() {
 
       // 2. Pre-load all images as base64 (required for html-to-image cross-origin)
       const rawUrls: string[] = selectedProject.images?.slice(0, 2) ?? [];
-      const [loaded, fpB64] = await Promise.all([
+      const isSilk        = /silk/i.test(selectedProject.title ?? "")         || /سيلك/i.test(selectedProject.title ?? "");
+      const isPetra       = /petra\s*sea/i.test(selectedProject.title ?? "")  || /بترا\s*سي/i.test(selectedProject.title ?? "");
+      const isAmbassadori = /ambassadori/i.test(selectedProject.title ?? "")  || /أمباسادوري/i.test(selectedProject.title ?? "");
+
+      const [loaded, fpB64, silkB64, petraB64, ambB64] = await Promise.all([
         Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
         selectedFloorPlan ? imgToBase64(selectedFloorPlan) : Promise.resolve(""),
+        isSilk && apartmentNumber.trim()
+          ? buildSilkTowersHighlight(apartmentNumber).catch(() => "")
+          : Promise.resolve(""),
+        isPetra
+          ? buildPetraHighlight(apartmentNumber).catch((e) => { console.error("Petra highlight error:", e); return ""; })
+          : Promise.resolve(""),
+        isAmbassadori
+          ? buildAmbassadoriHighlight(apartmentNumber).catch((e) => { console.error("Ambassadori highlight error:", e); return ""; })
+          : Promise.resolve(""),
       ]);
-      setB64Images(loaded);
-      setFloorPlanB64(fpB64);
-      setFlagB64(makeGeorgiaFlagB64());
 
-      // 3b. If Silk Towers + apartment number → build highlighted floor plan
-      const isSilk = /silk/i.test(selectedProject.title ?? "") || /سيلك/i.test(selectedProject.title ?? "");
-      if (isSilk && apartmentNumber.trim()) {
-        try {
-          const silkB64 = await buildSilkTowersHighlight(apartmentNumber);
-          setSilkHighlightB64(silkB64);
-        } catch { setSilkHighlightB64(""); }
-      } else {
-        setSilkHighlightB64("");
-      }
-
-      // 3c. If Petra Sea Resort → always build floor plan (highlighted if apt number given)
-      const isPetra = /petra/i.test(selectedProject.title ?? "") || /بترا/i.test(selectedProject.title ?? "");
-      if (isPetra) {
-        try {
-          const petraB64 = await buildPetraHighlight(apartmentNumber);
-          setPetraHighlightB64(petraB64);
-        } catch (e) { console.error("Petra highlight error:", e); setPetraHighlightB64(""); }
-      } else {
-        setPetraHighlightB64("");
-      }
-
-      // 3. Wait for React to re-render with base64 images
-      await new Promise((r) => setTimeout(r, 500));
+      // Force-sync all state updates into the DOM in one shot before capture
+      flushSync(() => {
+        setB64Images(loaded);
+        setFloorPlanB64(fpB64);
+        setFlagB64(makeGeorgiaFlagB64());
+        setSilkHighlightB64(silkB64);
+        setPetraHighlightB64(petraB64);
+        setAmbassadoriHighlightB64(ambB64);
+      });
 
       const el = pdfRef.current;
       if (!el) return;
       el.style.display = "block";
-      // Let browser lay out the element before capture
-      await new Promise((r) => setTimeout(r, 300));
+      // Give the browser time to decode and paint all images (especially floor plan)
+      await new Promise((r) => setTimeout(r, 800));
 
       // 4. Capture via html-to-image (SVG foreignObject → proper Arabic shaping)
       const dataUrl = await toPng(el, {
@@ -639,6 +740,19 @@ export default function ProjectOfferPage() {
               </Select>
             </div>
 
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">الإطلالة <span className="text-gray-400">(اختياري)</span></Label>
+              <Select value={viewType} onValueChange={setViewType}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="اختر نوع الإطلالة" /></SelectTrigger>
+                <SelectContent>
+                  {VIEW_TYPES.map((vt) => <SelectItem key={vt.value} value={vt.value}>{vt.ar}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {viewType && (
+                <button type="button" onClick={() => setViewType("")} className="mt-1 text-xs text-gray-400 hover:text-red-500">✕ إزالة الإطلالة</button>
+              )}
+            </div>
+
             {/* ── Floor plan picker ── */}
             <div>
               <Label className="text-xs text-gray-500 mb-2 block">المخطط الداخلي للشقة <span className="text-gray-400">(اختياري)</span></Label>
@@ -693,6 +807,9 @@ export default function ProjectOfferPage() {
                 <option value="">اختر البلوك</option>
                 {Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((letter) => (
                   <option key={letter} value={letter}>{letter}</option>
+                ))}
+                {["D1","D2","D3","D4","K1","K2","K3","K4","K5","K6"].map((b) => (
+                  <option key={b} value={b}>{b}</option>
                 ))}
               </select>
               {selectedBlock && (
@@ -958,11 +1075,14 @@ export default function ProjectOfferPage() {
             deliveryDate={deliveryDate}
             getAptLabel={getAptLabel}
             getDelivLabel={getDelivLabel}
+            getViewLabel={getViewLabel}
             getDateLabel={getDateLabel}
             floorsLabel={floorsLabel}
             fmt={fmt}
+            viewType={viewType}
             silkHighlightB64={silkHighlightB64}
             petraHighlightB64={petraHighlightB64}
+            ambassadoriHighlightB64={ambassadoriHighlightB64}
           />
         )}
       </div>
@@ -978,8 +1098,8 @@ function PDFTemplate({
   totalPrice, discountVal, discountedPrice, paymentPercent, downPayment,
   finalPaymentPercent, finalPaymentAmount, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
-  getAptLabel, getDelivLabel, getDateLabel, floorsLabel, fmt,
-  silkHighlightB64, petraHighlightB64
+  getAptLabel, getDelivLabel, getViewLabel, getDateLabel, floorsLabel, fmt,
+  viewType, silkHighlightB64, petraHighlightB64, ambassadoriHighlightB64
 }: any) {
 
   const W   = 794;
@@ -999,6 +1119,7 @@ function PDFTemplate({
   // Build detail rows — only non-empty fields
   const rows: { label: string; value: string; accent?: boolean }[] = [];
   if (apartmentType)          rows.push({ label: t("aptType",lang),      value: getAptLabel(apartmentType) });
+  if (viewType)               rows.push({ label: t("viewType",lang),     value: getViewLabel(viewType) });
   if (selectedBlock)          rows.push({ label: t("block",lang),         value: selectedBlock });
   if (selectedFloors?.length) rows.push({ label: t("floor",lang),        value: floorsLabel(selectedFloors) });
   if (apartmentNumber)        rows.push({ label: t("aptNumber",lang),     value: apartmentNumber });
@@ -1031,8 +1152,8 @@ function PDFTemplate({
     hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
     hTagline:   { fontSize: 17, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
     hTitle:     { fontSize: 40, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
-    hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 120 },
-    hLocation:  { fontSize: 22, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const },
+    hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 190 },
+    hLocation:  { fontSize: 22, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const },
     logo:       { height: 160, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
     imgWrap1:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0 },
     imgWrap2:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0, marginTop: 4 },
@@ -1054,9 +1175,9 @@ function PDFTemplate({
     fLogo:      { height: 320, width: "auto", objectFit: "contain" as const, display: "block" as const, margin: "0 auto", marginTop: -40 },
     fCenter:    { flex: 1, display: "flex" as const, justifyContent: "center" as const, alignItems: "center" as const },
     fWebsite:   { color: "#3bcac4", fontWeight: 800 as const, fontSize: 22, letterSpacing: 0.5, display: "block" as const },
-    fRight:     { textAlign: "right" as const, minWidth: 220, flexShrink: 0 },
+    fRight:     { textAlign: "right" as const, minWidth: 290, flexShrink: 0 },
     fPhoneLbl:  { fontSize: 16, color: "#94a3b8", marginBottom: 3, letterSpacing: 1, whiteSpace: "nowrap" as const },
-    fPhone:     { color: "#005476", fontWeight: 900 as const, fontSize: 30, letterSpacing: 1, whiteSpace: "nowrap" as const },
+    fPhone:     { color: "#005476", fontWeight: 900 as const, fontSize: 24, letterSpacing: 0.5, whiteSpace: "nowrap" as const },
     fLabel:     { fontSize: 18, color: "#94a3b8", ...txt() },
   };
 
@@ -1073,9 +1194,9 @@ function PDFTemplate({
           <img
             src={logoPath}
             alt="Kinglike"
-            style={{ height: 320, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
+            style={{ height: 160, width: "auto", objectFit: "contain", display: "inline-block", marginBottom: 8 }}
           />
-          <div style={S.hTitle}>{project.title}</div>
+          <div style={{ ...S.hTitle, fontSize: 34, whiteSpace: "nowrap" as const, overflow: "visible" as const }}>{project.title}</div>
         </div>
 
         {/* Right: city / country */}
@@ -1149,7 +1270,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🏗️</div>
-              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? "المخطط الداخلي للشقة" :
                  lang === "he" ? "תוכנית הדירה" :
                  lang === "ru" ? "Планировка квартиры" :
@@ -1198,7 +1319,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🗺️</div>
-              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `مخطط الطابق — الشقة رقم ${apartmentNumber}` :
                  lang === "he" ? `תוכנית הקומה — דירה ${apartmentNumber}` :
                  lang === "ru" ? `План этажа — квартира ${apartmentNumber}` :
@@ -1229,7 +1350,7 @@ function PDFTemplate({
               borderTop: "1px solid #dde3ea",
             }}>
               <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
-              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `الشقة المحددة: رقم ${apartmentNumber}` :
                  lang === "he" ? `הדירה הנבחרת: מס' ${apartmentNumber}` :
                  lang === "ru" ? `Выбранная квартира: № ${apartmentNumber}` :
@@ -1265,7 +1386,7 @@ function PDFTemplate({
               gap: 10,
             }}>
               <div style={{ fontSize: 18 }}>🗺️</div>
-              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `مخطط الطابق — الغرفة رقم ${apartmentNumber}` :
                  lang === "he" ? `תוכנית הקומה — חדר ${apartmentNumber}` :
                  lang === "ru" ? `План этажа — номер ${apartmentNumber}` :
@@ -1296,7 +1417,7 @@ function PDFTemplate({
               borderTop: "1px solid #dde3ea",
             }}>
               <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
-              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const }}>
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
                 {lang === "ar" ? `الغرفة المحددة: رقم ${apartmentNumber}` :
                  lang === "he" ? `החדר הנבחר: מס' ${apartmentNumber}` :
                  lang === "ru" ? `Выбранный номер: ${apartmentNumber}` :
@@ -1305,6 +1426,69 @@ function PDFTemplate({
                  lang === "tr" ? `Seçilen Oda: ${apartmentNumber}` :
                  lang === "zh" ? `所选房间：${apartmentNumber}` :
                  lang === "pl" ? `Wybrany pokój: ${apartmentNumber}` :
+                 lang === "it" ? `Unità selezionata: ${apartmentNumber}` :
+                 `Selected Unit: ${apartmentNumber}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ambassadoriHighlightB64 && (
+        <div style={{ padding: "0 40px 20px" }}>
+          <div style={{
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "2.5px solid #005476",
+            boxShadow: "0 4px 20px rgba(0,84,118,0.15)",
+          }}>
+            <div style={{
+              background: "#005476",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <div style={{ fontSize: 18 }}>🗺️</div>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
+                {lang === "ar" ? `مخطط الطابق — الشقة رقم ${apartmentNumber}` :
+                 lang === "he" ? `תוכנית הקומה — דירה ${apartmentNumber}` :
+                 lang === "ru" ? `План этажа — квартира ${apartmentNumber}` :
+                 lang === "ka" ? `სართულის გეგმა — ბინა ${apartmentNumber}` :
+                 lang === "az" ? `Mərtəbə planı — mənzil ${apartmentNumber}` :
+                 lang === "tr" ? `Kat Planı — Daire ${apartmentNumber}` :
+                 lang === "zh" ? `楼层平面图 — ${apartmentNumber} 号公寓` :
+                 lang === "pl" ? `Plan piętra — mieszkanie ${apartmentNumber}` :
+                 lang === "it" ? `Planimetria — Appartamento ${apartmentNumber}` :
+                 `Floor Plan — Unit ${apartmentNumber}`}
+              </div>
+            </div>
+            <div style={{ background: "#f8f9fa", textAlign: "center" as const, padding: "16px" }}>
+              <img
+                src={ambassadoriHighlightB64}
+                style={{ maxWidth: "100%", height: "auto", display: "inline-block", borderRadius: 8 }}
+              />
+            </div>
+            <div style={{
+              background: "#f0f4f8",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 12,
+              borderTop: "1px solid #dde3ea",
+            }}>
+              <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
+                {lang === "ar" ? `الشقة المحددة: رقم ${apartmentNumber}` :
+                 lang === "he" ? `הדירה הנבחרת: מס' ${apartmentNumber}` :
+                 lang === "ru" ? `Выбранная квартира: ${apartmentNumber}` :
+                 lang === "ka" ? `არჩეული ბინა: ${apartmentNumber}` :
+                 lang === "az" ? `Seçilmiş mənzil: ${apartmentNumber}` :
+                 lang === "tr" ? `Seçilen Daire: ${apartmentNumber}` :
+                 lang === "zh" ? `所选公寓：${apartmentNumber}` :
+                 lang === "pl" ? `Wybrane mieszkanie: ${apartmentNumber}` :
                  lang === "it" ? `Unità selezionata: ${apartmentNumber}` :
                  `Selected Unit: ${apartmentNumber}`}
               </div>

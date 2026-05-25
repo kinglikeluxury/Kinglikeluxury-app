@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle, Star } from "lucide-react";
+import { slugifyProperty } from "@/lib/slugify";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -29,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+
 
 const Approvals = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -260,11 +262,12 @@ const Approvals = () => {
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-2 flex-wrap gap-1">
                             <Button size="sm" variant="outline" asChild>
-                              <a href={`/property/${property.id}`} target="_blank" rel="noopener noreferrer">
+                              <a href={`/property/${slugifyProperty(property.title, property.location, property.id)}`} target="_blank" rel="noopener noreferrer">
                                 <Eye className="h-4 w-4 mr-1" />
                                 View
                               </a>
                             </Button>
+
 
                             <Button
                               size="sm"

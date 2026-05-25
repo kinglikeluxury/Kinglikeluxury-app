@@ -12,10 +12,16 @@ import trCommon from '../locales/tr/common.json';
 import zhCommon from '../locales/zh/common.json';
 import plCommon from '../locales/pl/common.json';
 import itCommon from '../locales/it/common.json';
+import faCommon from '../locales/fa/common.json';
+import nlCommon from '../locales/nl/common.json';
+import deCommon from '../locales/de/common.json';
+import svCommon from '../locales/sv/common.json';
+import frCommon from '../locales/fr/common.json';
 
 export const languages = {
   en: { name: 'English', dir: 'ltr', flagCode: 'gb' },
   ar: { name: 'العربية', dir: 'rtl', flagCode: 'ae' },
+  fa: { name: 'فارسی', dir: 'rtl', flagCode: 'ir' },
   he: { name: 'עברית', dir: 'rtl', flagCode: 'il' },
   ru: { name: 'Русский', dir: 'ltr', flagCode: 'ru' },
   ka: { name: 'ქართული', dir: 'ltr', flagCode: 'ge' },
@@ -24,6 +30,10 @@ export const languages = {
   zh: { name: '中文', dir: 'ltr', flagCode: 'cn' },
   pl: { name: 'Polski', dir: 'ltr', flagCode: 'pl' },
   it: { name: 'Italiano', dir: 'ltr', flagCode: 'it' },
+  nl: { name: 'Nederlands', dir: 'ltr', flagCode: 'nl' },
+  de: { name: 'Deutsch', dir: 'ltr', flagCode: 'de' },
+  sv: { name: 'Svenska', dir: 'ltr', flagCode: 'se' },
+  fr: { name: 'Français', dir: 'ltr', flagCode: 'fr' },
 };
 
 export const getFlagUrl = (code: string) => {
@@ -51,6 +61,7 @@ i18n
     resources: {
       en: { common: enCommon },
       ar: { common: arCommon },
+      fa: { common: faCommon },
       he: { common: heCommon },
       ru: { common: ruCommon },
       ka: { common: kaCommon },
@@ -59,6 +70,10 @@ i18n
       zh: { common: zhCommon },
       pl: { common: plCommon },
       it: { common: itCommon },
+      nl: { common: nlCommon },
+      de: { common: deCommon },
+      sv: { common: svCommon },
+      fr: { common: frCommon },
     },
     detection: {
       order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],

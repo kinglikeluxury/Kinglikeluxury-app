@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Heart, ArrowRight, Trash2 } from "lucide-react";
 import { useFavorites } from "@/hooks/use-favorites";
+import { slugifyProperty } from "@/lib/slugify";
 
 const PRICE_RANGES: { [key: number]: string } = {
   25000: "$0 - $25,000",
@@ -110,7 +111,7 @@ const Favorites = () => {
                     className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white"
                     asChild
                   >
-                    <Link href={`/property/${property.id}`}>
+                    <Link href={`/property/${slugifyProperty(property.title, property.location, property.id)}`}>
                       <span className="flex items-center justify-center">
                         {t("property.viewDetails", "View Details")}
                         <ArrowRight className="ml-2 h-4 w-4" />

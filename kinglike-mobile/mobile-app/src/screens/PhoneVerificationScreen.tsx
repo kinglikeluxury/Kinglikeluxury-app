@@ -78,10 +78,25 @@ const PhoneVerificationScreen = () => {
     setLoading(true);
     try {
       await verifyPhoneCode(phoneNumber, codeStr);
+
+      // Run any post-verification callback (e.g. account creation after phone verified)
+      if (onVerified) {
+        try {
+          await onVerified();
+        } catch (callbackErr: any) {
+          Alert.alert(
+            t('common.error', 'Error'),
+            callbackErr?.message || t('auth.registerError', 'Registration failed. Please try again.')
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
       Alert.alert(
         t('common.success', 'Success'),
         t('auth.phoneVerified', 'Phone number verified successfully!'),
-        [{ text: 'OK', onPress: () => { onVerified?.(); navigation.navigate('Home'); } }]
+        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
       );
     } catch (error: any) {
       Alert.alert(
@@ -187,10 +202,6 @@ const PhoneVerificationScreen = () => {
           )}
         </View>
 
-        {/* Skip */}
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.skipRow}>
-          <Text style={styles.skipText}>{t('auth.skipVerification', 'Skip for now')}</Text>
-        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -289,14 +300,6 @@ const styles = StyleSheet.create({
   countdown: {
     color: '#9ca3af',
     fontSize: 14,
-  },
-  skipRow: {
-    marginTop: SPACING.sm,
-  },
-  skipText: {
-    color: '#9ca3af',
-    fontSize: 13,
-    textDecorationLine: 'underline',
   },
 });
 

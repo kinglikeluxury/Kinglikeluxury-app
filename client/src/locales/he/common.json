@@ -73,6 +73,7 @@
     "selectedRange": "נבחר",
     "noResults": "לא נמצאו נכסים",
     "tryAdjustingFilters": "נסה לשנות את המסננים",
+    "pricePerMeter": "מחיר למ²",
     "viewAll": "צפה בכל הנכסים",
     "sold": "נמכר",
     "markAsSold": "סמן כנמכר",
@@ -80,6 +81,20 @@
     "soldConfirmTitle": "לסמן כנמכר?",
     "soldConfirmDesc": "על תמונת הכריכה של הנכס יופיע באנר 'נמכר'.",
     "availableConfirmDesc": "הבאנר 'נמכר' יוסר מהנכס הזה."
+  },
+  "share": {
+    "price": "מחיר",
+    "location": "מיקום",
+    "type": "סוג",
+    "area": "שטח",
+    "bedrooms": "חדרי שינה",
+    "bathrooms": "חדרי אמבטיה",
+    "floor": "קומה",
+    "images": "תמונות",
+    "photos": "תמונות",
+    "propertyVideos": "סרטוני נכס",
+    "checkOut": "בדקו את הנכס המדהים הזה!",
+    "whatsappBtn": "שתף נכס בוואטסאפ"
   },
   "propertyTypes": {
     "apartment": "דירות",
@@ -305,5 +320,175 @@
     "esentepe": "אסנטפה",
     "istanbul": "İstanbul",
     "trabzon": "Trabzon"
+  },
+  "commission": {
+    "title": "הסכם עמלה — 3% דמי פלטפורמה",
+    "breakdown": "פירוט עמלה (מחושב אוטומטית):",
+    "listedPrice": "המחיר המבוקש שלך",
+    "commission": "עמלת הפלטפורמה (3%)",
+    "youReceive": "תקבל נטו",
+    "contactNote": "לקוחות מעוניינים פונים אלינו — אנו מתאמים עמך בלבד לארגון הרכישה.",
+    "legalTitle": "הסכם משפטי — אנא קרא בעיון",
+    "legalText": "הסכם עמלה — Kinglike Luxury Real Estate\n\nהסכם זה הוא בין:\n• הפלטפורמה: Kinglike Luxury Real Estate\n• בעל הנכס: המשתמש הרשום המגיש רישום זה\n\n1. חובת עמלה\nבמכירה מוצלחת של הנכס המפורסם דרך הפלטפורמה, הבעלים ישלם עמלה השווה לשלושה אחוזים (3%) ממחיר העסקה הסופי.\n\n2. תנאי תשלום\nהעמלה תשולם מיד עם השלמת עסקת המכירה, ללא כל תקופת חסד.\n\n3. יצירת קשר עם לקוחות וקוארדינציה\nכל קונה פוטנציאלי המעוניין בנכסך יפנה אלינו ישירות. אנו נפנה אליך לתאם ולארגן את תהליך הרכישה. כל תקשורת הלקוחות בנוגע למודעתך מטופלת באופן בלעדי דרך הפלטפורמה שלנו.\n\n4. שימוש במידע שלך\nבהגשת מודעה זו, אתה מאשר ומסכים שפרטי הקשר שלך ופרטי הנכס עשויים לשמש את Kinglike Luxury Real Estate לצורך הקלת התקשורת בנוגע לנכסך המפורסם, כולל תיאום עם קונים פוטנציאלים.\n\n5. בלעדיות הקשר\nכל תקשורת קונה-מוכר הקשורה למודעה זו תתנהל באופן בלעדי דרך Kinglike Luxury Real Estate. כל ניסיון לעקוף את הפלטפורמה לא יפטור את הבעלים מחובת העמלה.\n\n6. הדין החל — גאורגיה\nהסכם זה כפוף לדיני גאורגיה. בהתאם לסעיף 317 לחוק האזרחי הגאורגי (חוק גאורגיה מס' 786, 26 ביוני 1997, כפי שתוקן), ההתחייבויות הנובעות מהסכם זה מחייבות משפטית ואכיפות. הפלטפורמה שומרת לעצמה את הזכות לנקוט בכל האמצעים המשפטיים הזמינים לגביית העמלה.\n\nKinglike Luxury Real Estate\nנחתם אלקטרונית בשם צוות ההנהלה",
+    "agreeText": "אני, {{name}}, מסכים לתנאי הסכם העמלה הזה ומאשר ש-3% מתמורת המכירה ({{amount}}) ינוכה לטובת הפלטפורמה. אני מבין שהסכם זה מחייב משפטית.",
+    "signatureLabel": "חתימה אלקטרונית: {{name}} — {{date}}",
+    "cancel": "בטל",
+    "accept": "קבל והמשך",
+    "accepted": "הסכם העמלה התקבל",
+    "review": "סקירה",
+    "signedBy": "חתימה אלקטרונית"
+  },
+  "badges": {
+    "bestPrice": "מחיר הכי טוב",
+    "acceptablePrice": "מחיר סביר",
+    "highPrice": "מחיר גבוה"
+  },
+  "land": {
+    "details": "פרטי הקרקע",
+    "landType": "סוג קרקע",
+    "selectLandType": "בחר סוג קרקע...",
+    "agricultural": "קרקע חקלאית",
+    "nonAgricultural": "קרקע לא חקלאית",
+    "includes": "הקרקע כוללת",
+    "electricity": "חשמל",
+    "water": "מים",
+    "internet": "אינטרנט",
+    "gas": "גז",
+    "asphaltRoad": "כביש אספלט",
+    "fenced": "מגודר",
+    "areaLabel": "שטח (מ²)",
+    "selectArea": "בחר שטח קרקע:",
+    "selected": "נבחר"
+  },
+  "consultation": {
+    "title": "הזמן ייעוץ",
+    "subtitle": "קבע ייעוץ חינם עם המומחים שלנו",
+    "menuLabel": "הזמן ייעוץ",
+    "bookNow": "הזמן עכשיו",
+    "bookConsultation": "הזמן ייעוץ",
+    "forProperty": "ייעוץ לנכס זה",
+    "country": "מדינה",
+    "selectCountry": "בחר מדינה",
+    "consultationType": "סוג ייעוץ",
+    "selectType": "בחר סוג",
+    "consultationMethod": "שיטת קשר",
+    "selectMethod": "בחר שיטה",
+    "date": "תאריך מועדף",
+    "timeSlot": "שעה פנויה",
+    "selectSlot": "בחר שעה",
+    "noSlotsForDate": "אין שעות פנויות לתאריך זה",
+    "budget": "תקציב (USD)",
+    "budgetPlaceholder": "לדוגמה 100,000",
+    "notes": "הערות נוספות",
+    "notesPlaceholder": "שאלות או דרישות ספציפיות...",
+    "email": "אימייל (אופציונלי)",
+    "emailPlaceholder": "לאישור ההזמנה",
+    "whatsappConfirmTitle": "מספר וואטסאפ",
+    "whatsappQuestion": "האם זה מספר הוואטסאפ שלך?",
+    "yourPhone": "מספר הטלפון המאומת שלך:",
+    "useThisNumber": "כן, השתמש במספר זה",
+    "useDifferentNumber": "לא, מספר אחר",
+    "enterWhatsappNumber": "הזן מספר וואטסאפ",
+    "submit": "אשר הזמנה",
+    "submitting": "שולח...",
+    "success": "ההזמנה נשלחה!",
+    "successMessage": "הייעוץ נקבע. נאשר את הפגישה בקרוב.",
+    "loginRequired": "התחבר כדי להזמין ייעוץ",
+    "loginBtn": "התחבר",
+    "step": "שלב",
+    "of": "מתוך",
+    "countries": {
+      "georgia": "גאורגיה",
+      "turkey": "טורקיה",
+      "dubai": "דובאי",
+      "north_cyprus": "קפריסין הצפונית"
+    },
+    "types": {
+      "investment": "ייעוץ השקעות",
+      "viewing": "צפייה בנכס",
+      "residency": "ייעוץ מגורים",
+      "installment": "תוכניות תשלומים"
+    },
+    "methods": {
+      "google_meet": "Google Meet",
+      "zoom": "פגישת Zoom",
+      "whatsapp_video": "שיחת וידאו ווטסאפ",
+      "whatsapp_voice": "שיחת קול ווטסאפ"
+    },
+    "status": {
+      "pending": "ממתין",
+      "confirmed": "מאושר",
+      "completed": "הושלם",
+      "cancelled": "בוטל",
+      "rejected": "נדחה"
+    },
+    "admin": {
+      "title": "הזמנות ייעוץ",
+      "addSlot": "הוסף שעה",
+      "slotsTab": "שעות פנויות",
+      "bookingsTab": "הזמנות",
+      "allStatuses": "כל הסטטוסים",
+      "allCountries": "כל המדינות",
+      "allMethods": "כל השיטות",
+      "userPhone": "טלפון חשבון",
+      "whatsappNumber": "וואטסאפ",
+      "email": "אימייל",
+      "budget": "תקציב",
+      "notes": "הערות",
+      "property": "נכס",
+      "method": "שיטה",
+      "language": "שפת אפליקציה",
+      "confirm": "אשר",
+      "reject": "דחה",
+      "complete": "השלם",
+      "cancel": "בטל",
+      "meetingLink": "קישור לפגישה",
+      "meetingLinkPlaceholder": "https://meet.google.com/...",
+      "whatsappMessage": "הצוות שלנו ייצור איתך קשר דרך וואטסאפ בשעה הקבועה.",
+      "noBookings": "אין הזמנות",
+      "slotDate": "תאריך",
+      "slotStart": "שעת התחלה",
+      "slotEnd": "שעת סיום",
+      "slotAdded": "שעה נוספה",
+      "noSlots": "אין שעות פנויות",
+      "deleteSlot": "מחק",
+      "adminNotes": "הערות מנהל"
+    }
+  },
+  "notifications": {
+    "title": "התראות",
+    "empty": "אין התראות עדיין",
+    "emptyHint": "עדכונים יופיעו כאן כאשר המנהל יאשר את ההזמנות שלך",
+    "markAllRead": "סמן הכל כנקרא",
+    "markRead": "סמן כנקרא",
+    "joinMeeting": "הצטרף לפגישה",
+    "allCaughtUp": "הכל מעודכן",
+    "unread": "{{count}} לא נקרא",
+    "types": {
+      "consultation_pending": {
+        "title": "📅 בקשת הייעוץ התקבלה",
+        "message": "בקשת הייעוץ שלך ({{consultationType}}) דרך {{consultationMethod}} בתאריך {{slotDate}} בשעה {{slotTime}} התקבלה. נאשר אותה בקרוב."
+      },
+      "consultation_confirmed": {
+        "title": "✅ הייעוץ אושר",
+        "message": "הייעוץ שלך ({{consultationType}}) בתאריך {{slotDate}} בשעה {{slotTime}} אושר."
+      },
+      "consultation_rejected": {
+        "title": "❌ הייעוץ אינו זמין",
+        "message": "לצערנו לא ניתן לתזמן את הייעוץ ({{consultationType}}) בתאריך {{slotDate}}. אנא הזמן מועד חדש."
+      },
+      "consultation_cancelled": {
+        "title": "הייעוץ בוטל",
+        "message": "הייעוץ שלך ({{consultationType}}) בתאריך {{slotDate}} בוטל."
+      },
+      "consultation_completed": {
+        "title": "✔️ הייעוץ הושלם",
+        "message": "הייעוץ שלך ({{consultationType}}) הושלם. תודה שבחרת ב-Kinglike Luxury!"
+      },
+      "test": {
+        "title": "🔔 התראת בדיקה",
+        "message": "זוהי התראת בדיקה."
+      }
+    }
   }
 }

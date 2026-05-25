@@ -14,19 +14,25 @@ import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, 
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate, useAutoTranslateArray } from "@/hooks/useAutoTranslate";
+import { slugifyProperty, extractIdFromSlug } from "@/lib/slugify";
 import { useContentProtection } from "@/hooks/use-content-protection";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const PropertyDetail = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const getLocalizedText = (text: string, textEn?: string | null) => {
+    if (lang === 'en' && textEn) return textEn;
+    return text;
+  };
   const { user } = useAuth();
   const { toast } = useToast();
   const { toggleFavorite, isFavorite } = useFavorites();
   useContentProtection();
   const [, navigate] = useLocation();
-  const [, params] = useRoute("/property/:id");
-  const propertyId = params?.id ? parseInt(params.id) : null;
+  const [, params] = useRoute("/property/:slug");
+  const propertyId = params?.slug ? extractIdFromSlug(params.slug) : null;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
@@ -69,8 +75,27 @@ const PropertyDetail = () => {
   const handleWhatsAppShare = () => {
     if (!property) return;
     const currentDomain = window.location.origin;
-    const propertyLink = `${currentDomain}/property/${property.id}`;
-    const message = `🏠 *${property.title}*\n\n💰 *Price:* ${getPriceRange(property.price)}\n📍 *Location:* ${property.location}\n🏡 *Type:* ${getPropertyTypeName(property.propertyType)}\n📐 *Area:* ${property.area} m²${property.bedrooms ? `\n🛏️ *Bedrooms:* ${property.bedrooms}` : ''}${property.bathrooms ? `\n🚿 *Bathrooms:* ${property.bathrooms}` : ''}${property.floorNumber ? `\n🏢 *Floor:* ${property.floorNumber}` : ''}\n\n📸 *Images:* ${property.images?.length || 0} photos${property.videos?.length ? `\n🎥 *Videos:* ${property.videos.length} property videos` : ''}\n\n✨ Check out this amazing property!\n\n🔗 ${propertyLink}\n\n🏢 *Kinglike Luxury Real Estate*`;
+    const propertyLink = `${currentDomain}/property/${slugifyProperty(property.title, property.location, property.id)}`;
+    const message = [
+      `🏠 *${property.title}*`,
+      ``,
+      `💰 *${t('share.price')}:* ${getPriceRange(property.price)}`,
+      `📍 *${t('share.location')}:* ${property.location}`,
+      `🏡 *${t('share.type')}:* ${getPropertyTypeName(property.propertyType)}`,
+      `📐 *${t('share.area')}:* ${property.area} m²`,
+      ...(property.bedrooms ? [`🛏️ *${t('share.bedrooms')}:* ${property.bedrooms}`] : []),
+      ...(property.bathrooms ? [`🚿 *${t('share.bathrooms')}:* ${property.bathrooms}`] : []),
+      ...(property.floorNumber ? [`🏢 *${t('share.floor')}:* ${property.floorNumber}`] : []),
+      ``,
+      `📸 *${t('share.images')}:* ${property.images?.length || 0} ${t('share.photos')}`,
+      ...(property.videos?.length ? [`🎥 *${t('share.images')}:* ${property.videos.length} ${t('share.propertyVideos')}`] : []),
+      ``,
+      `✨ ${t('share.checkOut')}`,
+      ``,
+      `🔗 ${propertyLink}`,
+      ``,
+      `🏢 *Kinglike Luxury Real Estate*`,
+    ].join('\n');
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -88,7 +113,7 @@ const PropertyDetail = () => {
         description: t("auth.loginToContact", "سجّل دخولك أولاً للتواصل مع صاحب العقار"),
         variant: "destructive",
       });
-      navigate(`/login?redirect=/property/${property.id}`);
+      navigate(`/login?redirect=/property/${slugifyProperty(property.title, property.location, property.id)}`);
       return;
     }
 
@@ -104,7 +129,7 @@ const PropertyDetail = () => {
       PLATFORM_WHATSAPP;
 
     const digits = rawNumber.replace(/[^0-9]/g, "");
-    const propertyLink = `${window.location.origin}/property/${property.id}`;
+    const propertyLink = `${window.location.origin}/property/${slugifyProperty(property.title, property.location, property.id)}`;
     const msg =
       `مرحباً،\nوجدت هذا العقار "${property.title}" على تطبيق Kinglike Luxury.\nهل يمكنني الحصول على مزيد من المعلومات؟\n${propertyLink}`;
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -140,7 +165,6 @@ const PropertyDetail = () => {
   const isLoading = isLoadingProperty || (property?.propertyType === 'project' && isLoadingProject);
 
   const translatedTexts = useAutoTranslate({
-    title: property?.title,
     description: property?.description,
   });
   const translatedFeatures = useAutoTranslateArray(property?.features || []);
@@ -277,13 +301,18 @@ const PropertyDetail = () => {
     return areaStr;
   };
 
-  const getPriceRange = (price?: number) => {
+  const getPriceRange = (price?: number, priceMax?: number | null) => {
     if (!price) return "";
-    
-    // Convert stored price value back to the range format used in the form
+
+    // If priceMax is set and different from price, show full range
+    if (priceMax && priceMax !== price) {
+      return `${formatPrice(price)} — ${formatPrice(priceMax)}`;
+    }
+
+    // Legacy lookup table for properties stored with old bucketed prices
     const priceRanges: { [key: number]: string } = {
       25000: "$0 - $25,000",
-      50000: "$25,000 - $50,000", 
+      50000: "$25,000 - $50,000",
       75000: "$50,000 - $75,000",
       100000: "$75,000 - $100,000",
       125000: "$100,000 - $125,000",
@@ -318,8 +347,7 @@ const PropertyDetail = () => {
       1900000: "$1,800,000 - $1,900,000",
       2000000: "$1,900,000 - $2,000,000"
     };
-    
-    // Return the range if found, otherwise fall back to single price format
+
     return priceRanges[price] || formatPrice(price);
   };
 
@@ -400,7 +428,7 @@ const PropertyDetail = () => {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-3xl font-bold text-gray-900">{translatedTexts.title || property.title}</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">{getLocalizedText(property.title, (property as any).titleEn)}</h1>
                     <button
                       onClick={() => toggleFavorite({ id: property.id, title: property.title, price: property.price, type: property.propertyType })}
                       className={`p-2 rounded-full border-2 transition-all ${isFavorite(property.id) ? 'border-[#3bcac4] bg-[#3bcac4]/10 hover:bg-[#3bcac4]/20' : 'border-gray-300 bg-white hover:bg-gray-50'}`}
@@ -411,7 +439,7 @@ const PropertyDetail = () => {
                     {user && (user.id === property.ownerId || user.isAdmin) && (
                       <>
                         <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
-                          <Link href={`/property/${property.id}/edit`}>
+                          <Link href={`/property/${property.id}/edit`} data-numeric-id={property.id}>
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Link>
@@ -439,7 +467,7 @@ const PropertyDetail = () => {
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-0">
-                  <span className="text-3xl font-bold text-primary-600">{getPriceRange(property.price)}</span>
+                  <span className="text-3xl font-bold text-primary-600">{getPriceRange(property.price, (property as any).priceMax)}</span>
                 </div>
               </div>
               
@@ -462,6 +490,21 @@ const PropertyDetail = () => {
                         <Star key={star} className="h-3.5 w-3.5 fill-[#3bcac4] text-[#3bcac4]" />
                       ))}
                     </div>
+                  </Badge>
+                )}
+                {(property as any).bestPrice && (
+                  <Badge className="bg-[#3bcac4] text-white font-bold px-3 py-1 shadow-md">
+                    {t('badges.bestPrice', 'Best Price')}
+                  </Badge>
+                )}
+                {(property as any).acceptablePrice && (
+                  <Badge className="bg-[#005476] text-white font-bold px-3 py-1 shadow-md">
+                    {t('badges.acceptablePrice', 'Acceptable Price')}
+                  </Badge>
+                )}
+                {(property as any).highPrice && (
+                  <Badge className="bg-slate-600 text-white font-bold px-3 py-1 shadow-md">
+                    {t('badges.highPrice', 'High Price')}
                   </Badge>
                 )}
               </div>
@@ -630,7 +673,7 @@ const PropertyDetail = () => {
                 <div className="space-y-6 protected-content">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Description</h3>
-                    <p className="text-gray-700 whitespace-pre-line">{translatedTexts.description || property.description}</p>
+                    <p className="text-gray-700 whitespace-pre-line">{getLocalizedText(translatedTexts.description || property.description, (property as any).descriptionEn)}</p>
                   </div>
                   
                   <Separator />
@@ -650,16 +693,52 @@ const PropertyDetail = () => {
                         <span className="text-gray-500 text-sm">Area</span>
                         <span className="font-medium">{getAreaDisplay(property.area)} m²</span>
                       </div>
+                      {(() => {
+                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
+                        // Pair each price with its corresponding area, find minimum price/m²
+                        let minPpm = Infinity;
+                        const pairCount = Math.min(prices.length, areas.length);
+                        for (let i = 0; i < pairCount; i++) {
+                          if (prices[i] > 0 && areas[i] > 0) minPpm = Math.min(minPpm, prices[i] / areas[i]);
+                        }
+                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
+                        if (ppm > 0) {
+                          return (
+                            <div className="flex flex-col p-4 bg-gradient-to-br from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
+                              <span className="text-gray-500 text-sm">{t('property.pricePerMeter', 'Price per m²')}</span>
+                              <span className="font-bold text-[#005476]">${ppm.toLocaleString()} / m²</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {property.bedrooms !== null && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">Bedrooms</span>
-                          <span className="font-medium">{property.bedrooms}</span>
+                          <span className="font-medium">
+                            {property.bedrooms === 0 ? 'Studio' : property.bedrooms}
+                          </span>
                         </div>
                       )}
                       {property.bathrooms !== null && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">Bathrooms</span>
                           <span className="font-medium">{property.bathrooms}</span>
+                        </div>
+                      )}
+                      {(property as any).floorNumber !== null && (property as any).floorNumber !== undefined && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">Floor</span>
+                          <span className="font-medium">{(property as any).floorNumber}</span>
+                        </div>
+                      )}
+                      {property.propertyType === 'land' && (property as any).landType && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">نوع الأرض / Land Type</span>
+                          <span className="font-medium">
+                            {(property as any).landType === 'agricultural' ? '🌾 أرض زراعية / Agricultural' : '🏗️ أرض غير زراعية / Non-Agricultural'}
+                          </span>
                         </div>
                       )}
                       {(property as any).readyStatus && (
@@ -673,11 +752,60 @@ const PropertyDetail = () => {
                           </span>
                         </div>
                       )}
+                      {(property as any).paymentMethod && (
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-500 text-sm">طريقة الدفع / Payment</span>
+                          <span className="font-medium">
+                            {(property as any).paymentMethod === 'cash'
+                              ? '💵 نقدي / Cash'
+                              : '📋 أقساط / Installments'}
+                          </span>
+                          {(property as any).paymentMethod === 'installments' && (property as any).downPaymentPercent && (
+                            <span className="text-sm text-[#3bcac4] mt-1">
+                              دفعة أولى {(property as any).downPaymentPercent}%
+                              {(property as any).installmentDuration && ` · ${(property as any).installmentDuration.replace('-', ' ')}`}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <Separator />
+
+                {/* Land Features Section */}
+                {property.propertyType === 'land' && (property as any).landFeatures?.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">🌍 الأرض تتضمن / Land Includes</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {((property as any).landFeatures as string[]).map((feat: string) => {
+                          const map: Record<string, { ar: string; en: string; icon: string }> = {
+                            electricity: { ar: 'كهرباء', en: 'Electricity', icon: '⚡' },
+                            water: { ar: 'ماء', en: 'Water', icon: '💧' },
+                            internet: { ar: 'انترنت', en: 'Internet', icon: '🌐' },
+                            gas: { ar: 'غاز', en: 'Gas', icon: '🔥' },
+                            'asphalt-road': { ar: 'طريق إسفلت', en: 'Asphalt Road', icon: '🛣️' },
+                            fenced: { ar: 'مسيّجة', en: 'Fenced', icon: '🚧' },
+                          };
+                          const info = map[feat];
+                          if (!info) return null;
+                          return (
+                            <div key={feat} className="flex items-center gap-2 bg-[#3bcac4]/10 border border-[#3bcac4]/30 rounded-lg p-3">
+                              <span className="text-xl">{info.icon}</span>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-[#005476]">{info.ar}</span>
+                                <span className="text-xs text-gray-500">{info.en}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Features Section */}
                 <div>
@@ -754,7 +882,7 @@ const PropertyDetail = () => {
                     <div className="space-y-4">
                       <div className="flex justify-between">
                         <span className="text-gray-500">Price between:</span>
-                        <span className="font-medium">{getPriceRange(property.price)}</span>
+                        <span className="font-medium">{getPriceRange(property.price, (property as any).priceMax)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Property Type:</span>
@@ -764,16 +892,50 @@ const PropertyDetail = () => {
                         <span className="text-gray-500">Area:</span>
                         <span>{getAreaDisplay(property.area)} m²</span>
                       </div>
+                      {(() => {
+                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
+                        // Pair each price with its corresponding area, find minimum price/m²
+                        let minPpm = Infinity;
+                        const pairCount = Math.min(prices.length, areas.length);
+                        for (let i = 0; i < pairCount; i++) {
+                          if (prices[i] > 0 && areas[i] > 0) minPpm = Math.min(minPpm, prices[i] / areas[i]);
+                        }
+                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
+                        if (ppm > 0) {
+                          return (
+                            <div className="flex justify-between items-center py-1 px-2 bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
+                              <span className="text-gray-600 font-medium">💡 {t('property.pricePerMeter', 'Price per m²')}</span>
+                              <span className="font-bold text-[#005476]">${ppm.toLocaleString()} / m²</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {property.bedrooms !== null && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Bedrooms:</span>
-                          <span>{property.bedrooms}</span>
+                          <span>{property.bedrooms === 0 ? 'Studio' : property.bedrooms}</span>
                         </div>
                       )}
                       {property.bathrooms !== null && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Bathrooms:</span>
                           <span>{property.bathrooms}</span>
+                        </div>
+                      )}
+                      {(property as any).floorNumber !== null && (property as any).floorNumber !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Floor:</span>
+                          <span>{(property as any).floorNumber}</span>
+                        </div>
+                      )}
+                      {property.propertyType === 'land' && (property as any).landType && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Land Type:</span>
+                          <span className="font-medium text-sm">
+                            {(property as any).landType === 'agricultural' ? '🌾 زراعية' : '🏗️ غير زراعية'}
+                          </span>
                         </div>
                       )}
                       <div className="flex justify-between">
@@ -803,7 +965,7 @@ const PropertyDetail = () => {
                     >
                       <span className="flex items-center justify-center">
                         <Share2 className="mr-2 h-4 w-4" />
-                        Share Property on WhatsApp
+                        {t('share.whatsappBtn')}
                       </span>
                     </Button>
                     
@@ -821,6 +983,16 @@ const PropertyDetail = () => {
                       {t("property.contactWhatsApp", "تواصل عبر واتساب")}
                     </Button>
 
+                    {/* Book Consultation CTA */}
+                    <button
+                      onClick={() => navigate(`/consultation?propertyId=${property.id}&propertyTitle=${encodeURIComponent(property.title)}`)}
+                      className="w-full mt-3 py-3 px-4 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90"
+                      style={{ background: "linear-gradient(135deg, #3bcac4 0%, #005476 100%)" }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      {t("consultation.menuLabel", "Book Consultation")}
+                    </button>
+
                     {/* Phone call button — only show number if logged in */}
                     {(property.agent?.phoneNumber || property.agent?.whatsappNumber) && (
                       user ? (
@@ -837,7 +1009,7 @@ const PropertyDetail = () => {
                         <Button
                           variant="outline"
                           className="w-full mt-3 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4] hover:text-white font-medium"
-                          onClick={() => { navigate(`/login?redirect=/property/${property.id}`); }}
+                          onClick={() => { navigate(`/login?redirect=/property/${slugifyProperty(property.title, property.location, property.id)}`); }}
                         >
                           📞 {t("auth.loginToViewPhone", "سجّل للاطلاع على الرقم")}
                         </Button>
