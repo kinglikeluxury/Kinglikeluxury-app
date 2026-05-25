@@ -79,7 +79,7 @@ const PropertyDetail = () => {
     const message = [
       `🏠 *${property.title}*`,
       ``,
-      `💰 *${t('share.price')}:* ${getPriceRange(property.price)}`,
+      `💰 *${t('share.price')}:* ${getPriceRange(property.price, (property as any).priceMax)}`,
       `📍 *${t('share.location')}:* ${property.location}`,
       `🏡 *${t('share.type')}:* ${getPropertyTypeName(property.propertyType)}`,
       `📐 *${t('share.area')}:* ${property.area} m²`,
