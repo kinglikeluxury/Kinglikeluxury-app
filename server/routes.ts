@@ -2724,7 +2724,7 @@ ${metaTags}
   // Security: OPENAI_API_KEY is ONLY read server-side in aiAdvisor.ts.
   // It is NEVER passed to the frontend or included in any HTTP response.
   // All AI communication flows: Frontend → /api/ai/* → aiAdvisor.ts → OpenAI API
-  const { chatWithAdvisor, isAiAvailable, computeLeadScore } = await import("./aiAdvisor");
+  const { chatWithAdvisor, isAiAvailable, computeLeadScore, buildScoreReason } = await import("./aiAdvisor");
 
   const MAX_MSGS_PER_CONVERSATION = 40;
   const MAX_CONVS_PER_DAY = 5;
@@ -2836,8 +2836,12 @@ ${metaTags}
       await storage.addAiMessage(conversationId, "user", message.trim());
       await storage.incrementConversationMessages(conversationId);
 
-      const user = await storage.getUser(userId);
+      const [user, existingProfile] = await Promise.all([
+        storage.getUser(userId),
+        storage.getInvestorProfileByConversation(conversationId),
+      ]);
       const userPhone = user?.phoneNumber || user?.whatsappNumber || undefined;
+      const currentScore = (existingProfile?.leadScore as "hot" | "warm" | "cold") || "cold";
 
       // Build message history for OpenAI
       const history = [...msgs, { role: "user", content: message.trim() }].map((m) => ({
@@ -2845,39 +2849,48 @@ ${metaTags}
         content: m.content,
       }));
 
-      const aiResp = await chatWithAdvisor(history, language || "en", userPhone, userId);
+      // Pass current lead score so AI adapts its strategy
+      const aiResp = await chatWithAdvisor(history, language || "en", userPhone, userId, currentScore);
 
       // Save assistant response
       await storage.addAiMessage(conversationId, "assistant", aiResp.message);
       await storage.incrementConversationMessages(conversationId);
 
-      // Upsert investor profile if we have data
+      // Upsert investor profile if AI extracted data
+      let finalScore: "hot" | "warm" | "cold" = currentScore;
       if (aiResp.profileData && Object.keys(aiResp.profileData).length > 0) {
-        const score = computeLeadScore(aiResp.profileData);
+        const merged = { ...(existingProfile || {}), ...aiResp.profileData };
+        finalScore = computeLeadScore(merged);
+        const scoreReason = aiResp.profileData.scoreReason || buildScoreReason(merged, finalScore);
         const profileData = {
           conversationId,
           userId,
           accountPhone: userPhone,
           ...aiResp.profileData,
-          leadScore: aiResp.profileData.leadScore || score,
+          leadScore: aiResp.profileData.leadScore || finalScore,
+          scoreReason,
           language: language || "en",
         };
         await storage.upsertInvestorProfile(profileData);
 
-        // Notify admin if lead is hot
-        if (score === "hot" || aiResp.profileData.leadScore === "hot") {
+        // Fire admin notification when hot lead AND has both WhatsApp + email
+        const hasWhatsApp = !!(aiResp.profileData.whatsappContactNumber || existingProfile?.whatsappContactNumber);
+        const hasEmail = !!(aiResp.profileData.email || existingProfile?.email);
+        const wasAlreadyHot = existingProfile?.leadScore === "hot";
+
+        if (finalScore === "hot" && hasWhatsApp && hasEmail && !wasAlreadyHot) {
+          console.log(`[AI] 🔥 Hot lead ready — userId=${userId} has WhatsApp + email`);
           try {
             await storage.createUserNotification({
-              userId: 1, // admin
+              userId: 1,
               type: "consultation_pending",
-              title: "🔥 Hot AI Lead",
-              message: `New hot lead from ${userPhone || "unknown"} — Goal: ${aiResp.profileData.goal || "?"}, Budget: ${aiResp.profileData.budget || "?"}`,
+              title: "🔥 Hot AI Lead Ready for Follow-Up",
+              message: `Hot lead from ${userPhone || aiResp.profileData.whatsappContactNumber || "unknown"} — Goal: ${merged.goal || "?"}, Budget: ${merged.budget || "?"}, Country: ${merged.country || "?"}`,
               data: { leadType: "ai_hot", conversationId, userId },
               isRead: false,
             });
           } catch (_) {}
 
-          // Send admin email
           const resendKey = process.env.RESEND_API_KEY;
           if (resendKey) {
             try {
@@ -2886,15 +2899,28 @@ ${metaTags}
               await resend.emails.send({
                 from: "noreply@kinglikeluxury.com",
                 to: "admin@kinglikeluxury.com",
-                subject: "🔥 Hot AI Lead — Kinglike Luxury",
-                html: `<h2>New Hot Lead</h2><p>Phone: ${userPhone || "N/A"}</p><p>Goal: ${aiResp.profileData.goal || "?"}</p><p>Budget: ${aiResp.profileData.budget || "?"}</p><p>Country: ${aiResp.profileData.country || "?"}</p><p>Timeline: ${aiResp.profileData.timeline || "?"}</p><p>Email: ${aiResp.profileData.email || "?"}</p><p>WhatsApp: ${aiResp.profileData.whatsappContactNumber || "?"}</p><p>Summary: ${aiResp.profileData.summary || "N/A"}</p>`,
+                subject: "🔥 Hot AI Lead Ready — Kinglike Luxury",
+                html: `
+                  <h2 style="color:#005476">🔥 Hot AI Lead Ready for Follow-Up</h2>
+                  <table style="border-collapse:collapse;width:100%;font-family:sans-serif">
+                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">Goal</td><td style="padding:6px 12px">${merged.goal || "N/A"}</td></tr>
+                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Budget</td><td style="padding:6px 12px">${merged.budget || "N/A"}</td></tr>
+                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">Country</td><td style="padding:6px 12px">${merged.country || "N/A"}${merged.city ? ` — ${merged.city}` : ""}</td></tr>
+                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Timeline</td><td style="padding:6px 12px">${merged.timeline || "N/A"}</td></tr>
+                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">WhatsApp</td><td style="padding:6px 12px">${merged.whatsappContactNumber || userPhone || "N/A"}</td></tr>
+                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Email</td><td style="padding:6px 12px">${merged.email || "N/A"}</td></tr>
+                    <tr><td style="padding:6px 12px;font-weight:bold;color:#005476">Communication</td><td style="padding:6px 12px">${merged.communicationMethod || "N/A"}</td></tr>
+                    <tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#005476">Score Reason</td><td style="padding:6px 12px">${scoreReason}</td></tr>
+                  </table>
+                  <p style="margin-top:16px;color:#3bcac4;font-weight:bold">→ Recommended action: Call immediately on WhatsApp</p>
+                `,
               });
             } catch (_) {}
           }
         }
       }
 
-      res.json({ message: aiResp.message });
+      res.json({ message: aiResp.message, leadScore: finalScore });
     } catch (err: any) {
       const code = err?.status ?? err?.code ?? "unknown";
       console.error(`[AI] chat error — userId=${userId} code=${code} message=${err.message}`);

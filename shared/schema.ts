@@ -455,6 +455,7 @@ export const investorProfiles = pgTable("investor_profiles", {
   communicationMethod: text("communication_method"),
   summary: text("summary"),
   leadScore: text("lead_score").default("cold"),
+  scoreReason: text("score_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

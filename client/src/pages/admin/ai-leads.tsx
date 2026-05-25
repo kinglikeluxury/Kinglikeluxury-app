@@ -29,6 +29,7 @@ interface InvestorProfile {
   communicationMethod: string | null;
   summary: string | null;
   leadScore: string | null;
+  scoreReason: string | null;
   createdAt: string;
   updatedAt: string;
   username?: string;
@@ -168,6 +169,18 @@ function LeadCard({ lead, onConvert }: { lead: InvestorProfile; onConvert: (id: 
       {/* Expanded details */}
       {expanded && (
         <div className="border-t border-gray-100 px-5 py-4 space-y-4">
+          {/* Score reason */}
+          {lead.scoreReason && (
+            <div className="flex items-start gap-2 px-4 py-2.5 rounded-xl"
+              style={{ background: "rgba(59,202,196,0.07)", border: "1px solid rgba(59,202,196,0.20)" }}>
+              <Zap className="w-4 h-4 text-[#3bcac4] flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="text-[10px] font-semibold text-[#005476] uppercase tracking-wide block">Why this classification</span>
+                <span className="text-xs text-gray-700">{lead.scoreReason}</span>
+              </div>
+            </div>
+          )}
+
           {/* Full AI summary */}
           {lead.summary && (
             <div>
