@@ -1,5 +1,5 @@
 import { db } from './db';
-import { users, properties, projects, PROPERTY_TYPES, PROPERTY_STATUS, LISTING_TYPES } from '../shared/schema';
+import { users, properties, projects, notificationLogs, PROPERTY_TYPES, PROPERTY_STATUS, LISTING_TYPES } from '../shared/schema';
 
 async function seed() {
   try {
@@ -7,6 +7,7 @@ async function seed() {
 
     // Clear existing data
     console.log("Clearing existing data...");
+    await db.delete(notificationLogs);
     await db.delete(projects);
     await db.delete(properties);
     await db.delete(users);
@@ -133,15 +134,12 @@ async function seed() {
   }
 }
 
-// Run the seed function if this file is executed directly
-if (require.main === module) {
-  seed().then(() => {
-    console.log("Seed completed, exiting.");
-    process.exit(0);
-  }).catch(err => {
-    console.error("Seed failed:", err);
-    process.exit(1);
-  });
-}
+seed().then(() => {
+  console.log("Seed completed, exiting.");
+  process.exit(0);
+}).catch(err => {
+  console.error("Seed failed:", err);
+  process.exit(1);
+});
 
 export default seed;
