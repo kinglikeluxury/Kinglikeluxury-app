@@ -76,15 +76,36 @@ const PropertyDetail = () => {
     if (!property) return;
     const currentDomain = window.location.origin;
     const propertyLink = `${currentDomain}/property/${slugifyProperty(property.title, property.location, property.id)}`;
+    const isProject = property.propertyType === 'project';
+
+    // Price per meter calculation
+    const sharePrices = [property.price, (property as any).priceMax].filter(Boolean) as number[];
+    const shareAreas = String(property.area || '').split(',').map(s => parseInt(s.trim())).filter(Boolean).sort((a,b) => a - b);
+    const shareMinPrice = sharePrices.length ? Math.min(...sharePrices) : 0;
+    const shareMinArea = shareAreas[0] || 0;
+    const sharePpm = (shareMinPrice > 0 && shareMinArea > 0) ? Math.round(shareMinPrice / shareMinArea) : 0;
+
+    // Unit types from bedrooms (comma-separated or single value)
+    const bedroomToLabel = (n: number) => {
+      if (n === 0) return 'استوديو';
+      if (n === 1) return 'غرفة وصالة';
+      if (n === 2) return 'غرفتان وصالة';
+      return `${n} غرف وصالة`;
+    };
+    const bedroomRaw = String(property.bedrooms ?? '');
+    const unitTypes = bedroomRaw
+      ? bedroomRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)).map(bedroomToLabel).join(' / ')
+      : '';
+
     const message = [
       `🏠 *${property.title}*`,
       ``,
       `💰 *${t('share.price')}:* ${getPriceRange(property.price, (property as any).priceMax)}`,
+      ...(isProject && sharePpm > 0 ? [`📊 *سعر المتر يبدأ من:* $${sharePpm.toLocaleString()} / م²`] : []),
       `📍 *${t('share.location')}:* ${property.location}`,
       `🏡 *${t('share.type')}:* ${getPropertyTypeName(property.propertyType)}`,
-      `📐 *${t('share.area')}:* ${property.area} m²`,
-      ...(property.bedrooms ? [`🛏️ *${t('share.bedrooms')}:* ${property.bedrooms}`] : []),
-      ...(property.bathrooms ? [`🚿 *${t('share.bathrooms')}:* ${property.bathrooms}`] : []),
+      ...(unitTypes ? [`🏘️ *أنواع الوحدات:* ${unitTypes}`] : []),
+      `📐 *${t('share.area')}:* ${getAreaDisplay(property.area)} m²`,
       ...(property.floorNumber ? [`🏢 *${t('share.floor')}:* ${property.floorNumber}`] : []),
       ``,
       `📸 *${t('share.images')}:* ${property.images?.length || 0} ${t('share.photos')}`,
