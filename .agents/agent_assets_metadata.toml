@@ -12,3 +12,9 @@ id = "QZCce8phDI7OhnFzGucih"
 uri = "file://kinglike-project.zip"
 type = "unspecified"
 title = "Kinglike Luxury — Full Project"
+
+[[outputs]]
+id = "rn_pQUp_yD_hKWZEC6coh"
+uri = "file://kinglike-full-project-2026-05-25.zip"
+type = "unspecified"
+title = "Kinglike Luxury — Full Project Backup (2026-05-25)"
