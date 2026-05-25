@@ -300,6 +300,19 @@ const PropertyDetail = () => {
     }).format(price);
   };
 
+  const getBedroomsDisplay = (bedrooms: any): string => {
+    if (bedrooms === null || bedrooms === undefined || bedrooms === '') return '';
+    const labelMap: Record<number, string> = {
+      0: 'Studio',
+      1: '1 BR',
+      2: '2 BR',
+      3: '3 BR',
+      4: '4 BR',
+      5: '5+ BR',
+    };
+    return String(bedrooms).split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)).map(n => labelMap[n] ?? String(n)).join(' / ');
+  };
+
   const getAreaDisplay = (area: number | string) => {
     if (!area) return "0";
     
@@ -734,12 +747,10 @@ const PropertyDetail = () => {
                         }
                         return null;
                       })()}
-                      {property.bedrooms !== null && (
+                      {property.bedrooms !== null && property.bedrooms !== undefined && getBedroomsDisplay(property.bedrooms) && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">Bedrooms</span>
-                          <span className="font-medium">
-                            {property.bedrooms === 0 ? 'Studio' : property.bedrooms}
-                          </span>
+                          <span className="font-medium">{getBedroomsDisplay(property.bedrooms)}</span>
                         </div>
                       )}
                       {property.bathrooms !== null && (
@@ -933,10 +944,10 @@ const PropertyDetail = () => {
                         }
                         return null;
                       })()}
-                      {property.bedrooms !== null && (
+                      {property.bedrooms !== null && property.bedrooms !== undefined && getBedroomsDisplay(property.bedrooms) && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Bedrooms:</span>
-                          <span>{property.bedrooms === 0 ? 'Studio' : property.bedrooms}</span>
+                          <span>{getBedroomsDisplay(property.bedrooms)}</span>
                         </div>
                       )}
                       {property.bathrooms !== null && (

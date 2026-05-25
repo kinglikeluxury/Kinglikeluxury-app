@@ -205,7 +205,20 @@ const PropertyForm = () => {
         country,
         city,
         area: existingProperty.area?.toString() || '',
-        bedrooms: existingProperty.bedrooms ? [existingProperty.bedrooms.toString()] : [],
+        bedrooms: (() => {
+          const br = existingProperty.bedrooms;
+          if (!br) return [];
+          // Stored as comma-separated numbers e.g. "0,1,2" — restore to label array
+          const labelMap: Record<number, string> = {
+            0: '🏠 Studio Apartment',
+            1: '🛏️ One Bedroom',
+            2: '🛏️ Two Bedrooms',
+            3: '🛏️ Three Bedrooms',
+            4: '🛏️ Four Bedrooms',
+            5: '🛏️ Five+ Bedrooms',
+          };
+          return String(br).split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)).map(n => labelMap[n] ?? String(n));
+        })(),
         bathrooms: existingProperty.bathrooms ? [existingProperty.bathrooms.toString()] : [],
         floorNumber: existingProperty.floorNumber?.toString() || '',
         features: existingProperty.features || [],
@@ -975,7 +988,7 @@ const PropertyForm = () => {
         bedrooms: (() => {
           if (propertyType === 'land') return null;
           if (Array.isArray(formData.bedrooms) && formData.bedrooms.length > 0) {
-            // Map text labels to numeric bedroom counts
+            // Map text labels to numeric bedroom counts, save ALL as comma-separated
             const bedroomCountMap: Record<string, number> = {
               '🏠 Studio Apartment': 0,
               '🛏️ One Bedroom': 1,
@@ -991,13 +1004,14 @@ const PropertyForm = () => {
               '🏢 High-rise Unit': 2,
               '🏡 Villa': 4,
             };
-            const nums = formData.bedrooms
+            const nums = [...new Set(formData.bedrooms
               .map(b => bedroomCountMap[b] ?? Number(b))
-              .filter(n => !isNaN(n));
-            return nums.length > 0 ? Math.max(...nums) : 1;
+              .filter(n => !isNaN(n))
+              .sort((a, b) => a - b))];
+            return nums.length > 0 ? nums.join(',') : '1';
           }
-          if (!Array.isArray(formData.bedrooms)) return (formData.bedrooms as any) || 1;
-          return 1;
+          if (!Array.isArray(formData.bedrooms)) return String((formData.bedrooms as any) || 1);
+          return '1';
         })(),
         bathrooms: (() => {
           if (propertyType === 'land') return null;

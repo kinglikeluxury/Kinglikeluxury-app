@@ -86,7 +86,7 @@ export const properties = pgTable("properties", {
   latitude: text("latitude"), // Store latitude as text for precision
   longitude: text("longitude"), // Store longitude as text for precision
   area: text("area").notNull(), // stored as comma-separated values for range support
-  bedrooms: integer("bedrooms"), // nullable for land
+  bedrooms: text("bedrooms"), // comma-separated counts for multi-unit projects, nullable for land
   bathrooms: integer("bathrooms"), // nullable for land
   floorNumber: integer("floor_number"), // for apartments
   propertyType: text("property_type").notNull(),
@@ -151,7 +151,7 @@ export const insertPropertySchema = createInsertSchema(properties)
     features: z.array(z.string()),
     amenities: z.array(z.string()).optional().default([]),
     floorNumber: z.number().optional().nullable(),
-    bedrooms: z.number().optional().nullable(),
+    bedrooms: z.string().optional().nullable(),
     bathrooms: z.number().optional().nullable(),
     landType: z.string().optional().nullable(),
     landFeatures: z.array(z.string()).optional().default([]),
