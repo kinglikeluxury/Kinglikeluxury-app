@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { generateSitemapXml } from "./sitemapGenerator";
+import { logDatabaseEnvironment } from "./productionGuard";
 
 const app = express();
 
@@ -81,6 +82,8 @@ app.use((req, res, next) => {
 
   next();
 });
+
+logDatabaseEnvironment();
 
 (async () => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
