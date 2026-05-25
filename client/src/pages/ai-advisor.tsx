@@ -298,11 +298,14 @@ export default function AiAdvisorPage() {
                         ? <img src={crownIcon} alt="" className="w-5 h-5 object-contain" draggable={false} />
                         : <User className="w-4 h-4 text-gray-500" />}
                     </div>
-                    <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-[#005476] text-white rounded-tr-sm"
-                        : "bg-white shadow-sm border border-gray-100 text-gray-800 rounded-tl-sm"
-                    }`}>
+                    <div
+                      className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                        msg.role === "user"
+                          ? "rounded-tr-sm"
+                          : "bg-white shadow-sm border border-gray-100 text-gray-800 rounded-tl-sm"
+                      }`}
+                      style={msg.role === "user" ? { background: "#3bcac4", color: "#ffffff" } : {}}
+                    >
                       {msg.content.split("\n").map((line, i, arr) => (
                         <span key={i}>{line}{i < arr.length - 1 && <br />}</span>
                       ))}
