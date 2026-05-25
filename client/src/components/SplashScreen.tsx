@@ -99,68 +99,84 @@ function playLuxuryCinematic() {
 }
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [fading, setFading] = useState(false);
-  const doneRef = useRef(false);
-  const audioStarted = useRef(false);
-
-  const finish = () => {
-    if (doneRef.current) return;
-    doneRef.current = true;
-    setFading(true);
-    setTimeout(() => onComplete(), 650);
-  };
-
-  const startAudio = () => {
-    if (!audioStarted.current) {
-      audioStarted.current = true;
-      playLuxuryCinematic();
-    }
-  };
+  const [phase, setPhase] = useState<"in" | "hold" | "out">("in");
+  const soundPlayed = useRef(false);
 
   useEffect(() => {
-    // Try to auto-play audio immediately (works on desktop; mobile needs interaction)
-    const timer = setTimeout(() => {
-      startAudio();
-    }, 80);
+    const t1 = setTimeout(() => setPhase("hold"), 900);
+    const t2 = setTimeout(() => setPhase("out"), 2600);
+    const t3 = setTimeout(() => onComplete(), 3400);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [onComplete]);
 
-    // Fallback — force complete after 10s if video fails
-    const fallback = setTimeout(finish, 10000);
-
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(fallback);
-    };
+  useEffect(() => {
+    if (!soundPlayed.current) {
+      soundPlayed.current = true;
+      const unlockAndPlay = () => {
+        playLuxuryCinematic();
+        document.removeEventListener("touchstart", unlockAndPlay);
+        document.removeEventListener("click", unlockAndPlay);
+      };
+      setTimeout(() => {
+        try {
+          playLuxuryCinematic();
+        } catch (_) {
+          document.addEventListener("touchstart", unlockAndPlay, { once: true });
+          document.addEventListener("click", unlockAndPlay, { once: true });
+        }
+      }, 100);
+    }
   }, []);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "#000",
-        opacity: fading ? 0 : 1,
-        transition: "opacity 0.65s ease-in-out",
-        pointerEvents: fading ? "none" : "auto",
-      }}
-    >
-      <video
-        ref={videoRef}
-        src="/intro.mp4"
-        autoPlay
-        muted
-        playsInline
+    <>
+      <style>{`
+        @keyframes kl-fade-in {
+          from { opacity: 0; transform: scale(0.92); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes kl-glow-pulse {
+          0%   { filter: drop-shadow(0 0 0px rgba(59,202,196,0)); }
+          40%  { filter: drop-shadow(0 0 22px rgba(59,202,196,0.7)); }
+          100% { filter: drop-shadow(0 0 10px rgba(59,202,196,0.3)); }
+        }
+        @keyframes kl-shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .kl-crown {
+          animation: kl-fade-in 0.85s cubic-bezier(0.22,1,0.36,1) forwards;
+          opacity: 0;
+        }
+        .kl-crown.hold {
+          animation: kl-fade-in 0.85s cubic-bezier(0.22,1,0.36,1) forwards,
+                     kl-glow-pulse 1.4s ease-in-out forwards;
+        }
+        .kl-splash-wrap {
+          transition: opacity 0.75s cubic-bezier(0.4,0,0.2,1);
+        }
+      `}</style>
+
+      <div
+        className="kl-splash-wrap fixed inset-0 z-[9999] flex flex-col items-center justify-center"
         style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          display: "block",
+          background: "#000",
+          opacity: phase === "out" ? 0 : 1,
+          pointerEvents: phase === "out" ? "none" : "auto",
         }}
-        onPlay={startAudio}
-        onEnded={finish}
-        onError={finish}
-      />
-    </div>
+      >
+        <div
+          className={`kl-crown${phase !== "in" ? " hold" : ""}`}
+          style={{ width: "min(78vw, 560px)" }}
+        >
+          <img
+            src="/kinglike-logo-clean.png"
+            alt="Kinglike Luxury"
+            style={{ width: "100%", height: "auto", display: "block" }}
+            draggable={false}
+          />
+        </div>
+      </div>
+    </>
   );
 }
