@@ -28,14 +28,12 @@ import {
   SlidersHorizontal,
   ArrowRight,
   User,
-  ChevronDown,
-  Star
+  ChevronDown
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
-import { slugifyProperty } from "@/lib/slugify";
 
 interface Project {
   id: number | string;
@@ -50,7 +48,6 @@ interface Project {
   area: number;
   bedrooms?: number;
   bathrooms?: number;
-  topRated?: boolean | null;
   features: string[];
   amenities: string[];
   images: string[];
@@ -78,6 +75,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
   const propertyData = project.property || project;
 
   const translated = useAutoTranslate({
+    title: propertyData.title || '',
     description: propertyData.description || '',
   });
 
@@ -86,11 +84,11 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
   return (
     <Card className="overflow-hidden flex flex-col">
       <div className="flex-shrink-0 relative">
-        <Link href={`/property/${slugifyProperty(propertyData.title || '', propertyData.location || '', project.propertyId as number)}`} className="block">
+        <Link href={`/property/${project.propertyId}`} className="block">
           <img
             className="h-64 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
             src={projectImage}
-            alt={propertyData.title}
+            alt={translated.title}
           />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <img src="/watermark-logo.png" alt="" className="w-1/4 opacity-25" draggable={false} />
@@ -106,18 +104,6 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
         >
           <Heart className={`h-5 w-5 transition-colors ${isFavorite(project.propertyId) ? 'text-[#3bcac4] fill-[#3bcac4]' : 'text-gray-600'}`} />
         </button>
-        {((project as any).topRated || (propertyData as any).topRated) && (
-          <div className="absolute bottom-2 left-2 z-10">
-            <Badge className="bg-white border border-white shadow-md flex items-center gap-1 px-2 py-1">
-              <span className="text-xs font-semibold text-[#005476]">Top Rated</span>
-              <div className="flex items-center gap-0.5">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className="h-3 w-3 fill-[#3bcac4] text-[#3bcac4]" />
-                ))}
-              </div>
-            </Badge>
-          </div>
-        )}
       </div>
       <CardContent className="p-6 flex-1 flex flex-col justify-between">
         <div className="flex-1">
@@ -133,18 +119,18 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
               </Badge>
             )}
             <Badge variant="outline" className="bg-[#005476] text-white border-[#005476]">
-              {(propertyData as any).priceMax
-                ? `$${(propertyData.price / 1000).toFixed(0)}K — $${((propertyData as any).priceMax / 1000).toFixed(0)}K`
-                : getPriceRange(propertyData.price)}
+              {getPriceRange(propertyData.price)}
             </Badge>
           </div>
-          <Link href={`/property/${slugifyProperty(propertyData.title || '', propertyData.location || '', project.propertyId as number)}`} className="block">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
-              {propertyData.title}
-            </h3>
-            <p className="text-base text-gray-600 mb-4 line-clamp-2">
-              {translated.description?.slice(0, 120)}{translated.description?.length > 120 ? '...' : ''}
-            </p>
+          <Link href={`/property/${project.propertyId}`}>
+            <a className="block">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
+                {translated.title}
+              </h3>
+              <p className="text-base text-gray-600 mb-4 line-clamp-2">
+                {translated.description?.slice(0, 120)}{translated.description?.length > 120 ? '...' : ''}
+              </p>
+            </a>
           </Link>
           <div className="space-y-2">
             <div className="flex items-center text-sm text-gray-500">
@@ -173,7 +159,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
         </div>
         <div className="mt-6 pt-4 border-t border-gray-100">
           <Button asChild className="w-full">
-            <Link href={`/property/${slugifyProperty(propertyData.title || '', propertyData.location || '', project.propertyId as number)}`}>
+            <Link href={`/property/${project.propertyId}`}>
               <span className="flex items-center justify-center">
                 {t('projects.viewDetails', 'View Project Details')}
                 <ArrowRight className="ml-2 h-4 w-4" />

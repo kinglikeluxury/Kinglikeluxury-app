@@ -46,9 +46,8 @@ const PropertyForm = () => {
   const propertyId = params?.id ? parseInt(params.id) : null;
   const isEditMode = !!propertyId;
   
-  // Get property type from URL params — use window.location.search because
-  // wouter's useLocation() does not include the query string
-  const urlParams = new URLSearchParams(window.location.search);
+  // Get property type from URL params
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const urlPropertyType = urlParams.get('type') || '';
   
   // Property type state (can be set from URL or form selection)
@@ -67,9 +66,7 @@ const PropertyForm = () => {
   // Form state
   const [formData, setFormData] = useState({
     title: '',
-    titleEn: '',
     description: '',
-    descriptionEn: '',
     price: '',
     location: '',
     country: '',
@@ -105,17 +102,7 @@ const PropertyForm = () => {
     // Ready status
     readyStatus: '',
     // Top rated for off-plan projects
-    topRated: false,
-    bestPrice: false,
-    acceptablePrice: false,
-    highPrice: false,
-    // Land-specific fields
-    landType: '',
-    landFeatures: [] as string[],
-    // Payment method fields
-    paymentMethod: '',
-    downPaymentPercent: '',
-    installmentDuration: '',
+    topRated: false
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -124,11 +111,6 @@ const PropertyForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useMapSelection, setUseMapSelection] = useState(false);
   
-
-  // City dropdown states
-  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
-  const [citySearch, setCitySearch] = useState('');
-
   // Popup states for payment flow
   const [showListingTypePopup, setShowListingTypePopup] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
@@ -138,7 +120,6 @@ const PropertyForm = () => {
   const [paymentSuccessDetails, setPaymentSuccessDetails] = useState<{
     propertyId: string;
     propertyTitle: string;
-    propertyLocation: string;
     durationDays: number;
     amount: number;
   } | null>(null);
@@ -197,28 +178,13 @@ const PropertyForm = () => {
       // Update all form data
       setFormData({
         title: existingProperty.title || '',
-        titleEn: (existingProperty as any).titleEn || '',
         description: existingProperty.description || '',
-        descriptionEn: (existingProperty as any).descriptionEn || '',
         price: existingProperty.price?.toString() || '',
         location: existingProperty.location || '',
         country,
         city,
         area: existingProperty.area?.toString() || '',
-        bedrooms: (() => {
-          const br = existingProperty.bedrooms;
-          if (!br) return [];
-          // Stored as comma-separated numbers e.g. "0,1,2" — restore to label array
-          const labelMap: Record<number, string> = {
-            0: '🏠 Studio Apartment',
-            1: '🛏️ One Bedroom',
-            2: '🛏️ Two Bedrooms',
-            3: '🛏️ Three Bedrooms',
-            4: '🛏️ Four Bedrooms',
-            5: '🛏️ Five+ Bedrooms',
-          };
-          return String(br).split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)).map(n => labelMap[n] ?? String(n));
-        })(),
+        bedrooms: existingProperty.bedrooms ? [existingProperty.bedrooms.toString()] : [],
         bathrooms: existingProperty.bathrooms ? [existingProperty.bathrooms.toString()] : [],
         floorNumber: existingProperty.floorNumber?.toString() || '',
         features: existingProperty.features || [],
@@ -245,15 +211,7 @@ const PropertyForm = () => {
         },
         deliveryDate: '',
         readyStatus: (existingProperty as any).readyStatus || '',
-        topRated: existingProperty.topRated || false,
-        bestPrice: (existingProperty as any).bestPrice || false,
-        acceptablePrice: (existingProperty as any).acceptablePrice || false,
-        highPrice: (existingProperty as any).highPrice || false,
-        landType: (existingProperty as any).landType || '',
-        landFeatures: (existingProperty as any).landFeatures || [],
-        paymentMethod: (existingProperty as any).paymentMethod || '',
-        downPaymentPercent: (existingProperty as any).downPaymentPercent?.toString() || '',
-        installmentDuration: (existingProperty as any).installmentDuration || '',
+        topRated: existingProperty.topRated || false
       });
       
       // Set property type
@@ -281,9 +239,9 @@ const PropertyForm = () => {
     return <Redirect to="/login" />;
   }
 
-  // Check if user can access this property type (admins and edit mode always allowed)
-  const canAddOffPlan = user.isAdmin || user.email === "info@kinglikeluxury.com" || user.email === "tarekalimam@gmail.com";
-  if (propertyType === PROPERTY_TYPES.PROJECT && !canAddOffPlan && !isEditMode) {
+  // Check if user can access this property type
+  const canAddOffPlan = user.email === "info@kinglikeluxury.com" || user.email === "tarekalimam@gmail.com";
+  if (propertyType === PROPERTY_TYPES.PROJECT && !canAddOffPlan) {
     return <Redirect to="/submit-property" />;
   }
 
@@ -855,11 +813,6 @@ const PropertyForm = () => {
       return;
     }
 
-    if (propertyType === PROPERTY_TYPES.APARTMENT && !formData.floorNumber) {
-      alert('Please enter the floor number.');
-      return;
-    }
-
     // In edit mode — save directly without asking for listing type again
     if (isEditMode) {
       await submitProperty('free');
@@ -871,16 +824,11 @@ const PropertyForm = () => {
 
   const submitLockRef = useRef(false);
   const submitProperty = async (listingType: 'free' | 'featured' = 'free', expirationDate?: string) => {
-    console.log('📋 submitProperty called. isSubmitting:', isSubmitting, 'lockRef:', submitLockRef.current);
-    if (isSubmitting || submitLockRef.current) {
-      console.log('⛔ submitProperty blocked by lock');
-      return;
-    }
+    if (isSubmitting || submitLockRef.current) return;
     submitLockRef.current = true;
     setIsSubmitting(true);
     
     try {
-      console.log('✅ Step 1: user check. user?.id =', user?.id, 'propertyType =', propertyType);
       // Transform location data: combine country+city into location format for database
       const getLocationString = () => {
         const cities = formData.city ? formData.city.split(',') : [];
@@ -907,26 +855,8 @@ const PropertyForm = () => {
         // Map city codes to full names
         const cityNames = cities.map(city => {
           switch (city) {
-            case 'tbilisi': return 'Tbilisi';
             case 'batumi': return 'Batumi';
-            case 'kutaisi': return 'Kutaisi';
-            case 'rustavi': return 'Rustavi';
-            case 'zugdidi': return 'Zugdidi';
-            case 'gori': return 'Gori';
-            case 'poti': return 'Poti';
-            case 'telavi': return 'Telavi';
-            case 'mtskheta': return 'Mtskheta';
-            case 'kobuleti': return 'Kobuleti';
-            case 'borjomi': return 'Borjomi';
-            case 'akhaltsikhe': return 'Akhaltsikhe';
-            case 'senaki': return 'Senaki';
-            case 'anaklia': return 'Anaklia';
-            case 'sighnaghi': return 'Sighnaghi';
-            case 'ambrolauri': return 'Ambrolauri';
-            case 'khashuri': return 'Khashuri';
-            case 'samtredia': return 'Samtredia';
-            case 'zestafoni': return 'Zestafoni';
-            case 'chiatura': return 'Chiatura';
+            case 'tbilisi': return 'Tbilisi';
             case 'dubai': return 'Dubai';
             case 'sharjah': return 'Sharjah';
             case 'rasAlKhaimah': return 'Ras Al Khaimah';
@@ -970,76 +900,19 @@ const PropertyForm = () => {
       // Prepare property data
       const propertyData = {
         title: formData.title,
-        titleEn: (formData as any).titleEn || null,
         description: formData.description,
-        descriptionEn: (formData as any).descriptionEn || null,
         propertyType: propertyType, // Ensure propertyType is set
         ownerId: user.id,
         location: getLocationString() || (isEditMode && existingProperty ? existingProperty.location : 'Not specified'),
-        price: (() => {
-          const prices = String(formData.price).split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
-          return prices.length ? Math.min(...prices) : 0;
-        })(),
-        priceMax: (() => {
-          const prices = String(formData.price).split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
-          return prices.length > 1 ? Math.max(...prices) : null;
-        })(),
-        area: formData.area || String(parseInt(String(formData.price).split(',')[0]) || 100),
-        bedrooms: (() => {
-          if (propertyType === 'land') return null;
-          if (Array.isArray(formData.bedrooms) && formData.bedrooms.length > 0) {
-            // Map text labels to numeric bedroom counts, save ALL as comma-separated
-            const bedroomCountMap: Record<string, number> = {
-              '🏠 Studio Apartment': 0,
-              '🛏️ One Bedroom': 1,
-              '🛏️ Two Bedrooms': 2,
-              '🛏️ Three Bedrooms': 3,
-              '🛏️ Four Bedrooms': 4,
-              '🛏️ Five+ Bedrooms': 5,
-              '🏰 Penthouse': 4,
-              '🏡 Duplex': 3,
-              '🏘️ Townhouse': 3,
-              '🏛️ Loft': 1,
-              '🌿 Garden Apartment': 2,
-              '🏢 High-rise Unit': 2,
-              '🏡 Villa': 4,
-            };
-            const nums = [...new Set(formData.bedrooms
-              .map(b => bedroomCountMap[b] ?? Number(b))
-              .filter(n => !isNaN(n))
-              .sort((a, b) => a - b))];
-            return nums.length > 0 ? nums.join(',') : '1';
-          }
-          if (!Array.isArray(formData.bedrooms)) return String((formData.bedrooms as any) || 1);
-          return '1';
-        })(),
-        bathrooms: (() => {
-          if (propertyType === 'land') return null;
-          if (Array.isArray(formData.bathrooms) && formData.bathrooms.length > 0) {
-            // Each selected bathroom type counts as 1
-            return formData.bathrooms.length;
-          }
-          if (!Array.isArray(formData.bathrooms)) return (formData.bathrooms as any) || 1;
-          return 1;
-        })(),
+        price: parseInt(String(formData.price).replace(/[^0-9]/g, '')) || 0,
+        area: formData.area || String(parseInt(formData.price) || 100),
+        bedrooms: Array.isArray(formData.bedrooms) ? Math.max(...formData.bedrooms.map(Number)) : (formData.bedrooms || 1),
+        bathrooms: Array.isArray(formData.bathrooms) ? Math.max(...formData.bathrooms.map(Number)) : (formData.bathrooms || 1),
         floorNumber: formData.floorNumber ? parseInt(formData.floorNumber) : null,
         images: formData.images || [],
         videos: formData.videos || [],
-        features: [
-          ...(formData.features || []),
-          // Include the selected bedroom/bathroom configuration labels as features
-          // so they appear on the property detail page
-          ...(Array.isArray(formData.bedrooms) ? formData.bedrooms : []),
-          ...(Array.isArray(formData.bathrooms) ? formData.bathrooms : []),
-        ].filter(Boolean),
+        features: formData.features || [],
         amenities: formData.amenities || [],
-        landType: propertyType === 'land' ? (formData.landType || null) : null,
-        landFeatures: propertyType === 'land' ? (formData.landFeatures || []) : [],
-        paymentMethod: formData.paymentMethod || null,
-        downPaymentPercent: formData.paymentMethod === 'installments' && formData.downPaymentPercent
-          ? parseInt(formData.downPaymentPercent) : null,
-        installmentDuration: formData.paymentMethod === 'installments'
-          ? (formData.installmentDuration || null) : null,
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
         readyStatus: formData.readyStatus || null,
@@ -1061,31 +934,28 @@ const PropertyForm = () => {
             completionDate: formData.projectDetails?.completionDate || formData.deliveryDate || 'Q4 2024',
             projectStatus: formData.projectDetails?.projectStatus || 'Now Selling'
           }
-        } : {}),
+        } : {})
       };
 
-      console.log('🚀 Step 2: Submitting property with data:', {
+      console.log('🚀 Submitting property with data:', {
         propertyType: submissionData.propertyType,
         area: submissionData.area,
         price: submissionData.price,
-        bedrooms: submissionData.bedrooms,
-        bathrooms: submissionData.bathrooms,
         title: submissionData.title,
-        listingType: submissionData.listingType,
-        location: submissionData.location,
+        listingType: submissionData.listingType
       });
       
       // Submit to API
       const apiUrl = isEditMode ? `/api/properties/${propertyId}` : '/api/properties';
       const method = isEditMode ? 'PATCH' : 'POST';
-      console.log('🌐 Step 3: About to fetch', method, apiUrl);
       const response = await fetch(apiUrl, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         credentials: 'include',
-        body: JSON.stringify(submissionData),
+        body: JSON.stringify(submissionData)
       });
-      console.log('📡 Step 4: fetch complete, status =', response.status);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -1097,7 +967,7 @@ const PropertyForm = () => {
       const result = await response.json();
       console.log(`Property ${isEditMode ? 'updated' : 'created'} successfully:`, result);
 
-      // Always sync topRated and bestPrice via dedicated endpoints (bypasses schema complexity)
+      // Always sync topRated via dedicated endpoint (bypasses schema complexity)
       const savedId = isEditMode ? propertyId : result?.id;
       if (savedId) {
         await fetch(`/api/properties/${savedId}/top-rated`, {
@@ -1105,24 +975,6 @@ const PropertyForm = () => {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ topRated: formData.topRated === true }),
-        });
-        await fetch(`/api/properties/${savedId}/best-price`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ bestPrice: formData.bestPrice === true }),
-        });
-        await fetch(`/api/properties/${savedId}/acceptable-price`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ acceptablePrice: (formData as any).acceptablePrice === true }),
-        });
-        await fetch(`/api/properties/${savedId}/high-price`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ highPrice: (formData as any).highPrice === true }),
         });
       }
       
@@ -1142,16 +994,12 @@ const PropertyForm = () => {
         return result;
       }
       
-      const { slugifyProperty: sp } = await import('@/lib/slugify');
-      const redirectUrl = isEditMode
-        ? `/property/${propertyId}/edit`
-        : `/property/${sp(result.title || '', result.location || '', result.id)}`;
+      const redirectUrl = isEditMode ? `/property/${propertyId}` : `/property/${result.id}`;
       window.location.href = redirectUrl;
       
     } catch (error) {
       console.error('Error submitting property:', error);
-      const errMsg = error instanceof Error ? error.message : String(error);
-      alert(`Failed to create property: ${errMsg}`);
+      alert('Failed to create property. Please try again.');
       throw error; // Re-throw for payment handler to catch
     } finally {
       setIsSubmitting(false);
@@ -1225,7 +1073,6 @@ const PropertyForm = () => {
       setPaymentSuccessDetails({
         propertyId: savedPropertyId.toString(),
         propertyTitle: formData.title,
-        propertyLocation: formData.location || '',
         durationDays: days,
         amount: amount
       });
@@ -1266,7 +1113,47 @@ const PropertyForm = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Property Type Selection - Show if not provided via URL */}
+          {!propertyType && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Select Property Type</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={propertyType === value ? "default" : "outline"}
+                      onClick={() => setPropertyType(value)}
+                      className="h-12 text-sm"
+                    >
+                      {value === 'project' ? 'Off-Plan Projects' : value.charAt(0).toUpperCase() + value.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
+          {/* Show selected property type */}
+          {propertyType && (
+            <div className="p-3 bg-green-50 rounded-lg">
+              <Badge variant="secondary" className="text-green-700 bg-green-100">
+                Property Type: {propertyType === 'project' ? 'Off-Plan Projects' : propertyType.charAt(0).toUpperCase() + propertyType.slice(1)}
+              </Badge>
+              {!urlPropertyType && (
+                <Button 
+                  type="button"
+                  variant="link" 
+                  onClick={() => setPropertyType('')}
+                  className="ml-2 h-auto p-0 text-green-600 hover:text-green-700"
+                >
+                  Change
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Basic Information */}
           <Card>
@@ -1276,7 +1163,7 @@ const PropertyForm = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="title">{user?.isAdmin ? 'Project Name *' : 'main text *'}</Label>
+                  <Label htmlFor="title">Project Name *</Label>
                   <Input
                     id="title"
                     value={formData.title}
@@ -1286,168 +1173,80 @@ const PropertyForm = () => {
                   />
                 </div>
                 
-                {user?.isAdmin && <div>
-                  <Label htmlFor="price">Price Points (USD) * — select all that apply</Label>
-                  {(() => {
-                    const priceOptions: number[] = [];
-                    for (let v = 40000; v <= 500000; v += 5000) priceOptions.push(v);
-                    for (let v = 550000; v <= 1000000; v += 50000) priceOptions.push(v);
-                    for (let v = 1100000; v <= 2000000; v += 100000) priceOptions.push(v);
-
-                    const fmtP = (n: number) =>
-                      n >= 1000000
-                        ? `$${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
-                        : `$${(n / 1000).toFixed(0)}K`;
-
-                    const selectedPrices = formData.price
-                      ? formData.price.split(',').map(Number).filter(Boolean)
-                      : [];
-
-                    const togglePrice = (val: number) => {
-                      // Using checkboxes clears any manual price
-                      if (customPrice) {
-                        setCustomPrice('');
-                      }
-                      let next: number[];
-                      if (selectedPrices.includes(val)) {
-                        next = selectedPrices.filter(p => p !== val);
-                      } else {
-                        next = [...selectedPrices, val];
-                      }
-                      next.sort((a, b) => a - b);
-                      handleInputChange('price', next.join(','));
-                    };
-
-                    // Full number formatter: 88000 → $88,000
-                    const fmtFull = (n: number) =>
-                      '$' + n.toLocaleString('en-US');
-
-                    // Preview badge for whichever mode is active
-                    const previewPrice = customPrice
-                      ? (() => {
-                          const n = parseInt(customPrice.replace(/[^0-9]/g, ''));
-                          return isNaN(n) ? null : fmtFull(n);
-                        })()
-                      : selectedPrices.length > 0
-                        ? selectedPrices.length === 1
-                          ? fmtFull(selectedPrices[0])
-                          : `${fmtFull(Math.min(...selectedPrices))} — ${fmtFull(Math.max(...selectedPrices))}`
-                        : null;
-
-                    return (
-                      <div className="space-y-3">
-                        {/* Checkbox price grid */}
-                        <div className={`border border-gray-300 rounded-md p-3 bg-white ${customPrice ? 'opacity-40 pointer-events-none' : ''}`}>
-                          <div className="text-xs text-gray-500 mb-2">Select one or more price points:</div>
-                          <div className="grid grid-cols-3 md:grid-cols-4 gap-1 max-h-52 overflow-y-auto pr-1">
-                            {priceOptions.map((val) => {
-                              const checked = selectedPrices.includes(val);
-                              return (
-                                <label
-                                  key={val}
-                                  className={`flex items-center gap-1 cursor-pointer rounded px-2 py-1 text-xs hover:bg-gray-50 ${checked ? 'bg-[#3bcac4]/10 font-semibold text-[#005476]' : ''}`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => togglePrice(val)}
-                                    className="rounded border-gray-300 accent-[#3bcac4]"
-                                  />
-                                  {fmtP(val)}
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Manual price input */}
-                        <div className="flex items-center gap-2">
-                          <div className="h-px flex-1 bg-gray-200" />
-                          <span className="text-xs text-gray-400 shrink-0">or enter custom price</span>
-                          <div className="h-px flex-1 bg-gray-200" />
-                        </div>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">$</span>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="e.g. 275000"
-                            className="pl-7 text-sm"
-                            value={customPrice}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/[^0-9]/g, '');
-                              setCustomPrice(val);
-                              // Custom price overrides the checkboxes — store directly in formData.price
-                              handleInputChange('price', val);
-                              // Clear checkbox selections
-                              if (val) {
-                                // no-op: selectedPrices computed from formData.price which is now just the number
-                              }
-                            }}
-                          />
-                        </div>
-
-                        {/* Preview */}
-                        {previewPrice && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Users will see:</span>
-                            <Badge className="bg-[#005476] text-white text-xs">{previewPrice}</Badge>
-                            {!customPrice && selectedPrices.length > 1 && (
-                              <span className="text-xs text-gray-400">({selectedPrices.length} selected)</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>}
+                <div>
+                  <Label htmlFor="price">Price Range (USD) *</Label>
+                  <Select 
+                    value={formData.price} 
+                    onValueChange={(value) => handleInputChange('price', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select price range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25000">$0 - $25,000</SelectItem>
+                      <SelectItem value="50000">$25,000 - $50,000</SelectItem>
+                      <SelectItem value="75000">$50,000 - $75,000</SelectItem>
+                      <SelectItem value="100000">$75,000 - $100,000</SelectItem>
+                      <SelectItem value="125000">$100,000 - $125,000</SelectItem>
+                      <SelectItem value="150000">$125,000 - $150,000</SelectItem>
+                      <SelectItem value="175000">$150,000 - $175,000</SelectItem>
+                      <SelectItem value="200000">$175,000 - $200,000</SelectItem>
+                      <SelectItem value="225000">$200,000 - $225,000</SelectItem>
+                      <SelectItem value="250000">$225,000 - $250,000</SelectItem>
+                      <SelectItem value="275000">$250,000 - $275,000</SelectItem>
+                      <SelectItem value="300000">$275,000 - $300,000</SelectItem>
+                      <SelectItem value="325000">$300,000 - $325,000</SelectItem>
+                      <SelectItem value="350000">$325,000 - $350,000</SelectItem>
+                      <SelectItem value="375000">$350,000 - $375,000</SelectItem>
+                      <SelectItem value="400000">$375,000 - $400,000</SelectItem>
+                      <SelectItem value="425000">$400,000 - $425,000</SelectItem>
+                      <SelectItem value="450000">$425,000 - $450,000</SelectItem>
+                      <SelectItem value="475000">$450,000 - $475,000</SelectItem>
+                      <SelectItem value="500000">$475,000 - $500,000</SelectItem>
+                      <SelectItem value="600000">$500,000 - $600,000</SelectItem>
+                      <SelectItem value="700000">$600,000 - $700,000</SelectItem>
+                      <SelectItem value="800000">$700,000 - $800,000</SelectItem>
+                      <SelectItem value="900000">$800,000 - $900,000</SelectItem>
+                      <SelectItem value="1000000">$900,000 - $1,000,000</SelectItem>
+                      <SelectItem value="1100000">$1,000,000 - $1,100,000</SelectItem>
+                      <SelectItem value="1200000">$1,100,000 - $1,200,000</SelectItem>
+                      <SelectItem value="1300000">$1,200,000 - $1,300,000</SelectItem>
+                      <SelectItem value="1400000">$1,300,000 - $1,400,000</SelectItem>
+                      <SelectItem value="1500000">$1,400,000 - $1,500,000</SelectItem>
+                      <SelectItem value="1600000">$1,500,000 - $1,600,000</SelectItem>
+                      <SelectItem value="1700000">$1,600,000 - $1,700,000</SelectItem>
+                      <SelectItem value="1800000">$1,700,000 - $1,800,000</SelectItem>
+                      <SelectItem value="1900000">$1,800,000 - $1,900,000</SelectItem>
+                      <SelectItem value="2000000">$1,900,000 - $2,000,000</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-
-              {!user?.isAdmin && (
-                <div>
-                  <Label htmlFor="userPrice">Property Price (USD) *</Label>
-                  <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
-                    <Input
-                      id="userPrice"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="e.g. 250000"
-                      className="pl-7"
-                      value={formData.price || ''}
-                      onChange={(e) => {
-                        const val = toEnglishDigits(e.target.value).replace(/[^0-9]/g, '');
-                        handleInputChange('price', val);
-                      }}
-                    />
-                  </div>
+              {propertyType !== PROPERTY_TYPES.PROJECT && (
+              <div>
+                <Label htmlFor="customPrice">Or enter price manually (USD)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                  <Input
+                    id="customPrice"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="e.g. 350000"
+                    className="pl-7"
+                    value={customPrice}
+                    onChange={(e) => {
+                      const converted = toEnglishDigits(e.target.value);
+                      setCustomPrice(converted);
+                      if (converted) {
+                        handleInputChange('price', converted);
+                      }
+                    }}
+                  />
                 </div>
+                <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
+              </div>
               )}
-
-              {/* Price per m² — auto calculated by pairing each price with its area */}
-              {(() => {
-                const prices = String(formData.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
-                const areas = String(formData.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
-                // Pair each price with its corresponding area, find minimum price/m²
-                let minPpm = Infinity;
-                const pairCount = Math.min(prices.length, areas.length);
-                for (let i = 0; i < pairCount; i++) {
-                  if (prices[i] > 0 && areas[i] > 0) minPpm = Math.min(minPpm, prices[i] / areas[i]);
-                }
-                const pricePerM2 = minPpm === Infinity ? 0 : Math.round(minPpm);
-                if (pricePerM2 > 0) {
-                  return (
-                    <div className="p-3 bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/30 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-700">💡 سعر المتر / Price per m²</span>
-                      <span className="text-base font-bold text-[#005476]">
-                        ${pricePerM2.toLocaleString()} <span className="text-xs font-normal">/ m²</span>
-                      </span>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
 
               <div>
                 <Label htmlFor="description">Description *</Label>
@@ -1530,240 +1329,146 @@ const PropertyForm = () => {
                     <Label htmlFor="city">City *</Label>
                   </div>
 
-                  {(() => {
-                    const allCities = [
-                      { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia', country: 'georgia' },
-                      { value: 'batumi', label: '🇬🇪 Batumi, Georgia', country: 'georgia' },
-                      { value: 'kutaisi', label: '🇬🇪 Kutaisi, Georgia', country: 'georgia' },
-                      { value: 'rustavi', label: '🇬🇪 Rustavi, Georgia', country: 'georgia' },
-                      { value: 'zugdidi', label: '🇬🇪 Zugdidi, Georgia', country: 'georgia' },
-                      { value: 'gori', label: '🇬🇪 Gori, Georgia', country: 'georgia' },
-                      { value: 'poti', label: '🇬🇪 Poti, Georgia', country: 'georgia' },
-                      { value: 'telavi', label: '🇬🇪 Telavi, Georgia', country: 'georgia' },
-                      { value: 'mtskheta', label: '🇬🇪 Mtskheta, Georgia', country: 'georgia' },
-                      { value: 'kobuleti', label: '🇬🇪 Kobuleti, Georgia', country: 'georgia' },
-                      { value: 'borjomi', label: '🇬🇪 Borjomi, Georgia', country: 'georgia' },
-                      { value: 'akhaltsikhe', label: '🇬🇪 Akhaltsikhe, Georgia', country: 'georgia' },
-                      { value: 'senaki', label: '🇬🇪 Senaki, Georgia', country: 'georgia' },
-                      { value: 'anaklia', label: '🇬🇪 Anaklia, Georgia', country: 'georgia' },
-                      { value: 'sighnaghi', label: '🇬🇪 Sighnaghi, Georgia', country: 'georgia' },
-                      { value: 'ambrolauri', label: '🇬🇪 Ambrolauri, Georgia', country: 'georgia' },
-                      { value: 'khashuri', label: '🇬🇪 Khashuri, Georgia', country: 'georgia' },
-                      { value: 'samtredia', label: '🇬🇪 Samtredia, Georgia', country: 'georgia' },
-                      { value: 'zestafoni', label: '🇬🇪 Zestafoni, Georgia', country: 'georgia' },
-                      { value: 'chiatura', label: '🇬🇪 Chiatura, Georgia', country: 'georgia' },
-                      { value: 'dubai', label: '🇦🇪 Dubai, UAE', country: 'uae' },
-                      { value: 'abuDhabi', label: '🇦🇪 Abu Dhabi, UAE', country: 'uae' },
-                      { value: 'sharjah', label: '🇦🇪 Sharjah, UAE', country: 'uae' },
-                      { value: 'ajman', label: '🇦🇪 Ajman, UAE', country: 'uae' },
-                      { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE', country: 'uae' },
-                      { value: 'fujairah', label: '🇦🇪 Fujairah, UAE', country: 'uae' },
-                      { value: 'ummAlQuwain', label: '🇦🇪 Umm Al Quwain, UAE', country: 'uae' },
-                      { value: 'alAin', label: '🇦🇪 Al Ain, UAE', country: 'uae' },
-                      { value: 'khorfakkan', label: '🇦🇪 Khor Fakkan, UAE', country: 'uae' },
-                      { value: 'kalbaCity', label: '🇦🇪 Kalba City, UAE', country: 'uae' },
-                      { value: 'dibbaAlHisn', label: '🇦🇪 Dibba Al Hisn, UAE', country: 'uae' },
-                      { value: 'dhaid', label: '🇦🇪 Dhaid, UAE', country: 'uae' },
-                      { value: 'madinatZayed', label: '🇦🇪 Madinat Zayed, UAE', country: 'uae' },
-                      { value: 'ruwais', label: '🇦🇪 Ruwais, UAE', country: 'uae' },
-                      { value: 'alMirfa', label: '🇦🇪 Al Mirfa, UAE', country: 'uae' },
-                      { value: 'lefkosa', label: '🇨🇾 Lefkoşa (Nicosia), TRNC', country: 'northern-cyprus' },
-                      { value: 'gazimağusa', label: '🇨🇾 Gazimağusa (Famagusta), TRNC', country: 'northern-cyprus' },
-                      { value: 'girne', label: '🇨🇾 Girne (Kyrenia), TRNC', country: 'northern-cyprus' },
-                      { value: 'iskele', label: '🇨🇾 İskele, TRNC', country: 'northern-cyprus' },
-                      { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
-                      { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
-                      { value: 'istanbul', label: '🇹🇷 İstanbul, Turkey', country: 'turkey' },
-                      { value: 'ankara', label: '🇹🇷 Ankara, Turkey', country: 'turkey' },
-                      { value: 'izmir', label: '🇹🇷 İzmir, Turkey', country: 'turkey' },
-                      { value: 'bursa', label: '🇹🇷 Bursa, Turkey', country: 'turkey' },
-                      { value: 'antalya', label: '🇹🇷 Antalya, Turkey', country: 'turkey' },
-                      { value: 'adana', label: '🇹🇷 Adana, Turkey', country: 'turkey' },
-                      { value: 'konya', label: '🇹🇷 Konya, Turkey', country: 'turkey' },
-                      { value: 'gaziantep', label: '🇹🇷 Gaziantep, Turkey', country: 'turkey' },
-                      { value: 'mersin', label: '🇹🇷 Mersin, Turkey', country: 'turkey' },
-                      { value: 'kocaeli', label: '🇹🇷 Kocaeli, Turkey', country: 'turkey' },
-                      { value: 'trabzon', label: '🇹🇷 Trabzon, Turkey', country: 'turkey' },
-                      { value: 'samsun', label: '🇹🇷 Samsun, Turkey', country: 'turkey' },
-                      { value: 'kayseri', label: '🇹🇷 Kayseri, Turkey', country: 'turkey' },
-                      { value: 'eskisehir', label: '🇹🇷 Eskişehir, Turkey', country: 'turkey' },
-                      { value: 'diyarbakir', label: '🇹🇷 Diyarbakır, Turkey', country: 'turkey' },
-                      { value: 'denizli', label: '🇹🇷 Denizli, Turkey', country: 'turkey' },
-                      { value: 'sakarya', label: '🇹🇷 Sakarya, Turkey', country: 'turkey' },
-                      { value: 'manisa', label: '🇹🇷 Manisa, Turkey', country: 'turkey' },
-                      { value: 'tekirdag', label: '🇹🇷 Tekirdağ, Turkey', country: 'turkey' },
-                      { value: 'mugla', label: '🇹🇷 Muğla, Turkey', country: 'turkey' },
-                      { value: 'balikesir', label: '🇹🇷 Balıkesir, Turkey', country: 'turkey' },
-                      { value: 'aydin', label: '🇹🇷 Aydın, Turkey', country: 'turkey' },
-                      { value: 'hatay', label: '🇹🇷 Hatay, Turkey', country: 'turkey' },
-                      { value: 'kahramanmaras', label: '🇹🇷 Kahramanmaraş, Turkey', country: 'turkey' },
-                      { value: 'van', label: '🇹🇷 Van, Turkey', country: 'turkey' },
-                      { value: 'malatya', label: '🇹🇷 Malatya, Turkey', country: 'turkey' },
-                      { value: 'sanliurfa', label: '🇹🇷 Şanlıurfa, Turkey', country: 'turkey' },
-                      { value: 'mardin', label: '🇹🇷 Mardin, Turkey', country: 'turkey' },
-                      { value: 'erzurum', label: '🇹🇷 Erzurum, Turkey', country: 'turkey' },
-                      { value: 'ordu', label: '🇹🇷 Ordu, Turkey', country: 'turkey' },
-                      { value: 'zonguldak', label: '🇹🇷 Zonguldak, Turkey', country: 'turkey' },
-                      { value: 'elazig', label: '🇹🇷 Elazığ, Turkey', country: 'turkey' },
-                      { value: 'afyonkarahisar', label: '🇹🇷 Afyonkarahisar, Turkey', country: 'turkey' },
-                      { value: 'batman', label: '🇹🇷 Batman, Turkey', country: 'turkey' },
-                      { value: 'sivas', label: '🇹🇷 Sivas, Turkey', country: 'turkey' },
-                      { value: 'tokat', label: '🇹🇷 Tokat, Turkey', country: 'turkey' },
-                      { value: 'corum', label: '🇹🇷 Çorum, Turkey', country: 'turkey' },
-                      { value: 'adiyaman', label: '🇹🇷 Adıyaman, Turkey', country: 'turkey' },
-                      { value: 'rize', label: '🇹🇷 Rize, Turkey', country: 'turkey' },
-                      { value: 'isparta', label: '🇹🇷 Isparta, Turkey', country: 'turkey' },
-                      { value: 'burdur', label: '🇹🇷 Burdur, Turkey', country: 'turkey' },
-                      { value: 'canakkale', label: '🇹🇷 Çanakkale, Turkey', country: 'turkey' },
-                      { value: 'edirne', label: '🇹🇷 Edirne, Turkey', country: 'turkey' },
-                      { value: 'kirklareli', label: '🇹🇷 Kırklareli, Turkey', country: 'turkey' },
-                      { value: 'yalova', label: '🇹🇷 Yalova, Turkey', country: 'turkey' },
-                      { value: 'bolu', label: '🇹🇷 Bolu, Turkey', country: 'turkey' },
-                      { value: 'duzce', label: '🇹🇷 Düzce, Turkey', country: 'turkey' },
-                      { value: 'karabuk', label: '🇹🇷 Karabük, Turkey', country: 'turkey' },
-                      { value: 'bartin', label: '🇹🇷 Bartın, Turkey', country: 'turkey' },
-                      { value: 'kastamonu', label: '🇹🇷 Kastamonu, Turkey', country: 'turkey' },
-                      { value: 'sinop', label: '🇹🇷 Sinop, Turkey', country: 'turkey' },
-                      { value: 'giresun', label: '🇹🇷 Giresun, Turkey', country: 'turkey' },
-                      { value: 'gumushane', label: '🇹🇷 Gümüşhane, Turkey', country: 'turkey' },
-                      { value: 'artvin', label: '🇹🇷 Artvin, Turkey', country: 'turkey' },
-                      { value: 'ardahan', label: '🇹🇷 Ardahan, Turkey', country: 'turkey' },
-                      { value: 'kars', label: '🇹🇷 Kars, Turkey', country: 'turkey' },
-                      { value: 'igdir', label: '🇹🇷 Iğdır, Turkey', country: 'turkey' },
-                      { value: 'agri', label: '🇹🇷 Ağrı, Turkey', country: 'turkey' },
-                      { value: 'mus', label: '🇹🇷 Muş, Turkey', country: 'turkey' },
-                      { value: 'bitlis', label: '🇹🇷 Bitlis, Turkey', country: 'turkey' },
-                      { value: 'siirt', label: '🇹🇷 Siirt, Turkey', country: 'turkey' },
-                      { value: 'sirnak', label: '🇹🇷 Şırnak, Turkey', country: 'turkey' },
-                      { value: 'hakkari', label: '🇹🇷 Hakkari, Turkey', country: 'turkey' },
-                      { value: 'bingol', label: '🇹🇷 Bingöl, Turkey', country: 'turkey' },
-                      { value: 'tunceli', label: '🇹🇷 Tunceli, Turkey', country: 'turkey' },
-                      { value: 'erzincan', label: '🇹🇷 Erzincan, Turkey', country: 'turkey' },
-                      { value: 'amasya', label: '🇹🇷 Amasya, Turkey', country: 'turkey' },
-                      { value: 'cankiri', label: '🇹🇷 Çankırı, Turkey', country: 'turkey' },
-                      { value: 'kirsehir', label: '🇹🇷 Kırşehir, Turkey', country: 'turkey' },
-                      { value: 'nevsehir', label: '🇹🇷 Nevşehir, Turkey', country: 'turkey' },
-                      { value: 'nigde', label: '🇹🇷 Niğde, Turkey', country: 'turkey' },
-                      { value: 'aksaray', label: '🇹🇷 Aksaray, Turkey', country: 'turkey' },
-                      { value: 'karaman', label: '🇹🇷 Karaman, Turkey', country: 'turkey' },
-                      { value: 'kutahya', label: '🇹🇷 Kütahya, Turkey', country: 'turkey' },
-                      { value: 'usak', label: '🇹🇷 Uşak, Turkey', country: 'turkey' },
-                      { value: 'bilecik', label: '🇹🇷 Bilecik, Turkey', country: 'turkey' },
-                      { value: 'yozgat', label: '🇹🇷 Yozgat, Turkey', country: 'turkey' },
-                      { value: 'kirikkale', label: '🇹🇷 Kırıkkale, Turkey', country: 'turkey' },
-                      { value: 'bayburt', label: '🇹🇷 Bayburt, Turkey', country: 'turkey' },
-                      { value: 'osmaniye', label: '🇹🇷 Osmaniye, Turkey', country: 'turkey' },
-                      { value: 'kilis', label: '🇹🇷 Kilis, Turkey', country: 'turkey' },
-                    ];
-
-                    const selectedCountry = formData.country as string;
-                    const filtered = allCities
-                      .filter(c => !selectedCountry || c.country === selectedCountry)
-                      .filter(c => c.label.toLowerCase().includes(citySearch.toLowerCase()));
-
-                    const selectedCities = Array.isArray(formData.city)
-                      ? formData.city
-                      : formData.city ? formData.city.split(',').filter(Boolean) : [];
-
-                    const toggleCity = (val: string) => {
-                      let next: string[];
-                      if (selectedCities.includes(val)) {
-                        next = selectedCities.filter(c => c !== val);
-                      } else {
-                        next = [...selectedCities, val];
-                      }
-                      handleInputChange('city', next.join(','));
-                      setUseMapSelection(false);
-                    };
-
-                    const getLabelForValue = (val: string) =>
-                      allCities.find(c => c.value === val)?.label || val;
-
-                    return (
-                      <div className="relative">
-                        {/* Trigger Button */}
-                        <button
-                          type="button"
-                          onClick={() => setCityDropdownOpen(prev => !prev)}
-                          className="w-full flex items-center justify-between border border-gray-300 rounded-md px-3 py-2 bg-white text-sm hover:border-[#3bcac4] focus:outline-none focus:ring-2 focus:ring-[#3bcac4]/30 transition-colors"
-                        >
-                          <span className={selectedCities.length === 0 ? 'text-gray-400' : 'text-gray-800'}>
-                            {selectedCities.length === 0
-                              ? 'Select city...'
-                              : selectedCities.length === 1
-                                ? getLabelForValue(selectedCities[0])
-                                : `${selectedCities.length} cities selected`}
-                          </span>
-                          <svg className={`h-4 w-4 text-gray-400 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                        </button>
-
-                        {/* Dropdown Panel */}
-                        {cityDropdownOpen && (
-                          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
-                            {/* Search */}
-                            <div className="p-2 border-b border-gray-100">
-                              <div className="relative">
-                                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                <input
-                                  type="text"
-                                  value={citySearch}
-                                  onChange={e => setCitySearch(e.target.value)}
-                                  placeholder="Search city..."
-                                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3bcac4]/30"
-                                  autoFocus
-                                />
-                              </div>
-                            </div>
-
-                            {/* City List */}
-                            <div className="max-h-56 overflow-y-auto p-1">
-                              {filtered.length === 0 ? (
-                                <div className="text-center text-sm text-gray-400 py-4">No cities found</div>
-                              ) : (
-                                filtered.map(cityOption => {
-                                  const isSelected = selectedCities.includes(cityOption.value);
-                                  return (
-                                    <label
-                                      key={cityOption.value}
-                                      className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm hover:bg-gray-50 ${isSelected ? 'bg-[#3bcac4]/10 font-medium text-[#005476]' : 'text-gray-700'}`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => toggleCity(cityOption.value)}
-                                        className="rounded border-gray-300 accent-[#3bcac4]"
-                                      />
-                                      {cityOption.label}
-                                    </label>
-                                  );
-                                })
-                              )}
-                            </div>
-
-                            {/* Footer */}
-                            <div className="p-2 border-t border-gray-100 flex justify-between items-center">
-                              <span className="text-xs text-gray-400">{selectedCities.length} selected</span>
-                              <button type="button" onClick={() => setCityDropdownOpen(false)} className="text-xs text-[#005476] font-medium hover:underline">Done</button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Selected Badges */}
-                        {selectedCities.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {selectedCities.map(val => (
-                              <Badge key={val} variant="secondary" className="text-xs flex items-center gap-1">
-                                {getLabelForValue(val)}
-                                <button type="button" onClick={() => toggleCity(val)} className="ml-1 hover:text-red-500">×</button>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white">
+                    <div className="text-sm text-gray-600 mb-2">Select cities:</div>
+                    <div className="space-y-2">
+                      {[
+                        { value: 'batumi', label: '🇬🇪 Batumi, Georgia', country: 'georgia' },
+                        { value: 'tbilisi', label: '🇬🇪 Tbilisi, Georgia', country: 'georgia' },
+                        { value: 'dubai', label: '🇦🇪 Dubai, UAE', country: 'uae' },
+                        { value: 'sharjah', label: '🇦🇪 Sharjah, UAE', country: 'uae' },
+                        { value: 'rasAlKhaimah', label: '🇦🇪 Ras Al Khaimah, UAE', country: 'uae' },
+                        { value: 'lefkosa', label: '🇨🇾 Lefkoşa (Nicosia), TRNC', country: 'northern-cyprus' },
+                        { value: 'gazimağusa', label: '🇨🇾 Gazimağusa (Famagusta), TRNC', country: 'northern-cyprus' },
+                        { value: 'girne', label: '🇨🇾 Girne (Kyrenia), TRNC', country: 'northern-cyprus' },
+                        { value: 'iskele', label: '🇨🇾 İskele, TRNC', country: 'northern-cyprus' },
+                        { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
+                        { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
+                        { value: 'istanbul', label: '🇹🇷 İstanbul, Turkey', country: 'turkey' },
+                        { value: 'trabzon', label: '🇹🇷 Trabzon, Turkey', country: 'turkey' },
+                      ].filter((cityOption) => {
+                        const selectedCountry = formData.country;
+                        if (!selectedCountry) return true;
+                        return cityOption.country === selectedCountry;
+                      }).map((cityOption) => {
+                        const isSelected = Array.isArray(formData.city) 
+                          ? formData.city.includes(cityOption.value)
+                          : formData.city ? formData.city.split(',').includes(cityOption.value) : false;
+                        
+                        return (
+                          <label key={cityOption.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentCities = Array.isArray(formData.city) ? formData.city : (formData.city ? formData.city.split(',') : []);
+                                let newCities;
+                                if (e.target.checked) {
+                                  newCities = [...currentCities, cityOption.value];
+                                } else {
+                                  newCities = currentCities.filter(c => c !== cityOption.value);
+                                }
+                                handleInputChange('city', newCities.join(','));
+                                setUseMapSelection(false);
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm font-medium">{cityOption.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.city && (formData.city.includes(',') || formData.city.length > 0) && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="text-xs text-gray-500 mb-1">Selected cities:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(formData.city) ? formData.city : formData.city.split(',')).filter(city => city).map((cityValue) => {
+                            const cityLabels: Record<string, string> = {
+                              batumi: '🇬🇪 Batumi, Georgia',
+                              tbilisi: '🇬🇪 Tbilisi, Georgia',
+                              dubai: '🇦🇪 Dubai, UAE',
+                              sharjah: '🇦🇪 Sharjah, UAE',
+                              rasAlKhaimah: '🇦🇪 Ras Al Khaimah, UAE',
+                              lefkosa: '🇨🇾 Lefkoşa (Nicosia), TRNC',
+                              'gazimağusa': '🇨🇾 Gazimağusa (Famagusta), TRNC',
+                              girne: '🇨🇾 Girne (Kyrenia), TRNC',
+                              iskele: '🇨🇾 İskele, TRNC',
+                              guzelyurt: '🇨🇾 Güzelyurt, TRNC',
+                              esentepe: '🇨🇾 Esentepe, TRNC',
+                            };
+                            const cityName = cityLabels[cityValue] || cityValue;
+                            return (
+                              <Badge key={cityValue} variant="secondary" className="text-xs">
+                                {cityName}
                               </Badge>
-                            ))}
-                          </div>
-                        )}
+                            );
+                          })}
+                        </div>
                       </div>
-                    );
-                  })()}
+                    )}
+                  </div>
                 </div>
 
+                <div>
+                  <Label htmlFor="area">Area (m²) *</Label>
+                  <div className="border border-gray-300 rounded-md p-3 bg-white">
+                    <div className="text-sm text-gray-600 mb-2">Select multiple areas:</div>
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                      {[
+                        ...Array.from({length: 76}, (_, i) => 25 + i),
+                        ...Array.from({length: 40}, (_, i) => 100 + (i + 1) * 10),
+                        ...Array.from({length: 10}, (_, i) => 500 + (i + 1) * 50),
+                        ...Array.from({length: 40}, (_, i) => 1000 + (i + 1) * 100),
+                      ].map((num) => String(num)).map((areaValue) => {
+                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
+                        const isSelected = selectedAreas.includes(areaValue);
+                        
+                        return (
+                          <label key={areaValue} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
+                                let newAreas;
+                                if (e.target.checked) {
+                                  newAreas = [...currentAreas, areaValue];
+                                } else {
+                                  newAreas = currentAreas.filter(area => area !== areaValue);
+                                }
+                                handleInputChange('area', newAreas.join(','));
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{areaValue} m²</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.area && (formData.area.includes(',') || formData.area.length > 0) && (() => {
+                      const selectedAreas = (Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter(a => a);
+                      const numericAreas = selectedAreas.map(v => parseInt(v)).filter(v => !isNaN(v));
+                      return (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          {numericAreas.length > 1 ? (
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-gray-500">Users will see:</div>
+                              <Badge variant="default" className="bg-[#005476] text-white text-sm">
+                                {Math.min(...numericAreas)} - {Math.max(...numericAreas)} m²
+                              </Badge>
+                              <span className="text-xs text-gray-400">({numericAreas.length} selected)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-gray-500">Selected:</div>
+                              <Badge variant="secondary" className="text-xs">{selectedAreas[0]} m²</Badge>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -2027,96 +1732,23 @@ const PropertyForm = () => {
 
                   {propertyType === PROPERTY_TYPES.APARTMENT && (
                     <div>
-                      <Label htmlFor="floorNumber">Floor Number *</Label>
+                      <Label htmlFor="floorNumber">Floor Number</Label>
                       <Input
                         id="floorNumber"
                         type="number"
                         value={formData.floorNumber}
                         onChange={(e) => handleInputChange('floorNumber', e.target.value)}
                         placeholder="Which floor"
-                        required
                       />
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <Label htmlFor="area">
-                    {propertyType === PROPERTY_TYPES.LAND ? '📐 المساحة / Area (m²) *' : 'Area (m²) *'}
-                  </Label>
-                  <div className="border border-gray-300 rounded-md p-3 bg-white">
-                    <div className="text-sm text-gray-600 mb-2">
-                      {propertyType === PROPERTY_TYPES.LAND ? 'اختر مساحة الأرض / Select land area:' : 'Select multiple areas:'}
-                    </div>
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
-                      {(propertyType === PROPERTY_TYPES.LAND ? [
-                        // 100 → 1000 كل 100
-                        ...Array.from({length: 10}, (_, i) => (i + 1) * 100),
-                        // 1000 → 5000 كل 500
-                        ...Array.from({length: 8}, (_, i) => 1500 + i * 500),
-                        // 5000 → 13000 كل 1000
-                        ...Array.from({length: 8}, (_, i) => 6000 + i * 1000),
-                        13000,
-                      ] : [
-                        ...Array.from({length: 76}, (_, i) => 25 + i),
-                        ...Array.from({length: 40}, (_, i) => 100 + (i + 1) * 10),
-                        ...Array.from({length: 10}, (_, i) => 500 + (i + 1) * 50),
-                        ...Array.from({length: 40}, (_, i) => 1000 + (i + 1) * 100),
-                      ]).map((num) => String(num)).map((areaValue) => {
-                        const selectedAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
-                        const isSelected = selectedAreas.includes(areaValue);
-                        return (
-                          <label key={areaValue} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                const currentAreas = Array.isArray(formData.area) ? formData.area : (formData.area ? formData.area.split(',') : []);
-                                let newAreas;
-                                if (e.target.checked) {
-                                  newAreas = [...currentAreas, areaValue];
-                                } else {
-                                  newAreas = currentAreas.filter(area => area !== areaValue);
-                                }
-                                handleInputChange('area', newAreas.join(','));
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm">{areaValue} m²</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {formData.area && (formData.area.includes(',') || formData.area.length > 0) && (() => {
-                      const selectedAreas = (Array.isArray(formData.area) ? formData.area : formData.area.split(',')).filter(a => a);
-                      const numericAreas = selectedAreas.map(v => parseInt(v)).filter(v => !isNaN(v));
-                      return (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          {numericAreas.length > 1 ? (
-                            <div className="flex items-center gap-2">
-                              <div className="text-xs text-gray-500">Users will see:</div>
-                              <Badge variant="default" className="bg-[#005476] text-white text-sm">
-                                {Math.min(...numericAreas)} - {Math.max(...numericAreas)} m²
-                              </Badge>
-                              <span className="text-xs text-gray-400">({numericAreas.length} selected)</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <div className="text-xs text-gray-500">Selected:</div>
-                              <Badge variant="secondary" className="text-xs">{selectedAreas[0]} m²</Badge>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                <div>
                   <Label htmlFor="purpose">Purpose *</Label>
                   {propertyType === PROPERTY_TYPES.PROJECT || propertyType === PROPERTY_TYPES.LAND ? (
                     <div className="border border-gray-300 rounded-md p-3 bg-gray-50">
-                      <span className="text-sm font-medium">🏠 For Sell</span>
+                      <span className="text-sm font-medium">🏠 For Buy</span>
                     </div>
                   ) : (
                     <Select 
@@ -2127,7 +1759,7 @@ const PropertyForm = () => {
                         <SelectValue placeholder="Select purpose" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="buy">🏠 For Sale</SelectItem>
+                        <SelectItem value="buy">🏠 For Buy</SelectItem>
                         <SelectItem value="rent">🏡 For Rent</SelectItem>
                       </SelectContent>
                     </Select>
@@ -2266,192 +1898,6 @@ const PropertyForm = () => {
             </Card>
           )}
 
-          {/* Land Details — only shown for land type */}
-          {propertyType === PROPERTY_TYPES.LAND && (
-            <Card>
-              <CardHeader>
-                <CardTitle>🌍 {t('land.details', 'Land Details')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Land Area Selection */}
-                <div>
-                  <Label htmlFor="area">📐 {t('land.areaLabel', 'Area (m²)')} *</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      min={100}
-                      max={13000}
-                      value={formData.area && !formData.area.includes(',') ? formData.area : ''}
-                      onChange={(e) => {
-                        handleInputChange('area', e.target.value);
-                      }}
-                      onBlur={(e) => {
-                        const num = parseInt(e.target.value);
-                        if (!isNaN(num)) {
-                          const clamped = Math.min(13000, Math.max(100, num));
-                          handleInputChange('area', String(clamped));
-                        }
-                      }}
-                      placeholder="100 – 13000"
-                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4]"
-                    />
-                    <span className="text-sm font-medium text-gray-600 whitespace-nowrap">m²</span>
-                  </div>
-                  {formData.area && !formData.area.includes(',') && parseInt(formData.area) >= 1 && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-xs text-gray-500">{t('land.selected', 'Selected')}:</span>
-                      <span className="bg-[#005476] text-white text-sm font-semibold px-3 py-0.5 rounded-full">
-                        {formData.area} m²
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Land Type */}
-                <div>
-                  <Label>{t('land.landType', 'Land Type')} *</Label>
-                  <Select
-                    value={formData.landType || ''}
-                    onValueChange={(v) => handleInputChange('landType', v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('land.selectLandType', 'Select land type...')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="agricultural">🌾 {t('land.agricultural', 'Agricultural Land')}</SelectItem>
-                      <SelectItem value="non-agricultural">🏗️ {t('land.nonAgricultural', 'Non-Agricultural Land')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Land Features */}
-                <div>
-                  <Label>{t('land.includes', 'Land Includes')}</Label>
-                  <div className="border border-gray-300 rounded-md p-3 bg-white mt-1">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {[
-                        { key: 'electricity', label: t('land.electricity', 'Electricity'), icon: '⚡' },
-                        { key: 'water', label: t('land.water', 'Water'), icon: '💧' },
-                        { key: 'internet', label: t('land.internet', 'Internet'), icon: '🌐' },
-                        { key: 'gas', label: t('land.gas', 'Gas'), icon: '🔥' },
-                        { key: 'asphalt-road', label: t('land.asphaltRoad', 'Asphalt Road'), icon: '🛣️' },
-                        { key: 'fenced', label: t('land.fenced', 'Fenced'), icon: '🚧' },
-                      ].map((item) => (
-                        <label
-                          key={item.key}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={(formData.landFeatures || []).includes(item.key)}
-                            onChange={(e) => {
-                              const current = formData.landFeatures || [];
-                              const updated = e.target.checked
-                                ? [...current, item.key]
-                                : current.filter((f: string) => f !== item.key);
-                              setFormData(prev => ({ ...prev, landFeatures: updated }));
-                            }}
-                            className="rounded border-gray-300 accent-[#3bcac4]"
-                          />
-                          <span className="text-sm font-medium">
-                            {item.icon} {item.label}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Payment Method — for all types except project */}
-          {propertyType !== PROPERTY_TYPES.PROJECT && (
-            <Card>
-              <CardHeader>
-                <CardTitle>💳 طريقة الدفع / Payment Method</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: 'cash', ar: 'نقدي', en: 'Cash', sub: 'أقساط غير متوفرة', icon: '💵' },
-                    { value: 'installments', ar: 'أقساط', en: 'Installments', sub: 'Installments available', icon: '📋' },
-                  ].map((opt) => (
-                    <label
-                      key={opt.value}
-                      className={`flex flex-col items-center justify-center gap-1 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        formData.paymentMethod === opt.value
-                          ? 'border-[#3bcac4] bg-[#3bcac4]/10'
-                          : 'border-gray-200 hover:border-[#3bcac4]/50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value={opt.value}
-                        checked={formData.paymentMethod === opt.value}
-                        onChange={() => handleInputChange('paymentMethod', opt.value)}
-                        className="sr-only"
-                      />
-                      <span className="text-2xl">{opt.icon}</span>
-                      <span className="font-semibold text-[#005476]">{opt.ar}</span>
-                      <span className="text-xs text-gray-400">{opt.sub}</span>
-                    </label>
-                  ))}
-                </div>
-
-                {formData.paymentMethod === 'installments' && (
-                  <div className="space-y-4 pt-2 border-t border-gray-100">
-                    {/* Down Payment */}
-                    <div>
-                      <Label>دفعة أولى / Down Payment (%)</Label>
-                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-2">
-                        {[10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90].map((pct) => (
-                          <button
-                            key={pct}
-                            type="button"
-                            onClick={() => handleInputChange('downPaymentPercent', pct.toString())}
-                            className={`py-2 rounded-lg text-sm font-medium border transition-all ${
-                              formData.downPaymentPercent === pct.toString()
-                                ? 'bg-[#005476] text-white border-[#005476]'
-                                : 'bg-white text-gray-700 border-gray-200 hover:border-[#3bcac4]'
-                            }`}
-                          >
-                            {pct}%
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Installment Duration */}
-                    <div>
-                      <Label>أقساط لمدة / Installment Duration</Label>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
-                        {Array.from({ length: 36 }, (_, i) => i + 1).map((n) => ({
-                          value: n === 1 ? '1-month' : `${n}-months`,
-                          label: n === 12 ? '12 شهر (سنة)' : n === 24 ? '24 شهر (سنتان)' : n === 36 ? '36 شهر (3 سنوات)' : `${n} شهر`,
-                        })).map((dur) => (
-                          <button
-                            key={dur.value}
-                            type="button"
-                            onClick={() => handleInputChange('installmentDuration', dur.value)}
-                            className={`py-2 px-1 rounded-lg text-xs font-medium border transition-all ${
-                              formData.installmentDuration === dur.value
-                                ? 'bg-[#005476] text-white border-[#005476]'
-                                : 'bg-white text-gray-700 border-gray-200 hover:border-[#3bcac4]'
-                            }`}
-                          >
-                            {dur.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Rental Terms - Only for rental properties */}
           {formData.purpose === 'rent' && (
             <Card>
@@ -2493,6 +1939,141 @@ const PropertyForm = () => {
             </Card>
           )}
 
+          {/* Price Section - Hidden for off-plan projects */}
+          {propertyType !== PROPERTY_TYPES.PROJECT && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {formData.purpose === 'rent' ? 'Rental Price' : 'Sale Price'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="price">
+                  {formData.purpose === 'rent' ? 'Monthly Rental Price *' : 'Sale Price *'}
+                </Label>
+                <Select value={formData.price} onValueChange={(value) => handleInputChange('price', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={formData.purpose === 'rent' ? "Select monthly rent..." : "Select price range..."} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64 overflow-y-auto">
+                    {formData.purpose === 'rent' ? (
+                      // Rental prices (monthly)
+                      <>
+                        <SelectItem value="500">$500/month</SelectItem>
+                        <SelectItem value="750">$750/month</SelectItem>
+                        <SelectItem value="1000">$1,000/month</SelectItem>
+                        <SelectItem value="1250">$1,250/month</SelectItem>
+                        <SelectItem value="1500">$1,500/month</SelectItem>
+                        <SelectItem value="1750">$1,750/month</SelectItem>
+                        <SelectItem value="2000">$2,000/month</SelectItem>
+                        <SelectItem value="2500">$2,500/month</SelectItem>
+                        <SelectItem value="3000">$3,000/month</SelectItem>
+                        <SelectItem value="3500">$3,500/month</SelectItem>
+                        <SelectItem value="4000">$4,000/month</SelectItem>
+                        <SelectItem value="4500">$4,500/month</SelectItem>
+                        <SelectItem value="5000">$5,000/month</SelectItem>
+                        <SelectItem value="6000">$6,000/month</SelectItem>
+                        <SelectItem value="7000">$7,000/month</SelectItem>
+                        <SelectItem value="8000">$8,000/month</SelectItem>
+                        <SelectItem value="9000">$9,000/month</SelectItem>
+                        <SelectItem value="10000">$10,000/month</SelectItem>
+                        <SelectItem value="12500">$12,500/month</SelectItem>
+                        <SelectItem value="15000">$15,000/month</SelectItem>
+                        <SelectItem value="20000">$20,000/month</SelectItem>
+                        <SelectItem value="25000">$25,000+/month</SelectItem>
+                      </>
+                    ) : (
+                      // Sale prices
+                      <>
+                        <SelectItem value="5000">$5,000</SelectItem>
+                        <SelectItem value="10000">$10,000</SelectItem>
+                        <SelectItem value="15000">$15,000</SelectItem>
+                        <SelectItem value="20000">$20,000</SelectItem>
+                        <SelectItem value="25000">$25,000</SelectItem>
+                        <SelectItem value="30000">$30,000</SelectItem>
+                        <SelectItem value="35000">$35,000</SelectItem>
+                        <SelectItem value="40000">$40,000</SelectItem>
+                        <SelectItem value="45000">$45,000</SelectItem>
+                        <SelectItem value="50000">$50,000</SelectItem>
+                        <SelectItem value="60000">$60,000</SelectItem>
+                        <SelectItem value="70000">$70,000</SelectItem>
+                        <SelectItem value="80000">$80,000</SelectItem>
+                        <SelectItem value="90000">$90,000</SelectItem>
+                        <SelectItem value="100000">$100,000</SelectItem>
+                        <SelectItem value="125000">$125,000</SelectItem>
+                        <SelectItem value="150000">$150,000</SelectItem>
+                        <SelectItem value="175000">$175,000</SelectItem>
+                        <SelectItem value="200000">$200,000</SelectItem>
+                        <SelectItem value="225000">$225,000</SelectItem>
+                        <SelectItem value="250000">$250,000</SelectItem>
+                        <SelectItem value="275000">$275,000</SelectItem>
+                        <SelectItem value="300000">$300,000</SelectItem>
+                        <SelectItem value="325000">$325,000</SelectItem>
+                        <SelectItem value="350000">$350,000</SelectItem>
+                        <SelectItem value="375000">$375,000</SelectItem>
+                        <SelectItem value="400000">$400,000</SelectItem>
+                        <SelectItem value="425000">$425,000</SelectItem>
+                        <SelectItem value="450000">$450,000</SelectItem>
+                        <SelectItem value="475000">$475,000</SelectItem>
+                        <SelectItem value="500000">$500,000</SelectItem>
+                        <SelectItem value="550000">$550,000</SelectItem>
+                        <SelectItem value="600000">$600,000</SelectItem>
+                        <SelectItem value="650000">$650,000</SelectItem>
+                        <SelectItem value="700000">$700,000</SelectItem>
+                        <SelectItem value="750000">$750,000</SelectItem>
+                        <SelectItem value="800000">$800,000</SelectItem>
+                        <SelectItem value="850000">$850,000</SelectItem>
+                        <SelectItem value="900000">$900,000</SelectItem>
+                        <SelectItem value="950000">$950,000</SelectItem>
+                        <SelectItem value="1000000">$1,000,000</SelectItem>
+                        <SelectItem value="1100000">$1,100,000</SelectItem>
+                        <SelectItem value="1200000">$1,200,000</SelectItem>
+                        <SelectItem value="1300000">$1,300,000</SelectItem>
+                        <SelectItem value="1400000">$1,400,000</SelectItem>
+                        <SelectItem value="1500000">$1,500,000</SelectItem>
+                        <SelectItem value="1600000">$1,600,000</SelectItem>
+                        <SelectItem value="1700000">$1,700,000</SelectItem>
+                        <SelectItem value="1800000">$1,800,000</SelectItem>
+                        <SelectItem value="1900000">$1,900,000</SelectItem>
+                        <SelectItem value="2000000">$2,000,000</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="customPrice2">Or enter price manually (USD)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                  <Input
+                    id="customPrice2"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="e.g. 350000"
+                    className="pl-7"
+                    value={customPrice}
+                    onChange={(e) => {
+                      const converted = toEnglishDigits(e.target.value);
+                      setCustomPrice(converted);
+                      if (converted) {
+                        handleInputChange('price', converted);
+                      }
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">This will override the selected price range above</p>
+              </div>
+              
+              {formData.purpose === 'rent' && (
+                <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                  💡 <strong>Tip:</strong> Include utilities, parking, or other costs in the description if they're separate from the base rent.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          )}
 
           {/* Ready Status Section */}
           <Card>
@@ -3097,7 +2678,6 @@ const PropertyForm = () => {
             </CardContent>
           </Card>
 
-
           {/* Photos & Videos Section */}
           <div className="space-y-6">
             <PhotoUploader
@@ -3112,63 +2692,23 @@ const PropertyForm = () => {
             />
           </div>
 
-          {/* Top Rated & Best Price Options - Admin only */}
-          {user?.isAdmin && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.topRated || false}
-                    onChange={(e) => setFormData(prev => ({ ...prev, topRated: e.target.checked }))}
-                    className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
-                  />
-                  <span className="font-medium text-gray-900">Top Rated</span>
-                  <div className="flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]" />
-                    ))}
-                  </div>
-                </label>
+          {/* Top Rated Option - Available for ALL property types */}
+          <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
+            <label className="flex items-center space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.topRated || false}
+                onChange={(e) => setFormData(prev => ({ ...prev, topRated: e.target.checked }))}
+                className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
+              />
+              <span className="font-medium text-gray-900">Top Rated</span>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} className="h-4 w-4 fill-[#3bcac4] text-[#3bcac4]" />
+                ))}
               </div>
-              <div className="rounded-lg border p-4 bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.bestPrice || false}
-                    onChange={(e) => setFormData(prev => ({ ...prev, bestPrice: e.target.checked }))}
-                    className="h-5 w-5 rounded border-gray-300 text-[#3bcac4] focus:ring-[#3bcac4]"
-                  />
-                  <span className="font-medium text-gray-900">Best Price</span>
-                  <span className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-0.5 rounded-full">💰</span>
-                </label>
-              </div>
-              <div className="rounded-lg border p-4 bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={(formData as any).acceptablePrice || false}
-                    onChange={(e) => setFormData(prev => ({ ...prev, acceptablePrice: e.target.checked }))}
-                    className="h-5 w-5 rounded border-gray-300 text-[#005476] focus:ring-[#005476]"
-                  />
-                  <span className="font-medium text-gray-900">Acceptable Price</span>
-                  <span className="bg-[#005476] text-white text-xs font-bold px-2 py-0.5 rounded-full">✅</span>
-                </label>
-              </div>
-              <div className="rounded-lg border p-4 bg-gradient-to-r from-slate-100 to-slate-50">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={(formData as any).highPrice || false}
-                    onChange={(e) => setFormData(prev => ({ ...prev, highPrice: e.target.checked }))}
-                    className="h-5 w-5 rounded border-gray-300 text-slate-600 focus:ring-slate-400"
-                  />
-                  <span className="font-medium text-gray-900">High Price</span>
-                  <span className="bg-slate-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">📈</span>
-                </label>
-              </div>
-            </div>
-          )}
+            </label>
+          </div>
 
           {/* Submit Button */}
           <div className="flex justify-between items-center">
@@ -3224,8 +2764,9 @@ const PropertyForm = () => {
               </Button>
             ) : (
               <Button 
-                type="submit"
+                type="button" 
                 disabled={isSubmitting}
+                onClick={() => { if (!isSubmitting) setShowListingTypePopup(true); }}
                 data-testid="button-submit-property"
                 className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
               >
@@ -3236,7 +2777,6 @@ const PropertyForm = () => {
           </div>
         </form>
         
-
         {/* Listing Type Selection Popup */}
         <ListingTypePopup
           open={showListingTypePopup}
@@ -3274,7 +2814,6 @@ const PropertyForm = () => {
             }}
             propertyId={paymentSuccessDetails.propertyId}
             propertyTitle={paymentSuccessDetails.propertyTitle}
-            propertyLocation={paymentSuccessDetails.propertyLocation}
             durationDays={paymentSuccessDetails.durationDays}
             amount={paymentSuccessDetails.amount}
           />

@@ -7,7 +7,6 @@ import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslateText } from "@/hooks/useAutoTranslate";
-import { slugifyProperty } from "@/lib/slugify";
 
 interface PropertyCardProps {
   id: number;
@@ -22,9 +21,6 @@ interface PropertyCardProps {
   status: string;
   isFeatured?: boolean;
   topRated?: boolean | null;
-  bestPrice?: boolean | null;
-  acceptablePrice?: boolean | null;
-  highPrice?: boolean | null;
   isSold?: boolean | null;
 }
 
@@ -41,15 +37,12 @@ const PropertyCard = ({
   status,
   isFeatured = false,
   topRated = false,
-  bestPrice = false,
-  acceptablePrice = false,
-  highPrice = false,
   isSold = false,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorited = isFavorite(id);
-  const translatedTitle = title;
+  const translatedTitle = useAutoTranslateText(title);
   const getPropertyTypeColor = () => {
     // Use consistent Kinglike blue color (#005476) for all property types
     return "bg-[#005476] text-white";
@@ -136,7 +129,7 @@ const PropertyCard = ({
   return (
     <Card className="overflow-hidden h-full flex flex-col">
       <div className="relative">
-        <Link href={`/property/${slugifyProperty(title, location, id)}`} className="block">
+        <Link href={`/property/${id}`} className="block">
           <div className="relative">
             <img
               src={images && images.length > 0 ? images[0] : "https://via.placeholder.com/800x600?text=No+Image"}
@@ -194,23 +187,6 @@ const PropertyCard = ({
             </Badge>
           </div>
         )}
-        <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1">
-          {bestPrice && (
-            <Badge className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-1 shadow-md">
-              {t('badges.bestPrice', 'Best Price')}
-            </Badge>
-          )}
-          {acceptablePrice && (
-            <Badge className="bg-[#005476] text-white text-xs font-bold px-2 py-1 shadow-md">
-              {t('badges.acceptablePrice', 'Acceptable Price')}
-            </Badge>
-          )}
-          {highPrice && (
-            <Badge className="bg-slate-600 text-white text-xs font-bold px-2 py-1 shadow-md">
-              {t('badges.highPrice', 'High Price')}
-            </Badge>
-          )}
-        </div>
       </div>
       <CardContent className="p-4 flex-1 flex flex-col">
         <div className="flex justify-between items-start mb-1">
@@ -254,7 +230,7 @@ const PropertyCard = ({
         
         <div className="mt-4 mt-auto">
           <Button className="w-full bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
-            <Link href={`/property/${slugifyProperty(title, location, id)}`}>
+            <Link href={`/property/${id}`}>
               <span className="flex items-center justify-center">
                 {t('property.viewDetails', 'View Details')}
                 <ArrowRight className="ml-2 h-4 w-4" />

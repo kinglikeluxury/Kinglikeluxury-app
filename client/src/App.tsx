@@ -22,11 +22,7 @@ import AddProject from "@/pages/admin/add-project";
 import BlogManagement from "@/pages/admin/blog-management";
 import LeadsPage from "@/pages/admin/leads";
 import ProjectOffer from "@/pages/admin/project-offer";
-import AdminNotificationsPage from "@/pages/admin/notifications";
-import EmailCampaignPage from "@/pages/admin/email-campaign";
-import ConsultationBooking from "@/pages/consultation-booking";
-import AdminConsultations from "@/pages/admin/consultations";
-import UserNotificationsPage from "@/pages/notifications";
+import NotificationsPage from "@/pages/admin/notifications";
 import NotFound from "@/pages/not-found";
 import Blog from "@/pages/blog";
 import BlogPost from "@/pages/blog-post";
@@ -39,13 +35,9 @@ import ForgotPassword from "@/pages/forgot-password";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import PrivacyTerms from "@/pages/privacy-terms";
-import AiAdvisorPage from "@/pages/ai-advisor";
-import AiLeadsPage from "@/pages/admin/ai-leads";
-import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
-import SplashScreen from "@/components/SplashScreen";
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { getLanguageDirection } from "./lib/i18n";
 
 function Router() {
@@ -62,7 +54,7 @@ function Router() {
           <Route path="/blog" component={Blog} />
           <Route path="/blog/:slug" component={BlogPost} />
           <Route path="/:lang/blog/:slug" component={BlogPostLang} />
-          <Route path="/property/:slug" component={PropertyDetail} />
+          <Route path="/property/:id" component={PropertyDetail} />
           <Route path="/submit-property" component={SubmitProperty} />
           <Route path="/submit-property/form" component={PropertyForm} />
           <Route path="/property/:id/edit" component={PropertyForm} />
@@ -74,13 +66,7 @@ function Router() {
           <Route path="/admin/blog" component={BlogManagement} />
           <Route path="/admin/leads" component={LeadsPage} />
           <Route path="/admin/project-offer" component={ProjectOffer} />
-          <Route path="/admin/notifications" component={AdminNotificationsPage} />
-          <Route path="/admin/email-campaign" component={EmailCampaignPage} />
-          <Route path="/admin/consultations" component={AdminConsultations} />
-          <Route path="/admin/ai-leads" component={AiLeadsPage} />
-          <Route path="/ai-advisor" component={AiAdvisorPage} />
-          <Route path="/consultation" component={ConsultationBooking} />
-          <Route path="/notifications" component={UserNotificationsPage} />
+          <Route path="/admin/notifications" component={NotificationsPage} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/map" component={MapView} />
           <Route path="/payment/success" component={PaymentSuccess} />
@@ -97,15 +83,13 @@ function Router() {
         <Footer />
       </div>
       <BottomNav />
-      <FloatingAIButton />
     </div>
   );
 }
 
 function App() {
   const { i18n } = useTranslation();
-  const [splashDone, setSplashDone] = useState(false);
-
+  
   useEffect(() => {
     document.documentElement.dir = getLanguageDirection(i18n.language);
     document.documentElement.lang = i18n.language;
@@ -118,16 +102,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <InstallPWA />
-            {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
-            <div
-              style={{
-                opacity: splashDone ? 1 : 0,
-                transition: "opacity 0.5s ease-in-out",
-                pointerEvents: splashDone ? "auto" : "none",
-              }}
-            >
-              <Router />
-            </div>
+            <Router />
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>

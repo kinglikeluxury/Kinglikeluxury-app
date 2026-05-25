@@ -315,9 +315,8 @@ const PropertyForm = ({ isAdmin = false }) => {
           description: "Your changes have been saved.",
         });
 
-        // Redirect to the property view page
-        const { slugifyProperty: sp } = await import('@/lib/slugify');
-        navigate(`/property/${sp(result.title || '', result.location || '', result.id || propertyId)}`);
+        // Redirect to the property page
+        navigate(`/property/${propertyId}`);
       } else {
         // Create new property
         response = await apiRequest("POST", "/api/properties", data);
@@ -332,8 +331,7 @@ const PropertyForm = ({ isAdmin = false }) => {
 
         // Redirect to the property page or my properties page
         if (data.propertyType === PROPERTY_TYPES.PROJECT) {
-          const { slugifyProperty: sp } = await import('@/lib/slugify');
-          navigate(`/property/${sp(result.title || '', result.location || '', result.id)}`);
+          navigate(`/property/${result.id}`);
         } else {
           navigate("/properties?myProperties=true");
         }

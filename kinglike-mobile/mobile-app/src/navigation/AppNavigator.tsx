@@ -31,7 +31,7 @@ export type RootStackParamList = {
   };
   Login: undefined;
   Register: undefined;
-  PhoneVerification: { phoneNumber: string; onVerified?: () => Promise<void> };
+  PhoneVerification: { phoneNumber: string; onVerified?: () => void };
   Projects: undefined;
   Blog: undefined;
   SubmitProperty: undefined;

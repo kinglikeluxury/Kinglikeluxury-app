@@ -1,36 +1,21 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { db } from "./db";
 import { notificationTemplates, notificationLogs, users } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import pg from "pg";
-const { Pool } = pg;
 
-const FROM = "Kinglike Luxury <info@kinglikeluxury.app>";
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
 
-async function getResendKey(): Promise<string | null> {
-  const key = process.env.RESEND_API_KEY;
-  if (key) return key;
-  try {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const r = await pool.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
-    await pool.end();
-    if (r.rows.length > 0) return r.rows[0].value;
-  } catch {}
-  return null;
+function createTransporter() {
+  if (!GMAIL_USER || !GMAIL_PASS) return null;
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+  });
 }
 
-let _resend: Resend | null = null;
-async function getResend(): Promise<Resend | null> {
-  if (_resend) return _resend;
-  const key = await getResendKey();
-  if (!key) return null;
-  _resend = new Resend(key);
-  return _resend;
-}
-
-export async function isEmailConfigured(): Promise<boolean> {
-  const key = await getResendKey();
-  return !!key;
+export function isEmailConfigured(): boolean {
+  return !!(GMAIL_USER && GMAIL_PASS);
 }
 
 const DEFAULT_TEMPLATES: Record<string, { subject: string; bodyHtml: string; bodyText: string }> = {
@@ -77,10 +62,14 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; bodyHtml: string; bod
     </div>
     <div style="padding:40px">
       <h2 style="color:#005476;margin-top:0">مرحباً {{username}}!</h2>
-      <p style="color:#555;line-height:1.9;font-size:15px">إليك أحدث العقارات الفاخرة المتاحة هذا الأسبوع على منصتنا.</p>
+      <p style="color:#555;line-height:1.9;font-size:15px">
+        إليك أحدث العقارات الفاخرة المتاحة هذا الأسبوع على منصتنا.
+      </p>
       <div style="background:#f0f9f9;border-radius:12px;padding:24px;margin:24px 0">
         <p style="color:#3bcac4;font-weight:bold;margin:0 0 12px;font-size:16px">🏠 عقارات جديدة بانتظارك</p>
-        <p style="color:#555;line-height:1.8;margin:0">شقق فاخرة، فيلات راقية، وأراضٍ استثمارية في أفضل المواقع.</p>
+        <p style="color:#555;line-height:1.8;margin:0">
+          شقق فاخرة، فيلات راقية، وأراضٍ استثمارية في أفضل المواقع.
+        </p>
       </div>
       <div style="text-align:center;margin:32px 0">
         <a href="https://kinglikeluxury.app/properties" style="display:inline-block;background:linear-gradient(135deg,#3bcac4,#005476);color:#fff;padding:15px 40px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:16px">
@@ -106,8 +95,12 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; bodyHtml: string; bod
     </div>
     <div style="padding:40px">
       <h2 style="color:#005476;margin-top:0">مرحباً {{username}}!</h2>
-      <p style="color:#555;line-height:1.9;font-size:15px">لاحظنا أنك لم تزرنا منذ فترة — ونحن نشتاق إليك!</p>
-      <p style="color:#555;line-height:1.9;font-size:15px">لديك الكثير من العقارات الجديدة والعروض الحصرية التي لم تراها بعد.</p>
+      <p style="color:#555;line-height:1.9;font-size:15px">
+        لاحظنا أنك لم تزرنا منذ فترة — ونحن نشتاق إليك!
+      </p>
+      <p style="color:#555;line-height:1.9;font-size:15px">
+        لديك الكثير من العقارات الجديدة والعروض الحصرية التي لم تراها بعد.
+      </p>
       <div style="background:#fff5f5;border:2px solid #3bcac4;border-radius:12px;padding:24px;margin:24px 0;text-align:center">
         <p style="color:#005476;font-weight:bold;margin:0 0 8px;font-size:18px">عروض حصرية لا تفوتها!</p>
         <p style="color:#555;margin:0;font-size:14px">عقارات VIP جديدة بأسعار تنافسية</p>
@@ -161,9 +154,9 @@ async function logNotification(params: {
 
 export async function sendWelcomeEmail(user: { id: number; username: string; email?: string | null }) {
   if (!user.email) return;
-  const resend = await getResend();
-  if (!resend) {
-    console.log("[Email] Resend not configured — skipping welcome email for", user.email);
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.log("[Email] Gmail not configured — skipping welcome email for", user.email);
     return;
   }
 
@@ -172,97 +165,25 @@ export async function sendWelcomeEmail(user: { id: number; username: string; ema
 
   const vars = { username: user.username };
   try {
-    const result = await resend.emails.send({
-      from: FROM,
+    await transporter.sendMail({
+      from: `"Kinglike Luxury" <${GMAIL_USER}>`,
       to: user.email,
       subject: fillTemplate(template.subject ?? "", vars),
       html: fillTemplate(template.bodyHtml ?? "", vars),
       text: fillTemplate(template.bodyText ?? "", vars),
     });
-    if (result.error) throw new Error(result.error.message);
     await logNotification({ userId: user.id, type: "email", trigger: "welcome", recipient: user.email, status: "sent" });
-    console.log("[Email] ✅ Welcome email sent to", user.email);
+    console.log("[Email] Welcome email sent to", user.email);
   } catch (err: any) {
     await logNotification({ userId: user.id, type: "email", trigger: "welcome", recipient: user.email, status: "failed", error: err.message });
-    console.error("[Email] ❌ Welcome email failed:", err.message);
-  }
-}
-
-export async function sendNewPropertyNotification(property: {
-  id: number;
-  title: string;
-  propertyType: string;
-  price: number;
-  location: string;
-  ownerName?: string;
-  ownerEmail?: string | null;
-  ownerPhone?: string | null;
-}) {
-  const ADMIN_EMAIL = "info@kinglikeluxury.app";
-
-  const typeLabels: Record<string, string> = {
-    apartment: "شقة / Apartment",
-    villa: "فيلا / Villa",
-    land: "أرض / Land",
-    commercial: "تجاري / Commercial",
-    project: "مشروع / Project",
-  };
-
-  const priceFormatted = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-  }).format(property.price);
-
-  const html = `
-<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl">
-  <div style="background:linear-gradient(135deg,#3bcac4,#005476);padding:30px;border-radius:12px 12px 0 0">
-    <h1 style="color:#fff;margin:0;font-size:22px">🏠 عقار جديد يحتاج موافقة</h1>
-    <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px">New Property Pending Approval</p>
-  </div>
-  <div style="background:#f9fafb;padding:28px;border:1px solid #e5e7eb">
-    <table style="width:100%;border-collapse:collapse">
-      <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:40%">رقم العقار / ID</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#111827">#${property.id}</td></tr>
-      <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">العنوان / Title</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#111827">${property.title}</td></tr>
-      <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">النوع / Type</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${typeLabels[property.propertyType] || property.propertyType}</td></tr>
-      <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">السعر / Price</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#005476;font-weight:bold">${priceFormatted}</td></tr>
-      <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">الموقع / Location</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${property.location}</td></tr>
-      ${property.ownerName ? `<tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">صاحب العقار</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${property.ownerName}</td></tr>` : ""}
-      ${property.ownerPhone ? `<tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280">الهاتف / Phone</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827">${property.ownerPhone}</td></tr>` : ""}
-      ${property.ownerEmail ? `<tr><td style="padding:10px 0;color:#6b7280">البريد / Email</td><td style="padding:10px 0;color:#111827">${property.ownerEmail}</td></tr>` : ""}
-    </table>
-    <div style="text-align:center;margin-top:28px">
-      <a href="https://kinglikeluxury.app/admin/dashboard" style="background:linear-gradient(135deg,#3bcac4,#005476);color:#fff;padding:14px 30px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;display:inline-block">مراجعة العقار والموافقة عليه ←</a>
-    </div>
-  </div>
-  <div style="background:#005476;padding:14px;border-radius:0 0 12px 12px;text-align:center">
-    <p style="color:rgba(255,255,255,0.7);margin:0;font-size:12px">Kinglike Luxury · info@kinglikeluxury.app</p>
-  </div>
-</div>`;
-
-  const resend = await getResend();
-  if (!resend) {
-    console.log("[Email] Resend not configured — skipping property notification #" + property.id);
-    return;
-  }
-  try {
-    const result = await resend.emails.send({
-      from: FROM,
-      to: ADMIN_EMAIL,
-      subject: `🏠 عقار جديد بحاجة للمراجعة — ${property.title}`,
-      html,
-    });
-    if (result.error) throw new Error(result.error.message);
-    console.log(`[Email] ✅ Property notification sent for #${property.id}`);
-  } catch (err: any) {
-    console.error(`[Email] ❌ Property notification failed for #${property.id}:`, err.message);
+    console.error("[Email] Failed to send welcome email:", err.message);
   }
 }
 
 export async function sendBulkEmail(trigger: "weekly_update" | "inactive_reminder") {
-  const resend = await getResend();
-  if (!resend) {
-    console.log("[Email] Resend not configured — skipping bulk send for", trigger);
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.log("[Email] Gmail not configured — skipping bulk send for", trigger);
     return { sent: 0, failed: 0, skipped: "not configured" };
   }
 
@@ -281,14 +202,13 @@ export async function sendBulkEmail(trigger: "weekly_update" | "inactive_reminde
   for (const user of targetUsers) {
     const vars = { username: user.username };
     try {
-      const result = await resend.emails.send({
-        from: FROM,
+      await transporter.sendMail({
+        from: `"Kinglike Luxury" <${GMAIL_USER}>`,
         to: user.email!,
         subject: fillTemplate(template.subject ?? "", vars),
         html: fillTemplate(template.bodyHtml ?? "", vars),
         text: fillTemplate(template.bodyText ?? "", vars),
       });
-      if (result.error) throw new Error(result.error.message);
       await logNotification({ userId: user.id, type: "email", trigger, recipient: user.email!, status: "sent" });
       sent++;
       await new Promise(r => setTimeout(r, 200));

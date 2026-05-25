@@ -47,8 +47,3 @@ timeoutMs = 20000
 
 [userenv.production]
 BOG_BASE_URL = "https://kinglikeluxury-app.com"
-
-[userenv.shared]
-VAPID_PUBLIC_KEY = "BPBnfLcwvh1xgKqW1X5bFAJrJ0V06ZeULHQ9prjZWO0LwI6AqsUwsB0DvDqNpO0kZ61CWYITcYGtAitE4F-UUuY"
-VAPID_PRIVATE_KEY = "VdgQxT-HKvAX3hOV_CGidIES_opbSIJmnfR4O96eSco"
-VAPID_SUBJECT = "mailto:info@kinglikeluxury.app"

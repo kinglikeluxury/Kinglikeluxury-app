@@ -6,8 +6,8 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#005476",
+  "theme_color": "#3bcac4",
   "orientation": "portrait-primary",
   "id": "kinglike-luxury-real-estate",
   "lang": "en",
@@ -16,7 +16,7 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icons/splash-blank-192.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
@@ -28,7 +28,7 @@
       "purpose": "maskable"
     },
     {
-      "src": "/icons/splash-blank-512.png",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

@@ -1,92 +1,51 @@
-const CACHE_NAME = 'kinglike-v3';
-const urlsToCache = ['/', '/index.html'];
+const CACHE_NAME = 'kinglike-v2';
+const urlsToCache = [
+  '/',
+  '/index.html'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(urlsToCache))
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames.map((name) => {
-          if (name !== CACHE_NAME) return caches.delete(name);
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
         })
-      )
-    )
+      );
+    })
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  
   const url = new URL(event.request.url);
   if (url.pathname.startsWith('/locales/')) {
     event.respondWith(fetch(event.request));
     return;
   }
+  
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         if (response.status === 200) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          caches.open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, responseClone));
         }
         return response;
       })
       .catch(() => caches.match(event.request))
-  );
-});
-
-// ── Web Push Notifications ───────────────────────────────────────────────────
-self.addEventListener('push', (event) => {
-  let data = { title: 'Kinglike Luxury', body: 'You have a new notification' };
-  try {
-    data = event.data ? event.data.json() : data;
-  } catch (e) {
-    data.body = event.data ? event.data.text() : data.body;
-  }
-
-  const title = data.title || 'Kinglike Luxury';
-  const options = {
-    body: data.body || '',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
-    data: data.data || {},
-    vibrate: [200, 100, 200],
-    requireInteraction: false,
-    actions: data.data && data.data.meetingLink
-      ? [{ action: 'open', title: 'Join Meeting' }]
-      : [{ action: 'view', title: 'View Details' }],
-    tag: data.data && data.data.bookingId ? 'booking-' + data.data.bookingId : 'kinglike-notif',
-  };
-
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  var notifData = event.notification.data || {};
-  var targetUrl = '/notifications';
-
-  if (event.action === 'open' && notifData.meetingLink) {
-    targetUrl = notifData.meetingLink;
-  }
-
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      for (var i = 0; i < clientList.length; i++) {
-        var client = clientList[i];
-        if (client.url.indexOf(self.location.origin) !== -1 && 'focus' in client) {
-          client.focus();
-          client.navigate(targetUrl);
-          return;
-        }
-      }
-      if (clients.openWindow) return clients.openWindow(targetUrl);
-    })
   );
 });

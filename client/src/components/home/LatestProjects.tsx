@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, MapPin, User } from "lucide-react";
-import { slugifyProperty } from "@/lib/slugify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Project, Property } from "@shared/schema";
 
@@ -23,14 +22,8 @@ const getTranslatedStatus = (status: string, t: (key: string, fallback: string) 
   return statusMap[status] || status;
 };
 
-const getLocalizedText = (text: string, textEn: string | null | undefined, lang: string): string => {
-  if (lang === 'en' && textEn) return textEn;
-  return text;
-};
-
 const LatestProjects = () => {
-  const { t, i18n } = useTranslation();
-  const lang = i18n.language;
+  const { t } = useTranslation();
   const { data: projects, isLoading } = useQuery<ProjectWithProperty[]>({
     queryKey: ['/api/projects'],
     staleTime: 60000, // 1 minute
@@ -96,13 +89,11 @@ const LatestProjects = () => {
                           {t('home.projects.completion', 'Completion:')} {project.completionDate}
                         </Badge>
                       </div>
-                      <Link href={`/property/${slugifyProperty(project.property.title, project.property.location, project.propertyId)}`} className="block mt-2">
-                        <p className="text-xl font-semibold text-gray-900">
-                          {getLocalizedText(project.property.title, (project.property as any).titleEn, lang)}
-                        </p>
-                        <p className="mt-1 text-base text-gray-500">
-                          {getLocalizedText(project.property.description, (project.property as any).descriptionEn, lang).slice(0, 100)}...
-                        </p>
+                      <Link href={`/property/${project.propertyId}`}>
+                        <a className="block mt-2">
+                          <p className="text-xl font-semibold text-gray-900">{project.property.title}</p>
+                          <p className="mt-1 text-base text-gray-500">{project.property.description.slice(0, 100)}...</p>
+                        </a>
                       </Link>
                       <div className="mt-4">
                         <div className="flex items-center text-sm text-gray-500">
@@ -117,7 +108,7 @@ const LatestProjects = () => {
                     </div>
                     <div className="mt-6">
                       <Button asChild>
-                        <Link href={`/property/${slugifyProperty(project.property.title, project.property.location, project.propertyId)}`}>
+                        <Link href={`/property/${project.propertyId}`}>
                           <span className="flex items-center">
                             {t('property.viewProject', 'View Project Details')}
                             <ArrowRight className="ml-2 h-4 w-4" />

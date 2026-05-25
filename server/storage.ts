@@ -91,42 +91,6 @@ export interface IStorage {
   }): Promise<void>;
   completeBOGPayment(bogOrderId: string): Promise<void>;
   getBOGPaymentByPropertyId(propertyId: number): Promise<{ bogOrderId: string; amount: number; status: string } | null>;
-
-  // Consultation operations
-  getConsultationTimeSlots(date?: string): Promise<import("@shared/schema").ConsultationTimeSlot[]>;
-  createConsultationTimeSlot(data: import("@shared/schema").InsertConsultationTimeSlot): Promise<import("@shared/schema").ConsultationTimeSlot>;
-  deleteConsultationTimeSlot(id: number): Promise<boolean>;
-  getAvailableSlotsForDate(date: string): Promise<import("@shared/schema").ConsultationTimeSlot[]>;
-  createConsultationBooking(data: import("@shared/schema").InsertConsultationBooking): Promise<import("@shared/schema").ConsultationBooking>;
-  getConsultationBookings(filters?: { status?: string; country?: string; method?: string }): Promise<import("@shared/schema").ConsultationBooking[]>;
-  getConsultationBookingById(id: number): Promise<import("@shared/schema").ConsultationBooking | undefined>;
-  getUserConsultationBookings(userId: number): Promise<import("@shared/schema").ConsultationBooking[]>;
-  updateConsultationBooking(id: number, data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined>;
-  getConsultationSlotById(id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined>;
-
-  // User Notification operations
-  createUserNotification(data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification>;
-  getUserNotifications(userId: number): Promise<import("@shared/schema").UserNotification[]>;
-  markNotificationRead(id: number): Promise<void>;
-  markAllNotificationsRead(userId: number): Promise<void>;
-  getUnreadNotificationCount(userId: number): Promise<number>;
-
-  // Push Subscription operations
-  savePushSubscription(data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription>;
-  getPushSubscriptionsByUserId(userId: number): Promise<import("@shared/schema").PushSubscription[]>;
-  deletePushSubscriptionByEndpoint(endpoint: string): Promise<void>;
-
-  // AI Advisor operations
-  createAiConversation(userId: number, language: string): Promise<import("@shared/schema").AiConversation>;
-  addAiMessage(conversationId: number, role: string, content: string): Promise<import("@shared/schema").AiMessage>;
-  getAiMessages(conversationId: number): Promise<import("@shared/schema").AiMessage[]>;
-  upsertInvestorProfile(data: { conversationId: number; userId: number; accountPhone?: string; [key: string]: any }): Promise<import("@shared/schema").InvestorProfile>;
-  getAllInvestorProfiles(): Promise<(import("@shared/schema").InvestorProfile & { username?: string; conversation?: import("@shared/schema").AiMessage[] })[]>;
-  getInvestorProfileByConversation(conversationId: number): Promise<import("@shared/schema").InvestorProfile | undefined>;
-  getLatestInvestorProfileByUser(userId: number): Promise<import("@shared/schema").InvestorProfile | undefined>;
-  incrementConversationMessages(conversationId: number): Promise<void>;
-  completeConversation(conversationId: number): Promise<void>;
-  countTodayConversations(userId: number): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -482,38 +446,6 @@ export class MemStorage implements IStorage {
     }
     return null;
   }
-
-  // Consultation stubs for MemStorage
-  async getConsultationTimeSlots(_date?: string): Promise<import("@shared/schema").ConsultationTimeSlot[]> { return []; }
-  async createConsultationTimeSlot(_data: import("@shared/schema").InsertConsultationTimeSlot): Promise<import("@shared/schema").ConsultationTimeSlot> { throw new Error("Not implemented"); }
-  async deleteConsultationTimeSlot(_id: number): Promise<boolean> { return false; }
-  async getAvailableSlotsForDate(_date: string): Promise<import("@shared/schema").ConsultationTimeSlot[]> { return []; }
-  async createConsultationBooking(_data: import("@shared/schema").InsertConsultationBooking): Promise<import("@shared/schema").ConsultationBooking> { throw new Error("Not implemented"); }
-  async getConsultationBookings(_filters?: { status?: string; country?: string; method?: string }): Promise<import("@shared/schema").ConsultationBooking[]> { return []; }
-  async getConsultationBookingById(_id: number): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
-  async getUserConsultationBookings(_userId: number): Promise<import("@shared/schema").ConsultationBooking[]> { return []; }
-  async updateConsultationBooking(_id: number, _data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
-  async getConsultationSlotById(_id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined> { return undefined; }
-  async createUserNotification(_data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification> { throw new Error("Not implemented"); }
-  async getUserNotifications(_userId: number): Promise<import("@shared/schema").UserNotification[]> { return []; }
-  async markNotificationRead(_id: number): Promise<void> {}
-  async markAllNotificationsRead(_userId: number): Promise<void> {}
-  async getUnreadNotificationCount(_userId: number): Promise<number> { return 0; }
-  async savePushSubscription(_data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription> { throw new Error("Not implemented"); }
-  async getPushSubscriptionsByUserId(_userId: number): Promise<import("@shared/schema").PushSubscription[]> { return []; }
-  async deletePushSubscriptionByEndpoint(_endpoint: string): Promise<void> {}
-
-  // AI Advisor stubs
-  async createAiConversation(_userId: number, _language: string): Promise<import("@shared/schema").AiConversation> { throw new Error("Not implemented"); }
-  async addAiMessage(_conversationId: number, _role: string, _content: string): Promise<import("@shared/schema").AiMessage> { throw new Error("Not implemented"); }
-  async getAiMessages(_conversationId: number): Promise<import("@shared/schema").AiMessage[]> { return []; }
-  async upsertInvestorProfile(_data: any): Promise<import("@shared/schema").InvestorProfile> { throw new Error("Not implemented"); }
-  async getAllInvestorProfiles(): Promise<any[]> { return []; }
-  async getInvestorProfileByConversation(_conversationId: number): Promise<import("@shared/schema").InvestorProfile | undefined> { return undefined; }
-  async getLatestInvestorProfileByUser(_userId: number): Promise<import("@shared/schema").InvestorProfile | undefined> { return undefined; }
-  async incrementConversationMessages(_conversationId: number): Promise<void> {}
-  async completeConversation(_conversationId: number): Promise<void> {}
-  async countTodayConversations(_userId: number): Promise<number> { return 0; }
 }
 
 // Import the DatabaseStorage class

@@ -10,33 +10,22 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search } from "lucide-react";
+import { Menu, Heart } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
-import NotificationBell from "./NotificationBell";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 
 const Navbar = () => {
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const { user, logout } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [adminSearchId, setAdminSearchId] = useState("");
   const { favorites, removeFromFavorites } = useFavorites();
   const { t } = useTranslation();
 
   const handleLogout = async () => {
     await logout();
-  };
-
-  const handleAdminSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const id = adminSearchId.trim();
-    if (id && !isNaN(Number(id))) {
-      navigate(`/property/${id}`);
-      setAdminSearchId("");
-    }
   };
 
   const navLinks = [
@@ -50,13 +39,13 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="bg-white shadow-sm sticky top-0 z-30 overflow-visible">
+      <nav className="bg-white shadow-sm sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 sm:h-14 overflow-visible">
+          <div className="flex justify-between h-24 sm:h-16">
             {/* Logo */}
-            <div className="flex items-center overflow-visible">
+            <div className="flex items-center">
               <Link href="/">
-                <img src={logoPath} alt="Kinglike Luxury" className="h-48 sm:h-48 w-auto translate-y-3" />
+                <img src={logoPath} alt="Kinglike Luxury" className="h-20 sm:h-10 w-auto" />
               </Link>
               {/* Desktop nav links */}
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -122,7 +111,6 @@ const Navbar = () => {
               </DropdownMenu>
 
               <LanguageSwitcher />
-              <NotificationBell />
 
               {user ? (
                 <>
@@ -135,100 +123,30 @@ const Navbar = () => {
                         {user.username.substring(0, 2).toUpperCase()}
                       </div>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      {/* User info */}
-                      <div className="px-3 py-2 border-b border-gray-100">
-                        <p className="font-semibold text-sm text-gray-900">{user.username}</p>
-                        {(user.email || user.phoneNumber) && (
-                          <p className="text-xs text-gray-500 truncate">{user.email || user.phoneNumber}</p>
-                        )}
-                      </div>
-
-                      {/* Navigation links */}
-                      <DropdownMenuItem asChild>
-                        <Link href="/" className="flex items-center gap-2"><Home className="w-4 h-4 text-gray-400" />{t("nav.home", "الرئيسية")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/properties?type=apartment" className="flex items-center gap-2"><Building2 className="w-4 h-4 text-gray-400" />{t("propertyTypes.apartment", "شقق")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/projects" className="flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" />{t("nav.projects", "المشاريع")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/blog" className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-gray-400" />{t("nav.blog", "المدونة")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/map" className="flex items-center gap-2"><Map className="w-4 h-4 text-gray-400" />{t("nav.map", "الخريطة")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/favorites" className="flex items-center gap-2"><Heart className="w-4 h-4 text-gray-400" />{t("favorites.title", "المفضلة")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/properties?myProperties=true" className="flex items-center gap-2"><Star className="w-4 h-4 text-gray-400" />{t("property.myProperties", "عقاراتي")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/submit-property" className="flex items-center gap-2"><PlusCircle className="w-4 h-4 text-gray-400" />{t("property.submit", "إضافة عقار")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/privacy-policy" className="flex items-center gap-2"><Shield className="w-4 h-4 text-gray-400" />{t("nav.privacyPolicy", "سياسة الخصوصية")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/terms" className="flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" />{t("nav.termsConditions", "الشروط والأحكام")}</Link>
-                      </DropdownMenuItem>
-
-                      {/* Admin section */}
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem><span className="font-medium">{user.username}</span></DropdownMenuItem>
+                      {(user.email || user.phoneNumber) && (
+                        <DropdownMenuItem>
+                          <span className="text-sm text-gray-500">
+                            {user.email || user.phoneNumber}
+                          </span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild><Link href="/properties?myProperties=true">{t("property.myProperties", "My Properties")}</Link></DropdownMenuItem>
                       {user.isAdmin && (
                         <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel className="text-xs text-gray-400 font-semibold uppercase">Admin</DropdownMenuLabel>
                           <DropdownMenuItem asChild><Link href="/admin/dashboard">{t("admin.dashboard", "Admin Dashboard")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/approvals">{t("admin.approvals", "Approvals")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/add-project">{t("admin.createProject", "Add Project")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/blog">{t("admin.blogManagement", "Blog")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/leads">👥 {t("admin.leads", "Leads Database")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ حملة إيميل</Link></DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <div className="px-2 py-1.5">
-                            <p className="text-[10px] text-gray-400 font-semibold uppercase mb-1.5 flex items-center gap-1">
-                              <Search className="w-3 h-3" /> Search by Property ID
-                            </p>
-                            <form onSubmit={handleAdminSearch} className="flex gap-1">
-                              <input
-                                type="number"
-                                min="1"
-                                value={adminSearchId}
-                                onChange={(e) => setAdminSearchId(e.target.value)}
-                                placeholder="Property ID..."
-                                className="flex-1 text-sm border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:border-[#3bcac4] min-w-0"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              <button
-                                type="submit"
-                                className="px-2 py-1 rounded-md text-white text-sm font-medium flex-shrink-0"
-                                style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
-                              >
-                                <Search className="w-3.5 h-3.5" />
-                              </button>
-                            </form>
-                          </div>
                         </>
                       )}
-
-                      {/* Language */}
                       <DropdownMenuSeparator />
-                      <div className="px-2 py-1">
-                        <LanguageSwitcher />
-                      </div>
-
-                      {/* Account actions */}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link href="/change-password" className="flex items-center gap-2"><KeyRound className="w-4 h-4 text-gray-400" />{t("auth.changePassword", "تغيير كلمة السر")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-500 focus:text-red-500">
-                        <LogOut className="w-4 h-4" />{t("auth.logout", "تسجيل الخروج")}
-                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild><Link href="/change-password">{t("auth.changePassword", "Change Password")}</Link></DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleLogout}>{t("auth.logout", "Sign out")}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>

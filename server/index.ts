@@ -1,6 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config();
-console.log("[Startup] RESEND_API_KEY:", process.env.RESEND_API_KEY ? `SET (len=${process.env.RESEND_API_KEY.length})` : "NOT SET");
 import express, { type Request, Response, NextFunction } from "express";
 import path from "path";
 import cors from "cors";
@@ -8,8 +5,6 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { generateSitemapXml } from "./sitemapGenerator";
-import { storage } from "./storage";
-import { translateText, detectLanguage } from "./translate";
 
 const app = express();
 
@@ -123,43 +118,4 @@ app.use((req, res, next) => {
   server.headersTimeout = 630000;
 
   startScheduler();
-
-  // ─── Auto-retranslate blog posts for newly added languages ───────────────
-  const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];
-  (async () => {
-    try {
-      const posts = await storage.getBlogPosts();
-      let updated = 0;
-      for (const post of posts) {
-        const existing: any = (post as any).translations ?? {};
-        const missing = NEW_LANGS.filter(l => !existing[l]);
-        if (missing.length === 0) continue;
-
-        const detectedLang = await detectLanguage(post.title + " " + post.content.substring(0, 200));
-        const sourceTitle   = existing[detectedLang]?.title   ?? existing["en"]?.title   ?? post.title;
-        const sourceContent = existing[detectedLang]?.content ?? existing["en"]?.content ?? post.content;
-        const sourceExcerpt = existing[detectedLang]?.excerpt ?? existing["en"]?.excerpt ?? (post as any).excerpt ?? "";
-
-        const newTranslations: any = { ...existing };
-        for (const lang of missing) {
-          try {
-            const [tTitle, tContent, tExcerpt] = await Promise.all([
-              translateText(sourceTitle, lang, detectedLang),
-              translateText(sourceContent, lang, detectedLang),
-              translateText(sourceExcerpt, lang, detectedLang),
-            ]);
-            newTranslations[lang] = { title: tTitle, content: tContent, excerpt: tExcerpt };
-          } catch (e) {
-            console.error(`[AutoTranslate] lang=${lang} post=${post.id}:`, e);
-          }
-        }
-        await storage.updateBlogPost(post.id, { translations: newTranslations } as any);
-        updated++;
-        console.log(`[AutoTranslate] Post ${post.id} — added: ${missing.join(", ")}`);
-      }
-      if (updated > 0) console.log(`[AutoTranslate] Done — ${updated}/${posts.length} posts updated`);
-    } catch (err) {
-      console.error("[AutoTranslate] Startup retranslation failed:", err);
-    }
-  })();
 })();

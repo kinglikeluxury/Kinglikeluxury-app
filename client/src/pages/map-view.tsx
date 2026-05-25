@@ -6,7 +6,6 @@ import { MapPin } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import type { Property } from '@shared/schema';
-import { slugifyProperty } from '@/lib/slugify';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 
@@ -117,7 +116,7 @@ const MapView = () => {
       bounds.push([lat, lng]);
 
       marker.on('click', () => {
-        navigate(`/property/${slugifyProperty(property.title, property.location, property.id)}`);
+        navigate(`/property/${property.id}`);
       });
     });
 

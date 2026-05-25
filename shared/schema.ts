@@ -86,7 +86,7 @@ export const properties = pgTable("properties", {
   latitude: text("latitude"), // Store latitude as text for precision
   longitude: text("longitude"), // Store longitude as text for precision
   area: text("area").notNull(), // stored as comma-separated values for range support
-  bedrooms: text("bedrooms"), // comma-separated counts for multi-unit projects, nullable for land
+  bedrooms: integer("bedrooms"), // nullable for land
   bathrooms: integer("bathrooms"), // nullable for land
   floorNumber: integer("floor_number"), // for apartments
   propertyType: text("property_type").notNull(),
@@ -111,19 +111,7 @@ export const properties = pgTable("properties", {
   listingExpiresAt: timestamp("listing_expires_at"),
   readyStatus: text("ready_status"),
   topRated: boolean("top_rated").default(false),
-  bestPrice: boolean("best_price").default(false),
-  acceptablePrice: boolean("acceptable_price").default(false),
-  highPrice: boolean("high_price").default(false),
   isSold: boolean("is_sold").default(false).notNull(),
-  priceMax: integer("price_max"),
-  landType: text("land_type"), // "agricultural" | "non-agricultural" — only for land type
-  landFeatures: jsonb("land_features").$type<string[]>().default([]), // electricity, water, etc.
-  paymentMethod: text("payment_method"), // "cash" | "installments"
-  downPaymentPercent: integer("down_payment_percent"), // e.g. 10, 15, 20 ... 90
-  installmentDuration: text("installment_duration"), // e.g. "1-month", "6-months", "2-years"
-  titleEn: text("title_en"), // Optional English title for multilingual display
-  descriptionEn: text("description_en"), // Optional English description
-
 });
 
 export const insertPropertySchema = createInsertSchema(properties)
@@ -151,13 +139,8 @@ export const insertPropertySchema = createInsertSchema(properties)
     features: z.array(z.string()),
     amenities: z.array(z.string()).optional().default([]),
     floorNumber: z.number().optional().nullable(),
-    bedrooms: z.string().optional().nullable(),
+    bedrooms: z.number().optional().nullable(),
     bathrooms: z.number().optional().nullable(),
-    landType: z.string().optional().nullable(),
-    landFeatures: z.array(z.string()).optional().default([]),
-    paymentMethod: z.string().optional().nullable(),
-    downPaymentPercent: z.number().optional().nullable(),
-    installmentDuration: z.string().optional().nullable(),
   });
 
 // Project details (for construction projects)
@@ -317,173 +300,3 @@ export type PropertyWithAgent = Property & {
 };
 export type ProjectWithProperty = Project & { property: Property };
 export type BlogPostWithAuthor = BlogPost & { author: User };
-
-// App settings — persistent key-value store for admin config
-export const appSettings = pgTable("app_settings", {
-  key: text("key").primaryKey(),
-  value: text("value").notNull(),
-});
-
-// ── Consultation Feature ─────────────────────────────────────────────────────
-
-export const CONSULTATION_COUNTRIES = {
-  GEORGIA: "georgia",
-  TURKEY: "turkey",
-  DUBAI: "dubai",
-  NORTH_CYPRUS: "north_cyprus",
-} as const;
-
-export const CONSULTATION_TYPES = {
-  INVESTMENT: "investment",
-  VIEWING: "viewing",
-  RESIDENCY: "residency",
-  INSTALLMENT: "installment",
-} as const;
-
-export const CONSULTATION_METHODS = {
-  GOOGLE_MEET: "google_meet",
-  ZOOM: "zoom",
-  WHATSAPP_VIDEO: "whatsapp_video",
-  WHATSAPP_VOICE: "whatsapp_voice",
-} as const;
-
-export const CONSULTATION_STATUS = {
-  PENDING: "pending",
-  CONFIRMED: "confirmed",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-  REJECTED: "rejected",
-} as const;
-
-export const consultationTimeSlots = pgTable("consultation_time_slots", {
-  id: serial("id").primaryKey(),
-  date: text("date").notNull(),
-  startTime: text("start_time").notNull(),
-  endTime: text("end_time").notNull(),
-  isAvailable: boolean("is_available").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertConsultationTimeSlotSchema = createInsertSchema(consultationTimeSlots).omit({ id: true, createdAt: true });
-export type ConsultationTimeSlot = typeof consultationTimeSlots.$inferSelect;
-export type InsertConsultationTimeSlot = z.infer<typeof insertConsultationTimeSlotSchema>;
-
-export const consultationBookings = pgTable("consultation_bookings", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
-  propertyId: integer("property_id").references(() => properties.id),
-  propertyTitle: text("property_title"),
-  slotId: integer("slot_id").references(() => consultationTimeSlots.id),
-  country: text("country").notNull(),
-  consultationType: text("consultation_type").notNull(),
-  consultationMethod: text("consultation_method").notNull(),
-  status: text("status").notNull().default("pending"),
-  budget: text("budget"),
-  notes: text("notes"),
-  email: text("email"),
-  whatsappContactNumber: text("whatsapp_contact_number"),
-  meetingLink: text("meeting_link"),
-  userPhone: text("user_phone").notNull(),
-  userLanguage: text("user_language").default("en"),
-  adminNotes: text("admin_notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const insertConsultationBookingSchema = createInsertSchema(consultationBookings).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  status: true,
-  meetingLink: true,
-  adminNotes: true,
-});
-export type ConsultationBooking = typeof consultationBookings.$inferSelect;
-export type InsertConsultationBooking = z.infer<typeof insertConsultationBookingSchema>;
-
-// ── User Notifications ──────────────────────────────────────────────────────
-export const userNotifications = pgTable("user_notifications", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  type: text("type").notNull(), // consultation_confirmed | consultation_rejected | consultation_cancelled | test
-  title: text("title").notNull(),
-  message: text("message").notNull(),
-  data: jsonb("data").$type<Record<string, any>>(),
-  isRead: boolean("is_read").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertUserNotificationSchema = createInsertSchema(userNotifications).omit({ id: true, createdAt: true });
-export type UserNotification = typeof userNotifications.$inferSelect;
-export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;
-
-// ── AI Advisor ───────────────────────────────────────────────────────────────
-
-export const aiConversations = pgTable("ai_conversations", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  language: text("language").default("en"),
-  status: text("status").default("active"), // active | completed | abandoned
-  messageCount: integer("message_count").default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const aiMessages = pgTable("ai_messages", {
-  id: serial("id").primaryKey(),
-  conversationId: integer("conversation_id").references(() => aiConversations.id, { onDelete: "cascade" }).notNull(),
-  role: text("role").notNull(), // user | assistant
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const investorProfiles = pgTable("investor_profiles", {
-  id: serial("id").primaryKey(),
-  conversationId: integer("conversation_id").references(() => aiConversations.id),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  accountPhone: text("account_phone"),
-  whatsappContactNumber: text("whatsapp_contact_number"),
-  email: text("email"),
-  language: text("language"),
-  goal: text("goal"),
-  budget: text("budget"),
-  paymentPreference: text("payment_preference"),
-  country: text("country"),
-  city: text("city"),
-  interestedProject: text("interested_project"),
-  timeline: text("timeline"),
-  communicationMethod: text("communication_method"),
-  summary: text("summary"),
-  leadScore: text("lead_score").default("cold"),
-  scoreReason: text("score_reason"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const aiLeadScores = pgTable("ai_lead_scores", {
-  id: serial("id").primaryKey(),
-  investorProfileId: integer("investor_profile_id").references(() => investorProfiles.id, { onDelete: "cascade" }).notNull(),
-  score: text("score").notNull(),
-  reason: text("reason"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export type AiConversation = typeof aiConversations.$inferSelect;
-export type AiMessage = typeof aiMessages.$inferSelect;
-export type InvestorProfile = typeof investorProfiles.$inferSelect;
-export type AiLeadScore = typeof aiLeadScores.$inferSelect;
-
-// ── Push Subscriptions ───────────────────────────────────────────────────────
-export const pushSubscriptions = pgTable("push_subscriptions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  endpoint: text("endpoint").notNull().unique(),
-  p256dh: text("p256dh").notNull(),
-  auth: text("auth").notNull(),
-  userAgent: text("user_agent"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
-export type PushSubscription = typeof pushSubscriptions.$inferSelect;
-export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;

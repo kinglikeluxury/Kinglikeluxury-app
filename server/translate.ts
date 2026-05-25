@@ -3,7 +3,6 @@ import translate from "google-translate-api-x";
 const SUPPORTED_LANGS: Record<string, string> = {
   en: "en",
   ar: "ar",
-  fa: "fa",
   he: "iw",
   ru: "ru",
   ka: "ka",
@@ -12,10 +11,6 @@ const SUPPORTED_LANGS: Record<string, string> = {
   zh: "zh-CN",
   pl: "pl",
   it: "it",
-  nl: "nl",
-  de: "de",
-  sv: "sv",
-  fr: "fr",
 };
 
 export async function translateText(text: string, targetLang: string, sourceLang?: string): Promise<string> {
