@@ -4,97 +4,33 @@ interface SplashScreenProps {
   onComplete: () => void;
 }
 
-function playLuxuryCinematic() {
+function playLuxuryChime() {
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
-    const totalDuration = 8;
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(0.38, ctx.currentTime + 2.2);
-    master.gain.setValueAtTime(0.38, ctx.currentTime + totalDuration - 1.8);
-    master.gain.linearRampToValueAtTime(0, ctx.currentTime + totalDuration);
-    master.connect(ctx.destination);
-
-    const t = ctx.currentTime;
-
-    const pad = (
-      freq: number,
-      type: OscillatorType,
-      gain: number,
-      start = 0,
-      dur = totalDuration,
-      detune = 0
-    ) => {
+    const playTone = (freq: number, startTime: number, duration: number, gain: number) => {
       const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      osc.detune.value = detune;
-      g.gain.setValueAtTime(0, t + start);
-      g.gain.linearRampToValueAtTime(gain, t + start + 2.0);
-      g.gain.setValueAtTime(gain, t + start + dur - 1.2);
-      g.gain.linearRampToValueAtTime(0, t + start + dur);
-      osc.connect(g);
-      g.connect(master);
-      osc.start(t + start);
-      osc.stop(t + start + dur + 0.1);
+      const gainNode = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.98, startTime + duration);
+
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(gain, startTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
     };
 
-    // Deep bass pad — Cmaj7 chord (C2, E2, G2, B2)
-    pad(65.41,  "sine",     0.18);
-    pad(82.41,  "sine",     0.12);
-    pad(98.0,   "sine",     0.09);
-    pad(123.47, "sine",     0.07);
-
-    // Warm mid-range strings (triangle) — slight detune for richness
-    pad(261.63, "triangle", 0.055);
-    pad(329.63, "triangle", 0.042);
-    pad(392.0,  "triangle", 0.035);
-    pad(493.88, "triangle", 0.028);
-    pad(261.63, "triangle", 0.030, 0, totalDuration, +8);
-    pad(329.63, "triangle", 0.022, 0, totalDuration, +8);
-    pad(392.0,  "triangle", 0.018, 0, totalDuration, -6);
-
-    // Luxury sparkle bells cascading in
-    const bells: [number, number, number][] = [
-      [523.25,  0.0, 0.028],
-      [783.99,  0.7, 0.020],
-      [1046.5,  1.4, 0.014],
-      [1318.51, 2.1, 0.010],
-      [1568.0,  2.7, 0.007],
-    ];
-    bells.forEach(([freq, offset, gain]) => {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      g.gain.setValueAtTime(0, t + offset);
-      g.gain.linearRampToValueAtTime(gain, t + offset + 0.1);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + offset + 3.5);
-      osc.connect(g);
-      g.connect(master);
-      osc.start(t + offset);
-      osc.stop(t + offset + 3.6);
-    });
-
-    // Subtle sub-bass rumble for cinematic depth
-    const sub = ctx.createOscillator();
-    const subG = ctx.createGain();
-    sub.type = "sine";
-    sub.frequency.setValueAtTime(32.7, t);
-    sub.frequency.linearRampToValueAtTime(36.7, t + totalDuration);
-    subG.gain.setValueAtTime(0, t);
-    subG.gain.linearRampToValueAtTime(0.08, t + 1.5);
-    subG.gain.setValueAtTime(0.08, t + totalDuration - 1.0);
-    subG.gain.linearRampToValueAtTime(0, t + totalDuration);
-    sub.connect(subG);
-    subG.connect(master);
-    sub.start(t);
-    sub.stop(t + totalDuration + 0.1);
-
+    const t = ctx.currentTime;
+    playTone(1047, t, 1.4, 0.06);
+    playTone(1319, t + 0.18, 1.2, 0.04);
+    playTone(1568, t + 0.35, 1.0, 0.03);
+    playTone(2093, t + 0.50, 0.9, 0.02);
   } catch (_) {}
 }
 
@@ -113,13 +49,13 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     if (!soundPlayed.current) {
       soundPlayed.current = true;
       const unlockAndPlay = () => {
-        playLuxuryCinematic();
+        playLuxuryChime();
         document.removeEventListener("touchstart", unlockAndPlay);
         document.removeEventListener("click", unlockAndPlay);
       };
       setTimeout(() => {
         try {
-          playLuxuryCinematic();
+          playLuxuryChime();
         } catch (_) {
           document.addEventListener("touchstart", unlockAndPlay, { once: true });
           document.addEventListener("click", unlockAndPlay, { once: true });
@@ -137,12 +73,24 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         }
         @keyframes kl-glow-pulse {
           0%   { filter: drop-shadow(0 0 0px rgba(59,202,196,0)); }
-          40%  { filter: drop-shadow(0 0 22px rgba(59,202,196,0.7)); }
-          100% { filter: drop-shadow(0 0 10px rgba(59,202,196,0.3)); }
+          40%  { filter: drop-shadow(0 0 18px rgba(59,202,196,0.55)); }
+          100% { filter: drop-shadow(0 0 8px rgba(59,202,196,0.2)); }
         }
         @keyframes kl-shimmer {
           0%   { background-position: -200% center; }
           100% { background-position: 200% center; }
+        }
+        @keyframes kl-text-in {
+          from { opacity: 0; letter-spacing: 0.25em; }
+          to   { opacity: 1; letter-spacing: 0.35em; }
+        }
+        @keyframes kl-sub-in {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes kl-dots {
+          0%, 100% { opacity: 0.3; }
+          50%       { opacity: 0.8; }
         }
         .kl-crown {
           animation: kl-fade-in 0.85s cubic-bezier(0.22,1,0.36,1) forwards;
@@ -152,19 +100,42 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           animation: kl-fade-in 0.85s cubic-bezier(0.22,1,0.36,1) forwards,
                      kl-glow-pulse 1.4s ease-in-out forwards;
         }
+        .kl-brand-name {
+          animation: kl-text-in 0.9s cubic-bezier(0.22,1,0.36,1) 0.4s forwards;
+          opacity: 0;
+        }
+        .kl-brand-name.shimmer {
+          background: linear-gradient(90deg, #005476 30%, #3bcac4 50%, #005476 70%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: kl-text-in 0.9s cubic-bezier(0.22,1,0.36,1) 0.4s forwards,
+                     kl-shimmer 2.0s linear 1.0s 1;
+        }
+        .kl-subtitle {
+          animation: kl-sub-in 0.7s ease-out 0.8s forwards;
+          opacity: 0;
+        }
+        .kl-dot {
+          animation: kl-dots 1.5s ease-in-out infinite;
+        }
+        .kl-dot:nth-child(2) { animation-delay: 0.5s; }
+        .kl-dot:nth-child(3) { animation-delay: 1.0s; }
+        .kl-divider {
+          animation: kl-sub-in 0.7s ease-out 1.1s forwards;
+          opacity: 0;
+        }
         .kl-splash-wrap {
           transition: opacity 0.75s cubic-bezier(0.4,0,0.2,1);
         }
       `}</style>
 
       <div
-        className="kl-splash-wrap fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-        style={{
-          background: "#000",
-          opacity: phase === "out" ? 0 : 1,
-          pointerEvents: phase === "out" ? "none" : "auto",
-        }}
+        className="kl-splash-wrap fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white"
+        style={{ opacity: phase === "out" ? 0 : 1, pointerEvents: phase === "out" ? "none" : "auto" }}
       >
+        {/* Kinglike Luxury logo — transparent PNG, no white padding */}
         <div
           className={`kl-crown${phase !== "in" ? " hold" : ""}`}
           style={{ width: "min(78vw, 560px)" }}
