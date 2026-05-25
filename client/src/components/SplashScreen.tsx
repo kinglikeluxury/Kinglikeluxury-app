@@ -1,42 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
-function playLuxuryChime() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    const playTone = (freq: number, startTime: number, duration: number, gain: number) => {
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, startTime);
-      osc.frequency.exponentialRampToValueAtTime(freq * 0.98, startTime + duration);
-
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(gain, startTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      osc.start(startTime);
-      osc.stop(startTime + duration);
-    };
-
-    const t = ctx.currentTime;
-    playTone(1047, t, 1.4, 0.06);
-    playTone(1319, t + 0.18, 1.2, 0.04);
-    playTone(1568, t + 0.35, 1.0, 0.03);
-    playTone(2093, t + 0.50, 0.9, 0.02);
-  } catch (_) {}
-}
-
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const [phase, setPhase] = useState<"in" | "hold" | "out">("in");
-  const soundPlayed = useRef(false);
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase("hold"), 900);
@@ -44,25 +13,6 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     const t3 = setTimeout(() => onComplete(), 3400);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [onComplete]);
-
-  useEffect(() => {
-    if (!soundPlayed.current) {
-      soundPlayed.current = true;
-      const unlockAndPlay = () => {
-        playLuxuryChime();
-        document.removeEventListener("touchstart", unlockAndPlay);
-        document.removeEventListener("click", unlockAndPlay);
-      };
-      setTimeout(() => {
-        try {
-          playLuxuryChime();
-        } catch (_) {
-          document.addEventListener("touchstart", unlockAndPlay, { once: true });
-          document.addEventListener("click", unlockAndPlay, { once: true });
-        }
-      }, 100);
-    }
-  }, []);
 
   return (
     <>
