@@ -696,16 +696,9 @@ const PropertyDetail = () => {
                       {(() => {
                         const rawPrices = [property.price, (property as any).priceMax].filter(Boolean) as number[];
                         const areas = String(property.area || '').split(',').map(s => parseInt(s.trim())).filter(Boolean).sort((a,b) => a - b);
-                        const sortedPrices = [...rawPrices].sort((a,b) => a - b);
-                        // Pair each sorted price with its sorted area; also cover single-price multi-area
-                        let minPpm = Infinity;
-                        const pairCount = Math.max(sortedPrices.length, areas.length);
-                        for (let i = 0; i < pairCount; i++) {
-                          const p = sortedPrices[Math.min(i, sortedPrices.length - 1)];
-                          const a = areas[Math.min(i, areas.length - 1)];
-                          if (p > 0 && a > 0) minPpm = Math.min(minPpm, p / a);
-                        }
-                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
+                        const minPrice = Math.min(...rawPrices);
+                        const minArea = areas[0];
+                        const ppm = (minPrice > 0 && minArea > 0) ? Math.round(minPrice / minArea) : 0;
                         if (ppm > 0) {
                           const isProject = property.propertyType === 'project';
                           const label = isProject
@@ -902,15 +895,9 @@ const PropertyDetail = () => {
                       {(() => {
                         const rawPrices = [property.price, (property as any).priceMax].filter(Boolean) as number[];
                         const areas = String(property.area || '').split(',').map(s => parseInt(s.trim())).filter(Boolean).sort((a,b) => a - b);
-                        const sortedPrices = [...rawPrices].sort((a,b) => a - b);
-                        let minPpm = Infinity;
-                        const pairCount = Math.max(sortedPrices.length, areas.length);
-                        for (let i = 0; i < pairCount; i++) {
-                          const p = sortedPrices[Math.min(i, sortedPrices.length - 1)];
-                          const a = areas[Math.min(i, areas.length - 1)];
-                          if (p > 0 && a > 0) minPpm = Math.min(minPpm, p / a);
-                        }
-                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
+                        const minPrice = Math.min(...rawPrices);
+                        const minArea = areas[0];
+                        const ppm = (minPrice > 0 && minArea > 0) ? Math.round(minPrice / minArea) : 0;
                         if (ppm > 0) {
                           const isProject = property.propertyType === 'project';
                           const label = isProject
