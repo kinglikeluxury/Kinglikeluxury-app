@@ -706,7 +706,7 @@ const PropertyDetail = () => {
                         if (ppm > 0) {
                           const isProject = property.propertyType === 'project';
                           const label = isProject
-                            ? (i18n.language === 'ar' ? 'سعر المتر يبدأ من' : 'Price per m² starts from')
+                            ? t('property.pricePerMeterFrom', 'Price per m² starts from')
                             : t('property.pricePerMeter', 'Price per m²');
                           return (
                             <div className="flex flex-col p-4 bg-gradient-to-br from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
@@ -909,7 +909,7 @@ const PropertyDetail = () => {
                         if (ppm > 0) {
                           const isProject = property.propertyType === 'project';
                           const label = isProject
-                            ? (i18n.language === 'ar' ? 'سعر المتر يبدأ من' : 'Price per m² starts from')
+                            ? t('property.pricePerMeterFrom', 'Price per m² starts from')
                             : t('property.pricePerMeter', 'Price per m²');
                           return (
                             <div className="flex justify-between items-center py-1 px-2 bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
