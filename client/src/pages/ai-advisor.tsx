@@ -38,72 +38,69 @@ function clearSession(uid: number | undefined) {
   try { sessionStorage.removeItem(SK(uid)); } catch {}
 }
 
-// ── CTA config ────────────────────────────────────────────────────────────────
-const CTA: Record<NonNullable<LeadScore>, { ar: string; en: string; grad: string; actions: any[] }> = {
-  hot: {
-    ar: "هل أنت مستعد للخطوة التالية؟",
-    en: "Ready to take the next step?",
-    grad: "from-[#3bcac4] to-[#005476]",
-    actions: [
-      { ar: "احجز استشارة مجانية", en: "Book a Free Consultation", Icon: CalendarDays, href: "/consultation", primary: true },
-      { ar: "تواصل عبر واتساب", en: "WhatsApp Us", Icon: MessageSquare, href: "https://wa.me/995555000000", primary: false, ext: true },
-      { ar: "مكالمة فيديو", en: "Schedule Video Call", Icon: Video, href: "/consultation", primary: false },
-    ],
-  },
-  warm: {
-    ar: "فريقنا يمكنه تجهيز خياراتك المثالية.",
-    en: "Our team can prepare your perfect options.",
-    grad: "from-[#3bcac4]/80 to-[#005476]/80",
-    actions: [
-      { ar: "احجز استشارة", en: "Book a Consultation", Icon: CalendarDays, href: "/consultation", primary: true },
-      { ar: "خيارات بالإيميل", en: "Get Options by Email", Icon: Mail, href: "/consultation", primary: false },
-    ],
-  },
-  cold: {
-    ar: "استكشف بسرعتك الخاصة.",
-    en: "Explore at your own pace.",
-    grad: "from-[#005476]/60 to-[#3bcac4]/60",
-    actions: [
-      { ar: "تصفح العقارات", en: "View Properties", Icon: ChevronRight, href: "/properties", primary: false },
-      { ar: "احجز استشارة", en: "Book a Consultation", Icon: CalendarDays, href: "/consultation", primary: false },
-    ],
-  },
+// ── CTA config — shown ONLY contextually (hot leads, after deep engagement) ───
+const CTA_HOT = {
+  ar: { title: "مستعد للخطوة التالية؟", btn1: "احجز استشارة مجانية", btn2: "تواصل عبر واتساب" },
+  en: { title: "Ready to move forward?", btn1: "Book a Free Consultation", btn2: "Chat with an Advisor" },
+};
+const CTA_WARM = {
+  ar: { title: "فريقنا يجهّز لك خيارات مخصصة.", btn1: "احجز استشارة" },
+  en: { title: "Our team can prepare personalised options for you.", btn1: "Book a Consultation" },
 };
 
-function CtaPanel({ score, lang }: { score: LeadScore; lang: string }) {
+function CtaPanel({ score, msgCount, lang }: { score: LeadScore; msgCount: number; lang: string }) {
   const [, nav] = useLocation();
-  if (!score) return null;
-  const cfg = CTA[score];
   const isRtl = lang === "ar" || lang === "he";
-  return (
-    <div className="mt-2 mb-3">
-      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(59,202,196,0.22)", background: "rgba(240,253,252,0.7)" }}>
-        <div className={`px-4 pt-3 pb-2 bg-gradient-to-r ${cfg.grad} flex items-center gap-2`}>
-          <Sparkles className="w-3.5 h-3.5 text-white flex-shrink-0" />
-          <p className="text-white text-xs font-semibold">{lang === "ar" ? cfg.ar : cfg.en}</p>
-        </div>
-        <div className={`px-4 py-3 flex flex-wrap gap-2 ${isRtl ? "flex-row-reverse" : ""}`}>
-          {cfg.actions.map((a) => {
-            const label = lang === "ar" ? a.ar : a.en;
-            const cls = `inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${
-              a.primary ? "text-white border-transparent" : "text-[#005476] border-[#3bcac4]/40 bg-white hover:bg-[#f0fdfc]"
-            }`;
-            const style = a.primary ? { background: "linear-gradient(135deg,#3bcac4,#005476)" } : {};
-            if (a.ext) return (
-              <a key={a.en} href={a.href} target="_blank" rel="noopener noreferrer" className={cls} style={style}>
-                <a.Icon className="w-3.5 h-3.5" />{label}<ArrowRight className="w-3 h-3 opacity-60" />
-              </a>
-            );
-            return (
-              <button key={a.en} onClick={() => nav(a.href)} className={cls} style={style}>
-                <a.Icon className="w-3.5 h-3.5" />{label}
-              </button>
-            );
-          })}
+  const isAr = lang === "ar";
+
+  // Only show CTA for hot leads, OR warm leads after 8+ messages
+  if (score === "hot") {
+    const cfg = isAr ? CTA_HOT.ar : CTA_HOT.en;
+    return (
+      <div className="mt-2 mb-3">
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(59,202,196,0.3)", background: "rgba(240,253,252,0.85)" }}>
+          <div className="px-4 pt-3 pb-2 flex items-center gap-2" style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+            <Sparkles className="w-3.5 h-3.5 text-white flex-shrink-0" />
+            <p className="text-white text-xs font-semibold">{cfg.title}</p>
+          </div>
+          <div className={`px-4 py-3 flex flex-wrap gap-2 ${isRtl ? "flex-row-reverse" : ""}`}>
+            <button onClick={() => nav("/consultation")}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-white border-transparent"
+              style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+              <CalendarDays className="w-3.5 h-3.5" />{cfg.btn1}
+            </button>
+            <button onClick={() => nav("/consultation")}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-[#005476] border border-[#3bcac4]/40 bg-white hover:bg-[#f0fdfc]">
+              <MessageSquare className="w-3.5 h-3.5" />{cfg.btn2}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (score === "warm" && msgCount >= 8) {
+    const cfg = isAr ? CTA_WARM.ar : CTA_WARM.en;
+    return (
+      <div className="mt-2 mb-3">
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(59,202,196,0.2)", background: "rgba(240,253,252,0.7)" }}>
+          <div className="px-4 pt-3 pb-2 flex items-center gap-2" style={{ background: "linear-gradient(135deg,rgba(59,202,196,0.8),rgba(0,84,118,0.8))" }}>
+            <Sparkles className="w-3.5 h-3.5 text-white flex-shrink-0" />
+            <p className="text-white text-xs font-semibold">{cfg.title}</p>
+          </div>
+          <div className="px-4 py-3">
+            <button onClick={() => nav("/consultation")}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-white border-transparent"
+              style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+              <CalendarDays className="w-3.5 h-3.5" />{cfg.btn1}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -330,9 +327,8 @@ export default function AiAdvisorPage() {
   }, [conv.conversationId, lang, isStreaming, isWaiting]);
 
   const handleSend = () => { const t = input.trim(); if (t) sendMessage(t); };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
+  // Enter always creates a new line — send only via the send button (mobile-friendly)
+  const handleKeyDown = (_e: React.KeyboardEvent) => { /* no Enter-to-send */ };
 
   const handleRestart = () => {
     abortRef.current?.abort();
@@ -419,9 +415,9 @@ export default function AiAdvisorPage() {
           {conv.messages.map((msg, idx) => (
             <div key={msg.id}>
               <Bubble msg={msg} isRtl={isRtl} />
-              {/* CTA after last AI message when idle */}
+              {/* CTA — contextual only: hot leads OR warm after deep engagement */}
               {idx === lastAiIdx && leadScore && !isBusy && !streamText && (
-                <CtaPanel score={leadScore} lang={lang} />
+                <CtaPanel score={leadScore} msgCount={conv.messages.length} lang={lang} />
               )}
             </div>
           ))}
