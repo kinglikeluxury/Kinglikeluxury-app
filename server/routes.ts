@@ -2726,21 +2726,79 @@ ${metaTags}
   // All AI communication flows: Frontend → /api/ai/* → aiAdvisor.ts → OpenAI API
   const { chatWithAdvisor, streamChatWithAdvisor, extractProfileData, isAiAvailable, computeLeadScore, buildScoreReason } = await import("./aiAdvisor");
 
-  const MAX_MSGS_PER_CONVERSATION = 40;
+  const MAX_MSGS_PER_CONVERSATION = 20; // max AI exchanges per session
+  const MAX_MSGS_PER_DAY = 50;         // max AI messages per user per day
   const MAX_CONVS_PER_DAY = 5;
-  const MAX_MSGS_PER_MINUTE = 8; // per-user sliding window rate limit
+  const MAX_MSGS_PER_MINUTE = 6;       // per-user sliding window rate limit
+  // History compression: send summary + last N messages when conversation is long
+  const HISTORY_COMPRESS_THRESHOLD = 10; // compress after this many messages
+  const HISTORY_RECENT_KEEP = 5;         // keep this many recent messages after compression
 
-  // Per-user sliding-window rate limiter (in-memory, resets on server restart)
-  const aiMinuteWindows = new Map<number, number[]>(); // userId -> timestamps[]
-
+  // Per-user sliding-window rate limiter (in-memory)
+  const aiMinuteWindows = new Map<number, number[]>();
   function isRateLimited(userId: number): boolean {
     const now = Date.now();
-    const window = 60_000; // 1 minute
-    const timestamps = (aiMinuteWindows.get(userId) || []).filter(t => now - t < window);
+    const timestamps = (aiMinuteWindows.get(userId) || []).filter(t => now - t < 60_000);
     aiMinuteWindows.set(userId, timestamps);
     if (timestamps.length >= MAX_MSGS_PER_MINUTE) return true;
     timestamps.push(now);
     return false;
+  }
+
+  // Daily message counter (in-memory, resets at midnight)
+  const aiDailyMsgs = new Map<number, { count: number; date: string }>();
+  function isDailyLimitReached(userId: number): boolean {
+    const today = new Date().toISOString().slice(0, 10);
+    const entry = aiDailyMsgs.get(userId);
+    if (!entry || entry.date !== today) {
+      aiDailyMsgs.set(userId, { count: 1, date: today });
+      return false;
+    }
+    if (entry.count >= MAX_MSGS_PER_DAY) return true;
+    entry.count++;
+    return false;
+  }
+
+  // Build compressed history to save tokens on long conversations
+  function buildHistory(
+    msgs: { role: string; content: string }[],
+    newMessage: string,
+    profile: any,
+  ): { role: "user" | "assistant"; content: string }[] {
+    const all = [...msgs, { role: "user", content: newMessage }];
+    if (all.length <= HISTORY_COMPRESS_THRESHOLD) {
+      return all.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+    }
+    // Build a structured summary of what we know so far
+    const p = profile || {};
+    const facts = [
+      p.goal && `Goal: ${p.goal}`,
+      p.budget && `Budget: ${p.budget}`,
+      p.paymentPreference && `Payment: ${p.paymentPreference}`,
+      p.country && `Country: ${p.country}`,
+      p.city && `City: ${p.city}`,
+      p.timeline && `Timeline: ${p.timeline}`,
+      p.communicationMethod && `Communication: ${p.communicationMethod}`,
+      p.leadScore && `Lead temperature: ${p.leadScore}`,
+    ].filter(Boolean).join(", ");
+
+    const summary = `[CONVERSATION SUMMARY — do not re-ask confirmed facts]: ${facts || "Still collecting info."}`;
+    const recent = all.slice(-HISTORY_RECENT_KEEP);
+    return [
+      { role: "user" as const, content: summary },
+      { role: "assistant" as const, content: "Understood. Continuing naturally based on what we know." },
+      ...recent.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+    ];
+  }
+
+  // Complexity detector — uses gpt-4o for complex/hot cases, gpt-4o-mini for simple
+  function isComplexMessage(lastMessage: string, score: string): boolean {
+    if (score === "hot") return true;
+    const complexPatterns = [
+      /compar|versus|\bvs\b|analysis|report|legal|citizenship|tax|risk|pros.+cons|which.+better|recommend/i,
+      /مقارن|تحليل|قانون|جنسي|ضريب|مخاطر|أيهم|توصي|تقرير|دراس|تفصيل|أفضل.*مشروع/i,
+    ];
+    return complexPatterns.some(re => re.test(lastMessage));
   }
 
   const AI_UNAVAILABLE_MSG = "AI advisor is temporarily unavailable. Please try again later.";
@@ -2821,11 +2879,19 @@ ${metaTags}
     const { conversationId, message, language } = req.body;
     if (!conversationId || !message?.trim()) return res.status(400).json({ message: "Missing fields" });
 
+    // Daily cap check
+    if (isDailyLimitReached(userId)) {
+      const limitMsg = language === "ar"
+        ? "للحصول على متابعة أدق، يمكن لأحد مستشارينا مساعدتك مباشرة. 📞"
+        : "For more personalised guidance, one of our advisors can help you directly. 📞";
+      return res.json({ message: limitMsg });
+    }
+
     const msgs = await storage.getAiMessages(conversationId);
     if (msgs.length >= MAX_MSGS_PER_CONVERSATION) {
       return res.json({ message: language === "ar"
-        ? "شكراً! جمعنا معلومات كافية. سيتواصل معك فريقنا قريباً بتوصيات مخصصة لك."
-        : "Thank you! We have enough information. Our advisory team will contact you shortly with personalized recommendations." });
+        ? "للحصول على متابعة أدق، يمكن لأحد مستشارينا مساعدتك مباشرة. تواصل معنا وسنجهّز لك خيارات مخصصة. 🌟"
+        : "For more personalised guidance, one of our advisors can help you directly with tailored options. 🌟" });
     }
 
     // Save user message first
@@ -2839,10 +2905,11 @@ ${metaTags}
     const userPhone = user?.phoneNumber || user?.whatsappNumber || undefined;
     const currentScore = (existingProfile?.leadScore as "hot" | "warm" | "cold") || "cold";
 
-    const history = [...msgs, { role: "user", content: message.trim() }].map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
+    // Smart model routing: use gpt-4o for complex questions or hot leads
+    const useComplexModel = isComplexMessage(message.trim(), currentScore);
+
+    // Compressed history: send summary + recent messages for long conversations
+    const history = buildHistory(msgs, message.trim(), existingProfile);
 
     // ── SSE headers ──────────────────────────────────────────────────────────
     res.setHeader("Content-Type", "text/event-stream");
@@ -2863,6 +2930,7 @@ ${metaTags}
         userId,
         currentScore,
         (delta: string) => send({ t: delta }),
+        useComplexModel,
       );
 
       // Save full clean response to DB

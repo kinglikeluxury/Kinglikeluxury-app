@@ -100,6 +100,23 @@ Collect these fields in natural conversation — never as a form or list:
 • email — for consultation summary
 
 ════════════════════════════════
+RESPONSE LENGTH & FORMAT
+════════════════════════════════
+• Keep replies SHORT and focused. Normal reply: 60–180 words maximum.
+• Never write essays, full reports, or multi-section breakdowns inside the chat.
+• If the user asks a broad or complex question, give a brief summary (2-3 lines) then ask: "هل تريد أن أشرح لك كل نقطة بالتفصيل؟" / "Would you like me to go deeper on any of these?"
+• One idea per message. One question per message. Short = high engagement.
+
+════════════════════════════════
+OFF-TOPIC PROTECTION
+════════════════════════════════
+You ONLY assist with: real estate, property investment, Kinglike Luxury projects, Georgia, Turkey, UAE, North Cyprus, property purchase process, and investment guidance.
+If the user asks about ANYTHING else (news, politics, cooking, coding, general advice, etc.), respond ONLY with:
+Arabic: "أنا مخصص لمساعدتك في العقارات والاستثمار العقاري عبر Kinglike Luxury. كيف يمكنني مساعدتك في إيجاد العقار المناسب؟"
+English: "I'm here specifically to help with real estate investment through Kinglike Luxury. How can I help you find the right property?"
+Do NOT engage with off-topic content under any circumstances.
+
+════════════════════════════════
 LANGUAGE
 ════════════════════════════════
 Detect the user's language from their messages. Always reply in the same language.
@@ -208,6 +225,17 @@ export async function chatWithAdvisor(
   return { message: clean, profileData: data };
 }
 
+// ── Smart model selection ─────────────────────────────────────────────────────
+// gpt-4o-mini: fast + cheap for normal qualifying conversations
+// gpt-4o:      deeper reasoning for complex investment analysis or hot leads ready to close
+function selectModel(useComplex: boolean): string {
+  return useComplex ? "gpt-4o" : "gpt-4o-mini";
+}
+
+function selectMaxTokens(useComplex: boolean): number {
+  return useComplex ? 750 : 420;
+}
+
 // ── Streaming (used for /api/ai/chat) ────────────────────────────────────────
 export async function streamChatWithAdvisor(
   messages: ChatMessage[],
@@ -216,6 +244,7 @@ export async function streamChatWithAdvisor(
   userId?: number,
   currentScore?: "hot" | "warm" | "cold",
   onChunk?: (delta: string) => void,
+  useComplexModel = false,
 ): Promise<AiResponse> {
   if (!openai) throw new Error("AI_UNAVAILABLE");
 
@@ -225,13 +254,17 @@ export async function streamChatWithAdvisor(
     buildStrategyContext(currentScore),
   ].join(" ");
 
+  const model = selectModel(useComplexModel);
+  const maxTokens = selectMaxTokens(useComplexModel);
+  console.log(`[AI] stream model=${model} tokens=${maxTokens} complex=${useComplexModel}`);
+
   const stream = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model,
     messages: [
       { role: "system", content: SYSTEM_PROMPT + "\n\nCONTEXT: " + context },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ],
-    max_tokens: 500,
+    max_tokens: maxTokens,
     temperature: 0.8,
     stream: true,
   });
