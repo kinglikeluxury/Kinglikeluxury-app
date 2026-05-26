@@ -59,6 +59,15 @@ app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 
 app.set("trust proxy", 1);
 
+// Prevent CDN/proxy caching of all API responses
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -100,6 +109,12 @@ app.use((req, res, next) => {
 
     res.status(status).json({ message });
     throw err;
+  });
+
+  // Guard: any /api/* path that didn't match a registered route must return
+  // JSON — never fall through to the SPA index.html catch-all.
+  app.use("/api", (_req: Request, res: Response) => {
+    res.status(404).json({ message: "API endpoint not found" });
   });
 
   if (app.get("env") === "development") {
