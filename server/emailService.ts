@@ -1,9 +1,7 @@
 import { Resend } from "resend";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { notificationTemplates, notificationLogs, users } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import pg from "pg";
-const { Pool } = pg;
 
 const FROM = "Kinglike Luxury <info@kinglikeluxury.app>";
 
@@ -11,10 +9,13 @@ async function getResendKey(): Promise<string | null> {
   const key = process.env.RESEND_API_KEY;
   if (key) return key;
   try {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const r = await pool.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
-    await pool.end();
-    if (r.rows.length > 0) return r.rows[0].value;
+    const client = await pool.connect();
+    try {
+      const r = await client.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
+      if (r.rows.length > 0) return r.rows[0].value;
+    } finally {
+      client.release();
+    }
   } catch {}
   return null;
 }

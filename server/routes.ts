@@ -3,8 +3,6 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
-import pg from "pg";
-const { Pool } = pg;
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -2202,10 +2200,13 @@ ${metaTags}
     let RESEND_KEY = process.env.RESEND_API_KEY;
     if (!RESEND_KEY) {
       try {
-        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-        const r = await pool.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
-        await pool.end();
-        if (r.rows.length > 0) RESEND_KEY = r.rows[0].value;
+        const client = await pool.connect();
+        try {
+          const r = await client.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
+          if (r.rows.length > 0) RESEND_KEY = r.rows[0].value;
+        } finally {
+          client.release();
+        }
       } catch {}
     }
     console.log(`[EmailCampaign] RESEND_API_KEY available: ${!!RESEND_KEY} (len=${(RESEND_KEY||'').length})`);
