@@ -30,3 +30,9 @@ id = "Ue6Qswlw2PuWZXeKw1OKM"
 uri = "file://backups/railway-live-production-full.zip"
 type = "unspecified"
 title = "Railway Production Backup — railway-live-production-full.zip"
+
+[[outputs]]
+id = "S8QEIEJHMfMt2y70qfcNR"
+uri = "file://backups/live-production-final.zip"
+type = "unspecified"
+title = "Live Production Final Backup — live-production-final.zip"
