@@ -2,17 +2,13 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import crownIcon from "@assets/crown-icon.png";
 
-const SHOW_EXACT = ["/", "/properties", "/projects"];
-const SHOW_PREFIX = ["/property/", "/projects/"];
-
+// Hide on pages where a floating button would be distracting or redundant
 const HIDE_PREFIX = [
   "/login",
   "/register",
   "/admin",
-  "/consultation",
   "/payment",
   "/ai-advisor",
-  "/submit-property",
   "/forgot-password",
   "/change-password",
 ];
@@ -25,10 +21,7 @@ export default function FloatingAIButton() {
     HIDE_PREFIX.some((p) => location === p || location.startsWith(p)) ||
     location.includes("/edit");
 
-  const visible =
-    !hidden &&
-    (SHOW_EXACT.includes(location) ||
-      SHOW_PREFIX.some((p) => location.startsWith(p)));
+  const visible = !hidden;
 
   useEffect(() => {
     if (!visible) return;

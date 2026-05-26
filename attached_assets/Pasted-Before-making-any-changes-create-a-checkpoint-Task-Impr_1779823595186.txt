@@ -1,0 +1,93 @@
+Before making any changes, create a checkpoint.
+
+Task: Improve the AI assistant UX and behavior ONLY.
+
+Important restrictions:
+
+* Do NOT change database connection settings.
+* Do NOT modify Neon / Railway / production database configuration.
+* Do NOT reset or overwrite any production data.
+* Do NOT change authentication, login, admin permissions, or deployment settings.
+* The AI role is ONLY to answer users professionally and convert interested users into leads.
+
+Required UI changes:
+
+1. The AI icon currently appears only on the homepage.
+2. Add the AI assistant access/icon also to:
+
+   * user navigation/menu
+   * admin navigation/menu
+   * mobile menu if applicable
+3. The AI should be easy to find, but not annoying or forced.
+
+Required AI behavior:
+
+1. Make the AI sound more human, patient, calm, professional, and diplomatic.
+2. Do NOT push “book a consultation” or “contact customer service” after every message.
+3. The AI should guide the conversation naturally and only suggest next steps when the context is appropriate.
+4. The AI must never mention specific ROI numbers or guaranteed investment returns.
+5. The AI must not prefer one developer/project over another in a direct biased way.
+6. The AI may compare projects objectively by:
+
+   * location
+   * payment plan
+   * unit type
+   * delivery date
+   * lifestyle fit
+   * investment profile
+   * buyer preference
+     But without attacking, ranking unfairly, or damaging any developer’s reputation.
+7. The AI must never insult, criticize, or damage the reputation of any developer, company, country, or competitor.
+8. Even if the user is rude, the AI must remain respectful, calm, and professional.
+9. The AI should give useful information, but not give away everything in a way that eliminates the need to contact us.
+10. The AI should create curiosity and trust, then gently guide the user toward leaving contact details.
+11. The AI should remember returning users and previous conversation context if the user is logged in.
+12. The AI should use previous user preferences when available, such as:
+
+    * preferred city
+    * budget
+    * property type
+    * investment or personal use
+    * payment plan preference
+    * nationality / language preference if already known
+    * projects discussed before
+13. Keep responses concise and controlled to avoid excessive OpenAI token cost.
+14. If the user asks a very broad question, the AI should ask 1–2 smart qualifying questions instead of giving a very long answer.
+15. The AI should naturally suggest one of these actions depending on context:
+
+    * property evaluation based on the user’s needs
+    * project matching according to budget and goals
+    * objective comparison between selected projects
+    * booking a real estate consultation
+16. The AI should not repeatedly ask for the phone number too early.
+17. When the user shows clear interest, the AI should offer two lead capture options:
+    A) Choose country code + manually enter phone number
+    B) Fill the existing real estate consultation form in the app
+
+Lead conversion behavior:
+
+* The AI should make the user feel they received real value, but still needs professional follow-up for the final recommendation.
+* The AI should gently move the user toward a human consultation without sounding pushy.
+* The AI should not say “I am just an AI” unless necessary.
+* The AI should represent Kinglike Luxury professionally.
+
+Compliance:
+
+* No ROI numbers.
+* No guaranteed returns.
+* No financial/legal promises.
+* No developer favoritism.
+* No reputational harm.
+* No aggressive sales pressure.
+* No system/database/deployment changes.
+
+After implementation:
+
+1. Test AI access from homepage.
+2. Test AI access from user menu.
+3. Test AI access from admin menu.
+4. Test a conversation asking for project comparison.
+5. Test a rude user message and confirm the AI stays polite.
+6. Test that the AI does not mention ROI numbers.
+7. Test that the AI offers phone number or consultation form only when context is appropriate.
+8. Report exactly what files were changed before publishing.
