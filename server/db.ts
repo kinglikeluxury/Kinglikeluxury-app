@@ -13,6 +13,10 @@ neonConfig.webSocketConstructor = ws;
  * injected by Replit are intentionally ignored.
  */
 const neonDatabaseUrl = process.env.NEON_DATABASE_URL;
+
+// Explicit startup log — confirms exactly which connection string is active
+console.log("ACTIVE_DB:", process.env.NEON_DATABASE_URL);
+
 if (!neonDatabaseUrl) {
   throw new Error(
     'NEON_DATABASE_URL is not set. ' +
@@ -20,8 +24,6 @@ if (!neonDatabaseUrl) {
     'ep-winter-paper-a4q7e6vy.us-east-1.aws.neon.tech.'
   );
 }
-
-console.log(`[DB] Using NEON_DATABASE_URL → ${new URL(neonDatabaseUrl).hostname}`);
 
 export const pool = new Pool({
   connectionString: neonDatabaseUrl,
