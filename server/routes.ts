@@ -61,8 +61,9 @@ declare module "express-session" {
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // ─── Database Status Debug Endpoint ────────────────────────────────────────
-  app.get("/api/debug/database-status", async (_req, res) => {
+  // ─── Health / Database Status Endpoints ─────────────────────────────────────
+  // Shared handler used by both /api/health-db and /api/debug/database-status
+  async function dbStatusHandler(_req: any, res: any) {
     try {
       const client = await pool.connect();
       try {
@@ -78,7 +79,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           countRow("users"),
         ]);
 
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
         res.json({
+          ok: true,
           activeDatabase: "production",
           databaseHost: getActiveDbHost(),
           databaseName: getActiveDbName(),
@@ -92,15 +98,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         client.release();
       }
     } catch (err: any) {
-      res.status(500).json({
+      res.status(500).setHeader("Content-Type", "application/json");
+      res.json({
+        ok: false,
         activeDatabase: "production",
         databaseHost: getActiveDbHost(),
-        databaseName: getActiveDbName(),
         error: err.message,
         timestamp: new Date().toISOString(),
       });
     }
-  });
+  }
+
+  // Primary health endpoint — new path, never cached by any CDN
+  app.get("/api/health-db", dbStatusHandler);
+
+  // Debug alias — same handler, same response
+  app.get("/api/debug/database-status", dbStatusHandler);
 
   // ─── SEO: Sitemap & Robots (MUST be first — before any catch-all) ─────────
   const SEO_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];
