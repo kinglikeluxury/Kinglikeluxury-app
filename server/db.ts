@@ -5,15 +5,57 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
+/**
+ * Align process.env.DATABASE_URL with the real production host.
+ *
+ * PGHOST is set as a Replit secret to ep-winter-paper-a4q7e6vy.us-east-1.aws.neon.tech.
+ * DATABASE_URL is a stale Replit-managed variable pointing to an empty database.
+ *
+ * When PGHOST is a genuine Neon hostname (ends with .neon.tech) and DATABASE_URL
+ * does NOT already contain that host, we override DATABASE_URL so that every
+ * consumer of process.env.DATABASE_URL (routes, storage, etc.) gets the right URL.
+ *
+ * PGHOST="neondb" is Replit's placeholder for its built-in Postgres and is
+ * deliberately ignored — it is not a resolvable hostname.
+ */
+(function alignDatabaseUrl() {
+  const pgHost     = process.env.PGHOST     || '';
+  const pgUser     = process.env.PGUSER     || '';
+  const pgPassword = process.env.PGPASSWORD || '';
+  const pgDatabase = process.env.PGDATABASE || 'neondb';
+  const pgPort     = process.env.PGPORT     || '5432';
+
+  // Reject Replit's injected placeholder and anything else that isn't a real Neon host
+  if (!pgHost.endsWith('.neon.tech')) {
+    if (pgHost) {
+      console.warn(`[DB] PGHOST="${pgHost}" is not a Neon hostname — ignored.`);
+    }
+    return;
+  }
+
+  // Nothing to do if DATABASE_URL already targets the same host
+  const current = process.env.DATABASE_URL || '';
+  if (current.includes(pgHost)) return;
+
+  if (!pgUser || !pgPassword) return;
+
+  const correct = `postgresql://${pgUser}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
+  process.env.DATABASE_URL = correct;
+  console.log(`[DB] DATABASE_URL aligned to PGHOST → ${pgHost}`);
+})();
+
+// ── From here all code uses only process.env.DATABASE_URL ──────────────────
+
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL environment variable is not set.");
+  throw new Error(
+    'DATABASE_URL is not set. ' +
+    'Configure it in Replit Secrets to point to the Neon production database.'
+  );
 }
 
-const ACTIVE_DB_URL = databaseUrl;
-
 export const pool = new Pool({
-  connectionString: ACTIVE_DB_URL,
+  connectionString: databaseUrl,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
@@ -25,34 +67,25 @@ pool.on('error', (err) => {
 
 export const db = drizzle({ client: pool, schema });
 
-/**
- * Returns the active database host (masked password) for logging.
- */
+/** Returns the active database host for logging. */
 export function getActiveDbHost(): string {
   try {
-    const url = new URL(ACTIVE_DB_URL);
-    return url.hostname;
+    return new URL(process.env.DATABASE_URL!).hostname;
   } catch {
-    return process.env.PGHOST || 'unknown';
+    return 'unknown';
   }
 }
 
-/**
- * Returns the active database name for logging.
- */
+/** Returns the active database name for logging. */
 export function getActiveDbName(): string {
   try {
-    const url = new URL(ACTIVE_DB_URL);
-    return url.pathname.replace('/', '');
+    return new URL(process.env.DATABASE_URL!).pathname.replace('/', '');
   } catch {
-    return process.env.PGDATABASE || 'unknown';
+    return 'unknown';
   }
 }
 
-/**
- * Logs startup DB info: host, database, live table counts.
- * Called once after the server starts.
- */
+/** Logs startup DB info: host, database, live table counts. */
 export async function logDatabaseStatus(): Promise<void> {
   const client = await pool.connect();
   try {

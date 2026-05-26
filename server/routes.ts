@@ -102,6 +102,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Health Check Endpoint ─────────────────────────────────────────────────
+  app.get("/api/health-db", async (_req, res) => {
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query("SELECT 1");
+        res.json({
+          ok: true,
+          activeDatabase: "production",
+          databaseHost: getActiveDbHost(),
+        });
+      } finally {
+        client.release();
+      }
+    } catch (err: any) {
+      res.status(500).json({
+        ok: false,
+        activeDatabase: "production",
+        databaseHost: getActiveDbHost(),
+        error: err.message,
+      });
+    }
+  });
+
   // ─── SEO: Sitemap & Robots (MUST be first — before any catch-all) ─────────
   const SEO_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];
   const SEO_BASE  = "https://www.kinglikeluxury.app";
