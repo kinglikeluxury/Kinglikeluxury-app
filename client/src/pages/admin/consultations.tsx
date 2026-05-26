@@ -104,6 +104,9 @@ export default function AdminConsultations() {
   });
   const slots: ConsultationTimeSlot[] = Array.isArray(rawSlots) ? rawSlots : [];
 
+  // Generate slots date
+  const [generateDate, setGenerateDate] = useState("");
+
   const addSlotMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/admin/consultation/slots", { date: newDate, startTime: newStart, endTime: newEnd }),
     onSuccess: () => {
@@ -111,6 +114,23 @@ export default function AdminConsultations() {
       setNewDate(""); setNewStart(""); setNewEnd("");
       toast({ title: t("consultation.admin.slotAdded") });
     },
+    onError: () => toast({ title: t("common.error", "Error"), variant: "destructive" }),
+  });
+
+  const generateSlotsMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/consultation/slots/generate", { date: generateDate }),
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/consultation/slots"] });
+      setGenerateDate("");
+      toast({ title: `Generated ${result?.created ?? 0} slots for ${generateDate} (Georgia Time 12:00–20:00)` });
+    },
+    onError: () => toast({ title: t("common.error", "Error"), variant: "destructive" }),
+  });
+
+  const toggleSlotMutation = useMutation({
+    mutationFn: ({ id, isAvailable }: { id: number; isAvailable: boolean }) =>
+      apiRequest("PATCH", `/api/admin/consultation/slots/${id}/toggle`, { isAvailable }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/consultation/slots"] }),
     onError: () => toast({ title: t("common.error", "Error"), variant: "destructive" }),
   });
 
@@ -166,7 +186,14 @@ export default function AdminConsultations() {
       <div className="text-white px-4 pt-8 pb-6" style={{ background: "linear-gradient(135deg, #3bcac4 0%, #005476 100%)" }}>
         <div className="max-w-5xl mx-auto">
           <h1 className="text-2xl font-bold">{t("consultation.admin.title")}</h1>
-          <p className="text-white/70 text-sm mt-1">{bookings.length} {t("consultation.admin.bookingsTab").toLowerCase()}</p>
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-white/70 text-sm">{bookings.length} {t("consultation.admin.bookingsTab").toLowerCase()}</p>
+            {bookings.filter(b => b.status === "pending").length > 0 && (
+              <span className="bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                {bookings.filter(b => b.status === "pending").length} pending review
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -330,12 +357,30 @@ export default function AdminConsultations() {
                         </div>
                       </div>
 
-                      {b.notes && (
-                        <div className="bg-gray-50 rounded-xl p-3 mb-4 text-sm text-gray-700 flex gap-2">
-                          <StickyNote className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                          {b.notes}
-                        </div>
-                      )}
+                      {b.notes && (() => {
+                        const aiSummaryMatch = b.notes.match(/\nAI Summary:\s*([\s\S]+)$/);
+                        const mainNotes = aiSummaryMatch ? b.notes.slice(0, b.notes.indexOf("\nAI Summary:")).trim() : b.notes;
+                        const aiSummary = aiSummaryMatch ? aiSummaryMatch[1].trim() : null;
+                        return (
+                          <div className="mb-4 space-y-2">
+                            {mainNotes && (
+                              <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-700 flex gap-2">
+                                <StickyNote className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                                {mainNotes}
+                              </div>
+                            )}
+                            {aiSummary && (
+                              <div className="rounded-xl p-3 text-sm flex gap-2" style={{ background: "rgba(59,202,196,0.08)", border: "1px solid rgba(59,202,196,0.25)" }}>
+                                <span className="text-[#3bcac4] text-base flex-shrink-0 mt-0.5">✦</span>
+                                <div>
+                                  <p className="text-xs font-bold text-[#005476] mb-1">AI Advisor Summary</p>
+                                  <p className="text-gray-600 text-xs leading-relaxed">{aiSummary}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {b.meetingLink && !isWA && (
                         <div className="bg-blue-50 rounded-xl p-3 mb-4 flex items-center gap-2 text-sm">
@@ -424,10 +469,29 @@ export default function AdminConsultations() {
         {/* ── SLOTS TAB ── */}
         {activeTab === "slots" && (
           <div>
+            {/* Auto-generate slots panel */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
+              <h3 className="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#3bcac4]" />
+                Auto-Generate Daily Schedule
+              </h3>
+              <p className="text-xs text-gray-400 mb-4">Creates all 30-min slots from 12:00 PM to 8:00 PM in <strong>Georgia Time (GMT+4)</strong> for the selected date.</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input type="date" value={generateDate} min={today} onChange={e => setGenerateDate(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]" dir="ltr" />
+                <Button onClick={() => generateSlotsMutation.mutate()} disabled={!generateDate || generateSlotsMutation.isPending}
+                  style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }} className="text-white whitespace-nowrap">
+                  {generateSlotsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                  Generate 16 Slots
+                </Button>
+              </div>
+            </div>
+
+            {/* Manual slot form */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
               <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <Plus className="w-4 h-4 text-[#3bcac4]" />
-                {t("consultation.admin.addSlot")}
+                {t("consultation.admin.addSlot")} <span className="text-xs font-normal text-gray-400">(manual)</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div>
@@ -473,10 +537,16 @@ export default function AdminConsultations() {
                         <p className="text-xs text-gray-500 font-mono" dir="ltr">{slot.startTime} – {slot.endTime}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <Badge className={slot.isAvailable ? "bg-green-100 text-green-700 text-xs" : "bg-gray-100 text-gray-500 text-xs"}>
-                        {slot.isAvailable ? "Available" : "Booked"}
+                        {slot.isAvailable ? "Available" : "Blocked"}
                       </Badge>
+                      <Button size="sm" variant="outline"
+                        onClick={() => toggleSlotMutation.mutate({ id: slot.id, isAvailable: !slot.isAvailable })}
+                        disabled={toggleSlotMutation.isPending}
+                        className={`text-xs h-7 px-2 ${slot.isAvailable ? "text-amber-600 border-amber-200 hover:bg-amber-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
+                        {slot.isAvailable ? "Block" : "Unblock"}
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => deleteSlotMutation.mutate(slot.id)}
                         disabled={deleteSlotMutation.isPending} className="text-red-500 hover:text-red-700 hover:bg-red-50">
                         <Trash2 className="w-4 h-4" />

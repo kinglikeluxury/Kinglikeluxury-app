@@ -103,6 +103,7 @@ export interface IStorage {
   getUserConsultationBookings(userId: number): Promise<import("@shared/schema").ConsultationBooking[]>;
   updateConsultationBooking(id: number, data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined>;
   getConsultationSlotById(id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined>;
+  toggleConsultationTimeSlot(id: number, isAvailable: boolean): Promise<import("@shared/schema").ConsultationTimeSlot | undefined>;
 
   // User Notification operations
   createUserNotification(data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification>;
@@ -494,6 +495,7 @@ export class MemStorage implements IStorage {
   async getUserConsultationBookings(_userId: number): Promise<import("@shared/schema").ConsultationBooking[]> { return []; }
   async updateConsultationBooking(_id: number, _data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
   async getConsultationSlotById(_id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined> { return undefined; }
+  async toggleConsultationTimeSlot(_id: number, _isAvailable: boolean): Promise<import("@shared/schema").ConsultationTimeSlot | undefined> { return undefined; }
   async createUserNotification(_data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification> { throw new Error("Not implemented"); }
   async getUserNotifications(_userId: number): Promise<import("@shared/schema").UserNotification[]> { return []; }
   async markNotificationRead(_id: number): Promise<void> {}

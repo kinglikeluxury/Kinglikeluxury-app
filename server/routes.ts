@@ -2351,6 +2351,53 @@ ${metaTags}
     }
   });
 
+  // POST auto-generate 30-min slots for a date in Georgia time (12:00–20:00)
+  app.post("/api/admin/consultation/slots/generate", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { date } = req.body;
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ message: "date (YYYY-MM-DD) required" });
+      }
+      // Generate 30-min slots: 12:00 → 20:00 Georgia time
+      const START_HOUR = 12; // 12:00 PM
+      const END_HOUR   = 20; // 8:00 PM (last slot starts at 19:30)
+      const created: any[] = [];
+      for (let h = START_HOUR; h < END_HOUR; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const startTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          const endH = m === 30 ? h + 1 : h;
+          const endM = m === 30 ? 0 : 30;
+          const endTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+          try {
+            const slot = await storage.createConsultationTimeSlot({ date, startTime, endTime, isAvailable: true });
+            created.push(slot);
+          } catch (_) { /* skip duplicates */ }
+        }
+      }
+      res.json({ created: created.length, slots: created });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Server error" });
+    }
+  });
+
+  // PATCH toggle slot availability (admin)
+  app.patch("/api/admin/consultation/slots/:id/toggle", async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const id = parseInt(req.params.id);
+      const { isAvailable } = req.body;
+      if (typeof isAvailable !== "boolean") {
+        return res.status(400).json({ message: "isAvailable (boolean) required" });
+      }
+      const slot = await storage.toggleConsultationTimeSlot(id, isAvailable);
+      if (!slot) return res.status(404).json({ message: "Slot not found" });
+      res.json(slot);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // DELETE slot (admin)
   app.delete("/api/admin/consultation/slots/:id", async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });

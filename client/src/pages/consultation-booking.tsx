@@ -61,6 +61,7 @@ export default function ConsultationBooking() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [aiPrefilled, setAiPrefilled] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   // Pre-fill from AI conversation profile saved in sessionStorage
   useEffect(() => {
@@ -166,8 +167,8 @@ export default function ConsultationBooking() {
       return true;
     }
     if (step === 3) return !!selectedSlotId;
-    // Step 4: email required
-    return emailValid;
+    // Step 4: email + privacy consent required
+    return !!(emailValid && privacyConsent);
   };
 
   const today = new Date().toISOString().split("T")[0];
@@ -403,10 +404,14 @@ export default function ConsultationBooking() {
           {/* STEP 3: Date + Slot */}
           {step === 3 && (
             <div>
-              <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
                 <Calendar className="w-5 h-5" style={{ color: "#3bcac4" }} />
                 {t("consultation.date")}
               </h2>
+              <p className="text-xs text-gray-400 mb-4 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                All times are in <strong>Georgia Time (GMT+4)</strong> — available 12:00 PM – 8:00 PM
+              </p>
               <input
                 type="date"
                 value={selectedDate}
@@ -511,6 +516,24 @@ export default function ConsultationBooking() {
                 />
               </div>
 
+              {/* Privacy/Terms consent */}
+              <div
+                onClick={() => setPrivacyConsent(v => !v)}
+                className="flex items-start gap-3 cursor-pointer rounded-xl border-2 p-4 transition-all select-none"
+                style={{ borderColor: privacyConsent ? "#3bcac4" : "#e5e7eb", background: privacyConsent ? "#f0fdfc" : "#fafafa" }}
+              >
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="w-5 h-5 rounded border-2 flex items-center justify-center transition-all"
+                    style={{ borderColor: privacyConsent ? "#3bcac4" : "#d1d5db", background: privacyConsent ? "#3bcac4" : "transparent" }}>
+                    {privacyConsent && <CheckCircle className="w-3 h-3 text-white" />}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  I agree to be contacted by Kinglike Luxury Real Estate regarding this consultation request. I understand my information will be handled confidentially and not shared with third parties.{" "}
+                  <span className="font-semibold text-[#005476]">* Required</span>
+                </p>
+              </div>
+
               {/* Summary */}
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-2">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Booking Summary</p>
@@ -555,9 +578,9 @@ export default function ConsultationBooking() {
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={bookMutation.isPending || !emailValid}
+                disabled={bookMutation.isPending || !emailValid || !privacyConsent}
                 className="flex-1 text-white font-semibold disabled:opacity-50"
-                style={{ background: (emailValid && !bookMutation.isPending) ? "linear-gradient(135deg, #3bcac4, #005476)" : undefined }}
+                style={{ background: (emailValid && privacyConsent && !bookMutation.isPending) ? "linear-gradient(135deg, #3bcac4, #005476)" : undefined }}
               >
                 {bookMutation.isPending ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t("consultation.submitting")}</>

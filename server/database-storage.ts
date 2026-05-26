@@ -628,6 +628,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(consultationTimeSlots.startTime);
   }
 
+  async toggleConsultationTimeSlot(id: number, isAvailable: boolean): Promise<ConsultationTimeSlot | undefined> {
+    const [slot] = await db
+      .update(consultationTimeSlots)
+      .set({ isAvailable })
+      .where(eq(consultationTimeSlots.id, id))
+      .returning();
+    return slot;
+  }
+
   async createConsultationBooking(data: InsertConsultationBooking): Promise<ConsultationBooking> {
     const [booking] = await db
       .insert(consultationBookings)
