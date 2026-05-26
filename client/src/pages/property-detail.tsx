@@ -694,11 +694,15 @@ const PropertyDetail = () => {
                         <span className="font-medium">{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
-                        const rawPrices = [property.price, (property as any).priceMax].filter(Boolean) as number[];
-                        const areas = String(property.area || '').split(',').map(s => parseInt(s.trim())).filter(Boolean).sort((a,b) => a - b);
-                        const minPrice = Math.min(...rawPrices);
-                        const minArea = areas[0];
-                        const ppm = (minPrice > 0 && minArea > 0) ? Math.round(minPrice / minArea) : 0;
+                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
+                        // Pair each price with its corresponding area, find minimum price/m²
+                        let minPpm = Infinity;
+                        const pairCount = Math.min(prices.length, areas.length);
+                        for (let i = 0; i < pairCount; i++) {
+                          if (prices[i] > 0 && areas[i] > 0) minPpm = Math.min(minPpm, prices[i] / areas[i]);
+                        }
+                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
                         if (ppm > 0) {
                           const isProject = property.propertyType === 'project';
                           const label = isProject
@@ -893,11 +897,15 @@ const PropertyDetail = () => {
                         <span>{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
-                        const rawPrices = [property.price, (property as any).priceMax].filter(Boolean) as number[];
-                        const areas = String(property.area || '').split(',').map(s => parseInt(s.trim())).filter(Boolean).sort((a,b) => a - b);
-                        const minPrice = Math.min(...rawPrices);
-                        const minArea = areas[0];
-                        const ppm = (minPrice > 0 && minArea > 0) ? Math.round(minPrice / minArea) : 0;
+                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
+                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
+                        // Pair each price with its corresponding area, find minimum price/m²
+                        let minPpm = Infinity;
+                        const pairCount = Math.min(prices.length, areas.length);
+                        for (let i = 0; i < pairCount; i++) {
+                          if (prices[i] > 0 && areas[i] > 0) minPpm = Math.min(minPpm, prices[i] / areas[i]);
+                        }
+                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
                         if (ppm > 0) {
                           const isProject = property.propertyType === 'project';
                           const label = isProject
