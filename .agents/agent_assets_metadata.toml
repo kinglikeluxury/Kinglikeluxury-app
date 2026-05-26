@@ -24,3 +24,9 @@ id = "MTo5UQfvvMJQUQaYpiB-z"
 uri = "file://backups/production-full-backup-after-ai-consultation-restore.zip"
 type = "unspecified"
 title = "Production Backup (SQL + JSON) — production-full-backup-after-ai-consultation-restore.zip"
+
+[[outputs]]
+id = "Ue6Qswlw2PuWZXeKw1OKM"
+uri = "file://backups/railway-live-production-full.zip"
+type = "unspecified"
+title = "Railway Production Backup — railway-live-production-full.zip"
