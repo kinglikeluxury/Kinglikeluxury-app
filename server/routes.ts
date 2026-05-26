@@ -3,6 +3,8 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
+import pg from "pg";
+const { Pool } = pg;
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -59,9 +61,8 @@ declare module "express-session" {
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // ─── Health / Database Status Endpoints ─────────────────────────────────────
-  // Shared handler used by both /api/health-db and /api/debug/database-status
-  async function dbStatusHandler(_req: any, res: any) {
+  // ─── Database Status Debug Endpoint ────────────────────────────────────────
+  app.get("/api/debug/database-status", async (_req, res) => {
     try {
       const client = await pool.connect();
       try {
@@ -77,12 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           countRow("users"),
         ]);
 
-        res.setHeader("Content-Type", "application/json");
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
         res.json({
-          ok: true,
           activeDatabase: "production",
           databaseHost: getActiveDbHost(),
           databaseName: getActiveDbName(),
@@ -96,22 +92,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         client.release();
       }
     } catch (err: any) {
-      res.status(500).setHeader("Content-Type", "application/json");
-      res.json({
-        ok: false,
+      res.status(500).json({
         activeDatabase: "production",
         databaseHost: getActiveDbHost(),
+        databaseName: getActiveDbName(),
         error: err.message,
         timestamp: new Date().toISOString(),
       });
     }
-  }
-
-  // Primary health endpoint — new path, never cached by any CDN
-  app.get("/api/health-db", dbStatusHandler);
-
-  // Debug alias — same handler, same response
-  app.get("/api/debug/database-status", dbStatusHandler);
+  });
 
   // ─── SEO: Sitemap & Robots (MUST be first — before any catch-all) ─────────
   const SEO_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];
@@ -2200,13 +2189,10 @@ ${metaTags}
     let RESEND_KEY = process.env.RESEND_API_KEY;
     if (!RESEND_KEY) {
       try {
-        const client = await pool.connect();
-        try {
-          const r = await client.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
-          if (r.rows.length > 0) RESEND_KEY = r.rows[0].value;
-        } finally {
-          client.release();
-        }
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+        const r = await pool.query("SELECT value FROM app_settings WHERE key='RESEND_API_KEY'");
+        await pool.end();
+        if (r.rows.length > 0) RESEND_KEY = r.rows[0].value;
       } catch {}
     }
     console.log(`[EmailCampaign] RESEND_API_KEY available: ${!!RESEND_KEY} (len=${(RESEND_KEY||'').length})`);
