@@ -6,56 +6,85 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 
 /**
- * Align process.env.DATABASE_URL with the real production host.
+ * Resolve the canonical production database URL.
  *
- * PGHOST is set as a Replit secret to ep-winter-paper-a4q7e6vy.us-east-1.aws.neon.tech.
- * DATABASE_URL is a stale Replit-managed variable pointing to an empty database.
+ * Priority order:
  *
- * When PGHOST is a genuine Neon hostname (ends with .neon.tech) and DATABASE_URL
- * does NOT already contain that host, we override DATABASE_URL so that every
- * consumer of process.env.DATABASE_URL (routes, storage, etc.) gets the right URL.
+ *  1. NEON_DATABASE_URL — a custom secret that Replit's deployment platform
+ *     will never override. This is the most reliable source and must be set
+ *     to the full Neon connection string for ep-winter-paper-a4q7e6vy.
  *
- * PGHOST="neondb" is Replit's placeholder for its built-in Postgres and is
- * deliberately ignored — it is not a resolvable hostname.
+ *  2. PGHOST / PGUSER / PGPASSWORD / PGDATABASE — used ONLY when PGHOST is a
+ *     genuine Neon hostname (ends with .neon.tech). In Replit's deployed
+ *     containers these vars are overridden to point at the built-in Postgres,
+ *     so they are only trusted in development environments where they still
+ *     hold the real Neon values.
+ *
+ *  3. DATABASE_URL — LAST resort, ONLY if it targets a real Neon host.
+ *     In Replit deployments DATABASE_URL is overridden with ep-young-forest
+ *     (an empty built-in database) and must be ignored.
+ *
+ * Explicitly rejected:
+ *  - PGHOST="neondb"       — Replit's placeholder for its built-in Postgres
+ *  - DATABASE_URL containing "ep-young-forest" — Replit's empty built-in DB
  */
-(function alignDatabaseUrl() {
+function resolveProductionDatabaseUrl(): string {
+  // ── 1. Custom secret — never touched by Replit deployment ─────────────────
+  const neonDbUrl = process.env.NEON_DATABASE_URL || '';
+  if (neonDbUrl) {
+    try {
+      const parsed = new URL(neonDbUrl);
+      console.log(`[DB] Using NEON_DATABASE_URL → ${parsed.hostname}`);
+      return neonDbUrl;
+    } catch {
+      console.warn('[DB] NEON_DATABASE_URL is set but could not be parsed — skipping.');
+    }
+  }
+
+  // ── 2. PG* secrets — reliable in dev, overridden in production ───────────
   const pgHost     = process.env.PGHOST     || '';
   const pgUser     = process.env.PGUSER     || '';
   const pgPassword = process.env.PGPASSWORD || '';
   const pgDatabase = process.env.PGDATABASE || 'neondb';
   const pgPort     = process.env.PGPORT     || '5432';
 
-  // Reject Replit's injected placeholder and anything else that isn't a real Neon host
-  if (!pgHost.endsWith('.neon.tech')) {
-    if (pgHost) {
-      console.warn(`[DB] PGHOST="${pgHost}" is not a Neon hostname — ignored.`);
-    }
-    return;
+  if (pgHost.endsWith('.neon.tech') && pgUser && pgPassword) {
+    const url = `postgresql://${pgUser}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
+    console.log(`[DB] Using PG* secrets → PGHOST=${pgHost}`);
+    return url;
   }
 
-  // Nothing to do if DATABASE_URL already targets the same host
-  const current = process.env.DATABASE_URL || '';
-  if (current.includes(pgHost)) return;
+  if (pgHost && !pgHost.endsWith('.neon.tech')) {
+    console.warn(`[DB] PGHOST="${pgHost}" is not a valid Neon host — ignored.`);
+  }
 
-  if (!pgUser || !pgPassword) return;
+  // ── 3. DATABASE_URL — last resort, reject Replit's empty built-in DB ──────
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (dbUrl && !dbUrl.includes('ep-young-forest')) {
+    try {
+      const parsed = new URL(dbUrl);
+      console.log(`[DB] Using DATABASE_URL → ${parsed.hostname}`);
+      return dbUrl;
+    } catch {
+      console.warn('[DB] DATABASE_URL could not be parsed — skipping.');
+    }
+  }
 
-  const correct = `postgresql://${pgUser}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-  process.env.DATABASE_URL = correct;
-  console.log(`[DB] DATABASE_URL aligned to PGHOST → ${pgHost}`);
-})();
+  if (dbUrl.includes('ep-young-forest')) {
+    console.warn('[DB] DATABASE_URL targets Replit\'s empty built-in database — ignored.');
+  }
 
-// ── From here all code uses only process.env.DATABASE_URL ──────────────────
-
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
   throw new Error(
-    'DATABASE_URL is not set. ' +
-    'Configure it in Replit Secrets to point to the Neon production database.'
+    'No valid production database configured. ' +
+    'Set NEON_DATABASE_URL in Replit Secrets to the full Neon connection string for ' +
+    'ep-winter-paper-a4q7e6vy.us-east-1.aws.neon.tech.'
   );
 }
 
+const ACTIVE_DB_URL = resolveProductionDatabaseUrl();
+
 export const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: ACTIVE_DB_URL,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
@@ -70,7 +99,7 @@ export const db = drizzle({ client: pool, schema });
 /** Returns the active database host for logging. */
 export function getActiveDbHost(): string {
   try {
-    return new URL(process.env.DATABASE_URL!).hostname;
+    return new URL(ACTIVE_DB_URL).hostname;
   } catch {
     return 'unknown';
   }
@@ -79,7 +108,7 @@ export function getActiveDbHost(): string {
 /** Returns the active database name for logging. */
 export function getActiveDbName(): string {
   try {
-    return new URL(process.env.DATABASE_URL!).pathname.replace('/', '');
+    return new URL(ACTIVE_DB_URL).pathname.replace('/', '');
   } catch {
     return 'unknown';
   }
