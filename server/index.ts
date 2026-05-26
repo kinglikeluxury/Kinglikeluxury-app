@@ -3,6 +3,7 @@ dotenv.config();
 console.log("[Startup] RESEND_API_KEY:", process.env.RESEND_API_KEY ? `SET (len=${process.env.RESEND_API_KEY.length})` : "NOT SET");
 import express, { type Request, Response, NextFunction } from "express";
 import path from "path";
+import fs from "fs";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -117,7 +118,18 @@ app.use((req, res, next) => {
     res.status(404).json({ message: "API endpoint not found" });
   });
 
-  if (app.get("env") === "development") {
+  // Use Vite dev middleware only when explicitly in development AND
+  // the built dist/public directory does NOT exist yet.
+  // This prevents accidentally running Vite in production when NODE_ENV
+  // is not set (Express defaults app.get("env") to "development").
+  const distPublic = path.resolve(
+    path.dirname(new URL(import.meta.url).pathname),
+    "public"
+  );
+  const isDevMode =
+    process.env.NODE_ENV !== "production" && !fs.existsSync(distPublic);
+
+  if (isDevMode) {
     await setupVite(app, server);
   } else {
     serveStatic(app);
