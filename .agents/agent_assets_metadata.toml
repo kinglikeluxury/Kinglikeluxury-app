@@ -36,3 +36,15 @@ id = "S8QEIEJHMfMt2y70qfcNR"
 uri = "file://backups/live-production-final.zip"
 type = "unspecified"
 title = "Live Production Final Backup — live-production-final.zip (595 KB)"
+
+[[outputs]]
+id = "_K-FHtCfWBY3e1ZZ5wR4E"
+uri = "file://production-backup-2026-05-26/kinglike-full-backup-2026-05-26.zip"
+type = "unspecified"
+title = "DB Dump + Env Template + README — kinglike-full-backup-2026-05-26.zip"
+
+[[outputs]]
+id = "9Gfprdj4WK-u-7XXfbBiq"
+uri = "file://production-backup-2026-05-26/kinglike-project-2026-05-26.zip"
+type = "unspecified"
+title = "Full Project Source Code — kinglike-project-2026-05-26.zip"
