@@ -7,10 +7,13 @@ import { useLocation } from "wouter";
 import {
   Send, User, Loader2, RefreshCw, Sparkles,
   CalendarDays, MessageSquare, Video, Mail, ChevronRight, ArrowRight,
+  Phone, CheckCircle,
 } from "lucide-react";
 import crownIcon from "@assets/crown-icon.png";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { CountryCodePicker } from "@/components/ui/country-code-picker";
 
 type LeadScore = "hot" | "warm" | "cold" | null;
 
@@ -23,6 +26,28 @@ interface Message {
 interface ConversationState {
   conversationId: number | null;
   messages: Message[];
+}
+
+// ── Lead capture intent detection ────────────────────────────────────────────
+const EN_LEAD_PHRASES = [
+  "share your number", "consultation form", "fill the form", "our advisors can",
+  "one of our advisors", "follow up with you", "reach out to you", "contact you directly",
+  "advisory team", "book a consultation", "our team will", "someone will follow up",
+  "share a number", "leave your number", "leave a number", "get in touch",
+  "personalised consultation", "personalized consultation", "connect with you",
+];
+const AR_LEAD_PHRASES = [
+  "رقمك", "نموذج الاستشارة", "يتواصل معك", "تواصل معك", "مستشارينا",
+  "نموذج", "تعبئة", "الاستشارة", "فريقنا سيتواصل", "مشاركة رقمك",
+  "مستشار", "التواصل معك", "يتواصل",
+];
+
+function detectLeadCapture(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    EN_LEAD_PHRASES.some(p => lower.includes(p)) ||
+    AR_LEAD_PHRASES.some(p => text.includes(p))
+  );
 }
 
 // ── Session persistence ───────────────────────────────────────────────────────
@@ -168,6 +193,126 @@ function ConsultationCtaCard({
   );
 }
 
+// ── Inline lead capture (shown when AI suggests sharing number / form) ─────────
+function InlineLeadCapture({
+  lang,
+  profile,
+  onPhoneSubmit,
+  phoneSubmitted,
+}: {
+  lang: string;
+  profile: Record<string, string>;
+  onPhoneSubmit: (phone: string) => void;
+  phoneSubmitted: boolean;
+}) {
+  const [, nav] = useLocation();
+  const [showPhone, setShowPhone] = useState(false);
+  const [dialCode, setDialCode] = useState("+971");
+  const [localNum, setLocalNum] = useState("");
+  const isRtl = lang === "ar" || lang === "he";
+  const isAr = lang === "ar";
+
+  const handleFormClick = () => {
+    try { sessionStorage.setItem("kl_ai_prefill", JSON.stringify(profile)); } catch {}
+    nav("/consultation");
+  };
+
+  const handlePhoneSubmit = () => {
+    const num = localNum.trim().replace(/\s+/g, "");
+    if (num.length < 5) return;
+    onPhoneSubmit(`${dialCode}${num}`);
+    setShowPhone(false);
+  };
+
+  if (phoneSubmitted) {
+    return (
+      <div className="mt-2 mb-3 rounded-2xl px-4 py-3 flex items-center gap-2.5"
+        style={{ background: "rgba(59,202,196,0.08)", border: "1px solid rgba(59,202,196,0.3)" }}
+        dir={isRtl ? "rtl" : "ltr"}>
+        <CheckCircle className="w-4 h-4 text-[#3bcac4] flex-shrink-0" />
+        <p className="text-sm text-[#005476] font-medium">
+          {isAr ? "شكراً! سيتواصل معك فريقنا قريباً." : "Thank you! Our team will reach out to you shortly."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 mb-3" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="rounded-2xl overflow-hidden shadow-sm"
+        style={{ border: "1.5px solid rgba(59,202,196,0.4)", background: "rgba(248,254,253,0.98)" }}>
+
+        {/* Header */}
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2"
+          style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+          <Sparkles className="w-3.5 h-3.5 text-white flex-shrink-0" />
+          <p className="text-white text-xs font-semibold">
+            {isAr ? "الخطوة التالية — استشارة شخصية" : "Ready for a personalised consultation?"}
+          </p>
+        </div>
+
+        <div className="px-4 py-3 space-y-2.5">
+          {/* Consultation form button — primary CTA */}
+          <button
+            onClick={handleFormClick}
+            className="w-full inline-flex items-center justify-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white hover:opacity-90 transition-opacity"
+            style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+            <CalendarDays className="w-4 h-4 flex-shrink-0" />
+            {isAr ? "تعبئة نموذج الاستشارة العقارية" : "Fill Real Estate Consultation Form"}
+            <ArrowRight className={`w-4 h-4 flex-shrink-0 ${isRtl ? "rotate-180" : ""}`} />
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-px bg-gray-100" />
+            <span className="text-[10px] text-gray-400 font-medium">{isAr ? "أو" : "or"}</span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+
+          {/* Phone section */}
+          {!showPhone ? (
+            <button
+              onClick={() => setShowPhone(true)}
+              className="w-full inline-flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border transition-colors hover:bg-[#f0fdfc]"
+              style={{ borderColor: "rgba(59,202,196,0.4)", color: "#005476", background: "white" }}>
+              <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+              {isAr ? "شارك رقمك مباشرة" : "Share your number directly"}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                {isAr
+                  ? "اختر رمز البلد وأدخل رقمك — سيتواصل معك مستشارنا مباشرة."
+                  : "Choose your country code and enter your number — our advisor will reach out directly."}
+              </p>
+              <div className={`flex gap-2 items-center ${isRtl ? "flex-row-reverse" : ""}`}>
+                <CountryCodePicker value={dialCode} onChange={setDialCode} />
+                <Input
+                  type="tel"
+                  value={localNum}
+                  onChange={e => setLocalNum(e.target.value.replace(/[^\d\s]/g, ""))}
+                  placeholder={isAr ? "رقم الهاتف" : "Phone number"}
+                  className="flex-1 h-10 text-sm rounded-xl border-gray-200 focus:border-[#3bcac4] focus:ring-[#3bcac4]/20"
+                  style={{ direction: "ltr" }}
+                  onKeyDown={e => { if (e.key === "Enter") handlePhoneSubmit(); }}
+                  autoFocus
+                />
+                <button
+                  onClick={handlePhoneSubmit}
+                  disabled={localNum.trim().length < 5}
+                  className="h-10 px-4 rounded-xl text-white text-xs font-bold disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+                  {isAr ? "إرسال" : "Send"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 function AiAvatar() {
   return (
@@ -227,6 +372,9 @@ export default function AiAdvisorPage() {
   const [showConsultationCta, setShowConsultationCta] = useState(false);
   const [limitReached, setLimitReached] = useState(false);
   const [consultationProfile, setConsultationProfile] = useState<Record<string, string>>({});
+  // Per-message lead capture tracking
+  const [leadCaptureIds, setLeadCaptureIds] = useState<Set<string>>(new Set());
+  const [phoneSubmittedIds, setPhoneSubmittedIds] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
   const [initialized, setInitialized] = useState(false);
 
@@ -375,10 +523,15 @@ export default function AiAdvisorPage() {
 
       // Commit streamed message
       const aiMsgId = Date.now().toString() + "a";
+      const finalContent = finalMsg || accumulated;
       setConv(prev => ({
         ...prev,
-        messages: [...prev.messages, { id: aiMsgId, role: "assistant", content: finalMsg || accumulated }],
+        messages: [...prev.messages, { id: aiMsgId, role: "assistant", content: finalContent }],
       }));
+      // Detect lead capture intent in this AI message → show inline CTA
+      if (finalContent && detectLeadCapture(finalContent)) {
+        setLeadCaptureIds(prev => new Set([...prev, aiMsgId]));
+      }
       setStreamText("");
       setIsStreaming(false);
 
@@ -411,6 +564,8 @@ export default function AiAdvisorPage() {
     setShowConsultationCta(false);
     setLimitReached(false);
     setConsultationProfile({});
+    setLeadCaptureIds(new Set());
+    setPhoneSubmittedIds(new Set());
     setInitialized(false);
     setStreamText("");
     setIsStreaming(false);
@@ -491,6 +646,20 @@ export default function AiAdvisorPage() {
           {conv.messages.map((msg, idx) => (
             <div key={msg.id}>
               <Bubble msg={msg} isRtl={isRtl} />
+
+              {/* Inline lead capture — appears under any AI message that mentions form/number */}
+              {msg.role === "assistant" && leadCaptureIds.has(msg.id) && !showConsultationCta && (
+                <InlineLeadCapture
+                  lang={lang}
+                  profile={consultationProfile}
+                  phoneSubmitted={phoneSubmittedIds.has(msg.id)}
+                  onPhoneSubmit={(phone) => {
+                    setPhoneSubmittedIds(prev => new Set([...prev, msg.id]));
+                    sendMessage(lang === "ar" ? `رقمي هو ${phone}` : `My number is ${phone}`);
+                  }}
+                />
+              )}
+
               {/* Pre-limit consultation CTA — shown after last AI message when near/at limit */}
               {idx === lastAiIdx && showConsultationCta && !isBusy && !streamText && (
                 <ConsultationCtaCard
@@ -499,8 +668,8 @@ export default function AiAdvisorPage() {
                   limitReached={limitReached}
                 />
               )}
-              {/* Score-based CTA — only when pre-limit CTA is not shown */}
-              {idx === lastAiIdx && leadScore && !showConsultationCta && !isBusy && !streamText && (
+              {/* Score-based CTA — only when no other CTA is active */}
+              {idx === lastAiIdx && leadScore && !showConsultationCta && !leadCaptureIds.has(msg.id) && !isBusy && !streamText && (
                 <CtaPanel score={leadScore} msgCount={conv.messages.length} lang={lang} />
               )}
             </div>
