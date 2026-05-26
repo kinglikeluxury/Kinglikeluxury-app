@@ -66,38 +66,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const client = await pool.connect();
       try {
-        const tablesRes = await client.query(`
-          SELECT table_name FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-          ORDER BY table_name
-        `);
-        const tables = tablesRes.rows.map((r: any) => r.table_name as string);
+        const countRow = async (tbl: string): Promise<number> => {
+          const r = await client.query(`SELECT COUNT(*) FROM "${tbl}"`);
+          return parseInt(r.rows[0].count, 10);
+        };
 
-        const countTables = ["properties", "projects", "users", "blog_posts",
-          "ai_conversations", "consultation_bookings", "notification_logs", "contact_logs"];
-        const counts: Record<string, number> = {};
-        for (const tbl of countTables) {
-          if (tables.includes(tbl)) {
-            const r = await client.query(`SELECT COUNT(*) FROM "${tbl}"`);
-            counts[tbl] = parseInt(r.rows[0].count, 10);
-          } else {
-            counts[tbl] = -1;
-          }
-        }
-
-        const byType = await client.query(`
-          SELECT property_type, status, COUNT(*) as count
-          FROM properties GROUP BY property_type, status ORDER BY property_type, status
-        `).catch(() => ({ rows: [] }));
+        const [properties, projects, blogPosts, users] = await Promise.all([
+          countRow("properties"),
+          countRow("projects"),
+          countRow("blog_posts"),
+          countRow("users"),
+        ]);
 
         res.json({
-          status: "connected",
-          host: getActiveDbHost(),
-          database: getActiveDbName(),
-          tables: tables.length,
-          tableList: tables,
-          counts,
-          propertiesByTypeAndStatus: (byType as any).rows,
+          activeDatabase: "production",
+          databaseHost: getActiveDbHost(),
+          databaseName: getActiveDbName(),
+          properties,
+          projects,
+          blogPosts,
+          users,
           timestamp: new Date().toISOString(),
         });
       } finally {
@@ -105,9 +93,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (err: any) {
       res.status(500).json({
-        status: "error",
-        host: getActiveDbHost(),
-        database: getActiveDbName(),
+        activeDatabase: "production",
+        databaseHost: getActiveDbHost(),
+        databaseName: getActiveDbName(),
         error: err.message,
         timestamp: new Date().toISOString(),
       });
