@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail, CalendarDays, Bell, Sparkles
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail, CalendarDays, Bell, Sparkles, Tv, Camera
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -275,6 +275,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("propertyTypes.apartment", "شقق"), path: "/properties?type=apartment", icon: Building2 })}
             {renderItem({ label: t("nav.projects", "المشاريع"), path: "/projects", icon: FolderOpen })}
             {renderItem({ label: t("nav.blog", "المدونة"), path: "/blog", icon: BookOpen })}
+            {renderItem({ label: t("nav.live", "Live Cameras"), path: "/live-projects", icon: Tv, highlight: true })}
             {renderItem({ label: t("nav.map", "الخريطة"), path: "/map", icon: Map })}
             {renderItem({ label: t("consultation.menuLabel", "Book Consultation"), path: "/consultation", icon: CalendarDays })}
             {renderItem({ label: t("aiAdvisor.menuLabel", "AI Investment Advisor"), path: "/ai-advisor", icon: Sparkles, highlight: true })}
@@ -317,6 +318,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: `✉️ حملة إيميل`, path: "/admin/email-campaign", icon: Mail })}
                 {renderItem({ label: t("consultation.admin.title"), path: "/admin/consultations", icon: CalendarDays })}
                 {renderItem({ label: `🤖 AI Leads`, path: "/admin/ai-leads", icon: Sparkles })}
+                {renderItem({ label: `📹 Live Cameras`, path: "/admin/live-cameras", icon: Camera })}
 
                 {/* Property ID Search */}
                 <div className="px-5 py-3.5 border-t border-gray-100">

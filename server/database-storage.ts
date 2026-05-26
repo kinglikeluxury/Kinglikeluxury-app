@@ -20,6 +20,9 @@ import {
   aiConversations,
   aiMessages,
   investorProfiles,
+  projectLiveCameras,
+  type ProjectLiveCamera,
+  type InsertProjectLiveCamera,
   type ContactLog,
   type User,
   type InsertUser,
@@ -846,5 +849,48 @@ export class DatabaseStorage implements IStorage {
     const rows = await db.select().from(aiConversations)
       .where(and(eq(aiConversations.userId, userId), gte(aiConversations.createdAt, today)));
     return rows.length;
+  }
+
+  // ── Live Cameras ──────────────────────────────────────────────────────────
+
+  async getLiveCameras(filters?: { country?: string; city?: string; isActive?: boolean }): Promise<ProjectLiveCamera[]> {
+    const conditions = [];
+    if (filters?.country) conditions.push(eq(projectLiveCameras.country, filters.country));
+    if (filters?.city) conditions.push(eq(projectLiveCameras.city, filters.city));
+    if (filters?.isActive !== undefined) conditions.push(eq(projectLiveCameras.isActive, filters.isActive));
+    const rows = conditions.length > 0
+      ? await db.select().from(projectLiveCameras).where(and(...conditions)).orderBy(desc(projectLiveCameras.createdAt))
+      : await db.select().from(projectLiveCameras).orderBy(desc(projectLiveCameras.createdAt));
+    // Enrich with property titles
+    const enriched = await Promise.all(rows.map(async cam => {
+      const [prop] = await db.select({ id: properties.id, title: properties.title, location: properties.location })
+        .from(properties).where(eq(properties.id, cam.propertyId));
+      return { ...cam, propertyTitle: prop?.title, propertyLocation: prop?.location };
+    }));
+    return enriched;
+  }
+
+  async getLiveCamerasForProperty(propertyId: number): Promise<ProjectLiveCamera[]> {
+    return db.select().from(projectLiveCameras)
+      .where(eq(projectLiveCameras.propertyId, propertyId))
+      .orderBy(projectLiveCameras.createdAt);
+  }
+
+  async createLiveCamera(data: InsertProjectLiveCamera): Promise<ProjectLiveCamera> {
+    const [row] = await db.insert(projectLiveCameras).values({ ...data, updatedAt: new Date() }).returning();
+    return row;
+  }
+
+  async updateLiveCamera(id: number, data: Partial<ProjectLiveCamera>): Promise<ProjectLiveCamera | undefined> {
+    const [row] = await db.update(projectLiveCameras)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projectLiveCameras.id, id))
+      .returning();
+    return row;
+  }
+
+  async deleteLiveCamera(id: number): Promise<boolean> {
+    const result = await db.delete(projectLiveCameras).where(eq(projectLiveCameras.id, id)).returning();
+    return result.length > 0;
   }
 }

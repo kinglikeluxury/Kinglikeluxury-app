@@ -41,6 +41,8 @@ import Terms from "@/pages/terms";
 import PrivacyTerms from "@/pages/privacy-terms";
 import AiAdvisorPage from "@/pages/ai-advisor";
 import AiLeadsPage from "@/pages/admin/ai-leads";
+import LiveProjects from "@/pages/live-projects";
+import AdminLiveCameras from "@/pages/admin/live-cameras";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -78,6 +80,8 @@ function Router() {
           <Route path="/admin/email-campaign" component={EmailCampaignPage} />
           <Route path="/admin/consultations" component={AdminConsultations} />
           <Route path="/admin/ai-leads" component={AiLeadsPage} />
+          <Route path="/admin/live-cameras" component={AdminLiveCameras} />
+          <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />
           <Route path="/notifications" component={UserNotificationsPage} />

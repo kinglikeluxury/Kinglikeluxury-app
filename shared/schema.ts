@@ -487,3 +487,22 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+
+// ── Live Construction Cameras ────────────────────────────────────────────────
+export const projectLiveCameras = pgTable("project_live_cameras", {
+  id: serial("id").primaryKey(),
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "cascade" }).notNull(),
+  label: text("label").notNull().default("Main Camera"),
+  embedUrl: text("embed_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  country: text("country").notNull().default("georgia"),
+  city: text("city").notNull().default("Batumi"),
+  isActive: boolean("is_active").default(true).notNull(),
+  status: text("status").notNull().default("active"), // 'active' | 'offline' | 'coming_soon'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertProjectLiveCameraSchema = createInsertSchema(projectLiveCameras).omit({ id: true, createdAt: true, updatedAt: true });
+export type ProjectLiveCamera = typeof projectLiveCameras.$inferSelect;
+export type InsertProjectLiveCamera = z.infer<typeof insertProjectLiveCameraSchema>;

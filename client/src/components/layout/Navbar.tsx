@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles } from "lucide-react";
+import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
@@ -45,6 +45,7 @@ const Navbar = () => {
     { name: t("propertyTypes.villa", "Villas"), path: "/properties?type=villa" },
     { name: t("propertyTypes.land", "Lands"), path: "/properties?type=land" },
     { name: t("propertyTypes.project", "Off Plan Projects"), path: "/projects", isSpecial: true },
+    { name: t("nav.live", "Live"), path: "/live-projects", isLive: true },
     { name: t("property.uploadProperties", "Upload your properties"), path: "/submit-property", isSpecial: true },
   ];
 
@@ -66,11 +67,19 @@ const Navbar = () => {
                       className={`${
                         location === link.path
                           ? "border-primary text-gray-900"
+                          : (link as any).isLive
+                          ? "border-transparent text-red-500 hover:border-red-200"
                           : link.isSpecial
                           ? "border-transparent text-primary hover:border-primary/30"
                           : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                      } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer`}
+                      } inline-flex items-center gap-1.5 px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer`}
                     >
+                      {(link as any).isLive && (
+                        <span className="relative flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping absolute -top-0.5 -left-0.5 opacity-75" />
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                        </span>
+                      )}
                       {link.name}
                       {link.isSpecial && <span className="ml-1 text-[#005476] font-bold">+</span>}
                     </span>
@@ -200,6 +209,7 @@ const Navbar = () => {
                           <DropdownMenuItem asChild><Link href="/admin/ai-leads" className="flex items-center gap-2"><Bot className="w-3.5 h-3.5" /> {t("admin.aiLeads", "AI Leads")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ حملة إيميل</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/live-cameras" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-500" /> Live Cameras</Link></DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <div className="px-2 py-1.5">
                             <p className="text-[10px] text-gray-400 font-semibold uppercase mb-1.5 flex items-center gap-1">

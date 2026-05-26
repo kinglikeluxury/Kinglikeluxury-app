@@ -3146,5 +3146,82 @@ ${metaTags}
     }
   });
 
+  // ── Live Projects (public) ──────────────────────────────────────────────
+  app.get("/api/live-projects", async (req, res) => {
+    try {
+      const { country, city } = req.query;
+      const cameras = await storage.getLiveCameras({
+        country: country as string | undefined,
+        city: city as string | undefined,
+        isActive: true,
+      });
+      res.json(cameras);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/live-projects/:propertyId/cameras", async (req, res) => {
+    try {
+      const cameras = await storage.getLiveCamerasForProperty(Number(req.params.propertyId));
+      res.json(cameras.filter(c => c.isActive));
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Live Cameras Admin ──────────────────────────────────────────────────
+  app.get("/api/admin/live-cameras", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const cameras = await storage.getLiveCameras();
+      res.json(cameras);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/live-cameras", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { propertyId, label, embedUrl, thumbnailUrl, country, city, isActive, status } = req.body;
+      if (!propertyId || !embedUrl || !city) return res.status(400).json({ message: "propertyId, embedUrl, city required" });
+      const cam = await storage.createLiveCamera({ propertyId: Number(propertyId), label: label || "Main Camera", embedUrl, thumbnailUrl: thumbnailUrl || null, country: country || "georgia", city, isActive: isActive !== false, status: status || "active" });
+      res.status(201).json(cam);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/live-cameras/:id", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const cam = await storage.updateLiveCamera(Number(req.params.id), req.body);
+      if (!cam) return res.status(404).json({ message: "Camera not found" });
+      res.json(cam);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/admin/live-cameras/:id", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const ok = await storage.deleteLiveCamera(Number(req.params.id));
+      if (!ok) return res.status(404).json({ message: "Camera not found" });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
