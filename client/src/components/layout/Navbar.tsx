@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search } from "lucide-react";
+import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
@@ -170,6 +170,12 @@ const Navbar = () => {
                         <Link href="/submit-property" className="flex items-center gap-2"><PlusCircle className="w-4 h-4 text-gray-400" />{t("property.submit", "إضافة عقار")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link href="/consultation" className="flex items-center gap-2"><CalendarDays className="w-4 h-4 text-gray-400" />{t("consultation.menuLabel", "Book Consultation")}</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/notifications" className="flex items-center gap-2"><Bell className="w-4 h-4 text-gray-400" />{t("nav.notifications", "الإشعارات")}</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link href="/privacy-policy" className="flex items-center gap-2"><Shield className="w-4 h-4 text-gray-400" />{t("nav.privacyPolicy", "سياسة الخصوصية")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -186,6 +192,8 @@ const Navbar = () => {
                           <DropdownMenuItem asChild><Link href="/admin/add-project">{t("admin.createProject", "Add Project")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/blog">{t("admin.blogManagement", "Blog")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/leads">👥 {t("admin.leads", "Leads Database")}</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/consultations" className="flex items-center gap-2"><CalendarDays className="w-3.5 h-3.5" /> {t("consultation.admin.title", "Consultations")}</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/ai-leads" className="flex items-center gap-2"><Bot className="w-3.5 h-3.5" /> {t("admin.aiLeads", "AI Leads")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ حملة إيميل</Link></DropdownMenuItem>
                           <DropdownMenuSeparator />
