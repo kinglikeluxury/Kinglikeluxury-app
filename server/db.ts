@@ -9,14 +9,30 @@ neonConfig.webSocketConstructor = ws;
  * Resolve the single canonical production DATABASE_URL.
  *
  * Priority:
- *  1. PG* environment variables (PGHOST / PGDATABASE / PGUSER / PGPASSWORD)
- *     — these are set by Replit / Neon and always point to the real production DB.
- *  2. DATABASE_URL — used as fallback if PG* vars are absent.
+ *  1. DATABASE_URL — always preferred when set. This is the user-configured
+ *     secret that points to the real Neon production database.
+ *  2. PG* environment variables (PGHOST / PGDATABASE / PGUSER / PGPASSWORD)
+ *     — used only as a last resort when DATABASE_URL is absent.
  *
- * This eliminates split-brain situations where DATABASE_URL pointed to a stale
- * or empty database while PG* vars correctly pointed to the production one.
+ * NOTE: Replit's platform injects PGHOST="neondb" into deployed containers
+ * as a placeholder for its built-in Postgres integration. This hostname does
+ * NOT resolve in production. We must never use it as the primary source.
  */
 function resolveProductionDatabaseUrl(): string {
+  // Always prefer DATABASE_URL — it is explicitly configured to point to the
+  // real production Neon database (ep-winter-paper-...).
+  const dbUrl = process.env.DATABASE_URL;
+  if (dbUrl) {
+    try {
+      const parsed = new URL(dbUrl);
+      console.log(`[DB] Using DATABASE_URL → host: ${parsed.hostname}`);
+    } catch {
+      console.warn('[DB] DATABASE_URL present but could not be parsed as a URL.');
+    }
+    return dbUrl;
+  }
+
+  // Fallback: build URL from individual PG* vars (dev / CI environments).
   const pgHost     = process.env.PGHOST;
   const pgDatabase = process.env.PGDATABASE;
   const pgUser     = process.env.PGUSER;
@@ -25,22 +41,13 @@ function resolveProductionDatabaseUrl(): string {
 
   if (pgHost && pgDatabase && pgUser && pgPassword) {
     const url = `postgresql://${pgUser}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-    const dbUrlHost = (process.env.DATABASE_URL || '').includes(pgHost);
-    if (!dbUrlHost) {
-      console.warn(
-        `[DB] DATABASE_URL host differs from PGHOST — using PGHOST (${pgHost}) as the canonical production source.`
-      );
-    }
+    console.log(`[DB] DATABASE_URL not set — falling back to PGHOST (${pgHost})`);
     return url;
   }
 
-  const fallback = process.env.DATABASE_URL;
-  if (!fallback) {
-    throw new Error(
-      "No database configured. Set DATABASE_URL or PGHOST/PGDATABASE/PGUSER/PGPASSWORD environment variables."
-    );
-  }
-  return fallback;
+  throw new Error(
+    "No database configured. Set DATABASE_URL or PGHOST/PGDATABASE/PGUSER/PGPASSWORD environment variables."
+  );
 }
 
 const ACTIVE_DB_URL = resolveProductionDatabaseUrl();
