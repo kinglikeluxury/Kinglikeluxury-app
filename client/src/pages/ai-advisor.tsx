@@ -38,7 +38,7 @@ function clearSession(uid: number | undefined) {
   try { sessionStorage.removeItem(SK(uid)); } catch {}
 }
 
-// ── CTA config — shown ONLY contextually (hot leads, after deep engagement) ───
+// ── CTA config — shown contextually (hot leads, after deep engagement) ────────
 const CTA_HOT = {
   ar: { title: "مستعد للخطوة التالية؟", btn1: "احجز استشارة مجانية", btn2: "تواصل عبر واتساب" },
   en: { title: "Ready to move forward?", btn1: "Book a Free Consultation", btn2: "Chat with an Advisor" },
@@ -53,7 +53,6 @@ function CtaPanel({ score, msgCount, lang }: { score: LeadScore; msgCount: numbe
   const isRtl = lang === "ar" || lang === "he";
   const isAr = lang === "ar";
 
-  // Only show CTA for hot leads, OR warm leads after 8+ messages
   if (score === "hot") {
     const cfg = isAr ? CTA_HOT.ar : CTA_HOT.en;
     return (
@@ -101,6 +100,72 @@ function CtaPanel({ score, msgCount, lang }: { score: LeadScore; msgCount: numbe
   }
 
   return null;
+}
+
+// ── Pre-limit consultation CTA (shown when session is near/at its limit) ──────
+const PRELIMIT_COPY = {
+  ar: {
+    title: "الخطوة التالية — استشارة شخصية",
+    body: "لإعداد توصية أدق تتناسب مع أهدافك، يمكن لفريقنا الاستشاري متابعتك مباشرة.",
+    btn: "تعبئة نموذج الاستشارة العقارية",
+  },
+  en: {
+    title: "Next Step — Personal Consultation",
+    body: "To prepare a more accurate recommendation based on your goals, our advisory team will follow up with you directly.",
+    btn: "Fill Real Estate Consultation Form",
+  },
+};
+
+function ConsultationCtaCard({
+  lang,
+  profile,
+  limitReached,
+}: {
+  lang: string;
+  profile: Record<string, string>;
+  limitReached: boolean;
+}) {
+  const [, nav] = useLocation();
+  const isRtl = lang === "ar" || lang === "he";
+  const isAr = lang === "ar";
+  const copy = isAr ? PRELIMIT_COPY.ar : PRELIMIT_COPY.en;
+
+  const handleClick = () => {
+    // Save AI-collected profile to sessionStorage so consultation form can pre-fill
+    try {
+      sessionStorage.setItem("kl_ai_prefill", JSON.stringify(profile));
+    } catch {}
+    nav("/consultation");
+  };
+
+  return (
+    <div className={`mt-3 mb-2 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : "ltr"}>
+      <div className="rounded-2xl overflow-hidden shadow-md"
+        style={{ border: "1.5px solid rgba(59,202,196,0.45)", background: "rgba(240,253,252,0.95)" }}>
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2"
+          style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+          <Sparkles className="w-4 h-4 text-white flex-shrink-0" />
+          <p className="text-white text-sm font-bold">{copy.title}</p>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-[#005476] text-xs mb-3 leading-relaxed">{copy.body}</p>
+          <button
+            onClick={handleClick}
+            className="w-full inline-flex items-center justify-center gap-2 text-sm font-semibold px-4 py-3 rounded-xl text-white transition-opacity hover:opacity-90"
+            style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+            <CalendarDays className="w-4 h-4 flex-shrink-0" />
+            {copy.btn}
+            <ArrowRight className={`w-4 h-4 flex-shrink-0 ${isRtl ? "rotate-180" : ""}`} />
+          </button>
+          {limitReached && (
+            <p className="text-center text-[10px] text-gray-400 mt-2">
+              {isAr ? "ستُحفظ جميع بياناتك في النموذج تلقائياً." : "Your conversation details will be included with the form."}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -159,6 +224,9 @@ export default function AiAdvisorPage() {
 
   const [conv, setConv] = useState<ConversationState>({ conversationId: null, messages: [] });
   const [leadScore, setLeadScore] = useState<LeadScore>(null);
+  const [showConsultationCta, setShowConsultationCta] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
+  const [consultationProfile, setConsultationProfile] = useState<Record<string, string>>({});
   const [input, setInput] = useState("");
   const [initialized, setInitialized] = useState(false);
 
@@ -290,6 +358,11 @@ export default function AiAdvisorPage() {
           if (evt.done) {
             finalMsg = evt.message ?? accumulated;
             if (evt.leadScore) setLeadScore(evt.leadScore);
+            if (evt.showConsultationCta) setShowConsultationCta(true);
+            if (evt.limitReached) setLimitReached(true);
+            if (evt.profileData && Object.keys(evt.profileData).length > 0) {
+              setConsultationProfile(prev => ({ ...prev, ...evt.profileData }));
+            }
           }
 
           if (evt.error) {
@@ -335,6 +408,9 @@ export default function AiAdvisorPage() {
     clearSession(user?.id);
     setConv({ conversationId: null, messages: [] });
     setLeadScore(null);
+    setShowConsultationCta(false);
+    setLimitReached(false);
+    setConsultationProfile({});
     setInitialized(false);
     setStreamText("");
     setIsStreaming(false);
@@ -415,8 +491,16 @@ export default function AiAdvisorPage() {
           {conv.messages.map((msg, idx) => (
             <div key={msg.id}>
               <Bubble msg={msg} isRtl={isRtl} />
-              {/* CTA — contextual only: hot leads OR warm after deep engagement */}
-              {idx === lastAiIdx && leadScore && !isBusy && !streamText && (
+              {/* Pre-limit consultation CTA — shown after last AI message when near/at limit */}
+              {idx === lastAiIdx && showConsultationCta && !isBusy && !streamText && (
+                <ConsultationCtaCard
+                  lang={lang}
+                  profile={consultationProfile}
+                  limitReached={limitReached}
+                />
+              )}
+              {/* Score-based CTA — only when pre-limit CTA is not shown */}
+              {idx === lastAiIdx && leadScore && !showConsultationCta && !isBusy && !streamText && (
                 <CtaPanel score={leadScore} msgCount={conv.messages.length} lang={lang} />
               )}
             </div>
@@ -457,29 +541,44 @@ export default function AiAdvisorPage() {
 
       {/* ── Input bar ── */}
       <div className="border-t border-gray-100 bg-white px-4 py-3 flex-shrink-0 max-w-2xl mx-auto w-full">
-        <div className={`flex gap-2 items-end ${isRtl ? "flex-row-reverse" : ""}`}>
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={lang === "ar" ? "اكتب رسالتك..." : "Type your message..."}
-            className="flex-1 min-h-[44px] max-h-32 resize-none rounded-2xl border-gray-200 focus:border-[#3bcac4] focus:ring-[#3bcac4]/20 text-sm"
-            style={{ direction: isRtl ? "rtl" : "ltr", textAlign: isRtl ? "right" : "left" }}
-            rows={1}
-            disabled={isBusy}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || isBusy}
-            className="h-11 w-11 rounded-full p-0 flex-shrink-0 transition-all"
-            style={{ background: input.trim() && !isBusy ? "linear-gradient(135deg,#3bcac4,#005476)" : undefined }}
-          >
-            {isBusy
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Send className={`w-4 h-4 ${isRtl ? "rotate-180" : ""}`} />}
-          </Button>
-        </div>
+        {limitReached ? (
+          <div className="text-center py-2">
+            <p className="text-xs text-gray-500 mb-2">
+              {lang === "ar"
+                ? "يمكنك بدء محادثة جديدة أو تعبئة نموذج الاستشارة."
+                : "You can start a new chat or fill the consultation form."}
+            </p>
+            <button
+              onClick={handleRestart}
+              className="text-xs text-[#3bcac4] underline underline-offset-2 hover:text-[#005476] transition-colors">
+              {lang === "ar" ? "محادثة جديدة" : "Start new chat"}
+            </button>
+          </div>
+        ) : (
+          <div className={`flex gap-2 items-end ${isRtl ? "flex-row-reverse" : ""}`}>
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={lang === "ar" ? "اكتب رسالتك..." : "Type your message..."}
+              className="flex-1 min-h-[44px] max-h-32 resize-none rounded-2xl border-gray-200 focus:border-[#3bcac4] focus:ring-[#3bcac4]/20 text-sm"
+              style={{ direction: isRtl ? "rtl" : "ltr", textAlign: isRtl ? "right" : "left" }}
+              rows={1}
+              disabled={isBusy}
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim() || isBusy}
+              className="h-11 w-11 rounded-full p-0 flex-shrink-0 transition-all"
+              style={{ background: input.trim() && !isBusy ? "linear-gradient(135deg,#3bcac4,#005476)" : undefined }}
+            >
+              {isBusy
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Send className={`w-4 h-4 ${isRtl ? "rotate-180" : ""}`} />}
+            </Button>
+          </div>
+        )}
         <p className="text-center text-[10px] text-gray-400 mt-2">
           {lang === "ar"
             ? "ردود الذكاء الاصطناعي للتوجيه فقط. التوصيات النهائية من فريق الاستشارة لدينا."

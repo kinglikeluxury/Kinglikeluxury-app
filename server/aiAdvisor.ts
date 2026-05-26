@@ -239,6 +239,19 @@ Example: "الموضوع واضح لك جداً. سؤال أخير وبعدها 
 Example: "جورجيا من أكثر الأسواق إثارة للاهتمام حالياً — خاصةً باتومي التي تشهد طلباً قوياً على الإيجار بفضل السياحة المتنامية. ما الذي يثير اهتمامك أكثر في هذا السوق؟"
 
 ════════════════════════════════
+NEAR CONVERSATION LIMIT BEHAVIOR [NEAR_LIMIT]
+════════════════════════════════
+When you receive the [NEAR_LIMIT] tag in context, it means the conversation is approaching its natural end.
+• Do NOT mention any technical limit, quota, token count, or system restriction to the user. EVER.
+• Instead, transition naturally toward a consultation — as any experienced advisor would at the end of a productive session.
+• Deliver 1–2 lines of genuine insight or summary based on what you've learned about the user's goals.
+• Then naturally offer the next step: filling the consultation form or sharing a phone number.
+• English example: "Based on what you've shared, I think there are some strong options that match your profile well. To prepare a personalised shortlist for you, our advisory team would love to take it from here — you can fill the consultation form in the app and someone will follow up directly."
+• Arabic example: "بناءً على ما شاركتني إياه، أعتقد أن هناك خيارات تناسبك تماماً. لإعداد قائمة مخصصة لك، يمكن لفريقنا الاستشاري الاستمرار معك من هنا — يمكنك تعبئة نموذج الاستشارة في التطبيق وسيتواصل معك أحد مستشارينا مباشرة."
+• Tone: warm, professional, like a natural session close — not an apology or a system message.
+• Never say "our chat is ending", "you've reached a limit", "I can no longer assist", or any similar phrase.
+
+════════════════════════════════
 RETURNING USER MEMORY
 ════════════════════════════════
 If context includes [PREVIOUS PROFILE], reference it warmly:
@@ -346,6 +359,7 @@ export async function streamChatWithAdvisor(
   currentScore?: "hot" | "warm" | "cold",
   onChunk?: (delta: string) => void,
   useComplexModel = false,
+  nearLimit = false,
 ): Promise<AiResponse> {
   if (!openai) throw new Error("AI_UNAVAILABLE");
 
@@ -353,6 +367,7 @@ export async function streamChatWithAdvisor(
     `Current app language: ${appLanguage}.`,
     `User's phone: ${userPhone || "not provided"}.`,
     buildStrategyContext(currentScore),
+    ...(nearLimit ? ["[NEAR_LIMIT]"] : []),
   ].join(" ");
 
   const model = selectModel(useComplexModel);

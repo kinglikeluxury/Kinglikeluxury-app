@@ -60,6 +60,56 @@ export default function ConsultationBooking() {
   const [email, setEmail] = useState("");
   const [emailTouched, setEmailTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [aiPrefilled, setAiPrefilled] = useState(false);
+
+  // Pre-fill from AI conversation profile saved in sessionStorage
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("kl_ai_prefill");
+      if (!raw) return;
+      const profile = JSON.parse(raw);
+      sessionStorage.removeItem("kl_ai_prefill");
+
+      // Map AI country values to form country keys
+      const countryMap: Record<string, string> = {
+        georgia: "georgia", "georgia/batumi": "georgia", "georgia/tbilisi": "georgia",
+        turkey: "turkey", istanbul: "turkey", antalya: "turkey", alanya: "turkey",
+        "uae": "dubai", "uae/dubai": "dubai", dubai: "dubai",
+        "north cyprus": "north_cyprus", "northern cyprus": "north_cyprus", cyprus: "north_cyprus",
+      };
+      if (profile.country) {
+        const mapped = countryMap[(profile.country as string).toLowerCase().trim()];
+        if (mapped) setCountry(mapped);
+      }
+
+      // Map AI goal to consultation type
+      const goalMap: Record<string, string> = {
+        investment: "investment", "rental income": "investment", residency: "residency",
+        "holiday home": "viewing", viewing: "viewing", installments: "installment",
+        "installment plan": "installment",
+      };
+      if (profile.goal) {
+        const mapped = goalMap[(profile.goal as string).toLowerCase().trim()];
+        if (mapped) setConsultationType(mapped);
+      }
+
+      if (profile.budget) setBudget(profile.budget as string);
+
+      // Build a notes summary from the AI profile
+      const notesParts: string[] = [];
+      if (profile.goal) notesParts.push(`Goal: ${profile.goal}`);
+      if (profile.country) notesParts.push(`Country: ${profile.country}`);
+      if (profile.city) notesParts.push(`City: ${profile.city}`);
+      if (profile.timeline) notesParts.push(`Timeline: ${profile.timeline}`);
+      if (profile.interestedProject) notesParts.push(`Interested in: ${profile.interestedProject}`);
+      if (profile.paymentPreference) notesParts.push(`Payment: ${profile.paymentPreference}`);
+      if (profile.summary) notesParts.push(`\nAI Summary: ${profile.summary}`);
+      if (notesParts.length > 0) setNotes(notesParts.join(" | "));
+
+      if (profile.email) setEmail(profile.email as string);
+      if (notesParts.length > 0) setAiPrefilled(true);
+    } catch {}
+  }, []);
 
   const isWhatsApp = consultationMethod === "whatsapp_video" || consultationMethod === "whatsapp_voice";
   const customWhatsapp = `${customWhatsappDialCode}${customWhatsappLocal.replace(/\s+/g, "")}`;
@@ -199,6 +249,19 @@ export default function ConsultationBooking() {
       {/* Form card */}
       <div className="max-w-lg mx-auto px-4 pb-24">
         <div className="bg-white rounded-2xl shadow-md p-6">
+
+          {/* AI pre-fill notice — shown when redirected from AI Advisor */}
+          {aiPrefilled && (
+            <div className="mb-4 rounded-xl px-4 py-3 flex items-start gap-2"
+              style={{ background: "rgba(59,202,196,0.08)", border: "1px solid rgba(59,202,196,0.3)" }}>
+              <span className="text-[#3bcac4] text-base mt-0.5 flex-shrink-0">✦</span>
+              <p className="text-xs text-[#005476] leading-relaxed">
+                {i18n.language === "ar"
+                  ? "تم تعبئة بعض الحقول تلقائياً من محادثتك مع المستشار الذكي. يمكنك مراجعتها وتعديلها."
+                  : "Some fields were pre-filled from your AI Advisor conversation. Please review and adjust as needed."}
+              </p>
+            </div>
+          )}
 
           {/* STEP 1: Country + Type */}
           {step === 1 && (

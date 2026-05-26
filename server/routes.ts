@@ -2798,6 +2798,7 @@ ${metaTags}
   const { chatWithAdvisor, streamChatWithAdvisor, extractProfileData, isAiAvailable, computeLeadScore, buildScoreReason } = await import("./aiAdvisor");
 
   const MAX_MSGS_PER_CONVERSATION = 20; // max AI exchanges per session
+  const PRE_LIMIT_THRESHOLD = 14;       // ~70% — trigger natural consultation transition
   const MAX_MSGS_PER_DAY = 50;         // max AI messages per user per day
   const MAX_CONVS_PER_DAY = 5;
   const MAX_MSGS_PER_MINUTE = 6;       // per-user sliding window rate limit
@@ -2940,30 +2941,49 @@ ${metaTags}
     if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
     const userId = req.session.userId;
 
-    if (!isAiAvailable()) {
-      return res.json({ message: AI_UNAVAILABLE_MSG });
-    }
-    if (isRateLimited(userId)) {
-      return res.status(429).json({ message: "Too many messages. Please wait a moment." });
-    }
+    // Set SSE headers EARLY so ALL responses (including limit exits) use the stream path
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
     const { conversationId, message, language } = req.body;
-    if (!conversationId || !message?.trim()) return res.status(400).json({ message: "Missing fields" });
 
-    // Daily cap check
+    if (!isAiAvailable()) {
+      send({ done: true, message: AI_UNAVAILABLE_MSG });
+      res.end(); return;
+    }
+    if (isRateLimited(userId)) {
+      send({ error: true, message: "Too many messages. Please wait a moment." });
+      res.end(); return;
+    }
+    if (!conversationId || !message?.trim()) {
+      send({ error: true, message: "Missing fields" });
+      res.end(); return;
+    }
+
+    // Daily cap — show consultation CTA instead of hard stopping
     if (isDailyLimitReached(userId)) {
       const limitMsg = language === "ar"
-        ? "للحصول على متابعة أدق، يمكن لأحد مستشارينا مساعدتك مباشرة. 📞"
-        : "For more personalised guidance, one of our advisors can help you directly. 📞";
-      return res.json({ message: limitMsg });
+        ? "لإعداد توصية أدق تتناسب مع أهدافك، يسعدنا تخصيص استشارة شخصية معك. فريقنا سيكون معك خطوة بخطوة."
+        : "To prepare a more accurate recommendation based on your goals, please complete the consultation form and our advisory team will follow up with you personally.";
+      send({ done: true, message: limitMsg, limitReached: true, showConsultationCta: true });
+      res.end(); return;
     }
 
     const msgs = await storage.getAiMessages(conversationId);
     if (msgs.length >= MAX_MSGS_PER_CONVERSATION) {
-      return res.json({ message: language === "ar"
-        ? "للحصول على متابعة أدق، يمكن لأحد مستشارينا مساعدتك مباشرة. تواصل معنا وسنجهّز لك خيارات مخصصة. 🌟"
-        : "For more personalised guidance, one of our advisors can help you directly with tailored options. 🌟" });
+      const limitMsg = language === "ar"
+        ? "لإعداد توصية أدق تتناسب مع أهدافك، يسعدنا تخصيص استشارة شخصية معك. فريقنا سيكون معك خطوة بخطوة."
+        : "To prepare a more accurate recommendation based on your goals, please complete the consultation form and our advisory team will follow up with you personally.";
+      send({ done: true, message: limitMsg, limitReached: true, showConsultationCta: true });
+      res.end(); return;
     }
+
+    const nearLimit = msgs.length >= PRE_LIMIT_THRESHOLD;
 
     // Save user message first
     await storage.addAiMessage(conversationId, "user", message.trim());
@@ -2982,17 +3002,6 @@ ${metaTags}
     // Compressed history: send summary + recent messages for long conversations
     const history = buildHistory(msgs, message.trim(), existingProfile);
 
-    // ── SSE headers ──────────────────────────────────────────────────────────
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no");
-    res.flushHeaders();
-
-    const send = (data: object) => {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
     try {
       const aiResp = await streamChatWithAdvisor(
         history,
@@ -3002,6 +3011,7 @@ ${metaTags}
         currentScore,
         (delta: string) => send({ t: delta }),
         useComplexModel,
+        nearLimit,
       );
 
       // Save full clean response to DB
@@ -3058,8 +3068,15 @@ ${metaTags}
         }
       }
 
-      // Final SSE event — includes clean message so client can store it
-      send({ done: true, message: aiResp.message, leadScore: finalScore });
+      // Final SSE event — includes clean message, lead score, and pre-limit CTA flag
+      const mergedProfile = { ...(existingProfile || {}), ...(aiResp.profileData || {}) };
+      send({
+        done: true,
+        message: aiResp.message,
+        leadScore: finalScore,
+        showConsultationCta: nearLimit,
+        ...(nearLimit ? { profileData: mergedProfile } : {}),
+      });
       res.end();
 
     } catch (err: any) {
