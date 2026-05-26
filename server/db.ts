@@ -5,45 +5,12 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-/**
- * Resolve the single canonical production DATABASE_URL.
- *
- * Priority:
- *  1. PG* environment variables (PGHOST / PGDATABASE / PGUSER / PGPASSWORD)
- *     — these are set by Replit / Neon and always point to the real production DB.
- *  2. DATABASE_URL — used as fallback if PG* vars are absent.
- *
- * This eliminates split-brain situations where DATABASE_URL pointed to a stale
- * or empty database while PG* vars correctly pointed to the production one.
- */
-function resolveProductionDatabaseUrl(): string {
-  const pgHost     = process.env.PGHOST;
-  const pgDatabase = process.env.PGDATABASE;
-  const pgUser     = process.env.PGUSER;
-  const pgPassword = process.env.PGPASSWORD;
-  const pgPort     = process.env.PGPORT || '5432';
-
-  if (pgHost && pgDatabase && pgUser && pgPassword) {
-    const url = `postgresql://${pgUser}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-    const dbUrlHost = (process.env.DATABASE_URL || '').includes(pgHost);
-    if (!dbUrlHost) {
-      console.warn(
-        `[DB] DATABASE_URL host differs from PGHOST — using PGHOST (${pgHost}) as the canonical production source.`
-      );
-    }
-    return url;
-  }
-
-  const fallback = process.env.DATABASE_URL;
-  if (!fallback) {
-    throw new Error(
-      "No database configured. Set DATABASE_URL or PGHOST/PGDATABASE/PGUSER/PGPASSWORD environment variables."
-    );
-  }
-  return fallback;
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL environment variable is not set.");
 }
 
-const ACTIVE_DB_URL = resolveProductionDatabaseUrl();
+const ACTIVE_DB_URL = databaseUrl;
 
 export const pool = new Pool({
   connectionString: ACTIVE_DB_URL,
