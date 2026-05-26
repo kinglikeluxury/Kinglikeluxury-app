@@ -18,3 +18,9 @@ id = "uGu6rEXaEyTm4oVFtmPxF"
 uri = "file://backups/backup-after-history-restore.zip"
 type = "unspecified"
 title = "Database Backup — backup-after-history-restore.zip"
+
+[[outputs]]
+id = "MTo5UQfvvMJQUQaYpiB-z"
+uri = "file://backups/production-full-backup-after-ai-consultation-restore.zip"
+type = "unspecified"
+title = "Production Backup (SQL + JSON) — production-full-backup-after-ai-consultation-restore.zip"
