@@ -35,7 +35,7 @@ import { fileURLToPath } from "url";
 import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
-import { db } from "./db";
+import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -60,6 +60,59 @@ declare module "express-session" {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // ─── Database Status Debug Endpoint ────────────────────────────────────────
+  app.get("/api/debug/database-status", async (_req, res) => {
+    try {
+      const client = await pool.connect();
+      try {
+        const tablesRes = await client.query(`
+          SELECT table_name FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+          ORDER BY table_name
+        `);
+        const tables = tablesRes.rows.map((r: any) => r.table_name as string);
+
+        const countTables = ["properties", "projects", "users", "blog_posts",
+          "ai_conversations", "consultation_bookings", "notification_logs", "contact_logs"];
+        const counts: Record<string, number> = {};
+        for (const tbl of countTables) {
+          if (tables.includes(tbl)) {
+            const r = await client.query(`SELECT COUNT(*) FROM "${tbl}"`);
+            counts[tbl] = parseInt(r.rows[0].count, 10);
+          } else {
+            counts[tbl] = -1;
+          }
+        }
+
+        const byType = await client.query(`
+          SELECT property_type, status, COUNT(*) as count
+          FROM properties GROUP BY property_type, status ORDER BY property_type, status
+        `).catch(() => ({ rows: [] }));
+
+        res.json({
+          status: "connected",
+          host: getActiveDbHost(),
+          database: getActiveDbName(),
+          tables: tables.length,
+          tableList: tables,
+          counts,
+          propertiesByTypeAndStatus: (byType as any).rows,
+          timestamp: new Date().toISOString(),
+        });
+      } finally {
+        client.release();
+      }
+    } catch (err: any) {
+      res.status(500).json({
+        status: "error",
+        host: getActiveDbHost(),
+        database: getActiveDbName(),
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
 
   // ─── SEO: Sitemap & Robots (MUST be first — before any catch-all) ─────────
   const SEO_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];

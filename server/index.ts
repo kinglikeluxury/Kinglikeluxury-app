@@ -7,6 +7,8 @@ import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
+import { startDailyBackup } from "./dailyBackup";
+import { logDatabaseStatus } from "./db";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
@@ -123,6 +125,12 @@ app.use((req, res, next) => {
   server.headersTimeout = 630000;
 
   startScheduler();
+  startDailyBackup();
+
+  // Log active database status after server is up
+  logDatabaseStatus().catch(err =>
+    console.error("[DB] Failed to log database status:", err)
+  );
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];
