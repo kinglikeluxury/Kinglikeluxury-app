@@ -12,3 +12,9 @@ id = "QZCce8phDI7OhnFzGucih"
 uri = "file://kinglike-project.zip"
 type = "unspecified"
 title = "Kinglike Luxury — Full Project"
+
+[[outputs]]
+id = "uGu6rEXaEyTm4oVFtmPxF"
+uri = "file://backups/backup-after-history-restore.zip"
+type = "unspecified"
+title = "Database Backup — backup-after-history-restore.zip"
