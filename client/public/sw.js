@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinglike-v3';
+const CACHE_NAME = 'kinglike-v4';
 const urlsToCache = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -24,10 +24,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+
+  // NEVER intercept API requests — let the browser go directly to the server.
+  // This prevents stale cached responses from masking backend API endpoints.
+  if (url.pathname.startsWith('/api/')) return;
+
   if (url.pathname.startsWith('/locales/')) {
     event.respondWith(fetch(event.request));
     return;
   }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
