@@ -6,85 +6,25 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 
 /**
- * Resolve the canonical production database URL.
+ * Production database connection.
  *
- * Priority order:
- *
- *  1. NEON_DATABASE_URL — a custom secret that Replit's deployment platform
- *     will never override. This is the most reliable source and must be set
- *     to the full Neon connection string for ep-winter-paper-a4q7e6vy.
- *
- *  2. PGHOST / PGUSER / PGPASSWORD / PGDATABASE — used ONLY when PGHOST is a
- *     genuine Neon hostname (ends with .neon.tech). In Replit's deployed
- *     containers these vars are overridden to point at the built-in Postgres,
- *     so they are only trusted in development environments where they still
- *     hold the real Neon values.
- *
- *  3. DATABASE_URL — LAST resort, ONLY if it targets a real Neon host.
- *     In Replit deployments DATABASE_URL is overridden with ep-young-forest
- *     (an empty built-in database) and must be ignored.
- *
- * Explicitly rejected:
- *  - PGHOST="neondb"       — Replit's placeholder for its built-in Postgres
- *  - DATABASE_URL containing "ep-young-forest" — Replit's empty built-in DB
+ * Uses ONLY the NEON_DATABASE_URL secret — a custom name that Replit's
+ * deployment platform never overrides. DATABASE_URL and PG* variables
+ * injected by Replit are intentionally ignored.
  */
-function resolveProductionDatabaseUrl(): string {
-  // ── 1. Custom secret — never touched by Replit deployment ─────────────────
-  const neonDbUrl = process.env.NEON_DATABASE_URL || '';
-  if (neonDbUrl) {
-    try {
-      const parsed = new URL(neonDbUrl);
-      console.log(`[DB] Using NEON_DATABASE_URL → ${parsed.hostname}`);
-      return neonDbUrl;
-    } catch {
-      console.warn('[DB] NEON_DATABASE_URL is set but could not be parsed — skipping.');
-    }
-  }
-
-  // ── 2. PG* secrets — reliable in dev, overridden in production ───────────
-  const pgHost     = process.env.PGHOST     || '';
-  const pgUser     = process.env.PGUSER     || '';
-  const pgPassword = process.env.PGPASSWORD || '';
-  const pgDatabase = process.env.PGDATABASE || 'neondb';
-  const pgPort     = process.env.PGPORT     || '5432';
-
-  if (pgHost.endsWith('.neon.tech') && pgUser && pgPassword) {
-    const url = `postgresql://${pgUser}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-    console.log(`[DB] Using PG* secrets → PGHOST=${pgHost}`);
-    return url;
-  }
-
-  if (pgHost && !pgHost.endsWith('.neon.tech')) {
-    console.warn(`[DB] PGHOST="${pgHost}" is not a valid Neon host — ignored.`);
-  }
-
-  // ── 3. DATABASE_URL — last resort, reject Replit's empty built-in DB ──────
-  const dbUrl = process.env.DATABASE_URL || '';
-  if (dbUrl && !dbUrl.includes('ep-young-forest')) {
-    try {
-      const parsed = new URL(dbUrl);
-      console.log(`[DB] Using DATABASE_URL → ${parsed.hostname}`);
-      return dbUrl;
-    } catch {
-      console.warn('[DB] DATABASE_URL could not be parsed — skipping.');
-    }
-  }
-
-  if (dbUrl.includes('ep-young-forest')) {
-    console.warn('[DB] DATABASE_URL targets Replit\'s empty built-in database — ignored.');
-  }
-
+const neonDatabaseUrl = process.env.NEON_DATABASE_URL;
+if (!neonDatabaseUrl) {
   throw new Error(
-    'No valid production database configured. ' +
-    'Set NEON_DATABASE_URL in Replit Secrets to the full Neon connection string for ' +
+    'NEON_DATABASE_URL is not set. ' +
+    'Add it to Replit Secrets with the full Neon connection string for ' +
     'ep-winter-paper-a4q7e6vy.us-east-1.aws.neon.tech.'
   );
 }
 
-const ACTIVE_DB_URL = resolveProductionDatabaseUrl();
+console.log(`[DB] Using NEON_DATABASE_URL → ${new URL(neonDatabaseUrl).hostname}`);
 
 export const pool = new Pool({
-  connectionString: ACTIVE_DB_URL,
+  connectionString: neonDatabaseUrl,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
@@ -99,7 +39,7 @@ export const db = drizzle({ client: pool, schema });
 /** Returns the active database host for logging. */
 export function getActiveDbHost(): string {
   try {
-    return new URL(ACTIVE_DB_URL).hostname;
+    return new URL(neonDatabaseUrl!).hostname;
   } catch {
     return 'unknown';
   }
@@ -108,7 +48,7 @@ export function getActiveDbHost(): string {
 /** Returns the active database name for logging. */
 export function getActiveDbName(): string {
   try {
-    return new URL(ACTIVE_DB_URL).pathname.replace('/', '');
+    return new URL(neonDatabaseUrl!).pathname.replace('/', '');
   } catch {
     return 'unknown';
   }
@@ -187,5 +127,3 @@ export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3):
 
   throw lastError!;
 }
-
-console.log(`[DB] Connecting to: ${getActiveDbHost()} / ${getActiveDbName()}`);
