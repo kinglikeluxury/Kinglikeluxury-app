@@ -354,9 +354,15 @@ ${metaTags}
   });
 
   // Configure sessions with PostgreSQL store
+  const isProduction = process.env.NODE_ENV === "production";
   app.use(
     session({
-      cookie: { maxAge: 86400000 }, // 24 hours
+      cookie: {
+        maxAge: 86400000, // 24 hours
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+      },
       store: storage.sessionStore,
       resave: false,
       saveUninitialized: false,
