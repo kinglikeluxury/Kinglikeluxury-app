@@ -3146,6 +3146,42 @@ ${metaTags}
     }
   });
 
+  // ── Admin Users ─────────────────────────────────────────────────────────
+  app.get("/api/admin/users", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+      const allUsers = await storage.getAllUsers();
+      res.json(allUsers);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/users/:id", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+      const id = Number(req.params.id);
+      const { isAdmin } = req.body;
+      const updated = await storage.updateUser(id, { isAdmin });
+      if (!updated) return res.status(404).json({ message: "User not found" });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+      const id = Number(req.params.id);
+      if (id === req.session.userId) return res.status(400).json({ message: "Cannot delete yourself" });
+      await storage.deleteUser(id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Live Projects (public) ──────────────────────────────────────────────
   app.get("/api/live-projects", async (req, res) => {
     try {

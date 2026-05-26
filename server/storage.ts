@@ -24,6 +24,8 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(id: number, newPassword: string): Promise<User | undefined>;
+  updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<void>;
   
   // Property operations
   getProperties(filters?: {
@@ -195,6 +197,16 @@ export class MemStorage implements IStorage {
     const updated = { ...user, password: newPassword };
     this.users.set(id, updated);
     return updated;
+  }
+  async updateUser(id: number, data: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    const updated = { ...user, ...data };
+    this.users.set(id, updated);
+    return updated;
+  }
+  async deleteUser(id: number): Promise<void> {
+    this.users.delete(id);
   }
 
   async createUser(userData: InsertUser): Promise<User> {

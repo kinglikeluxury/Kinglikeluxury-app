@@ -318,6 +318,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: `✉️ حملة إيميل`, path: "/admin/email-campaign", icon: Mail })}
                 {renderItem({ label: t("consultation.admin.title"), path: "/admin/consultations", icon: CalendarDays })}
                 {renderItem({ label: `🤖 AI Leads`, path: "/admin/ai-leads", icon: Sparkles })}
+                {renderItem({ label: `👤 Users`, path: "/admin/users", icon: Users })}
                 {renderItem({ label: `📹 Live Cameras`, path: "/admin/live-cameras", icon: Camera })}
 
                 {/* Property ID Search */}

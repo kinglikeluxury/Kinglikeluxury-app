@@ -41,6 +41,7 @@ import Terms from "@/pages/terms";
 import PrivacyTerms from "@/pages/privacy-terms";
 import AiAdvisorPage from "@/pages/ai-advisor";
 import AiLeadsPage from "@/pages/admin/ai-leads";
+import AdminUsersPage from "@/pages/admin/users";
 import LiveProjects from "@/pages/live-projects";
 import AdminLiveCameras from "@/pages/admin/live-cameras";
 import FloatingAIButton from "@/components/FloatingAIButton";
@@ -80,6 +81,7 @@ function Router() {
           <Route path="/admin/email-campaign" component={EmailCampaignPage} />
           <Route path="/admin/consultations" component={AdminConsultations} />
           <Route path="/admin/ai-leads" component={AiLeadsPage} />
+          <Route path="/admin/users" component={AdminUsersPage} />
           <Route path="/admin/live-cameras" component={AdminLiveCameras} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />

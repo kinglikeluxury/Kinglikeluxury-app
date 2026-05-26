@@ -107,6 +107,17 @@ export class DatabaseStorage implements IStorage {
       return updated;
     });
   }
+  async updateUser(id: number, data: Partial<User>): Promise<User | undefined> {
+    return await withRetry(async () => {
+      const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+      return updated;
+    });
+  }
+  async deleteUser(id: number): Promise<void> {
+    await withRetry(async () => {
+      await db.delete(users).where(eq(users.id, id));
+    });
+  }
 
   async getUserByField(field: string, value: string): Promise<User | undefined> {
     if (!value) return undefined;
