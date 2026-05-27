@@ -48,3 +48,15 @@ id = "9Gfprdj4WK-u-7XXfbBiq"
 uri = "file://production-backup-2026-05-26/kinglike-project-2026-05-26.zip"
 type = "unspecified"
 title = "Full Project Source Code — kinglike-project-2026-05-26.zip"
+
+[[outputs]]
+id = "WfYzbuCTDEZt22kHknHYQ"
+uri = "file://kinglike-full-backup-2026-05-27-COMPLETE.zip"
+type = "unspecified"
+title = "Complete Backup Bundle (SQL dump + README + .env.example)"
+
+[[outputs]]
+id = "thtx06F7y0xMON_ml9dRt"
+uri = "file://kinglike-full-backup-2026-05-27/kinglike-source-2026-05-27.zip"
+type = "unspecified"
+title = "Full Source Code (client + server + shared + configs)"
