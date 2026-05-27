@@ -46,7 +46,8 @@
     "privacyPolicy": "Datenschutzrichtlinie",
     "privacyTerms": "Datenschutz & AGB",
     "termsConditions": "Allgemeine Geschäftsbedingungen",
-    "live": "Live-Projekte"
+    "live": "Live-Projekte",
+    "notifications": "Benachrichtigungen"
   },
   "drawer": {
     "browse": "Durchsuchen",

@@ -46,7 +46,8 @@
     "privacyPolicy": "Integritetspolicy",
     "privacyTerms": "Integritet & villkor",
     "termsConditions": "Allmänna villkor",
-    "live": "Live-projekt"
+    "live": "Live-projekt",
+    "notifications": "Notifikationer"
   },
   "drawer": {
     "browse": "Bläddra",

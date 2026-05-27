@@ -46,7 +46,8 @@
     "privacyPolicy": "Privacy Policy",
     "privacyTerms": "Privacy & Terms",
     "termsConditions": "Terms & Conditions",
-    "live": "Live Projects"
+    "live": "Live Projects",
+    "notifications": "Notifications"
   },
   "drawer": {
     "browse": "Browse",
@@ -150,7 +151,8 @@
     "invalidNumberDesc": "Please enter a valid phone number",
     "invalidCode": "Invalid code",
     "invalidCodeDesc": "Enter the 6-digit code",
-    "sendFailed": "Send failed"
+    "sendFailed": "Send failed",
+    "loginRequired": "Please log in first"
   },
   "favorites": {
     "title": "Favorites",
@@ -169,7 +171,14 @@
     "approvals": "Property Approvals",
     "createProject": "Add Project",
     "blogManagement": "Blog Management",
-    "leads": "Leads Database"
+    "leads": "Leads Database",
+    "aiLeads": "AI Leads",
+    "projectOffer": "Project Offer",
+    "emailCampaign": "Email Campaign",
+    "users": "Users",
+    "liveCameras": "Live Cameras",
+    "searchByPropertyId": "Search by Property ID",
+    "propertyIdPlaceholder": "Property ID..."
   },
   "blog": {
     "title": "Real Estate Blog",

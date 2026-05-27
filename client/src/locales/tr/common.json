@@ -46,7 +46,8 @@
     "privacyPolicy": "Gizlilik Politikası",
     "privacyTerms": "Gizlilik ve Koşullar",
     "termsConditions": "Şartlar ve Koşullar",
-    "live": "Canlı Projeler"
+    "live": "Canlı Projeler",
+    "notifications": "Bildirimler"
   },
   "drawer": {
     "browse": "Gözat",
@@ -150,7 +151,8 @@
     "invalidNumberDesc": "Lütfen geçerli bir telefon numarası girin",
     "invalidCode": "Geçersiz kod",
     "invalidCodeDesc": "6 haneli kodu girin",
-    "sendFailed": "Gönderme başarısız"
+    "sendFailed": "Gönderme başarısız",
+    "loginRequired": "Lütfen önce giriş yapın"
   },
   "favorites": {
     "title": "Favoriler",
@@ -364,7 +366,7 @@
   "consultation": {
     "title": "Danışma Randevusu Al",
     "subtitle": "Uzmanlarımızla ücretsiz danışma randevusu alın",
-    "menuLabel": "Danışma Al",
+    "menuLabel": "Danışmanlık Randevusu Al",
     "bookNow": "Randevu Al",
     "bookConsultation": "Danışma Randevusu Al",
     "forProperty": "Bu mülk için danışma",

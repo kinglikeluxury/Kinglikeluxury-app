@@ -46,7 +46,8 @@
     "privacyPolicy": "سياسة الخصوصية",
     "privacyTerms": "الخصوصية والشروط",
     "termsConditions": "الشروط والأحكام",
-    "live": "كاميرات المشاريع"
+    "live": "كاميرات المشاريع",
+    "notifications": "الإشعارات"
   },
   "drawer": {
     "browse": "تصفح",
@@ -150,7 +151,8 @@
     "invalidNumberDesc": "أدخل رقم هاتف صحيح",
     "invalidCode": "رمز غير صحيح",
     "invalidCodeDesc": "أدخل الرمز المكون من 6 أرقام",
-    "sendFailed": "فشل الإرسال"
+    "sendFailed": "فشل الإرسال",
+    "loginRequired": "يجب تسجيل الدخول أولاً"
   },
   "favorites": {
     "title": "المفضلة",

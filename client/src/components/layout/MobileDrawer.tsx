@@ -217,7 +217,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl bg-red-50 active:bg-red-100 flex-shrink-0"
               >
                 <LogOut className="w-4 h-4 text-red-500" />
-                <span className="text-[10px] font-medium text-red-500">{t("auth.logout", "Logout")}</span>
+                <span className="text-[10px] font-medium text-red-500">{t("auth.logout", "Sign out")}</span>
               </button>
             </div>
           </div>
@@ -246,16 +246,16 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           <div className="mx-4 mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
             <LogIn className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800">يجب تسجيل الدخول أولاً</p>
+              <p className="text-sm font-medium text-amber-800">{t("auth.loginRequired", "Please log in first")}</p>
               <div className="flex gap-2 mt-2">
                 <Link href="/login" onClick={handleNav}>
                   <span className="text-xs px-3 py-1.5 rounded-lg text-white font-medium" style={{ background: "#3bcac4" }}>
-                    تسجيل الدخول
+                    {t("auth.login", "Login")}
                   </span>
                 </Link>
                 <Link href="/register" onClick={handleNav}>
                   <span className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 font-medium">
-                    إنشاء حساب
+                    {t("auth.register", "Sign Up")}
                   </span>
                 </Link>
               </div>
@@ -314,18 +314,18 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: t("admin.approvals", "Approvals"), path: "/admin/approvals", icon: CheckSquare })}
                 {renderItem({ label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen })}
                 {renderItem({ label: `👥 ${t("admin.leads", "Leads Database")}`, path: "/admin/leads", icon: Users })}
-                {renderItem({ label: `📄 إنشاء عرض للمشاريع`, path: "/admin/project-offer", icon: FileText })}
-                {renderItem({ label: `✉️ حملة إيميل`, path: "/admin/email-campaign", icon: Mail })}
-                {renderItem({ label: t("consultation.admin.title"), path: "/admin/consultations", icon: CalendarDays })}
-                {renderItem({ label: `🤖 AI Leads`, path: "/admin/ai-leads", icon: Sparkles })}
-                {renderItem({ label: `👤 Users`, path: "/admin/users", icon: Users })}
-                {renderItem({ label: `📹 Live Cameras`, path: "/admin/live-cameras", icon: Camera })}
+                {renderItem({ label: `📄 ${t("admin.projectOffer", "Project Offer")}`, path: "/admin/project-offer", icon: FileText })}
+                {renderItem({ label: `✉️ ${t("admin.emailCampaign", "Email Campaign")}`, path: "/admin/email-campaign", icon: Mail })}
+                {renderItem({ label: t("consultation.admin.title", "Consultations"), path: "/admin/consultations", icon: CalendarDays })}
+                {renderItem({ label: `🤖 ${t("admin.aiLeads", "AI Leads")}`, path: "/admin/ai-leads", icon: Sparkles })}
+                {renderItem({ label: `👤 ${t("admin.users", "Users")}`, path: "/admin/users", icon: Users })}
+                {renderItem({ label: `📹 ${t("admin.liveCameras", "Live Cameras")}`, path: "/admin/live-cameras", icon: Camera })}
 
                 {/* Property ID Search */}
                 <div className="px-5 py-3.5 border-t border-gray-100">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <Search className="w-3 h-3" />
-                    بحث بـ Property ID
+                    {t("admin.searchByPropertyId", "Search by Property ID")}
                   </p>
                   <form onSubmit={handleAdminSearch} className="flex gap-2">
                     <input
@@ -333,7 +333,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                       min="1"
                       value={adminSearchId}
                       onChange={(e) => setAdminSearchId(e.target.value)}
-                      placeholder="أدخل رقم العقار..."
+                      placeholder={t("admin.propertyIdPlaceholder", "Property ID...")}
                       className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-[#3bcac4] min-w-0"
                       style={{ direction: "ltr" }}
                     />
@@ -409,7 +409,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 <div className="w-8 h-8 rounded-full bg-[#3bcac4]/10 flex items-center justify-center flex-shrink-0">
                   <KeyRound className="w-4 h-4 text-[#3bcac4]" />
                 </div>
-                <span className="text-[15px] font-medium">{t("auth.changePassword", "تغيير كلمة السر")}</span>
+                <span className="text-[15px] font-medium">{t("auth.changePassword", "Change Password")}</span>
                 <ChevronRight className="w-4 h-4 text-gray-300 ml-auto" />
               </Link>
               <button
@@ -419,7 +419,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
                   <LogOut className="w-4 h-4 text-red-500" />
                 </div>
-                <span className="text-[15px] font-medium">{t("auth.logout", "تسجيل الخروج")}</span>
+                <span className="text-[15px] font-medium">{t("auth.logout", "Sign out")}</span>
               </button>
             </div>
           )}

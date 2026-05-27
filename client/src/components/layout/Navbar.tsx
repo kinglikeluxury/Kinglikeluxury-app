@@ -155,28 +155,28 @@ const Navbar = () => {
 
                       {/* Navigation links */}
                       <DropdownMenuItem asChild>
-                        <Link href="/" className="flex items-center gap-2"><Home className="w-4 h-4 text-gray-400" />{t("nav.home", "الرئيسية")}</Link>
+                        <Link href="/" className="flex items-center gap-2"><Home className="w-4 h-4 text-gray-400" />{t("nav.home", "Home")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/properties?type=apartment" className="flex items-center gap-2"><Building2 className="w-4 h-4 text-gray-400" />{t("propertyTypes.apartment", "شقق")}</Link>
+                        <Link href="/properties?type=apartment" className="flex items-center gap-2"><Building2 className="w-4 h-4 text-gray-400" />{t("propertyTypes.apartment", "Apartments")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/projects" className="flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" />{t("nav.projects", "المشاريع")}</Link>
+                        <Link href="/projects" className="flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" />{t("nav.projects", "Projects")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/blog" className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-gray-400" />{t("nav.blog", "المدونة")}</Link>
+                        <Link href="/blog" className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-gray-400" />{t("nav.blog", "Blog")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/map" className="flex items-center gap-2"><Map className="w-4 h-4 text-gray-400" />{t("nav.map", "الخريطة")}</Link>
+                        <Link href="/map" className="flex items-center gap-2"><Map className="w-4 h-4 text-gray-400" />{t("nav.map", "Map")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/favorites" className="flex items-center gap-2"><Heart className="w-4 h-4 text-gray-400" />{t("favorites.title", "المفضلة")}</Link>
+                        <Link href="/favorites" className="flex items-center gap-2"><Heart className="w-4 h-4 text-gray-400" />{t("favorites.title", "Favorites")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/properties?myProperties=true" className="flex items-center gap-2"><Star className="w-4 h-4 text-gray-400" />{t("property.myProperties", "عقاراتي")}</Link>
+                        <Link href="/properties?myProperties=true" className="flex items-center gap-2"><Star className="w-4 h-4 text-gray-400" />{t("property.myProperties", "My Properties")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/submit-property" className="flex items-center gap-2"><PlusCircle className="w-4 h-4 text-gray-400" />{t("property.submit", "إضافة عقار")}</Link>
+                        <Link href="/submit-property" className="flex items-center gap-2"><PlusCircle className="w-4 h-4 text-gray-400" />{t("property.submit", "Add Property")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link href="/ai-advisor" className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#3bcac4]" />{t("aiAdvisor.menuLabel", "AI Investment Advisor")}</Link>
@@ -187,20 +187,20 @@ const Navbar = () => {
                             <Tv className="w-4 h-4 text-red-500" />
                             <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
                           </span>
-                          {t("nav.live", "كاميرات المشاريع")}
+                          {t("nav.live", "Live Projects")}
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link href="/consultation" className="flex items-center gap-2"><CalendarDays className="w-4 h-4 text-gray-400" />{t("consultation.menuLabel", "Book Consultation")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/notifications" className="flex items-center gap-2"><Bell className="w-4 h-4 text-gray-400" />{t("nav.notifications", "الإشعارات")}</Link>
+                        <Link href="/notifications" className="flex items-center gap-2"><Bell className="w-4 h-4 text-gray-400" />{t("nav.notifications", "Notifications")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/privacy-policy" className="flex items-center gap-2"><Shield className="w-4 h-4 text-gray-400" />{t("nav.privacyPolicy", "سياسة الخصوصية")}</Link>
+                        <Link href="/privacy-policy" className="flex items-center gap-2"><Shield className="w-4 h-4 text-gray-400" />{t("nav.privacyPolicy", "Privacy Policy")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/terms" className="flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" />{t("nav.termsConditions", "الشروط والأحكام")}</Link>
+                        <Link href="/terms" className="flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" />{t("nav.termsConditions", "Terms & Conditions")}</Link>
                       </DropdownMenuItem>
 
                       {/* Admin section */}
@@ -217,10 +217,10 @@ const Navbar = () => {
                           <DropdownMenuItem asChild><Link href="/ai-advisor" className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-[#3bcac4]" /> {t("aiAdvisor.menuLabel", "AI Advisor")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/ai-leads" className="flex items-center gap-2"><Bot className="w-3.5 h-3.5" /> {t("admin.aiLeads", "AI Leads")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ حملة إيميل</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/users" className="flex items-center gap-2"><Users className="w-3.5 h-3.5 text-[#3bcac4]" /> Users</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ {t("admin.emailCampaign", "Email Campaign")}</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/users" className="flex items-center gap-2"><Users className="w-3.5 h-3.5 text-[#3bcac4]" /> {t("admin.users", "Users")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/live-projects" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-500" /> {t("nav.live", "Live Projects")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/live-cameras" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-400" /> Live Cameras (Admin)</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/live-cameras" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-400" /> {t("admin.liveCameras", "Live Cameras")}</Link></DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <div className="px-2 py-1.5">
                             <p className="text-[10px] text-gray-400 font-semibold uppercase mb-1.5 flex items-center gap-1">
@@ -257,10 +257,10 @@ const Navbar = () => {
                       {/* Account actions */}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link href="/change-password" className="flex items-center gap-2"><KeyRound className="w-4 h-4 text-gray-400" />{t("auth.changePassword", "تغيير كلمة السر")}</Link>
+                        <Link href="/change-password" className="flex items-center gap-2"><KeyRound className="w-4 h-4 text-gray-400" />{t("auth.changePassword", "Change Password")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-500 focus:text-red-500">
-                        <LogOut className="w-4 h-4" />{t("auth.logout", "تسجيل الخروج")}
+                        <LogOut className="w-4 h-4" />{t("auth.logout", "Sign out")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
