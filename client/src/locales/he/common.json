@@ -45,7 +45,8 @@
     "map": "מפה",
     "privacyPolicy": "מדיניות הפרטיות",
     "privacyTerms": "פרטיות ותנאים",
-    "termsConditions": "תנאים והגבלות"
+    "termsConditions": "תנאים והגבלות",
+    "live": "פרויקטים חיים"
   },
   "drawer": {
     "browse": "עיון",
@@ -490,5 +491,27 @@
         "message": "זוהי התראת בדיקה."
       }
     }
+  },
+  "liveProjects": {
+    "title": "פרויקטים חיים",
+    "subtitle": "צפו בהתקדמות הבנייה בזמן אמת בפרויקטים הפרמיום שלנו דרך מצלמות שידור חי.",
+    "badge": "מצלמות חי",
+    "comingSoon": "בקרוב — מצלמות חי",
+    "comingSoonDesc": "בקרוב נוסיף מצלמות בנייה חי לפרויקטים שלנו. הישארו מעודכנים!",
+    "step1": "1. בחרו מדינה",
+    "step2": "2. בחרו עיר",
+    "step3": "3. בחרו פרויקט",
+    "step4": "4. שידור חי",
+    "cameraUnavailable": "המצלמה החיה אינה זמינה זמנית.",
+    "cameraUnavailableDesc": "בקשו עדכון בנייה עדכני מהיועץ שלנו.",
+    "tryAgain": "נסה שוב",
+    "underMaintenance": "המצלמה בתחזוקה",
+    "statusLive": "חי",
+    "statusUnavailable": "לא זמין",
+    "statusMaintenance": "תחזוקה",
+    "projectsAvailable": "{{count}} פרויקט חי זמין",
+    "projectsAvailable_plural": "{{count}} פרויקטים חיים זמינים",
+    "requestConsultation": "בקש ייעוץ",
+    "contactAdvisor": "יועץ AI"
   }
 }

@@ -45,7 +45,8 @@
     "map": "Xəritə",
     "privacyPolicy": "Məxfilik Siyasəti",
     "privacyTerms": "Məxfilik və Şərtlər",
-    "termsConditions": "Şərtlər və Qaydalar"
+    "termsConditions": "Şərtlər və Qaydalar",
+    "live": "Canlı Layihələr"
   },
   "drawer": {
     "browse": "Gəz",
@@ -490,5 +491,27 @@
         "message": "Bu test bildirişidir."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Canlı Layihələr",
+    "subtitle": "Premium layihələrimizdə real vaxt inşaat irəliləyişini canlı kamera axınları vasitəsilə izləyin.",
+    "badge": "CANLI KAMERALAR",
+    "comingSoon": "Tezliklə — Canlı Kameralar",
+    "comingSoonDesc": "Tezliklə layihələrimizə canlı inşaat kameraları əlavə edəcəyik!",
+    "step1": "1. Ölkə seçin",
+    "step2": "2. Şəhər seçin",
+    "step3": "3. Layihə seçin",
+    "step4": "4. Canlı Yayım",
+    "cameraUnavailable": "Canlı kamera müvəqqəti olaraq əlçatmazdır.",
+    "cameraUnavailableDesc": "Məsləhətçimizdən ən son tikinti yeniləməsini tələb edin.",
+    "tryAgain": "Yenidən cəhd et",
+    "underMaintenance": "Kamera texniki xidmətdədir",
+    "statusLive": "CANLI",
+    "statusUnavailable": "ƏLÇATMAZ",
+    "statusMaintenance": "XİDMƏT",
+    "projectsAvailable": "{{count}} canlı layihə",
+    "projectsAvailable_plural": "{{count}} canlı layihə",
+    "requestConsultation": "Məsləhət tələb et",
+    "contactAdvisor": "AI Məsləhətçi"
   }
 }

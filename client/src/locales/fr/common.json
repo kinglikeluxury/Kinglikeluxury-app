@@ -45,7 +45,8 @@
     "map": "Carte",
     "privacyPolicy": "Politique de confidentialité",
     "privacyTerms": "Confidentialité & Conditions",
-    "termsConditions": "Termes et conditions"
+    "termsConditions": "Termes et conditions",
+    "live": "Projets en Direct"
   },
   "drawer": {
     "browse": "Parcourir",
@@ -498,5 +499,27 @@
         "message": "Ceci est une notification de test."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Projets en Direct",
+    "subtitle": "Suivez en temps réel l'avancement des travaux de nos projets premium via des caméras en streaming.",
+    "badge": "CAMÉRAS EN DIRECT",
+    "comingSoon": "Bientôt — Caméras en Direct",
+    "comingSoonDesc": "Nous ajouterons bientôt des caméras de chantier en direct à nos projets!",
+    "step1": "1. Sélectionner le Pays",
+    "step2": "2. Sélectionner la Ville",
+    "step3": "3. Sélectionner le Projet",
+    "step4": "4. Diffusion en Direct",
+    "cameraUnavailable": "La caméra en direct est temporairement indisponible.",
+    "cameraUnavailableDesc": "Veuillez demander la dernière mise à jour à notre conseiller.",
+    "tryAgain": "Réessayer",
+    "underMaintenance": "Caméra en maintenance",
+    "statusLive": "EN DIRECT",
+    "statusUnavailable": "INDISPONIBLE",
+    "statusMaintenance": "MAINTENANCE",
+    "projectsAvailable": "{{count}} projet en direct",
+    "projectsAvailable_plural": "{{count}} projets en direct",
+    "requestConsultation": "Réserver une Consultation",
+    "contactAdvisor": "Conseiller IA"
   }
 }

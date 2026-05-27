@@ -45,7 +45,8 @@
     "map": "Harita",
     "privacyPolicy": "Gizlilik Politikası",
     "privacyTerms": "Gizlilik ve Koşullar",
-    "termsConditions": "Şartlar ve Koşullar"
+    "termsConditions": "Şartlar ve Koşullar",
+    "live": "Canlı Projeler"
   },
   "drawer": {
     "browse": "Gözat",
@@ -490,5 +491,27 @@
         "message": "Bu bir test bildirimidir."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Canlı Projeler",
+    "subtitle": "Premium projelerimizde gerçek zamanlı inşaat ilerlemesini canlı kamera akışlarıyla izleyin.",
+    "badge": "CANLI KAMERALAR",
+    "comingSoon": "Yakında — Canlı Kameralar",
+    "comingSoonDesc": "Projelerimize yakında canlı inşaat kameraları ekleyeceğiz. Takipte kalın!",
+    "step1": "1. Ülke Seçin",
+    "step2": "2. Şehir Seçin",
+    "step3": "3. Proje Seçin",
+    "step4": "4. Canlı Yayın",
+    "cameraUnavailable": "Canlı kamera geçici olarak kullanılamıyor.",
+    "cameraUnavailableDesc": "Danışmanımızdan en son inşaat güncellemesini talep edin.",
+    "tryAgain": "Tekrar dene",
+    "underMaintenance": "Kamera bakımda",
+    "statusLive": "CANLI",
+    "statusUnavailable": "KULLANILAMIYOR",
+    "statusMaintenance": "BAKIM",
+    "projectsAvailable": "{{count}} canlı proje mevcut",
+    "projectsAvailable_plural": "{{count}} canlı proje mevcut",
+    "requestConsultation": "Danışma Talep Et",
+    "contactAdvisor": "AI Danışmanı"
   }
 }

@@ -45,7 +45,8 @@
     "map": "Kaart",
     "privacyPolicy": "Privacybeleid",
     "privacyTerms": "Privacy & Voorwaarden",
-    "termsConditions": "Algemene voorwaarden"
+    "termsConditions": "Algemene voorwaarden",
+    "live": "Live Projecten"
   },
   "drawer": {
     "browse": "Bladeren",
@@ -498,5 +499,27 @@
         "message": "Dit is een testmelding."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Live Projecten",
+    "subtitle": "Volg de bouwvoortgang van onze premium projecten in realtime via live camera-streams.",
+    "badge": "LIVE CAMERA'S",
+    "comingSoon": "Binnenkort — Live Camera's",
+    "comingSoonDesc": "We voegen binnenkort live bouwcamera's toe aan onze projecten!",
+    "step1": "1. Selecteer Land",
+    "step2": "2. Selecteer Stad",
+    "step3": "3. Selecteer Project",
+    "step4": "4. Live Stream",
+    "cameraUnavailable": "Live camera is tijdelijk niet beschikbaar.",
+    "cameraUnavailableDesc": "Vraag de nieuwste bouwupdate op bij onze adviseur.",
+    "tryAgain": "Opnieuw proberen",
+    "underMaintenance": "Camera in onderhoud",
+    "statusLive": "LIVE",
+    "statusUnavailable": "NIET BESCHIKBAAR",
+    "statusMaintenance": "ONDERHOUD",
+    "projectsAvailable": "{{count}} live project",
+    "projectsAvailable_plural": "{{count}} live projecten",
+    "requestConsultation": "Consultatie aanvragen",
+    "contactAdvisor": "AI Adviseur"
   }
 }

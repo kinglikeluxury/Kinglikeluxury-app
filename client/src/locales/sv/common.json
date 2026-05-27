@@ -45,7 +45,8 @@
     "map": "Karta",
     "privacyPolicy": "Integritetspolicy",
     "privacyTerms": "Integritet & villkor",
-    "termsConditions": "Allmänna villkor"
+    "termsConditions": "Allmänna villkor",
+    "live": "Live-projekt"
   },
   "drawer": {
     "browse": "Bläddra",
@@ -498,5 +499,27 @@
         "message": "Detta är en testavisering."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Live-projekt",
+    "subtitle": "Se byggframstegen i realtid på våra premiumprojekt via live-kameraströmmar.",
+    "badge": "LIVE-KAMEROR",
+    "comingSoon": "Snart — Live-kameror",
+    "comingSoonDesc": "Vi kommer snart att lägga till live-byggkameror till våra projekt!",
+    "step1": "1. Välj land",
+    "step2": "2. Välj stad",
+    "step3": "3. Välj projekt",
+    "step4": "4. Livestream",
+    "cameraUnavailable": "Livekameran är tillfälligt otillgänglig.",
+    "cameraUnavailableDesc": "Begär den senaste bygguppdateringen från vår rådgivare.",
+    "tryAgain": "Försök igen",
+    "underMaintenance": "Kamera under underhåll",
+    "statusLive": "LIVE",
+    "statusUnavailable": "OTILLGÄNGLIG",
+    "statusMaintenance": "UNDERHÅLL",
+    "projectsAvailable": "{{count}} live-projekt",
+    "projectsAvailable_plural": "{{count}} live-projekt",
+    "requestConsultation": "Boka konsultation",
+    "contactAdvisor": "AI-rådgivare"
   }
 }

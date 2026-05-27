@@ -45,7 +45,8 @@
     "map": "რუკა",
     "privacyPolicy": "კონფიდენციალურობის პოლიტიკა",
     "privacyTerms": "კონფიდენციალურობა და პირობები",
-    "termsConditions": "წესები და პირობები"
+    "termsConditions": "წესები და პირობები",
+    "live": "ლაივ პროექტები"
   },
   "drawer": {
     "browse": "დათვალიერება",
@@ -490,5 +491,27 @@
         "message": "ეს სატესტო შეტყობინებაა."
       }
     }
+  },
+  "liveProjects": {
+    "title": "ლაივ პროექტები",
+    "subtitle": "უყურეთ ჩვენი პრემიუმ პროექტების მშენებლობის პროგრესს პირდაპირი ეთერით.",
+    "badge": "LIVE კამერები",
+    "comingSoon": "მალე — Live კამერები",
+    "comingSoonDesc": "მალე ჩვენს პროექტებს live მშენებლობის კამერებს დავამატებთ!",
+    "step1": "1. აირჩიეთ ქვეყანა",
+    "step2": "2. აირჩიეთ ქალაქი",
+    "step3": "3. აირჩიეთ პროექტი",
+    "step4": "4. პირდაპირი ეთერი",
+    "cameraUnavailable": "Live კამერა დროებით მიუწვდომელია.",
+    "cameraUnavailableDesc": "გთხოვთ მოითხოვოთ უახლესი განახლება ჩვენი კონსულტანტისგან.",
+    "tryAgain": "კვლავ ცდა",
+    "underMaintenance": "კამერა ტექნიკური მომსახურებაშია",
+    "statusLive": "LIVE",
+    "statusUnavailable": "მიუწვდომელია",
+    "statusMaintenance": "მომსახურება",
+    "projectsAvailable": "{{count}} live პროექტი",
+    "projectsAvailable_plural": "{{count}} live პროექტი",
+    "requestConsultation": "კონსულტაციის მოთხოვნა",
+    "contactAdvisor": "AI კონსულტანტი"
   }
 }

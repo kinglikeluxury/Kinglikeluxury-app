@@ -45,7 +45,8 @@
     "map": "地图",
     "privacyPolicy": "隐私政策",
     "privacyTerms": "隐私与条款",
-    "termsConditions": "条款与条件"
+    "termsConditions": "条款与条件",
+    "live": "实时项目"
   },
   "drawer": {
     "browse": "浏览",
@@ -490,5 +491,27 @@
         "message": "这是一条测试通知。"
       }
     }
+  },
+  "liveProjects": {
+    "title": "实时项目",
+    "subtitle": "通过实时摄像头流观看我们高端项目的实时建设进度。",
+    "badge": "直播摄像头",
+    "comingSoon": "即将推出 — 实时摄像头",
+    "comingSoonDesc": "我们即将为项目添加实时建设摄像头，敬请期待！",
+    "step1": "1. 选择国家",
+    "step2": "2. 选择城市",
+    "step3": "3. 选择项目",
+    "step4": "4. 实时直播",
+    "cameraUnavailable": "实时摄像头暂时不可用。",
+    "cameraUnavailableDesc": "请向我们的顾问申请最新建设进度报告。",
+    "tryAgain": "重试",
+    "underMaintenance": "摄像头维护中",
+    "statusLive": "直播",
+    "statusUnavailable": "不可用",
+    "statusMaintenance": "维护中",
+    "projectsAvailable": "{{count}} 个实时项目",
+    "projectsAvailable_plural": "{{count}} 个实时项目",
+    "requestConsultation": "预约咨询",
+    "contactAdvisor": "AI 顾问"
   }
 }

@@ -45,7 +45,8 @@
     "map": "نقشه",
     "privacyPolicy": "سیاست حریم خصوصی",
     "privacyTerms": "حریم خصوصی و شرایط",
-    "termsConditions": "شرایط و ضوابط"
+    "termsConditions": "شرایط و ضوابط",
+    "live": "پروژه‌های زنده"
   },
   "drawer": {
     "browse": "مرور",
@@ -495,5 +496,27 @@
         "message": "این یک اعلان آزمایشی است."
       }
     }
+  },
+  "liveProjects": {
+    "title": "پروژه‌های زنده",
+    "subtitle": "پیشرفت ساخت‌وساز پروژه‌های ممتاز ما را در زمان واقعی از طریق دوربین‌های پخش زنده تماشا کنید.",
+    "badge": "دوربین‌های زنده",
+    "comingSoon": "به زودی — دوربین‌های زنده",
+    "comingSoonDesc": "به زودی دوربین‌های ساخت‌وساز زنده به پروژه‌هایمان اضافه می‌کنیم!",
+    "step1": "۱. کشور را انتخاب کنید",
+    "step2": "۲. شهر را انتخاب کنید",
+    "step3": "۳. پروژه را انتخاب کنید",
+    "step4": "۴. پخش زنده",
+    "cameraUnavailable": "دوربین زنده موقتاً در دسترس نیست.",
+    "cameraUnavailableDesc": "لطفاً آخرین به‌روزرسانی ساخت‌وساز را از مشاور ما درخواست کنید.",
+    "tryAgain": "تلاش مجدد",
+    "underMaintenance": "دوربین در حال تعمیر",
+    "statusLive": "زنده",
+    "statusUnavailable": "در دسترس نیست",
+    "statusMaintenance": "تعمیر",
+    "projectsAvailable": "{{count}} پروژه زنده",
+    "projectsAvailable_plural": "{{count}} پروژه زنده",
+    "requestConsultation": "درخواست مشاوره",
+    "contactAdvisor": "مشاور هوش مصنوعی"
   }
 }

@@ -3,72 +3,66 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import {
-  Wifi, WifiOff, Maximize2, RefreshCw, CalendarDays, Bot,
+  WifiOff, Maximize2, RefreshCw, CalendarDays, Bot,
   MapPin, ChevronRight, Camera, Globe, Building2, Loader2, Tv
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Property } from "@shared/schema";
 
 // ── Country config ─────────────────────────────────────────────────────────
-const COUNTRY_META: Record<string, { flag: string; label: string }> = {
-  georgia:      { flag: "🇬🇪", label: "Georgia" },
-  turkey:       { flag: "🇹🇷", label: "Turkey" },
-  dubai:        { flag: "🇦🇪", label: "Dubai" },
-  north_cyprus: { flag: "🇨🇾", label: "North Cyprus" },
-};
-
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  active:      { label: "LIVE",        color: "bg-red-500" },
-  unavailable: { label: "UNAVAILABLE", color: "bg-gray-400" },
-  maintenance: { label: "MAINTENANCE", color: "bg-amber-500" },
+const COUNTRY_META: Record<string, { flag: string; labelKey: string; fallback: string }> = {
+  georgia:      { flag: "🇬🇪", labelKey: "countries.georgia",      fallback: "Georgia" },
+  turkey:       { flag: "🇹🇷", labelKey: "countries.turkey",       fallback: "Turkey" },
+  dubai:        { flag: "🇦🇪", labelKey: "countries.dubai",        fallback: "Dubai" },
+  north_cyprus: { flag: "🇨🇾", labelKey: "countries.north_cyprus", fallback: "North Cyprus" },
 };
 
 // ── LIVE badge ─────────────────────────────────────────────────────────────
-function LiveBadge({ status }: { status: string | null }) {
-  const cfg = STATUS_CONFIG[status || "unavailable"] || STATUS_CONFIG.unavailable;
+function LiveBadge({ status, t }: { status: string | null; t: (k: string, fb: string) => string }) {
+  const cfgs: Record<string, { color: string; labelKey: string; fallback: string }> = {
+    active:      { color: "bg-red-500",    labelKey: "liveProjects.statusLive",        fallback: "LIVE" },
+    unavailable: { color: "bg-gray-400",   labelKey: "liveProjects.statusUnavailable", fallback: "UNAVAILABLE" },
+    maintenance: { color: "bg-amber-500",  labelKey: "liveProjects.statusMaintenance", fallback: "MAINTENANCE" },
+  };
+  const cfg = cfgs[status || "unavailable"] || cfgs.unavailable;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wider ${cfg.color}`}>
       {status === "active" && <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping" />}
-      {cfg.label}
+      {t(cfg.labelKey, cfg.fallback)}
     </span>
   );
 }
 
-// ── Skeleton ───────────────────────────────────────────────────────────────
-function IframeSkeleton() {
-  return (
-    <div className="w-full aspect-video bg-gray-200 rounded-2xl animate-pulse flex flex-col items-center justify-center gap-3">
-      <Camera className="w-12 h-12 text-gray-300" />
-      <p className="text-sm text-gray-400">Loading live stream…</p>
-    </div>
-  );
-}
-
-// ── Fallback ───────────────────────────────────────────────────────────────
-function CameraFallback({ onRetry, isRtl }: { onRetry: () => void; isRtl: boolean }) {
+// ── Camera fallback ────────────────────────────────────────────────────────
+function CameraFallback({ onRetry, t }: { onRetry: () => void; t: (k: string, fb: string) => string }) {
   const [, navigate] = useLocation();
   return (
     <div className="w-full aspect-video rounded-2xl flex flex-col items-center justify-center gap-4 border-2 border-dashed border-gray-200 bg-gray-50 px-6">
       <WifiOff className="w-12 h-12 text-gray-300" />
       <div className="text-center">
         <p className="font-semibold text-gray-600 mb-1">
-          {isRtl ? "الكاميرا المباشرة غير متاحة مؤقتاً" : "Live camera is temporarily unavailable."}
+          {t("liveProjects.cameraUnavailable", "Live camera is temporarily unavailable.")}
         </p>
         <p className="text-sm text-gray-400 mb-4 max-w-xs mx-auto">
-          {isRtl
-            ? "يرجى طلب آخر تحديثات البناء من مستشارنا."
-            : "Please request the latest construction update from our advisor."}
+          {t("liveProjects.cameraUnavailableDesc", "Please request the latest construction update from our advisor.")}
         </p>
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <Button size="sm" onClick={onRetry} variant="outline" className="gap-2">
-            <RefreshCw className="w-4 h-4" />{isRtl ? "إعادة المحاولة" : "Try again"}
+            <RefreshCw className="w-4 h-4" />
+            {t("liveProjects.tryAgain", "Try again")}
           </Button>
-          <Button size="sm" onClick={() => navigate("/consultation")}
-            style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }} className="text-white gap-2">
-            <CalendarDays className="w-4 h-4" />{isRtl ? "حجز استشارة" : "Request Consultation"}
+          <Button
+            size="sm"
+            onClick={() => navigate("/consultation")}
+            style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}
+            className="text-white gap-2"
+          >
+            <CalendarDays className="w-4 h-4" />
+            {t("liveProjects.requestConsultation", "Request Consultation")}
           </Button>
           <Button size="sm" onClick={() => navigate("/ai-advisor")} variant="outline" className="gap-2">
-            <Bot className="w-4 h-4 text-[#3bcac4]" />{isRtl ? "المستشار الذكي" : "Contact AI Advisor"}
+            <Bot className="w-4 h-4 text-[#3bcac4]" />
+            {t("liveProjects.contactAdvisor", "Contact AI Advisor")}
           </Button>
         </div>
       </div>
@@ -77,7 +71,7 @@ function CameraFallback({ onRetry, isRtl }: { onRetry: () => void; isRtl: boolea
 }
 
 // ── Live Camera Viewer ─────────────────────────────────────────────────────
-function LiveViewer({ project, isRtl }: { project: Property; isRtl: boolean }) {
+function LiveViewer({ project, t }: { project: Property; t: (k: string, fb: string) => string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -94,14 +88,16 @@ function LiveViewer({ project, isRtl }: { project: Property; isRtl: boolean }) {
   };
 
   if (liveStatus === "unavailable" || !liveEmbedUrl) {
-    return <CameraFallback onRetry={() => {}} isRtl={isRtl} />;
+    return <CameraFallback onRetry={() => {}} t={t} />;
   }
 
   if (liveStatus === "maintenance") {
     return (
       <div className="w-full aspect-video rounded-2xl flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-200">
         <Camera className="w-12 h-12 text-amber-400" />
-        <p className="font-semibold text-amber-700">{isRtl ? "الكاميرا في صيانة" : "Camera under maintenance"}</p>
+        <p className="font-semibold text-amber-700">
+          {t("liveProjects.underMaintenance", "Camera under maintenance")}
+        </p>
         <p className="text-sm text-amber-500">{liveTitle || project.title}</p>
       </div>
     );
@@ -111,7 +107,7 @@ function LiveViewer({ project, isRtl }: { project: Property; isRtl: boolean }) {
     <div className="relative rounded-2xl overflow-hidden bg-black shadow-2xl group">
       {/* Top bar */}
       <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between">
-        <LiveBadge status={liveStatus} />
+        <LiveBadge status={liveStatus} t={t} />
         <button
           onClick={handleFullscreen}
           className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors opacity-0 group-hover:opacity-100"
@@ -126,14 +122,19 @@ function LiveViewer({ project, isRtl }: { project: Property; isRtl: boolean }) {
         <p className="text-white/60 text-xs">{project.location}</p>
       </div>
 
-      {/* Skeleton */}
+      {/* Loading skeleton */}
       {loading && !error && (
-        <div className="absolute inset-0 z-20"><IframeSkeleton /></div>
+        <div className="absolute inset-0 z-20 bg-gray-900 flex flex-col items-center justify-center gap-3">
+          <Camera className="w-12 h-12 text-gray-600" />
+          <p className="text-sm text-gray-400">Loading live stream…</p>
+        </div>
       )}
 
       {/* Error fallback */}
       {error && (
-        <div className="absolute inset-0 z-20"><CameraFallback onRetry={handleRetry} isRtl={isRtl} /></div>
+        <div className="absolute inset-0 z-20 bg-white">
+          <CameraFallback onRetry={handleRetry} t={t} />
+        </div>
       )}
 
       {/* iframe */}
@@ -159,8 +160,7 @@ function LiveViewer({ project, isRtl }: { project: Property; isRtl: boolean }) {
 export default function LiveProjects() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
-  const isRtl = lang === "ar" || lang === "he";
-  const ar = lang === "ar";
+  const isRtl = lang === "ar" || lang === "he" || lang === "fa";
 
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
@@ -171,10 +171,10 @@ export default function LiveProjects() {
     queryFn: () => fetch("/api/live-projects").then(r => r.json()),
   });
 
-  // Only show projects with live camera enabled
+  // Only projects with liveEnabled and a valid embed URL
   const projects = rawProjects.filter(p => (p as any).liveEnabled && (p as any).liveEmbedUrl);
 
-  // Derived data
+  // Derived filters
   const availableCountries = [...new Set(projects.map(p => (p as any).liveCountry).filter(Boolean))] as string[];
   const citiesForCountry = [...new Set(
     projects.filter(p => (p as any).liveCountry === selectedCountry).map(p => (p as any).liveCity).filter(Boolean)
@@ -194,28 +194,30 @@ export default function LiveProjects() {
     setSelectedProject(null);
   };
 
+  // Typed t() helper (avoids TypeScript complaints about overloads)
+  const tr = (key: string, fallback: string) => t(key, fallback);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-[#f0fdfc]" dir={isRtl ? "rtl" : "ltr"}>
-      {/* Hero */}
+
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
       <div className="text-white pt-10 pb-16 px-4" style={{ background: "linear-gradient(135deg,#3bcac4 0%,#005476 100%)" }}>
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-1.5 mb-4">
             <span className="w-2 h-2 bg-red-400 rounded-full animate-ping" />
             <span className="text-sm font-bold tracking-widest">
-              {ar ? "كاميرات مباشرة" : "LIVE CAMERAS"}
+              {tr("liveProjects.badge", "LIVE CAMERAS")}
             </span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">
-            {ar ? "المشاريع المباشرة" : "Live Projects"}
+            {tr("liveProjects.title", "Live Projects")}
           </h1>
           <p className="text-white/80 text-base max-w-lg mx-auto">
-            {ar
-              ? "شاهد تقدم البناء في مشاريعنا مباشرةً عبر كاميرات البث الحي."
-              : "Watch real-time construction progress on our premium projects via live streaming cameras."}
+            {tr("liveProjects.subtitle", "Watch real-time construction progress on our premium projects via live streaming cameras.")}
           </p>
           {projects.length > 0 && (
             <p className="text-white/60 text-sm mt-2">
-              {projects.length} {ar ? "مشروع مباشر" : `live project${projects.length !== 1 ? "s" : ""} available`}
+              {t("liveProjects.projectsAvailable", { count: projects.length, defaultValue: "{{count}} live projects available" })}
             </p>
           )}
         </div>
@@ -223,24 +225,22 @@ export default function LiveProjects() {
 
       <div className="max-w-4xl mx-auto px-4 -mt-8 pb-24">
 
-        {/* Loading */}
+        {/* ── Loading ─────────────────────────────────────────────────── */}
         {isLoading && (
           <div className="bg-white rounded-2xl shadow-md p-12 flex justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-[#3bcac4]" />
           </div>
         )}
 
-        {/* No cameras yet */}
+        {/* ── No cameras yet ───────────────────────────────────────────── */}
         {!isLoading && projects.length === 0 && (
           <div className="bg-white rounded-2xl shadow-md p-12 text-center">
             <Tv className="w-16 h-16 mx-auto mb-4 text-gray-200" />
             <h2 className="text-xl font-bold text-gray-700 mb-2">
-              {ar ? "قريباً — كاميرات مباشرة" : "Coming Soon — Live Cameras"}
+              {tr("liveProjects.comingSoon", "Coming Soon — Live Cameras")}
             </h2>
             <p className="text-gray-400 text-sm max-w-sm mx-auto">
-              {ar
-                ? "سنضيف كاميرات البث المباشر لمشاريعنا قريباً. تابعونا!"
-                : "We'll be adding live construction cameras to our projects soon. Stay tuned!"}
+              {tr("liveProjects.comingSoonDesc", "We'll be adding live construction cameras to our projects soon. Stay tuned!")}
             </p>
           </div>
         )}
@@ -248,15 +248,16 @@ export default function LiveProjects() {
         {!isLoading && projects.length > 0 && (
           <div className="space-y-4">
 
-            {/* STEP 1 — Select Country */}
+            {/* ── STEP 1 — Select Country ──────────────────────────────── */}
             <div className="bg-white rounded-2xl shadow-md p-5">
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Globe className="w-4 h-4 text-[#3bcac4]" />
-                {ar ? "١. اختر الدولة" : "1. Select Country"}
+                {tr("liveProjects.step1", "1. Select Country")}
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {availableCountries.map(key => {
-                  const meta = COUNTRY_META[key] || { flag: "🌍", label: key };
+                  const meta = COUNTRY_META[key] || { flag: "🌍", labelKey: "", fallback: key };
+                  const label = meta.labelKey ? t(meta.labelKey, meta.fallback) : meta.fallback;
                   return (
                     <button
                       key={key}
@@ -269,7 +270,7 @@ export default function LiveProjects() {
                     >
                       <span className="text-3xl block mb-1">{meta.flag}</span>
                       <span className="text-sm font-semibold" style={{ color: selectedCountry === key ? "#005476" : "#374151" }}>
-                        {meta.label}
+                        {label}
                       </span>
                     </button>
                   );
@@ -277,12 +278,12 @@ export default function LiveProjects() {
               </div>
             </div>
 
-            {/* STEP 2 — Select City */}
+            {/* ── STEP 2 — Select City ────────────────────────────────── */}
             {selectedCountry && citiesForCountry.length > 0 && (
               <div className="bg-white rounded-2xl shadow-md p-5">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-[#3bcac4]" />
-                  {ar ? "٢. اختر المدينة" : "2. Select City"}
+                  {tr("liveProjects.step2", "2. Select City")}
                 </h2>
                 <div className="flex flex-wrap gap-2">
                   {citiesForCountry.map(city => (
@@ -303,12 +304,12 @@ export default function LiveProjects() {
               </div>
             )}
 
-            {/* STEP 3 — Select Project */}
+            {/* ── STEP 3 — Select Project ──────────────────────────────── */}
             {selectedCity && projectsForCity.length > 0 && (
               <div className="bg-white rounded-2xl shadow-md p-5">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-[#3bcac4]" />
-                  {ar ? "٣. اختر المشروع" : "3. Select Project"}
+                  {tr("liveProjects.step3", "3. Select Project")}
                 </h2>
                 <div className="space-y-3">
                   {projectsForCity.map(proj => {
@@ -326,9 +327,10 @@ export default function LiveProjects() {
                         }}
                       >
                         <div className="flex items-center gap-4 p-4">
-                          {/* Thumbnail */}
-                          <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                            style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}>
+                          <div
+                            className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+                            style={{ background: "linear-gradient(135deg,#3bcac4,#005476)" }}
+                          >
                             {thumb
                               ? <img src={thumb} alt="" className="w-full h-full object-cover" />
                               : <Camera className="w-6 h-6 text-white/70" />}
@@ -338,7 +340,7 @@ export default function LiveProjects() {
                             <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                               <MapPin className="w-3 h-3" /> {proj.location}
                             </p>
-                            <LiveBadge status={liveStatus} />
+                            <LiveBadge status={liveStatus} t={tr} />
                           </div>
                           <ChevronRight className="w-5 h-5 flex-shrink-0" style={{ color: isSelected ? "#3bcac4" : "#d1d5db" }} />
                         </div>
@@ -349,14 +351,14 @@ export default function LiveProjects() {
               </div>
             )}
 
-            {/* STEP 4 — Live Video */}
+            {/* ── STEP 4 — Live Stream ─────────────────────────────────── */}
             {selectedProject && (
               <div className="bg-white rounded-2xl shadow-md p-5">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <Camera className="w-4 h-4 text-[#3bcac4]" />
-                  {ar ? "٤. البث المباشر" : "4. Live Stream"}
+                  {tr("liveProjects.step4", "4. Live Stream")}
                 </h2>
-                <LiveViewer project={selectedProject} isRtl={isRtl} />
+                <LiveViewer project={selectedProject} t={tr} />
               </div>
             )}
 

@@ -45,7 +45,8 @@
     "map": "الخريطة",
     "privacyPolicy": "سياسة الخصوصية",
     "privacyTerms": "الخصوصية والشروط",
-    "termsConditions": "الشروط والأحكام"
+    "termsConditions": "الشروط والأحكام",
+    "live": "كاميرات المشاريع"
   },
   "drawer": {
     "browse": "تصفح",
@@ -517,5 +518,27 @@
       "label": "اسأل الذكاء الاصطناعي إذا كان هذا المشروع مناسباً لك",
       "button": "اسأل المستشار الذكي"
     }
+  },
+  "liveProjects": {
+    "title": "المشاريع المباشرة",
+    "subtitle": "شاهد تقدم البناء في مشاريعنا مباشرةً عبر كاميرات البث الحي.",
+    "badge": "كاميرات مباشرة",
+    "comingSoon": "قريباً — كاميرات مباشرة",
+    "comingSoonDesc": "سنضيف كاميرات البث المباشر لمشاريعنا قريباً. تابعونا!",
+    "step1": "١. اختر الدولة",
+    "step2": "٢. اختر المدينة",
+    "step3": "٣. اختر المشروع",
+    "step4": "٤. البث المباشر",
+    "cameraUnavailable": "الكاميرا المباشرة غير متاحة مؤقتاً",
+    "cameraUnavailableDesc": "يرجى طلب آخر تحديثات البناء من مستشارنا.",
+    "tryAgain": "إعادة المحاولة",
+    "underMaintenance": "الكاميرا في صيانة",
+    "statusLive": "مباشر",
+    "statusUnavailable": "غير متاح",
+    "statusMaintenance": "صيانة",
+    "projectsAvailable": "{{count}} مشروع مباشر",
+    "projectsAvailable_plural": "{{count}} مشروع مباشر",
+    "requestConsultation": "حجز استشارة",
+    "contactAdvisor": "المستشار الذكي"
   }
 }

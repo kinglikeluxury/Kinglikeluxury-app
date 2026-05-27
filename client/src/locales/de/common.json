@@ -45,7 +45,8 @@
     "map": "Karte",
     "privacyPolicy": "Datenschutzrichtlinie",
     "privacyTerms": "Datenschutz & AGB",
-    "termsConditions": "Allgemeine Geschäftsbedingungen"
+    "termsConditions": "Allgemeine Geschäftsbedingungen",
+    "live": "Live-Projekte"
   },
   "drawer": {
     "browse": "Durchsuchen",
@@ -498,5 +499,27 @@
         "message": "Dies ist eine Testbenachrichtigung."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Live-Projekte",
+    "subtitle": "Verfolgen Sie den Baufortschritt unserer Premium-Projekte in Echtzeit über Live-Kamera-Streams.",
+    "badge": "LIVE-KAMERAS",
+    "comingSoon": "Demnächst — Live-Kameras",
+    "comingSoonDesc": "Wir werden unseren Projekten bald Live-Baukameras hinzufügen!",
+    "step1": "1. Land auswählen",
+    "step2": "2. Stadt auswählen",
+    "step3": "3. Projekt auswählen",
+    "step4": "4. Live-Stream",
+    "cameraUnavailable": "Live-Kamera ist vorübergehend nicht verfügbar.",
+    "cameraUnavailableDesc": "Fordern Sie das neueste Bauupdate von unserem Berater an.",
+    "tryAgain": "Erneut versuchen",
+    "underMaintenance": "Kamera in Wartung",
+    "statusLive": "LIVE",
+    "statusUnavailable": "NICHT VERFÜGBAR",
+    "statusMaintenance": "WARTUNG",
+    "projectsAvailable": "{{count}} Live-Projekt",
+    "projectsAvailable_plural": "{{count}} Live-Projekte",
+    "requestConsultation": "Beratung buchen",
+    "contactAdvisor": "KI-Berater"
   }
 }

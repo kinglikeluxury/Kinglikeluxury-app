@@ -45,7 +45,8 @@
     "map": "Mapa",
     "privacyPolicy": "Polityka prywatności",
     "privacyTerms": "Prywatność i warunki",
-    "termsConditions": "Regulamin"
+    "termsConditions": "Regulamin",
+    "live": "Projekty na żywo"
   },
   "drawer": {
     "browse": "Przeglądaj",
@@ -490,5 +491,27 @@
         "message": "To jest powiadomienie testowe."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Projekty na żywo",
+    "subtitle": "Obserwuj postęp budowy naszych premium projektów w czasie rzeczywistym dzięki transmisji na żywo.",
+    "badge": "KAMERY NA ŻYWO",
+    "comingSoon": "Wkrótce — Kamery na żywo",
+    "comingSoonDesc": "Wkrótce dodamy kamery budowlane na żywo do naszych projektów!",
+    "step1": "1. Wybierz kraj",
+    "step2": "2. Wybierz miasto",
+    "step3": "3. Wybierz projekt",
+    "step4": "4. Transmisja na żywo",
+    "cameraUnavailable": "Kamera na żywo jest tymczasowo niedostępna.",
+    "cameraUnavailableDesc": "Poproś naszego doradcę o najnowszą aktualizację budowy.",
+    "tryAgain": "Spróbuj ponownie",
+    "underMaintenance": "Kamera w konserwacji",
+    "statusLive": "NA ŻYWO",
+    "statusUnavailable": "NIEDOSTĘPNA",
+    "statusMaintenance": "KONSERWACJA",
+    "projectsAvailable": "{{count}} projekt na żywo",
+    "projectsAvailable_plural": "{{count}} projektów na żywo",
+    "requestConsultation": "Umów konsultację",
+    "contactAdvisor": "Doradca AI"
   }
 }

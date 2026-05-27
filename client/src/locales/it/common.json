@@ -45,7 +45,8 @@
     "map": "Mappa",
     "privacyPolicy": "Informativa sulla privacy",
     "privacyTerms": "Privacy e Termini",
-    "termsConditions": "Termini e condizioni"
+    "termsConditions": "Termini e condizioni",
+    "live": "Progetti in Diretta"
   },
   "drawer": {
     "browse": "Sfoglia",
@@ -490,5 +491,27 @@
         "message": "Questa è una notifica di prova."
       }
     }
+  },
+  "liveProjects": {
+    "title": "Progetti in Diretta",
+    "subtitle": "Guarda i progressi in tempo reale dei nostri progetti premium tramite telecamere in streaming.",
+    "badge": "TELECAMERE LIVE",
+    "comingSoon": "Prossimamente — Telecamere Live",
+    "comingSoonDesc": "Aggiungeremo presto telecamere live ai nostri progetti!",
+    "step1": "1. Seleziona Paese",
+    "step2": "2. Seleziona Città",
+    "step3": "3. Seleziona Progetto",
+    "step4": "4. Streaming Live",
+    "cameraUnavailable": "La telecamera live è temporaneamente non disponibile.",
+    "cameraUnavailableDesc": "Richiedi l'aggiornamento più recente al nostro consulente.",
+    "tryAgain": "Riprova",
+    "underMaintenance": "Telecamera in manutenzione",
+    "statusLive": "LIVE",
+    "statusUnavailable": "NON DISPONIBILE",
+    "statusMaintenance": "MANUTENZIONE",
+    "projectsAvailable": "{{count}} progetto live",
+    "projectsAvailable_plural": "{{count}} progetti live",
+    "requestConsultation": "Prenota Consulenza",
+    "contactAdvisor": "Consulente AI"
   }
 }

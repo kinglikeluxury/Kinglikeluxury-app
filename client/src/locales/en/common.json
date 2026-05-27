@@ -45,7 +45,8 @@
     "map": "Map",
     "privacyPolicy": "Privacy Policy",
     "privacyTerms": "Privacy & Terms",
-    "termsConditions": "Terms & Conditions"
+    "termsConditions": "Terms & Conditions",
+    "live": "Live Projects"
   },
   "drawer": {
     "browse": "Browse",
@@ -517,5 +518,27 @@
       "label": "Ask AI if this project fits you",
       "button": "Ask AI Advisor"
     }
+  },
+  "liveProjects": {
+    "title": "Live Projects",
+    "subtitle": "Watch real-time construction progress on our premium projects via live streaming cameras.",
+    "badge": "LIVE CAMERAS",
+    "comingSoon": "Coming Soon — Live Cameras",
+    "comingSoonDesc": "We'll be adding live construction cameras to our projects soon. Stay tuned!",
+    "step1": "1. Select Country",
+    "step2": "2. Select City",
+    "step3": "3. Select Project",
+    "step4": "4. Live Stream",
+    "cameraUnavailable": "Live camera is temporarily unavailable.",
+    "cameraUnavailableDesc": "Please request the latest construction update from our advisor.",
+    "tryAgain": "Try again",
+    "underMaintenance": "Camera under maintenance",
+    "statusLive": "LIVE",
+    "statusUnavailable": "UNAVAILABLE",
+    "statusMaintenance": "MAINTENANCE",
+    "projectsAvailable": "{{count}} live project available",
+    "projectsAvailable_plural": "{{count}} live projects available",
+    "requestConsultation": "Request Consultation",
+    "contactAdvisor": "Contact AI Advisor"
   }
 }
