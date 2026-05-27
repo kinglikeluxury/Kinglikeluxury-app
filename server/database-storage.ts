@@ -862,7 +862,20 @@ export class DatabaseStorage implements IStorage {
     return rows.length;
   }
 
-  // ── Live Cameras ──────────────────────────────────────────────────────────
+  // ── Live Projects (from properties table) ────────────────────────────────
+  async getLiveProjects(): Promise<Property[]> {
+    return await withRetry(async () => {
+      return db.select().from(properties)
+        .where(and(
+          eq(properties.liveEnabled as any, true),
+          sql`${properties.liveEmbedUrl} IS NOT NULL`,
+          sql`${properties.liveEmbedUrl} != ''`
+        ))
+        .orderBy(desc(properties.createdAt));
+    });
+  }
+
+  // ── Live Cameras (legacy separate table) ──────────────────────────────────
 
   async getLiveCameras(filters?: { country?: string; city?: string; isActive?: boolean }): Promise<ProjectLiveCamera[]> {
     const conditions = [];

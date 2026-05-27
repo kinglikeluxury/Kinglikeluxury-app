@@ -107,7 +107,10 @@ export interface IStorage {
   getConsultationSlotById(id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined>;
   toggleConsultationTimeSlot(id: number, isAvailable: boolean): Promise<import("@shared/schema").ConsultationTimeSlot | undefined>;
 
-  // Live Cameras
+  // Live Projects
+  getLiveProjects(): Promise<import("@shared/schema").Property[]>;
+
+  // Live Cameras (legacy — separate table)
   getLiveCameras(filters?: { country?: string; city?: string; isActive?: boolean }): Promise<import("@shared/schema").ProjectLiveCamera[]>;
   getLiveCamerasForProperty(propertyId: number): Promise<import("@shared/schema").ProjectLiveCamera[]>;
   createLiveCamera(data: import("@shared/schema").InsertProjectLiveCamera): Promise<import("@shared/schema").ProjectLiveCamera>;
@@ -515,6 +518,7 @@ export class MemStorage implements IStorage {
   async updateConsultationBooking(_id: number, _data: Partial<import("@shared/schema").ConsultationBooking>): Promise<import("@shared/schema").ConsultationBooking | undefined> { return undefined; }
   async getConsultationSlotById(_id: number): Promise<import("@shared/schema").ConsultationTimeSlot | undefined> { return undefined; }
   async toggleConsultationTimeSlot(_id: number, _isAvailable: boolean): Promise<import("@shared/schema").ConsultationTimeSlot | undefined> { return undefined; }
+  async getLiveProjects(): Promise<import("@shared/schema").Property[]> { return []; }
   async getLiveCameras(_filters?: { country?: string; city?: string; isActive?: boolean }): Promise<import("@shared/schema").ProjectLiveCamera[]> { return []; }
   async getLiveCamerasForProperty(_propertyId: number): Promise<import("@shared/schema").ProjectLiveCamera[]> { return []; }
   async createLiveCamera(_data: import("@shared/schema").InsertProjectLiveCamera): Promise<import("@shared/schema").ProjectLiveCamera> { throw new Error("Not implemented"); }

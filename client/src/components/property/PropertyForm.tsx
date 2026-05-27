@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, Video, Star } from "lucide-react";
+import { AlertCircle, Video, Star, Camera, Tv } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +73,15 @@ const formSchema = insertPropertySchema.extend({
     completionDate: z.string().optional(),
     projectStatus: z.string().optional(),
   }).optional(),
+  // Live camera fields (admin only, project type)
+  liveEnabled: z.boolean().optional().default(false),
+  liveTitle: z.string().optional().nullable(),
+  liveEmbedUrl: z.string().optional().nullable(),
+  liveSourceType: z.string().optional().nullable(),
+  liveStatus: z.string().optional().nullable(),
+  liveThumbnail: z.string().optional().nullable(),
+  liveCountry: z.string().optional().nullable(),
+  liveCity: z.string().optional().nullable(),
 });
 
 const PropertyForm = ({ isAdmin = false }) => {
@@ -135,6 +144,14 @@ const PropertyForm = ({ isAdmin = false }) => {
       readyStatus: null,
       ownerId: user?.id || 0,
       topRated: false,
+      liveEnabled: false,
+      liveTitle: null,
+      liveEmbedUrl: null,
+      liveSourceType: "iframe",
+      liveStatus: "active",
+      liveThumbnail: null,
+      liveCountry: null,
+      liveCity: null,
     },
   });
 
@@ -179,6 +196,14 @@ const PropertyForm = ({ isAdmin = false }) => {
         readyStatus: (existingProperty as any).readyStatus || null,
         ownerId: existingProperty.ownerId || user?.id || 0,
         topRated: existingProperty.topRated || false,
+        liveEnabled: (existingProperty as any).liveEnabled || false,
+        liveTitle: (existingProperty as any).liveTitle || null,
+        liveEmbedUrl: (existingProperty as any).liveEmbedUrl || null,
+        liveSourceType: (existingProperty as any).liveSourceType || "iframe",
+        liveStatus: (existingProperty as any).liveStatus || "active",
+        liveThumbnail: (existingProperty as any).liveThumbnail || null,
+        liveCountry: (existingProperty as any).liveCountry || null,
+        liveCity: (existingProperty as any).liveCity || null,
       });
 
       console.log('Form values after reset:', form.getValues());
@@ -188,6 +213,7 @@ const PropertyForm = ({ isAdmin = false }) => {
   const propertyType = form.watch("propertyType");
   const price = form.watch("price");
   const area = form.watch("area");
+  const liveEnabled = form.watch("liveEnabled");
   
   // Calculate price per square foot whenever price or area changes
   useEffect(() => {
@@ -941,6 +967,119 @@ const PropertyForm = ({ isAdmin = false }) => {
                     )}
                   />
                 </div>
+
+                {/* Live Camera Section — admin only */}
+                {isAdmin && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="rounded-xl border-2 border-dashed border-[#3bcac4]/40 p-5 bg-gradient-to-br from-[#3bcac4]/5 to-[#005476]/5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Camera className="w-5 h-5 text-[#3bcac4]" />
+                        <h3 className="text-base font-bold text-gray-800">Live Construction Camera</h3>
+                        <span className="text-xs bg-[#3bcac4]/10 text-[#005476] px-2 py-0.5 rounded-full font-medium">Admin Only</span>
+                      </div>
+
+                      {/* Enable toggle */}
+                      <FormField
+                        control={form.control}
+                        name="liveEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-4">
+                            <FormControl>
+                              <button
+                                type="button"
+                                onClick={() => field.onChange(!field.value)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${field.value ? "bg-[#3bcac4]" : "bg-gray-200"}`}
+                              >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${field.value ? "translate-x-6" : "translate-x-1"}`} />
+                              </button>
+                            </FormControl>
+                            <FormLabel className="font-medium cursor-pointer mb-0">
+                              Enable Live Camera {field.value && <span className="ml-2 inline-flex items-center gap-1 text-red-500 text-xs font-bold"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />LIVE</span>}
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+
+                      {liveEnabled && (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <FormField control={form.control} name="liveTitle" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Camera Title</FormLabel>
+                              <FormControl><Input placeholder="e.g. Tower A – Main Camera" value={field.value || ""} onChange={field.onChange} /></FormControl>
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="liveSourceType" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Source Type</FormLabel>
+                              <Select value={field.value || "iframe"} onValueChange={field.onChange}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="iframe">iframe Embed</SelectItem>
+                                  <SelectItem value="hls">HLS Stream</SelectItem>
+                                  <SelectItem value="direct">Direct Video</SelectItem>
+                                  <SelectItem value="external">External URL</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="liveEmbedUrl" render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Live Embed URL <span className="text-red-500">*</span></FormLabel>
+                              <FormControl><Input type="url" placeholder="https://rtsp.me/embed/..." value={field.value || ""} onChange={field.onChange} dir="ltr" /></FormControl>
+                              <FormDescription>Use an iframe embed URL (e.g. rtsp.me/embed/...). Do not paste a full page URL.</FormDescription>
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="liveStatus" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Live Status</FormLabel>
+                              <Select value={field.value || "active"} onValueChange={field.onChange}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="active">🟢 Active (LIVE)</SelectItem>
+                                  <SelectItem value="unavailable">🔴 Unavailable</SelectItem>
+                                  <SelectItem value="maintenance">🟡 Maintenance</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="liveThumbnail" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Thumbnail URL (optional)</FormLabel>
+                              <FormControl><Input type="url" placeholder="https://..." value={field.value || ""} onChange={field.onChange} dir="ltr" /></FormControl>
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="liveCountry" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country</FormLabel>
+                              <Select value={field.value || ""} onValueChange={field.onChange}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="georgia">🇬🇪 Georgia</SelectItem>
+                                  <SelectItem value="turkey">🇹🇷 Turkey</SelectItem>
+                                  <SelectItem value="dubai">🇦🇪 Dubai</SelectItem>
+                                  <SelectItem value="north_cyprus">🇨🇾 North Cyprus</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="liveCity" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City</FormLabel>
+                              <FormControl><Input placeholder="e.g. Batumi, Istanbul" value={field.value || ""} onChange={field.onChange} /></FormControl>
+                            </FormItem>
+                          )} />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
 

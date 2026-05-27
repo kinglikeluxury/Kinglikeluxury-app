@@ -123,7 +123,16 @@ export const properties = pgTable("properties", {
   installmentDuration: text("installment_duration"), // e.g. "1-month", "6-months", "2-years"
   titleEn: text("title_en"), // Optional English title for multilingual display
   descriptionEn: text("description_en"), // Optional English description
-
+  // Live construction camera fields (projects only)
+  liveEnabled: boolean("live_enabled").default(false),
+  liveTitle: text("live_title"),
+  liveEmbedUrl: text("live_embed_url"),
+  liveSourceType: text("live_source_type").default("iframe"),
+  liveStatus: text("live_status").default("active"),
+  liveThumbnail: text("live_thumbnail"),
+  liveCountry: text("live_country"),
+  liveCity: text("live_city"),
+  liveUpdatedAt: timestamp("live_updated_at"),
 });
 
 export const insertPropertySchema = createInsertSchema(properties)

@@ -3183,15 +3183,10 @@ ${metaTags}
   });
 
   // ── Live Projects (public) ──────────────────────────────────────────────
-  app.get("/api/live-projects", async (req, res) => {
+  app.get("/api/live-projects", async (_req, res) => {
     try {
-      const { country, city } = req.query;
-      const cameras = await storage.getLiveCameras({
-        country: country as string | undefined,
-        city: city as string | undefined,
-        isActive: true,
-      });
-      res.json(cameras);
+      const projects = await storage.getLiveProjects();
+      res.json(projects);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
