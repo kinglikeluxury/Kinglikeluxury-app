@@ -821,19 +821,16 @@ const PropertyDetail = () => {
                         <span className="font-medium">{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
-                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
-                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
-                        // Pair each price with its corresponding area, find minimum price/m²
-                        let minPpm = Infinity;
-                        const pairCount = Math.min(prices.length, areas.length);
-                        for (let i = 0; i < pairCount; i++) {
-                          if (prices[i] > 0 && areas[i] > 0) minPpm = Math.min(minPpm, prices[i] / areas[i]);
-                        }
-                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
+                        const prices = String(property.price || '').split(',').map(s => parseFloat(s.replace(/[^0-9.]/g, ''))).filter(v => v > 0);
+                        const areas = String(property.area || '').split(',').map(s => parseFloat(s)).filter(v => v > 0);
+                        // Correct: starts from = lowest price / smallest area
+                        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+                        const minArea = areas.length > 0 ? Math.min(...areas) : 0;
+                        const ppm = (minPrice > 0 && minArea > 0) ? Math.round(minPrice / minArea) : 0;
                         if (ppm > 0) {
                           return (
                             <div className="flex flex-col p-4 bg-gradient-to-br from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
-                              <span className="text-gray-500 text-sm">{t('property.pricePerMeter', 'Price per m²')}</span>
+                              <span className="text-gray-500 text-sm">{t('property.pricePerMeterFrom', 'Price per m² starts from')}</span>
                               <span className="font-bold text-[#005476]">${ppm.toLocaleString()} / m²</span>
                             </div>
                           );
@@ -1020,19 +1017,16 @@ const PropertyDetail = () => {
                         <span>{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
-                        const prices = String(property.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
-                        const areas = String(property.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
-                        // Pair each price with its corresponding area, find minimum price/m²
-                        let minPpm = Infinity;
-                        const pairCount = Math.min(prices.length, areas.length);
-                        for (let i = 0; i < pairCount; i++) {
-                          if (prices[i] > 0 && areas[i] > 0) minPpm = Math.min(minPpm, prices[i] / areas[i]);
-                        }
-                        const ppm = minPpm === Infinity ? 0 : Math.round(minPpm);
+                        const prices = String(property.price || '').split(',').map(s => parseFloat(s.replace(/[^0-9.]/g, ''))).filter(v => v > 0);
+                        const areas = String(property.area || '').split(',').map(s => parseFloat(s)).filter(v => v > 0);
+                        // Correct: starts from = lowest price / smallest area
+                        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+                        const minArea = areas.length > 0 ? Math.min(...areas) : 0;
+                        const ppm = (minPrice > 0 && minArea > 0) ? Math.round(minPrice / minArea) : 0;
                         if (ppm > 0) {
                           return (
                             <div className="flex justify-between items-center py-1 px-2 bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
-                              <span className="text-gray-600 font-medium">💡 {t('property.pricePerMeter', 'Price per m²')}</span>
+                              <span className="text-gray-600 font-medium">💡 {t('property.pricePerMeterFrom', 'Price per m² starts from')}</span>
                               <span className="font-bold text-[#005476]">${ppm.toLocaleString()} / m²</span>
                             </div>
                           );

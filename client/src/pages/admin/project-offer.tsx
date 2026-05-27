@@ -131,7 +131,7 @@ const T: Record<string, Record<LangCode, string>> = {
   floor:          { ar:"الطابق", en:"Floor", ru:"Этаж", ka:"სართული", az:"Mərtəbə", tr:"Kat", zh:"所在楼层", pl:"Piętro", he:"קומה", it:"Piano" },
   aptNumber:      { ar:"رقم الشقة", en:"Apartment No.", ru:"№ квартиры", ka:"ბინის №", az:"Mənzil №", tr:"Daire No.", zh:"公寓编号", pl:"Nr mieszkania", he:"מס' דירה", it:"N° appartamento" },
   area:           { ar:"المساحة الإجمالية", en:"Total Area", ru:"Общая площадь", ka:"სრული ფართობი", az:"Ümumi sahə", tr:"Toplam Alan", zh:"建筑面积", pl:"Powierzchnia całkowita", he:"שטח כולל", it:"Superficie totale" },
-  pricePerMeter:  { ar:"سعر المتر المربع", en:"Price per m²", ru:"Цена за 1 м²", ka:"ფასი 1 მ²-ზე", az:"1 m² qiyməti", tr:"m² Birim Fiyatı", zh:"每平米单价", pl:"Cena za 1 m²", he:"מחיר למ\"ר", it:"Prezzo al m²" },
+  pricePerMeter:  { ar:"سعر المتر المربع يبدأ من", en:"Price per m² starts from", ru:"Цена за 1 м² от", ka:"ფასი 1 მ²-ზე იწყება", az:"1 m² qiyməti başlayır", tr:"m² Başlangıç Fiyatı", zh:"每平米起价", pl:"Cena za 1 m² od", he:"מחיר למ\"ר החל מ-", it:"Prezzo al m² a partire da" },
   totalPrice:     { ar:"السعر الإجمالي", en:"Total Price", ru:"Итоговая цена", ka:"სრული ღირებულება", az:"Ümumi qiymət", tr:"Toplam Fiyat", zh:"总价", pl:"Cena całkowita", he:"מחיר כולל", it:"Prezzo totale" },
   discount:       { ar:"نسبة الخصم", en:"Discount", ru:"Скидка", ka:"ფასდაკლება", az:"Endirim", tr:"İndirim", zh:"折扣", pl:"Zniżka", he:"הנחה", it:"Sconto" },
   priceAfterDiscount: { ar:"السعر بعد الخصم", en:"Price After Discount", ru:"Цена со скидкой", ka:"ფასი ფასდაკლებით", az:"Endirimdən sonra qiymət", tr:"İndirimli Fiyat", zh:"折后价格", pl:"Cena po zniżce", he:"מחיר לאחר הנחה", it:"Prezzo scontato" },

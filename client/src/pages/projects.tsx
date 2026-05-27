@@ -163,6 +163,20 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
                 {propertyData.area} {t('projects.sqm', 'sqm')}
               </div>
             )}
+            {(() => {
+              const prices = [propertyData.price, (propertyData as any).priceMax].filter((v): v is number => typeof v === 'number' && v > 0);
+              const areas = String(propertyData.area || '').split(',').map(s => parseFloat(s)).filter(v => v > 0);
+              const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+              const minArea = areas.length > 0 ? Math.min(...areas) : 0;
+              const ppm = (minPrice > 0 && minArea > 0) ? Math.round(minPrice / minArea) : 0;
+              if (ppm <= 0) return null;
+              return (
+                <div className="flex items-center text-sm font-semibold text-[#005476]">
+                  <span className="mr-1.5">💡</span>
+                  {t('projects.pricePerMeterFrom', 'Price per m² starts from')}: ${ppm.toLocaleString()}
+                </div>
+              );
+            })()}
             {propertyData.bedrooms && (
               <div className="flex items-center text-sm text-gray-500">
                 <Building className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
