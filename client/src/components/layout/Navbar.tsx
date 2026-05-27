@@ -182,6 +182,15 @@ const Navbar = () => {
                         <Link href="/ai-advisor" className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#3bcac4]" />{t("aiAdvisor.menuLabel", "AI Investment Advisor")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link href="/live-projects" className="flex items-center gap-2">
+                          <span className="relative flex items-center">
+                            <Tv className="w-4 h-4 text-red-500" />
+                            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                          </span>
+                          {t("nav.live", "كاميرات المشاريع")}
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link href="/consultation" className="flex items-center gap-2"><CalendarDays className="w-4 h-4 text-gray-400" />{t("consultation.menuLabel", "Book Consultation")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -210,7 +219,8 @@ const Navbar = () => {
                           <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ حملة إيميل</Link></DropdownMenuItem>
                           <DropdownMenuItem asChild><Link href="/admin/users" className="flex items-center gap-2"><Users className="w-3.5 h-3.5 text-[#3bcac4]" /> Users</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/live-cameras" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-500" /> Live Cameras</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/live-projects" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-500" /> {t("nav.live", "Live Projects")}</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link href="/admin/live-cameras" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-400" /> Live Cameras (Admin)</Link></DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <div className="px-2 py-1.5">
                             <p className="text-[10px] text-gray-400 font-semibold uppercase mb-1.5 flex items-center gap-1">

@@ -275,10 +275,10 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("propertyTypes.apartment", "شقق"), path: "/properties?type=apartment", icon: Building2 })}
             {renderItem({ label: t("nav.projects", "المشاريع"), path: "/projects", icon: FolderOpen })}
             {renderItem({ label: t("nav.blog", "المدونة"), path: "/blog", icon: BookOpen })}
-            {renderItem({ label: t("nav.live", "Live Cameras"), path: "/live-projects", icon: Tv, highlight: true })}
             {renderItem({ label: t("nav.map", "الخريطة"), path: "/map", icon: Map })}
-            {renderItem({ label: t("consultation.menuLabel", "Book Consultation"), path: "/consultation", icon: CalendarDays })}
             {renderItem({ label: t("aiAdvisor.menuLabel", "AI Investment Advisor"), path: "/ai-advisor", icon: Sparkles, highlight: true })}
+            {renderItem({ label: t("nav.live", "كاميرات المشاريع"), path: "/live-projects", icon: Tv, highlight: true })}
+            {renderItem({ label: t("consultation.menuLabel", "Book Consultation"), path: "/consultation", icon: CalendarDays })}
             {renderItem({ label: t("notifications.title", "Notifications"), path: "/notifications", icon: Bell, badge: unreadCount, highlight: unreadCount > 0 })}
             {renderItem({
               label: t("favorites.title", "المفضلة"),
