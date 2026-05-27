@@ -3219,6 +3219,27 @@ ${metaTags}
     }
   });
 
+  // ── Admin: Projects list for camera assignment ──────────────────────────
+  app.get("/api/admin/projects-for-cameras", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const projectProperties = await storage.getProperties({ type: PROPERTY_TYPES.PROJECT });
+      const simplified = projectProperties.map(p => ({
+        id: p.id,
+        title: p.title,
+        location: p.location,
+        status: p.status,
+        liveCountry: p.liveCountry,
+        liveCity: p.liveCity,
+      }));
+      res.json(simplified);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Live Projects (public) ──────────────────────────────────────────────
   app.get("/api/live-projects", async (_req, res) => {
     try {
