@@ -3240,11 +3240,11 @@ ${metaTags}
     }
   });
 
-  // ── Live Projects (public) ──────────────────────────────────────────────
+  // ── Live Projects (public) — returns active cameras from project_live_cameras ─
   app.get("/api/live-projects", async (_req, res) => {
     try {
-      const projects = await storage.getLiveProjects();
-      res.json(projects);
+      const cameras = await storage.getLiveCameras({ isActive: true });
+      res.json(cameras);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
