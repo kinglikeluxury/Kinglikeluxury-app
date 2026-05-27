@@ -410,7 +410,7 @@ export default function ConsultationBooking() {
               </h2>
               <p className="text-xs text-gray-400 mb-4 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                All times are in <strong>Georgia Time (GMT+4)</strong> — available 12:00 PM – 8:00 PM
+                All times are in <strong>Georgia Time (GMT+4)</strong> — available 10:00 AM – 8:00 PM
               </p>
               <input
                 type="date"
@@ -428,24 +428,44 @@ export default function ConsultationBooking() {
                     {t("consultation.timeSlot")}
                   </h2>
                   {slotsLoading ? (
-                    <div className="flex justify-center py-6"><Loader2 className="animate-spin text-[#3bcac4] w-6 h-6" /></div>
+                    <div className="flex flex-col items-center justify-center py-10 gap-3">
+                      <Loader2 className="animate-spin text-[#3bcac4] w-7 h-7" />
+                      <p className="text-xs text-gray-400">Loading available times…</p>
+                    </div>
                   ) : slots.length === 0 ? (
-                    <p className="text-center text-gray-400 py-6 text-sm">{t("consultation.noSlotsForDate")}</p>
+                    <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
+                      <Clock className="w-8 h-8 mx-auto mb-3 opacity-25 text-gray-400" />
+                      <p className="text-sm font-medium text-gray-500">No available consultation times currently.</p>
+                      <p className="text-xs text-gray-400 mt-1">Please try another date or contact our advisory team.</p>
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {slots.map(slot => (
-                        <button
-                          key={slot.id}
-                          onClick={() => setSelectedSlotId(slot.id)}
-                          className="rounded-xl p-3 border-2 text-center transition-all"
-                          style={{ borderColor: selectedSlotId === slot.id ? "#3bcac4" : "#e5e7eb", background: selectedSlotId === slot.id ? "#f0fdfc" : "#fff" }}
-                        >
-                          <p className="font-bold text-[13px]" style={{ color: selectedSlotId === slot.id ? "#005476" : "#374151" }} dir="ltr">
-                            {slot.startTime} – {slot.endTime}
-                          </p>
-                          {selectedSlotId === slot.id && <p className="text-[10px] font-medium mt-0.5" style={{ color: "#3bcac4" }}>✓</p>}
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-3 gap-2">
+                      {slots.map(slot => {
+                        const isSelected = selectedSlotId === slot.id;
+                        return (
+                          <button
+                            key={slot.id}
+                            onClick={() => setSelectedSlotId(slot.id)}
+                            className="rounded-xl p-3 border-2 text-center transition-all active:scale-95"
+                            style={{
+                              borderColor: isSelected ? "#3bcac4" : "#e5e7eb",
+                              background: isSelected ? "linear-gradient(135deg, #3bcac4 0%, #005476 100%)" : "#fff",
+                            }}
+                          >
+                            <p className="font-bold text-[15px] leading-tight" style={{ color: isSelected ? "#fff" : "#005476" }} dir="ltr">
+                              {slot.startTime}
+                            </p>
+                            <p className="text-[10px] mt-0.5 font-medium" style={{ color: isSelected ? "rgba(255,255,255,0.8)" : "#9ca3af" }} dir="ltr">
+                              – {slot.endTime}
+                            </p>
+                            {isSelected && (
+                              <div className="mt-1 flex justify-center">
+                                <CheckCircle className="w-3 h-3 text-white opacity-90" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </>

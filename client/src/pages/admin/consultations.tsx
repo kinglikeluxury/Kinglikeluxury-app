@@ -106,6 +106,10 @@ export default function AdminConsultations() {
 
   // Generate slots date
   const [generateDate, setGenerateDate] = useState("");
+  // Filter slots by date in the slots tab
+  const [slotsDateFilter, setSlotsDateFilter] = useState("");
+
+  const filteredSlots = slotsDateFilter ? slots.filter(s => s.date === slotsDateFilter) : slots;
 
   const addSlotMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/admin/consultation/slots", { date: newDate, startTime: newStart, endTime: newEnd }),
@@ -121,8 +125,10 @@ export default function AdminConsultations() {
     mutationFn: () => apiRequest("POST", "/api/admin/consultation/slots/generate", { date: generateDate }),
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/consultation/slots"] });
+      const d = generateDate;
       setGenerateDate("");
-      toast({ title: `Generated ${result?.created ?? 0} slots for ${generateDate} (Georgia Time 12:00–20:00)` });
+      setSlotsDateFilter(d);
+      toast({ title: `Generated ${result?.created ?? 0} slots for ${d} (Georgia Time 10:00 AM – 8:00 PM)` });
     },
     onError: () => toast({ title: t("common.error", "Error"), variant: "destructive" }),
   });
@@ -475,14 +481,14 @@ export default function AdminConsultations() {
                 <Calendar className="w-4 h-4 text-[#3bcac4]" />
                 Auto-Generate Daily Schedule
               </h3>
-              <p className="text-xs text-gray-400 mb-4">Creates all 30-min slots from 12:00 PM to 8:00 PM in <strong>Georgia Time (GMT+4)</strong> for the selected date.</p>
+              <p className="text-xs text-gray-400 mb-4">Creates all 30-min slots from <strong>10:00 AM to 8:00 PM</strong> in <strong>Georgia Time (GMT+4)</strong> for the selected date. Slots auto-generate for users too — use this to pre-set or reset a day's schedule.</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input type="date" value={generateDate} min={today} onChange={e => setGenerateDate(e.target.value)}
                   className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3bcac4]" dir="ltr" />
                 <Button onClick={() => generateSlotsMutation.mutate()} disabled={!generateDate || generateSlotsMutation.isPending}
                   style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }} className="text-white whitespace-nowrap">
                   {generateSlotsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                  Generate 16 Slots
+                  Generate 20 Slots
                 </Button>
               </div>
             </div>
@@ -517,15 +523,36 @@ export default function AdminConsultations() {
               </Button>
             </div>
 
+            {/* Date filter for slots list */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4 flex flex-col sm:flex-row gap-3 items-center">
+              <div className="flex items-center gap-2 flex-1">
+                <Calendar className="w-4 h-4 text-[#3bcac4] flex-shrink-0" />
+                <span className="text-sm font-medium text-gray-700">Filter by date:</span>
+                <input type="date" value={slotsDateFilter} onChange={e => setSlotsDateFilter(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#3bcac4]" dir="ltr" />
+              </div>
+              {slotsDateFilter && (
+                <Button size="sm" variant="outline" onClick={() => setSlotsDateFilter("")} className="text-xs text-gray-500 whitespace-nowrap">
+                  Show all dates
+                </Button>
+              )}
+            </div>
+
             {slotsLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="animate-spin w-8 h-8 text-[#3bcac4]" /></div>
             ) : slots.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center text-gray-400">
                 <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>{t("consultation.admin.noSlots")}</p>
               </div>
+            ) : filteredSlots.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-gray-400">
+                <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No slots found for <strong>{slotsDateFilter}</strong></p>
+                <p className="text-xs mt-1">Select a date above and use "Auto-Generate Daily Schedule" to create slots.</p>
+              </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                {slots.map((slot, i) => (
+                {filteredSlots.map((slot, i) => (
                   <div key={slot.id} className={`flex items-center justify-between px-5 py-4 ${i > 0 ? "border-t border-gray-100" : ""}`}>
                     <div className="flex items-center gap-4">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"

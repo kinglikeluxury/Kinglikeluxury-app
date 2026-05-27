@@ -2318,8 +2318,45 @@ ${metaTags}
       if (!date || typeof date !== "string") {
         return res.status(400).json({ message: "date query param required (YYYY-MM-DD)" });
       }
-      const slots = await storage.getAvailableSlotsForDate(date);
-      res.json(slots);
+
+      // Georgia timezone is UTC+4
+      const nowGeorgia = new Date(Date.now() + 4 * 60 * 60 * 1000);
+      const todayGeorgia = nowGeorgia.toISOString().split("T")[0];
+
+      // Reject requests for past dates
+      if (date < todayGeorgia) return res.json([]);
+
+      // Check if slots already exist for this date (admin may have customised them)
+      let allSlots = await storage.getConsultationTimeSlots(date);
+
+      // ── Auto-generate default schedule (10:00 – 20:00, 30-min slots) ──────
+      if (allSlots.length === 0) {
+        const START_HOUR = 10;
+        const END_HOUR   = 20;
+        for (let h = START_HOUR; h < END_HOUR; h++) {
+          for (let m = 0; m < 60; m += 30) {
+            const startTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+            const endH = m === 30 ? h + 1 : h;
+            const endM = m === 30 ? 0 : 30;
+            const endTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+            try {
+              await storage.createConsultationTimeSlot({ date, startTime, endTime, isAvailable: true });
+            } catch (_) { /* skip duplicates */ }
+          }
+        }
+        allSlots = await storage.getConsultationTimeSlots(date);
+      }
+
+      // Only return slots the admin hasn't blocked
+      let available = allSlots.filter(s => s.isAvailable);
+
+      // For today: hide time slots that have already passed (Georgia time)
+      if (date === todayGeorgia) {
+        const currentHHMM = nowGeorgia.toISOString().split("T")[1].slice(0, 5); // "HH:MM"
+        available = available.filter(s => s.startTime > currentHHMM);
+      }
+
+      res.json(available);
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
@@ -2359,8 +2396,8 @@ ${metaTags}
       if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return res.status(400).json({ message: "date (YYYY-MM-DD) required" });
       }
-      // Generate 30-min slots: 12:00 → 20:00 Georgia time
-      const START_HOUR = 12; // 12:00 PM
+      // Generate 30-min slots: 10:00 → 20:00 Georgia time
+      const START_HOUR = 10; // 10:00 AM
       const END_HOUR   = 20; // 8:00 PM (last slot starts at 19:30)
       const created: any[] = [];
       for (let h = START_HOUR; h < END_HOUR; h++) {
