@@ -901,53 +901,98 @@ const PropertyDetail = () => {
                           </div>
                         );
                       })()}
-                      {(property as any).paymentMethod && (
-                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg col-span-1 sm:col-span-2">
-                          <span className="text-gray-500 text-sm font-medium mb-2">{t('property.paymentMethod', 'Payment Method')}</span>
-                          <span className="font-semibold text-[#005476] mb-2">
-                            {(property as any).paymentMethod === 'cash'
-                              ? `💵 ${t('property.paymentCash', 'Cash')}`
-                              : `📋 ${t('property.paymentInstallments', 'Installments')}`}
-                          </span>
-                          {(property as any).paymentMethod === 'installments' && (
-                            <div className="space-y-2 border-t border-gray-200 pt-2 mt-1">
-                              {(property as any).downPaymentPercent && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-500">{t('property.downPayment', 'Down Payment')}</span>
-                                  <span className="font-medium text-[#3bcac4]">{(property as any).downPaymentPercent}%</span>
-                                </div>
-                              )}
-                              {(property as any).installmentDuration && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-500">{t('property.installmentDuration', 'Installment Duration')}</span>
-                                  <span className="font-medium">{(property as any).installmentDuration.replace(/-/g, ' ')}</span>
-                                </div>
-                              )}
-                              {(property as any).monthlyInstallment && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-500">{t('property.monthlyInstallment', 'Monthly Installment')}</span>
-                                  <span className="font-medium text-[#3bcac4]">${(property as any).monthlyInstallment.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {(property as any).remainingBalance && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-500">{t('property.remainingBalance', 'Remaining Balance')}</span>
-                                  <span className="font-medium">${(property as any).remainingBalance.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {(property as any).paymentNotes && (
-                                <div className="pt-2 border-t border-gray-100">
-                                  <span className="text-gray-500 text-xs block mb-1">{t('property.paymentNotes', 'Payment Plan Details')}</span>
-                                  <p className="text-sm text-gray-700">{(property as any).paymentNotes}</p>
-                                </div>
-                              )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Payment Plan Card ─────────────────────────────────── */}
+                {(property as any).paymentMethod && (
+                  <div className="rounded-2xl border border-[#3bcac4]/30 bg-gradient-to-br from-[#3bcac4]/5 to-[#005476]/5 overflow-hidden">
+
+                    {/* Card header */}
+                    <div className="flex items-center gap-3 px-6 py-4 border-b border-[#3bcac4]/20 bg-white/60">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center shrink-0">
+                        <span className="text-white text-base leading-none">💳</span>
+                      </div>
+                      <h4 className="text-base font-semibold text-[#005476]">
+                        {t('property.paymentMethod', 'Payment Method')}
+                      </h4>
+                    </div>
+
+                    {/* Card body */}
+                    <div className="px-6 py-5 space-y-4">
+
+                      {/* Payment type badge */}
+                      <div>
+                        <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold ${
+                          (property as any).paymentMethod === 'cash'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30'
+                        }`}>
+                          {(property as any).paymentMethod === 'cash'
+                            ? `💵 ${t('property.paymentCash', 'Cash')}`
+                            : `📋 ${t('property.paymentInstallments', 'Installments')}`}
+                        </span>
+                      </div>
+
+                      {/* Installment detail tiles */}
+                      {(property as any).paymentMethod === 'installments' && (
+                        <div className="grid grid-cols-2 gap-3">
+                          {(property as any).downPaymentPercent && (
+                            <div className="flex flex-col gap-1 bg-white rounded-xl border border-[#3bcac4]/20 px-4 py-3">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                {t('property.downPayment', 'Down Payment')}
+                              </span>
+                              <span className="text-2xl font-bold text-[#3bcac4]">
+                                {(property as any).downPaymentPercent}%
+                              </span>
+                            </div>
+                          )}
+                          {(property as any).installmentDuration && (
+                            <div className="flex flex-col gap-1 bg-white rounded-xl border border-[#3bcac4]/20 px-4 py-3">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                {t('property.installmentDuration', 'Installment Duration')}
+                              </span>
+                              <span className="text-2xl font-bold text-[#005476]">
+                                {(property as any).installmentDuration.replace(/-/g, ' ')}
+                              </span>
+                            </div>
+                          )}
+                          {(property as any).monthlyInstallment && (
+                            <div className="flex flex-col gap-1 bg-white rounded-xl border border-[#3bcac4]/20 px-4 py-3">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                {t('property.monthlyInstallment', 'Monthly Installment')}
+                              </span>
+                              <span className="text-2xl font-bold text-[#3bcac4]">
+                                ${(property as any).monthlyInstallment.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {(property as any).remainingBalance && (
+                            <div className="flex flex-col gap-1 bg-white rounded-xl border border-[#3bcac4]/20 px-4 py-3">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                {t('property.remainingBalance', 'Remaining Balance')}
+                              </span>
+                              <span className="text-2xl font-bold text-[#005476]">
+                                ${(property as any).remainingBalance.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {(property as any).paymentNotes && (
+                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-[#3bcac4]/20 px-4 py-3 col-span-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                {t('property.paymentNotes', 'Payment Plan Details')}
+                              </span>
+                              <p className="text-sm text-gray-700 leading-relaxed">
+                                {(property as any).paymentNotes}
+                              </p>
                             </div>
                           )}
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
+                )}
 
                 <Separator />
 
