@@ -183,7 +183,16 @@
     "invalidNumberDesc": "Düzgün telefon nömrəsi daxil edin",
     "invalidCode": "Yanlış kod",
     "invalidCodeDesc": "6 rəqəmli kodu daxil edin",
-    "sendFailed": "Göndərmə uğursuz oldu"
+    "sendFailed": "Göndərmə uğursuz oldu",
+    "email": "E-poçt",
+    "emailRequired": "Zəhmət olmasa düzgün e-poçt ünvanı daxil edin",
+    "emailFallbackTitle": "Təsdiq kodu gəlmədi?",
+    "emailFallbackDesc": "Zəhmət olmasa emailinizə göndərilən kodu daxil edin.",
+    "sentViaEmail": "Kod e-poçtunuza göndərildi",
+    "emailCountdown": "{{count}} saniyədə e-poçt yedək kodu...",
+    "emailSending": "E-poçt kodu göndərilir...",
+    "rateLimitSms": "Çox SMS cəhdi. Zəhmət olmasa 10 dəqiqə gözləyin.",
+    "rateLimitEmail": "Çox cəhd. Zəhmət olmasa 10 dəqiqə gözləyin."
   },
   "favorites": {
     "title": "Sevimlilər",

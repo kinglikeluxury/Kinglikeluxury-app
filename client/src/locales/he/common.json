@@ -183,7 +183,16 @@
     "invalidNumberDesc": "אנא הכנס מספר טלפון תקין",
     "invalidCode": "קוד לא תקין",
     "invalidCodeDesc": "הכנס קוד בן 6 ספרות",
-    "sendFailed": "שליחה נכשלה"
+    "sendFailed": "שליחה נכשלה",
+    "email": "אימייל",
+    "emailRequired": "אנא הזן כתובת אימייל תקינה",
+    "emailFallbackTitle": "לא קיבלת את קוד האימות?",
+    "emailFallbackDesc": "אנא הזן את הקוד שנשלח לאימייל שלך.",
+    "sentViaEmail": "קוד נשלח לאימייל שלך",
+    "emailCountdown": "קוד גיבוי לאימייל בעוד {{count}} שניות...",
+    "emailSending": "שולח קוד לאימייל...",
+    "rateLimitSms": "יותר מדי ניסיונות SMS. אנא המתן 10 דקות.",
+    "rateLimitEmail": "יותר מדי ניסיונות. אנא המתן 10 דקות."
   },
   "favorites": {
     "title": "מועדפים",

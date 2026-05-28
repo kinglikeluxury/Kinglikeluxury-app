@@ -33,7 +33,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import Twilio from "twilio";
-import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate } from "./emailService";
+import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate, sendEmailOtp } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 
@@ -435,12 +435,32 @@ ${metaTags}
     ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
     : null;
 
+  // ── Email OTP store (server-side only, never exposed to client) ────────────
+  const emailOtpStore = new Map<string, { code: string; expiresAt: Date; verified: boolean }>();
+
+  // ── Rate limiting: max 3 OTP attempts per 10 minutes ──────────────────────
+  const smsOtpRateLimit = new Map<string, number[]>();
+  const emailOtpRateLimit = new Map<string, number[]>();
+  function checkOtpRateLimit(map: Map<string, number[]>, key: string): boolean {
+    const now = Date.now();
+    const windowMs = 10 * 60 * 1000;
+    const attempts = (map.get(key) || []).filter((t: number) => now - t < windowMs);
+    if (attempts.length >= 3) return false;
+    attempts.push(now);
+    map.set(key, attempts);
+    return true;
+  }
+
   // Send verification code — WhatsApp first, SMS fallback via Messaging Service
   app.post("/api/auth/send-verification", async (req, res) => {
     try {
       const { phoneNumber } = req.body;
       if (!phoneNumber) {
         return res.status(400).json({ message: "Phone number is required" });
+      }
+
+      if (!checkOtpRateLimit(smsOtpRateLimit, phoneNumber)) {
+        return res.status(429).json({ message: "Too many SMS attempts. Please wait 10 minutes." });
       }
 
       if (!twilioClient) {
@@ -511,6 +531,50 @@ ${metaTags}
     }
   });
 
+  // Send Email OTP — fallback verification (server-side only, credentials never exposed)
+  app.post("/api/auth/send-email-otp", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      if (!checkOtpRateLimit(emailOtpRateLimit, email.toLowerCase())) {
+        return res.status(429).json({ message: "Too many email OTP attempts. Please wait 10 minutes." });
+      }
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      emailOtpStore.set(email.toLowerCase(), { code, expiresAt, verified: false });
+      await sendEmailOtp(email, code);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Email OTP send error:", err);
+      res.status(500).json({ message: err.message || "Failed to send email verification code" });
+    }
+  });
+
+  // Verify Email OTP
+  app.post("/api/auth/verify-email-code", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({ message: "Email and code are required" });
+      }
+      const key = email.toLowerCase();
+      const record = emailOtpStore.get(key);
+      if (!record || new Date() > record.expiresAt) {
+        return res.status(400).json({ message: "Invalid or expired verification code" });
+      }
+      if (record.code !== code) {
+        return res.status(400).json({ message: "Invalid verification code" });
+      }
+      emailOtpStore.set(key, { ...record, verified: true });
+      res.json({ success: true, verified: true });
+    } catch (err: any) {
+      console.error("Email verify error:", err);
+      res.status(500).json({ message: err.message || "Verification failed" });
+    }
+  });
+
   // Reset password via SMS OTP
   app.post("/api/auth/reset-password", async (req, res) => {
     try {
@@ -557,10 +621,13 @@ ${metaTags}
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      // Enforce phone verification whenever a phone number is supplied
+      // Enforce phone verification — allow email OTP as fallback
       if (phoneNumber) {
-        const isVerified = await storage.isPhoneVerified(phoneNumber);
-        if (!isVerified) {
+        const isPhoneVerified = await storage.isPhoneVerified(phoneNumber);
+        const emailRecord = email ? emailOtpStore.get(email.toLowerCase()) : null;
+        const isEmailVerified = emailRecord?.verified === true;
+
+        if (!isPhoneVerified && !isEmailVerified) {
           return res.status(400).json({ message: "Phone number must be verified before registration" });
         }
         const existingPhone = await storage.getUserByPhone(phoneNumber);

@@ -183,7 +183,16 @@
     "invalidNumberDesc": "Inserisci un numero di telefono valido",
     "invalidCode": "Codice non valido",
     "invalidCodeDesc": "Inserisci il codice a 6 cifre",
-    "sendFailed": "Invio fallito"
+    "sendFailed": "Invio fallito",
+    "email": "E-mail",
+    "emailRequired": "Inserisci un indirizzo e-mail valido",
+    "emailFallbackTitle": "Non hai ricevuto il codice di verifica?",
+    "emailFallbackDesc": "Inserisci il codice inviato alla tua email.",
+    "sentViaEmail": "Codice inviato alla tua email",
+    "emailCountdown": "Codice backup via email in {{count}} s...",
+    "emailSending": "Invio codice email in corso...",
+    "rateLimitSms": "Troppi tentativi SMS. Attendi 10 minuti.",
+    "rateLimitEmail": "Troppi tentativi. Attendi 10 minuti."
   },
   "favorites": {
     "title": "Preferiti",

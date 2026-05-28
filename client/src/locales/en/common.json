@@ -184,7 +184,16 @@
     "invalidCode": "Invalid code",
     "invalidCodeDesc": "Enter the 6-digit code",
     "sendFailed": "Send failed",
-    "loginRequired": "Please log in first"
+    "loginRequired": "Please log in first",
+    "email": "Email",
+    "emailRequired": "Please enter a valid email address",
+    "emailFallbackTitle": "Verification code not received?",
+    "emailFallbackDesc": "Please enter the code sent to your email.",
+    "sentViaEmail": "Code sent to your email",
+    "emailCountdown": "Email backup in {{count}}s...",
+    "emailSending": "Sending email code...",
+    "rateLimitSms": "Too many SMS attempts. Please wait 10 minutes.",
+    "rateLimitEmail": "Too many email OTP attempts. Please wait 10 minutes."
   },
   "favorites": {
     "title": "Favorites",

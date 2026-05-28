@@ -186,7 +186,16 @@
     "invalidCode": "Ogiltig kod",
     "invalidCodeDesc": "Ange den 6-siffriga koden",
     "sendFailed": "Sändningen misslyckades",
-    "loginToViewPhone": "Logga in för att se numret"
+    "loginToViewPhone": "Logga in för att se numret",
+    "email": "E-post",
+    "emailRequired": "Ange en giltig e-postadress",
+    "emailFallbackTitle": "Har du inte fått verifieringskoden?",
+    "emailFallbackDesc": "Ange koden som skickades till din e-postadress.",
+    "sentViaEmail": "Kod skickad till din e-post",
+    "emailCountdown": "Reservkod via e-post om {{count}} s...",
+    "emailSending": "Skickar e-postkod...",
+    "rateLimitSms": "För många SMS-försök. Vänta 10 minuter.",
+    "rateLimitEmail": "För många försök. Vänta 10 minuter."
   },
   "favorites": {
     "title": "Favoriter",

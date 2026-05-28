@@ -184,7 +184,16 @@
     "invalidCode": "Geçersiz kod",
     "invalidCodeDesc": "6 haneli kodu girin",
     "sendFailed": "Gönderme başarısız",
-    "loginRequired": "Lütfen önce giriş yapın"
+    "loginRequired": "Lütfen önce giriş yapın",
+    "email": "E-posta",
+    "emailRequired": "Lütfen geçerli bir e-posta adresi girin",
+    "emailFallbackTitle": "Doğrulama kodu ulaşmadı mı?",
+    "emailFallbackDesc": "Lütfen e-posta adresinize gönderilen kodu girin.",
+    "sentViaEmail": "Kod e-postanıza gönderildi",
+    "emailCountdown": "{{count}} saniyede e-posta yedek kodu...",
+    "emailSending": "E-posta kodu gönderiliyor...",
+    "rateLimitSms": "Çok fazla SMS denemesi. Lütfen 10 dakika bekleyin.",
+    "rateLimitEmail": "Çok fazla deneme. Lütfen 10 dakika bekleyin."
   },
   "favorites": {
     "title": "Favoriler",

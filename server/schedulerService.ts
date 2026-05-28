@@ -21,5 +21,11 @@ export function startScheduler() {
     ]);
   });
 
-  console.log("[Scheduler] Started — weekly updates (Mon 9AM), inactive reminders (daily 10AM)");
+  // Promotional campaign — every 3 days at 10:00 AM (sends to verified non-admin users with email)
+  cron.schedule("0 10 */3 * *", async () => {
+    console.log("[Scheduler] Running 3-day promotional email campaign...");
+    await sendBulkEmail("weekly_update");
+  });
+
+  console.log("[Scheduler] Started — weekly updates (Mon 9AM), inactive reminders (daily 10AM), 3-day promo (10AM)");
 }

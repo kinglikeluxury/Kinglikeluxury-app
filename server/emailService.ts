@@ -188,6 +188,43 @@ export async function sendWelcomeEmail(user: { id: number; username: string; ema
   }
 }
 
+export async function sendEmailOtp(email: string, code: string): Promise<void> {
+  const resend = await getResend();
+  if (!resend) {
+    throw new Error("Email service not configured");
+  }
+  const html = `
+<div style="background:#f0f9f9;padding:40px 20px;font-family:Arial,Helvetica,sans-serif">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,84,118,0.10)">
+    <div style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:40px;text-align:center">
+      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:800">Kinglike Luxury</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px">Email Verification</p>
+    </div>
+    <div style="padding:40px;text-align:center">
+      <h2 style="color:#005476;margin-top:0">Your Verification Code</h2>
+      <div style="background:#f0f9f9;border-radius:12px;padding:24px;margin:24px 0">
+        <p style="font-size:40px;font-weight:900;color:#005476;letter-spacing:10px;margin:0">${code}</p>
+      </div>
+      <p style="color:#555;font-size:14px">This code is valid for <strong>10 minutes</strong>.</p>
+      <p style="color:#888;font-size:12px;margin-top:20px">If you did not request this code, please ignore this email.</p>
+    </div>
+    <div style="background:#f0f9f9;padding:20px;text-align:center;color:#999;font-size:12px">
+      <p style="margin:0">&copy; Kinglike Luxury Real Estate Platform</p>
+    </div>
+  </div>
+</div>`;
+
+  const result = await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `Kinglike Luxury — Verification Code: ${code}`,
+    html,
+    text: `Your Kinglike Luxury verification code is: ${code}\n\nValid for 10 minutes.`,
+  });
+  if (result.error) throw new Error(result.error.message);
+  console.log(`[Email] ✅ Email OTP sent to ${email}`);
+}
+
 export async function sendNewPropertyNotification(property: {
   id: number;
   title: string;

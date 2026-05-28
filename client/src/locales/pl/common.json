@@ -183,7 +183,16 @@
     "invalidNumberDesc": "Wprowadź prawidłowy numer telefonu",
     "invalidCode": "Nieprawidłowy kod",
     "invalidCodeDesc": "Wprowadź 6-cyfrowy kod",
-    "sendFailed": "Wysyłanie nie powiodło się"
+    "sendFailed": "Wysyłanie nie powiodło się",
+    "email": "E-mail",
+    "emailRequired": "Proszę podać prawidłowy adres e-mail",
+    "emailFallbackTitle": "Nie otrzymałeś kodu weryfikacyjnego?",
+    "emailFallbackDesc": "Wprowadź kod wysłany na Twój adres e-mail.",
+    "sentViaEmail": "Kod wysłany na Twój e-mail",
+    "emailCountdown": "Kod zapasowy na e-mail za {{count}} s...",
+    "emailSending": "Wysyłanie kodu e-mail...",
+    "rateLimitSms": "Zbyt wiele prób SMS. Poczekaj 10 minut.",
+    "rateLimitEmail": "Zbyt wiele prób. Poczekaj 10 minut."
   },
   "favorites": {
     "title": "Ulubione",

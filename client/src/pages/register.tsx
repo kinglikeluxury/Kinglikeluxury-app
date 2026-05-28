@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,24 +10,45 @@ import { z } from 'zod';
 import { AUTH_METHODS } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { Link, useLocation } from 'wouter';
-import { CheckCircle, Loader2, MessageCircle, Smartphone, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Loader2, MessageCircle, Smartphone, Mail, Eye, EyeOff, ShieldCheck, Clock } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
 
-const phoneSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+// ISO2 → dial code mapping for auto-detection
+const COUNTRY_DIAL: Record<string, string> = {
+  AE: '+971', TR: '+90', IL: '+972', SA: '+966', RU: '+7',
+  GE: '+995', AZ: '+994', IR: '+98', IQ: '+964', EG: '+20',
+  DE: '+49', FR: '+33', GB: '+44', US: '+1', PL: '+48',
+  UA: '+380', CN: '+86', SE: '+46', NL: '+31', IT: '+39',
+  KZ: '+7', BY: '+375', AM: '+374', JO: '+962', LB: '+961',
+  KW: '+965', BH: '+973', QA: '+974', OM: '+968', YE: '+967',
+  SY: '+963', PS: '+970', MA: '+212', DZ: '+213', TN: '+216',
+  LY: '+218', SD: '+249', PK: '+92', IN: '+91', BD: '+880',
+  ID: '+62', MY: '+60', SG: '+65', PH: '+63', JP: '+81',
+  KR: '+82', TH: '+66', VN: '+84', AU: '+61', CA: '+1',
+  BR: '+55', AR: '+54', MX: '+52', ZA: '+27', NG: '+234',
+  ES: '+34', PT: '+351', GR: '+30', RO: '+40', HU: '+36',
+  CZ: '+420', SK: '+421', BG: '+359', HR: '+385', RS: '+381',
+  LT: '+370', LV: '+371', EE: '+372',
+};
+
+const registrationSchema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Please enter a valid email address'),
 });
 
-type PhoneFormValues = z.infer<typeof phoneSchema>;
+type RegistrationValues = z.infer<typeof registrationSchema>;
+
+const FALLBACK_SECONDS = 10;
 
 export default function RegisterPage() {
   const { toast } = useToast();
   const { setUser } = useAuth();
   const { t } = useTranslation();
   const [currentLocation, setLocation] = useLocation();
-  const redirectTo = new URLSearchParams(currentLocation.split("?")[1] || "").get("redirect") || "/";
+  const redirectTo = new URLSearchParams(currentLocation.split('?')[1] || '').get('redirect') || '/';
 
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneAlreadyRegistered, setPhoneAlreadyRegistered] = useState(false);
@@ -40,24 +61,77 @@ export default function RegisterPage() {
   const [localNumber, setLocalNumber] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [countdown, setCountdown] = useState(FALLBACK_SECONDS);
+  const [emailFallbackActive, setEmailFallbackActive] = useState(false);
+  const [emailOtpSending, setEmailOtpSending] = useState(false);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const form = useForm<PhoneFormValues>({
-    resolver: zodResolver(phoneSchema),
-    defaultValues: { username: '', password: '' },
+  const form = useForm<RegistrationValues>({
+    resolver: zodResolver(registrationSchema),
+    defaultValues: { username: '', password: '', email: '' },
   });
+
+  // Auto-detect visitor country on mount
+  useEffect(() => {
+    fetch('/api/geo/detect')
+      .then(r => r.json())
+      .then((data: { countryCode?: string }) => {
+        if (data.countryCode && COUNTRY_DIAL[data.countryCode]) {
+          setDialCode(COUNTRY_DIAL[data.countryCode]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 10-second countdown after SMS sent — then auto-send email OTP
+  useEffect(() => {
+    if (!verificationSent || emailFallbackActive) return;
+
+    setCountdown(FALLBACK_SECONDS);
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!);
+          triggerEmailFallback();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verificationSent]);
+
+  const triggerEmailFallback = async () => {
+    if (emailFallbackActive) return;
+    const emailValue = form.getValues('email');
+    if (!emailValue) return;
+    setEmailOtpSending(true);
+    try {
+      await apiRequest('POST', '/api/auth/send-email-otp', { email: emailValue });
+      setEmailFallbackActive(true);
+    } catch (err: any) {
+      console.warn('[Email OTP] Failed to send email fallback:', err.message);
+    } finally {
+      setEmailOtpSending(false);
+    }
+  };
 
   const getFullPhoneNumber = () => `${dialCode}${localNumber.replace(/\s+/g, '')}`;
 
   const handleSendCode = async () => {
     if (!privacyAccepted) {
-      toast({ title: t('auth.privacyRequired'), description: t('auth.privacyRequiredDesc'), variant: "destructive" });
+      toast({ title: t('auth.privacyRequired'), description: t('auth.privacyRequiredDesc'), variant: 'destructive' });
       return;
     }
-    const valid = await form.trigger(['username', 'password']);
+    const valid = await form.trigger(['username', 'password', 'email']);
     if (!valid) return;
 
     if (!localNumber || localNumber.replace(/\s+/g, '').length < 4) {
-      toast({ title: t('auth.invalidNumber'), description: t('auth.invalidNumberDesc'), variant: "destructive" });
+      toast({ title: t('auth.invalidNumber'), description: t('auth.invalidNumberDesc'), variant: 'destructive' });
       return;
     }
 
@@ -73,7 +147,7 @@ export default function RegisterPage() {
         description: phoneNumber,
       });
     } catch (error: any) {
-      toast({ title: t('auth.sendFailed'), description: error.message || "", variant: "destructive" });
+      toast({ title: t('auth.sendFailed'), description: error.message || '', variant: 'destructive' });
     } finally {
       setSendingCode(false);
     }
@@ -81,20 +155,41 @@ export default function RegisterPage() {
 
   const handleVerifyAndRegister = async () => {
     const phoneNumber = getFullPhoneNumber();
+    const emailValue = form.getValues('email');
+
     if (!verificationCode || verificationCode.length !== 6) {
-      toast({ title: t('auth.invalidCode'), description: t('auth.invalidCodeDesc'), variant: "destructive" });
+      toast({ title: t('auth.invalidCode'), description: t('auth.invalidCodeDesc'), variant: 'destructive' });
       return;
     }
+
     setVerifyingCode(true);
     try {
-      await apiRequest('POST', '/api/auth/verify-code', { phoneNumber, code: verificationCode });
+      // Try SMS verification first
+      let verifiedMethod: 'phone' | 'email' = 'phone';
+      let smsOk = false;
+      try {
+        await apiRequest('POST', '/api/auth/verify-code', { phoneNumber, code: verificationCode });
+        smsOk = true;
+      } catch {
+        smsOk = false;
+      }
+
+      if (!smsOk) {
+        if (emailFallbackActive && emailValue) {
+          await apiRequest('POST', '/api/auth/verify-email-code', { email: emailValue, code: verificationCode });
+          verifiedMethod = 'email';
+        } else {
+          throw new Error(t('auth.invalidCode'));
+        }
+      }
 
       const values = form.getValues();
       await apiRequest('POST', '/api/auth/register', {
         username: values.username,
         phoneNumber,
         password: values.password,
-        authMethod: AUTH_METHODS.PHONE,
+        email: values.email,
+        authMethod: verifiedMethod === 'phone' ? AUTH_METHODS.PHONE : AUTH_METHODS.EMAIL,
       });
 
       const meRes = await fetch('/api/auth/me', { credentials: 'include' });
@@ -107,15 +202,25 @@ export default function RegisterPage() {
       toast({ title: `✅ ${t('auth.successMsg')}` });
       setLocation(redirectTo);
     } catch (error: any) {
-      if (error.message?.includes("already registered") || error.message?.includes("already exists")) {
+      if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
         setPhoneAlreadyRegistered(true);
       } else {
-        toast({ title: t('auth.sendFailed'), description: error.message || "", variant: "destructive" });
+        toast({ title: t('auth.invalidCode'), description: error.message || '', variant: 'destructive' });
       }
     } finally {
       setVerifyingCode(false);
     }
   };
+
+  const handleReset = () => {
+    setVerificationSent(false);
+    setEmailFallbackActive(false);
+    setVerificationCode('');
+    setCountdown(FALLBACK_SECONDS);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+  };
+
+  const passwordValue = form.watch('password');
 
   return (
     <div className="container flex items-center justify-center min-h-screen py-12">
@@ -151,7 +256,7 @@ export default function RegisterPage() {
                   <FormControl>
                     <div className="relative">
                       <Input
-                        type={showPassword ? "text" : "password"}
+                        type={showPassword ? 'text' : 'password'}
                         placeholder="••••••"
                         disabled={verificationSent}
                         {...field}
@@ -169,23 +274,39 @@ export default function RegisterPage() {
                 </FormItem>
               )} />
 
+              {/* Email — required */}
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('auth.email')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="you@example.com"
+                      disabled={verificationSent}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               {/* Mobile Number */}
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${form.watch('password').length < 6 ? 'text-muted-foreground' : ''}`}>
+                <label className={`text-sm font-medium ${passwordValue.length < 6 ? 'text-muted-foreground' : ''}`}>
                   {t('auth.phone')}
                 </label>
                 <div className="flex gap-2">
                   <CountryCodePicker
                     value={dialCode}
                     onChange={setDialCode}
-                    disabled={verificationSent || form.watch('password').length < 6}
+                    disabled={verificationSent || passwordValue.length < 6}
                   />
                   <Input
                     type="tel"
-                    placeholder={form.watch('password').length < 6 ? t('auth.enterPasswordFirst') : "50 123 4567"}
+                    placeholder={passwordValue.length < 6 ? t('auth.enterPasswordFirst') : '50 123 4567'}
                     value={localNumber}
                     onChange={(e) => setLocalNumber(e.target.value)}
-                    disabled={verificationSent || form.watch('password').length < 6}
+                    disabled={verificationSent || passwordValue.length < 6}
                     className="flex-1"
                   />
                 </div>
@@ -226,7 +347,7 @@ export default function RegisterPage() {
                       >
                         {t('auth.privacyPolicy')}
                       </a>
-                      {" "}{t('auth.privacyText').split(t('auth.privacyPolicy'))[1]?.split(t('auth.termsOfUse'))[0]}
+                      {' '}{t('auth.privacyText').split(t('auth.privacyPolicy'))[1]?.split(t('auth.termsOfUse'))[0]}
                       <a
                         href="/terms"
                         target="_blank"
@@ -236,7 +357,7 @@ export default function RegisterPage() {
                       >
                         {t('auth.termsOfUse')}
                       </a>
-                      {t('auth.privacyText').split(t('auth.termsOfUse'))[1] || ""}
+                      {t('auth.privacyText').split(t('auth.termsOfUse'))[1] || ''}
                     </span>
                   </div>
                 </div>
@@ -259,16 +380,51 @@ export default function RegisterPage() {
                 </Button>
               )}
 
-              {/* OTP input */}
+              {/* OTP input area */}
               {verificationSent && !phoneVerified && (
                 <div className="space-y-3">
-                  <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${sentMethod === 'whatsapp' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+
+                  {/* SMS sent badge */}
+                  <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
+                    sentMethod === 'whatsapp' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
+                  }`}>
                     {sentMethod === 'whatsapp'
                       ? <><MessageCircle className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaWhatsapp')}</>
                       : <><Smartphone className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaSms')}</>
                     }
                   </div>
 
+                  {/* Email fallback status */}
+                  {!emailFallbackActive && countdown > 0 && (
+                    <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 text-amber-700">
+                      {emailOtpSending
+                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> {t('auth.emailSending')}</>
+                        : <><Clock className="h-3.5 w-3.5 shrink-0" /> {t('auth.emailCountdown', { count: countdown })}</>
+                      }
+                    </div>
+                  )}
+
+                  {/* Email fallback active badge */}
+                  {emailFallbackActive && (
+                    <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-purple-50 text-purple-700">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      {t('auth.sentViaEmail')}
+                    </div>
+                  )}
+
+                  {/* Email fallback message */}
+                  {emailFallbackActive && (
+                    <div className="rounded-xl border-2 border-[#3bcac4]/30 bg-[#3bcac4]/5 p-4 space-y-1">
+                      <p className="text-sm font-semibold text-[#005476]">
+                        {t('auth.emailFallbackTitle')}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {t('auth.emailFallbackDesc')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Code input */}
                   <div>
                     <label className="text-sm font-medium">{t('auth.verificationCode')}</label>
                     <Input
@@ -294,11 +450,10 @@ export default function RegisterPage() {
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    {t('auth.noCode')}{" "}
-                    <button type="button" className="text-[#3bcac4] hover:underline" onClick={() => { setVerificationSent(false); setVerificationCode(''); }}>
+                    <button type="button" className="text-[#3bcac4] hover:underline" onClick={handleReset}>
                       {t('auth.changeData')}
                     </button>
-                    {" · "}
+                    {' · '}
                     <button type="button" className="text-[#3bcac4] hover:underline" onClick={handleSendCode} disabled={sendingCode}>
                       {t('auth.resend')}
                     </button>
@@ -333,8 +488,7 @@ export default function RegisterPage() {
                       className="text-xs text-muted-foreground hover:underline text-center"
                       onClick={() => {
                         setPhoneAlreadyRegistered(false);
-                        setVerificationSent(false);
-                        setVerificationCode('');
+                        handleReset();
                         setLocalNumber('');
                       }}
                     >
@@ -357,7 +511,7 @@ export default function RegisterPage() {
 
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-center text-sm">
-            {t('auth.hasAccount')}{" "}
+            {t('auth.hasAccount')}{' '}
             <Link href="/login" className="text-[#3bcac4] hover:underline">{t('auth.login')}</Link>
           </div>
         </CardFooter>

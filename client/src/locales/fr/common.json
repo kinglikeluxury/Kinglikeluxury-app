@@ -186,7 +186,16 @@
     "invalidCode": "Code invalide",
     "invalidCodeDesc": "Entrez le code à 6 chiffres",
     "sendFailed": "Échec de l'envoi",
-    "loginToViewPhone": "Connectez-vous pour voir le numéro"
+    "loginToViewPhone": "Connectez-vous pour voir le numéro",
+    "email": "E-mail",
+    "emailRequired": "Veuillez entrer une adresse e-mail valide",
+    "emailFallbackTitle": "Vous n'avez pas reçu le code de vérification ?",
+    "emailFallbackDesc": "Veuillez saisir le code envoyé à votre adresse e-mail.",
+    "sentViaEmail": "Code envoyé à votre e-mail",
+    "emailCountdown": "Code de secours par e-mail dans {{count}} s...",
+    "emailSending": "Envoi du code e-mail...",
+    "rateLimitSms": "Trop de tentatives SMS. Veuillez attendre 10 minutes.",
+    "rateLimitEmail": "Trop de tentatives. Veuillez attendre 10 minutes."
   },
   "favorites": {
     "title": "Favoris",

@@ -186,7 +186,16 @@
     "invalidCode": "Ungültiger Code",
     "invalidCodeDesc": "Geben Sie den 6-stelligen Code ein",
     "sendFailed": "Senden fehlgeschlagen",
-    "loginToViewPhone": "Anmelden, um die Nummer zu sehen"
+    "loginToViewPhone": "Anmelden, um die Nummer zu sehen",
+    "email": "E-Mail",
+    "emailRequired": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+    "emailFallbackTitle": "Bestätigungscode nicht erhalten?",
+    "emailFallbackDesc": "Bitte geben Sie den Code ein, der an Ihre E-Mail gesendet wurde.",
+    "sentViaEmail": "Code an Ihre E-Mail gesendet",
+    "emailCountdown": "Backup-Code per E-Mail in {{count}} s...",
+    "emailSending": "E-Mail-Code wird gesendet...",
+    "rateLimitSms": "Zu viele SMS-Versuche. Bitte 10 Minuten warten.",
+    "rateLimitEmail": "Zu viele Versuche. Bitte 10 Minuten warten."
   },
   "favorites": {
     "title": "Favoriten",

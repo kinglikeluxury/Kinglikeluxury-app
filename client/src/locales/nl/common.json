@@ -186,7 +186,16 @@
     "invalidCode": "Ongeldige code",
     "invalidCodeDesc": "Voer de 6-cijferige code in",
     "sendFailed": "Verzenden mislukt",
-    "loginToViewPhone": "Log in om het nummer te bekijken"
+    "loginToViewPhone": "Log in om het nummer te bekijken",
+    "email": "E-mail",
+    "emailRequired": "Voer een geldig e-mailadres in",
+    "emailFallbackTitle": "Geen verificatiecode ontvangen?",
+    "emailFallbackDesc": "Voer de code in die naar je e-mail is verzonden.",
+    "sentViaEmail": "Code verzonden naar je e-mail",
+    "emailCountdown": "Back-upcode via e-mail in {{count}} s...",
+    "emailSending": "E-mailcode wordt verzonden...",
+    "rateLimitSms": "Te veel SMS-pogingen. Wacht 10 minuten.",
+    "rateLimitEmail": "Te veel pogingen. Wacht 10 minuten."
   },
   "favorites": {
     "title": "Favorieten",
