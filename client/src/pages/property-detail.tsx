@@ -902,18 +902,46 @@ const PropertyDetail = () => {
                         );
                       })()}
                       {(property as any).paymentMethod && (
-                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">{t('property.paymentMethod', 'Payment Method')}</span>
-                          <span className="font-medium">
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg col-span-1 sm:col-span-2">
+                          <span className="text-gray-500 text-sm font-medium mb-2">{t('property.paymentMethod', 'Payment Method')}</span>
+                          <span className="font-semibold text-[#005476] mb-2">
                             {(property as any).paymentMethod === 'cash'
                               ? `💵 ${t('property.paymentCash', 'Cash')}`
                               : `📋 ${t('property.paymentInstallments', 'Installments')}`}
                           </span>
-                          {(property as any).paymentMethod === 'installments' && (property as any).downPaymentPercent && (
-                            <span className="text-sm text-[#3bcac4] mt-1">
-                              {t('property.downPayment', 'Down payment')} {(property as any).downPaymentPercent}%
-                              {(property as any).installmentDuration && ` · ${(property as any).installmentDuration.replace('-', ' ')}`}
-                            </span>
+                          {(property as any).paymentMethod === 'installments' && (
+                            <div className="space-y-2 border-t border-gray-200 pt-2 mt-1">
+                              {(property as any).downPaymentPercent && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-500">{t('property.downPayment', 'Down Payment')}</span>
+                                  <span className="font-medium text-[#3bcac4]">{(property as any).downPaymentPercent}%</span>
+                                </div>
+                              )}
+                              {(property as any).installmentDuration && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-500">{t('property.installmentDuration', 'Installment Duration')}</span>
+                                  <span className="font-medium">{(property as any).installmentDuration.replace(/-/g, ' ')}</span>
+                                </div>
+                              )}
+                              {(property as any).monthlyInstallment && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-500">{t('property.monthlyInstallment', 'Monthly Installment')}</span>
+                                  <span className="font-medium text-[#3bcac4]">${(property as any).monthlyInstallment.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {(property as any).remainingBalance && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-500">{t('property.remainingBalance', 'Remaining Balance')}</span>
+                                  <span className="font-medium">${(property as any).remainingBalance.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {(property as any).paymentNotes && (
+                                <div className="pt-2 border-t border-gray-100">
+                                  <span className="text-gray-500 text-xs block mb-1">{t('property.paymentNotes', 'Payment Plan Details')}</span>
+                                  <p className="text-sm text-gray-700">{(property as any).paymentNotes}</p>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}

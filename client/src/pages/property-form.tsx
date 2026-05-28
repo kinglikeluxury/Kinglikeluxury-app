@@ -116,6 +116,9 @@ const PropertyForm = () => {
     paymentMethod: '',
     downPaymentPercent: '',
     installmentDuration: '',
+    monthlyInstallment: '',
+    remainingBalance: '',
+    paymentNotes: '',
   });
   
   const [newFeature, setNewFeature] = useState('');
@@ -241,6 +244,9 @@ const PropertyForm = () => {
         paymentMethod: (existingProperty as any).paymentMethod || '',
         downPaymentPercent: (existingProperty as any).downPaymentPercent?.toString() || '',
         installmentDuration: (existingProperty as any).installmentDuration || '',
+        monthlyInstallment: (existingProperty as any).monthlyInstallment?.toString() || '',
+        remainingBalance: (existingProperty as any).remainingBalance?.toString() || '',
+        paymentNotes: (existingProperty as any).paymentNotes || '',
       });
       
       // Set property type
@@ -1026,6 +1032,12 @@ const PropertyForm = () => {
           ? parseInt(formData.downPaymentPercent) : null,
         installmentDuration: formData.paymentMethod === 'installments'
           ? (formData.installmentDuration || null) : null,
+        monthlyInstallment: formData.paymentMethod === 'installments' && formData.monthlyInstallment
+          ? parseInt(formData.monthlyInstallment) : null,
+        remainingBalance: formData.paymentMethod === 'installments' && formData.remainingBalance
+          ? parseInt(formData.remainingBalance) : null,
+        paymentNotes: formData.paymentMethod === 'installments'
+          ? (formData.paymentNotes || null) : null,
         listingType: isEditMode && existingProperty ? existingProperty.listingType : (listingType === 'featured' ? 'vip' : 'regular'),
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
         readyStatus: formData.readyStatus || null,
@@ -2431,6 +2443,44 @@ const PropertyForm = () => {
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Monthly Installment */}
+                    <div>
+                      <Label>القسط الشهري / Monthly Installment (USD)</Label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 1500"
+                        value={formData.monthlyInstallment}
+                        onChange={(e) => handleInputChange('monthlyInstallment', e.target.value)}
+                        className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4]"
+                      />
+                    </div>
+
+                    {/* Remaining Balance */}
+                    <div>
+                      <Label>المبلغ المتبقي / Remaining Balance (USD)</Label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 120000"
+                        value={formData.remainingBalance}
+                        onChange={(e) => handleInputChange('remainingBalance', e.target.value)}
+                        className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4]"
+                      />
+                    </div>
+
+                    {/* Payment Notes */}
+                    <div>
+                      <Label>تفاصيل خطة الدفع / Payment Plan Details</Label>
+                      <Textarea
+                        placeholder="أدخل تفاصيل إضافية عن خطة الدفع / Enter additional payment plan details..."
+                        value={formData.paymentNotes}
+                        onChange={(e) => handleInputChange('paymentNotes', e.target.value)}
+                        className="mt-2"
+                        rows={3}
+                      />
                     </div>
                   </div>
                 )}

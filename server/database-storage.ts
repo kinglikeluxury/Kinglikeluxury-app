@@ -266,6 +266,20 @@ export class DatabaseStorage implements IStorage {
         topRated: properties.topRated,
         isSold: properties.isSold,
         priceMax: properties.priceMax,
+        readyStatus: properties.readyStatus,
+        bestPrice: properties.bestPrice,
+        acceptablePrice: properties.acceptablePrice,
+        highPrice: properties.highPrice,
+        landType: properties.landType,
+        landFeatures: properties.landFeatures,
+        titleEn: properties.titleEn,
+        descriptionEn: properties.descriptionEn,
+        paymentMethod: properties.paymentMethod,
+        downPaymentPercent: properties.downPaymentPercent,
+        installmentDuration: properties.installmentDuration,
+        monthlyInstallment: properties.monthlyInstallment,
+        remainingBalance: properties.remainingBalance,
+        paymentNotes: properties.paymentNotes,
         
         // Agent fields
         agent: {

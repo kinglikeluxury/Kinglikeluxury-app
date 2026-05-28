@@ -121,6 +121,9 @@ export const properties = pgTable("properties", {
   paymentMethod: text("payment_method"), // "cash" | "installments"
   downPaymentPercent: integer("down_payment_percent"), // e.g. 10, 15, 20 ... 90
   installmentDuration: text("installment_duration"), // e.g. "1-month", "6-months", "2-years"
+  monthlyInstallment: integer("monthly_installment"), // monthly payment amount in USD
+  remainingBalance: integer("remaining_balance"), // remaining balance after down payment in USD
+  paymentNotes: text("payment_notes"), // free text for payment plan details
   titleEn: text("title_en"), // Optional English title for multilingual display
   descriptionEn: text("description_en"), // Optional English description
   // Live construction camera fields (projects only)
@@ -167,6 +170,9 @@ export const insertPropertySchema = createInsertSchema(properties)
     paymentMethod: z.string().optional().nullable(),
     downPaymentPercent: z.number().optional().nullable(),
     installmentDuration: z.string().optional().nullable(),
+    monthlyInstallment: z.number().optional().nullable(),
+    remainingBalance: z.number().optional().nullable(),
+    paymentNotes: z.string().optional().nullable(),
   });
 
 // Project details (for construction projects)
