@@ -3,9 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, Calendar, User, Tag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAutoTranslate } from '@/hooks/useAutoTranslate';
-
-const ARABIC_RE = /[\u0600-\u06FF]/;
+import { useAutoTranslate, needsTranslation } from '@/hooks/useAutoTranslate';
 
 const SAMPLE_IMAGES = [
   'https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
@@ -18,18 +16,15 @@ function BlogPostItem({ post }: { post: any }) {
   const { i18n, t } = useTranslation();
   const currentLang = i18n.language?.split('-')[0] || 'en';
 
-  const contentIsArabic = ARABIC_RE.test(post.title || '');
-  const shouldTranslate = currentLang !== 'ar' && contentIsArabic;
-
   const rawExcerpt = post.excerpt || '';
 
   const translated = useAutoTranslate({
-    title: shouldTranslate ? post.title || '' : '',
-    excerpt: shouldTranslate ? rawExcerpt : '',
+    title: needsTranslation(post.title || '', currentLang) ? post.title || '' : '',
+    excerpt: needsTranslation(rawExcerpt, currentLang) ? rawExcerpt : '',
   });
 
-  const displayTitle = shouldTranslate && translated.title ? translated.title : post.title;
-  const displayExcerpt = shouldTranslate && translated.excerpt ? translated.excerpt : rawExcerpt;
+  const displayTitle = translated.title || post.title;
+  const displayExcerpt = translated.excerpt || rawExcerpt;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

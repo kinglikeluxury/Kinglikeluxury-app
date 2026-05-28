@@ -6,7 +6,7 @@ import { Bed, Bath, Home, ArrowRight, Heart, Star } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_STATUS } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
-import { useAutoTranslateText } from "@/hooks/useAutoTranslate";
+import { useAutoTranslate, needsTranslation } from "@/hooks/useAutoTranslate";
 import { slugifyProperty } from "@/lib/slugify";
 
 interface PropertyCardProps {
@@ -46,10 +46,17 @@ const PropertyCard = ({
   highPrice = false,
   isSold = false,
 }: PropertyCardProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language?.split('-')[0] || 'en';
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorited = isFavorite(id);
-  const translatedTitle = title;
+
+  const translated = useAutoTranslate({
+    title: needsTranslation(title, currentLang) ? title : '',
+    location: needsTranslation(location, currentLang) ? location : '',
+  });
+  const translatedTitle = translated.title || title;
+  const translatedLocation = translated.location || location;
   const getPropertyTypeColor = () => {
     // Use consistent Kinglike blue color (#005476) for all property types
     return "bg-[#005476] text-white";
@@ -72,10 +79,10 @@ const PropertyCard = ({
 
   const getStatusBadge = () => {
     if (status === PROPERTY_STATUS.PENDING) {
-      return <Badge variant="outline" className="bg-[#3bcac4] text-white border-[#3bcac4]">Pending Approval</Badge>;
+      return <Badge variant="outline" className="bg-[#3bcac4] text-white border-[#3bcac4]">{t('property.pendingApproval', 'Pending Approval')}</Badge>;
     }
     if (status === PROPERTY_STATUS.REJECTED) {
-      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Rejected</Badge>;
+      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">{t('property.rejected', 'Rejected')}</Badge>;
     }
     return null;
   };
@@ -179,13 +186,13 @@ const PropertyCard = ({
         </button>
         {isFeatured && (
           <div className="absolute top-2 right-12">
-            <Badge className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white">Featured</Badge>
+            <Badge className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white">{t('property.featured', 'Featured')}</Badge>
           </div>
         )}
         {topRated && (
           <div className="absolute bottom-2 left-2">
             <Badge className="bg-white border border-white shadow-md flex items-center gap-1 px-2 py-1">
-              <span className="text-xs font-semibold text-[#005476]">Top Rated</span>
+              <span className="text-xs font-semibold text-[#005476]">{t('property.topRated', 'Top Rated')}</span>
               <div className="flex items-center gap-0.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star key={star} className="h-3 w-3 fill-[#3bcac4] text-[#3bcac4]" />
@@ -216,7 +223,7 @@ const PropertyCard = ({
         <div className="flex justify-between items-start mb-1">
           <div>
             <h3 className="text-lg font-medium text-gray-900 line-clamp-1">{translatedTitle || title || 'Untitled Property'}</h3>
-            <p className="text-gray-500 text-sm">{location || 'Location not specified'}</p>
+            <p className="text-gray-500 text-sm">{translatedLocation || location || 'Location not specified'}</p>
           </div>
           <p className="text-lg font-bold text-primary-600">{getPriceRange(price || 0)}</p>
         </div>
@@ -240,14 +247,14 @@ const PropertyCard = ({
           {bedrooms != null && (
             <div className="flex items-center">
               <Bed className="h-4 w-4 mr-1" />
-              <span>{bedrooms} {bedrooms === 1 ? 'Bed' : 'Beds'}</span>
+              <span>{bedrooms} {t('projects.bed', 'Bed')}</span>
             </div>
           )}
           
           {bathrooms != null && (
             <div className="flex items-center">
               <Bath className="h-4 w-4 mr-1" />
-              <span>{bathrooms} {bathrooms === 1 ? 'Bath' : 'Baths'}</span>
+              <span>{bathrooms} {t('projects.bath', 'Bath')}</span>
             </div>
           )}
         </div>

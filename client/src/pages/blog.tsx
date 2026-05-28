@@ -4,26 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, User, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useAutoTranslate } from "@/hooks/useAutoTranslate";
-
-const ARABIC_RE = /[\u0600-\u06FF]/;
+import { useAutoTranslate, needsTranslation } from "@/hooks/useAutoTranslate";
 
 function BlogPostCard({ post, lang }: { post: any; lang: string }) {
   const { i18n } = useTranslation();
   const currentLang = i18n.language?.split("-")[0] || "en";
 
-  const contentIsArabic = ARABIC_RE.test(post.title || "");
-  const shouldTranslate = currentLang !== "ar" && contentIsArabic;
-
   const rawExcerpt = post.excerpt || (post.content ? post.content.replace(/<[^>]*>/g, "").substring(0, 150) + "..." : "");
 
   const translated = useAutoTranslate({
-    title: shouldTranslate ? post.title || "" : "",
-    excerpt: shouldTranslate ? rawExcerpt : "",
+    title: needsTranslation(post.title || "", currentLang) ? post.title || "" : "",
+    excerpt: needsTranslation(rawExcerpt, currentLang) ? rawExcerpt : "",
   });
 
-  const displayTitle = shouldTranslate && translated.title ? translated.title : post.title;
-  const displayExcerpt = shouldTranslate && translated.excerpt ? translated.excerpt : rawExcerpt;
+  const displayTitle = translated.title || post.title;
+  const displayExcerpt = translated.excerpt || rawExcerpt;
 
   return (
     <a href={`/${currentLang}/blog/${post.slug}`} className="block h-full">

@@ -1,6 +1,25 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
+/**
+ * Determines whether a piece of text needs to be translated into the given target language.
+ * Uses Unicode script detection to avoid translating already-correct content.
+ */
+export function needsTranslation(text: string, targetLang: string): boolean {
+  if (!text || text.trim().length < 3) return false;
+  const hasArabic = /[\u0600-\u06FF]/.test(text);
+  const hasCyrillic = /[\u0400-\u04FF]/.test(text);
+  const hasGeorgian = /[\u10A0-\u10FF]/.test(text);
+  const hasCJK = /[\u4E00-\u9FFF]/.test(text);
+  const hasHebrew = /[\u05D0-\u05EA]/.test(text);
+  if (hasArabic) return targetLang !== 'ar' && targetLang !== 'fa';
+  if (hasCyrillic) return targetLang !== 'ru';
+  if (hasGeorgian) return targetLang !== 'ka';
+  if (hasCJK) return targetLang !== 'zh';
+  if (hasHebrew) return targetLang !== 'he';
+  return targetLang !== 'en';
+}
+
 const translationCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 500;
 

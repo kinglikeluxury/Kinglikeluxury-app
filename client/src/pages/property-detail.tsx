@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart, Star, BadgeCheck, Camera, Maximize2, RefreshCw } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
-import { useAutoTranslate, useAutoTranslateArray } from "@/hooks/useAutoTranslate";
+import { useAutoTranslate, useAutoTranslateArray, needsTranslation } from "@/hooks/useAutoTranslate";
 import { slugifyProperty, extractIdFromSlug } from "@/lib/slugify";
 import { useContentProtection } from "@/hooks/use-content-protection";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -293,12 +293,11 @@ const PropertyDetail = () => {
 
   const rawDescription = property?.description || '';
   const descriptionEn = (property as any)?.descriptionEn as string | undefined;
-  const descriptionIsArabic = /[\u0600-\u06FF]/.test(rawDescription);
   const hasStoredEnglish = lang === 'en' && !!descriptionEn;
-  const shouldTranslateDescription = !hasStoredEnglish && lang !== 'ar' && descriptionIsArabic;
 
+  const langCode = lang?.split('-')[0] || 'en';
   const translatedTexts = useAutoTranslate({
-    description: shouldTranslateDescription ? rawDescription : '',
+    description: !hasStoredEnglish && needsTranslation(rawDescription, langCode) ? rawDescription : '',
   });
   const translatedFeatures = useAutoTranslateArray(property?.features || []);
 
@@ -823,9 +822,7 @@ const PropertyDetail = () => {
                     <p className="text-gray-700 whitespace-pre-line">{
                       hasStoredEnglish
                         ? descriptionEn
-                        : (shouldTranslateDescription && translatedTexts.description)
-                          ? translatedTexts.description
-                          : getLocalizedText(rawDescription, descriptionEn)
+                        : translatedTexts.description || getLocalizedText(rawDescription, descriptionEn)
                     }</p>
                   </div>
                   

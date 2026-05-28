@@ -8,11 +8,9 @@ import { ArrowRight, MapPin, User } from "lucide-react";
 import { slugifyProperty } from "@/lib/slugify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Project, Property } from "@shared/schema";
-import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+import { useAutoTranslate, needsTranslation } from "@/hooks/useAutoTranslate";
 
 type ProjectWithProperty = Project & { property: Property };
-
-const ARABIC_RE = /[\u0600-\u06FF]/;
 
 const getTranslatedStatus = (status: string, t: (key: string, fallback: string) => string): string => {
   const statusMap: Record<string, string> = {
@@ -38,28 +36,18 @@ function LatestProjectCard({ project }: { project: ProjectWithProperty }) {
   const hasStoredEnglishDesc = currentLang === 'en' && !!descriptionEn;
   const hasStoredEnglishTitle = currentLang === 'en' && !!titleEn;
 
-  const descriptionIsArabic = ARABIC_RE.test(rawDescription);
-  const titleIsArabic = ARABIC_RE.test(rawTitle);
-
-  const shouldAutoTranslateDesc = !hasStoredEnglishDesc && currentLang !== 'ar' && descriptionIsArabic;
-  const shouldAutoTranslateTitle = !hasStoredEnglishTitle && currentLang !== 'ar' && titleIsArabic;
-
   const translated = useAutoTranslate({
-    description: shouldAutoTranslateDesc ? rawDescription : '',
-    title: shouldAutoTranslateTitle ? rawTitle : '',
+    description: !hasStoredEnglishDesc && needsTranslation(rawDescription, currentLang) ? rawDescription : '',
+    title: !hasStoredEnglishTitle && needsTranslation(rawTitle, currentLang) ? rawTitle : '',
   });
 
   const displayDescription = hasStoredEnglishDesc
     ? descriptionEn!
-    : shouldAutoTranslateDesc && translated.description
-      ? translated.description
-      : rawDescription;
+    : translated.description || rawDescription;
 
   const displayTitle = hasStoredEnglishTitle
     ? titleEn!
-    : shouldAutoTranslateTitle && translated.title
-      ? translated.title
-      : rawTitle;
+    : translated.title || rawTitle;
 
   return (
     <Card className="overflow-hidden flex flex-col">

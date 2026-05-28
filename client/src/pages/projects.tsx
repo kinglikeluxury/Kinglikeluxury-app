@@ -34,7 +34,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
-import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+import { useAutoTranslate, needsTranslation } from "@/hooks/useAutoTranslate";
 import { slugifyProperty } from "@/lib/slugify";
 
 interface Project {
@@ -71,8 +71,6 @@ interface Project {
   };
 }
 
-const ARABIC_RE = /[\u0600-\u06FF]/;
-
 // Sub-component so hooks can be used per card
 const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRange: (p: number) => string }) => {
   const { t, i18n } = useTranslation();
@@ -81,24 +79,21 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
   const propertyData = project.property || project;
 
   const rawDescription = propertyData.description || '';
+  const rawTitle = propertyData.title || '';
   const descriptionEn = (propertyData as any).descriptionEn as string | undefined;
 
-  // Prefer stored English description if available and user is in English
   const hasStoredEnglish = currentLang === 'en' && !!descriptionEn;
 
-  // Only auto-translate when content is Arabic and target language is not Arabic
-  const descriptionIsArabic = ARABIC_RE.test(rawDescription);
-  const shouldAutoTranslate = !hasStoredEnglish && currentLang !== 'ar' && descriptionIsArabic;
-
   const translated = useAutoTranslate({
-    description: shouldAutoTranslate ? rawDescription : '',
+    description: !hasStoredEnglish && needsTranslation(rawDescription, currentLang) ? rawDescription : '',
+    title: needsTranslation(rawTitle, currentLang) ? rawTitle : '',
   });
 
   const displayDescription = hasStoredEnglish
     ? descriptionEn!
-    : shouldAutoTranslate && translated.description
-      ? translated.description
-      : rawDescription;
+    : translated.description || rawDescription;
+
+  const displayTitle = translated.title || rawTitle;
 
   const projectImage = propertyData.images?.[0] || "https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
 
@@ -159,7 +154,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
           </div>
           <Link href={`/property/${slugifyProperty(propertyData.title || '', propertyData.location || '', project.propertyId as number)}`} className="block">
             <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
-              {propertyData.title}
+              {displayTitle}
             </h3>
             <p className="text-base text-gray-600 mb-4 line-clamp-2">
               {displayDescription?.slice(0, 120)}{displayDescription?.length > 120 ? '...' : ''}
