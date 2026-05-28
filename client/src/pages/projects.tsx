@@ -71,15 +71,34 @@ interface Project {
   };
 }
 
+const ARABIC_RE = /[\u0600-\u06FF]/;
+
 // Sub-component so hooks can be used per card
 const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRange: (p: number) => string }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language?.split('-')[0] || 'en';
   const { toggleFavorite, isFavorite } = useFavorites();
   const propertyData = project.property || project;
 
+  const rawDescription = propertyData.description || '';
+  const descriptionEn = (propertyData as any).descriptionEn as string | undefined;
+
+  // Prefer stored English description if available and user is in English
+  const hasStoredEnglish = currentLang === 'en' && !!descriptionEn;
+
+  // Only auto-translate when content is Arabic and target language is not Arabic
+  const descriptionIsArabic = ARABIC_RE.test(rawDescription);
+  const shouldAutoTranslate = !hasStoredEnglish && currentLang !== 'ar' && descriptionIsArabic;
+
   const translated = useAutoTranslate({
-    description: propertyData.description || '',
+    description: shouldAutoTranslate ? rawDescription : '',
   });
+
+  const displayDescription = hasStoredEnglish
+    ? descriptionEn!
+    : shouldAutoTranslate && translated.description
+      ? translated.description
+      : rawDescription;
 
   const projectImage = propertyData.images?.[0] || "https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
 
@@ -143,7 +162,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
               {propertyData.title}
             </h3>
             <p className="text-base text-gray-600 mb-4 line-clamp-2">
-              {translated.description?.slice(0, 120)}{translated.description?.length > 120 ? '...' : ''}
+              {displayDescription?.slice(0, 120)}{displayDescription?.length > 120 ? '...' : ''}
             </p>
           </Link>
           <div className="space-y-2">

@@ -277,8 +277,14 @@ const PropertyDetail = () => {
 
   const isLoading = isLoadingProperty || (property?.propertyType === 'project' && isLoadingProject);
 
+  const rawDescription = property?.description || '';
+  const descriptionEn = (property as any)?.descriptionEn as string | undefined;
+  const descriptionIsArabic = /[\u0600-\u06FF]/.test(rawDescription);
+  const hasStoredEnglish = lang === 'en' && !!descriptionEn;
+  const shouldTranslateDescription = !hasStoredEnglish && lang !== 'ar' && descriptionIsArabic;
+
   const translatedTexts = useAutoTranslate({
-    description: property?.description,
+    description: shouldTranslateDescription ? rawDescription : '',
   });
   const translatedFeatures = useAutoTranslateArray(property?.features || []);
 
@@ -800,7 +806,13 @@ const PropertyDetail = () => {
                 <div className="space-y-6 protected-content">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Description</h3>
-                    <p className="text-gray-700 whitespace-pre-line">{getLocalizedText(translatedTexts.description || property.description, (property as any).descriptionEn)}</p>
+                    <p className="text-gray-700 whitespace-pre-line">{
+                      hasStoredEnglish
+                        ? descriptionEn
+                        : (shouldTranslateDescription && translatedTexts.description)
+                          ? translatedTexts.description
+                          : getLocalizedText(rawDescription, descriptionEn)
+                    }</p>
                   </div>
                   
                   <Separator />
