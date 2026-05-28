@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect } from "react";
 import { useContentProtection } from "@/hooks/use-content-protection";
+import { useAutoTranslate, useAutoTranslateText } from "@/hooks/useAutoTranslate";
 
 const SUPPORTED_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];
 const BASE_URL = "https://www.kinglikeluxury.app";
+const ARABIC_RE = /[\u0600-\u06FF]/;
 
 export default function BlogPostLang() {
   const { i18n, t } = useTranslation();
@@ -18,10 +20,8 @@ export default function BlogPostLang() {
   const urlLang = params?.lang ?? "en";
   const slug = params?.slug;
 
-  // Protect content from copying
   useContentProtection();
 
-  // Switch app language to match URL language
   useEffect(() => {
     if (urlLang && SUPPORTED_LANGS.includes(urlLang) && i18n.language !== urlLang) {
       i18n.changeLanguage(urlLang);
@@ -44,6 +44,28 @@ export default function BlogPostLang() {
     },
     enabled: !!slug,
   });
+
+  // Determine if the content returned by the backend is still in Arabic
+  // (meaning no pre-stored translation exists for this language)
+  const rawTitle = post?.title || "";
+  const rawExcerpt = post?.excerpt || "";
+  const rawContent = post?.content || "";
+
+  const contentIsArabic = ARABIC_RE.test(rawTitle) || ARABIC_RE.test(rawContent.substring(0, 200));
+  const shouldAutoTranslate = !!post && urlLang !== "ar" && contentIsArabic;
+
+  // Translate title + excerpt together (batched into one API call)
+  const translatedMeta = useAutoTranslate({
+    title: shouldAutoTranslate ? rawTitle : "",
+    excerpt: shouldAutoTranslate ? rawExcerpt : "",
+  });
+
+  // Translate full content (HTML body) — only when needed
+  const translatedContent = useAutoTranslateText(shouldAutoTranslate ? rawContent : "");
+
+  const displayTitle = shouldAutoTranslate && translatedMeta.title ? translatedMeta.title : rawTitle;
+  const displayExcerpt = shouldAutoTranslate && translatedMeta.excerpt ? translatedMeta.excerpt : rawExcerpt;
+  const displayContent = shouldAutoTranslate && translatedContent ? translatedContent : rawContent;
 
   if (isLoading) {
     return (
@@ -81,8 +103,7 @@ export default function BlogPostLang() {
   }
 
   const canonicalUrl = `${BASE_URL}/${urlLang}/blog/${slug}`;
-  const title = post.title || "";
-  const description = post.excerpt || title;
+  const seoDescription = displayExcerpt || displayTitle;
   const image = post.coverImage || `${BASE_URL}/icons/icon-512.png`;
   const formattedDate = post.createdAt
     ? new Intl.DateTimeFormat(urlLang, { year: "numeric", month: "long", day: "numeric" }).format(new Date(post.createdAt))
@@ -91,8 +112,8 @@ export default function BlogPostLang() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
-    headline: title,
-    description: description,
+    headline: displayTitle,
+    description: seoDescription,
     image: image,
     url: canonicalUrl,
     datePublished: post.createdAt,
@@ -114,32 +135,28 @@ export default function BlogPostLang() {
     <>
       <Helmet>
         <html lang={urlLang} />
-        <title>{title} | Kinglike Luxury</title>
-        <meta name="description" content={description} />
+        <title>{displayTitle} | Kinglike Luxury</title>
+        <meta name="description" content={seoDescription} />
         <link rel="canonical" href={canonicalUrl} />
 
-        {/* hreflang for all languages */}
         {SUPPORTED_LANGS.map((l) => (
           <link key={l} rel="alternate" hrefLang={l} href={`${BASE_URL}/${l}/blog/${slug}`} />
         ))}
         <link rel="alternate" hrefLang="x-default" href={`${BASE_URL}/en/blog/${slug}`} />
 
-        {/* Open Graph */}
         <meta property="og:type" content="article" />
-        <meta property="og:title" content={`${title} | Kinglike Luxury`} />
-        <meta property="og:description" content={description} />
+        <meta property="og:title" content={`${displayTitle} | Kinglike Luxury`} />
+        <meta property="og:description" content={seoDescription} />
         <meta property="og:image" content={image} />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:site_name" content="Kinglike Luxury" />
         <meta property="og:locale" content={urlLang} />
 
-        {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${title} | Kinglike Luxury`} />
-        <meta name="twitter:description" content={description} />
+        <meta name="twitter:title" content={`${displayTitle} | Kinglike Luxury`} />
+        <meta name="twitter:description" content={seoDescription} />
         <meta name="twitter:image" content={image} />
 
-        {/* JSON-LD */}
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
 
@@ -159,7 +176,7 @@ export default function BlogPostLang() {
             </div>
           ) : post.coverImage ? (
             <div className="relative rounded-xl overflow-hidden mb-8 shadow-lg">
-              <img src={post.coverImage} alt={title} className="w-full max-h-[500px] object-cover" />
+              <img src={post.coverImage} alt={displayTitle} className="w-full max-h-[500px] object-cover" />
             </div>
           ) : null}
 
@@ -181,17 +198,16 @@ export default function BlogPostLang() {
               </div>
             </div>
 
-            <h1 className="text-3xl md:text-4xl font-bold text-[#005476] mb-8 leading-tight">{title}</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-[#005476] mb-8 leading-tight">{displayTitle}</h1>
 
             <div
               className="prose prose-lg max-w-none text-gray-700 leading-relaxed
                 prose-headings:text-[#005476] prose-headings:font-bold
                 prose-a:text-[#3bcac4] prose-a:no-underline hover:prose-a:underline
                 prose-img:rounded-lg prose-img:shadow-md"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: displayContent }}
             />
 
-            {/* Language switcher */}
             <div className="mt-8 pt-6 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-3 text-center">Available in other languages:</p>
               <div className="flex flex-wrap justify-center gap-2">
@@ -232,7 +248,7 @@ export default function BlogPostLang() {
                 {t("blog.interestedQuestion", "Interested? Contact us on WhatsApp")}
               </p>
               <a
-                href={`https://wa.me/995591000058?text=${encodeURIComponent(t("blog.whatsappMessage", 'Hello, I read "') + title + '"')}`}
+                href={`https://wa.me/995591000058?text=${encodeURIComponent(t("blog.whatsappMessage", 'Hello, I read "') + displayTitle + '"')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-3 w-full py-4 px-6 rounded-xl font-semibold text-white text-lg transition-all hover:opacity-90 hover:shadow-lg"

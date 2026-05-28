@@ -4,6 +4,82 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, User, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+
+const ARABIC_RE = /[\u0600-\u06FF]/;
+
+function BlogPostCard({ post, lang }: { post: any; lang: string }) {
+  const { i18n } = useTranslation();
+  const currentLang = i18n.language?.split("-")[0] || "en";
+
+  const contentIsArabic = ARABIC_RE.test(post.title || "");
+  const shouldTranslate = currentLang !== "ar" && contentIsArabic;
+
+  const rawExcerpt = post.excerpt || (post.content ? post.content.replace(/<[^>]*>/g, "").substring(0, 150) + "..." : "");
+
+  const translated = useAutoTranslate({
+    title: shouldTranslate ? post.title || "" : "",
+    excerpt: shouldTranslate ? rawExcerpt : "",
+  });
+
+  const displayTitle = shouldTranslate && translated.title ? translated.title : post.title;
+  const displayExcerpt = shouldTranslate && translated.excerpt ? translated.excerpt : rawExcerpt;
+
+  return (
+    <a href={`/${currentLang}/blog/${post.slug}`} className="block h-full">
+      <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden cursor-pointer group">
+        {post.coverImage && (
+          <div className="relative h-48 overflow-hidden">
+            <img
+              src={post.coverImage}
+              alt={displayTitle}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute top-3 left-3">
+              <span className="text-xs bg-white/90 backdrop-blur-sm text-[#005476] px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {post.country === "uae" ? "🇦🇪 UAE" : post.country === "turkey" ? "🇹🇷 Turkey" : post.country === "northern-cyprus" ? "🇨🇾 N. Cyprus" : "🇬🇪 Georgia"}
+              </span>
+            </div>
+          </div>
+        )}
+        <CardHeader>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {Array.isArray(post.categories) && post.categories.map((cat: string, i: number) => (
+              <Badge key={i} variant="secondary" className="text-xs bg-[#3bcac4]/10 text-[#005476]">
+                {cat}
+              </Badge>
+            ))}
+          </div>
+          <CardTitle className="text-xl font-bold leading-relaxed text-[#005476] group-hover:text-[#3bcac4] transition-colors">
+            {displayTitle}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {displayExcerpt}
+            </p>
+            <div className="flex items-center justify-between text-sm text-gray-500">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                <span>{post.author?.username || post.author?.email || "Admin"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                <span>
+                  {post.createdAt
+                    ? new Intl.DateTimeFormat(currentLang || "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(post.createdAt))
+                    : "Recently"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </a>
+  );
+}
 
 export default function Blog() {
   const { i18n, t } = useTranslation();
@@ -27,8 +103,8 @@ export default function Blog() {
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-[#005476] mb-4">{t('blog.title', 'Blog')}</h1>
-            <p className="text-xl text-gray-600 mb-12">{t('blog.loading', 'Loading blog posts...')}</p>
+            <h1 className="text-4xl font-bold text-[#005476] mb-4">{t("blog.title", "Blog")}</h1>
+            <p className="text-xl text-gray-600 mb-12">{t("blog.loading", "Loading blog posts...")}</p>
           </div>
         </div>
       </div>
@@ -39,9 +115,9 @@ export default function Blog() {
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-[#005476] mb-4">{t('blog.title', 'Blog')}</h1>
+          <h1 className="text-4xl font-bold text-[#005476] mb-4">{t("blog.title", "Blog")}</h1>
           <p className="text-xl text-gray-600">
-            {t('blog.subtitle', 'Latest insights and updates from our real estate experts')}
+            {t("blog.subtitle", "Latest insights and updates from our real estate experts")}
           </p>
         </div>
 
@@ -54,7 +130,7 @@ export default function Blog() {
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
             }`}
           >
-            {t('blog.allCountries', 'All')}
+            {t("blog.allCountries", "All")}
           </button>
           <button
             onClick={() => setCountryFilter("georgia")}
@@ -64,7 +140,7 @@ export default function Blog() {
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
             }`}
           >
-            <span>🇬🇪</span> {t('countries.georgia', 'Georgia')}
+            <span>🇬🇪</span> {t("countries.georgia", "Georgia")}
           </button>
           <button
             onClick={() => setCountryFilter("uae")}
@@ -74,7 +150,7 @@ export default function Blog() {
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
             }`}
           >
-            <span>🇦🇪</span> {t('countries.uae', 'UAE')}
+            <span>🇦🇪</span> {t("countries.uae", "UAE")}
           </button>
           <button
             onClick={() => setCountryFilter("turkey")}
@@ -84,7 +160,7 @@ export default function Blog() {
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
             }`}
           >
-            <span>🇹🇷</span> {t('countries.turkey', 'Turkey')}
+            <span>🇹🇷</span> {t("countries.turkey", "Turkey")}
           </button>
           <button
             onClick={() => setCountryFilter("northern-cyprus")}
@@ -94,7 +170,7 @@ export default function Blog() {
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
             }`}
           >
-            <span>🇨🇾</span> {t('countries.northernCyprus', 'N. Cyprus')}
+            <span>🇨🇾</span> {t("countries.northernCyprus", "N. Cyprus")}
           </button>
         </div>
 
@@ -102,67 +178,17 @@ export default function Blog() {
           <div className="text-center py-12">
             <div className="max-w-md mx-auto">
               <h3 className="text-2xl font-semibold text-gray-900 mb-4">
-                {t('blog.noPosts', 'No blog posts yet')}
+                {t("blog.noPosts", "No blog posts yet")}
               </h3>
               <p className="text-gray-600">
-                {t('blog.noPostsDescription', "We're working on some great content. Check back soon for the latest insights about real estate and market trends.")}
+                {t("blog.noPostsDescription", "We're working on some great content. Check back soon for the latest insights about real estate and market trends.")}
               </p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {blogPosts.map((post: any) => (
-              <a key={post.id} href={`/${lang}/blog/${post.slug}`} className="block h-full">
-                <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden cursor-pointer group">
-                  {post.coverImage && (
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={post.coverImage}
-                        alt={post.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute top-3 left-3">
-                        <span className="text-xs bg-white/90 backdrop-blur-sm text-[#005476] px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {post.country === 'uae' ? '🇦🇪 UAE' : post.country === 'turkey' ? '🇹🇷 Turkey' : post.country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  <CardHeader>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {Array.isArray(post.categories) && post.categories.map((cat: string, i: number) => (
-                        <Badge key={i} variant="secondary" className="text-xs bg-[#3bcac4]/10 text-[#005476]">
-                          {cat}
-                        </Badge>
-                      ))}
-                    </div>
-                    <CardTitle className="text-xl font-bold leading-relaxed text-[#005476] group-hover:text-[#3bcac4] transition-colors">
-                      {post.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <p className="text-gray-600 text-sm leading-relaxed">
-                        {post.excerpt || post.content?.substring(0, 150) + "..."}
-                      </p>
-                      
-                      <div className="flex items-center justify-between text-sm text-gray-500">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          <span>{post.author?.username || post.author?.email || "Admin"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CalendarDays className="h-4 w-4" />
-                          <span>
-                            {post.createdAt ? new Intl.DateTimeFormat(lang || 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(post.createdAt)) : "Recently"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </a>
+              <BlogPostCard key={post.id} post={post} lang={lang} />
             ))}
           </div>
         )}
