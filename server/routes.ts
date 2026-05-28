@@ -451,6 +451,10 @@ ${metaTags}
     return true;
   }
 
+  // ── Password-reset OTP store (server-side only, expires 10 min) ───────────
+  const passwordResetStore = new Map<string, { code: string; expiresAt: Date }>();
+  const passwordResetRateLimit = new Map<string, number[]>();
+
   // Send verification code — WhatsApp first, SMS fallback via Messaging Service
   app.post("/api/auth/send-verification", async (req, res) => {
     try {
@@ -575,31 +579,163 @@ ${metaTags}
     }
   });
 
-  // Reset password via SMS OTP
-  app.post("/api/auth/reset-password", async (req, res) => {
+  // Send password-reset OTP — supports phone (WhatsApp/SMS + email fallback) and email
+  app.post("/api/auth/send-reset-otp", async (req, res) => {
+    const GENERIC_OK = { message: "If an account exists, a verification code will be sent." };
     try {
-      const { phoneNumber, code, newPassword } = req.body;
-      if (!phoneNumber || !code || !newPassword) {
-        return res.status(400).json({ message: "Phone number, code and new password are required" });
+      const { method, phoneNumber, email } = req.body;
+
+      if (method === 'phone') {
+        if (!phoneNumber || typeof phoneNumber !== 'string') {
+          return res.status(400).json({ message: "Phone number required" });
+        }
+        if (!checkOtpRateLimit(passwordResetRateLimit, phoneNumber)) {
+          return res.status(429).json({ message: "Too many reset attempts. Please wait 10 minutes." });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        const msgBody = `🔐 Kinglike Luxury\nPassword reset code: ${code}\nValid for 10 minutes.`;
+        let codeSent = false;
+
+        if (twilioClient) {
+          const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+          const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+          try {
+            // Try WhatsApp first
+            await twilioClient.messages.create({ body: msgBody, from: `whatsapp:${fromNumber}`, to: `whatsapp:${phoneNumber}` });
+            codeSent = true;
+          } catch {
+            // WhatsApp failed — try SMS
+            try {
+              if (msgSid) {
+                await twilioClient.messages.create({ body: msgBody, to: phoneNumber, messagingServiceSid: msgSid });
+              } else {
+                await twilioClient.messages.create({ body: msgBody, to: phoneNumber, from: fromNumber });
+              }
+              codeSent = true;
+            } catch (smsErr: any) {
+              console.warn('[Reset OTP] SMS failed:', smsErr.message);
+            }
+          }
+        }
+
+        if (!codeSent) {
+          // SMS/WhatsApp unavailable — email fallback using account email
+          try {
+            const user = await storage.getUserByPhone(phoneNumber);
+            if (user?.email) {
+              await sendEmailOtp(user.email, code);
+              codeSent = true;
+            }
+          } catch (emailErr: any) {
+            console.warn('[Reset OTP] Email fallback failed:', emailErr.message);
+          }
+        }
+
+        if (codeSent) {
+          passwordResetStore.set(`phone:${phoneNumber}`, { code, expiresAt });
+        }
+        return res.json(GENERIC_OK);
       }
-      if (newPassword.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
+
+      if (method === 'email') {
+        if (!email || typeof email !== 'string') {
+          return res.status(400).json({ message: "Email required" });
+        }
+        const emailKey = email.toLowerCase().trim();
+        if (!checkOtpRateLimit(passwordResetRateLimit, emailKey)) {
+          return res.status(429).json({ message: "Too many reset attempts. Please wait 10 minutes." });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        try {
+          const user = await storage.getUserByEmail(emailKey);
+          if (user) {
+            await sendEmailOtp(emailKey, code);
+            passwordResetStore.set(`email:${emailKey}`, { code, expiresAt });
+          }
+        } catch (err: any) {
+          console.warn('[Reset OTP] Email send failed:', err.message);
+        }
+        return res.json(GENERIC_OK);
       }
-      // Verify code first
-      const isValid = await storage.verifyCode(phoneNumber, code);
-      if (!isValid) {
+
+      return res.status(400).json({ message: "Method must be 'phone' or 'email'" });
+    } catch (err: any) {
+      console.error("Send reset OTP error:", err);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
+  });
+
+  // Verify password-reset OTP (non-destructive — code remains valid for the reset step)
+  app.post("/api/auth/verify-reset-otp", async (req, res) => {
+    try {
+      const { method, phoneNumber, email, code } = req.body;
+      if (!code) return res.status(400).json({ message: "Code required" });
+
+      let record: { code: string; expiresAt: Date } | undefined;
+      if (method === 'phone' && phoneNumber) {
+        record = passwordResetStore.get(`phone:${phoneNumber}`);
+      } else if (method === 'email' && email) {
+        record = passwordResetStore.get(`email:${(email as string).toLowerCase().trim()}`);
+      }
+
+      if (!record || new Date() > record.expiresAt || record.code !== code) {
         return res.status(400).json({ message: "Invalid or expired verification code" });
       }
-      // Find user by phone
-      const user = await storage.getUserByPhone(phoneNumber);
-      if (!user) {
-        return res.status(404).json({ message: "No account found with this phone number" });
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Verify reset OTP error:", err);
+      res.status(500).json({ message: "Verification failed" });
+    }
+  });
+
+  // Reset password using OTP from passwordResetStore (phone or email method)
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { method, phoneNumber, email, code, newPassword } = req.body;
+
+      if (!code || !newPassword) {
+        return res.status(400).json({ message: "Code and new password are required" });
       }
+      if (typeof newPassword !== 'string' || newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const INVALID = { message: "Invalid or expired verification code" };
+      let user: any = null;
+
+      if (method === 'phone' && phoneNumber) {
+        const record = passwordResetStore.get(`phone:${phoneNumber}`);
+        if (!record || new Date() > record.expiresAt || record.code !== code) {
+          return res.status(400).json(INVALID);
+        }
+        user = await storage.getUserByPhone(phoneNumber);
+        passwordResetStore.delete(`phone:${phoneNumber}`);
+      } else if (method === 'email' && email) {
+        const emailKey = (email as string).toLowerCase().trim();
+        const record = passwordResetStore.get(`email:${emailKey}`);
+        if (!record || new Date() > record.expiresAt || record.code !== code) {
+          return res.status(400).json(INVALID);
+        }
+        user = await storage.getUserByEmail(emailKey);
+        passwordResetStore.delete(`email:${emailKey}`);
+      } else {
+        return res.status(400).json({ message: "Phone number or email required" });
+      }
+
+      if (!user) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+
       await storage.updateUserPassword(user.id, newPassword);
       res.json({ success: true });
     } catch (error: any) {
       console.error("Reset password error:", error);
-      res.status(500).json({ message: error.message || "Failed to reset password" });
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 

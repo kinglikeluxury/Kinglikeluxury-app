@@ -194,7 +194,20 @@
     "rateLimitSms": "יותר מדי ניסיונות SMS. אנא המתן 10 דקות.",
     "rateLimitEmail": "יותר מדי ניסיונות. אנא המתן 10 דקות.",
     "smsFailedTitle": "שליחת SMS נכשלה",
-    "smsFailedEmailSent": "SMS אינו זמין — הקוד נשלח לאימייל שלך"
+    "smsFailedEmailSent": "SMS אינו זמין — הקוד נשלח לאימייל שלך",
+    "forgotSubtitle": "הזן את מספר הטלפון או האימייל שלך כדי לקבל קוד אימות.",
+    "resetByPhone": "איפוס באמצעות טלפון",
+    "resetByEmail": "איפוס באמצעות אימייל",
+    "ifAccountExists": "אם קיים חשבון, יישלח קוד אימות.",
+    "savePassword": "שמור סיסמה חדשה",
+    "saving": "שומר...",
+    "passwordTooShort": "הסיסמה חייבת להכיל לפחות 6 תווים",
+    "passwordsNoMatch": "הסיסמאות אינן תואמות",
+    "resetDone": "הסיסמה אופסה בהצלחה!",
+    "resetDoneDesc": "הסיסמה שלך עודכנה. כעת תוכל להתחבר.",
+    "backToLogin": "חזרה להתחברות",
+    "changeMethod": "שנה שיטה",
+    "verifyCode": "אמת קוד"
   },
   "favorites": {
     "title": "מועדפים",

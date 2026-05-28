@@ -194,7 +194,20 @@
     "rateLimitSms": "Zbyt wiele prób SMS. Poczekaj 10 minut.",
     "rateLimitEmail": "Zbyt wiele prób. Poczekaj 10 minut.",
     "smsFailedTitle": "Dostarczenie SMS nie powiodło się",
-    "smsFailedEmailSent": "SMS niedostępny — kod wysłany na Twój e-mail"
+    "smsFailedEmailSent": "SMS niedostępny — kod wysłany na Twój e-mail",
+    "forgotSubtitle": "Podaj numer telefonu lub adres e-mail, aby otrzymać kod weryfikacyjny.",
+    "resetByPhone": "Resetuj przez telefon",
+    "resetByEmail": "Resetuj przez e-mail",
+    "ifAccountExists": "Jeśli konto istnieje, zostanie wysłany kod weryfikacyjny.",
+    "savePassword": "Zapisz nowe hasło",
+    "saving": "Zapisywanie...",
+    "passwordTooShort": "Hasło musi mieć co najmniej 6 znaków",
+    "passwordsNoMatch": "Hasła nie są zgodne",
+    "resetDone": "Hasło zostało zresetowane!",
+    "resetDoneDesc": "Twoje hasło zostało zaktualizowane. Możesz się teraz zalogować.",
+    "backToLogin": "Powrót do logowania",
+    "changeMethod": "Zmień metodę",
+    "verifyCode": "Zweryfikuj kod"
   },
   "favorites": {
     "title": "Ulubione",

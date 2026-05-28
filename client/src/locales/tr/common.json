@@ -195,7 +195,20 @@
     "rateLimitSms": "Çok fazla SMS denemesi. Lütfen 10 dakika bekleyin.",
     "rateLimitEmail": "Çok fazla deneme. Lütfen 10 dakika bekleyin.",
     "smsFailedTitle": "SMS gönderimi başarısız",
-    "smsFailedEmailSent": "SMS kullanılamıyor — kod e-postanıza gönderildi"
+    "smsFailedEmailSent": "SMS kullanılamıyor — kod e-postanıza gönderildi",
+    "forgotSubtitle": "Doğrulama kodu almak için telefon numaranızı veya e-postanızı girin.",
+    "resetByPhone": "Telefonla sıfırla",
+    "resetByEmail": "E-postayla sıfırla",
+    "ifAccountExists": "Bir hesap varsa, doğrulama kodu gönderilecektir.",
+    "savePassword": "Yeni Şifreyi Kaydet",
+    "saving": "Kaydediliyor...",
+    "passwordTooShort": "Şifre en az 6 karakter olmalıdır",
+    "passwordsNoMatch": "Şifreler eşleşmiyor",
+    "resetDone": "Şifre sıfırlama başarılı!",
+    "resetDoneDesc": "Şifreniz güncellendi. Şimdi giriş yapabilirsiniz.",
+    "backToLogin": "Girişe geri dön",
+    "changeMethod": "Yöntemi değiştir",
+    "verifyCode": "Kodu doğrula"
   },
   "favorites": {
     "title": "Favoriler",

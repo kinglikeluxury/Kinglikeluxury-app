@@ -194,7 +194,20 @@
     "rateLimitSms": "短信尝试次数过多，请等待10分钟。",
     "rateLimitEmail": "尝试次数过多，请等待10分钟。",
     "smsFailedTitle": "短信发送失败",
-    "smsFailedEmailSent": "短信不可用 — 验证码已发送至您的邮箱"
+    "smsFailedEmailSent": "短信不可用 — 验证码已发送至您的邮箱",
+    "forgotSubtitle": "输入您的手机号或电子邮件以接收验证码。",
+    "resetByPhone": "通过手机重置",
+    "resetByEmail": "通过邮箱重置",
+    "ifAccountExists": "如果账户存在，将发送验证码。",
+    "savePassword": "保存新密码",
+    "saving": "保存中...",
+    "passwordTooShort": "密码至少需要6个字符",
+    "passwordsNoMatch": "两次密码不一致",
+    "resetDone": "密码重置成功！",
+    "resetDoneDesc": "您的密码已更新，现在可以登录了。",
+    "backToLogin": "返回登录",
+    "changeMethod": "更改方式",
+    "verifyCode": "验证代码"
   },
   "favorites": {
     "title": "收藏",

@@ -197,7 +197,20 @@
     "rateLimitSms": "För många SMS-försök. Vänta 10 minuter.",
     "rateLimitEmail": "För många försök. Vänta 10 minuter.",
     "smsFailedTitle": "SMS-leverans misslyckades",
-    "smsFailedEmailSent": "SMS ej tillgängligt — kod skickad till din e-post"
+    "smsFailedEmailSent": "SMS ej tillgängligt — kod skickad till din e-post",
+    "forgotSubtitle": "Ange ditt telefonnummer eller e-post för att få en verifieringskod.",
+    "resetByPhone": "Återställ via telefon",
+    "resetByEmail": "Återställ via e-post",
+    "ifAccountExists": "Om ett konto finns skickas en verifieringskod.",
+    "savePassword": "Spara nytt lösenord",
+    "saving": "Sparar...",
+    "passwordTooShort": "Lösenordet måste innehålla minst 6 tecken",
+    "passwordsNoMatch": "Lösenorden matchar inte",
+    "resetDone": "Lösenordet har återställts!",
+    "resetDoneDesc": "Ditt lösenord har uppdaterats. Du kan nu logga in.",
+    "backToLogin": "Tillbaka till inloggning",
+    "changeMethod": "Byt metod",
+    "verifyCode": "Verifiera kod"
   },
   "favorites": {
     "title": "Favoriter",

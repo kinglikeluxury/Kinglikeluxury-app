@@ -197,7 +197,20 @@
     "rateLimitSms": "Zu viele SMS-Versuche. Bitte 10 Minuten warten.",
     "rateLimitEmail": "Zu viele Versuche. Bitte 10 Minuten warten.",
     "smsFailedTitle": "SMS-Zustellung fehlgeschlagen",
-    "smsFailedEmailSent": "SMS nicht verfügbar — Code an Ihre E-Mail gesendet"
+    "smsFailedEmailSent": "SMS nicht verfügbar — Code an Ihre E-Mail gesendet",
+    "forgotSubtitle": "Geben Sie Ihre Telefonnummer oder E-Mail ein, um einen Bestätigungscode zu erhalten.",
+    "resetByPhone": "Per Telefon zurücksetzen",
+    "resetByEmail": "Per E-Mail zurücksetzen",
+    "ifAccountExists": "Wenn ein Konto existiert, wird ein Bestätigungscode gesendet.",
+    "savePassword": "Neues Passwort speichern",
+    "saving": "Speichern...",
+    "passwordTooShort": "Das Passwort muss mindestens 6 Zeichen lang sein",
+    "passwordsNoMatch": "Passwörter stimmen nicht überein",
+    "resetDone": "Passwort erfolgreich zurückgesetzt!",
+    "resetDoneDesc": "Ihr Passwort wurde aktualisiert. Sie können sich jetzt anmelden.",
+    "backToLogin": "Zurück zur Anmeldung",
+    "changeMethod": "Methode ändern",
+    "verifyCode": "Code bestätigen"
   },
   "favorites": {
     "title": "Favoriten",

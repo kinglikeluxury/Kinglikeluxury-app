@@ -195,7 +195,20 @@
     "rateLimitSms": "Too many SMS attempts. Please wait 10 minutes.",
     "rateLimitEmail": "Too many email OTP attempts. Please wait 10 minutes.",
     "smsFailedTitle": "SMS delivery failed",
-    "smsFailedEmailSent": "SMS unavailable — code sent to your email"
+    "smsFailedEmailSent": "SMS unavailable — code sent to your email",
+    "forgotSubtitle": "Enter your phone number or email to receive a verification code.",
+    "resetByPhone": "Reset by phone",
+    "resetByEmail": "Reset by email",
+    "ifAccountExists": "If an account exists, a verification code will be sent.",
+    "savePassword": "Save New Password",
+    "saving": "Saving...",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordsNoMatch": "Passwords do not match",
+    "resetDone": "Password reset successful!",
+    "resetDoneDesc": "Your password has been updated. You can now sign in.",
+    "backToLogin": "Back to Login",
+    "changeMethod": "Change method",
+    "verifyCode": "Verify Code"
   },
   "favorites": {
     "title": "Favorites",

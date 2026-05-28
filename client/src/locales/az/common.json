@@ -194,7 +194,20 @@
     "rateLimitSms": "Çox SMS cəhdi. Zəhmət olmasa 10 dəqiqə gözləyin.",
     "rateLimitEmail": "Çox cəhd. Zəhmət olmasa 10 dəqiqə gözləyin.",
     "smsFailedTitle": "SMS göndərimi uğursuz oldu",
-    "smsFailedEmailSent": "SMS mövcud deyil — kod e-poçtunuza göndərildi"
+    "smsFailedEmailSent": "SMS mövcud deyil — kod e-poçtunuza göndərildi",
+    "forgotSubtitle": "Doğrulama kodu almaq üçün telefon nömrənizi və ya e-poçtunuzu daxil edin.",
+    "resetByPhone": "Telefon vasitəsilə sıfırlama",
+    "resetByEmail": "E-poçt vasitəsilə sıfırlama",
+    "ifAccountExists": "Hesab mövcuddursa, doğrulama kodu göndəriləcək.",
+    "savePassword": "Yeni şifrəni saxla",
+    "saving": "Saxlanılır...",
+    "passwordTooShort": "Şifrə ən azı 6 simvoldan ibarət olmalıdır",
+    "passwordsNoMatch": "Şifrələr uyğun deyil",
+    "resetDone": "Şifrə uğurla sıfırlandı!",
+    "resetDoneDesc": "Şifrəniz yeniləndi. İndi daxil ola bilərsiniz.",
+    "backToLogin": "Girişə qayıt",
+    "changeMethod": "Üsulu dəyiş",
+    "verifyCode": "Kodu təsdiq et"
   },
   "favorites": {
     "title": "Sevimlilər",

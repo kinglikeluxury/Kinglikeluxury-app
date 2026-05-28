@@ -197,7 +197,20 @@
     "rateLimitSms": "Trop de tentatives SMS. Veuillez attendre 10 minutes.",
     "rateLimitEmail": "Trop de tentatives. Veuillez attendre 10 minutes.",
     "smsFailedTitle": "Échec de la livraison SMS",
-    "smsFailedEmailSent": "SMS indisponible — code envoyé à votre e-mail"
+    "smsFailedEmailSent": "SMS indisponible — code envoyé à votre e-mail",
+    "forgotSubtitle": "Entrez votre numéro de téléphone ou e-mail pour recevoir un code de vérification.",
+    "resetByPhone": "Réinitialiser par téléphone",
+    "resetByEmail": "Réinitialiser par e-mail",
+    "ifAccountExists": "Si un compte existe, un code de vérification sera envoyé.",
+    "savePassword": "Enregistrer le nouveau mot de passe",
+    "saving": "Enregistrement...",
+    "passwordTooShort": "Le mot de passe doit comporter au moins 6 caractères",
+    "passwordsNoMatch": "Les mots de passe ne correspondent pas",
+    "resetDone": "Mot de passe réinitialisé avec succès !",
+    "resetDoneDesc": "Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter.",
+    "backToLogin": "Retour à la connexion",
+    "changeMethod": "Changer de méthode",
+    "verifyCode": "Vérifier le code"
   },
   "favorites": {
     "title": "Favoris",

@@ -197,7 +197,20 @@
     "rateLimitSms": "Te veel SMS-pogingen. Wacht 10 minuten.",
     "rateLimitEmail": "Te veel pogingen. Wacht 10 minuten.",
     "smsFailedTitle": "SMS-bezorging mislukt",
-    "smsFailedEmailSent": "SMS niet beschikbaar — code verzonden naar je e-mail"
+    "smsFailedEmailSent": "SMS niet beschikbaar — code verzonden naar je e-mail",
+    "forgotSubtitle": "Voer je telefoonnummer of e-mail in om een verificatiecode te ontvangen.",
+    "resetByPhone": "Resetten via telefoon",
+    "resetByEmail": "Resetten via e-mail",
+    "ifAccountExists": "Als er een account bestaat, wordt er een verificatiecode verstuurd.",
+    "savePassword": "Nieuw wachtwoord opslaan",
+    "saving": "Opslaan...",
+    "passwordTooShort": "Het wachtwoord moet minimaal 6 tekens bevatten",
+    "passwordsNoMatch": "Wachtwoorden komen niet overeen",
+    "resetDone": "Wachtwoord succesvol gereset!",
+    "resetDoneDesc": "Je wachtwoord is bijgewerkt. Je kunt nu inloggen.",
+    "backToLogin": "Terug naar inloggen",
+    "changeMethod": "Methode wijzigen",
+    "verifyCode": "Code verifiëren"
   },
   "favorites": {
     "title": "Favorieten",
