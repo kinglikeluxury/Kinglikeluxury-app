@@ -85,7 +85,35 @@
     "availableConfirmDesc": "Detta tar bort SÅLD-bannern från den här fastigheten.",
     "contactWhatsApp": "Kontakt via WhatsApp",
     "markAsSoldSuccess": "Fastighet markerad som såld",
-    "markAsAvailableSuccess": "Fastighet markerad som tillgänglig"
+    "markAsAvailableSuccess": "Fastighet markerad som tillgänglig",
+    "overview": "Fastighetsöversikt",
+    "priceBetween": "Pris mellan:",
+    "propertyId": "Fastighets-ID",
+    "description": "Beskrivning",
+    "details": "Fastighetsdetaljer",
+    "pricePerMeterFrom": "Pris per m² från",
+    "studio": "Studio",
+    "featuresAmenities": "Egenskaper och bekvämligheter",
+    "noFeatures": "Inga egenskaper listade för denna fastighet.",
+    "readyStatus": "Leveransstatus",
+    "paymentMethod": "Betalningsmetod",
+    "paymentCash": "Kontant",
+    "paymentInstallments": "Avbetalning",
+    "downPayment": "Handpenning",
+    "projectInfo": "Projektinformation",
+    "projectName": "Projektnamn",
+    "completionDate": "Slutförandedatum",
+    "projectStatus": "Projektstatus",
+    "aboutDeveloper": "Om utvecklaren",
+    "projectInfoNotAvailable": "Projektinformation ej tillgänglig.",
+    "topRated": "Toppbetyg",
+    "liveCamera": "Byggkamera live",
+    "propertyVideos": "Fastighetsvideor",
+    "invalidId": "Ogiltigt fastighets-ID",
+    "notFound": "Fastighet hittades inte",
+    "notFoundDescription": "Fastigheten du söker finns inte eller har tagits bort.",
+    "browseAll": "Bläddra bland alla fastigheter",
+    "developerDefaultDescription": "{{name}} är en respekterad fastighetsutvecklare med en bevisad meritlista av högkvalitativa projekt. Denna utveckling visar deras engagemang för excellens och innovation inom fastigheter."
   },
   "share": {
     "price": "Pris",
@@ -514,6 +542,7 @@
     "cameraUnavailable": "Livekameran är tillfälligt otillgänglig.",
     "cameraUnavailableDesc": "Begär den senaste bygguppdateringen från vår rådgivare.",
     "tryAgain": "Försök igen",
+    "edit": "Redigera",
     "underMaintenance": "Kamera under underhåll",
     "statusLive": "LIVE",
     "statusUnavailable": "OTILLGÄNGLIG",
@@ -522,5 +551,13 @@
     "projectsAvailable_plural": "{{count}} live-projekt",
     "requestConsultation": "Boka konsultation",
     "contactAdvisor": "AI-rådgivare"
+  },
+  "video": {
+    "failedToPlay": "Videon kunde inte spelas upp",
+    "openDirectly": "Öppna video direkt",
+    "vertical": "Vertikal",
+    "horizontal": "Horisontell",
+    "mobileFormat": "Mobilformat",
+    "landscapeFormat": "Liggande format"
   }
 }

@@ -100,7 +100,7 @@ function LiveCameraSection({ cameras }: { cameras: any[] }) {
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#3bcac4] text-[#3bcac4] text-sm hover:bg-[#3bcac4] hover:text-white transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
-              Try again
+              {t('liveProjects.tryAgain', 'Try again')}
             </button>
           </div>
         )}
@@ -487,10 +487,10 @@ const PropertyDetail = () => {
   const getPropertyTypeName = (type?: string) => {
     if (!type) return "";
     switch (type) {
-      case "apartment": return "Apartment";
-      case "villa": return "Villa";
-      case "land": return "Land";
-      case "project": return "Construction Project";
+      case "apartment": return t('propertyTypes.apartment', 'Apartment');
+      case "villa": return t('propertyTypes.villa', 'Villa');
+      case "land": return t('propertyTypes.land', 'Land');
+      case "project": return t('propertyTypes.project', 'Off Plan Project');
       default: return type;
     }
   };
@@ -513,7 +513,7 @@ const PropertyDetail = () => {
   };
 
   if (!propertyId) {
-    return <div className="text-center py-10">Invalid property ID</div>;
+    return <div className="text-center py-10">{t('property.invalidId', 'Invalid property ID')}</div>;
   }
 
   return (
@@ -574,7 +574,7 @@ const PropertyDetail = () => {
                         <Button variant="outline" size="sm" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
                           <Link href={`/property/${property.id}/edit`} data-numeric-id={property.id}>
                             <Edit className="h-4 w-4 mr-1" />
-                            Edit
+                            {t('liveProjects.edit', 'Edit')}
                           </Link>
                         </Button>
                         <Button
@@ -617,7 +617,7 @@ const PropertyDetail = () => {
                 
                 {property.topRated && (
                   <Badge className="bg-white border border-white shadow-md flex items-center gap-1 px-3 py-1">
-                    <span className="font-semibold text-[#005476]">Top Rated</span>
+                    <span className="font-semibold text-[#005476]">{t('property.topRated', 'Top Rated')}</span>
                     <div className="flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star key={star} className="h-3.5 w-3.5 fill-[#3bcac4] text-[#3bcac4]" />
@@ -694,7 +694,7 @@ const PropertyDetail = () => {
             {/* Video Section */}
             {property.videos && property.videos.length > 0 && (
               <div className="mb-8">
-                <h3 className="text-xl font-semibold mb-4">Property Videos</h3>
+                <h3 className="text-xl font-semibold mb-4">{t('property.propertyVideos', 'Property Videos')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {property.videos.map((video, idx) => {
                     const isVertical = videoOrientations[idx] === 'vertical';
@@ -714,12 +714,12 @@ const PropertyDetail = () => {
                             {isVertical ? (
                               <>
                                 <Smartphone className="h-3 w-3" />
-                                Vertical
+                                {t('video.vertical', 'Vertical')}
                               </>
                             ) : (
                               <>
                                 <Monitor className="h-3 w-3" />
-                                Horizontal
+                                {t('video.horizontal', 'Horizontal')}
                               </>
                             )}
                           </Badge>
@@ -730,14 +730,14 @@ const PropertyDetail = () => {
                             <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
                             </svg>
-                            <p className="text-sm text-gray-400">تعذّر تشغيل الفيديو</p>
+                            <p className="text-sm text-gray-400">{t('video.failedToPlay', 'Video could not be played')}</p>
                             <a
                               href={video}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs px-4 py-2 rounded-full border border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white transition-colors"
                             >
-                              فتح الفيديو مباشرة
+                              {t('video.openDirectly', 'Open video directly')}
                             </a>
                           </div>
                         ) : (
@@ -790,7 +790,7 @@ const PropertyDetail = () => {
                             variant="outline" 
                             className="bg-white/90 text-black border-white/50 text-xs"
                           >
-                            {isVertical ? 'Mobile Format' : 'Landscape Format'}
+                            {isVertical ? t('video.mobileFormat', 'Mobile Format') : t('video.landscapeFormat', 'Landscape Format')}
                           </Badge>
                         </div>
                       </div>
@@ -804,7 +804,7 @@ const PropertyDetail = () => {
             {activeLiveCameras.length > 0 && (
               <div className="mb-8">
                 <div className="flex items-center gap-3 mb-4">
-                  <h3 className="text-xl font-semibold">Live Construction Camera</h3>
+                  <h3 className="text-xl font-semibold">{t('property.liveCamera', 'Live Construction Camera')}</h3>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wider bg-red-500">
                     <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping" />
                     LIVE
@@ -819,7 +819,7 @@ const PropertyDetail = () => {
                 {/* Details Section */}
                 <div className="space-y-6 protected-content">
                   <div>
-                    <h3 className="text-xl font-semibold mb-4">Description</h3>
+                    <h3 className="text-xl font-semibold mb-4">{t('property.description', 'Description')}</h3>
                     <p className="text-gray-700 whitespace-pre-line">{
                       hasStoredEnglish
                         ? descriptionEn
@@ -832,18 +832,18 @@ const PropertyDetail = () => {
                   <Separator />
                   
                   <div>
-                    <h3 className="text-xl font-semibold mb-4">Property Details</h3>
+                    <h3 className="text-xl font-semibold mb-4">{t('property.details', 'Property Details')}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                        <span className="text-gray-500 text-sm">Property ID</span>
+                        <span className="text-gray-500 text-sm">{t('property.propertyId', 'Property ID')}</span>
                         <span className="font-medium">{property.id}</span>
                       </div>
                       <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                        <span className="text-gray-500 text-sm">Property Type</span>
+                        <span className="text-gray-500 text-sm">{t('property.type', 'Property Type')}</span>
                         <span className="font-medium">{getPropertyTypeName(property.propertyType)}</span>
                       </div>
                       <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                        <span className="text-gray-500 text-sm">Area</span>
+                        <span className="text-gray-500 text-sm">{t('share.area', 'Area')}</span>
                         <span className="font-medium">{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
@@ -865,29 +865,29 @@ const PropertyDetail = () => {
                       })()}
                       {property.bedrooms !== null && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">Bedrooms</span>
+                          <span className="text-gray-500 text-sm">{t('share.bedrooms', 'Bedrooms')}</span>
                           <span className="font-medium">
-                            {property.bedrooms === 0 ? 'Studio' : property.bedrooms}
+                            {property.bedrooms === 0 ? t('property.studio', 'Studio') : property.bedrooms}
                           </span>
                         </div>
                       )}
                       {property.bathrooms !== null && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">Bathrooms</span>
+                          <span className="text-gray-500 text-sm">{t('share.bathrooms', 'Bathrooms')}</span>
                           <span className="font-medium">{property.bathrooms}</span>
                         </div>
                       )}
                       {(property as any).floorNumber !== null && (property as any).floorNumber !== undefined && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">Floor</span>
+                          <span className="text-gray-500 text-sm">{t('share.floor', 'Floor')}</span>
                           <span className="font-medium">{(property as any).floorNumber}</span>
                         </div>
                       )}
                       {property.propertyType === 'land' && (property as any).landType && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">نوع الأرض / Land Type</span>
+                          <span className="text-gray-500 text-sm">{t('land.landType', 'Land Type')}</span>
                           <span className="font-medium">
-                            {(property as any).landType === 'agricultural' ? '🌾 أرض زراعية / Agricultural' : '🏗️ أرض غير زراعية / Non-Agricultural'}
+                            {(property as any).landType === 'agricultural' ? `🌾 ${t('land.agricultural', 'Agricultural Land')}` : `🏗️ ${t('land.nonAgricultural', 'Non-Agricultural Land')}`}
                           </span>
                         </div>
                       )}
@@ -899,22 +899,22 @@ const PropertyDetail = () => {
                         const label = labels?.[langCode] || labels?.en || rs;
                         return (
                           <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                            <span className="text-gray-500 text-sm">Ready Status</span>
+                            <span className="text-gray-500 text-sm">{t('property.readyStatus', 'Ready Status')}</span>
                             <span className="font-medium">{icon} {label}</span>
                           </div>
                         );
                       })()}
                       {(property as any).paymentMethod && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">طريقة الدفع / Payment</span>
+                          <span className="text-gray-500 text-sm">{t('property.paymentMethod', 'Payment Method')}</span>
                           <span className="font-medium">
                             {(property as any).paymentMethod === 'cash'
-                              ? '💵 نقدي / Cash'
-                              : '📋 أقساط / Installments'}
+                              ? `💵 ${t('property.paymentCash', 'Cash')}`
+                              : `📋 ${t('property.paymentInstallments', 'Installments')}`}
                           </span>
                           {(property as any).paymentMethod === 'installments' && (property as any).downPaymentPercent && (
                             <span className="text-sm text-[#3bcac4] mt-1">
-                              دفعة أولى {(property as any).downPaymentPercent}%
+                              {t('property.downPayment', 'Down payment')} {(property as any).downPaymentPercent}%
                               {(property as any).installmentDuration && ` · ${(property as any).installmentDuration.replace('-', ' ')}`}
                             </span>
                           )}
@@ -931,26 +931,32 @@ const PropertyDetail = () => {
                   <>
                     <Separator />
                     <div>
-                      <h3 className="text-xl font-semibold mb-4">🌍 الأرض تتضمن / Land Includes</h3>
+                      <h3 className="text-xl font-semibold mb-4">🌍 {t('land.includes', 'Land Includes')}</h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {((property as any).landFeatures as string[]).map((feat: string) => {
-                          const map: Record<string, { ar: string; en: string; icon: string }> = {
-                            electricity: { ar: 'كهرباء', en: 'Electricity', icon: '⚡' },
-                            water: { ar: 'ماء', en: 'Water', icon: '💧' },
-                            internet: { ar: 'انترنت', en: 'Internet', icon: '🌐' },
-                            gas: { ar: 'غاز', en: 'Gas', icon: '🔥' },
-                            'asphalt-road': { ar: 'طريق إسفلت', en: 'Asphalt Road', icon: '🛣️' },
-                            fenced: { ar: 'مسيّجة', en: 'Fenced', icon: '🚧' },
+                          const iconMap: Record<string, string> = {
+                            electricity: '⚡',
+                            water: '💧',
+                            internet: '🌐',
+                            gas: '🔥',
+                            'asphalt-road': '🛣️',
+                            fenced: '🚧',
                           };
-                          const info = map[feat];
-                          if (!info) return null;
+                          const keyMap: Record<string, string> = {
+                            electricity: 'land.electricity',
+                            water: 'land.water',
+                            internet: 'land.internet',
+                            gas: 'land.gas',
+                            'asphalt-road': 'land.asphaltRoad',
+                            fenced: 'land.fenced',
+                          };
+                          const icon = iconMap[feat];
+                          const tKey = keyMap[feat];
+                          if (!icon || !tKey) return null;
                           return (
                             <div key={feat} className="flex items-center gap-2 bg-[#3bcac4]/10 border border-[#3bcac4]/30 rounded-lg p-3">
-                              <span className="text-xl">{info.icon}</span>
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium text-[#005476]">{info.ar}</span>
-                                <span className="text-xs text-gray-500">{info.en}</span>
-                              </div>
+                              <span className="text-xl">{icon}</span>
+                              <span className="text-sm font-medium text-[#005476]">{t(tKey, feat)}</span>
                             </div>
                           );
                         })}
@@ -961,7 +967,7 @@ const PropertyDetail = () => {
 
                 {/* Features Section */}
                 <div>
-                  <h3 className="text-xl font-semibold mb-4">Features & Amenities</h3>
+                  <h3 className="text-xl font-semibold mb-4">{t('property.featuresAmenities', 'Features & Amenities')}</h3>
                   {property.features.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {translatedFeatures.map((feature, idx) => (
@@ -972,7 +978,7 @@ const PropertyDetail = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500">No features listed for this property.</p>
+                    <p className="text-gray-500">{t('property.noFeatures', 'No features listed for this property.')}</p>
                   )}
                 </div>
 
@@ -982,29 +988,29 @@ const PropertyDetail = () => {
                   <>
                     <Separator />
                     <div>
-                      <h3 className="text-xl font-semibold mb-4">Project Information</h3>
+                      <h3 className="text-xl font-semibold mb-4">{t('property.projectInfo', 'Project Information')}</h3>
                       {project ? (
                         <div className="space-y-6">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div className="flex items-start space-x-2">
                               <UserIcon className="h-5 w-5 text-gray-400 mt-0.5" />
                               <div>
-                                <p className="font-medium">Project Name</p>
+                                <p className="font-medium">{t('property.projectName', 'Project Name')}</p>
                                 <p className="text-gray-600">{project.developer}</p>
                               </div>
                             </div>
                             <div className="flex items-start space-x-2">
                               <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
                               <div>
-                                <p className="font-medium">Completion Date</p>
+                                <p className="font-medium">{t('property.completionDate', 'Completion Date')}</p>
                                 <p className="text-gray-600">{project.completionDate}</p>
                               </div>
                             </div>
                             <div className="flex items-start space-x-2">
                               <Tag className="h-5 w-5 text-gray-400 mt-0.5" />
                               <div>
-                                <p className="font-medium">Project Status</p>
-                                <p className="text-gray-600">Under Construction</p>
+                                <p className="font-medium">{t('property.projectStatus', 'Project Status')}</p>
+                                <p className="text-gray-600">{project.projectStatus}</p>
                               </div>
                             </div>
                           </div>
@@ -1012,15 +1018,14 @@ const PropertyDetail = () => {
                           <Separator />
                           
                           <div>
-                            <h4 className="font-semibold">About the Developer</h4>
+                            <h4 className="font-semibold">{t('property.aboutDeveloper', 'About the Developer')}</h4>
                             <p className="mt-2 text-gray-700">
-                              {project.developer} is a respected property developer with a track record of delivering high-quality projects.
-                              This development showcases their commitment to excellence and innovation in real estate.
+                              {t('property.developerDefaultDescription', '{{name}} is a respected property developer with a track record of delivering high-quality projects. This development showcases their commitment to excellence and innovation in real estate.', { name: project.developer })}
                             </p>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-gray-500">Project information not available.</p>
+                        <p className="text-gray-500">{t('property.projectInfoNotAvailable', 'Project information not available.')}</p>
                       )}
                     </div>
                   </>
@@ -1030,18 +1035,18 @@ const PropertyDetail = () => {
               <div>
                 <Card>
                   <CardContent className="p-6">
-                    <h3 className="text-lg font-semibold mb-4">Property Overview</h3>
+                    <h3 className="text-lg font-semibold mb-4">{t('property.overview', 'Property Overview')}</h3>
                     <div className="space-y-4">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Price between:</span>
+                        <span className="text-gray-500">{t('property.priceBetween', 'Price between:')}</span>
                         <span className="font-medium">{getPriceRange(property.price, (property as any).priceMax)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Property Type:</span>
+                        <span className="text-gray-500">{t('property.type', 'Property Type')}</span>
                         <span>{getPropertyTypeName(property.propertyType)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Area:</span>
+                        <span className="text-gray-500">{t('share.area', 'Area')}</span>
                         <span>{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
@@ -1063,32 +1068,32 @@ const PropertyDetail = () => {
                       })()}
                       {property.bedrooms !== null && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Bedrooms:</span>
-                          <span>{property.bedrooms === 0 ? 'Studio' : property.bedrooms}</span>
+                          <span className="text-gray-500">{t('share.bedrooms', 'Bedrooms')}</span>
+                          <span>{property.bedrooms === 0 ? t('property.studio', 'Studio') : property.bedrooms}</span>
                         </div>
                       )}
                       {property.bathrooms !== null && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Bathrooms:</span>
+                          <span className="text-gray-500">{t('share.bathrooms', 'Bathrooms')}</span>
                           <span>{property.bathrooms}</span>
                         </div>
                       )}
                       {(property as any).floorNumber !== null && (property as any).floorNumber !== undefined && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Floor:</span>
+                          <span className="text-gray-500">{t('share.floor', 'Floor')}</span>
                           <span>{(property as any).floorNumber}</span>
                         </div>
                       )}
                       {property.propertyType === 'land' && (property as any).landType && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Land Type:</span>
+                          <span className="text-gray-500">{t('land.landType', 'Land Type')}</span>
                           <span className="font-medium text-sm">
-                            {(property as any).landType === 'agricultural' ? '🌾 زراعية' : '🏗️ غير زراعية'}
+                            {(property as any).landType === 'agricultural' ? `🌾 ${t('land.agricultural', 'Agricultural Land')}` : `🏗️ ${t('land.nonAgricultural', 'Non-Agricultural Land')}`}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Location:</span>
+                        <span className="text-gray-500">{t('property.location', 'Location')}</span>
                         <span>{property.location}</span>
                       </div>
                     </div>
@@ -1096,7 +1101,7 @@ const PropertyDetail = () => {
                     <Separator className="my-4" />
                     
                     <div className="mt-4 mb-4">
-                      <h3 className="text-lg font-semibold mb-2">Location</h3>
+                      <h3 className="text-lg font-semibold mb-2">{t('property.location', 'Location')}</h3>
                       <div className="bg-gray-100 rounded-lg p-4 text-center text-gray-600">
                         <MapPin className="h-6 w-6 mx-auto mb-2" />
                         <p className="text-sm">{property.location}</p>
@@ -1129,7 +1134,7 @@ const PropertyDetail = () => {
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
                         <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.532 5.845L.057 23.429a.75.75 0 0 0 .955.899l5.7-1.505A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.907 0-3.693-.511-5.228-1.4l-.374-.22-3.883 1.026 1.003-3.795-.243-.388A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
                       </svg>
-                      {t("property.contactWhatsApp", "تواصل عبر واتساب")}
+                      {t("property.contactWhatsApp", "Contact via WhatsApp")}
                     </Button>
 
                     {/* Book Consultation CTA */}
@@ -1185,10 +1190,10 @@ const PropertyDetail = () => {
           </>
         ) : (
           <div className="text-center py-12">
-            <h2 className="text-2xl font-bold mb-2">Property Not Found</h2>
-            <p className="text-gray-500 mb-6">The property you're looking for doesn't exist or has been removed.</p>
+            <h2 className="text-2xl font-bold mb-2">{t('property.notFound', 'Property Not Found')}</h2>
+            <p className="text-gray-500 mb-6">{t('property.notFoundDescription', "The property you're looking for doesn't exist or has been removed.")}</p>
             <Button className="bg-[#3bcac4] hover:bg-[#3bcac4]/90 text-white" asChild>
-              <Link href="/properties">Browse All Properties</Link>
+              <Link href="/properties">{t('property.browseAll', 'Browse All Properties')}</Link>
             </Button>
           </div>
         )}

@@ -85,7 +85,35 @@
     "availableConfirmDesc": "Dit verwijdert de VERKOCHT-banner van dit eigendom.",
     "contactWhatsApp": "Contact via WhatsApp",
     "markAsSoldSuccess": "Eigendom gemarkeerd als verkocht",
-    "markAsAvailableSuccess": "Eigendom gemarkeerd als beschikbaar"
+    "markAsAvailableSuccess": "Eigendom gemarkeerd als beschikbaar",
+    "overview": "Overzicht van de woning",
+    "priceBetween": "Prijs tussen:",
+    "propertyId": "Vastgoed-ID",
+    "description": "Beschrijving",
+    "details": "Vastgoeddetails",
+    "pricePerMeterFrom": "Prijs per m² vanaf",
+    "studio": "Studio",
+    "featuresAmenities": "Kenmerken en voorzieningen",
+    "noFeatures": "Geen kenmerken vermeld voor dit vastgoed.",
+    "readyStatus": "Gereedstatus",
+    "paymentMethod": "Betaalmethode",
+    "paymentCash": "Contant",
+    "paymentInstallments": "Termijnbetalingen",
+    "downPayment": "Aanbetaling",
+    "projectInfo": "Projectinformatie",
+    "projectName": "Projectnaam",
+    "completionDate": "Opleverdatum",
+    "projectStatus": "Projectstatus",
+    "aboutDeveloper": "Over de ontwikkelaar",
+    "projectInfoNotAvailable": "Projectinformatie niet beschikbaar.",
+    "topRated": "Hoogst gewaardeerd",
+    "liveCamera": "Live bouwcamera",
+    "propertyVideos": "Vastgoedvideo's",
+    "invalidId": "Ongeldig vastgoed-ID",
+    "notFound": "Vastgoed niet gevonden",
+    "notFoundDescription": "De woning die u zoekt bestaat niet of is verwijderd.",
+    "browseAll": "Alle woningen bekijken",
+    "developerDefaultDescription": "{{name}} is een gerespecteerde projectontwikkelaar met een bewezen staat van dienst in het leveren van hoogwaardige projecten. Deze ontwikkeling toont hun toewijding aan uitmuntendheid en innovatie in onroerend goed."
   },
   "share": {
     "price": "Prijs",
@@ -514,6 +542,7 @@
     "cameraUnavailable": "Live camera is tijdelijk niet beschikbaar.",
     "cameraUnavailableDesc": "Vraag de nieuwste bouwupdate op bij onze adviseur.",
     "tryAgain": "Opnieuw proberen",
+    "edit": "Bewerken",
     "underMaintenance": "Camera in onderhoud",
     "statusLive": "LIVE",
     "statusUnavailable": "NIET BESCHIKBAAR",
@@ -522,5 +551,13 @@
     "projectsAvailable_plural": "{{count}} live projecten",
     "requestConsultation": "Consultatie aanvragen",
     "contactAdvisor": "AI Adviseur"
+  },
+  "video": {
+    "failedToPlay": "Video kon niet worden afgespeeld",
+    "openDirectly": "Video direct openen",
+    "vertical": "Verticaal",
+    "horizontal": "Horizontaal",
+    "mobileFormat": "Mobiel formaat",
+    "landscapeFormat": "Liggend formaat"
   }
 }

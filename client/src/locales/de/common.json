@@ -85,7 +85,35 @@
     "availableConfirmDesc": "Dies entfernt das VERKAUFT-Banner von dieser Immobilie.",
     "contactWhatsApp": "Kontakt über WhatsApp",
     "markAsSoldSuccess": "Immobilie als verkauft markiert",
-    "markAsAvailableSuccess": "Immobilie als verfügbar markiert"
+    "markAsAvailableSuccess": "Immobilie als verfügbar markiert",
+    "overview": "Immobilienübersicht",
+    "priceBetween": "Preis zwischen:",
+    "propertyId": "Objekt-ID",
+    "description": "Beschreibung",
+    "details": "Objektdetails",
+    "pricePerMeterFrom": "Preis pro m² ab",
+    "studio": "Studio",
+    "featuresAmenities": "Merkmale und Ausstattung",
+    "noFeatures": "Für dieses Objekt sind keine Merkmale aufgeführt.",
+    "readyStatus": "Fertigstellungsstatus",
+    "paymentMethod": "Zahlungsmethode",
+    "paymentCash": "Bar",
+    "paymentInstallments": "Ratenzahlung",
+    "downPayment": "Anzahlung",
+    "projectInfo": "Projektinformationen",
+    "projectName": "Projektname",
+    "completionDate": "Fertigstellungsdatum",
+    "projectStatus": "Projektstatus",
+    "aboutDeveloper": "Über den Entwickler",
+    "projectInfoNotAvailable": "Projektinformationen nicht verfügbar.",
+    "topRated": "Top-bewertet",
+    "liveCamera": "Live-Baukamera",
+    "propertyVideos": "Objektvideos",
+    "invalidId": "Ungültige Objekt-ID",
+    "notFound": "Objekt nicht gefunden",
+    "notFoundDescription": "Das gesuchte Objekt existiert nicht oder wurde entfernt.",
+    "browseAll": "Alle Objekte durchsuchen",
+    "developerDefaultDescription": "{{name}} ist ein angesehener Immobilienentwickler mit einer nachgewiesenen Erfolgsbilanz bei der Lieferung hochwertiger Projekte. Diese Entwicklung zeigt ihr Engagement für Exzellenz und Innovation im Immobilienbereich."
   },
   "share": {
     "price": "Preis",
@@ -514,6 +542,7 @@
     "cameraUnavailable": "Live-Kamera ist vorübergehend nicht verfügbar.",
     "cameraUnavailableDesc": "Fordern Sie das neueste Bauupdate von unserem Berater an.",
     "tryAgain": "Erneut versuchen",
+    "edit": "Bearbeiten",
     "underMaintenance": "Kamera in Wartung",
     "statusLive": "LIVE",
     "statusUnavailable": "NICHT VERFÜGBAR",
@@ -522,5 +551,13 @@
     "projectsAvailable_plural": "{{count}} Live-Projekte",
     "requestConsultation": "Beratung buchen",
     "contactAdvisor": "KI-Berater"
+  },
+  "video": {
+    "failedToPlay": "Video konnte nicht abgespielt werden",
+    "openDirectly": "Video direkt öffnen",
+    "vertical": "Vertikal",
+    "horizontal": "Horizontal",
+    "mobileFormat": "Mobilformat",
+    "landscapeFormat": "Querformat"
   }
 }

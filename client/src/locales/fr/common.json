@@ -85,7 +85,35 @@
     "availableConfirmDesc": "Cela supprimera la bannière VENDU de cette propriété.",
     "contactWhatsApp": "Contact via WhatsApp",
     "markAsSoldSuccess": "Propriété marquée comme vendue",
-    "markAsAvailableSuccess": "Propriété marquée comme disponible"
+    "markAsAvailableSuccess": "Propriété marquée comme disponible",
+    "overview": "Aperçu de la propriété",
+    "priceBetween": "Prix entre :",
+    "propertyId": "ID du bien",
+    "description": "Description",
+    "details": "Détails du bien",
+    "pricePerMeterFrom": "Prix au m² à partir de",
+    "studio": "Studio",
+    "featuresAmenities": "Caractéristiques et équipements",
+    "noFeatures": "Aucune caractéristique listée pour ce bien.",
+    "readyStatus": "Statut de livraison",
+    "paymentMethod": "Mode de paiement",
+    "paymentCash": "Comptant",
+    "paymentInstallments": "Versements échelonnés",
+    "downPayment": "Acompte",
+    "projectInfo": "Informations sur le projet",
+    "projectName": "Nom du projet",
+    "completionDate": "Date d'achèvement",
+    "projectStatus": "Statut du projet",
+    "aboutDeveloper": "À propos du promoteur",
+    "projectInfoNotAvailable": "Informations sur le projet non disponibles.",
+    "topRated": "Mieux noté",
+    "liveCamera": "Caméra de chantier en direct",
+    "propertyVideos": "Vidéos du bien",
+    "invalidId": "Identifiant de propriété invalide",
+    "notFound": "Bien introuvable",
+    "notFoundDescription": "Le bien que vous recherchez n'existe pas ou a été supprimé.",
+    "browseAll": "Parcourir tous les biens",
+    "developerDefaultDescription": "{{name}} est un promoteur immobilier respecté avec un bilan éprouvé dans la réalisation de projets de haute qualité. Ce développement témoigne de leur engagement envers l'excellence et l'innovation dans l'immobilier."
   },
   "share": {
     "price": "Prix",
@@ -514,6 +542,7 @@
     "cameraUnavailable": "La caméra en direct est temporairement indisponible.",
     "cameraUnavailableDesc": "Veuillez demander la dernière mise à jour à notre conseiller.",
     "tryAgain": "Réessayer",
+    "edit": "Modifier",
     "underMaintenance": "Caméra en maintenance",
     "statusLive": "EN DIRECT",
     "statusUnavailable": "INDISPONIBLE",
@@ -522,5 +551,13 @@
     "projectsAvailable_plural": "{{count}} projets en direct",
     "requestConsultation": "Réserver une Consultation",
     "contactAdvisor": "Conseiller IA"
+  },
+  "video": {
+    "failedToPlay": "Impossible de lire la vidéo",
+    "openDirectly": "Ouvrir la vidéo directement",
+    "vertical": "Vertical",
+    "horizontal": "Horizontal",
+    "mobileFormat": "Format mobile",
+    "landscapeFormat": "Format paysage"
   }
 }
