@@ -195,7 +195,9 @@
     "emailCountdown": "Backup-Code per E-Mail in {{count}} s...",
     "emailSending": "E-Mail-Code wird gesendet...",
     "rateLimitSms": "Zu viele SMS-Versuche. Bitte 10 Minuten warten.",
-    "rateLimitEmail": "Zu viele Versuche. Bitte 10 Minuten warten."
+    "rateLimitEmail": "Zu viele Versuche. Bitte 10 Minuten warten.",
+    "smsFailedTitle": "SMS-Zustellung fehlgeschlagen",
+    "smsFailedEmailSent": "SMS nicht verfügbar — Code an Ihre E-Mail gesendet"
   },
   "favorites": {
     "title": "Favoriten",

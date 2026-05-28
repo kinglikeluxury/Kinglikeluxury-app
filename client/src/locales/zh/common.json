@@ -192,7 +192,9 @@
     "emailCountdown": "{{count}}秒后发送邮箱备用码...",
     "emailSending": "正在发送邮箱验证码...",
     "rateLimitSms": "短信尝试次数过多，请等待10分钟。",
-    "rateLimitEmail": "尝试次数过多，请等待10分钟。"
+    "rateLimitEmail": "尝试次数过多，请等待10分钟。",
+    "smsFailedTitle": "短信发送失败",
+    "smsFailedEmailSent": "短信不可用 — 验证码已发送至您的邮箱"
   },
   "favorites": {
     "title": "收藏",

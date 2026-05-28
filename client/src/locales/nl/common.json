@@ -195,7 +195,9 @@
     "emailCountdown": "Back-upcode via e-mail in {{count}} s...",
     "emailSending": "E-mailcode wordt verzonden...",
     "rateLimitSms": "Te veel SMS-pogingen. Wacht 10 minuten.",
-    "rateLimitEmail": "Te veel pogingen. Wacht 10 minuten."
+    "rateLimitEmail": "Te veel pogingen. Wacht 10 minuten.",
+    "smsFailedTitle": "SMS-bezorging mislukt",
+    "smsFailedEmailSent": "SMS niet beschikbaar — code verzonden naar je e-mail"
   },
   "favorites": {
     "title": "Favorieten",

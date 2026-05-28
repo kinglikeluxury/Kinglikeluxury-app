@@ -192,7 +192,9 @@
     "emailCountdown": "Codice backup via email in {{count}} s...",
     "emailSending": "Invio codice email in corso...",
     "rateLimitSms": "Troppi tentativi SMS. Attendi 10 minuti.",
-    "rateLimitEmail": "Troppi tentativi. Attendi 10 minuti."
+    "rateLimitEmail": "Troppi tentativi. Attendi 10 minuti.",
+    "smsFailedTitle": "Consegna SMS fallita",
+    "smsFailedEmailSent": "SMS non disponibile — codice inviato alla tua email"
   },
   "favorites": {
     "title": "Preferiti",

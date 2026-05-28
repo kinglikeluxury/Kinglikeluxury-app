@@ -193,7 +193,9 @@
     "emailCountdown": "کد پشتیبان ایمیل در {{count}} ثانیه...",
     "emailSending": "در حال ارسال کد ایمیل...",
     "rateLimitSms": "تلاش‌های SMS بیش از حد. لطفاً ۱۰ دقیقه صبر کنید.",
-    "rateLimitEmail": "تلاش‌های بیش از حد. لطفاً ۱۰ دقیقه صبر کنید."
+    "rateLimitEmail": "تلاش‌های بیش از حد. لطفاً ۱۰ دقیقه صبر کنید.",
+    "smsFailedTitle": "ارسال SMS ناموفق بود",
+    "smsFailedEmailSent": "SMS در دسترس نیست — کد به ایمیل شما ارسال شد"
   },
   "favorites": {
     "title": "علاقه‌مندی‌ها",

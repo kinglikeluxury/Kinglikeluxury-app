@@ -192,7 +192,9 @@
     "emailCountdown": "קוד גיבוי לאימייל בעוד {{count}} שניות...",
     "emailSending": "שולח קוד לאימייל...",
     "rateLimitSms": "יותר מדי ניסיונות SMS. אנא המתן 10 דקות.",
-    "rateLimitEmail": "יותר מדי ניסיונות. אנא המתן 10 דקות."
+    "rateLimitEmail": "יותר מדי ניסיונות. אנא המתן 10 דקות.",
+    "smsFailedTitle": "שליחת SMS נכשלה",
+    "smsFailedEmailSent": "SMS אינו זמין — הקוד נשלח לאימייל שלך"
   },
   "favorites": {
     "title": "מועדפים",

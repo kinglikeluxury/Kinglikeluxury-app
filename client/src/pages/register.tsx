@@ -64,6 +64,7 @@ export default function RegisterPage() {
   const [countdown, setCountdown] = useState(FALLBACK_SECONDS);
   const [emailFallbackActive, setEmailFallbackActive] = useState(false);
   const [emailOtpSending, setEmailOtpSending] = useState(false);
+  const [smsFailed, setSmsFailed] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const form = useForm<RegistrationValues>({
@@ -83,9 +84,11 @@ export default function RegisterPage() {
       .catch(() => {});
   }, []);
 
-  // 10-second countdown after SMS sent — then auto-send email OTP
+  // 10-second countdown after SMS sent successfully — then auto-send email OTP.
+  // Does NOT run when SMS failed instantly (smsFailed=true), because email OTP
+  // is already being sent immediately inside handleSendCode's catch block.
   useEffect(() => {
-    if (!verificationSent || emailFallbackActive) return;
+    if (!verificationSent || emailFallbackActive || smsFailed) return;
 
     setCountdown(FALLBACK_SECONDS);
     countdownRef.current = setInterval(() => {
@@ -103,7 +106,7 @@ export default function RegisterPage() {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verificationSent]);
+  }, [verificationSent, smsFailed]);
 
   const triggerEmailFallback = async () => {
     if (emailFallbackActive) return;
@@ -142,12 +145,20 @@ export default function RegisterPage() {
       const data = await result.json();
       setVerificationSent(true);
       setSentMethod(data.method || 'sms');
+      // CASE 2: SMS sent successfully → 10s countdown starts via useEffect
       toast({
         title: data.method === 'whatsapp' ? `✅ ${t('auth.sentViaWhatsapp')}` : `✅ ${t('auth.sentViaSms')}`,
         description: phoneNumber,
       });
     } catch (error: any) {
-      toast({ title: t('auth.sendFailed'), description: error.message || '', variant: 'destructive' });
+      // CASE 1: SMS failed instantly (Twilio error, geo restriction, etc.)
+      // Move to OTP entry stage immediately and send Email OTP right now — no 10s wait.
+      console.warn('[SMS] Send failed, triggering email OTP fallback immediately:', error.message);
+      setSmsFailed(true);
+      setVerificationSent(true);
+      setSentMethod(null);
+      // triggerEmailFallback() guards against double-send via emailFallbackActive
+      await triggerEmailFallback();
     } finally {
       setSendingCode(false);
     }
@@ -215,6 +226,7 @@ export default function RegisterPage() {
   const handleReset = () => {
     setVerificationSent(false);
     setEmailFallbackActive(false);
+    setSmsFailed(false);
     setVerificationCode('');
     setCountdown(FALLBACK_SECONDS);
     if (countdownRef.current) clearInterval(countdownRef.current);
@@ -384,18 +396,28 @@ export default function RegisterPage() {
               {verificationSent && !phoneVerified && (
                 <div className="space-y-3">
 
-                  {/* SMS sent badge */}
-                  <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
-                    sentMethod === 'whatsapp' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
-                  }`}>
-                    {sentMethod === 'whatsapp'
-                      ? <><MessageCircle className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaWhatsapp')}</>
-                      : <><Smartphone className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaSms')}</>
-                    }
-                  </div>
+                  {/* CASE 1 — SMS failed instantly: show warning badge immediately */}
+                  {smsFailed && !emailFallbackActive && (
+                    <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-700">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                      {t('auth.emailSending')}
+                    </div>
+                  )}
 
-                  {/* Email fallback status */}
-                  {!emailFallbackActive && countdown > 0 && (
+                  {/* CASE 2 — SMS sent successfully: show which channel was used */}
+                  {!smsFailed && sentMethod && (
+                    <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
+                      sentMethod === 'whatsapp' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
+                    }`}>
+                      {sentMethod === 'whatsapp'
+                        ? <><MessageCircle className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaWhatsapp')}</>
+                        : <><Smartphone className="h-3.5 w-3.5 shrink-0" /> {t('auth.sentViaSms')}</>
+                      }
+                    </div>
+                  )}
+
+                  {/* CASE 2 — countdown to email fallback (only when SMS was sent OK and fallback not yet active) */}
+                  {!smsFailed && !emailFallbackActive && countdown > 0 && sentMethod && (
                     <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 text-amber-700">
                       {emailOtpSending
                         ? <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> {t('auth.emailSending')}</>
@@ -404,19 +426,19 @@ export default function RegisterPage() {
                     </div>
                   )}
 
-                  {/* Email fallback active badge */}
+                  {/* Both cases — email fallback active badge */}
                   {emailFallbackActive && (
                     <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-purple-50 text-purple-700">
                       <Mail className="h-3.5 w-3.5 shrink-0" />
-                      {t('auth.sentViaEmail')}
+                      {smsFailed ? t('auth.smsFailedEmailSent') : t('auth.sentViaEmail')}
                     </div>
                   )}
 
-                  {/* Email fallback message */}
+                  {/* Both cases — email fallback explanation card */}
                   {emailFallbackActive && (
                     <div className="rounded-xl border-2 border-[#3bcac4]/30 bg-[#3bcac4]/5 p-4 space-y-1">
                       <p className="text-sm font-semibold text-[#005476]">
-                        {t('auth.emailFallbackTitle')}
+                        {smsFailed ? t('auth.smsFailedTitle') : t('auth.emailFallbackTitle')}
                       </p>
                       <p className="text-sm text-gray-600">
                         {t('auth.emailFallbackDesc')}

@@ -193,7 +193,9 @@
     "emailCountdown": "{{count}} saniyede e-posta yedek kodu...",
     "emailSending": "E-posta kodu gönderiliyor...",
     "rateLimitSms": "Çok fazla SMS denemesi. Lütfen 10 dakika bekleyin.",
-    "rateLimitEmail": "Çok fazla deneme. Lütfen 10 dakika bekleyin."
+    "rateLimitEmail": "Çok fazla deneme. Lütfen 10 dakika bekleyin.",
+    "smsFailedTitle": "SMS gönderimi başarısız",
+    "smsFailedEmailSent": "SMS kullanılamıyor — kod e-postanıza gönderildi"
   },
   "favorites": {
     "title": "Favoriler",

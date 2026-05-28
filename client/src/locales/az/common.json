@@ -192,7 +192,9 @@
     "emailCountdown": "{{count}} saniyədə e-poçt yedək kodu...",
     "emailSending": "E-poçt kodu göndərilir...",
     "rateLimitSms": "Çox SMS cəhdi. Zəhmət olmasa 10 dəqiqə gözləyin.",
-    "rateLimitEmail": "Çox cəhd. Zəhmət olmasa 10 dəqiqə gözləyin."
+    "rateLimitEmail": "Çox cəhd. Zəhmət olmasa 10 dəqiqə gözləyin.",
+    "smsFailedTitle": "SMS göndərimi uğursuz oldu",
+    "smsFailedEmailSent": "SMS mövcud deyil — kod e-poçtunuza göndərildi"
   },
   "favorites": {
     "title": "Sevimlilər",

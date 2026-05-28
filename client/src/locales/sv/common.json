@@ -195,7 +195,9 @@
     "emailCountdown": "Reservkod via e-post om {{count}} s...",
     "emailSending": "Skickar e-postkod...",
     "rateLimitSms": "För många SMS-försök. Vänta 10 minuter.",
-    "rateLimitEmail": "För många försök. Vänta 10 minuter."
+    "rateLimitEmail": "För många försök. Vänta 10 minuter.",
+    "smsFailedTitle": "SMS-leverans misslyckades",
+    "smsFailedEmailSent": "SMS ej tillgängligt — kod skickad till din e-post"
   },
   "favorites": {
     "title": "Favoriter",

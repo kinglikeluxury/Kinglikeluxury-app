@@ -192,7 +192,9 @@
     "emailCountdown": "Kod zapasowy na e-mail za {{count}} s...",
     "emailSending": "Wysyłanie kodu e-mail...",
     "rateLimitSms": "Zbyt wiele prób SMS. Poczekaj 10 minut.",
-    "rateLimitEmail": "Zbyt wiele prób. Poczekaj 10 minut."
+    "rateLimitEmail": "Zbyt wiele prób. Poczekaj 10 minut.",
+    "smsFailedTitle": "Dostarczenie SMS nie powiodło się",
+    "smsFailedEmailSent": "SMS niedostępny — kod wysłany na Twój e-mail"
   },
   "favorites": {
     "title": "Ulubione",

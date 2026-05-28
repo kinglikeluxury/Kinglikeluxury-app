@@ -193,7 +193,9 @@
     "emailCountdown": "Email backup in {{count}}s...",
     "emailSending": "Sending email code...",
     "rateLimitSms": "Too many SMS attempts. Please wait 10 minutes.",
-    "rateLimitEmail": "Too many email OTP attempts. Please wait 10 minutes."
+    "rateLimitEmail": "Too many email OTP attempts. Please wait 10 minutes.",
+    "smsFailedTitle": "SMS delivery failed",
+    "smsFailedEmailSent": "SMS unavailable — code sent to your email"
   },
   "favorites": {
     "title": "Favorites",

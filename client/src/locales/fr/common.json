@@ -195,7 +195,9 @@
     "emailCountdown": "Code de secours par e-mail dans {{count}} s...",
     "emailSending": "Envoi du code e-mail...",
     "rateLimitSms": "Trop de tentatives SMS. Veuillez attendre 10 minutes.",
-    "rateLimitEmail": "Trop de tentatives. Veuillez attendre 10 minutes."
+    "rateLimitEmail": "Trop de tentatives. Veuillez attendre 10 minutes.",
+    "smsFailedTitle": "Échec de la livraison SMS",
+    "smsFailedEmailSent": "SMS indisponible — code envoyé à votre e-mail"
   },
   "favorites": {
     "title": "Favoris",
