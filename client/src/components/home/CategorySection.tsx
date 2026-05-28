@@ -260,7 +260,8 @@ const CategorySection = () => {
                     <SelectValue placeholder={t('home.hero.anyPurpose', 'Select Purpose')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="buy">{t('home.hero.toBuy', 'For Sale')}</SelectItem>
+                    <SelectItem value="buy">{t('home.hero.toBuy', 'To buy')}</SelectItem>
+                    <SelectItem value="rent">{t('home.hero.forRent', 'To rent')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
