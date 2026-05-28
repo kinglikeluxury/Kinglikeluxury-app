@@ -2498,7 +2498,7 @@ const PropertyForm = () => {
                   <SelectContent>
                     <SelectItem value="turnkey">🔑 {t('readyStatus.turnkey', 'Ready to move in as Turnkey')}</SelectItem>
                     <SelectItem value="white_frame">🏗️ {t('readyStatus.whiteFrame', 'Ready to move in as White Frame')}</SelectItem>
-                    <SelectItem value="green_frame">🌿 {t('readyStatus.greenFrame', 'Ready to move in as Green Frame')}</SelectItem>
+                    <SelectItem value="green_frame">🌿 {t('readyStatus.greenFrame', 'Green Frame')}</SelectItem>
                     <SelectItem value="black_frame">⬛ {t('readyStatus.blackFrame', 'Ready to move in as Black Frame')}</SelectItem>
                   </SelectContent>
                 </Select>

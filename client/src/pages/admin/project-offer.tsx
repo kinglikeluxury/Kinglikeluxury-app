@@ -56,12 +56,13 @@ const VIEW_TYPES = [
 ];
 
 const DELIVERY_TYPES = [
-  { value: "black",     ar: "هيكل خام (على الأسود)", en: "Shell & Core", ru: "Черновая отделка", ka: "შავი კარკასი", az: "Qara karkasla", tr: "Ham Teslim (Sıfır)", zh: "毛坯交付", pl: "Stan surowy", he: "גלם (קירות חשופים)", it: "Grezzo" },
-  { value: "white",     ar: "تشطيب أبيض (جدران ناعمة)", en: "White Box (Plastered)", ru: "Белая отделка", ka: "თეთრი მოსაპირკეთებელი", az: "Ağ çərçivə", tr: "Beyaz Teslim (Sıva Dahil)", zh: "白盒交付", pl: "Stan deweloperski", he: "קופסה לבנה", it: "Scatola bianca" },
-  { value: "half",      ar: "تشطيب نصف جاهز", en: "Semi-Finished", ru: "Полуотделка", ka: "ნახევარი გათავება", az: "Yarı bitmiş", tr: "Yarı Bitişli", zh: "半精装", pl: "Pół-gotowy", he: "גמר חלקי", it: "Semi-rifinito" },
-  { value: "full",      ar: "تشطيب كامل (جاهز للسكن والاستثمار)", en: "Fully Finished (Move-in & Investment Ready)", ru: "Полная отделка (под ключ)", ka: "სრული გათავება", az: "Tam bitmiş", tr: "Tam Bitişli (Hazır)", zh: "精装交付", pl: "Pełne wykończenie", he: "גמר מלא (מוכן למגורים)", it: "Completamente rifinito" },
-  { value: "full_nofurn", ar: "تشطيب كامل (بدون مفروشات)", en: "Fully Finished (Unfurnished)", ru: "Полная отделка (без мебели)", ka: "სრული გათავება (ავეჯის გარეშე)", az: "Tam bitmiş (mebelssiz)", tr: "Tam Bitişli (Mobilyasız)", zh: "精装交付（无家具）", pl: "Pełne wykończenie (bez mebli)", he: "גמר מלא (ללא ריהוט)", it: "Completamente rifinito (non arredato)" },
-  { value: "furnished", ar: "تشطيب كامل مع الفرش والكهربائيات (تسليم على المفتاح)", en: "Fully Finished with Furniture & Appliances (Turnkey)", ru: "Полностью меблирован (под ключ)", ka: "სრულად ავეჯით", az: "Tam mebelli (açar təhvil)", tr: "Tam Eşyalı (Anahtar Teslim)", zh: "全装带家具交付", pl: "W pełni umeblowany (pod klucz)", he: "מרוהט במלואו (מפתח ביד)", it: "Arredato (chiavi in mano)" },
+  { value: "black",       ar: "هيكل خام (على الأسود)", en: "Shell & Core", ru: "Черновая отделка", ka: "შავი კარკასი", az: "Qara karkasla", tr: "Ham Teslim (Sıfır)", zh: "毛坯交付", pl: "Stan surowy", he: "גלם (קירות חשופים)", it: "Grezzo" },
+  { value: "white",       ar: "تشطيب أبيض (جدران ناعمة)", en: "White Box (Plastered)", ru: "Белая отделка", ka: "თეთრი მოსაპირკეთებელი", az: "Ağ çərçivə", tr: "Beyaz Teslim (Sıva Dahil)", zh: "白盒交付", pl: "Stan deweloperski", he: "קופסה לבנה", it: "Scatola bianca" },
+  { value: "green_frame", ar: "تسليم على الأخضر", en: "Green Frame", ru: "Зелёный каркас", ka: "მწვანე კარკასი", az: "Yaşıl karkasla", tr: "Yeşil Çerçeve", zh: "绿框交付", pl: "Stan surowy zielony", he: "מסגרת ירוקה", it: "Struttura verde" },
+  { value: "half",        ar: "تشطيب نصف جاهز", en: "Semi-Finished", ru: "Полуотделка", ka: "ნახევარი გათავება", az: "Yarı bitmiş", tr: "Yarı Bitişli", zh: "半精装", pl: "Pół-gotowy", he: "גמר חלקי", it: "Semi-rifinito" },
+  { value: "full",        ar: "تشطيب كامل (جاهز للسكن والاستثمار)", en: "Fully Finished (Move-in & Investment Ready)", ru: "Полная отделка (под ключ)", ka: "სრული გათავება", az: "Tam bitmiş", tr: "Tam Bitişli (Hazır)", zh: "精装交付", pl: "Pełne wykończenie", he: "גמר מלא (מוכן למגורים)", it: "Completamente rifinito" },
+  { value: "full_nofurn", ar: "تشطيب كامل (بدون مفروشات)", en: "Fully Finished (Unfurnished)", ru: "Полная отделка (без مبلمان)", ka: "სრული გათავება (ავეჯის გარეშე)", az: "Tam bitmiş (mebelssiz)", tr: "Tam Bitişli (Mobilyasız)", zh: "精装交付（无家具）", pl: "Pełne wykończenie (bez mebli)", he: "גמר מלא (ללא ריהוט)", it: "Completamente rifinito (non arredato)" },
+  { value: "furnished",   ar: "تشطيب كامل مع الفرش والكهربائيات (تسليم على المفتاح)", en: "Fully Finished with Furniture & Appliances (Turnkey)", ru: "Полностью меблирован (под ключ)", ka: "სრულად ავეჯით", az: "Tam mebelli (açar təhvil)", tr: "Tam Eşyalı (Anahtar Teslim)", zh: "全装带家具交付", pl: "W pełni umeblowany (pod klucz)", he: "מרוהט במלואו (מפתח ביד)", it: "Arredato (chiavi in mano)" },
 ];
 
 const LANGUAGES = [

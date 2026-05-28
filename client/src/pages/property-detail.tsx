@@ -124,6 +124,20 @@ function LiveCameraSection({ cameras }: { cameras: any[] }) {
   );
 }
 
+const READY_STATUS_LABELS: Record<string, Record<string, string>> = {
+  turnkey:     { ar: 'مفتاح باليد',       en: 'Turnkey',      ru: 'Под ключ',          ka: 'გასაღები ჩაბარება',  az: 'Açar təhvil',       tr: 'Anahtar Teslim',    zh: '精装交付',      pl: 'Pod klucz',              he: 'מפתח ביד',        it: 'Chiavi in mano'   },
+  white_frame: { ar: 'تشطيب أبيض',        en: 'White Frame',  ru: 'Белый каркас',      ka: 'თეთრი კარკასი',      az: 'Ağ karkasla',       tr: 'Beyaz Çerçeve',     zh: '白框交付',      pl: 'Stan biały',             he: 'מסגרת לבנה',      it: 'Struttura bianca' },
+  green_frame: { ar: 'تسليم على الأخضر',  en: 'Green Frame',  ru: 'Зелёный каркас',    ka: 'მწვანე კარკასი',     az: 'Yaşıl karkasla',    tr: 'Yeşil Çerçeve',     zh: '绿框交付',      pl: 'Stan surowy zielony',    he: 'מסגרת ירוקה',     it: 'Struttura verde'  },
+  black_frame: { ar: 'هيكل خام',          en: 'Black Frame',  ru: 'Чёрный каркас',     ka: 'შავი კარკასი',       az: 'Qara karkasla',     tr: 'Siyah Çerçeve',     zh: '毛坯交付',      pl: 'Stan surowy czarny',     he: 'מסגרת שחורה',     it: 'Struttura nera'   },
+};
+
+const READY_STATUS_ICONS: Record<string, string> = {
+  turnkey:     '🔑',
+  white_frame: '🏗️',
+  green_frame: '🌿',
+  black_frame: '⬛',
+};
+
 const PropertyDetail = () => {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
@@ -877,17 +891,19 @@ const PropertyDetail = () => {
                           </span>
                         </div>
                       )}
-                      {(property as any).readyStatus && (
-                        <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                          <span className="text-gray-500 text-sm">Ready Status</span>
-                          <span className="font-medium">
-                            {(property as any).readyStatus === 'turnkey' && '🔑 Turnkey'}
-                            {(property as any).readyStatus === 'white_frame' && '🏗️ White Frame'}
-                            {(property as any).readyStatus === 'green_frame' && '🌿 Green Frame'}
-                            {(property as any).readyStatus === 'black_frame' && '⬛ Black Frame'}
-                          </span>
-                        </div>
-                      )}
+                      {(property as any).readyStatus && (() => {
+                        const rs = (property as any).readyStatus as string;
+                        const langCode = lang?.split('-')[0] || 'en';
+                        const labels = READY_STATUS_LABELS[rs];
+                        const icon = READY_STATUS_ICONS[rs] || '';
+                        const label = labels?.[langCode] || labels?.en || rs;
+                        return (
+                          <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                            <span className="text-gray-500 text-sm">Ready Status</span>
+                            <span className="font-medium">{icon} {label}</span>
+                          </div>
+                        );
+                      })()}
                       {(property as any).paymentMethod && (
                         <div className="flex flex-col p-4 bg-gray-50 rounded-lg">
                           <span className="text-gray-500 text-sm">طريقة الدفع / Payment</span>
