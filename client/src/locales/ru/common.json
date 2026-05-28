@@ -208,7 +208,16 @@
     "resetDoneDesc": "Ваш пароль обновлён. Теперь вы можете войти.",
     "backToLogin": "Вернуться к входу",
     "changeMethod": "Изменить способ",
-    "verifyCode": "Подтвердить код"
+    "verifyCode": "Подтвердить код",
+    "loginTitle": "Вход в аккаунт",
+    "loginSubtitle": "Введите учётные данные для доступа к аккаунту",
+    "loginIdentifier": "Имя пользователя, Email или Номер телефона",
+    "loginIdentifierPlaceholder": "Введите имя, email или телефон",
+    "loggingIn": "Вход...",
+    "logIn": "Войти",
+    "invalidCredentials": "Неверные данные для входа.",
+    "forgotPasswordLink": "Забыли пароль?",
+    "noAccountSignup": "Нет аккаунта? Зарегистрируйтесь"
   },
   "favorites": {
     "title": "Избранное",

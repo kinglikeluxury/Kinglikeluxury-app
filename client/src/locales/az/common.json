@@ -207,7 +207,16 @@
     "resetDoneDesc": "Şifrəniz yeniləndi. İndi daxil ola bilərsiniz.",
     "backToLogin": "Girişə qayıt",
     "changeMethod": "Üsulu dəyiş",
-    "verifyCode": "Kodu təsdiq et"
+    "verifyCode": "Kodu təsdiq et",
+    "loginTitle": "Hesabınıza daxil olun",
+    "loginSubtitle": "Hesabınıza daxil olmaq üçün məlumatlarınızı daxil edin",
+    "loginIdentifier": "İstifadəçi adı, E-poçt və ya Telefon nömrəsi",
+    "loginIdentifierPlaceholder": "İstifadəçi adı, e-poçt və ya telefon daxil edin",
+    "loggingIn": "Daxil olunur...",
+    "logIn": "Daxil ol",
+    "invalidCredentials": "Giriş məlumatları yanlışdır.",
+    "forgotPasswordLink": "Şifrəni unutmusunuz?",
+    "noAccountSignup": "Hesabınız yoxdur? Qeydiyyatdan keçin"
   },
   "favorites": {
     "title": "Sevimlilər",

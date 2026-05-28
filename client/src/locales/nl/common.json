@@ -210,7 +210,16 @@
     "resetDoneDesc": "Je wachtwoord is bijgewerkt. Je kunt nu inloggen.",
     "backToLogin": "Terug naar inloggen",
     "changeMethod": "Methode wijzigen",
-    "verifyCode": "Code verifiëren"
+    "verifyCode": "Code verifiëren",
+    "loginTitle": "Inloggen op uw account",
+    "loginSubtitle": "Voer uw gegevens in om toegang te krijgen tot uw account",
+    "loginIdentifier": "Gebruikersnaam, e-mail of telefoonnummer",
+    "loginIdentifierPlaceholder": "Gebruikersnaam, e-mail of telefoon invoeren",
+    "loggingIn": "Inloggen...",
+    "logIn": "Inloggen",
+    "invalidCredentials": "Ongeldige inloggegevens.",
+    "forgotPasswordLink": "Wachtwoord vergeten?",
+    "noAccountSignup": "Geen account? Aanmelden"
   },
   "favorites": {
     "title": "Favorieten",

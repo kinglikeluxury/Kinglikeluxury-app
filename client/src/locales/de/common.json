@@ -210,7 +210,16 @@
     "resetDoneDesc": "Ihr Passwort wurde aktualisiert. Sie können sich jetzt anmelden.",
     "backToLogin": "Zurück zur Anmeldung",
     "changeMethod": "Methode ändern",
-    "verifyCode": "Code bestätigen"
+    "verifyCode": "Code bestätigen",
+    "loginTitle": "Melden Sie sich an",
+    "loginSubtitle": "Geben Sie Ihre Daten ein, um auf Ihr Konto zuzugreifen",
+    "loginIdentifier": "Benutzername, E-Mail oder Telefonnummer",
+    "loginIdentifierPlaceholder": "Benutzername, E-Mail oder Telefon eingeben",
+    "loggingIn": "Anmeldung...",
+    "logIn": "Anmelden",
+    "invalidCredentials": "Ungültige Anmeldedaten.",
+    "forgotPasswordLink": "Passwort vergessen?",
+    "noAccountSignup": "Kein Konto? Registrieren"
   },
   "favorites": {
     "title": "Favoriten",

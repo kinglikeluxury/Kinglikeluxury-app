@@ -207,7 +207,16 @@
     "resetDoneDesc": "הסיסמה שלך עודכנה. כעת תוכל להתחבר.",
     "backToLogin": "חזרה להתחברות",
     "changeMethod": "שנה שיטה",
-    "verifyCode": "אמת קוד"
+    "verifyCode": "אמת קוד",
+    "loginTitle": "התחבר לחשבונך",
+    "loginSubtitle": "הזן את פרטיך כדי לגשת לחשבון",
+    "loginIdentifier": "שם משתמש, אימייל או מספר טלפון",
+    "loginIdentifierPlaceholder": "הזן שם משתמש, אימייל או טלפון",
+    "loggingIn": "מתחבר...",
+    "logIn": "התחבר",
+    "invalidCredentials": "פרטי הכניסה שגויים.",
+    "forgotPasswordLink": "שכחת את הסיסמה?",
+    "noAccountSignup": "אין לך חשבון? הירשם"
   },
   "favorites": {
     "title": "מועדפים",

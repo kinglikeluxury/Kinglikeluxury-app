@@ -207,7 +207,16 @@
     "resetDoneDesc": "La tua password è stata aggiornata. Puoi ora accedere.",
     "backToLogin": "Torna al login",
     "changeMethod": "Cambia metodo",
-    "verifyCode": "Verifica codice"
+    "verifyCode": "Verifica codice",
+    "loginTitle": "Accedi al tuo account",
+    "loginSubtitle": "Inserisci le tue credenziali per accedere all'account",
+    "loginIdentifier": "Nome utente, email o numero di telefono",
+    "loginIdentifierPlaceholder": "Inserisci nome utente, email o telefono",
+    "loggingIn": "Accesso...",
+    "logIn": "Accedi",
+    "invalidCredentials": "Credenziali di accesso non valide.",
+    "forgotPasswordLink": "Hai dimenticato la password?",
+    "noAccountSignup": "Non hai un account? Registrati"
   },
   "favorites": {
     "title": "Preferiti",

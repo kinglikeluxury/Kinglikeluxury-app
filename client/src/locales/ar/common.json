@@ -208,7 +208,16 @@
     "resetDoneDesc": "تم تحديث كلمة السر بنجاح. يمكنك الآن تسجيل الدخول.",
     "backToLogin": "العودة إلى تسجيل الدخول",
     "changeMethod": "تغيير الطريقة",
-    "verifyCode": "التحقق من الرمز"
+    "verifyCode": "التحقق من الرمز",
+    "loginTitle": "تسجيل الدخول إلى حسابك",
+    "loginSubtitle": "أدخل بياناتك للوصول إلى حسابك",
+    "loginIdentifier": "اسم المستخدم أو البريد الإلكتروني أو رقم الهاتف",
+    "loginIdentifierPlaceholder": "أدخل اسم المستخدم أو البريد أو الهاتف",
+    "loggingIn": "جاري الدخول...",
+    "logIn": "دخول",
+    "invalidCredentials": "بيانات الدخول غير صحيحة.",
+    "forgotPasswordLink": "هل نسيت كلمة السر؟",
+    "noAccountSignup": "ليس لديك حساب؟ سجل الآن"
   },
   "favorites": {
     "title": "المفضلة",

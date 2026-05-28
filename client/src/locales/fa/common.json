@@ -208,7 +208,16 @@
     "resetDoneDesc": "رمز عبور شما به‌روزرسانی شد. اکنون می‌توانید وارد شوید.",
     "backToLogin": "بازگشت به ورود",
     "changeMethod": "تغییر روش",
-    "verifyCode": "تأیید کد"
+    "verifyCode": "تأیید کد",
+    "loginTitle": "وارد حساب کاربری خود شوید",
+    "loginSubtitle": "اطلاعات خود را برای دسترسی به حساب وارد کنید",
+    "loginIdentifier": "نام کاربری، ایمیل یا شماره تلفن",
+    "loginIdentifierPlaceholder": "نام کاربری، ایمیل یا تلفن را وارد کنید",
+    "loggingIn": "در حال ورود...",
+    "logIn": "ورود",
+    "invalidCredentials": "اطلاعات ورود نادرست است.",
+    "forgotPasswordLink": "رمز عبور خود را فراموش کرده‌اید؟",
+    "noAccountSignup": "حساب ندارید؟ ثبت‌نام کنید"
   },
   "favorites": {
     "title": "علاقه‌مندی‌ها",

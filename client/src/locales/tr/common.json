@@ -208,7 +208,16 @@
     "resetDoneDesc": "Şifreniz güncellendi. Şimdi giriş yapabilirsiniz.",
     "backToLogin": "Girişe geri dön",
     "changeMethod": "Yöntemi değiştir",
-    "verifyCode": "Kodu doğrula"
+    "verifyCode": "Kodu doğrula",
+    "loginTitle": "Hesabınıza giriş yapın",
+    "loginSubtitle": "Hesabınıza erişmek için kimlik bilgilerinizi girin",
+    "loginIdentifier": "Kullanıcı adı, E-posta veya Telefon numarası",
+    "loginIdentifierPlaceholder": "Kullanıcı adı, e-posta veya telefon girin",
+    "loggingIn": "Giriş yapılıyor...",
+    "logIn": "Giriş yap",
+    "invalidCredentials": "Geçersiz giriş bilgileri.",
+    "forgotPasswordLink": "Şifrenizi mi unuttunuz?",
+    "noAccountSignup": "Hesabınız yok mu? Kayıt olun"
   },
   "favorites": {
     "title": "Favoriler",

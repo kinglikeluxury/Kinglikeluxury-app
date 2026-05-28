@@ -210,7 +210,16 @@
     "resetDoneDesc": "Ditt lösenord har uppdaterats. Du kan nu logga in.",
     "backToLogin": "Tillbaka till inloggning",
     "changeMethod": "Byt metod",
-    "verifyCode": "Verifiera kod"
+    "verifyCode": "Verifiera kod",
+    "loginTitle": "Logga in på ditt konto",
+    "loginSubtitle": "Ange dina uppgifter för att komma åt ditt konto",
+    "loginIdentifier": "Användarnamn, e-post eller telefonnummer",
+    "loginIdentifierPlaceholder": "Ange användarnamn, e-post eller telefon",
+    "loggingIn": "Loggar in...",
+    "logIn": "Logga in",
+    "invalidCredentials": "Ogiltiga inloggningsuppgifter.",
+    "forgotPasswordLink": "Glömt lösenordet?",
+    "noAccountSignup": "Inget konto? Registrera dig"
   },
   "favorites": {
     "title": "Favoriter",

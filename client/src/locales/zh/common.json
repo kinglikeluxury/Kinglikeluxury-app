@@ -207,7 +207,16 @@
     "resetDoneDesc": "您的密码已更新，现在可以登录了。",
     "backToLogin": "返回登录",
     "changeMethod": "更改方式",
-    "verifyCode": "验证代码"
+    "verifyCode": "验证代码",
+    "loginTitle": "登录您的账户",
+    "loginSubtitle": "输入您的凭据以访问您的账户",
+    "loginIdentifier": "用户名、电子邮件或手机号码",
+    "loginIdentifierPlaceholder": "输入用户名、邮箱或手机号",
+    "loggingIn": "登录中...",
+    "logIn": "登录",
+    "invalidCredentials": "登录凭据无效。",
+    "forgotPasswordLink": "忘记密码？",
+    "noAccountSignup": "没有账户？立即注册"
   },
   "favorites": {
     "title": "收藏",

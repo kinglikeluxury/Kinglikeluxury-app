@@ -207,7 +207,16 @@
     "resetDoneDesc": "Twoje hasło zostało zaktualizowane. Możesz się teraz zalogować.",
     "backToLogin": "Powrót do logowania",
     "changeMethod": "Zmień metodę",
-    "verifyCode": "Zweryfikuj kod"
+    "verifyCode": "Zweryfikuj kod",
+    "loginTitle": "Zaloguj się do swojego konta",
+    "loginSubtitle": "Wprowadź swoje dane, aby uzyskać dostęp do konta",
+    "loginIdentifier": "Nazwa użytkownika, e-mail lub numer telefonu",
+    "loginIdentifierPlaceholder": "Wprowadź nazwę użytkownika, e-mail lub telefon",
+    "loggingIn": "Logowanie...",
+    "logIn": "Zaloguj się",
+    "invalidCredentials": "Nieprawidłowe dane logowania.",
+    "forgotPasswordLink": "Nie pamiętasz hasła?",
+    "noAccountSignup": "Nie masz konta? Zarejestruj się"
   },
   "favorites": {
     "title": "Ulubione",

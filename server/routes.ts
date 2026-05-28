@@ -880,15 +880,30 @@ ${metaTags}
         // In production, Facebook OAuth would handle this
       }
       else {
-        // Default to traditional username/password login if no auth method specified
+        // Default login — identifier can be username, email, or phone number
         if (!username || !password) {
-          return res.status(400).json({ message: "Username and password are required" });
+          return res.status(401).json({ message: "Invalid login credentials." });
         }
-        
-        user = await storage.getUserByUsername(username);
-        
+        const identifier = (username as string).trim();
+
+        // Detect identifier type: email → email lookup, phone-like → phone lookup, else → username
+        const isEmail = identifier.includes('@');
+        const cleanedPhone = identifier.replace(/[\s\-().]/g, '');
+        const isPhone = !isEmail && /^[+\d]/.test(cleanedPhone) && /\d{6,}/.test(cleanedPhone);
+
+        if (isEmail) {
+          user = await storage.getUserByEmail(identifier.toLowerCase());
+        } else if (isPhone) {
+          user = await storage.getUserByPhone(cleanedPhone);
+          // Also try the original string in case it was stored without normalization
+          if (!user) user = await storage.getUserByPhone(identifier);
+        } else {
+          user = await storage.getUserByUsername(identifier);
+        }
+
+        // Generic error — never reveal whether username/email/phone exists or which field failed
         if (!user || user.password !== password) {
-          return res.status(401).json({ message: "Invalid credentials" });
+          return res.status(401).json({ message: "Invalid login credentials." });
         }
       }
       

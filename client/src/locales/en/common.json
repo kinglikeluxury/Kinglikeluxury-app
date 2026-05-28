@@ -208,7 +208,16 @@
     "resetDoneDesc": "Your password has been updated. You can now sign in.",
     "backToLogin": "Back to Login",
     "changeMethod": "Change method",
-    "verifyCode": "Verify Code"
+    "verifyCode": "Verify Code",
+    "loginTitle": "Log in to your account",
+    "loginSubtitle": "Enter your credentials to access your account",
+    "loginIdentifier": "Username, Email, or Phone Number",
+    "loginIdentifierPlaceholder": "Enter username, email, or phone",
+    "loggingIn": "Logging in...",
+    "logIn": "Log in",
+    "invalidCredentials": "Invalid login credentials.",
+    "forgotPasswordLink": "Forgot your password?",
+    "noAccountSignup": "Don't have an account? Sign up"
   },
   "favorites": {
     "title": "Favorites",

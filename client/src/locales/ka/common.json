@@ -208,7 +208,16 @@
     "resetDoneDesc": "თქვენი პაროლი განახლდა. ახლა შეგიძლიათ შეხვიდეთ.",
     "backToLogin": "შესვლაზე დაბრუნება",
     "changeMethod": "მეთოდის შეცვლა",
-    "verifyCode": "კოდის დადასტურება"
+    "verifyCode": "კოდის დადასტურება",
+    "loginTitle": "შედით თქვენს ანგარიშში",
+    "loginSubtitle": "შეიყვანეთ მონაცემები ანგარიშზე წვდომისათვის",
+    "loginIdentifier": "მომხმარებლის სახელი, ელ-ფოსტა ან ტელეფონი",
+    "loginIdentifierPlaceholder": "მომხმარებელი, ელ-ფოსტა ან ტელეფონი",
+    "loggingIn": "შესვლა...",
+    "logIn": "შესვლა",
+    "invalidCredentials": "შესვლის მონაცემები არასწორია.",
+    "forgotPasswordLink": "დაგავიწყდათ პაროლი?",
+    "noAccountSignup": "არ გაქვთ ანგარიში? დარეგისტრირდით"
   },
   "favorites": {
     "title": "რჩეულები",

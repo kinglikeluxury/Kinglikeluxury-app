@@ -210,7 +210,16 @@
     "resetDoneDesc": "Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter.",
     "backToLogin": "Retour à la connexion",
     "changeMethod": "Changer de méthode",
-    "verifyCode": "Vérifier le code"
+    "verifyCode": "Vérifier le code",
+    "loginTitle": "Connectez-vous à votre compte",
+    "loginSubtitle": "Entrez vos identifiants pour accéder à votre compte",
+    "loginIdentifier": "Nom d'utilisateur, Email ou Numéro de téléphone",
+    "loginIdentifierPlaceholder": "Entrez nom d'utilisateur, email ou téléphone",
+    "loggingIn": "Connexion...",
+    "logIn": "Se connecter",
+    "invalidCredentials": "Identifiants de connexion invalides.",
+    "forgotPasswordLink": "Mot de passe oublié ?",
+    "noAccountSignup": "Pas de compte ? Inscrivez-vous"
   },
   "favorites": {
     "title": "Favoris",
