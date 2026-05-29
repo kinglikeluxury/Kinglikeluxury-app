@@ -19,7 +19,7 @@ import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 import { sendNewPropertyNotification } from "./emailService";
 import { translateBlogPost, translateText, detectLanguage, enrichTranslationsWithSeo, PRIMARY_SEO_LANGS } from "./translate";
-import { generateEnglishSlug, hasNonAscii, timestampSlug, toEnglishSlug } from "./slugUtils";
+import { generateEnglishSlug, hasNonAscii, timestampSlug, toEnglishSlug, slugToUrlPath } from "./slugUtils";
 import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment";
 // TODO: Fix Google Cloud Storage TypeScript compatibility issues
 // import {
@@ -151,20 +151,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const __routesDirname = path.dirname(fileURLToPath(import.meta.url));
 
   app.get("/:lang/blog/:slug", async (req, res, next) => {
-    const { lang, slug } = req.params;
+    const { lang } = req.params;
+    // Express auto-decodes path params — no need for manual decodeURIComponent
+    const slug = req.params.slug;
     if (!SEO_LANGS.includes(lang)) return next();
 
     const ua = req.headers["user-agent"] || "";
     const isBot = /googlebot|bingbot|yandexbot|baiduspider|duckduckbot|twitterbot|facebookexternalhit|linkedinbot|whatsapp|slackbot|telegrambot|applebot|semrushbot|ahrefsbot/i.test(ua);
 
-    try {
-      let post = await storage.getBlogPostBySlug(slug);
+    /** Returns the per-language slug for a post, falling back to the English base slug. */
+    const getPostLangSlug = (p: any, l: string): string =>
+      p.translations?.[l]?.slug || p.slug;
 
-      // 301 redirect if this is a legacy (non-English) slug
+    try {
+      let post: any = null;
+
+      // ── 1. Try localized slug lookup first (e.g. Arabic هل-أسعار-... or Russian prodolzhat-...) ──
+      post = await storage.getBlogPostByLocalizedSlug(lang, slug);
+
+      // ── 2. Fall back to English base slug lookup ──────────────────────────
+      if (!post) {
+        post = await storage.getBlogPostBySlug(slug);
+        if (post) {
+          // If this language has its own localized slug that differs from what was requested,
+          // 301 redirect to the canonical localized URL for this language.
+          const localizedSlug = getPostLangSlug(post, lang);
+          if (localizedSlug && localizedSlug !== slug) {
+            return res.redirect(301, `/${lang}/blog/${slugToUrlPath(localizedSlug)}`);
+          }
+        }
+      }
+
+      // ── 3. Check legacy old slugs → 301 to localized URL ─────────────────
       if (!post) {
         const redirectPost = await storage.getBlogPostByOldSlug(slug);
         if (redirectPost) {
-          return res.redirect(301, `/${lang}/blog/${redirectPost.slug}`);
+          const localizedSlug = getPostLangSlug(redirectPost, lang);
+          return res.redirect(301, `/${lang}/blog/${slugToUrlPath(localizedSlug)}`);
         }
         if (isBot) return res.status(404).send("Not found");
         return next();
@@ -174,38 +197,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         s.replace(/[<>"&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] ?? c));
 
       // ── Resolve per-language SEO fields (fall back gracefully for legacy rows) ──
-      const tr: any        = (post as any).translations?.[lang] ?? {};
-      const fallbackTitle  = (post as any).translations?.en?.title || (post as any).title || "Kinglike Luxury Blog";
-      const fallbackExcerpt = (post as any).translations?.en?.excerpt || (post as any).excerpt || "";
+      const tr: any         = post.translations?.[lang] ?? {};
+      const fallbackTitle   = post.translations?.en?.title || post.title || "Kinglike Luxury Blog";
+      const fallbackExcerpt = post.translations?.en?.excerpt || post.excerpt || "";
 
-      const rawTitle       = tr.title   || fallbackTitle;
-      const rawExcerpt     = tr.excerpt || fallbackExcerpt;
+      const rawTitle   = tr.title   || fallbackTitle;
+      const rawExcerpt = tr.excerpt || fallbackExcerpt;
 
-      // Meta title shown in <title> tag and OG (page title without brand suffix)
-      const title          = safe(rawTitle);
-      // Meta description: prefer stored field, fall back to excerpt
-      const description    = safe(tr.metaDescription || rawExcerpt || rawTitle);
-      // OG / Twitter fields — use stored per-language values when available
-      const ogTitle        = safe(tr.ogTitle        || rawTitle);
-      const ogDescription  = safe(tr.ogDescription  || tr.metaDescription || rawExcerpt || rawTitle);
-      const twitterTitle   = safe(tr.twitterTitle   || rawTitle);
-      const twitterDesc    = safe(tr.twitterDescription || tr.metaDescription || rawExcerpt || rawTitle);
-      // Keywords (meta keywords tag + JSON-LD)
-      const keywords       = tr.keywords ? safe(tr.keywords) : "";
+      const title        = safe(rawTitle);
+      const description  = safe(tr.metaDescription || rawExcerpt || rawTitle);
+      const ogTitle      = safe(tr.ogTitle        || rawTitle);
+      const ogDescription = safe(tr.ogDescription || tr.metaDescription || rawExcerpt || rawTitle);
+      const twitterTitle = safe(tr.twitterTitle   || rawTitle);
+      const twitterDesc  = safe(tr.twitterDescription || tr.metaDescription || rawExcerpt || rawTitle);
+      const keywords     = tr.keywords ? safe(tr.keywords) : "";
+      const content      = tr.content || post.content || "";
+      const image        = post.coverImage || `${SEO_BASE}/icons/icon-512.png`;
 
-      const content        = tr.content  || (post as any).content || "";
-      const image          = (post as any).coverImage || `${SEO_BASE}/icons/icon-512.png`;
-      // Each language version has its OWN canonical — not shared across languages
-      const canonical      = `${SEO_BASE}/${lang}/blog/${slug}`;
-      const datePublished  = (post as any).createdAt ? new Date((post as any).createdAt).toISOString() : "";
-      const dateModified   = (post as any).updatedAt ? new Date((post as any).updatedAt).toISOString() : datePublished;
+      // ── Per-language canonical URL uses the language-specific slug ────────
+      const thisLangSlug = getPostLangSlug(post, lang);
+      const canonical    = `${SEO_BASE}/${lang}/blog/${slugToUrlPath(thisLangSlug)}`;
 
-      // hreflang covers all supported languages pointing to their respective lang-prefixed URLs
-      const hreflangs = SEO_LANGS.map(l =>
-        `  <link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${slug}" />`
-      ).join("\n");
+      const datePublished = post.createdAt ? new Date(post.createdAt).toISOString() : "";
+      const dateModified  = post.updatedAt ? new Date(post.updatedAt).toISOString() : datePublished;
 
-      // Article Schema JSON-LD — language-specific with inLanguage
+      // ── hreflang: each language uses its own translated slug ──────────────
+      const hreflangs = SEO_LANGS.map(l => {
+        const lSlug = getPostLangSlug(post, l);
+        return `  <link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${slugToUrlPath(lSlug)}" />`;
+      }).join("\n");
+      const enSlug    = getPostLangSlug(post, "en");
+      const xDefault  = `  <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slugToUrlPath(enSlug)}" />`;
+
+      // Article Schema JSON-LD — language-specific with inLanguage + translated slug URL
       const jsonLd = JSON.stringify({
         "@context": "https://schema.org",
         "@type": "BlogPosting",
@@ -239,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 ${keywords ? `  <meta name="keywords" content="${keywords}">` : ""}
   <link rel="canonical" href="${canonical}">
 ${hreflangs}
-  <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slug}">
+  ${xDefault}
   <meta property="og:type" content="article">
   <meta property="og:title" content="${ogTitle} | Kinglike Luxury">
   <meta property="og:description" content="${ogDescription}">
@@ -258,7 +282,6 @@ ${hreflangs}
       }
 
       // ── Regular browsers: inject SEO tags into the SPA shell ──────────────
-      // Tags appear in page source before JS loads — satisfies Google's requirements.
       const isProd = process.env.NODE_ENV === "production";
       const indexPath = isProd
         ? path.resolve(__routesDirname, "public", "index.html")
@@ -272,7 +295,7 @@ ${hreflangs}
         ...(keywords ? [`  <meta name="keywords" content="${keywords}" />`] : []),
         `  <link rel="canonical" href="${canonical}" />`,
         hreflangs,
-        `  <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slug}" />`,
+        `  ${xDefault}`,
         `  <meta property="og:type" content="article" />`,
         `  <meta property="og:title" content="${ogTitle} | Kinglike Luxury" />`,
         `  <meta property="og:description" content="${ogDescription}" />`,
@@ -287,7 +310,6 @@ ${hreflangs}
         `  <script type="application/ld+json">${jsonLd}</script>`,
       ].join("\n");
 
-      // Strip the generic shell title/description then inject article-specific tags
       let html = fs.readFileSync(indexPath, "utf-8");
       html = html
         .replace(/<title>[^<]*<\/title>/, "")
@@ -1889,20 +1911,34 @@ ${metaTags}
     try {
       const { slug } = req.params;
       const { lang } = req.query;
+      const langStr = typeof lang === "string" && SEO_LANGS.includes(lang) ? lang : null;
 
-      let blogPost = await storage.getBlogPostBySlug(slug);
+      let blogPost: any = null;
+
+      // 1. Try localized slug lookup if a lang was provided
+      if (langStr) {
+        blogPost = await storage.getBlogPostByLocalizedSlug(langStr, slug);
+      }
+
+      // 2. Fall back to English base slug
+      if (!blogPost) {
+        blogPost = await storage.getBlogPostBySlug(slug);
+      }
 
       if (!blogPost) {
-        // Check legacy old slugs for 301 redirect info
+        // Check legacy old slugs
         const redirectPost = await storage.getBlogPostByOldSlug(slug);
         if (redirectPost) {
-          return res.status(301).json({ redirect: redirectPost.slug });
+          const localizedSlug = langStr
+            ? ((redirectPost as any).translations?.[langStr]?.slug || redirectPost.slug)
+            : redirectPost.slug;
+          return res.status(301).json({ redirect: localizedSlug });
         }
         return res.status(404).json({ message: "Blog post not found" });
       }
 
-      if (lang) {
-        const t = (blogPost as any).translations?.[lang as string];
+      if (langStr) {
+        const t = blogPost.translations?.[langStr];
         if (t) {
           return res.json({ ...blogPost, title: t.title, content: t.content, excerpt: t.excerpt });
         }

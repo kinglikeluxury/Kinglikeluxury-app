@@ -497,6 +497,24 @@ export class DatabaseStorage implements IStorage {
       author: result.users
     };
   }
+
+  async getBlogPostByLocalizedSlug(lang: string, slug: string): Promise<(BlogPost & { author: User }) | undefined> {
+    const decodedSlug = decodeURIComponent(slug);
+    // Query: (translations->'lang')->>'slug' = $decodedSlug
+    // lang is validated against SEO_LANGS before calling this method
+    const [result] = await db
+      .select()
+      .from(blogPosts)
+      .innerJoin(users, eq(blogPosts.authorId, users.id))
+      .where(sql`(${blogPosts.translations}->${sql.raw("'" + lang.replace(/'/g, "''") + "'")})->>'slug' = ${decodedSlug}`);
+
+    if (!result) return undefined;
+
+    return {
+      ...result.blog_posts,
+      author: result.users
+    };
+  }
   
   async createBlogPost(post: InsertBlogPost): Promise<BlogPost> {
     const [blogPost] = await db.insert(blogPosts).values(post).returning();

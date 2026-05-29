@@ -59,6 +59,7 @@ export interface IStorage {
   getBlogPostById(id: number): Promise<(BlogPost & { author: User }) | undefined>;
   getBlogPostBySlug(slug: string): Promise<(BlogPost & { author: User }) | undefined>;
   getBlogPostByOldSlug(oldSlug: string): Promise<(BlogPost & { author: User }) | undefined>;
+  getBlogPostByLocalizedSlug(lang: string, slug: string): Promise<(BlogPost & { author: User }) | undefined>;
   createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
   updateBlogPost(id: number, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined>;
   deleteBlogPost(id: number): Promise<boolean>;
@@ -397,7 +398,11 @@ export class MemStorage implements IStorage {
   async getBlogPostByOldSlug(oldSlug: string): Promise<(BlogPost & { author: User }) | undefined> {
     return undefined;
   }
-  
+
+  async getBlogPostByLocalizedSlug(_lang: string, _slug: string): Promise<(BlogPost & { author: User }) | undefined> {
+    return undefined;
+  }
+
   async createBlogPost(post: InsertBlogPost): Promise<BlogPost> {
     const id = this.blogPostIdCounter++;
     const blogPost: BlogPost = {

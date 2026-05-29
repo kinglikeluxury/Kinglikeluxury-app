@@ -1,6 +1,5 @@
 /**
- * English-only SEO slug utilities.
- * All blog post slugs must contain only ASCII letters, digits, and hyphens.
+ * SEO slug utilities — supports ASCII (transliterated) and native-Unicode slugs.
  */
 
 /**
@@ -47,6 +46,24 @@ const TRANSLITERATE: Record<string, string> = {
   ţ: "t", ť: "t", Ţ: "t", Ť: "t",
   ű: "u", ů: "u", Ű: "u", Ů: "u",
   ź: "z", ż: "z", ž: "z", Ź: "z", Ż: "z", Ž: "z",
+};
+
+/** Cyrillic → Latin transliteration for Russian slugs */
+const CYRILLIC_MAP: Record<string, string> = {
+  а: "a",  б: "b",  в: "v",  г: "g",  д: "d",  е: "e",  ё: "yo",
+  ж: "zh", з: "z",  и: "i",  й: "y",  к: "k",  л: "l",  м: "m",
+  н: "n",  о: "o",  п: "p",  р: "r",  с: "s",  т: "t",  у: "u",
+  ф: "f",  х: "kh", ц: "ts", ч: "ch", ш: "sh", щ: "sch",
+  ъ: "",   ы: "y",  ь: "",   э: "e",  ю: "yu", я: "ya",
+};
+
+/** Georgian script → Latin transliteration */
+const GEORGIAN_MAP: Record<string, string> = {
+  ა: "a",  ბ: "b",  გ: "g",  დ: "d",  ე: "e",  ვ: "v",  ზ: "z",
+  თ: "t",  ი: "i",  კ: "k",  ლ: "l",  მ: "m",  ნ: "n",  ო: "o",
+  პ: "p",  ჟ: "zh", რ: "r",  ს: "s",  ტ: "t",  უ: "u",  ფ: "f",
+  ქ: "k",  ღ: "gh", ყ: "q",  შ: "sh", ჩ: "ch", ც: "ts",
+  ძ: "dz", წ: "ts", ჭ: "ch", ხ: "kh", ჯ: "j",  ჰ: "h",
 };
 
 /** Apply transliteration: replace known special chars before stripping. */
@@ -136,11 +153,14 @@ function detectCountry(words: string[]): string | null {
 }
 
 /**
- * Maximum slug length (characters). Slugs are never cut mid-word.
- * Google treats the first ~60-70 chars as most significant; beyond ~80
- * extra words dilute keyword relevance.
+ * Maximum ASCII slug length (characters).
  */
 const MAX_SLUG_LENGTH = 72;
+
+/**
+ * Maximum Unicode slug length (characters — counted in code points).
+ */
+const MAX_UNICODE_SLUG = 80;
 
 /**
  * Converts a string to a clean, SEO-optimised ASCII slug:
@@ -195,7 +215,6 @@ export function toEnglishSlug(text: string): string {
     const countryParts = country.split("-");
     const slugHasCountry = countryParts.every((cp) => parts.includes(cp));
     if (!slugHasCountry) {
-      // Try to append; if it exceeds limit, it still gets added (country > keyword dilution)
       for (const cp of countryParts) {
         if (!parts.includes(cp)) parts.push(cp);
       }
@@ -203,6 +222,71 @@ export function toEnglishSlug(text: string): string {
   }
 
   return parts.join("-");
+}
+
+/**
+ * Generates a Unicode slug for RTL/CJK scripts (Arabic, Hebrew, Persian, Chinese).
+ * Keeps native characters, replaces spaces with hyphens, strips punctuation and emoji.
+ */
+function toUnicodeSlug(text: string): string {
+  if (!text) return "";
+  const slug = text
+    // Strip emoji
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, "")
+    // Keep letters (any script), digits, spaces, hyphens; remove everything else
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\s/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (slug.length <= MAX_UNICODE_SLUG) return slug;
+  const truncated = slug.substring(0, MAX_UNICODE_SLUG);
+  const lastHyphen = truncated.lastIndexOf("-");
+  return lastHyphen > 20 ? truncated.substring(0, lastHyphen) : truncated;
+}
+
+/**
+ * Generate a language-specific SEO slug from a translated blog post title.
+ *
+ *  ar / he / fa     →  Unicode slug (Arabic/Hebrew/Persian script, hyphen-separated)
+ *  zh               →  Unicode slug (CJK characters)
+ *  ru               →  Cyrillic → Latin transliteration → toEnglishSlug
+ *  ka               →  Georgian script → Latin transliteration → toEnglishSlug
+ *  tr / pl / de / fr / it / nl / sv / az / en
+ *                   →  toEnglishSlug (existing Latin TRANSLITERATE map)
+ */
+export function generateLocalizedSlug(title: string, lang: string): string {
+  if (!title) return "";
+
+  // RTL scripts and CJK: keep native Unicode characters
+  if (["ar", "he", "fa", "zh"].includes(lang)) {
+    return toUnicodeSlug(title);
+  }
+
+  // Russian: Cyrillic → Latin
+  if (lang === "ru") {
+    const latin = title
+      .toLowerCase()
+      .split("")
+      .map((ch) => CYRILLIC_MAP[ch] ?? ch)
+      .join("");
+    return toEnglishSlug(latin);
+  }
+
+  // Georgian: Georgian script → Latin
+  if (lang === "ka") {
+    const latin = title
+      .split("")
+      .map((ch) => GEORGIAN_MAP[ch] ?? ch)
+      .join("");
+    return toEnglishSlug(latin);
+  }
+
+  // All others: Turkish, Polish, German, French, Italian, Dutch, Swedish,
+  // Azerbaijani, English — use existing TRANSLITERATE map + toEnglishSlug
+  return toEnglishSlug(title);
 }
 
 /**
@@ -220,4 +304,12 @@ export function generateEnglishSlug(title: string, enTitle?: string | null): str
 /** Generates a unique timestamp-based fallback slug. */
 export function timestampSlug(): string {
   return `post-${Date.now()}`;
+}
+
+/**
+ * Encodes a slug for use in a URL or HTML attribute.
+ * ASCII slugs are returned as-is; Unicode slugs are percent-encoded.
+ */
+export function slugToUrlPath(slug: string): string {
+  return hasNonAscii(slug) ? encodeURIComponent(slug) : slug;
 }

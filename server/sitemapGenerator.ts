@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { slugToUrlPath } from "./slugUtils";
 
 /**
  * All supported SEO languages — kept in sync with SEO_LANGS in routes.ts.
@@ -34,18 +35,33 @@ function staticUrlBlock(u: { loc: string; priority: string; changefreq: string }
   ].join("\n");
 }
 
-/** Build one <url> block for a single language version of a blog post. */
+/**
+ * Get the slug to use for a given post + language.
+ * Prefers the language-specific translated slug; falls back to the base English slug.
+ */
+function getLangSlug(post: any, lang: string): string {
+  return post.translations?.[lang]?.slug || post.slug;
+}
+
+/**
+ * Build one <url> block for a single language version of a blog post.
+ * Each language now uses its own translated slug in <loc> and in hreflang hrefs.
+ */
 function blogUrlBlock(
-  slug: string,
+  post: any,
   lang: string,
   lastmod: string,
 ): string {
-  const loc = `${BASE_URL}/${lang}/blog/${slug}`;
-  const hreflangs = SEO_LANGS.map(
-    (l) =>
-      `    <xhtml:link rel="alternate" hreflang="${l}" href="${BASE_URL}/${l}/blog/${slug}"/>`,
-  ).join("\n");
-  const xDefault = `    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}/en/blog/${slug}"/>`;
+  const langSlug = getLangSlug(post, lang);
+  const loc = `${BASE_URL}/${lang}/blog/${slugToUrlPath(langSlug)}`;
+
+  const hreflangs = SEO_LANGS.map((l) => {
+    const lSlug = getLangSlug(post, l);
+    return `    <xhtml:link rel="alternate" hreflang="${l}" href="${BASE_URL}/${l}/blog/${slugToUrlPath(lSlug)}"/>`;
+  }).join("\n");
+
+  const enSlug = getLangSlug(post, "en");
+  const xDefault = `    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}/en/blog/${slugToUrlPath(enSlug)}"/>`;
 
   return [
     "  <url>",
@@ -62,17 +78,10 @@ function blogUrlBlock(
 /**
  * Generates the sitemap XML string dynamically from the database.
  *
- * This is called directly by the /sitemap.xml Express route registered at
- * the top of server/index.ts — before any static-file middleware — so it
- * always wins and never returns index.html by mistake.
- *
- * We intentionally do NOT write a static sitemap.xml to disk. Doing so
- * would let Vite copy it to dist/public/ and allow express.static to serve
- * a potentially stale file instead of this live, DB-driven version.
- *
- * Each published blog post generates one URL block per supported language,
- * all sharing the same English slug under their respective /{lang}/blog/ prefix.
- * Per-language hreflang alternates point to every language variant.
+ * Each published blog post generates one URL block per supported language.
+ * Every language version uses its own translated slug (Arabic, Hebrew, Russian, etc.)
+ * so Google indexes each language independently.
+ * hreflang alternates cross-link all language versions using their respective slugs.
  */
 export async function generateSitemapXml(): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
@@ -89,7 +98,7 @@ export async function generateSitemapXml(): Promise<string> {
         ? new Date(((post as any).updatedAt || (post as any).createdAt)).toISOString().split("T")[0]
         : today;
       for (const lang of SEO_LANGS) {
-        blogBlocks.push(blogUrlBlock(post.slug, lang, lastmod));
+        blogBlocks.push(blogUrlBlock(post, lang, lastmod));
       }
     }
   } catch (err) {

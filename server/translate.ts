@@ -1,4 +1,5 @@
 import translate from "google-translate-api-x";
+import { generateLocalizedSlug } from "./slugUtils";
 
 const SUPPORTED_LANGS: Record<string, string> = {
   en: "en",
@@ -29,6 +30,8 @@ export type BlogTranslationData = {
   title: string;
   content: string;
   excerpt: string;
+  /** Language-specific SEO slug (e.g. Arabic Unicode or Russian transliterated). */
+  slug?: string;
   /** Generated SEO fields — undefined on legacy rows that pre-date this feature. */
   metaDescription?: string;
   keywords?: string;
@@ -79,7 +82,7 @@ export async function detectLanguage(text: string): Promise<string> {
  * Builds SEO metadata fields from a translated title and excerpt.
  * Uses only the content already translated — no extra API calls.
  */
-export function buildSeoFields(title: string, excerpt: string): Omit<BlogTranslationData, "title" | "content" | "excerpt" | "translationStatus"> {
+export function buildSeoFields(title: string, excerpt: string): Omit<BlogTranslationData, "title" | "content" | "excerpt" | "slug" | "translationStatus"> {
   // Strip emoji and extra whitespace
   const cleanTitle = title.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, "").replace(/\s+/g, " ").trim();
   const cleanExcerpt = excerpt.replace(/\s+/g, " ").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, "").trim();
@@ -109,7 +112,8 @@ export function buildSeoFields(title: string, excerpt: string): Omit<BlogTransla
 
 /**
  * Translates a blog post into all supported languages and generates SEO fields.
- * Returns a map of lang → full BlogTranslationData including SEO metadata.
+ * Returns a map of lang → full BlogTranslationData including SEO metadata and
+ * language-specific slug.
  * The source language gets status "original"; translated languages get "generated";
  * any failed language gets status "pending_translation" with original-language fallback text.
  */
@@ -132,6 +136,7 @@ export async function translateBlogPost(
         title,
         content,
         excerpt,
+        slug: generateLocalizedSlug(title, lang),
         ...buildSeoFields(title, excerpt),
         translationStatus: "original",
       };
@@ -149,6 +154,7 @@ export async function translateBlogPost(
         title: translatedTitle,
         content: translatedContent,
         excerpt: translatedExcerpt,
+        slug: generateLocalizedSlug(translatedTitle, lang),
         ...buildSeoFields(translatedTitle, translatedExcerpt),
         translationStatus: "generated",
       };
@@ -158,6 +164,7 @@ export async function translateBlogPost(
         title,
         content,
         excerpt,
+        slug: generateLocalizedSlug(title, lang),
         ...buildSeoFields(title, excerpt),
         translationStatus: "pending_translation",
       };
@@ -168,8 +175,8 @@ export async function translateBlogPost(
 }
 
 /**
- * Generates (or regenerates) only the SEO fields for existing translations
- * without re-translating content. Safe to run on existing posts.
+ * Generates (or regenerates) only the SEO fields and localized slug for
+ * existing translations without re-translating content. Safe to run on existing posts.
  */
 export function enrichTranslationsWithSeo(
   existing: Record<string, any>
@@ -178,13 +185,13 @@ export function enrichTranslationsWithSeo(
   for (const [lang, data] of Object.entries(existing)) {
     if (!data || typeof data !== "object") continue;
     const hasSeo = data.metaDescription || data.ogTitle;
-    enriched[lang] = hasSeo
-      ? data
-      : {
-          ...data,
-          ...buildSeoFields(data.title || "", data.excerpt || ""),
-          translationStatus: data.translationStatus ?? "generated",
-        };
+    const hasSlug = !!data.slug;
+    enriched[lang] = {
+      ...data,
+      ...(hasSeo ? {} : buildSeoFields(data.title || "", data.excerpt || "")),
+      slug: hasSlug ? data.slug : generateLocalizedSlug(data.title || "", lang),
+      translationStatus: data.translationStatus ?? "generated",
+    };
   }
   return enriched;
 }
