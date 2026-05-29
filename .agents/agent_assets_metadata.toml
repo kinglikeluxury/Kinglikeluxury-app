@@ -60,3 +60,21 @@ id = "thtx06F7y0xMON_ml9dRt"
 uri = "file://kinglike-full-backup-2026-05-27/kinglike-source-2026-05-27.zip"
 type = "unspecified"
 title = "Full Source Code (client + server + shared + configs)"
+
+[[outputs]]
+id = "Qh42CVcxo9kQcL3o1sKvr"
+uri = "file://backups/code-backup-2026-05-29.zip"
+type = "unspecified"
+title = "Source Code Backup (3.2 MB)"
+
+[[outputs]]
+id = "gxbgDbSdinBwT_WBcAaC5"
+uri = "file://backups/database-backup-2026-05-29.zip"
+type = "unspecified"
+title = "Database Backup — SQL inside (639 KB compressed)"
+
+[[outputs]]
+id = "hv2vKrU7NiEf1mQRDBeIl"
+uri = "file://backups/RESTORE-INSTRUCTIONS.md"
+type = "text"
+title = "Restore Instructions"
