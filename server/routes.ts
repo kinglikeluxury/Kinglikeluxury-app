@@ -2007,11 +2007,30 @@ ${metaTags}
       }
 
       const id = parseInt(req.params.id);
-      const { title, content, excerpt, coverImage, coverVideo, categories, published, country } = req.body;
+      const { title, content, excerpt, coverImage, coverVideo, categories, published, country, slug: manualSlug } = req.body;
       
       const updates: any = {};
       const currentPost = await storage.getBlogPostById(id);
-      if (title !== undefined) {
+
+      // ── Manual slug override (admin panel) ────────────────────────────────
+      // If the admin explicitly sends a `slug` field, honour it and
+      // automatically create a 301 redirect from the old slug.
+      if (manualSlug !== undefined && typeof manualSlug === "string") {
+        const cleanSlug = manualSlug.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
+        if (cleanSlug && currentPost && cleanSlug !== currentPost.slug) {
+          // Confirm no other post owns this slug
+          const taken = await storage.getBlogPostBySlug(cleanSlug);
+          if (taken && taken.id !== id) {
+            return res.status(409).json({ message: `Slug "${cleanSlug}" is already used by another post (ID ${taken.id})` });
+          }
+          const prevOld: string[] = (currentPost as any)?.oldSlugs ?? [];
+          if (!prevOld.includes(currentPost.slug)) {
+            updates.oldSlugs = [...prevOld, currentPost.slug];
+          }
+          updates.slug = cleanSlug;
+        }
+      } else if (title !== undefined) {
+        // ── Auto-slug from title (existing behaviour) ──────────────────────
         updates.title = title;
         // If title is ASCII-safe, generate a new English slug.
         // If non-ASCII (e.g. Arabic), keep the EXISTING slug so we don't
@@ -2029,6 +2048,9 @@ ${metaTags}
         }
         // else: non-ASCII title → keep existing slug; translation callback will upgrade it
       }
+
+      if (title !== undefined && manualSlug === undefined) updates.title = title;
+      else if (title !== undefined) updates.title = title;
       if (content !== undefined) updates.content = content;
       if (excerpt !== undefined) updates.excerpt = excerpt;
       if (coverImage !== undefined) updates.coverImage = coverImage;

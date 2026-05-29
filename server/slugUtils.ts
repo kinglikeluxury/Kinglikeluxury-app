@@ -79,11 +79,11 @@ const STOP_WORDS = new Set([
   "your", "my", "our", "its",
   // Question / intro words
   "how", "why", "what", "when", "where", "which", "who",
-  // Auxiliary verbs (note: "will" omitted — can be a legal noun e.g. "real estate will")
+  // Auxiliary verbs
   "is", "are", "was", "were", "can", "do", "does",
   // Filler action verbs
   "need", "know", "get", "make", "buy", "change",
-  // Vague superlatives / quantifiers (note: "one" omitted — can be meaningful)
+  // Vague superlatives / quantifiers
   "most", "least",
   "everything", "something", "anything", "nothing",
   "all", "any", "some",
@@ -97,17 +97,58 @@ const STOP_WORDS = new Set([
 ]);
 
 /**
+ * Target countries Kinglike Luxury operates in.
+ * When a title mentions one of these, its canonical slug keyword is guaranteed
+ * to appear in the generated slug (appended at the end if not already present).
+ */
+const COUNTRY_KEYWORDS: Record<string, string> = {
+  georgia:      "georgia",
+  georgian:     "georgia",
+  tbilisi:      "georgia",
+  batumi:       "georgia",
+  turkey:       "turkey",
+  turkiye:      "turkey",
+  turkish:      "turkey",
+  istanbul:     "turkey",
+  ankara:       "turkey",
+  uae:          "uae",
+  dubai:        "uae",
+  "abu dhabi":  "uae",
+  emirates:     "uae",
+  cyprus:       "north-cyprus",
+  "north cyprus": "north-cyprus",
+};
+
+/**
+ * Detect the target country in a normalised word list.
+ * Returns the canonical country slug keyword or null.
+ */
+function detectCountry(words: string[]): string | null {
+  const sentence = words.join(" ");
+  // Check two-word phrases first
+  for (const [phrase, canonical] of Object.entries(COUNTRY_KEYWORDS)) {
+    if (phrase.includes(" ") && sentence.includes(phrase)) return canonical;
+  }
+  for (const word of words) {
+    if (COUNTRY_KEYWORDS[word]) return COUNTRY_KEYWORDS[word];
+  }
+  return null;
+}
+
+/**
  * Maximum slug length (characters). Slugs are never cut mid-word.
  * Google treats the first ~60-70 chars as most significant; beyond ~80
  * extra words dilute keyword relevance.
  */
-const MAX_SLUG_LENGTH = 70;
+const MAX_SLUG_LENGTH = 72;
 
 /**
  * Converts a string to a clean, SEO-optimised ASCII slug:
  * 1. Transliterates special Latin characters.
  * 2. Removes stop words (filler words with no SEO value).
- * 3. Truncates at a whole-word boundary at ≤ MAX_SLUG_LENGTH characters.
+ * 3. Removes duplicate words (preserves first occurrence).
+ * 4. Ensures target country keyword appears if title mentions one.
+ * 5. Truncates at a whole-word boundary at ≤ MAX_SLUG_LENGTH characters.
  */
 export function toEnglishSlug(text: string): string {
   if (!text) return "";
@@ -119,24 +160,47 @@ export function toEnglishSlug(text: string): string {
     .replace(/\s+/g, " ")
     .trim();
 
-  const words = normalized.split(" ").filter((w) => w.length > 0);
+  const allWords = normalized.split(" ").filter((w) => w.length > 0);
 
-  // Step 2: remove stop words; fall back to all words if result too short
-  const filtered = words.filter((w) => !STOP_WORDS.has(w));
-  const useWords = filtered.length >= 3 ? filtered : words;
+  // Step 2: detect country before stop-word removal (stop words may strip location context)
+  const country = detectCountry(allWords);
 
-  // Step 3: accumulate words up to MAX_SLUG_LENGTH — never cut mid-word
+  // Step 3: remove stop words; fall back to all words if result too short
+  const filtered = allWords.filter((w) => !STOP_WORDS.has(w));
+  const baseWords = filtered.length >= 3 ? filtered : allWords;
+
+  // Step 4: remove duplicate words (keep first occurrence)
+  const seen = new Set<string>();
+  const deduped = baseWords.filter((w) => {
+    if (seen.has(w)) return false;
+    seen.add(w);
+    return true;
+  });
+
+  // Step 5: accumulate words up to MAX_SLUG_LENGTH — never cut mid-word
   const parts: string[] = [];
   let len = 0;
-  for (const word of useWords) {
-    const addition = (len === 0 ? 0 : 1) + word.length; // +1 for hyphen separator
+  for (const word of deduped) {
+    const addition = (len === 0 ? 0 : 1) + word.length;
     if (len > 0 && len + addition > MAX_SLUG_LENGTH) break;
     parts.push(word);
     len += addition;
   }
 
   // Guarantee at least one word even if the first word alone exceeds the limit
-  if (parts.length === 0 && useWords.length > 0) parts.push(useWords[0]);
+  if (parts.length === 0 && deduped.length > 0) parts.push(deduped[0]);
+
+  // Step 6: ensure country keyword is present (append only if truncation dropped it)
+  if (country) {
+    const countryParts = country.split("-");
+    const slugHasCountry = countryParts.every((cp) => parts.includes(cp));
+    if (!slugHasCountry) {
+      // Try to append; if it exceeds limit, it still gets added (country > keyword dilution)
+      for (const cp of countryParts) {
+        if (!parts.includes(cp)) parts.push(cp);
+      }
+    }
+  }
 
   return parts.join("-");
 }
