@@ -1,0 +1,103 @@
+# Environment Variable Inventory
+# Kinglike Luxury Real Estate Platform
+# Generated: 2026-05-29
+# Note: Variable NAMES only — no values are listed here.
+
+---
+
+## Database
+
+DATABASE_URL
+NEON_DATABASE_URL
+TARGET_DB
+
+---
+
+## AI / OpenAI
+
+OPENAI_API_KEY
+OPENAI_BASE_URL
+AI_API_KEY
+AI_INTEGRATIONS_OPENAI_API_KEY
+AI_INTEGRATIONS_OPENAI_BASE_URL
+
+---
+
+## Cloudinary (Media Storage)
+
+CLOUDINARY_CLOUD_NAME
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
+
+---
+
+## Email (Resend)
+
+RESEND_API_KEY
+
+---
+
+## SMS / WhatsApp (Twilio)
+
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_PHONE_NUMBER
+TWILIO_MESSAGING_SERVICE_SID
+
+---
+
+## Web Push Notifications (VAPID)
+
+VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY
+VAPID_SUBJECT
+
+---
+
+## Payment Gateway (BOG)
+
+BOG_CLIENT_ID
+BOG_CLIENT_SECRET
+BOG_BASE_URL
+
+---
+
+## Telegram
+
+TELEGRAM_BOT_TOKEN
+
+---
+
+## Session / Security
+
+SESSION_SECRET
+
+---
+
+## Replit Platform (auto-provided)
+
+REPL_ID
+REPL_IDENTITY
+REPLIT_DOMAINS
+REPLIT_DEV_DOMAIN
+REPLIT_INTERNAL_APP_DOMAIN
+REPLIT_CONNECTORS_HOSTNAME
+WEB_REPL_RENEWAL
+EXPO_PUBLIC_REPL_ID
+EXPO_PUBLIC_DOMAIN
+
+---
+
+## Application / Runtime
+
+NODE_ENV
+PORT
+BASE_URL
+BASE_PATH
+INNGEST_PORT
+PRIVATE_OBJECT_DIR
+PUBLIC_OBJECT_SEARCH_PATHS
+
+---
+
+## Total: 38 variable names

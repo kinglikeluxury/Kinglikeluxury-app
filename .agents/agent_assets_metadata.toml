@@ -78,3 +78,9 @@ id = "hv2vKrU7NiEf1mQRDBeIl"
 uri = "file://backups/RESTORE-INSTRUCTIONS.md"
 type = "text"
 title = "Restore Instructions"
+
+[[outputs]]
+id = "njS7trmPDyKQXufSLS-3l"
+uri = "file://backups/ENVIRONMENT-INVENTORY.md"
+type = "text"
+title = "ENVIRONMENT-INVENTORY.md — 38 variable names"
