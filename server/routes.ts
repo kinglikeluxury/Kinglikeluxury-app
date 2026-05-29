@@ -18,7 +18,7 @@ import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 import { sendNewPropertyNotification } from "./emailService";
-import { translateBlogPost, translateText, detectLanguage } from "./translate";
+import { translateBlogPost, translateText, detectLanguage, enrichTranslationsWithSeo, PRIMARY_SEO_LANGS } from "./translate";
 import { generateEnglishSlug, hasNonAscii, timestampSlug, toEnglishSlug } from "./slugUtils";
 import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment";
 // TODO: Fix Google Cloud Storage TypeScript compatibility issues
@@ -173,32 +173,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const safe = (s: string) =>
         s.replace(/[<>"&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "&": "&amp;" }[c] ?? c));
 
-      const tr: any     = (post as any).translations?.[lang] ?? {};
-      const title       = safe(tr.title   || (post as any).title   || "Kinglike Luxury Blog");
-      const description = safe(tr.excerpt || (post as any).excerpt || title);
-      const content     = tr.content  || (post as any).content || "";
-      const image       = (post as any).coverImage || `${SEO_BASE}/icons/icon-512.png`;
-      const canonical   = `${SEO_BASE}/${lang}/blog/${slug}`;
-      const published   = (post as any).createdAt ? new Date((post as any).createdAt).toISOString() : "";
+      // ── Resolve per-language SEO fields (fall back gracefully for legacy rows) ──
+      const tr: any        = (post as any).translations?.[lang] ?? {};
+      const fallbackTitle  = (post as any).translations?.en?.title || (post as any).title || "Kinglike Luxury Blog";
+      const fallbackExcerpt = (post as any).translations?.en?.excerpt || (post as any).excerpt || "";
 
+      const rawTitle       = tr.title   || fallbackTitle;
+      const rawExcerpt     = tr.excerpt || fallbackExcerpt;
+
+      // Meta title shown in <title> tag and OG (page title without brand suffix)
+      const title          = safe(rawTitle);
+      // Meta description: prefer stored field, fall back to excerpt
+      const description    = safe(tr.metaDescription || rawExcerpt || rawTitle);
+      // OG / Twitter fields — use stored per-language values when available
+      const ogTitle        = safe(tr.ogTitle        || rawTitle);
+      const ogDescription  = safe(tr.ogDescription  || tr.metaDescription || rawExcerpt || rawTitle);
+      const twitterTitle   = safe(tr.twitterTitle   || rawTitle);
+      const twitterDesc    = safe(tr.twitterDescription || tr.metaDescription || rawExcerpt || rawTitle);
+      // Keywords (meta keywords tag + JSON-LD)
+      const keywords       = tr.keywords ? safe(tr.keywords) : "";
+
+      const content        = tr.content  || (post as any).content || "";
+      const image          = (post as any).coverImage || `${SEO_BASE}/icons/icon-512.png`;
+      // Each language version has its OWN canonical — not shared across languages
+      const canonical      = `${SEO_BASE}/${lang}/blog/${slug}`;
+      const datePublished  = (post as any).createdAt ? new Date((post as any).createdAt).toISOString() : "";
+      const dateModified   = (post as any).updatedAt ? new Date((post as any).updatedAt).toISOString() : datePublished;
+
+      // hreflang covers all supported languages pointing to their respective lang-prefixed URLs
       const hreflangs = SEO_LANGS.map(l =>
         `  <link rel="alternate" hreflang="${l}" href="${SEO_BASE}/${l}/blog/${slug}" />`
       ).join("\n");
 
+      // Article Schema JSON-LD — language-specific with inLanguage
       const jsonLd = JSON.stringify({
         "@context": "https://schema.org",
         "@type": "BlogPosting",
-        headline: title,
-        description: description,
+        headline: ogTitle,
+        description: ogDescription,
         image: image,
         url: canonical,
-        datePublished: published,
+        inLanguage: lang,
+        datePublished: datePublished,
+        dateModified: dateModified,
+        ...(keywords ? { keywords } : {}),
         author: { "@type": "Organization", name: "Kinglike Luxury", url: SEO_BASE },
-        publisher: { "@type": "Organization", name: "Kinglike Luxury", logo: { "@type": "ImageObject", url: `${SEO_BASE}/icons/icon-512.png` } },
+        publisher: {
+          "@type": "Organization",
+          name: "Kinglike Luxury",
+          logo: { "@type": "ImageObject", url: `${SEO_BASE}/icons/icon-512.png` },
+        },
         mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
       });
 
-      // ── Bots: return a minimal server-rendered page for maximum crawlability
+      // ── Bots: return a minimal server-rendered page for maximum crawlability ──
       if (isBot) {
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         return res.send(`<!DOCTYPE html>
@@ -208,18 +236,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${title} | Kinglike Luxury</title>
   <meta name="description" content="${description}">
+${keywords ? `  <meta name="keywords" content="${keywords}">` : ""}
   <link rel="canonical" href="${canonical}">
 ${hreflangs}
   <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slug}">
   <meta property="og:type" content="article">
-  <meta property="og:title" content="${title} | Kinglike Luxury">
-  <meta property="og:description" content="${description}">
+  <meta property="og:title" content="${ogTitle} | Kinglike Luxury">
+  <meta property="og:description" content="${ogDescription}">
   <meta property="og:image" content="${image}">
   <meta property="og:url" content="${canonical}">
   <meta property="og:site_name" content="Kinglike Luxury">
+  <meta property="og:locale" content="${lang}">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${title} | Kinglike Luxury">
-  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:title" content="${twitterTitle} | Kinglike Luxury">
+  <meta name="twitter:description" content="${twitterDesc}">
   <meta name="twitter:image" content="${image}">
   <script type="application/ld+json">${jsonLd}</script>
 </head>
@@ -239,15 +269,21 @@ ${hreflangs}
       const seoHead = [
         `  <title>${title} | Kinglike Luxury</title>`,
         `  <meta name="description" content="${description}" />`,
+        ...(keywords ? [`  <meta name="keywords" content="${keywords}" />`] : []),
         `  <link rel="canonical" href="${canonical}" />`,
         hreflangs,
         `  <link rel="alternate" hreflang="x-default" href="${SEO_BASE}/en/blog/${slug}" />`,
         `  <meta property="og:type" content="article" />`,
-        `  <meta property="og:title" content="${title} | Kinglike Luxury" />`,
-        `  <meta property="og:description" content="${description}" />`,
+        `  <meta property="og:title" content="${ogTitle} | Kinglike Luxury" />`,
+        `  <meta property="og:description" content="${ogDescription}" />`,
         `  <meta property="og:image" content="${image}" />`,
         `  <meta property="og:url" content="${canonical}" />`,
         `  <meta property="og:site_name" content="Kinglike Luxury" />`,
+        `  <meta property="og:locale" content="${lang}" />`,
+        `  <meta name="twitter:card" content="summary_large_image" />`,
+        `  <meta name="twitter:title" content="${twitterTitle} | Kinglike Luxury" />`,
+        `  <meta name="twitter:description" content="${twitterDesc}" />`,
+        `  <meta name="twitter:image" content="${image}" />`,
         `  <script type="application/ld+json">${jsonLd}</script>`,
       ].join("\n");
 
@@ -2186,6 +2222,79 @@ ${metaTags}
     } catch (error) {
       console.error("Error starting retranslation:", error);
       res.status(500).json({ message: "Failed to start retranslation" });
+    }
+  });
+
+  // ─── Admin: Backfill SEO metadata for existing posts ────────────────────
+  // Generates metaDescription, keywords, ogTitle, ogDescription, twitterTitle,
+  // twitterDescription for every translation that doesn't already have them.
+  // Does NOT re-translate content. Does NOT modify URLs or existing content.
+  app.post("/api/admin/backfill-blog-seo", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+
+      const posts = await storage.getBlogPosts();
+      res.json({ message: "SEO backfill started in background", total: posts.length });
+
+      (async () => {
+        let updated = 0;
+        for (const post of posts) {
+          try {
+            const existing: any = (post as any).translations ?? {};
+            // Check if any primary SEO lang is missing SEO fields
+            const needsUpdate = PRIMARY_SEO_LANGS.some(
+              (l) => existing[l] && !existing[l].metaDescription
+            ) || Object.values(existing).some((t: any) => t && !t.metaDescription);
+
+            if (!needsUpdate) continue;
+
+            const enriched = enrichTranslationsWithSeo(existing);
+            await storage.updateBlogPost(post.id, { translations: enriched } as any);
+            updated++;
+            console.log(`[SEO Backfill] Post ${post.id} enriched`);
+          } catch (err) {
+            console.error(`[SEO Backfill] Failed for post ${post.id}:`, err);
+          }
+        }
+        console.log(`[SEO Backfill] Done — enriched ${updated}/${posts.length} posts`);
+      })();
+    } catch (error) {
+      console.error("Error starting SEO backfill:", error);
+      res.status(500).json({ message: "Failed to start SEO backfill" });
+    }
+  });
+
+  // ─── Admin: Get SEO status for a single blog post ────────────────────────
+  app.get("/api/admin/blog/:id/seo-status", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+
+      const post = await storage.getBlogPostById(parseInt(req.params.id));
+      if (!post) return res.status(404).json({ message: "Post not found" });
+
+      const translations: any = (post as any).translations ?? {};
+      const allLangs = ["ar", "en", "tr", "he", "ru", "ka", "az", "fa", "zh", "pl", "it", "nl", "de", "sv", "fr"];
+
+      const status = allLangs.reduce((acc: any, lang) => {
+        const t = translations[lang];
+        acc[lang] = !t
+          ? "missing"
+          : t.translationStatus === "pending_translation"
+          ? "pending_translation"
+          : t.metaDescription
+          ? t.translationStatus || "generated"
+          : "content_only";
+        return acc;
+      }, {});
+
+      res.json({ postId: post.id, slug: post.slug, status });
+    } catch (error) {
+      console.error("Error fetching SEO status:", error);
+      res.status(500).json({ message: "Server error" });
     }
   });
 

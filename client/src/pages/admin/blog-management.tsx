@@ -12,10 +12,51 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video, Sparkles, CheckCircle2, Clock, AlertCircle, Circle } from "lucide-react";
 import { uploadToCloudinary } from "@/lib/cloudinaryUpload";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
+
+/** Primary SEO languages shown as status badges. */
+const PRIMARY_LANGS = [
+  { code: "ar", label: "AR" },
+  { code: "en", label: "EN" },
+  { code: "tr", label: "TR" },
+  { code: "he", label: "HE" },
+  { code: "ru", label: "RU" },
+];
+
+type TranslationEntry = {
+  title?: string;
+  content?: string;
+  excerpt?: string;
+  metaDescription?: string;
+  translationStatus?: "original" | "generated" | "pending_translation";
+};
+
+/**
+ * Returns the SEO completeness status for a single language translation.
+ *  "original"  — source language (no translation needed)
+ *  "seo"       — has content + SEO metadata
+ *  "content"   — has content but no SEO fields yet
+ *  "pending"   — translation failed; using fallback text
+ *  "missing"   — no entry at all
+ */
+function getLangStatus(entry: TranslationEntry | undefined): "original" | "seo" | "content" | "pending" | "missing" {
+  if (!entry) return "missing";
+  if (entry.translationStatus === "pending_translation") return "pending";
+  if (entry.metaDescription) return entry.translationStatus === "original" ? "original" : "seo";
+  if (entry.title) return "content";
+  return "missing";
+}
+
+const STATUS_CONFIG = {
+  original: { color: "bg-[#005476] text-white", title: "Original language" },
+  seo:      { color: "bg-[#3bcac4] text-white",  title: "Translated + SEO metadata" },
+  content:  { color: "bg-blue-400 text-white",   title: "Translated (no SEO fields yet)" },
+  pending:  { color: "bg-amber-400 text-white",  title: "Translation pending / failed" },
+  missing:  { color: "bg-gray-200 text-gray-500",title: "Not yet translated" },
+};
 
 const BlogManagement = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -224,7 +265,26 @@ const BlogManagement = () => {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold text-[#005476]">Blog Management</h1>
           {!showForm && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    toast({ title: "Generating SEO metadata for all articles…" });
+                    await apiRequest("POST", "/api/admin/backfill-blog-seo");
+                    toast({ title: "SEO generation started! Refresh in a few seconds." });
+                    setTimeout(() => {
+                      queryClient.invalidateQueries({ queryKey: ['/api/blog'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/blog?published=all'] });
+                    }, 5000);
+                  } catch {
+                    toast({ title: "SEO generation failed", variant: "destructive" });
+                  }
+                }}
+                className="border-[#3bcac4] text-[#005476]"
+              >
+                <Sparkles className="w-4 h-4 mr-2" /> Generate SEO
+              </Button>
               <Button
                 variant="outline"
                 onClick={async () => {
@@ -249,6 +309,24 @@ const BlogManagement = () => {
             </div>
           )}
         </div>
+
+        {/* SEO Legend */}
+        {!showForm && (
+          <div className="flex flex-wrap items-center gap-3 mb-6 p-3 bg-gray-50 rounded-lg text-xs">
+            <span className="text-gray-500 font-medium">SEO Status:</span>
+            {[
+              { status: "original" as const, label: "Original" },
+              { status: "seo" as const,      label: "Translated + SEO" },
+              { status: "content" as const,  label: "Content only" },
+              { status: "pending" as const,  label: "Pending" },
+              { status: "missing" as const,  label: "Missing" },
+            ].map(({ status, label }) => (
+              <span key={status} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${STATUS_CONFIG[status].color}`}>
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
 
         {showForm && (
           <Card className="mb-8 border-[#3bcac4]/30">
@@ -513,62 +591,92 @@ const BlogManagement = () => {
             </Card>
           )}
 
-          {posts?.map((post) => (
-            <Card key={post.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg font-semibold text-[#005476] truncate">{post.title}</h3>
-                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                        {(post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : (post as any).country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
-                      </span>
-                      {post.published ? (
-                        <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                          <Eye className="w-3 h-3" /> Published
+          {posts?.map((post) => {
+            const translations: any = (post as any).translations ?? {};
+            return (
+              <Card key={post.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      {/* Title row */}
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="text-lg font-semibold text-[#005476] truncate">{post.title}</h3>
+                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0">
+                          {(post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : (post as any).country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
                         </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                          <EyeOff className="w-3 h-3" /> Draft
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 line-clamp-2">{post.excerpt}</p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                      <span>By {post.author?.username || "Admin"}</span>
-                      <span>{new Date(post.createdAt).toLocaleDateString()}</span>
-                      {Array.isArray(post.categories) && post.categories.length > 0 && (
-                        <span>{post.categories.join(", ")}</span>
-                      )}
-                    </div>
-                  </div>
+                        {post.published ? (
+                          <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full shrink-0">
+                            <Eye className="w-3 h-3" /> Published
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
+                            <EyeOff className="w-3 h-3" /> Draft
+                          </span>
+                        )}
+                      </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => startEdit(post)}
-                    >
-                      <Pencil className="w-4 h-4 mr-1" /> Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this post?")) {
-                          deleteMutation.mutate(post.id);
-                        }
-                      }}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" /> Delete
-                    </Button>
+                      <p className="text-sm text-gray-500 line-clamp-2 mb-2">{post.excerpt}</p>
+
+                      {/* Translation status row */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-gray-400 mr-1">Translations:</span>
+                        {PRIMARY_LANGS.map(({ code, label }) => {
+                          const status = getLangStatus(translations[code]);
+                          const cfg = STATUS_CONFIG[status];
+                          return (
+                            <span
+                              key={code}
+                              title={cfg.title}
+                              className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}
+                            >
+                              {label}
+                              {status === "original" && <CheckCircle2 className="w-3 h-3 ml-1" />}
+                              {status === "seo"      && <Sparkles className="w-3 h-3 ml-1" />}
+                              {status === "content"  && <Circle className="w-3 h-3 ml-1" />}
+                              {status === "pending"  && <Clock className="w-3 h-3 ml-1" />}
+                              {status === "missing"  && <AlertCircle className="w-3 h-3 ml-1" />}
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                        <span>By {post.author?.username || "Admin"}</span>
+                        <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                        {Array.isArray(post.categories) && post.categories.length > 0 && (
+                          <span>{post.categories.join(", ")}</span>
+                        )}
+                        <span className="text-gray-300">slug: {post.slug}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEdit(post)}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete this post?")) {
+                            deleteMutation.mutate(post.id);
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" /> Delete
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </div>

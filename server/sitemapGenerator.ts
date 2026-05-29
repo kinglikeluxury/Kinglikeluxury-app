@@ -1,6 +1,15 @@
 import { storage } from "./storage";
 
-const SEO_LANGS = ["en", "ar", "tr", "ru", "ka", "az", "he", "zh", "pl"];
+/**
+ * All supported SEO languages — kept in sync with SEO_LANGS in routes.ts.
+ * Primary SEO languages (ar, en, tr, he, ru) are listed first.
+ */
+const SEO_LANGS = [
+  "ar", "en", "tr", "he", "ru",
+  "ka", "az", "fa", "zh", "pl",
+  "it", "nl", "de", "sv", "fr",
+];
+
 const BASE_URL = "https://www.kinglikeluxury.app";
 
 const STATIC_URLS = [
@@ -25,7 +34,7 @@ function staticUrlBlock(u: { loc: string; priority: string; changefreq: string }
   ].join("\n");
 }
 
-/** Build one <url> block for a blog post language variant. */
+/** Build one <url> block for a single language version of a blog post. */
 function blogUrlBlock(
   slug: string,
   lang: string,
@@ -60,6 +69,10 @@ function blogUrlBlock(
  * We intentionally do NOT write a static sitemap.xml to disk. Doing so
  * would let Vite copy it to dist/public/ and allow express.static to serve
  * a potentially stale file instead of this live, DB-driven version.
+ *
+ * Each published blog post generates one URL block per supported language,
+ * all sharing the same English slug under their respective /{lang}/blog/ prefix.
+ * Per-language hreflang alternates point to every language variant.
  */
 export async function generateSitemapXml(): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
@@ -72,8 +85,8 @@ export async function generateSitemapXml(): Promise<string> {
   try {
     const posts = await storage.getBlogPosts({ published: true });
     for (const post of posts) {
-      const lastmod = post.updatedAt || post.createdAt
-        ? new Date((post as any).updatedAt || (post as any).createdAt).toISOString().split("T")[0]
+      const lastmod = (post as any).updatedAt || (post as any).createdAt
+        ? new Date(((post as any).updatedAt || (post as any).createdAt)).toISOString().split("T")[0]
         : today;
       for (const lang of SEO_LANGS) {
         blogBlocks.push(blogUrlBlock(post.slug, lang, lastmod));
@@ -94,6 +107,6 @@ export async function generateSitemapXml(): Promise<string> {
     allBlocks.join("\n\n"),
     "",
     "</urlset>",
-    "", // trailing newline
+    "",
   ].join("\n");
 }
