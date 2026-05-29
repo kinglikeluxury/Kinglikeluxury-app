@@ -71,7 +71,7 @@ title = "Source Code Backup (3.2 MB)"
 id = "gxbgDbSdinBwT_WBcAaC5"
 uri = "file://backups/database-backup-2026-05-29.zip"
 type = "unspecified"
-title = "Database Backup — SQL inside (639 KB compressed)"
+title = "database-backup-2026-05-29.sql (inside this zip — 639 KB)"
 
 [[outputs]]
 id = "hv2vKrU7NiEf1mQRDBeIl"
