@@ -1518,7 +1518,39 @@ ${metaTags}
       if (!property) {
         return res.status(404).json({ message: "Property not found" });
       }
-      
+
+      // If project type and title changed, sync projects.developer when it matched the old title
+      if (
+        propertyData.propertyType === PROPERTY_TYPES.PROJECT &&
+        existingProperty.title !== propertyData.title
+      ) {
+        if (req.body.projectDetails?.developer) {
+          // Explicit developer provided — update with that value
+          await storage.updateProjectByPropertyId(id, {
+            developer: req.body.projectDetails.developer,
+          });
+        } else {
+          // No explicit developer — sync developer to new title only if it previously matched the old title
+          const existingProjects = await storage.getProjects();
+          const linked = existingProjects.find(p => p.propertyId === id);
+          if (linked && linked.developer === existingProperty.title) {
+            await storage.updateProjectByPropertyId(id, {
+              developer: propertyData.title,
+            });
+          }
+        }
+      } else if (
+        propertyData.propertyType === PROPERTY_TYPES.PROJECT &&
+        req.body.projectDetails
+      ) {
+        // Title unchanged but projectDetails explicitly sent — update them
+        await storage.updateProjectByPropertyId(id, {
+          developer: req.body.projectDetails.developer,
+          completionDate: req.body.projectDetails.completionDate,
+          projectStatus: req.body.projectDetails.projectStatus,
+        });
+      }
+
       res.json(property);
     } catch (error) {
       if (error instanceof z.ZodError) {

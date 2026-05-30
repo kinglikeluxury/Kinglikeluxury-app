@@ -410,6 +410,15 @@ export class DatabaseStorage implements IStorage {
     const [project] = await db.insert(projects).values(projectData).returning();
     return project;
   }
+
+  async updateProjectByPropertyId(propertyId: number, data: Partial<InsertProject>): Promise<Project | undefined> {
+    const [updated] = await db
+      .update(projects)
+      .set(data)
+      .where(eq(projects.propertyId, propertyId))
+      .returning();
+    return updated;
+  }
   
   // Blog post operations
   async getBlogPosts(filters?: { 

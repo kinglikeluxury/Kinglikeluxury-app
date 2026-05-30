@@ -49,6 +49,7 @@ export interface IStorage {
   getProjects(): Promise<(Project & { property: Property })[]>;
   getProject(id: number): Promise<(Project & { property: Property }) | undefined>;
   createProject(project: InsertProject): Promise<Project>;
+  updateProjectByPropertyId(propertyId: number, data: Partial<InsertProject>): Promise<Project | undefined>;
   
   // Blog operations
   getBlogPosts(filters?: { 
@@ -375,6 +376,17 @@ export class MemStorage implements IStorage {
     
     this.projects.set(id, project);
     return project;
+  }
+
+  async updateProjectByPropertyId(propertyId: number, data: Partial<InsertProject>): Promise<Project | undefined> {
+    for (const [id, project] of this.projects.entries()) {
+      if (project.propertyId === propertyId) {
+        const updated = { ...project, ...data };
+        this.projects.set(id, updated);
+        return updated;
+      }
+    }
+    return undefined;
   }
 
   // Blog operations (stub implementations for interface compliance)
