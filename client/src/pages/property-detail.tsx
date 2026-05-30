@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart, Star, BadgeCheck, Camera, Maximize2, RefreshCw } from "lucide-react";
+import { Bed, Bath, Home, User as UserIcon, MapPin, Calendar, Tag, CheckSquare, Dumbbell, Wifi, Coffee, Car, ShieldCheck, Edit, ChevronLeft, ChevronRight, X, Smartphone, Monitor, Share2, Heart, Star, BadgeCheck, Camera } from "lucide-react";
 import PropertyMap from "@/components/property/PropertyMap";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate, useAutoTranslateArray, needsTranslation } from "@/hooks/useAutoTranslate";
@@ -18,30 +18,13 @@ import { slugifyProperty, extractIdFromSlug } from "@/lib/slugify";
 import { useContentProtection } from "@/hooks/use-content-protection";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { HlsVideoPlayer } from "@/components/property/HlsVideoPlayer";
 
 // ── Live Camera Section component (used inside PropertyDetail) ─────────────
 function LiveCameraSection({ cameras }: { cameras: any[] }) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
   const camera = cameras[activeIdx];
-
-  const handleTabChange = (idx: number) => {
-    setActiveIdx(idx);
-    setLoading(true);
-    setError(false);
-    setRetryKey(k => k + 1);
-  };
-
-  const handleFullscreen = () => {
-    if (iframeRef.current?.requestFullscreen) iframeRef.current.requestFullscreen();
-  };
-
   if (!camera?.embedUrl) return null;
-
   return (
     <div className="space-y-3">
       {cameras.length > 1 && (
@@ -49,7 +32,7 @@ function LiveCameraSection({ cameras }: { cameras: any[] }) {
           {cameras.map((cam: any, idx: number) => (
             <button
               key={cam.id}
-              onClick={() => handleTabChange(idx)}
+              onClick={() => setActiveIdx(idx)}
               className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all"
               style={{
                 borderColor: activeIdx === idx ? "#3bcac4" : "#e5e7eb",
@@ -63,63 +46,7 @@ function LiveCameraSection({ cameras }: { cameras: any[] }) {
           ))}
         </div>
       )}
-
-      <div className="relative rounded-2xl overflow-hidden bg-black shadow-xl group">
-        <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wider bg-red-500">
-            <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping" />
-            LIVE
-          </span>
-          <button
-            onClick={handleFullscreen}
-            className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors opacity-0 group-hover:opacity-100"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
-        </div>
-
-        {camera.label && (
-          <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
-            <p className="text-white font-semibold text-sm">{camera.label}</p>
-          </div>
-        )}
-
-        {loading && !error && (
-          <div className="absolute inset-0 z-20 bg-gray-900 flex flex-col items-center justify-center gap-3">
-            <Camera className="w-12 h-12 text-gray-600" />
-            <p className="text-sm text-gray-400">Loading live stream…</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="absolute inset-0 z-20 bg-gray-900 flex flex-col items-center justify-center gap-4">
-            <Camera className="w-12 h-12 text-gray-500" />
-            <p className="text-sm text-gray-400">Camera temporarily unavailable</p>
-            <button
-              onClick={() => { setError(false); setLoading(true); setRetryKey(k => k + 1); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#3bcac4] text-[#3bcac4] text-sm hover:bg-[#3bcac4] hover:text-white transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              {t('liveProjects.tryAgain', 'Try again')}
-            </button>
-          </div>
-        )}
-
-        <div className="w-full aspect-video">
-          <iframe
-            key={retryKey}
-            ref={iframeRef}
-            src={camera.embedUrl}
-            className="w-full h-full border-0"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            onLoad={() => setLoading(false)}
-            onError={() => { setLoading(false); setError(true); }}
-            title={camera.label || "Live Construction Camera"}
-            sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
-          />
-        </div>
-      </div>
+      <HlsVideoPlayer key={camera.id} url={camera.embedUrl} label={camera.label} />
     </div>
   );
 }

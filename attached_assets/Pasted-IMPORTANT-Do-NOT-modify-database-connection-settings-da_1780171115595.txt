@@ -1,0 +1,130 @@
+IMPORTANT:
+Do NOT modify database connection settings, database schema, stored camera URLs, secrets, deployment settings, authentication, SMS/email verification, AI systems, SEO, sitemap, property/project data, or production environment variables.
+
+Before making changes:
+
+1. Create a checkpoint.
+2. Modify ONLY the Live Projects / Live Camera frontend player implementation.
+3. Do NOT modify admin camera form.
+4. Do NOT modify backend routes unless absolutely necessary.
+5. Do NOT auto-publish before testing.
+
+Problem:
+Live camera URLs are correct, but the stream does not open immediately.
+The user often needs to switch between live projects several times before the video appears.
+
+Investigation result:
+The stored camera URLs are direct HLS .m3u8 streams from RTSP.me.
+Currently, the app loads these .m3u8 URLs inside an iframe.
+
+This is technically incorrect.
+A .m3u8 HLS stream should not be rendered inside an iframe.
+
+Required fix:
+Replace the current iframe live stream playback with a proper HLS.js player.
+
+Implementation requirements:
+
+1. Use HTML5 <video>.
+2. Use HLS.js for .m3u8 streams.
+3. Continue using the existing embedUrl field from project_live_cameras.
+4. Do NOT change existing stored URLs.
+5. Do NOT change database structure.
+6. Do NOT change admin input fields.
+7. Detect .m3u8 URLs automatically.
+8. For .m3u8 URLs:
+
+   * initialize HLS.js
+   * attach it to the video element
+   * load the HLS source
+9. For Safari/iOS native HLS support:
+
+   * use video.canPlayType("application/vnd.apple.mpegurl")
+   * load the stream directly if supported
+10. Clean up/destroy the HLS instance when:
+
+* switching project
+* switching camera
+* unmounting the component
+
+11. Reinitialize the player every time selected project/camera changes.
+
+Player behavior:
+
+1. Autoplay muted.
+2. playsInline enabled.
+3. Show loading state:
+   “Connecting to live stream...”
+4. Show friendly error state:
+   “Camera is temporarily unavailable. Please try again.”
+5. Add a retry button:
+   “Try again”
+6. Retry automatically if the stream fails.
+7. Add a limited retry mechanism:
+
+   * max 3 automatic retries
+   * short delay between retries
+8. Support fullscreen.
+9. Keep existing visual design as close as possible.
+10. Do NOT redesign the Live Projects page.
+
+Autoplay:
+
+* Keep the video muted for autoplay compatibility.
+* User can unmute manually if supported.
+* Do NOT force sound autoplay.
+
+Files to inspect and update:
+
+* client/src/pages/live-projects.tsx
+* client/src/pages/property-detail.tsx
+* any shared live camera/video component if available
+
+Do not touch unrelated files.
+
+Testing required:
+
+1. Test Panorama Batumi.
+2. Test Royal Tulip Business.
+3. Test Petra Sea Resort.
+4. Verify each stream starts from the first project selection.
+5. Verify no need to switch between projects multiple times.
+6. Verify switching between projects cleans up the old stream correctly.
+7. Verify retry button works.
+8. Verify fullscreen works.
+9. Verify mobile layout is unchanged.
+10. Verify desktop layout is unchanged.
+
+Safety requirements:
+
+* Do NOT modify database credentials.
+* Do NOT modify database schema.
+* Do NOT modify production data.
+* Do NOT modify camera URLs.
+* Do NOT modify authentication.
+* Do NOT modify SEO.
+* Do NOT modify AI.
+* Do NOT modify SMS/email systems.
+* Do NOT publish automatically.
+
+Guarantee / fallback:
+If HLS.js implementation fails or creates instability:
+
+1. Revert only the live player changes.
+2. Keep the previous iframe implementation as a fallback component.
+3. Add a safe fallback option:
+
+   * if HLS.js cannot load the stream, show a button:
+     “Open live stream”
+   * this button may open the stream provider page or retry the stream.
+4. Do not leave the Live Projects page broken.
+
+After implementation:
+
+1. Explain the root cause.
+2. Show exactly which files were changed.
+3. Confirm HLS.js is used for .m3u8 streams.
+4. Confirm iframe is no longer used for direct .m3u8 playback.
+5. Confirm database and URLs were not changed.
+6. Confirm no SEO/auth/AI/settings were touched.
+7. Do NOT auto-publish before review.

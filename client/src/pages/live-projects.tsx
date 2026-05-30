@@ -1,12 +1,13 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import {
-  WifiOff, Maximize2, RefreshCw, CalendarDays, Bot,
+  WifiOff, CalendarDays, Bot,
   MapPin, ChevronRight, Camera, Globe, Building2, Loader2, Tv, Radio
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HlsVideoPlayer } from "@/components/property/HlsVideoPlayer";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type CameraRecord = {
@@ -85,62 +86,20 @@ function CameraFallback({ onRetry, t }: { onRetry: () => void; t: (k: string, fb
 
 // ── Single camera viewer ───────────────────────────────────────────────────
 function SingleViewer({ camera, t }: { camera: CameraRecord; t: (k: string, fb: string) => string }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const handleRetry = () => { setError(false); setLoading(true); setRetryKey(k => k + 1); };
-  const handleFullscreen = () => {
-    if (iframeRef.current?.requestFullscreen) iframeRef.current.requestFullscreen();
-  };
-
-  if (!camera.embedUrl) return <CameraFallback onRetry={handleRetry} t={t} />;
+  if (!camera.embedUrl) return <CameraFallback onRetry={() => setRetryKey(k => k + 1)} t={t} />;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-black shadow-2xl group">
-      <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between">
-        <LiveBadge t={t} />
-        <button
-          onClick={handleFullscreen}
-          className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors opacity-0 group-hover:opacity-100"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
-        <p className="text-white font-semibold text-sm">{camera.label || camera.propertyTitle}</p>
-        <p className="text-white/60 text-xs">{camera.propertyLocation}</p>
-      </div>
-
-      {loading && !error && (
-        <div className="absolute inset-0 z-20 bg-gray-900 flex flex-col items-center justify-center gap-3">
-          <Camera className="w-12 h-12 text-gray-600" />
-          <p className="text-sm text-gray-400">{t("liveProjects.loadingStream", "Loading live stream…")}</p>
-        </div>
+    <div className="space-y-0">
+      <HlsVideoPlayer
+        key={`${camera.id}-${retryKey}`}
+        url={camera.embedUrl}
+        label={camera.label || camera.propertyTitle}
+      />
+      {camera.propertyLocation && (
+        <p className="text-xs text-gray-400 mt-2 px-1">{camera.propertyLocation}</p>
       )}
-
-      {error && (
-        <div className="absolute inset-0 z-20 bg-white">
-          <CameraFallback onRetry={handleRetry} t={t} />
-        </div>
-      )}
-
-      <div className="w-full aspect-video">
-        <iframe
-          key={retryKey}
-          ref={iframeRef}
-          src={camera.embedUrl}
-          className="w-full h-full border-0"
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          allowFullScreen
-          onLoad={() => setLoading(false)}
-          onError={() => { setLoading(false); setError(true); }}
-          title={camera.label || camera.propertyTitle || "Live Camera"}
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
-        />
-      </div>
     </div>
   );
 }
