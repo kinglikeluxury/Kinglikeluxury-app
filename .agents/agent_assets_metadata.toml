@@ -102,3 +102,9 @@ id = "RBGXwlfBLzOKCwX8fr2kx"
 uri = "file://docs/ai-backup/AI-CONFIG-BACKUP.txt"
 type = "text"
 title = "AI-CONFIG-BACKUP.txt"
+
+[[outputs]]
+id = "KOQmf9uFh2FTKYN8bt7g1"
+uri = "file://docs/ai-backup/AI-CONFIG-BACKUP.zip"
+type = "unspecified"
+title = "AI-CONFIG-BACKUP.zip"
