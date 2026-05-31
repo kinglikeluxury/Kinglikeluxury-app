@@ -1,0 +1,15 @@
+_no_deploy/
+node_modules/
+uploads/
+manual_backups/
+backups/
+attached_assets_unused/
+attached_assets_keep/
+orphaned-videos/
+*.zip
+*.sql
+*.dump
+*.tar
+*.gz
+*.apk
+*.mp4
