@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
 import pg from "pg";
@@ -3728,6 +3729,8 @@ ${metaTags}
       res.status(500).json({ message: err.message });
     }
   });
+
+  registerAiIntelligenceRoutes(app);
 
   return httpServer;
 }

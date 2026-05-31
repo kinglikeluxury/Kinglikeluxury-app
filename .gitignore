@@ -4,3 +4,24 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz.env
+
+# ── Backup files (never commit these) ────────────────────────────────────────
+*.zip
+*.tar.gz
+*.sql
+*.apk
+*.aab
+backups/
+production-backup-*/
+kinglike-full-backup-*/
+kinglike-apk-build/
+uploads/
+zi6T0Fpu
+zimsbaU5
+ziqNN445
+
+# ── Logs and temp ─────────────────────────────────────────────────────────────
+*.log
+logs/
+tmp/
+temp/

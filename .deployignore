@@ -1,0 +1,49 @@
+# ── Backup ZIP files ─────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.tar
+*.gz
+
+# ── SQL database dumps ───────────────────────────────────────────────────────
+*.sql
+*.sql.gz
+
+# ── APK / mobile build artifacts ─────────────────────────────────────────────
+*.apk
+*.aab
+kinglike-apk-build/
+kinglike-mobile/
+kinglike-mobile-app.zip
+mobile-app-source.zip
+
+# ── Named backup folders ──────────────────────────────────────────────────────
+backups/
+production-backup-2026-05-26/
+kinglike-full-backup-2026-05-27/
+
+# ── Unnamed temp ZIP files (created by prior backup commands) ─────────────────
+zi6T0Fpu
+zimsbaU5
+ziqNN445
+
+# ── Local uploads (media is served from Cloudinary in production) ─────────────
+uploads/
+
+# ── Development / agent assets (compiled into dist/ by Vite build) ────────────
+attached_assets/
+
+# ── Logs and temporary files ──────────────────────────────────────────────────
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# ── Development-only tooling ──────────────────────────────────────────────────
+.local/state/
+screenshots/
+
+# ── Git and OS noise ──────────────────────────────────────────────────────────
+.git/
+.DS_Store
+Thumbs.db
