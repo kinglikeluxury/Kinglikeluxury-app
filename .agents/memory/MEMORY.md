@@ -1,1 +1,1 @@
-- [Deployment artifact cleanup](deployment-cleanup.md) — 413 fix: videos+attached_assets removed from git; only 8 @assets/ imports must stay tracked; git rm blocked, use physical delete+auto-checkpoint approach.
+- [AI Backup Versioning Rule](ai-backup-versioning.md) — AI-CONFIG-BACKUP.md is permanently locked; future AI changes go into AI-CONFIG-v2.md, v3.md, etc.

@@ -1,9 +1,18 @@
 # KINGLIKE LUXURY — AI ADVISOR CONFIGURATION BACKUP
 
+> ⛔ LOCKED — DO NOT MODIFY THIS FILE
+>
+> This is the golden backup of the AI Advisor as it existed on 2026-05-31.
+> It must never be edited, overwritten, or regenerated automatically.
+>
+> **Versioning rule:**
+> - Any future AI changes → save as `docs/ai-backup/AI-CONFIG-v2.md`, `AI-CONFIG-v3.md`, etc.
+> - This file (`AI-CONFIG-BACKUP.md`) is permanent and read-only.
+
 **Backup Date:** 2026-05-31
 **Source File:** `server/aiAdvisor.ts`
 **Route Logic:** `server/routes.ts` (lines 3296–3590)
-**Status:** Production — verified live
+**Status:** Production — verified live — LOCKED
 
 This file documents the complete AI Advisor configuration as it exists today.
 It can be used to restore the AI behavior exactly if the source file is ever changed or overwritten.

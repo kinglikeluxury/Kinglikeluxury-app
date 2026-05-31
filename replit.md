@@ -8,6 +8,11 @@ The system supports multiple authentication methods, multilingual content (9 lan
 
 Preferred communication style: Simple, everyday language.
 
+**AI Backup Versioning Rule:**
+- `docs/ai-backup/AI-CONFIG-BACKUP.md` is the golden backup — NEVER modify, overwrite, or regenerate it.
+- Any future AI configuration changes must be saved as a new versioned file: `AI-CONFIG-v2.md`, `AI-CONFIG-v3.md`, etc.
+- The original backup file is permanently locked.
+
 **Brand Color Usage**: Always use Kinglike Luxury brand colors for all UI components and features:
 - Primary Teal: #3bcac4 (HSL: 177 53% 52%)
 - Secondary Deep Blue: #005476 (HSL: 198 100% 23%)
