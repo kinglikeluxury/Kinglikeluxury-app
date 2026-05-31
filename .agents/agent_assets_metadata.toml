@@ -96,3 +96,9 @@ id = "oTXLzs012SYjZ_aEc7-Ue"
 uri = "file://public/downloads/kinglike-db-backup-2026-05-31.zip"
 type = "unspecified"
 title = "Database Backup — kinglike-db-backup-2026-05-31.zip (776 KB)"
+
+[[outputs]]
+id = "RBGXwlfBLzOKCwX8fr2kx"
+uri = "file://docs/ai-backup/AI-CONFIG-BACKUP.txt"
+type = "text"
+title = "AI-CONFIG-BACKUP.txt"
