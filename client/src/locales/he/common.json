@@ -413,7 +413,8 @@
   "badges": {
     "bestPrice": "מחיר הכי טוב",
     "acceptablePrice": "מחיר סביר",
-    "highPrice": "מחיר גבוה"
+    "highPrice": "מחיר גבוה",
+    "installmentProperty": "נכס בתשלומים"
   },
   "land": {
     "details": "פרטי הקרקע",

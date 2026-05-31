@@ -413,7 +413,8 @@
   "badges": {
     "bestPrice": "Najlepsza Cena",
     "acceptablePrice": "Akceptowalna Cena",
-    "highPrice": "Wysoka Cena"
+    "highPrice": "Wysoka Cena",
+    "installmentProperty": "Nieruchomość na raty"
   },
   "land": {
     "details": "Szczegóły Działki",

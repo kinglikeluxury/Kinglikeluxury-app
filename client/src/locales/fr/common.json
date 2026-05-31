@@ -420,7 +420,8 @@
   "badges": {
     "bestPrice": "Meilleur Prix",
     "acceptablePrice": "Prix Acceptable",
-    "highPrice": "Prix Élevé"
+    "highPrice": "Prix Élevé",
+    "installmentProperty": "Bien immobilier à tempérament"
   },
   "land": {
     "details": "Détails du Terrain",

@@ -420,7 +420,8 @@
   "badges": {
     "bestPrice": "Beste Prijs",
     "acceptablePrice": "Aanvaardbare Prijs",
-    "highPrice": "Hoge Prijs"
+    "highPrice": "Hoge Prijs",
+    "installmentProperty": "Onroerend goed op afbetaling"
   },
   "land": {
     "details": "Grond Details",

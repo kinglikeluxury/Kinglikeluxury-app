@@ -413,7 +413,8 @@
   "badges": {
     "bestPrice": "最优价格",
     "acceptablePrice": "合理价格",
-    "highPrice": "高价"
+    "highPrice": "高价",
+    "installmentProperty": "分期付款房产"
   },
   "land": {
     "details": "土地详情",

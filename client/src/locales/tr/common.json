@@ -414,7 +414,8 @@
   "badges": {
     "bestPrice": "En İyi Fiyat",
     "acceptablePrice": "Uygun Fiyat",
-    "highPrice": "Yüksek Fiyat"
+    "highPrice": "Yüksek Fiyat",
+    "installmentProperty": "Taksitli Gayrimenkul"
   },
   "land": {
     "details": "Arazi Detayları",

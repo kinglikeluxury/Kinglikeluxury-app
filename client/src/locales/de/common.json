@@ -420,7 +420,8 @@
   "badges": {
     "bestPrice": "Bester Preis",
     "acceptablePrice": "Akzeptabler Preis",
-    "highPrice": "Hoher Preis"
+    "highPrice": "Hoher Preis",
+    "installmentProperty": "Ratenzahlung Immobilie"
   },
   "land": {
     "details": "Grundstücksdetails",

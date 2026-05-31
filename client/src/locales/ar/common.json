@@ -418,7 +418,8 @@
   "badges": {
     "bestPrice": "أفضل سعر",
     "acceptablePrice": "سعر مناسب",
-    "highPrice": "سعر مرتفع"
+    "highPrice": "سعر مرتفع",
+    "installmentProperty": "عقار بالتقسيط"
   },
   "land": {
     "details": "تفاصيل الأرض",

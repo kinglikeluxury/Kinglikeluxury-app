@@ -413,7 +413,8 @@
   "badges": {
     "bestPrice": "Miglior Prezzo",
     "acceptablePrice": "Prezzo Accettabile",
-    "highPrice": "Prezzo Alto"
+    "highPrice": "Prezzo Alto",
+    "installmentProperty": "Proprietà a rate"
   },
   "land": {
     "details": "Dettagli Terreno",

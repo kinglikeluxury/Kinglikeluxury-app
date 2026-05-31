@@ -413,7 +413,8 @@
   "badges": {
     "bestPrice": "Ən Yaxşı Qiymət",
     "acceptablePrice": "Məqbul Qiymət",
-    "highPrice": "Yüksək Qiymət"
+    "highPrice": "Yüksək Qiymət",
+    "installmentProperty": "Taksitlə Əmlak"
   },
   "land": {
     "details": "Torpaq Detalları",

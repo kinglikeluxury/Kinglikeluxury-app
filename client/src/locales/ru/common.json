@@ -414,7 +414,8 @@
   "badges": {
     "bestPrice": "Лучшая цена",
     "acceptablePrice": "Приемлемая цена",
-    "highPrice": "Высокая цена"
+    "highPrice": "Высокая цена",
+    "installmentProperty": "Недвижимость в рассрочку"
   },
   "land": {
     "details": "Сведения об участке",

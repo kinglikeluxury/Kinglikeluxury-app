@@ -99,6 +99,7 @@ const FeaturedProperties = () => {
                   acceptablePrice={(property as any).acceptablePrice}
                   highPrice={(property as any).highPrice}
                   isSold={(property as any).isSold}
+                  paymentMethod={(property as any).paymentMethod}
                 />
               ))
             )}

@@ -418,7 +418,8 @@
   "badges": {
     "bestPrice": "بهترین قیمت",
     "acceptablePrice": "قیمت مناسب",
-    "highPrice": "قیمت بالا"
+    "highPrice": "قیمت بالا",
+    "installmentProperty": "ملک اقساطی"
   },
   "land": {
     "details": "جزئیات زمین",

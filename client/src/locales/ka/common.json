@@ -414,7 +414,8 @@
   "badges": {
     "bestPrice": "საუკეთესო ფასი",
     "acceptablePrice": "მისაღები ფასი",
-    "highPrice": "მაღალი ფასი"
+    "highPrice": "მაღალი ფასი",
+    "installmentProperty": "განვადებით ქონება"
   },
   "land": {
     "details": "მიწის დეტალები",

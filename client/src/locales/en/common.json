@@ -425,7 +425,8 @@
   "badges": {
     "bestPrice": "Best Price",
     "acceptablePrice": "Acceptable Price",
-    "highPrice": "High Price"
+    "highPrice": "High Price",
+    "installmentProperty": "Installment Property"
   },
   "land": {
     "details": "Land Details",

@@ -420,7 +420,8 @@
   "badges": {
     "bestPrice": "Bästa Pris",
     "acceptablePrice": "Acceptabelt Pris",
-    "highPrice": "Högt Pris"
+    "highPrice": "Högt Pris",
+    "installmentProperty": "Fastighet med avbetalning"
   },
   "land": {
     "details": "Markdetaljer",
