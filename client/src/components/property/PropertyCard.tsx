@@ -165,7 +165,7 @@ const PropertyCard = ({
         )}
         <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1">
           {paymentMethod === 'installments' && (
-            <Badge className="bg-[#005476] text-white text-xs font-bold px-2 py-1 shadow-md">
+            <Badge className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-1 shadow-md">
               {t('badges.installmentProperty', 'Installment Property')}
             </Badge>
           )}

@@ -134,7 +134,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
         )}
         {(propertyData as any).paymentMethod === 'installments' && (
           <div className="absolute bottom-2 right-2 z-10">
-            <Badge className="bg-[#005476] text-white text-xs font-bold px-2 py-1 shadow-md">
+            <Badge className="bg-[#3bcac4] text-white text-xs font-bold px-2 py-1 shadow-md">
               {t('badges.installmentProperty', 'Installment Property')}
             </Badge>
           </div>
