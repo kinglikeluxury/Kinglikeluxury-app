@@ -1,0 +1,1 @@
+- [Deployment artifact cleanup](deployment-cleanup.md) — 413 fix: videos+attached_assets removed from git; only 8 @assets/ imports must stay tracked; git rm blocked, use physical delete+auto-checkpoint approach.
