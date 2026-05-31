@@ -84,3 +84,15 @@ id = "njS7trmPDyKQXufSLS-3l"
 uri = "file://backups/ENVIRONMENT-INVENTORY.md"
 type = "text"
 title = "ENVIRONMENT-INVENTORY.md — 38 variable names"
+
+[[outputs]]
+id = "6BILMTmlomsX3FuYQYYg6"
+uri = "file://public/downloads/kinglike-code-backup-2026-05-31.zip"
+type = "unspecified"
+title = "Code Backup — kinglike-code-backup-2026-05-31.zip (5.0 MB)"
+
+[[outputs]]
+id = "oTXLzs012SYjZ_aEc7-Ue"
+uri = "file://public/downloads/kinglike-db-backup-2026-05-31.zip"
+type = "unspecified"
+title = "Database Backup — kinglike-db-backup-2026-05-31.zip (776 KB)"

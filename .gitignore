@@ -21,6 +21,9 @@ zi6T0Fpu
 zimsbaU5
 ziqNN445
 
+# ── Temp download serving (never commit) ─────────────────────────────────────
+public/downloads/
+
 # ── Logs and temp ─────────────────────────────────────────────────────────────
 *.log
 logs/
