@@ -97,6 +97,7 @@
     "paymentCash": "نقدی",
     "paymentInstallments": "اقساط",
     "downPayment": "پیش‌پرداخت",
+    "downPaymentAmount": "مبلغ پیش‌پرداخت",
     "installmentDuration": "مدت اقساط",
     "monthlyInstallment": "قسط ماهانه",
     "remainingBalance": "مانده بدهی",

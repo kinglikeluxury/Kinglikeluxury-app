@@ -97,6 +97,7 @@
     "paymentCash": "现金",
     "paymentInstallments": "分期付款",
     "downPayment": "首付",
+    "downPaymentAmount": "首付金额",
     "installmentDuration": "分期付款期限",
     "monthlyInstallment": "月供",
     "remainingBalance": "剩余余额",

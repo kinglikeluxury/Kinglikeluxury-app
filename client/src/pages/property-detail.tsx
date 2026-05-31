@@ -833,6 +833,16 @@ const PropertyDetail = () => {
                               </span>
                             </div>
                           )}
+                          {(property as any).downPaymentPercent && (property as any).price && (
+                            <div className="flex flex-col gap-1 bg-white rounded-xl border border-[#3bcac4]/20 px-4 py-3">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                {t('property.downPaymentAmount', 'Down Payment Amount')}
+                              </span>
+                              <span className="text-2xl font-bold text-[#3bcac4]">
+                                ${Math.round((property as any).price * (property as any).downPaymentPercent / 100).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
                           {(property as any).installmentDuration && (
                             <div className="flex flex-col gap-1 bg-white rounded-xl border border-[#3bcac4]/20 px-4 py-3">
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">

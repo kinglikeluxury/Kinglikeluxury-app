@@ -100,6 +100,7 @@
     "paymentCash": "Comptant",
     "paymentInstallments": "Versements échelonnés",
     "downPayment": "Acompte",
+    "downPaymentAmount": "Montant de l'acompte",
     "installmentDuration": "Durée des versements",
     "monthlyInstallment": "Mensualité",
     "remainingBalance": "Solde restant",

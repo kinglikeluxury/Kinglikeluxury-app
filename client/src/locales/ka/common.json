@@ -97,6 +97,7 @@
     "paymentCash": "ნაღდი ფული",
     "paymentInstallments": "განვადება",
     "downPayment": "პირველი შენატანი",
+    "downPaymentAmount": "თანხა პირველი შენატანი",
     "installmentDuration": "განვადების ვადა",
     "monthlyInstallment": "ყოველთვიური განვადება",
     "remainingBalance": "დარჩენილი ნაშთი",

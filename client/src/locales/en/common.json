@@ -97,6 +97,7 @@
     "paymentCash": "Cash",
     "paymentInstallments": "Installments",
     "downPayment": "Down Payment",
+    "downPaymentAmount": "Down Payment Amount",
     "installmentDuration": "Installment Duration",
     "monthlyInstallment": "Monthly Installment",
     "remainingBalance": "Remaining Balance",

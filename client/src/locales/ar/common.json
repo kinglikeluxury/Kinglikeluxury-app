@@ -97,6 +97,7 @@
     "paymentCash": "نقدي",
     "paymentInstallments": "أقساط",
     "downPayment": "دفعة أولى",
+    "downPaymentAmount": "مبلغ الدفعة الأولى",
     "installmentDuration": "مدة الأقساط",
     "monthlyInstallment": "القسط الشهري",
     "remainingBalance": "المبلغ المتبقي",

@@ -97,6 +97,7 @@
     "paymentCash": "Наличные",
     "paymentInstallments": "Рассрочка",
     "downPayment": "Первоначальный взнос",
+    "downPaymentAmount": "Сумма первоначального взноса",
     "installmentDuration": "Срок рассрочки",
     "monthlyInstallment": "Ежемесячный платёж",
     "remainingBalance": "Остаток долга",

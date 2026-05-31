@@ -97,6 +97,7 @@
     "paymentCash": "מזומן",
     "paymentInstallments": "תשלומים",
     "downPayment": "מקדמה",
+    "downPaymentAmount": "סכום המקדמה",
     "installmentDuration": "משך התשלומים",
     "monthlyInstallment": "תשלום חודשי",
     "remainingBalance": "יתרה לתשלום",

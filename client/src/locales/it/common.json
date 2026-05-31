@@ -97,6 +97,7 @@
     "paymentCash": "Contanti",
     "paymentInstallments": "Rate",
     "downPayment": "Acconto",
+    "downPaymentAmount": "Importo acconto",
     "installmentDuration": "Durata del piano rateale",
     "monthlyInstallment": "Rata mensile",
     "remainingBalance": "Saldo residuo",

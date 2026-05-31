@@ -97,6 +97,7 @@
     "paymentCash": "Gotówka",
     "paymentInstallments": "Raty",
     "downPayment": "Zaliczka",
+    "downPaymentAmount": "Kwota zaliczki",
     "installmentDuration": "Okres ratalny",
     "monthlyInstallment": "Miesięczna rata",
     "remainingBalance": "Pozostała kwota",

@@ -303,6 +303,25 @@ const PropertyForm = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Auto-calculate payment values whenever price, down-payment %, or duration changes
+  useEffect(() => {
+    if (formData.paymentMethod !== 'installments') return;
+    const price = parseFloat(formData.price);
+    const pct   = parseFloat(formData.downPaymentPercent);
+    const match = formData.installmentDuration?.match(/^(\d+)/);
+    const months = match ? parseInt(match[1], 10) : 0;
+    if (price > 0 && pct > 0 && months > 0) {
+      const downAmt   = Math.round(price * pct / 100);
+      const remaining = Math.round(price - downAmt);
+      const monthly   = Math.round(remaining / months);
+      setFormData(prev => ({
+        ...prev,
+        remainingBalance:   remaining.toString(),
+        monthlyInstallment: monthly.toString(),
+      }));
+    }
+  }, [formData.price, formData.downPaymentPercent, formData.installmentDuration, formData.paymentMethod]);
+
   // Add feature
   const addFeature = () => {
     if (newFeature.trim() && !formData.features.includes(newFeature.trim())) {
@@ -2425,9 +2444,9 @@ const PropertyForm = () => {
                     <div>
                       <Label>أقساط لمدة / Installment Duration</Label>
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
-                        {Array.from({ length: 36 }, (_, i) => i + 1).map((n) => ({
+                        {Array.from({ length: 60 }, (_, i) => i + 1).map((n) => ({
                           value: n === 1 ? '1-month' : `${n}-months`,
-                          label: n === 12 ? '12 شهر (سنة)' : n === 24 ? '24 شهر (سنتان)' : n === 36 ? '36 شهر (3 سنوات)' : `${n} شهر`,
+                          label: n === 12 ? '12 شهر (1 سنة)' : n === 24 ? '24 شهر (2 سنة)' : n === 36 ? '36 شهر (3 سنوات)' : n === 48 ? '48 شهر (4 سنوات)' : n === 60 ? '60 شهر (5 سنوات)' : `${n} شهر`,
                         })).map((dur) => (
                           <button
                             key={dur.value}
@@ -2445,16 +2464,45 @@ const PropertyForm = () => {
                       </div>
                     </div>
 
+                    {/* ── Auto-calculated Payment Summary ── */}
+                    {(() => {
+                      const price   = parseFloat(formData.price);
+                      const pct     = parseFloat(formData.downPaymentPercent);
+                      const match   = formData.installmentDuration?.match(/^(\d+)/);
+                      const months  = match ? parseInt(match[1], 10) : 0;
+                      const hasCalc = price > 0 && pct > 0 && months > 0;
+                      const downAmt = hasCalc ? Math.round(price * pct / 100) : null;
+                      return hasCalc ? (
+                        <div className="rounded-xl border border-[#3bcac4]/30 bg-[#3bcac4]/5 p-4 space-y-3">
+                          <p className="text-xs font-semibold text-[#005476] uppercase tracking-wider">📊 الحساب التلقائي / Auto Calculation</p>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-white rounded-lg border border-[#3bcac4]/20 px-3 py-2 text-center">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">دفعة أولى / Down Payment</p>
+                              <p className="text-lg font-bold text-[#3bcac4]">${downAmt!.toLocaleString()}</p>
+                            </div>
+                            <div className="bg-white rounded-lg border border-[#3bcac4]/20 px-3 py-2 text-center">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">المتبقي / Remaining</p>
+                              <p className="text-lg font-bold text-[#005476]">${(price - downAmt!).toLocaleString()}</p>
+                            </div>
+                            <div className="bg-white rounded-lg border border-[#3bcac4]/20 px-3 py-2 text-center">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">شهري / Monthly</p>
+                              <p className="text-lg font-bold text-[#3bcac4]">${Math.round((price - downAmt!) / months).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+
                     {/* Monthly Installment */}
                     <div>
                       <Label>القسط الشهري / Monthly Installment (USD)</Label>
                       <input
                         type="number"
                         min="0"
-                        placeholder="e.g. 1500"
+                        placeholder="محسوب تلقائياً / Auto-calculated"
                         value={formData.monthlyInstallment}
                         onChange={(e) => handleInputChange('monthlyInstallment', e.target.value)}
-                        className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4]"
+                        className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4] bg-[#f0fffe]"
                       />
                     </div>
 
@@ -2464,10 +2512,10 @@ const PropertyForm = () => {
                       <input
                         type="number"
                         min="0"
-                        placeholder="e.g. 120000"
+                        placeholder="محسوب تلقائياً / Auto-calculated"
                         value={formData.remainingBalance}
                         onChange={(e) => handleInputChange('remainingBalance', e.target.value)}
-                        className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4]"
+                        className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3bcac4] bg-[#f0fffe]"
                       />
                     </div>
 

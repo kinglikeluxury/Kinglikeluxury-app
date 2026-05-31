@@ -97,6 +97,7 @@
     "paymentCash": "Nakit",
     "paymentInstallments": "Taksit",
     "downPayment": "Peşinat",
+    "downPaymentAmount": "Peşinat Tutarı",
     "installmentDuration": "Taksit Süresi",
     "monthlyInstallment": "Aylık Taksit",
     "remainingBalance": "Kalan Bakiye",

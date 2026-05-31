@@ -97,6 +97,7 @@
     "paymentCash": "Nağd",
     "paymentInstallments": "Hissə-hissə ödəniş",
     "downPayment": "İlkin ödəniş",
+    "downPaymentAmount": "İlkin ödəniş məbləği",
     "installmentDuration": "Hissə-hissə ödəniş müddəti",
     "monthlyInstallment": "Aylıq taksit",
     "remainingBalance": "Qalıq məbləğ",
