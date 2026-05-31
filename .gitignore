@@ -11,6 +11,7 @@ vite.config.ts.*
 *.sql
 *.apk
 *.aab
+_no_deploy/
 backups/
 production-backup-*/
 kinglike-full-backup-*/
