@@ -8,8 +8,8 @@ packages = ["libuuid", "openjdk", "android-tools", "unzip", "wget", "gradle", "z
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["bash", "-c", "npm ci --omit=dev && node dist/index.js"]
+build = ["bash", "-c", "npm run build && npm ci --omit=dev"]
+run = ["npm", "run", "start"]
 
 [[ports]]
 localPort = 5000
