@@ -1,0 +1,102 @@
+Please add one final improvement to the AI Leads system.
+
+Do not change:
+
+- AI prompt
+- AI personality
+- AI conversation flow
+- Admin pages design
+- Public pages
+- Deployment config
+- Backup files
+
+Only improve the AI lead scoring and sales visibility.
+
+Required changes:
+
+1. Lead scoring rules:
+
+HOT:
+Phone/WhatsApp exists
++
+Budget exists
++
+Country OR City OR Project interest exists
+
+WARM:
+Phone/WhatsApp exists but budget is missing
+OR
+Budget exists + location exists but phone is missing
+
+COLD:
+No phone/WhatsApp exists
+
+2. Add last_user_message field to the AI lead data.
+
+Purpose:
+Sales agents need to quickly see the latest important message from the client without opening the full conversation.
+
+Example:
+User says:
+"أريد شقة في باتومي بإطلالة بحرية"
+
+Save this into:
+last_user_message
+
+3. Update investor_profiles safely:
+
+- Add last_user_message column only if it does not already exist.
+- Do not delete or reset any existing data.
+- Do not create duplicate leads.
+- Keep one row per conversation_id.
+- Continue updating the same lead progressively after each AI message.
+
+4. Update the extraction logic:
+
+After every AI chat turn, extract and update:
+
+- country
+- city
+- budget
+- interested_project
+- WhatsApp / phone
+- goal
+- language
+- lead_score
+- score_reason
+- last_user_message
+
+5. Update Admin → AI Intelligence Center → AI Leads:
+
+Show last_user_message in each lead row/card so the sales team can quickly understand what the client asked for.
+
+6. Testing required:
+
+Run a real test through the public AI widget, not only a script.
+
+Test messages:
+
+Message 1:
+أريد شقة في باتومي بإطلالة بحرية
+
+Message 2:
+ميزانيتي 120000 دولار
+
+Message 3:
+رقمي على واتساب +995591000058
+
+Then prove:
+
+- Only one investor_profiles row was created for that conversation
+- Lead score is HOT
+- Country = Georgia
+- City = Batumi
+- Budget = 120000 USD
+- WhatsApp = 995591000058
+- last_user_message is saved
+- The lead appears inside Admin → AI Intelligence Center → AI Leads
+- No duplicate rows are created
+
+Before modifying, show me exactly which files and database columns will be changed.
+
+Wait for my approval before applying.
