@@ -415,7 +415,7 @@ export async function chatWithAdvisor(
       { role: "system", content: SYSTEM_PROMPT + "\n\nCONTEXT: " + context },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ],
-    max_tokens: 400,
+    max_tokens: 520,
     temperature: 0.8,
   });
 
@@ -433,7 +433,7 @@ function selectModel(useComplex: boolean): string {
 }
 
 function selectMaxTokens(useComplex: boolean): number {
-  return useComplex ? 750 : 420;
+  return useComplex ? 900 : 650;
 }
 
 // ── Streaming (used for /api/ai/chat) ────────────────────────────────────────
@@ -513,18 +513,13 @@ export async function streamChatWithAdvisor(
 
 // ── Lead scoring ──────────────────────────────────────────────────────────────
 export function computeLeadScore(profile: Record<string, any>): "hot" | "warm" | "cold" {
-  const hasBudget = profile.budget && profile.budget !== "not_sure";
-  const hasEmail = !!profile.email;
-  const hasWhatsApp = !!profile.whatsappContactNumber;
-  const hasContact = hasEmail || hasWhatsApp;
-  const timeline = (profile.timeline || "").toLowerCase();
-  const hotTimeline = timeline.includes("immediately") || timeline.includes("1 month");
-  const warmTimeline = timeline.includes("3 month") || timeline.includes("6 month");
-  const hasSpecifics = !!(profile.country || profile.interestedProject);
+  const hasBudget = !!(profile.budget && profile.budget !== "not_sure");
+  const hasPhone = !!(profile.whatsappContactNumber || profile.accountPhone);
+  const hasLocation = !!(profile.country || profile.city || profile.interestedProject);
 
-  if (hasBudget && hotTimeline && hasContact && hasSpecifics) return "hot";
-  if (hasBudget && (hotTimeline || warmTimeline) && hasContact) return "warm";
-  if (hasBudget && hasSpecifics) return "warm";
+  if (hasPhone && hasBudget && hasLocation) return "hot";
+  if (hasPhone && (hasBudget || hasLocation)) return "warm";
+  if (hasPhone) return "warm";
   return "cold";
 }
 
