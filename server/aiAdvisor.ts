@@ -577,8 +577,8 @@ export function computeLeadScore(profile: Record<string, any>): "hot" | "warm" |
   const hasLocation = !!(profile.country || profile.city || profile.interestedProject);
 
   if (hasPhone && hasBudget && hasLocation) return "hot";
-  if (hasPhone && (hasBudget || hasLocation)) return "warm";
   if (hasPhone) return "warm";
+  if (hasBudget && hasLocation) return "warm";
   return "cold";
 }
 

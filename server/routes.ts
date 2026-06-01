@@ -3551,6 +3551,8 @@ ${metaTags}
             leadScore: finalScore,
             scoreReason,
             language: language || "en",
+            lastUserMessage: message.trim(),
+            lastUserMessageAt: new Date(),
           });
           console.log(`[AI] lead saved — conv=${conversationId} score=${finalScore} fields=${Object.keys(nonNullExtracted).join(",")}`);
 

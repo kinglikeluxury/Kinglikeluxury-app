@@ -471,6 +471,11 @@ export const investorProfiles = pgTable("investor_profiles", {
   summary: text("summary"),
   leadScore: text("lead_score").default("cold"),
   scoreReason: text("score_reason"),
+  assignedAgentId: integer("assigned_agent_id").references(() => users.id, { onDelete: "set null" }),
+  leadStatus: text("lead_status").default("unassigned"),
+  assignmentNote: text("assignment_note"),
+  lastUserMessage: text("last_user_message"),
+  lastUserMessageAt: timestamp("last_user_message_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

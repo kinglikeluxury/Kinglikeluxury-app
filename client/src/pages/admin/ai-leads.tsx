@@ -30,6 +30,8 @@ interface InvestorProfile {
   summary: string | null;
   leadScore: string | null;
   scoreReason: string | null;
+  lastUserMessage: string | null;
+  lastUserMessageAt: string | null;
   createdAt: string;
   updatedAt: string;
   username?: string;
@@ -121,6 +123,28 @@ function LeadCard({ lead, onConvert }: { lead: InvestorProfile; onConvert: (id: 
           <InfoRow icon={Sparkles} label="Interested Project" value={lead.interestedProject} />
         )}
       </div>
+
+      {/* Last user message — visible at a glance for sales team */}
+      {lead.lastUserMessage && (
+        <div className="mx-5 mb-3 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-semibold text-[#005476] uppercase tracking-wide flex items-center gap-1">
+              <MessageSquare className="w-3 h-3" /> Last Message
+            </span>
+            {lead.lastUserMessageAt && (
+              <span className="text-[10px] text-gray-400">
+                {new Date(lead.lastUserMessageAt).toLocaleString("en-GB", {
+                  year: "numeric", month: "2-digit", day: "2-digit",
+                  hour: "2-digit", minute: "2-digit", hour12: false,
+                }).replace(",", "")}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-700 leading-relaxed break-words" dir="auto">
+            "{lead.lastUserMessage}"
+          </p>
+        </div>
+      )}
 
       {/* Next Action banner — most important for sales team */}
       {nextAction && (
