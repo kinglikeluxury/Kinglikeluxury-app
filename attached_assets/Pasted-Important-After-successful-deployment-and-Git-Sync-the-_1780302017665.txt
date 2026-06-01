@@ -1,0 +1,92 @@
+Important: After successful deployment and Git Sync, the AI Advisor works again, but the Admin Panel is missing the AI management features that were previously requested.
+
+Please inspect the codebase and restore/add the following Admin features without breaking the current working AI:
+
+1. Add an Admin section called:
+AI Conversations
+
+It must show:
+- User name / guest ID if available
+- Phone or email if captured
+- Conversation date/time
+- Full AI chat history
+- Lead score: HOT / WARM / COLD
+- Captured preferences:
+  country, city, purpose, budget, property type, timeline, contact method
+- Button to open full conversation
+- Button to mark as contacted
+- Button to archive
+
+2. Add an Admin section called:
+AI Analytics
+
+It must show:
+- Total AI conversations
+- Total leads captured by AI
+- HOT leads count
+- WARM leads count
+- COLD leads count
+- Most requested countries
+- Most requested cities
+- Most requested budgets
+- Most common buyer purpose
+- Daily conversation count
+- Weekly conversation count
+
+3. Verify whether the database already contains tables related to:
+- ai_conversations
+- ai_messages
+- investor_profiles
+- ai_leads
+- ai_analytics
+
+If tables already exist:
+Connect them to the Admin UI.
+
+If they do not exist:
+Create safe database migrations without deleting, modifying, or affecting any existing production data.
+
+4. Every AI conversation must be saved automatically, including:
+- User messages
+- AI replies
+- Extracted profile information
+- Lead score
+- Timestamp
+- Language
+- Session ID or User ID
+
+5. DO NOT modify the current AI prompt, AI personality, AI memory, AI lead qualification logic, or AI recommendation rules.
+The AI is currently working well and must remain unchanged.
+
+6. DO NOT modify:
+- Deployment configuration
+- Build scripts
+- Railway configuration
+- Production environment variables
+- Existing working APIs
+
+7. Before making any changes:
+- Create a backup of all files that will be modified
+- List the files you plan to modify
+- Explain whether each change affects:
+  - Frontend
+  - Backend
+  - Database
+  - Admin UI
+
+8. After implementation:
+Run tests and confirm:
+
+✅ Admin login works
+✅ AI conversation saving works
+✅ AI Conversations page works
+✅ AI Analytics page works
+✅ Properties module works
+✅ Projects module works
+✅ Blog module works
+✅ No public pages are broken
+✅ Existing AI behavior remains unchanged
+
+Goal:
+
+Restore the missing Admin visibility for AI conversations, lead tracking, and analytics while keeping the currently working AI Advisor exactly as it is today.
