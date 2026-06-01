@@ -511,6 +511,65 @@ export async function streamChatWithAdvisor(
   return { message: clean, profileData: data };
 }
 
+// ── Server-side lead extraction ───────────────────────────────────────────────
+// Runs after every AI reply. Reads the full conversation history and extracts
+// lead signals regardless of whether the AI emitted a <profile_data> block.
+const EXTRACTION_SYSTEM_PROMPT = `You are a silent data extraction engine for a luxury real estate platform.
+Read the conversation and extract the following fields from what the USER said across ALL messages.
+Return ONLY a valid JSON object — no explanation, no markdown, no extra text.
+
+Fields (use null if not mentioned anywhere):
+{
+  "goal": "investment | personal_use | both | null",
+  "budget": "numeric amount + currency as string e.g. '100000 USD', or null",
+  "paymentPreference": "cash | installments | null",
+  "country": "country name in English or null",
+  "city": "city name in English or null",
+  "interestedProject": "project name or description or null",
+  "timeline": "when they want to buy e.g. 'immediately', '3 months', or null",
+  "communicationMethod": "whatsapp | email | phone | null",
+  "whatsappContactNumber": "digits only no + or spaces, or null",
+  "email": "email address or null",
+  "language": "2-letter ISO code of the language the user writes in"
+}
+
+Rules:
+- Phone/WhatsApp: strip +, spaces, dashes from any number the user shares
+- Budget: extract numeric value + currency from any message
+- Country/city: infer from known city names (e.g. Batumi → Georgia)
+- Only extract values clearly stated by the user — do not invent or assume
+- Return ONLY the JSON object`;
+
+export async function extractLeadFromConversation(
+  messages: ChatMessage[]
+): Promise<Record<string, string | null>> {
+  if (!openai) return {};
+  try {
+    const transcript = messages
+      .map((m) => `[${m.role.toUpperCase()}]: ${m.content}`)
+      .join("\n\n");
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
+        { role: "user", content: `CONVERSATION:\n\n${transcript}` },
+      ],
+      max_tokens: 300,
+      temperature: 0,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(raw);
+    console.log(`[AI] extraction ok — fields: ${Object.entries(parsed).filter(([,v]) => v !== null).map(([k]) => k).join(", ") || "none"}`);
+    return parsed;
+  } catch (e: any) {
+    console.warn(`[AI] extraction error — ${e.message}`);
+    return {};
+  }
+}
+
 // ── Lead scoring ──────────────────────────────────────────────────────────────
 export function computeLeadScore(profile: Record<string, any>): "hot" | "warm" | "cold" {
   const hasBudget = !!(profile.budget && profile.budget !== "not_sure");
