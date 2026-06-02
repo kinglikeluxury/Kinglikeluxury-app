@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video, Sparkles, CheckCircle2, Clock, AlertCircle, Circle } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video, Sparkles, CheckCircle2, Clock, AlertCircle, Circle, Link2 } from "lucide-react";
 import { uploadToCloudinary } from "@/lib/cloudinaryUpload";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
@@ -74,7 +74,16 @@ const BlogManagement = () => {
   const [categories, setCategories] = useState("");
   const [country, setCountry] = useState("georgia");
   const [published, setPublished] = useState(true);
+  const [slug, setSlug] = useState("");
   const [uploading, setUploading] = useState(false);
+
+  const sanitizeSlug = (raw: string) =>
+    raw
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -199,6 +208,7 @@ const BlogManagement = () => {
     setCategories("");
     setCountry("georgia");
     setPublished(true);
+    setSlug("");
     setEditingPost(null);
     setShowForm(false);
   };
@@ -214,6 +224,7 @@ const BlogManagement = () => {
     setCategories(Array.isArray(post.categories) ? post.categories.join(", ") : "");
     setCountry((post as any).country || "georgia");
     setPublished(post.published);
+    setSlug((post as any).slug || "");
     setShowForm(true);
   };
 
@@ -224,7 +235,9 @@ const BlogManagement = () => {
       return;
     }
 
-    const data = {
+    const cleanedSlug = sanitizeSlug(slug);
+
+    const data: any = {
       title: title.trim(),
       content: content.trim(),
       excerpt: excerpt.trim() || content.trim().substring(0, 200),
@@ -234,6 +247,10 @@ const BlogManagement = () => {
       country,
       published,
     };
+
+    if (cleanedSlug) {
+      data.slug = cleanedSlug;
+    }
 
     if (editingPost) {
       updateMutation.mutate({ id: editingPost.id, data });
@@ -546,6 +563,37 @@ const BlogManagement = () => {
                     rows={12}
                     className="mt-1"
                   />
+                </div>
+
+                {/* SEO URL Slug */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="slug" className="flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-[#3bcac4]" />
+                    SEO URL Slug
+                    <span className="text-xs font-normal text-gray-400 ml-1">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 select-none pointer-events-none">
+                      /en/blog/
+                    </span>
+                    <Input
+                      id="slug"
+                      value={slug}
+                      onChange={(e) => setSlug(sanitizeSlug(e.target.value))}
+                      placeholder={title.trim() ? "auto-generated from title" : "my-custom-url-slug"}
+                      className="pl-[72px] font-mono text-sm"
+                    />
+                  </div>
+                  {slug && (
+                    <p className="text-xs text-[#005476] font-mono bg-blue-50 px-2 py-1 rounded">
+                      URL: /en/blog/{sanitizeSlug(slug)}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400">
+                    {editingPost
+                      ? "Leave unchanged to keep the current slug. Clear to auto-regenerate from the title on save."
+                      : "Leave empty to auto-generate from title. Use lowercase letters and hyphens only."}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-3">

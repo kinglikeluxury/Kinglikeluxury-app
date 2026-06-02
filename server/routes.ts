@@ -2033,15 +2033,35 @@ ${metaTags}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const { title, content, excerpt, coverImage, coverVideo, categories, published, country } = req.body;
+      const { title, content, excerpt, coverImage, coverVideo, categories, published, country, slug: rawManualSlug } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ message: "Title and content are required" });
       }
-      
-      // Generate English-only slug (non-ASCII titles get a timestamp until translation completes)
-      let slug = generateEnglishSlug(title);
-      if (!slug) slug = timestampSlug();
+
+      // ── Slug resolution ───────────────────────────────────────────────────
+      let slug: string;
+      let isManualSlug = false;
+      if (rawManualSlug && typeof rawManualSlug === "string") {
+        const cleanSlug = rawManualSlug.toLowerCase().trim()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, "")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "");
+        if (cleanSlug) {
+          const taken = await storage.getBlogPostBySlug(cleanSlug);
+          if (taken) {
+            return res.status(409).json({ message: `Slug "${cleanSlug}" is already used by another post` });
+          }
+          slug = cleanSlug;
+          isManualSlug = true;
+        } else {
+          slug = generateEnglishSlug(title) || timestampSlug();
+        }
+      } else {
+        // Auto-generate English-only slug (non-ASCII titles get a timestamp until translation completes)
+        slug = generateEnglishSlug(title) || timestampSlug();
+      }
       const finalExcerpt = excerpt || content.substring(0, 200);
 
       const postData = {
@@ -2070,9 +2090,11 @@ ${metaTags}
       translateBlogPost(title, content, finalExcerpt).then(async (translations) => {
         try {
           const updatePayload: any = { translations };
-          // After we have the English translation, upgrade the slug if it was a timestamp fallback
+          // Only upgrade the slug if it's a timestamp fallback AND was not manually set by the admin.
+          // Manual slugs must never be silently overwritten by the translation process.
+          const isTimestampSlug = /^post-\d+$/.test(originalSlug);
           const enTitle = (translations as any)?.en?.title;
-          if (enTitle) {
+          if (!isManualSlug && isTimestampSlug && enTitle) {
             const enSlug = toEnglishSlug(enTitle);
             if (enSlug && enSlug !== originalSlug) {
               // Try to use the English slug; if duplicate, keep original
