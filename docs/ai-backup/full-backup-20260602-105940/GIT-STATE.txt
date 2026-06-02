@@ -1,0 +1,23 @@
+HEAD: 453e9363d88357a321d0784e5deb643160033fd3
+Date: Tue Jun  2 10:59:41 AM UTC 2026
+Branch: main
+453e936 Create backups of configuration files for deployment and development
+caf623a Published your App
+2c5b0e8 Update server configuration to correctly load development tools
+2486e26 Saved progress at the end of the loop
+76a1f82 Fix production crash: use dynamic imports for vite in server/vite.ts
+df9d98c Add scripts to create production stubs for build dependencies
+9ed2f47 Update dependencies and deployment configuration to fix a production crash
+2ac8ba3 Saved progress at the end of the loop
+7397733 Fix production port binding — read process.env.PORT with fallback to 5000
+0f43348 Saved progress at the end of the loop
+0040e04 Saved progress at the end of the loop
+fad6bca Saved progress at the end of the loop
+7437c07 feat: add last_user_message + last_user_message_at to AI lead pipeline
+2d67cde Update lead scoring and display the last user message
+d21f124 Enhance lead extraction and scoring system for AI conversations
+9c96d33 Add temporary test for lead extraction from real conversation data
+3a77e22 Increase token limits and update lead scoring logic
+8eb8f2d Improve AI lead extraction and scoring accuracy
+61beaf3 fix: restore Admin AI Conversations and AI Analytics panels
+eb9e54e Published your App
