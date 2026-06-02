@@ -1,0 +1,122 @@
+import {
+  LayoutDashboard,
+  CheckSquare,
+  PlusCircle,
+  BookOpen,
+  Users,
+  CalendarDays,
+  Sparkles,
+  Flame,
+  Brain,
+  FileText,
+  Mail,
+  Tv,
+  Camera,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+export interface AdminNavItem {
+  labelKey: string;
+  labelFallback: string;
+  path: string;
+  Icon: LucideIcon;
+  iconColorClass?: string;
+  iconColorHex?: string;
+  highlight?: boolean;
+}
+
+export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
+  {
+    labelKey: "admin.dashboard",
+    labelFallback: "Admin Dashboard",
+    path: "/admin/dashboard",
+    Icon: LayoutDashboard,
+  },
+  {
+    labelKey: "admin.approvals",
+    labelFallback: "Property Approvals",
+    path: "/admin/approvals",
+    Icon: CheckSquare,
+  },
+  {
+    labelKey: "admin.createProject",
+    labelFallback: "Add Project",
+    path: "/admin/add-project",
+    Icon: PlusCircle,
+  },
+  {
+    labelKey: "admin.blogManagement",
+    labelFallback: "Blog Management",
+    path: "/admin/blog",
+    Icon: BookOpen,
+  },
+  {
+    labelKey: "admin.leads",
+    labelFallback: "Leads Database",
+    path: "/admin/leads",
+    Icon: Users,
+  },
+  {
+    labelKey: "consultation.admin.title",
+    labelFallback: "Consultations",
+    path: "/admin/consultations",
+    Icon: CalendarDays,
+  },
+  {
+    labelKey: "aiAdvisor.menuLabel",
+    labelFallback: "AI Advisor",
+    path: "/ai-advisor",
+    Icon: Sparkles,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.aiLeads",
+    labelFallback: "AI Leads",
+    path: "/admin/ai-leads",
+    Icon: Flame,
+    iconColorClass: "text-red-500",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.aiIntelligence",
+    labelFallback: "AI Intelligence Center",
+    path: "/admin/ai-intelligence",
+    Icon: Brain,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.projectOffer",
+    labelFallback: "Project Offer",
+    path: "/admin/project-offer",
+    Icon: FileText,
+  },
+  {
+    labelKey: "admin.emailCampaign",
+    labelFallback: "Email Campaign",
+    path: "/admin/email-campaign",
+    Icon: Mail,
+  },
+  {
+    labelKey: "admin.users",
+    labelFallback: "Users",
+    path: "/admin/users",
+    Icon: Users,
+    iconColorHex: "#3bcac4",
+  },
+  {
+    labelKey: "nav.live",
+    labelFallback: "Live Projects",
+    path: "/live-projects",
+    Icon: Tv,
+    iconColorClass: "text-red-500",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.liveCameras",
+    labelFallback: "Live Cameras",
+    path: "/admin/live-cameras",
+    Icon: Camera,
+  },
+];

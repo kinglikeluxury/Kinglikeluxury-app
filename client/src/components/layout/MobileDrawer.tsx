@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
-  LogOut, LogIn, UserPlus, LayoutDashboard, CheckSquare,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Users, Shield, FileText, Lock, Search, Mail, CalendarDays, Bell, Sparkles, Tv, Camera
+  LogOut, LogIn, UserPlus,
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv,
 } from "lucide-react";
+import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
@@ -303,23 +304,21 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.termsConditions", "الشروط والأحكام"), path: "/terms", icon: FileText })}
           </div>
 
-          {/* Admin section */}
+          {/* Admin section — driven by ADMIN_NAV_ITEMS (shared with desktop Navbar) */}
           {user?.isAdmin && (
             <div className="mb-2">
               <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                 {t("drawer.admin", "Admin Tools")}
               </p>
               <div className="bg-white">
-                {renderItem({ label: t("admin.dashboard", "Dashboard"), path: "/admin/dashboard", icon: LayoutDashboard })}
-                {renderItem({ label: t("admin.approvals", "Approvals"), path: "/admin/approvals", icon: CheckSquare })}
-                {renderItem({ label: t("admin.blogManagement", "Blog"), path: "/admin/blog", icon: BookOpen })}
-                {renderItem({ label: `👥 ${t("admin.leads", "Leads Database")}`, path: "/admin/leads", icon: Users })}
-                {renderItem({ label: `📄 ${t("admin.projectOffer", "Project Offer")}`, path: "/admin/project-offer", icon: FileText })}
-                {renderItem({ label: `✉️ ${t("admin.emailCampaign", "Email Campaign")}`, path: "/admin/email-campaign", icon: Mail })}
-                {renderItem({ label: t("consultation.admin.title", "Consultations"), path: "/admin/consultations", icon: CalendarDays })}
-                {renderItem({ label: `🤖 ${t("admin.aiLeads", "AI Leads")}`, path: "/admin/ai-leads", icon: Sparkles })}
-                {renderItem({ label: `👤 ${t("admin.users", "Users")}`, path: "/admin/users", icon: Users })}
-                {renderItem({ label: `📹 ${t("admin.liveCameras", "Live Cameras")}`, path: "/admin/live-cameras", icon: Camera })}
+                {ADMIN_NAV_ITEMS.map((item) =>
+                  renderItem({
+                    label: t(item.labelKey, item.labelFallback),
+                    path: item.path,
+                    icon: item.Icon,
+                    highlight: item.highlight,
+                  })
+                )}
 
                 {/* Property ID Search */}
                 <div className="px-5 py-3.5 border-t border-gray-100">

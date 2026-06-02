@@ -10,13 +10,14 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Users, Brain, Flame } from "lucide-react";
+import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
 import NotificationBell from "./NotificationBell";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
+import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 
 const Navbar = () => {
   const [location, navigate] = useLocation();
@@ -208,20 +209,17 @@ const Navbar = () => {
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel className="text-xs text-gray-400 font-semibold uppercase">Admin</DropdownMenuLabel>
-                          <DropdownMenuItem asChild><Link href="/admin/dashboard">{t("admin.dashboard", "Admin Dashboard")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/approvals">{t("admin.approvals", "Approvals")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/add-project">{t("admin.createProject", "Add Project")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/blog">{t("admin.blogManagement", "Blog")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/leads">👥 {t("admin.leads", "Leads Database")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/consultations" className="flex items-center gap-2"><CalendarDays className="w-3.5 h-3.5" /> {t("consultation.admin.title", "Consultations")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/ai-advisor" className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-[#3bcac4]" /> {t("aiAdvisor.menuLabel", "AI Advisor")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/ai-leads" className="flex items-center gap-2"><Flame className="w-3.5 h-3.5 text-red-500" /> {t("admin.aiLeads", "AI Leads")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/ai-intelligence" className="flex items-center gap-2"><Brain className="w-3.5 h-3.5 text-[#3bcac4]" /> {t("admin.aiIntelligence", "AI Intelligence Center")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/project-offer">📄 {t("admin.projectOffer", "إنشاء عرض للمشاريع")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/email-campaign">✉️ {t("admin.emailCampaign", "Email Campaign")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/users" className="flex items-center gap-2"><Users className="w-3.5 h-3.5 text-[#3bcac4]" /> {t("admin.users", "Users")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/live-projects" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-500" /> {t("nav.live", "Live Projects")}</Link></DropdownMenuItem>
-                          <DropdownMenuItem asChild><Link href="/admin/live-cameras" className="flex items-center gap-2"><Tv className="w-3.5 h-3.5 text-red-400" /> {t("admin.liveCameras", "Live Cameras")}</Link></DropdownMenuItem>
+                          {ADMIN_NAV_ITEMS.map((item) => (
+                            <DropdownMenuItem key={item.path} asChild>
+                              <Link href={item.path} className="flex items-center gap-2">
+                                <item.Icon
+                                  className={`w-3.5 h-3.5${item.iconColorClass ? ` ${item.iconColorClass}` : ""}`}
+                                  style={item.iconColorHex ? { color: item.iconColorHex } : undefined}
+                                />
+                                {t(item.labelKey, item.labelFallback)}
+                              </Link>
+                            </DropdownMenuItem>
+                          ))}
                           <DropdownMenuSeparator />
                           <div className="px-2 py-1.5">
                             <p className="text-[10px] text-gray-400 font-semibold uppercase mb-1.5 flex items-center gap-1">
