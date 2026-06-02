@@ -20,18 +20,31 @@ export function log(message: string, source = "express") {
 
 export async function setupVite(app: Express, server: Server) {
   const { createServer: createViteServer, createLogger } = await import("vite");
-  const { default: viteConfig } = await import("../vite.config");
+  const { default: react } = await import("@vitejs/plugin-react");
+  const { default: runtimeErrorOverlay } = await import("@replit/vite-plugin-runtime-error-modal");
+
+  const extraPlugins: any[] = [];
+  if (process.env.REPL_ID !== undefined) {
+    const { cartographer } = await import("@replit/vite-plugin-cartographer");
+    extraPlugins.push(cartographer());
+  }
 
   const viteLogger = createLogger();
 
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true,
-  };
-
   const vite = await createViteServer({
-    ...viteConfig,
+    plugins: [react(), runtimeErrorOverlay(), ...extraPlugins],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "..", "client", "src"),
+        "@shared": path.resolve(__dirname, "..", "shared"),
+        "@assets": path.resolve(__dirname, "..", "attached_assets"),
+      },
+    },
+    root: path.resolve(__dirname, "..", "client"),
+    build: {
+      outDir: path.resolve(__dirname, "..", "dist", "public"),
+      emptyOutDir: true,
+    },
     configFile: false,
     customLogger: {
       ...viteLogger,
@@ -40,7 +53,11 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: serverOptions,
+    server: {
+      middlewareMode: true,
+      hmr: { server },
+      allowedHosts: true as any,
+    },
     appType: "custom",
   });
 
