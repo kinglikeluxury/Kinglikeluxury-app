@@ -414,6 +414,7 @@ ${metaTags}
 
   // Configure sessions with PostgreSQL store
   const isProduction = process.env.NODE_ENV === "production";
+
   app.use(
     session({
       cookie: {
@@ -1233,7 +1234,6 @@ ${metaTags}
         maxPrice,
         includeAll
       } = req.query;
-      
       let filters: any = { status };
 
       // includeAll=true bypasses project exclusion (used by map view)

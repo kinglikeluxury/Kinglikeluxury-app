@@ -11,24 +11,31 @@ import {
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
-// The object storage client is used to interact with the object storage service.
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
+// Object storage is only available when running on Replit (REPL_ID is injected
+// by the Replit runtime). On Railway and other platforms the client is kept null
+// so that every storage operation returns a clear "unavailable" error instead of
+// throwing a connection-refused exception against the internal sidecar address.
+const IS_REPLIT_ENV = !!process.env.REPL_ID;
+
+export const objectStorageClient: Storage | null = IS_REPLIT_ENV
+  ? new Storage({
+      credentials: {
+        audience: "replit",
+        subject_token_type: "access_token",
+        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+        type: "external_account",
+        credential_source: {
+          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+          format: {
+            type: "json",
+            subject_token_field_name: "access_token",
+          },
+        },
+        universe_domain: "googleapis.com",
       },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
+      projectId: "",
+    })
+  : null;
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -36,6 +43,21 @@ export class ObjectNotFoundError extends Error {
     this.name = "ObjectNotFoundError";
     Object.setPrototypeOf(this, ObjectNotFoundError.prototype);
   }
+}
+
+export class ObjectStorageUnavailableError extends Error {
+  constructor() {
+    super("Object storage is not available in this environment (Replit only)");
+    this.name = "ObjectStorageUnavailableError";
+    Object.setPrototypeOf(this, ObjectStorageUnavailableError.prototype);
+  }
+}
+
+function requireClient(): Storage {
+  if (!objectStorageClient) {
+    throw new ObjectStorageUnavailableError();
+  }
+  return objectStorageClient;
 }
 
 // The object storage service is used to interact with the object storage service.
@@ -76,12 +98,13 @@ export class ObjectStorageService {
 
   // Search for a public object from the search paths.
   async searchPublicObject(filePath: string): Promise<File | null> {
+    const client = requireClient();
     for (const searchPath of this.getPublicObjectSearchPaths()) {
       const fullPath = `${searchPath}/${filePath}`;
 
       // Full path format: /<bucket_name>/<object_name>
       const { bucketName, objectName } = parseObjectPath(fullPath);
-      const bucket = objectStorageClient.bucket(bucketName);
+      const bucket = client.bucket(bucketName);
       const file = bucket.file(objectName);
 
       // Check if file exists
@@ -156,6 +179,8 @@ export class ObjectStorageService {
 
   // Gets the object entity file from the object path.
   async getObjectEntityFile(objectPath: string): Promise<File> {
+    const client = requireClient();
+
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();
     }
@@ -179,7 +204,7 @@ export class ObjectStorageService {
     }
     const objectEntityPath = `${entityDir}${entityId}`;
     const { bucketName, objectName } = parseObjectPath(objectEntityPath);
-    const bucket = objectStorageClient.bucket(bucketName);
+    const bucket = client.bucket(bucketName);
     const objectFile = bucket.file(objectName);
     const [exists] = await objectFile.exists();
     if (!exists) {
@@ -278,6 +303,10 @@ async function signObjectURL({
   method: "GET" | "PUT" | "DELETE" | "HEAD";
   ttlSec: number;
 }): Promise<string> {
+  if (!IS_REPLIT_ENV) {
+    throw new ObjectStorageUnavailableError();
+  }
+
   const request = {
     bucket_name: bucketName,
     object_name: objectName,

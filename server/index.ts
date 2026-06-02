@@ -107,9 +107,13 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    console.error(
+      `[Express:Error] ${status} ${message}`,
+      err.stack?.split("\n").slice(0, 3).join(" | ") ?? ""
+    );
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
   });
 
   // Guard: any /api/* path that didn't match a registered route must return
