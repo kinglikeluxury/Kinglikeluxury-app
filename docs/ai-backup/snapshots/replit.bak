@@ -1,0 +1,54 @@
+modules = ["nodejs-20", "web", "python-3.11", "postgresql-16"]
+run = "npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[nix]
+channel = "stable-24_05"
+packages = ["libuuid", "openjdk", "android-tools", "unzip", "wget", "gradle", "zip"]
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["bash", "-c", "npm install && npm run build"]
+run = ["bash", "-c", "npm install --omit=dev --no-audit --no-fund && NODE_ENV=production node dist/index.js"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[agent]
+integrations = ["javascript_stripe:1.0.0", "javascript_paypal:1.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[userenv]
+
+[userenv.production]
+BOG_BASE_URL = "https://kinglikeluxury-app.com"
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BPBnfLcwvh1xgKqW1X5bFAJrJ0V06ZeULHQ9prjZWO0LwI6AqsUwsB0DvDqNpO0kZ61CWYITcYGtAitE4F-UUuY"
+VAPID_PRIVATE_KEY = "VdgQxT-HKvAX3hOV_CGidIES_opbSIJmnfR4O96eSco"
+VAPID_SUBJECT = "mailto:info@kinglikeluxury.app"
