@@ -8,8 +8,8 @@ packages = ["libuuid", "openjdk", "android-tools", "unzip", "wget", "gradle", "z
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["bash", "-c", "npm install && npm run build"]
-run = ["bash", "-c", "npm install --omit=dev && npm run start"]
+build = ["bash", "-c", "npm install && npm run build && bash scripts/create-prod-stubs.sh"]
+run = ["bash", "-c", "npm install --omit=dev --no-audit --no-fund --prefer-offline && npm run start"]
 
 [[ports]]
 localPort = 5000
