@@ -14,8 +14,22 @@ neonConfig.webSocketConstructor = ws;
  */
 const neonDatabaseUrl = process.env.NEON_DATABASE_URL;
 
-// Explicit startup log — confirms exactly which connection string is active
-console.log("ACTIVE_DB:", process.env.NEON_DATABASE_URL);
+// Safe startup log — confirms var is set without exposing credentials
+{
+  const url = process.env.NEON_DATABASE_URL;
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      console.log("[DB] ACTIVE_DB: SET");
+      console.log("[DB] Host:", parsed.hostname);
+      console.log("[DB] Database:", parsed.pathname.replace(/^\//, ""));
+    } catch {
+      console.log("[DB] ACTIVE_DB: SET (URL parse failed)");
+    }
+  } else {
+    console.log("[DB] ACTIVE_DB: NOT SET");
+  }
+}
 
 if (!neonDatabaseUrl) {
   throw new Error(
