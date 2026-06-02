@@ -2203,14 +2203,16 @@ ${metaTags}
             const translationUpdate: any = { translations };
             // After translation, upgrade slug if it's still a timestamp fallback
             const enTitle = (translations as any)?.en?.title;
-            if (enTitle) {
+            // Only upgrade the slug when it is a timestamp fallback (post-<timestamp>).
+            // Never overwrite a manually-set or auto-generated real slug via the translation callback.
+            const isTimestamp = /^post-\d+$/.test(slugBeforeTranslation);
+            if (enTitle && isTimestamp) {
               const enSlug = toEnglishSlug(enTitle);
-              const isTimestamp = /^post-\d+$/.test(slugBeforeTranslation);
-              if (enSlug && (isTimestamp || enSlug !== slugBeforeTranslation)) {
+              if (enSlug && enSlug !== slugBeforeTranslation) {
                 const conflict = await storage.getBlogPostBySlug(enSlug);
                 if (!conflict || conflict.id === id) {
                   const prevOld: string[] = (currentPost as any)?.oldSlugs ?? [];
-                  if (!prevOld.includes(slugBeforeTranslation) && isTimestamp) {
+                  if (!prevOld.includes(slugBeforeTranslation)) {
                     translationUpdate.oldSlugs = [...prevOld, slugBeforeTranslation];
                   }
                   translationUpdate.slug = enSlug;
