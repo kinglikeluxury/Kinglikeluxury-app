@@ -500,11 +500,21 @@ ${metaTags}
 
   // ── OTP Security Layer ────────────────────────────────────────────────────
 
-  /** Resolve real client IP (supports Cloudflare / reverse proxies). */
+  /**
+   * Resolve real client IP — safe against header spoofing.
+   *
+   * Priority:
+   *  1. CF-Connecting-IP — set exclusively by Cloudflare infrastructure;
+   *     Cloudflare strips any client-supplied copy before adding its own,
+   *     so end-users cannot forge this header.
+   *  2. req.ip — Express's resolved address, which already honours
+   *     `app.set("trust proxy", 1)` configured in server/index.ts.
+   *     Never parse x-forwarded-for directly — it can be client-controlled.
+   */
   function getClientIp(req: any): string {
-    const fwd = req.headers['x-forwarded-for'];
-    if (typeof fwd === 'string') return fwd.split(',')[0].trim();
-    return req.ip || req.socket?.remoteAddress || 'unknown';
+    const cfIp = req.headers['cf-connecting-ip'];
+    if (typeof cfIp === 'string' && cfIp.trim()) return cfIp.trim();
+    return req.ip || 'unknown';
   }
 
   /** Partially mask a phone number or email for logs (never log full PII). */
