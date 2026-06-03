@@ -45,6 +45,7 @@ import AiIntelligencePage from "@/pages/admin/ai-intelligence";
 import AdminUsersPage from "@/pages/admin/users";
 import LiveProjects from "@/pages/live-projects";
 import AdminLiveCameras from "@/pages/admin/live-cameras";
+import OtpLogsPage from "@/pages/admin/otp-logs";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -85,6 +86,7 @@ function Router() {
           <Route path="/admin/ai-intelligence" component={AiIntelligencePage} />
           <Route path="/admin/users" component={AdminUsersPage} />
           <Route path="/admin/live-cameras" component={AdminLiveCameras} />
+          <Route path="/admin/otp-logs" component={OtpLogsPage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />

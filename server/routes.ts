@@ -498,33 +498,146 @@ ${metaTags}
   // ── Email OTP store (server-side only, never exposed to client) ────────────
   const emailOtpStore = new Map<string, { code: string; expiresAt: Date; verified: boolean }>();
 
-  // ── Rate limiting: max 3 OTP attempts per 10 minutes ──────────────────────
-  const smsOtpRateLimit = new Map<string, number[]>();
+  // ── OTP Security Layer ────────────────────────────────────────────────────
+
+  /** Resolve real client IP (supports Cloudflare / reverse proxies). */
+  function getClientIp(req: any): string {
+    const fwd = req.headers['x-forwarded-for'];
+    if (typeof fwd === 'string') return fwd.split(',')[0].trim();
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+  }
+
+  /** Partially mask a phone number or email for logs (never log full PII). */
+  function maskIdentifier(id: string): string {
+    if (!id) return '?';
+    if (id.includes('@')) {
+      const [local, domain] = id.split('@');
+      return `${local.slice(0, 2)}***@${domain}`;
+    }
+    return `${id.slice(0, 4)}****${id.slice(-3)}`;
+  }
+
+  // Per-identifier (phone / email) rate limit: max 3 per 15 min
+  const smsOtpRateLimit   = new Map<string, number[]>();
   const emailOtpRateLimit = new Map<string, number[]>();
-  function checkOtpRateLimit(map: Map<string, number[]>, key: string): boolean {
+  const passwordResetRateLimit = new Map<string, number[]>();
+
+  function checkOtpRateLimit(
+    map: Map<string, number[]>,
+    key: string,
+    maxAttempts = 3,
+    windowMs = 15 * 60 * 1000,
+  ): boolean {
     const now = Date.now();
-    const windowMs = 10 * 60 * 1000;
     const attempts = (map.get(key) || []).filter((t: number) => now - t < windowMs);
-    if (attempts.length >= 3) return false;
+    if (attempts.length >= maxAttempts) return false;
     attempts.push(now);
     map.set(key, attempts);
     return true;
   }
 
+  // Per-IP rate limit: max 5 per 10 min; auto-block after 10 per hour
+  const ipOtpAttempts = new Map<string, number[]>();
+  const blockedIPs    = new Set<string>();
+  const IP_RATE_MAX    = 5;
+  const IP_RATE_WIN_MS = 10 * 60 * 1000;  // 10 min
+  const IP_BLOCK_THR   = 10;
+  const IP_BLOCK_WIN_MS = 60 * 60 * 1000; // 1 hour
+
+  function checkIpOtpLimit(ip: string): 'ok' | 'rate_limited' | 'blocked' {
+    if (blockedIPs.has(ip)) return 'blocked';
+    const now  = Date.now();
+    const all  = (ipOtpAttempts.get(ip) || []).filter((t: number) => now - t < IP_BLOCK_WIN_MS);
+    const recent = all.filter((t: number) => now - t < IP_RATE_WIN_MS);
+    if (recent.length >= IP_RATE_MAX) return 'rate_limited';
+    all.push(now);
+    ipOtpAttempts.set(ip, all);
+    if (all.length >= IP_BLOCK_THR) {
+      blockedIPs.add(ip);
+      console.warn(`[OTP Security] Auto-blocked suspicious IP: ${ip} (${all.length} req/hr)`);
+      return 'blocked';
+    }
+    return 'ok';
+  }
+
+  // In-memory OTP request log — circular buffer, newest last (max 500 entries)
+  interface OtpLogEntry {
+    id: number;
+    timestamp: string;
+    type: 'sms' | 'email' | 'reset';
+    identifier: string;
+    ip: string;
+    result: 'sent' | 'phone_rate_limited' | 'ip_rate_limited' | 'ip_blocked' | 'captcha_failed' | 'error';
+    method?: 'whatsapp' | 'sms';
+    userAgent: string;
+  }
+  const otpLogs: OtpLogEntry[] = [];
+  let otpLogSeq = 0;
+
+  function addOtpLog(entry: Omit<OtpLogEntry, 'id' | 'timestamp'>): void {
+    if (otpLogs.length >= 500) otpLogs.shift();
+    otpLogs.push({ id: ++otpLogSeq, timestamp: new Date().toISOString(), ...entry });
+  }
+
+  /**
+   * Verify Cloudflare Turnstile token.
+   * Falls back to the Cloudflare "always-pass" test secret when no secret is configured
+   * so the feature works out-of-the-box in development without blocking users.
+   */
+  async function verifyTurnstile(token: string | undefined, ip: string): Promise<boolean> {
+    if (!token) return false;
+    const secret = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY
+      || '1x0000000000000000000000000000000AA'; // Cloudflare test secret — always passes
+    try {
+      const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret, response: token, remoteip: ip }),
+      });
+      const data = await r.json() as { success: boolean };
+      return data.success === true;
+    } catch (err) {
+      // Fail-open: Cloudflare unreachable → don't block legitimate users
+      console.warn('[Turnstile] Verification request failed, allowing request:', err);
+      return true;
+    }
+  }
+
   // ── Password-reset OTP store (server-side only, expires 10 min) ───────────
   const passwordResetStore = new Map<string, { code: string; expiresAt: Date }>();
-  const passwordResetRateLimit = new Map<string, number[]>();
 
   // Send verification code — WhatsApp first, SMS fallback via Messaging Service
   app.post("/api/auth/send-verification", async (req, res) => {
+    const ip = getClientIp(req);
+    const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     try {
-      const { phoneNumber } = req.body;
+      const { phoneNumber, turnstileToken } = req.body;
       if (!phoneNumber) {
         return res.status(400).json({ message: "Phone number is required" });
       }
 
+      // 1. IP-level check (blocked / rate-limited)
+      const ipStatus = checkIpOtpLimit(ip);
+      if (ipStatus === 'blocked') {
+        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'ip_blocked', userAgent: ua });
+        return res.status(429).json({ message: "Too many requests from your network. Please try again later." });
+      }
+      if (ipStatus === 'rate_limited') {
+        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'ip_rate_limited', userAgent: ua });
+        return res.status(429).json({ message: "Too many OTP requests from your network. Please wait 10 minutes." });
+      }
+
+      // 2. Per-phone rate limit (max 3 per 15 min)
       if (!checkOtpRateLimit(smsOtpRateLimit, phoneNumber)) {
-        return res.status(429).json({ message: "Too many SMS attempts. Please wait 10 minutes." });
+        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'phone_rate_limited', userAgent: ua });
+        return res.status(429).json({ message: "Too many OTP requests for this number. Please wait 15 minutes." });
+      }
+
+      // 3. Turnstile CAPTCHA verification
+      const captchaOk = await verifyTurnstile(turnstileToken, ip);
+      if (!captchaOk) {
+        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'captcha_failed', userAgent: ua });
+        return res.status(403).json({ message: "Security verification failed. Please refresh the page and try again." });
       }
 
       if (!twilioClient) {
@@ -567,8 +680,10 @@ ${metaTags}
         console.log(`✅ SMS OTP sent to ${phoneNumber}`);
       }
 
+      addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'sent', method: method as 'whatsapp' | 'sms', userAgent: ua });
       res.json({ success: true, method, message: method === "whatsapp" ? "Verification code sent via WhatsApp" : "Verification code sent via SMS" });
     } catch (error: any) {
+      addOtpLog({ type: 'sms', identifier: maskIdentifier(req.body?.phoneNumber || '?'), ip, result: 'error', userAgent: ua });
       console.error("OTP send error:", error);
       res.status(500).json({ message: error.message || "Failed to send verification code" });
     }
@@ -597,20 +712,39 @@ ${metaTags}
 
   // Send Email OTP — fallback verification (server-side only, credentials never exposed)
   app.post("/api/auth/send-email-otp", async (req, res) => {
+    const ip = getClientIp(req);
+    const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     try {
       const { email } = req.body;
       if (!email || typeof email !== "string") {
         return res.status(400).json({ message: "Email is required" });
       }
-      if (!checkOtpRateLimit(emailOtpRateLimit, email.toLowerCase())) {
-        return res.status(429).json({ message: "Too many email OTP attempts. Please wait 10 minutes." });
+
+      // IP-level check
+      const ipStatus = checkIpOtpLimit(ip);
+      if (ipStatus === 'blocked') {
+        addOtpLog({ type: 'email', identifier: maskIdentifier(email), ip, result: 'ip_blocked', userAgent: ua });
+        return res.status(429).json({ message: "Too many requests from your network. Please try again later." });
       }
+      if (ipStatus === 'rate_limited') {
+        addOtpLog({ type: 'email', identifier: maskIdentifier(email), ip, result: 'ip_rate_limited', userAgent: ua });
+        return res.status(429).json({ message: "Too many OTP requests from your network. Please wait 10 minutes." });
+      }
+
+      // Per-email rate limit
+      if (!checkOtpRateLimit(emailOtpRateLimit, email.toLowerCase())) {
+        addOtpLog({ type: 'email', identifier: maskIdentifier(email), ip, result: 'phone_rate_limited', userAgent: ua });
+        return res.status(429).json({ message: "Too many email OTP attempts. Please wait 15 minutes." });
+      }
+
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       emailOtpStore.set(email.toLowerCase(), { code, expiresAt, verified: false });
       await sendEmailOtp(email, code);
+      addOtpLog({ type: 'email', identifier: maskIdentifier(email), ip, result: 'sent', userAgent: ua });
       res.json({ success: true });
     } catch (err: any) {
+      addOtpLog({ type: 'email', identifier: maskIdentifier(req.body?.email || '?'), ip, result: 'error', userAgent: ua });
       console.error("Email OTP send error:", err);
       res.status(500).json({ message: err.message || "Failed to send email verification code" });
     }
@@ -641,16 +775,30 @@ ${metaTags}
 
   // Send password-reset OTP — supports phone (WhatsApp/SMS + email fallback) and email
   app.post("/api/auth/send-reset-otp", async (req, res) => {
+    const ip = getClientIp(req);
+    const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     const GENERIC_OK = { message: "If an account exists, a verification code will be sent." };
     try {
       const { method, phoneNumber, email } = req.body;
+
+      // IP-level check for all reset attempts
+      const ipStatus = checkIpOtpLimit(ip);
+      if (ipStatus === 'blocked') {
+        addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_blocked', userAgent: ua });
+        return res.status(429).json({ message: "Too many requests from your network. Please try again later." });
+      }
+      if (ipStatus === 'rate_limited') {
+        addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_rate_limited', userAgent: ua });
+        return res.status(429).json({ message: "Too many requests from your network. Please wait 10 minutes." });
+      }
 
       if (method === 'phone') {
         if (!phoneNumber || typeof phoneNumber !== 'string') {
           return res.status(400).json({ message: "Phone number required" });
         }
         if (!checkOtpRateLimit(passwordResetRateLimit, phoneNumber)) {
-          return res.status(429).json({ message: "Too many reset attempts. Please wait 10 minutes." });
+          addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber), ip, result: 'phone_rate_limited', userAgent: ua });
+          return res.status(429).json({ message: "Too many reset attempts. Please wait 15 minutes." });
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -3777,6 +3925,42 @@ ${metaTags}
   });
 
   registerAiIntelligenceRoutes(app);
+
+  // ── OTP Security Admin Endpoints ──────────────────────────────────────────
+
+  /** GET /api/admin/otp-logs — returns recent OTP log entries + blocked IP list */
+  app.get("/api/admin/otp-logs", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    res.json({
+      logs: [...otpLogs].reverse(), // newest first
+      blockedIPs: Array.from(blockedIPs),
+    });
+  });
+
+  /** POST /api/admin/otp-block — manually block an IP address */
+  app.post("/api/admin/otp-block", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    const { ip } = req.body;
+    if (!ip || typeof ip !== 'string') return res.status(400).json({ message: "IP address required" });
+    blockedIPs.add(ip.trim());
+    console.log(`[OTP Security] Admin manually blocked IP: ${ip.trim()}`);
+    res.json({ success: true, blockedIPs: Array.from(blockedIPs) });
+  });
+
+  /** DELETE /api/admin/otp-block/:ip — unblock an IP address */
+  app.delete("/api/admin/otp-block/:ip", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    const target = decodeURIComponent(req.params.ip);
+    blockedIPs.delete(target);
+    console.log(`[OTP Security] Admin unblocked IP: ${target}`);
+    res.json({ success: true, blockedIPs: Array.from(blockedIPs) });
+  });
 
   return httpServer;
 }

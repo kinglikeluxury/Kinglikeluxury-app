@@ -12,6 +12,7 @@ import {
   Mail,
   Tv,
   Camera,
+  ShieldAlert,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -118,5 +119,12 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Live Cameras",
     path: "/admin/live-cameras",
     Icon: Camera,
+  },
+  {
+    labelKey: "admin.otpLogs",
+    labelFallback: "OTP Security Logs",
+    path: "/admin/otp-logs",
+    Icon: ShieldAlert,
+    iconColorHex: "#005476",
   },
 ];

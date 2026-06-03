@@ -1,4 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: Record<string, unknown>) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +77,14 @@ export default function RegisterPage() {
   const [smsFailed, setSmsFailed] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Cloudflare Turnstile
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetId = useRef<string | null>(null);
+
+  const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string) || '1x00000000000000000000AA';
+
   const form = useForm<RegistrationValues>({
     resolver: zodResolver(registrationSchema),
     defaultValues: { username: '', password: '', email: '' },
@@ -83,6 +101,53 @@ export default function RegisterPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Load Cloudflare Turnstile script once
+  useEffect(() => {
+    if (document.getElementById('cf-turnstile-script')) return;
+    const script = document.createElement('script');
+    script.id = 'cf-turnstile-script';
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById('cf-turnstile-script');
+      if (el) el.remove();
+    };
+  }, []);
+
+  // Render Turnstile widget whenever the container mounts or turnstileKey changes
+  const renderTurnstile = useCallback(() => {
+    if (!turnstileRef.current || !window.turnstile) return;
+    if (turnstileWidgetId.current) {
+      try { window.turnstile.remove(turnstileWidgetId.current); } catch {}
+      turnstileWidgetId.current = null;
+    }
+    turnstileWidgetId.current = window.turnstile.render(turnstileRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token: string) => setTurnstileToken(token),
+      'error-callback': () => setTurnstileToken(null),
+      'expired-callback': () => setTurnstileToken(null),
+      theme: 'light',
+      size: 'normal',
+    });
+  }, [TURNSTILE_SITE_KEY]);
+
+  useEffect(() => {
+    if (verificationSent) return; // widget only needed before OTP is sent
+    if (window.turnstile) {
+      renderTurnstile();
+      return;
+    }
+    // Script may still be loading — poll until available
+    const poll = setInterval(() => {
+      if (window.turnstile) {
+        clearInterval(poll);
+        renderTurnstile();
+      }
+    }, 150);
+    return () => clearInterval(poll);
+  }, [turnstileKey, verificationSent, renderTurnstile]);
 
   // 10-second countdown after SMS sent successfully — then auto-send email OTP.
   // Does NOT run when SMS failed instantly (smsFailed=true), because email OTP
@@ -141,7 +206,7 @@ export default function RegisterPage() {
     const phoneNumber = getFullPhoneNumber();
     setSendingCode(true);
     try {
-      const result = await apiRequest('POST', '/api/auth/send-verification', { phoneNumber });
+      const result = await apiRequest('POST', '/api/auth/send-verification', { phoneNumber, turnstileToken });
       const data = await result.json();
       setVerificationSent(true);
       setSentMethod(data.method || 'sms');
@@ -230,6 +295,8 @@ export default function RegisterPage() {
     setVerificationCode('');
     setCountdown(FALLBACK_SECONDS);
     if (countdownRef.current) clearInterval(countdownRef.current);
+    setTurnstileToken(null);
+    setTurnstileKey(k => k + 1);
   };
 
   const passwordValue = form.watch('password');
@@ -375,17 +442,33 @@ export default function RegisterPage() {
                 </div>
               )}
 
+              {/* Cloudflare Turnstile security challenge */}
+              {!verificationSent && privacyAccepted && (
+                <div className="flex flex-col items-center gap-1.5">
+                  <div
+                    key={turnstileKey}
+                    ref={turnstileRef}
+                    className="min-h-[65px] flex items-center justify-center"
+                  />
+                  {!turnstileToken && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Complete the security check above to enable sending.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Send Code button */}
               {!verificationSent && (
                 <Button
                   type="button"
                   className={`w-full transition-all ${
-                    privacyAccepted
+                    privacyAccepted && turnstileToken
                       ? 'bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                   onClick={handleSendCode}
-                  disabled={sendingCode || !privacyAccepted}
+                  disabled={sendingCode || !privacyAccepted || !turnstileToken}
                 >
                   {sendingCode && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {sendingCode ? t('auth.sending') : t('auth.sendCode')}
