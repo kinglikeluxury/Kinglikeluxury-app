@@ -789,9 +789,9 @@ ${metaTags}
     const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     const GENERIC_OK = { message: "If an account exists, a verification code will be sent." };
     try {
-      const { method, phoneNumber, email } = req.body;
+      const { method, phoneNumber, email, turnstileToken } = req.body;
 
-      // IP-level check for all reset attempts
+      // 1. IP-level check for all reset attempts
       const ipStatus = checkIpOtpLimit(ip);
       if (ipStatus === 'blocked') {
         addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_blocked', userAgent: ua });
@@ -800,6 +800,13 @@ ${metaTags}
       if (ipStatus === 'rate_limited') {
         addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_rate_limited', userAgent: ua });
         return res.status(429).json({ message: "Too many requests from your network. Please wait 10 minutes." });
+      }
+
+      // 2. Turnstile CAPTCHA verification (blocks bots before any Twilio call)
+      const captchaOk = await verifyTurnstile(turnstileToken, ip);
+      if (!captchaOk) {
+        addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'captcha_failed', userAgent: ua });
+        return res.status(403).json({ message: "Security verification failed. Please refresh the page and try again." });
       }
 
       if (method === 'phone') {

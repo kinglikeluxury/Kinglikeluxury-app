@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,16 @@ import { Link, useLocation } from 'wouter';
 import { Loader2, CheckCircle, Eye, EyeOff, ArrowLeft, Phone, Mail } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 import { useTranslation } from 'react-i18next';
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: Record<string, unknown>) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
 
 type Step = 'choose' | 'verify' | 'newpass' | 'done';
 type Method = 'phone' | 'email';
@@ -29,6 +39,59 @@ export default function ForgotPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // ── Cloudflare Turnstile ─────────────────────────────────────────────────
+  const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string) || '1x00000000000000000000AA';
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetId = useRef<string | null>(null);
+
+  // Load Turnstile script once
+  useEffect(() => {
+    if (document.getElementById('cf-turnstile-script')) return;
+    const script = document.createElement('script');
+    script.id = 'cf-turnstile-script';
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById('cf-turnstile-script');
+      if (el) el.remove();
+    };
+  }, []);
+
+  const renderTurnstile = useCallback(() => {
+    if (!turnstileRef.current || !window.turnstile) return;
+    if (turnstileWidgetId.current) {
+      try { window.turnstile.remove(turnstileWidgetId.current); } catch {}
+      turnstileWidgetId.current = null;
+    }
+    turnstileWidgetId.current = window.turnstile.render(turnstileRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token: string) => setTurnstileToken(token),
+      'error-callback': () => setTurnstileToken(null),
+      'expired-callback': () => setTurnstileToken(null),
+    });
+  }, [TURNSTILE_SITE_KEY]);
+
+  // Render widget when on 'choose' step and script is ready
+  useEffect(() => {
+    if (step !== 'choose') return;
+    if (window.turnstile) {
+      renderTurnstile();
+    } else {
+      const interval = setInterval(() => {
+        if (window.turnstile) { clearInterval(interval); renderTurnstile(); }
+      }, 200);
+      return () => clearInterval(interval);
+    }
+  }, [turnstileKey, step, renderTurnstile]);
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setTurnstileKey(k => k + 1);
+  };
+
   const fullPhone = () => `${dialCode}${localNumber.replace(/\s+/g, '')}`;
 
   const handleSendCode = async () => {
@@ -44,11 +107,13 @@ export default function ForgotPasswordPage() {
     try {
       await apiRequest('POST', '/api/auth/send-reset-otp', {
         method,
+        turnstileToken,
         ...(method === 'phone' ? { phoneNumber: fullPhone() } : { email: email.trim() }),
       });
       toast({ title: t('auth.ifAccountExists') });
       setStep('verify');
     } catch (e: any) {
+      resetTurnstile();
       // Never expose provider errors — show generic message
       toast({ title: t('auth.sendFailed'), description: t('auth.ifAccountExists'), variant: 'destructive' });
     } finally {
@@ -184,10 +249,24 @@ export default function ForgotPasswordPage() {
                 </div>
               )}
 
+              {/* Cloudflare Turnstile challenge */}
+              <div className="flex flex-col items-center gap-1.5">
+                <div
+                  key={turnstileKey}
+                  ref={turnstileRef}
+                  className="min-h-[65px]"
+                />
+                {!turnstileToken && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    {t('auth.completeCaptcha') || 'Complete the security check above to continue'}
+                  </p>
+                )}
+              </div>
+
               <Button
                 className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]"
                 onClick={handleSendCode}
-                disabled={loading}
+                disabled={loading || !turnstileToken}
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 {loading ? t('auth.sending') : t('auth.sendCode')}
@@ -236,7 +315,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="button"
                   className="text-[#3bcac4] hover:underline"
-                  onClick={() => { setStep('choose'); setCode(''); }}
+                  onClick={() => { setStep('choose'); setCode(''); resetTurnstile(); }}
                 >
                   {t('auth.changeMethod')}
                 </button>
@@ -244,7 +323,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="button"
                   className="text-[#3bcac4] hover:underline"
-                  onClick={handleSendCode}
+                  onClick={() => { setStep('choose'); setCode(''); resetTurnstile(); }}
                   disabled={loading}
                 >
                   {t('auth.resend')}
