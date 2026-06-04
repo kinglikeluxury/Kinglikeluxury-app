@@ -106,10 +106,9 @@ export default function CrmLeadsPage() {
     }),
   });
 
-  const { data: adminUsers = [] } = useQuery<{ id: number; username: string }[]>({
-    queryKey: ["/api/admin/users"],
-    queryFn: () => fetch("/api/admin/users").then(r => r.json()),
-  });
+  // TODO: When Sales Agent / Lead Manager roles are defined, populate this
+  // dropdown from a filtered /api/admin/crm/agents endpoint (role-gated).
+  // For now the filter only offers "All Agents" and "Unassigned".
 
   const createMutation = useMutation({
     mutationFn: (data: typeof form) => apiRequest("POST", "/api/admin/crm/leads", data),
@@ -272,14 +271,12 @@ export default function CrmLeadsPage() {
                 {SOURCES.map(s => <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
+            {/* Agent filter — role-based agents not yet implemented */}
             <Select value={assigned} onValueChange={setAssigned}>
               <SelectTrigger className="w-44"><SelectValue placeholder="All Agents" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Agents</SelectItem>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                {adminUsers.map((u: any) => (
-                  <SelectItem key={u.id} value={String(u.id)}>{u.username}</SelectItem>
-                ))}
               </SelectContent>
             </Select>
           </div>
