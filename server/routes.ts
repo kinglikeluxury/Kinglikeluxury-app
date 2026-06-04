@@ -19,7 +19,7 @@ import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmVal
 import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
-import { sendNewPropertyNotification } from "./emailService";
+import { sendNewPropertyNotification, sendLeadChangeNotification, sendLeadTaskChangeNotification } from "./emailService";
 import { translateBlogPost, translateText, detectLanguage, enrichTranslationsWithSeo, PRIMARY_SEO_LANGS } from "./translate";
 import { generateEnglishSlug, hasNonAscii, timestampSlug, toEnglishSlug, slugToUrlPath } from "./slugUtils";
 import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment";
@@ -4098,6 +4098,17 @@ ${metaTags}
         completedAt: null,
       });
       res.status(201).json(task);
+      // Notify admin when a sub-admin / employee adds a task
+      if (!req.session.isAdmin) {
+        const lead = await storage.getCrmLead(Number(req.params.id));
+        const changer = req.session.userId ? await storage.getUser(req.session.userId) : null;
+        const leadName = lead ? (lead.fullName || [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—") : "—";
+        sendLeadTaskChangeNotification({
+          leadId: Number(req.params.id), leadName, leadPhone: lead?.phone ?? "—",
+          changedBy: changer?.username ?? "Unknown", changedAt: new Date(),
+          action: "added", taskTitle: task.title, taskDetails: task.description ?? undefined,
+        }).catch(() => {});
+      }
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
@@ -4108,6 +4119,17 @@ ${metaTags}
       const task = await storage.updateCrmTask(Number(req.params.taskId), req.body);
       if (!task) return res.status(404).json({ message: "Task not found" });
       res.json(task);
+      // Notify admin when a sub-admin / employee updates a task
+      if (!req.session.isAdmin) {
+        const lead = await storage.getCrmLead(Number(req.params.id));
+        const changer = req.session.userId ? await storage.getUser(req.session.userId) : null;
+        const leadName = lead ? (lead.fullName || [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—") : "—";
+        sendLeadTaskChangeNotification({
+          leadId: Number(req.params.id), leadName, leadPhone: lead?.phone ?? "—",
+          changedBy: changer?.username ?? "Unknown", changedAt: new Date(),
+          action: "updated", taskTitle: task.title, taskDetails: task.description ?? undefined,
+        }).catch(() => {});
+      }
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
@@ -4115,9 +4137,23 @@ ${metaTags}
   app.delete("/api/admin/crm/leads/:id/tasks/:taskId", isAuthenticated, async (req: any, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
+      // Fetch task before deletion so we can include its title in the notification
+      const tasksBefore = !req.session.isAdmin ? await storage.getCrmTasks(Number(req.params.id)) : [];
+      const taskToDelete = tasksBefore.find(t => t.id === Number(req.params.taskId));
       const ok = await storage.deleteCrmTask(Number(req.params.taskId));
       if (!ok) return res.status(404).json({ message: "Task not found" });
       res.json({ success: true });
+      // Notify admin when a sub-admin / employee deletes a task
+      if (!req.session.isAdmin && taskToDelete) {
+        const lead = await storage.getCrmLead(Number(req.params.id));
+        const changer = req.session.userId ? await storage.getUser(req.session.userId) : null;
+        const leadName = lead ? (lead.fullName || [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—") : "—";
+        sendLeadTaskChangeNotification({
+          leadId: Number(req.params.id), leadName, leadPhone: lead?.phone ?? "—",
+          changedBy: changer?.username ?? "Unknown", changedAt: new Date(),
+          action: "deleted", taskTitle: taskToDelete.title,
+        }).catch(() => {});
+      }
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
@@ -4152,9 +4188,38 @@ ${metaTags}
           return res.status(400).json({ message: emailResult.error ?? "Invalid email address." });
         }
       }
+      // Fetch current lead before update (needed for change comparison in notification)
+      const leadBefore = !req.session.isAdmin ? await storage.getCrmLead(Number(req.params.id)) : null;
       const updated = await storage.updateCrmLead(Number(req.params.id), req.body);
       if (!updated) return res.status(404).json({ message: "Lead not found" });
       res.json(updated);
+      // Notify admin when a sub-admin / employee (non-admin) makes changes.
+      // Status changes are handled via the notes endpoint (which includes the reason).
+      if (!req.session.isAdmin && leadBefore) {
+        const MONITORED: Record<string, string> = {
+          phone: "Phone", email: "Email",
+          interestedCountry: "Interested Country", city: "City",
+          projectInterest: "Project Interest", budget: "Budget",
+          expectedPurchaseMonth: "Expected Purchase Month", leadSource: "Source",
+          description: "Description", notes: "Internal Notes",
+        };
+        const changes: { field: string; label: string; oldValue: string; newValue: string }[] = [];
+        for (const [key, label] of Object.entries(MONITORED)) {
+          if (key in req.body) {
+            const oldVal = String((leadBefore as any)[key] ?? "");
+            const newVal = String((req.body as any)[key] ?? "");
+            if (oldVal !== newVal) changes.push({ field: key, label, oldValue: oldVal || "—", newValue: newVal || "—" });
+          }
+        }
+        if (changes.length > 0) {
+          const changer = req.session.userId ? await storage.getUser(req.session.userId) : null;
+          const leadName = updated.fullName || [updated.firstName, updated.lastName].filter(Boolean).join(" ") || "—";
+          sendLeadChangeNotification({
+            leadId: updated.id, leadName, leadPhone: updated.phone ?? "—",
+            changedBy: changer?.username ?? "Unknown", changedAt: new Date(), changes,
+          }).catch(() => {});
+        }
+      }
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4184,6 +4249,25 @@ ${metaTags}
         note: note.trim(),
       });
       res.status(201).json(created);
+      // Status-change notes carry the change reason — send admin notification for sub-admin changes
+      if (!req.session.isAdmin && note.trim().startsWith("[Status Change]")) {
+        try {
+          const firstLine = note.trim().split("\n")[0]; // "[Status Change] OldLabel → NewLabel"
+          const statusPart = firstLine.replace(/^\[Status Change\]\s*/, ""); // "OldLabel → NewLabel"
+          const [oldStatus, newStatus] = statusPart.split(" → ").map((s: string) => s.trim());
+          const reasonLine = note.trim().split("\n").slice(1).join("\n");
+          const reason = reasonLine.replace(/^Note:\s*/i, "").trim() || undefined;
+          const lead = await storage.getCrmLead(Number(req.params.id));
+          const changer = req.session.userId ? await storage.getUser(req.session.userId) : null;
+          const leadName = lead ? (lead.fullName || [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—") : "—";
+          sendLeadChangeNotification({
+            leadId: Number(req.params.id), leadName, leadPhone: lead?.phone ?? "—",
+            changedBy: changer?.username ?? "Unknown", changedAt: new Date(),
+            changes: [{ field: "status", label: "Status", oldValue: oldStatus || "—", newValue: newStatus || "—" }],
+            statusChangeNote: reason,
+          }).catch(() => {});
+        } catch { /* non-critical */ }
+      }
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

@@ -384,3 +384,174 @@ export async function sendBulkEmail(trigger: "weekly_update" | "inactive_reminde
   console.log(`[Email] Bulk ${trigger}: ${sent} sent, ${failed} failed`);
   return { sent, failed };
 }
+
+// ── CRM Admin Notifications ────────────────────────────────────────────────
+
+const CRM_ADMIN_EMAIL = "info@kinglikeluxury.app";
+
+/**
+ * Notify the main admin when a sub-admin / employee modifies a CRM lead field.
+ * Only fires when the changer is NOT the primary admin (isAdmin = false).
+ * Handles both regular field changes and status changes (with optional reason note).
+ */
+export async function sendLeadChangeNotification(opts: {
+  leadId: number;
+  leadName: string;
+  leadPhone: string;
+  changedBy: string;
+  changedAt: Date;
+  changes: { field: string; label: string; oldValue: string; newValue: string }[];
+  statusChangeNote?: string;
+}): Promise<void> {
+  const resend = await getResend();
+  if (!resend) return;
+
+  const { leadId, leadName, leadPhone, changedBy, changedAt, changes, statusChangeNote } = opts;
+
+  const changedAtStr = changedAt.toLocaleString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+
+  const changeRows = changes.map(c => `
+    <tr>
+      <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:30%">${c.label}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#dc2626;text-decoration:line-through">${c.oldValue || "—"}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#005476;font-weight:600">${c.newValue || "—"}</td>
+    </tr>`).join("");
+
+  const noteBlock = statusChangeNote
+    ? `<div style="margin-top:16px;background:#f0f9f9;border-left:4px solid #3bcac4;border-radius:0 8px 8px 0;padding:14px 18px">
+         <p style="color:#005476;font-weight:700;margin:0 0 6px;font-size:13px">Status Change Reason</p>
+         <p style="color:#374151;margin:0;font-size:14px;line-height:1.6">${statusChangeNote}</p>
+       </div>` : "";
+
+  const subject = `🔔 CRM Lead Modified — ${leadName}`;
+
+  const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;background:#f0f9f9;padding:32px 16px">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,84,118,0.10)">
+    <div style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:28px 32px">
+      <h1 style="color:#fff;margin:0;font-size:20px;font-weight:800">🔔 CRM Lead Modified</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px">Kinglike Luxury CRM — Admin Notification</p>
+    </div>
+    <div style="padding:28px 32px">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:22px">
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px;width:36%">Lead</td><td style="padding:7px 0;font-weight:700;color:#005476;font-size:15px">${leadName}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Phone</td><td style="padding:7px 0;color:#111827;font-size:14px">${leadPhone}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Changed by</td><td style="padding:7px 0;color:#111827;font-size:14px;font-weight:600">${changedBy}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Changed at</td><td style="padding:7px 0;color:#111827;font-size:14px">${changedAtStr}</td></tr>
+      </table>
+      <div style="background:#f9fafb;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb">
+        <div style="background:#005476;padding:10px 14px">
+          <p style="color:#fff;font-weight:700;margin:0;font-size:13px">Changes</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#f3f4f6">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Field</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Old Value</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">New Value</th>
+            </tr>
+          </thead>
+          <tbody>${changeRows}</tbody>
+        </table>
+      </div>
+      ${noteBlock}
+      <div style="text-align:center;margin-top:24px">
+        <a href="https://kinglikeluxury.app/admin/crm/${leadId}" style="display:inline-block;background:linear-gradient(135deg,#3bcac4,#005476);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px">View Lead →</a>
+      </div>
+    </div>
+    <div style="background:#005476;padding:14px 32px;text-align:center">
+      <p style="color:rgba(255,255,255,0.65);margin:0;font-size:12px">Kinglike Luxury CRM · info@kinglikeluxury.app</p>
+    </div>
+  </div>
+</div>`;
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM,
+      to: CRM_ADMIN_EMAIL,
+      subject,
+      html,
+    });
+    if (result.error) throw new Error(result.error.message);
+    console.log(`[Email] ✅ Lead change notification sent for lead #${leadId} by ${changedBy}`);
+  } catch (err: any) {
+    console.error(`[Email] ❌ Lead change notification failed for lead #${leadId}:`, err.message);
+  }
+}
+
+/**
+ * Notify the main admin when a sub-admin / employee adds, updates, or deletes a CRM task.
+ * Only fires when the changer is NOT the primary admin.
+ */
+export async function sendLeadTaskChangeNotification(opts: {
+  leadId: number;
+  leadName: string;
+  leadPhone: string;
+  changedBy: string;
+  changedAt: Date;
+  action: "added" | "updated" | "deleted";
+  taskTitle: string;
+  taskDetails?: string;
+}): Promise<void> {
+  const resend = await getResend();
+  if (!resend) return;
+
+  const { leadId, leadName, leadPhone, changedBy, changedAt, action, taskTitle, taskDetails } = opts;
+
+  const changedAtStr = changedAt.toLocaleString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+
+  const actionLabel = action === "added" ? "Task Added" : action === "updated" ? "Task Updated" : "Task Deleted";
+  const actionColor = action === "deleted" ? "#dc2626" : action === "updated" ? "#d97706" : "#16a34a";
+
+  const subject = `🔔 CRM Task ${actionLabel} — ${leadName}`;
+
+  const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;background:#f0f9f9;padding:32px 16px">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,84,118,0.10)">
+    <div style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:28px 32px">
+      <h1 style="color:#fff;margin:0;font-size:20px;font-weight:800">🔔 CRM Task ${actionLabel}</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px">Kinglike Luxury CRM — Admin Notification</p>
+    </div>
+    <div style="padding:28px 32px">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:22px">
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px;width:36%">Lead</td><td style="padding:7px 0;font-weight:700;color:#005476;font-size:15px">${leadName}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Phone</td><td style="padding:7px 0;color:#111827;font-size:14px">${leadPhone}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Changed by</td><td style="padding:7px 0;color:#111827;font-size:14px;font-weight:600">${changedBy}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Changed at</td><td style="padding:7px 0;color:#111827;font-size:14px">${changedAtStr}</td></tr>
+      </table>
+      <div style="background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="display:inline-block;background:${actionColor};color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px">${action}</span>
+          <span style="color:#005476;font-weight:700;font-size:15px">${taskTitle}</span>
+        </div>
+        ${taskDetails ? `<p style="color:#6b7280;font-size:13px;margin:0;line-height:1.6">${taskDetails}</p>` : ""}
+      </div>
+      <div style="text-align:center;margin-top:24px">
+        <a href="https://kinglikeluxury.app/admin/crm/${leadId}" style="display:inline-block;background:linear-gradient(135deg,#3bcac4,#005476);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px">View Lead →</a>
+      </div>
+    </div>
+    <div style="background:#005476;padding:14px 32px;text-align:center">
+      <p style="color:rgba(255,255,255,0.65);margin:0;font-size:12px">Kinglike Luxury CRM · info@kinglikeluxury.app</p>
+    </div>
+  </div>
+</div>`;
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM,
+      to: CRM_ADMIN_EMAIL,
+      subject,
+      html,
+    });
+    if (result.error) throw new Error(result.error.message);
+    console.log(`[Email] ✅ Task ${action} notification sent for lead #${leadId} by ${changedBy}`);
+  } catch (err: any) {
+    console.error(`[Email] ❌ Task notification failed for lead #${leadId}:`, err.message);
+  }
+}
