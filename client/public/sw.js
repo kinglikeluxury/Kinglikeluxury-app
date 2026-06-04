@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinglike-v4';
+const CACHE_NAME = 'kinglike-v5';
 const urlsToCache = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -28,6 +28,16 @@ self.addEventListener('fetch', (event) => {
   // NEVER intercept API requests — let the browser go directly to the server.
   // This prevents stale cached responses from masking backend API endpoints.
   if (url.pathname.startsWith('/api/')) return;
+
+  // NEVER cache Vite dev-server paths — these use timestamped/hashed URLs that
+  // change on every server restart. Caching them causes a blank page because old
+  // module URLs become invalid after a restart.
+  if (
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/node_modules/')
+  ) return;
 
   if (url.pathname.startsWith('/locales/')) {
     event.respondWith(fetch(event.request));
