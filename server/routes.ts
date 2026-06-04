@@ -15,6 +15,7 @@ import {
   PROPERTY_TYPES,
   PROPERTY_STATUS
 } from "@shared/schema";
+import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
@@ -3998,6 +3999,20 @@ ${metaTags}
         leadSource, leadScore, status, notes,
         campaignName, adsetName, adName, formName, externalLeadId,
       } = req.body;
+
+      // Phone validation (required)
+      const phoneResult = vPhone(phone ?? "");
+      if (!phoneResult.valid) {
+        return res.status(400).json({ message: phoneResult.error ?? "Invalid phone number." });
+      }
+      // Email validation (optional)
+      if (email?.trim()) {
+        const emailResult = vEmail(email);
+        if (!emailResult.valid) {
+          return res.status(400).json({ message: emailResult.error ?? "Invalid email address." });
+        }
+      }
+
       const lead = await storage.createCrmLead({
         fullName, firstName, lastName, phone, email, country, city,
         interestedCountry, projectInterest, budget, expectedPurchaseMonth, description,
@@ -4122,6 +4137,21 @@ ${metaTags}
   app.patch("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
+      const { phone, email } = req.body;
+      // Validate phone if being updated
+      if (phone !== undefined) {
+        const phoneResult = vPhone(phone ?? "");
+        if (!phoneResult.valid) {
+          return res.status(400).json({ message: phoneResult.error ?? "Invalid phone number." });
+        }
+      }
+      // Validate email if being updated and non-empty
+      if (email !== undefined && email?.trim()) {
+        const emailResult = vEmail(email);
+        if (!emailResult.valid) {
+          return res.status(400).json({ message: emailResult.error ?? "Invalid email address." });
+        }
+      }
       const updated = await storage.updateCrmLead(Number(req.params.id), req.body);
       if (!updated) return res.status(404).json({ message: "Lead not found" });
       res.json(updated);

@@ -4,6 +4,7 @@ import { useLocation, useRoute } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { validatePhone, validateEmail } from "@shared/crmValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,6 +121,7 @@ export default function CrmLeadDetailPage() {
   const leadId = Number(params?.id);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<CrmLead>>({});
+  const [editErrors, setEditErrors] = useState<{ phone?: string; email?: string }>({});
   const [newNote, setNewNote] = useState("");
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(EMPTY_TASK);
@@ -152,9 +154,45 @@ export default function CrmLeadDetailPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<CrmLead>) => apiRequest("PATCH", `/api/admin/crm/leads/${leadId}`, data),
-    onSuccess: () => { invalidateLead(); toast({ title: "Lead updated" }); setEditing(false); },
+    onSuccess: () => { invalidateLead(); toast({ title: "Lead updated" }); setEditing(false); setEditErrors({}); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  function handleEditPhoneChange(phone: string) {
+    const result = validatePhone(phone);
+    setEditData(d => ({
+      ...d,
+      phone,
+      country: result.valid ? result.country : (phone.trim() ? "Country not detected" : (d.country ?? "")),
+    }));
+    setEditErrors(e => ({
+      ...e,
+      phone: phone.trim() ? (result.valid ? undefined : result.error) : undefined,
+    }));
+  }
+
+  function handleEditEmailChange(email: string) {
+    setEditData(d => ({ ...d, email }));
+    if (email.trim()) {
+      const result = validateEmail(email);
+      setEditErrors(e => ({ ...e, email: result.valid ? undefined : result.error }));
+    } else {
+      setEditErrors(e => ({ ...e, email: undefined }));
+    }
+  }
+
+  function handleSave() {
+    const phoneResult = validatePhone((editData.phone as string) ?? "");
+    const emailResult = validateEmail((editData.email as string) ?? "");
+    const errors: { phone?: string; email?: string } = {};
+    if (!phoneResult.valid) errors.phone = phoneResult.error;
+    if (!emailResult.valid) errors.email = emailResult.error;
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+    updateMutation.mutate(editData);
+  }
 
   const addNoteMutation = useMutation({
     mutationFn: (note: string) => apiRequest("POST", `/api/admin/crm/leads/${leadId}/notes`, { note }),
@@ -270,7 +308,7 @@ export default function CrmLeadDetailPage() {
                 <X className="h-3.5 w-3.5" /> Cancel
               </Button>
               <Button size="sm" className="bg-gradient-to-r from-[#3bcac4] to-[#005476] gap-1.5"
-                onClick={() => updateMutation.mutate(editData)} disabled={updateMutation.isPending}>
+                onClick={handleSave} disabled={updateMutation.isPending}>
                 {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 Save
               </Button>
@@ -331,21 +369,39 @@ export default function CrmLeadDetailPage() {
             <CardContent className="pt-0">
               {editing ? (
                 <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { key: "phone" as const, label: "Phone", placeholder: "+971 50..." },
-                    { key: "email" as const, label: "Email", placeholder: "email@..." },
-                    { key: "country" as const, label: "Origin Country", placeholder: "UAE" },
-                  ].map(({ key, label, placeholder }) => (
-                    <div key={key}>
-                      <Label className="text-xs">{label}</Label>
-                      <Input
-                        value={(editData[key] as string) ?? ""}
-                        onChange={e => setEditData(d => ({ ...d, [key]: e.target.value }))}
-                        placeholder={placeholder}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  ))}
+                  <div>
+                    <Label className="text-xs">Phone</Label>
+                    <Input
+                      value={(editData.phone as string) ?? ""}
+                      onChange={e => handleEditPhoneChange(e.target.value)}
+                      placeholder="+971 50..."
+                      className={`h-8 text-sm ${editErrors.phone ? "border-red-400" : ""}`}
+                    />
+                    {editErrors.phone && (
+                      <p className="text-xs text-red-500 mt-0.5">{editErrors.phone}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Email</Label>
+                    <Input
+                      value={(editData.email as string) ?? ""}
+                      onChange={e => handleEditEmailChange(e.target.value)}
+                      placeholder="email@..."
+                      className={`h-8 text-sm ${editErrors.email ? "border-red-400" : ""}`}
+                    />
+                    {editErrors.email && (
+                      <p className="text-xs text-red-500 mt-0.5">{editErrors.email}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Origin Country <span className="text-muted-foreground font-normal">(auto-detected)</span></Label>
+                    <Input
+                      value={(editData.country as string) ?? ""}
+                      readOnly
+                      placeholder="Enter phone to detect"
+                      className={`h-8 text-sm ${editData.country && editData.country !== "Country not detected" ? "border-[#3bcac4]/50 bg-[#3bcac4]/5" : ""}`}
+                    />
+                  </div>
                   <div>
                     <Label className="text-xs">Interested Country</Label>
                     <Select

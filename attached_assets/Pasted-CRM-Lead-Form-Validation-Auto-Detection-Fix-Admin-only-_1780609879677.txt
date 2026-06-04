@@ -1,0 +1,174 @@
+CRM Lead Form Validation & Auto Detection Fix
+
+Admin-only phase.
+
+Do NOT modify:
+- Authentication
+- User roles
+- Permissions
+- Admin access
+- AI models
+- AI prompts
+- Payment systems
+- Secrets
+- Environment variables
+- Meta integrations
+- Existing lead data
+
+Only improve lead validation and lead creation logic.
+
+REQUIREMENTS
+
+1. PHONE NUMBER VALIDATION
+
+Phone number is REQUIRED.
+
+The system must validate international phone numbers using a reliable phone validation library.
+
+Examples:
++995591000058
++972568455665
++905551112233
+
+Rules:
+
+- Reject invalid numbers.
+- Reject impossible numbers.
+- Reject numbers that are too short.
+- Reject numbers that are too long.
+- Reject numbers with invalid country code.
+
+If invalid:
+
+Show error:
+"Invalid phone number."
+
+Do NOT allow lead creation.
+
+Validation must exist on BOTH:
+- Frontend
+- Backend
+
+Never trust frontend only.
+
+--------------------------------------------------
+
+2. ORIGIN COUNTRY AUTO DETECTION
+
+Origin Country must be automatically detected from the phone number.
+
+Examples:
+
++995 → Georgia
++90 → Turkey
++971 → United Arab Emirates
++966 → Saudi Arabia
++965 → Kuwait
++974 → Qatar
++972 → Israel / Palestine region depending on phone library result
+
+The country field must update automatically when the phone number changes.
+
+Do NOT leave:
+"Detected from phone prefix"
+
+Instead display the actual country name.
+
+If country cannot be detected:
+
+Show:
+"Country not detected"
+
+--------------------------------------------------
+
+3. EMAIL VALIDATION
+
+Email is OPTIONAL.
+
+If email field is empty:
+Allow lead creation.
+
+If email is entered:
+Validate email format.
+
+Reject examples such as:
+
+test
+test@
+abc.com
+hello@
+hello@gmail
+
+Show error:
+"Invalid email address."
+
+Do NOT allow lead creation.
+
+Validation required on:
+- Frontend
+- Backend
+
+--------------------------------------------------
+
+4. CREATE LEAD RULES
+
+Lead may be created only if:
+
+- Full Name exists
+- Phone number is valid
+
+Email may be:
+- Empty
+OR
+- Valid
+
+--------------------------------------------------
+
+5. EXISTING LEADS
+
+Do NOT modify existing leads.
+
+Only affect:
+- New lead creation
+- Lead editing going forward
+
+--------------------------------------------------
+
+6. TEST CASES REQUIRED
+
+Verify:
+
++995591000058
+→ Georgia
+
++972568455665
+→ Valid only if number format is valid
+
+12345
+→ Rejected
+
++995
+→ Rejected
+
+test@
+→ Rejected
+
+hello@gmail.com
+→ Accepted
+
+Empty email
+→ Accepted
+
+--------------------------------------------------
+
+After implementation provide:
+
+- Files modified
+- Libraries added
+- Database changes
+- Validation method used
+- Confirmation frontend validation added
+- Confirmation backend validation added
+- Confirmation invalid phone numbers cannot be saved
+- Confirmation invalid emails cannot be saved
+- Confirmation existing lead records were not modified

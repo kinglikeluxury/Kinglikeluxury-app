@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { validatePhone, validateEmail } from "@shared/crmValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -87,14 +88,6 @@ function fmtBudget(n: number): string {
   return `$${(n / 1000).toFixed(0)}K`;
 }
 
-function detectCountryFromPhone(phone: string): string {
-  const clean = phone.replace(/[\s\-()]/g, "");
-  if (clean.startsWith("+995")) return "Georgia";
-  if (clean.startsWith("+971")) return "United Arab Emirates";
-  if (clean.startsWith("+90")) return "Turkey";
-  return "";
-}
-
 function ScoreBadge({ score }: { score: string | null }) {
   const cfg = SCORE_CONFIG[score ?? "cold"] ?? SCORE_CONFIG.cold;
   return (
@@ -137,6 +130,7 @@ export default function CrmLeadsPage() {
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [editingProjectName, setEditingProjectName] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState<{ phone?: string; email?: string }>({});
 
   if (!user?.isAdmin) { navigate("/"); return null; }
 
@@ -201,12 +195,39 @@ export default function CrmLeadsPage() {
   });
 
   function handlePhoneChange(phone: string) {
-    const detected = detectCountryFromPhone(phone);
+    const result = validatePhone(phone);
     setForm(f => ({
       ...f,
       phone,
-      ...(detected ? { country: detected } : {}),
+      country: result.valid ? result.country : (phone.trim() ? "Country not detected" : ""),
     }));
+    setFormErrors(e => ({
+      ...e,
+      phone: phone.trim() ? (result.valid ? undefined : result.error) : undefined,
+    }));
+  }
+
+  function handleEmailChange(email: string) {
+    setForm(f => ({ ...f, email }));
+    if (email.trim()) {
+      const result = validateEmail(email);
+      setFormErrors(e => ({ ...e, email: result.valid ? undefined : result.error }));
+    } else {
+      setFormErrors(e => ({ ...e, email: undefined }));
+    }
+  }
+
+  function handleCreateLead() {
+    const phoneResult = validatePhone(form.phone);
+    const emailResult = validateEmail(form.email);
+    const errors: { phone?: string; email?: string } = {};
+    if (!phoneResult.valid) errors.phone = phoneResult.error;
+    if (!emailResult.valid) errors.email = emailResult.error;
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    createMutation.mutate(form);
   }
 
   const total     = leads.length;
@@ -317,7 +338,7 @@ export default function CrmLeadsPage() {
           </Dialog>
 
           {/* New Lead */}
-          <Dialog open={newLeadOpen} onOpenChange={setNewLeadOpen}>
+          <Dialog open={newLeadOpen} onOpenChange={v => { setNewLeadOpen(v); if (!v) { setForm(EMPTY_FORM); setFormErrors({}); } }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4] gap-1.5">
                 <Plus className="h-4 w-4" /> New Lead
@@ -342,15 +363,23 @@ export default function CrmLeadsPage() {
                     value={form.phone}
                     onChange={e => handlePhoneChange(e.target.value)}
                     placeholder="+971 50 123 4567"
+                    className={formErrors.phone ? "border-red-400" : ""}
                   />
+                  {formErrors.phone && (
+                    <p className="text-xs text-red-500 mt-0.5">{formErrors.phone}</p>
+                  )}
                 </div>
                 <div>
                   <Label>Email</Label>
                   <Input
                     value={form.email}
-                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    onChange={e => handleEmailChange(e.target.value)}
                     placeholder="email@example.com"
+                    className={formErrors.email ? "border-red-400" : ""}
                   />
+                  {formErrors.email && (
+                    <p className="text-xs text-red-500 mt-0.5">{formErrors.email}</p>
+                  )}
                 </div>
                 <div>
                   <Label className="flex items-center gap-1">
@@ -360,8 +389,9 @@ export default function CrmLeadsPage() {
                   <Input
                     value={form.country}
                     onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
-                    placeholder="Detected from phone prefix"
-                    className={form.country ? "border-[#3bcac4]/50 bg-[#3bcac4]/5" : ""}
+                    placeholder="Enter phone number to detect"
+                    className={form.country && form.country !== "Country not detected" ? "border-[#3bcac4]/50 bg-[#3bcac4]/5" : ""}
+                    readOnly
                   />
                 </div>
                 <div>
@@ -465,8 +495,8 @@ export default function CrmLeadsPage() {
                   <Button variant="outline" onClick={() => setNewLeadOpen(false)}>Cancel</Button>
                   <Button
                     className="bg-gradient-to-r from-[#3bcac4] to-[#005476]"
-                    disabled={createMutation.isPending || !form.fullName || !form.phone}
-                    onClick={() => createMutation.mutate(form)}
+                    disabled={createMutation.isPending || !form.fullName.trim()}
+                    onClick={handleCreateLead}
                   >
                     {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Create Lead
