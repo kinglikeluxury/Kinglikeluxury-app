@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -18,17 +17,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Users, Search, Plus, Flame, Thermometer, Snowflake,
-  Phone, Mail, MapPin, Target, RefreshCw, Loader2,
-  ChevronRight, Crown, UserCheck, Building2,
+  Phone, Mail, MapPin, RefreshCw, Loader2,
+  ChevronRight, Crown, UserCheck, Building2, FolderOpen,
+  Edit3, Trash2,
 } from "lucide-react";
-import type { CrmLead } from "@shared/schema";
+import type { CrmLead, CrmProject } from "@shared/schema";
 
-interface CrmLeadWithAssignee extends CrmLead {
-  assigneeName?: string | null;
-}
+interface CrmLeadWithAssignee extends CrmLead { assigneeName?: string | null }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  // ── Active statuses (selectable for new leads) ────────────────────────────
   new:                   { label: "New",                                                    color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
   no_answer_1:           { label: "No Answer 1",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
   no_answer_2:           { label: "No Answer 2",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
@@ -45,7 +42,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   junk_lead:             { label: "Junk Lead",                                              color: "bg-gray-100 text-gray-400 border border-gray-200" },
   no_answer_converted:   { label: "After 3 No Answer - Converted to Another Sales Manager", color: "bg-slate-200 text-slate-600 border border-slate-300" },
   lost_competition:      { label: "Lost Competition",                                       color: "bg-gray-100 text-gray-500 border border-gray-300" },
-  // ── Legacy statuses — display only, not selectable for new leads ──────────
   agency:                { label: "Agency",     color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/25" },
   qualified:             { label: "Qualified",  color: "bg-[#3bcac4]/25 text-[#005476] border border-[#3bcac4]/60" },
   converted:             { label: "Converted",  color: "bg-[#005476] text-white border border-[#005476]" },
@@ -70,7 +66,34 @@ const STATUSES = [
   "hot_buyer","entering_lead","deposited","reserved","purchased",
   "broker","second_hand","junk_lead","no_answer_converted","lost_competition",
 ];
-const SOURCES  = ["meta","website","whatsapp","excel","manual"];
+const SOURCES = ["meta","website","whatsapp","excel","manual"];
+
+const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates"];
+
+function genMonths(): string[] {
+  const res: string[] = [];
+  let y = 2026, m = 6;
+  while (y < 2030 || (y === 2030 && m <= 6)) {
+    res.push(`${String(m).padStart(2, "0")}.${y}`);
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return res;
+}
+const PURCHASE_MONTHS = genMonths();
+const BUDGETS = Array.from({ length: (2000000 - 40000) / 5000 + 1 }, (_, i) => 40000 + i * 5000);
+
+function fmtBudget(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  return `$${(n / 1000).toFixed(0)}K`;
+}
+
+function detectCountryFromPhone(phone: string): string {
+  const clean = phone.replace(/[\s\-()]/g, "");
+  if (clean.startsWith("+995")) return "Georgia";
+  if (clean.startsWith("+971")) return "United Arab Emirates";
+  if (clean.startsWith("+90")) return "Turkey";
+  return "";
+}
 
 function ScoreBadge({ score }: { score: string | null }) {
   const cfg = SCORE_CONFIG[score ?? "cold"] ?? SCORE_CONFIG.cold;
@@ -91,6 +114,13 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const EMPTY_FORM = {
+  fullName: "", phone: "", email: "",
+  interestedCountry: "", projectInterest: "",
+  budget: "", expectedPurchaseMonth: "", description: "",
+  leadSource: "manual", leadScore: "cold", status: "new",
+};
+
 export default function CrmLeadsPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
@@ -101,22 +131,18 @@ export default function CrmLeadsPage() {
   const [source, setSource]   = useState("all");
   const [assigned, setAssigned] = useState("all");
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editingProjectName, setEditingProjectName] = useState("");
+  const [form, setForm] = useState(EMPTY_FORM);
 
-  const [form, setForm] = useState({
-    fullName: "", phone: "", email: "", country: "", city: "",
-    projectInterest: "", leadSource: "manual", leadScore: "cold",
-    status: "new", notes: "",
-  });
-
-  if (!user?.isAdmin) {
-    navigate("/");
-    return null;
-  }
+  if (!user?.isAdmin) { navigate("/"); return null; }
 
   const params = new URLSearchParams();
-  if (search)          params.set("search", search);
-  if (status !== "all") params.set("status", status);
-  if (source !== "all") params.set("source", source);
+  if (search)            params.set("search", search);
+  if (status !== "all")  params.set("status", status);
+  if (source !== "all")  params.set("source", source);
   if (assigned !== "all") params.set("assignedTo", assigned);
 
   const { data: leads = [], isLoading, refetch } = useQuery<CrmLeadWithAssignee[]>({
@@ -127,9 +153,10 @@ export default function CrmLeadsPage() {
     }),
   });
 
-  // TODO: When Sales Agent / Lead Manager roles are defined, populate this
-  // dropdown from a filtered /api/admin/crm/agents endpoint (role-gated).
-  // For now the filter only offers "All Agents" and "Unassigned".
+  const { data: projects = [] } = useQuery<CrmProject[]>({
+    queryKey: ["/api/admin/crm/projects"],
+    queryFn: () => fetch("/api/admin/crm/projects").then(r => r.json()),
+  });
 
   const createMutation = useMutation({
     mutationFn: (data: typeof form) => apiRequest("POST", "/api/admin/crm/leads", data),
@@ -137,11 +164,49 @@ export default function CrmLeadsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
       toast({ title: "Lead created successfully" });
       setNewLeadOpen(false);
-      setForm({ fullName: "", phone: "", email: "", country: "", city: "",
-        projectInterest: "", leadSource: "manual", leadScore: "cold", status: "new", notes: "" });
+      setForm(EMPTY_FORM);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const createProjectMutation = useMutation({
+    mutationFn: (name: string) => apiRequest("POST", "/api/admin/crm/projects", { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/projects"] });
+      toast({ title: "Project added" });
+      setNewProjectName("");
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) =>
+      apiRequest("PATCH", `/api/admin/crm/projects/${id}`, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/projects"] });
+      toast({ title: "Project updated" });
+      setEditingProjectId(null);
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/crm/projects/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/projects"] });
+      toast({ title: "Project removed" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  function handlePhoneChange(phone: string) {
+    const detected = detectCountryFromPhone(phone);
+    setForm(f => ({
+      ...f,
+      phone,
+      ...(detected && !f.interestedCountry ? { interestedCountry: detected } : {}),
+    }));
+  }
 
   const total     = leads.length;
   const newCount  = leads.filter(l => l.status === "new").length;
@@ -165,40 +230,180 @@ export default function CrmLeadsPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
+
+          {/* Manage Projects */}
+          <Dialog open={projectsOpen} onOpenChange={setProjectsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <FolderOpen className="h-4 w-4" /> Projects
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-[#005476] flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" /> Manage Project List
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 mt-2">
+                {projects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No projects yet. Add one below.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                    {projects.map(p => (
+                      <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg border bg-gray-50/60">
+                        {editingProjectId === p.id ? (
+                          <>
+                            <Input
+                              className="flex-1 h-7 text-sm"
+                              value={editingProjectName}
+                              onChange={e => setEditingProjectName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") updateProjectMutation.mutate({ id: p.id, name: editingProjectName });
+                                if (e.key === "Escape") setEditingProjectId(null);
+                              }}
+                              autoFocus
+                            />
+                            <Button size="sm" className="h-7 px-2 text-xs bg-[#005476]"
+                              disabled={updateProjectMutation.isPending}
+                              onClick={() => updateProjectMutation.mutate({ id: p.id, name: editingProjectName })}
+                            >Save</Button>
+                            <Button size="sm" variant="ghost" className="h-7 px-2"
+                              onClick={() => setEditingProjectId(null)}>✕</Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-sm font-medium text-[#005476]">{p.name}</span>
+                            {!p.isActive && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                              onClick={() => { setEditingProjectId(p.id); setEditingProjectName(p.name); }}>
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
+                              onClick={() => { if (confirm(`Remove project "${p.name}"?`)) deleteProjectMutation.mutate(p.id); }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2 border-t">
+                  <Input
+                    placeholder="New project name..."
+                    value={newProjectName}
+                    onChange={e => setNewProjectName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && newProjectName.trim())
+                        createProjectMutation.mutate(newProjectName.trim());
+                    }}
+                    className="flex-1"
+                  />
+                  <Button
+                    className="bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                    disabled={!newProjectName.trim() || createProjectMutation.isPending}
+                    onClick={() => createProjectMutation.mutate(newProjectName.trim())}
+                  >
+                    {createProjectMutation.isPending
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Plus className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* New Lead */}
           <Dialog open={newLeadOpen} onOpenChange={setNewLeadOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4] gap-1.5">
                 <Plus className="h-4 w-4" /> New Lead
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-[#005476]">Add New Lead</DialogTitle>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <div className="col-span-2">
-                  <Label>Full Name</Label>
-                  <Input value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} placeholder="Ahmed Al Mansouri" />
+                  <Label>Full Name <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={form.fullName}
+                    onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+                    placeholder="Ahmed Al Mansouri"
+                  />
                 </div>
                 <div>
-                  <Label>Phone</Label>
-                  <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+971 50 123 4567" />
+                  <Label>Phone <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={form.phone}
+                    onChange={e => handlePhoneChange(e.target.value)}
+                    placeholder="+971 50 123 4567"
+                  />
                 </div>
                 <div>
                   <Label>Email</Label>
-                  <Input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@example.com" />
+                  <Input
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="email@example.com"
+                  />
                 </div>
                 <div>
-                  <Label>Country</Label>
-                  <Input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="UAE" />
+                  <Label>Interested Country <span className="text-red-500">*</span></Label>
+                  <Select value={form.interestedCountry} onValueChange={v => setForm(f => ({ ...f, interestedCountry: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select country..." /></SelectTrigger>
+                    <SelectContent>
+                      {INTERESTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label>City</Label>
-                  <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Dubai" />
-                </div>
-                <div className="col-span-2">
                   <Label>Project Interest</Label>
-                  <Input value={form.projectInterest} onChange={e => setForm(f => ({ ...f, projectInterest: e.target.value }))} placeholder="Batumi Luxury Towers" />
+                  <Select
+                    value={form.projectInterest || "__none__"}
+                    onValueChange={v => setForm(f => ({ ...f, projectInterest: v === "__none__" ? "" : v }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select project..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {projects.filter(p => p.isActive).map(p => (
+                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Budget</Label>
+                  <Select
+                    value={form.budget || "__none__"}
+                    onValueChange={v => setForm(f => ({ ...f, budget: v === "__none__" ? "" : v }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select budget..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Not specified —</SelectItem>
+                      {BUDGETS.map(n => (
+                        <SelectItem key={n} value={String(n)}>{fmtBudget(n)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Expected Purchase Month</Label>
+                  <Select
+                    value={form.expectedPurchaseMonth || "__none__"}
+                    onValueChange={v => setForm(f => ({ ...f, expectedPurchaseMonth: v === "__none__" ? "" : v }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select month..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Not specified —</SelectItem>
+                      {PURCHASE_MONTHS.map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Source</Label>
@@ -221,14 +426,19 @@ export default function CrmLeadsPage() {
                   </Select>
                 </div>
                 <div className="col-span-2">
-                  <Label>Notes</Label>
-                  <Textarea rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Initial notes about this lead..." />
+                  <Label>Description</Label>
+                  <Textarea
+                    rows={3}
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Additional information about this lead..."
+                  />
                 </div>
                 <div className="col-span-2 flex justify-end gap-2 pt-1">
                   <Button variant="outline" onClick={() => setNewLeadOpen(false)}>Cancel</Button>
                   <Button
                     className="bg-gradient-to-r from-[#3bcac4] to-[#005476]"
-                    disabled={createMutation.isPending || !form.fullName}
+                    disabled={createMutation.isPending || !form.fullName || !form.phone}
                     onClick={() => createMutation.mutate(form)}
                   >
                     {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -292,7 +502,6 @@ export default function CrmLeadsPage() {
                 {SOURCES.map(s => <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
-            {/* Agent filter — role-based agents not yet implemented */}
             <Select value={assigned} onValueChange={setAssigned}>
               <SelectTrigger className="w-44"><SelectValue placeholder="All Agents" /></SelectTrigger>
               <SelectContent>
@@ -322,7 +531,7 @@ export default function CrmLeadsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50/60">
-                    {["Lead", "Contact", "Source", "Project Interest", "Status", "Score", "Assigned", "Added", ""].map(h => (
+                    {["Lead", "Contact", "Source", "Project / Country", "Budget", "Status", "Score", "Assigned", "Added", ""].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
                         {h}
                       </th>
@@ -340,10 +549,10 @@ export default function CrmLeadsPage() {
                         <div className="font-medium text-[#005476]">
                           {lead.fullName || `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "—"}
                         </div>
-                        {(lead.country || lead.city) && (
+                        {lead.interestedCountry && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                             <MapPin className="h-3 w-3" />
-                            {[lead.city, lead.country].filter(Boolean).join(", ")}
+                            {lead.interestedCountry}
                           </div>
                         )}
                       </td>
@@ -373,6 +582,9 @@ export default function CrmLeadsPage() {
                             <span className="truncate max-w-[120px]">{lead.projectInterest}</span>
                           </div>
                         ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {lead.budget ? fmtBudget(Number(lead.budget)) : "—"}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={lead.status} />

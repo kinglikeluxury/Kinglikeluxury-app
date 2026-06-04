@@ -25,10 +25,16 @@ import {
   type InsertProjectLiveCamera,
   crmLeads,
   crmNotes,
+  crmProjects,
+  crmTasks,
   type CrmLead,
   type InsertCrmLead,
   type CrmNote,
   type InsertCrmNote,
+  type CrmProject,
+  type InsertCrmProject,
+  type CrmTask,
+  type InsertCrmTask,
   type ContactLog,
   type User,
   type InsertUser,
@@ -994,10 +1000,13 @@ export class DatabaseStorage implements IStorage {
     return enriched;
   }
 
-  async getCrmLead(id: number): Promise<(CrmLead & { crmNotes: (CrmNote & { authorName?: string | null })[]; assigneeName?: string | null }) | undefined> {
+  async getCrmLead(id: number): Promise<(CrmLead & { crmNotes: (CrmNote & { authorName?: string | null })[]; crmTasks: CrmTask[]; assigneeName?: string | null }) | undefined> {
     const [lead] = await db.select().from(crmLeads).where(eq(crmLeads.id, id));
     if (!lead) return undefined;
-    const notes = await db.select().from(crmNotes).where(eq(crmNotes.leadId, id)).orderBy(crmNotes.createdAt);
+    const [notes, tasks] = await Promise.all([
+      db.select().from(crmNotes).where(eq(crmNotes.leadId, id)).orderBy(crmNotes.createdAt),
+      db.select().from(crmTasks).where(eq(crmTasks.leadId, id)).orderBy(crmTasks.createdAt),
+    ]);
     const enrichedNotes = await Promise.all(notes.map(async n => {
       if (!n.userId) return { ...n, authorName: null };
       const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, n.userId));
@@ -1008,7 +1017,7 @@ export class DatabaseStorage implements IStorage {
       const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, lead.assignedTo));
       assigneeName = u?.username ?? null;
     }
-    return { ...lead, crmNotes: enrichedNotes, assigneeName };
+    return { ...lead, crmNotes: enrichedNotes, crmTasks: tasks, assigneeName };
   }
 
   async createCrmLead(data: InsertCrmLead): Promise<CrmLead> {
@@ -1033,5 +1042,47 @@ export class DatabaseStorage implements IStorage {
   async addCrmNote(data: InsertCrmNote): Promise<CrmNote> {
     const [row] = await db.insert(crmNotes).values(data).returning();
     return row;
+  }
+
+  // ── CRM Projects ──────────────────────────────────────────────────────────
+  async getCrmProjects(): Promise<CrmProject[]> {
+    return db.select().from(crmProjects).orderBy(crmProjects.sortOrder, crmProjects.createdAt);
+  }
+
+  async createCrmProject(data: InsertCrmProject): Promise<CrmProject> {
+    const [row] = await db.insert(crmProjects).values(data).returning();
+    return row;
+  }
+
+  async updateCrmProject(id: number, data: Partial<CrmProject>): Promise<CrmProject | undefined> {
+    const { id: _id, createdAt: _c, ...safe } = data as any;
+    const [row] = await db.update(crmProjects).set(safe).where(eq(crmProjects.id, id)).returning();
+    return row;
+  }
+
+  async deleteCrmProject(id: number): Promise<boolean> {
+    const result = await db.delete(crmProjects).where(eq(crmProjects.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // ── CRM Tasks ─────────────────────────────────────────────────────────────
+  async getCrmTasks(leadId: number): Promise<CrmTask[]> {
+    return db.select().from(crmTasks).where(eq(crmTasks.leadId, leadId)).orderBy(crmTasks.createdAt);
+  }
+
+  async createCrmTask(data: InsertCrmTask): Promise<CrmTask> {
+    const [row] = await db.insert(crmTasks).values(data).returning();
+    return row;
+  }
+
+  async updateCrmTask(id: number, data: Partial<CrmTask>): Promise<CrmTask | undefined> {
+    const { id: _id, createdAt: _c, leadId: _l, ...safe } = data as any;
+    const [row] = await db.update(crmTasks).set(safe).where(eq(crmTasks.id, id)).returning();
+    return row;
+  }
+
+  async deleteCrmTask(id: number): Promise<boolean> {
+    const result = await db.delete(crmTasks).where(eq(crmTasks.id, id)).returning();
+    return result.length > 0;
   }
 }

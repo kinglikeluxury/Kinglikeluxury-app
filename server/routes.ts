@@ -3992,21 +3992,118 @@ ${metaTags}
   app.post("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
-      const { fullName, firstName, lastName, phone, email, country, city,
-              projectInterest, leadSource, leadScore, status, notes,
-              campaignName, adsetName, adName, formName, externalLeadId } = req.body;
+      const {
+        fullName, firstName, lastName, phone, email, country, city,
+        interestedCountry, projectInterest, budget, expectedPurchaseMonth, description,
+        leadSource, leadScore, status, notes,
+        campaignName, adsetName, adName, formName, externalLeadId,
+      } = req.body;
       const lead = await storage.createCrmLead({
         fullName, firstName, lastName, phone, email, country, city,
-        projectInterest, campaignName, adsetName, adName, formName,
-        externalLeadId, notes,
+        interestedCountry, projectInterest, budget, expectedPurchaseMonth, description,
+        campaignName, adsetName, adName, formName, externalLeadId, notes,
         leadSource: leadSource || "manual",
         leadScore:  leadScore  || "cold",
         status:     status     || "new",
       });
+      // Trigger welcome email if lead has an email address (fire-and-forget)
+      if (lead.email?.trim()) {
+        const { sendCrmWelcomeEmail } = await import("./emailService");
+        sendCrmWelcomeEmail({ fullName: lead.fullName, firstName: lead.firstName, email: lead.email }).catch(() => {});
+      }
       res.status(201).json(lead);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
+  });
+
+  // ── CRM Project management ─────────────────────────────────────────────────
+
+  /** GET /api/admin/crm/projects — list all projects */
+  app.get("/api/admin/crm/projects", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try { res.json(await storage.getCrmProjects()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  /** POST /api/admin/crm/projects — create project */
+  app.post("/api/admin/crm/projects", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { name, isActive, sortOrder } = req.body;
+      if (!name?.trim()) return res.status(400).json({ message: "Project name is required" });
+      const p = await storage.createCrmProject({ name: name.trim(), isActive: isActive ?? true, sortOrder: sortOrder ?? 0 });
+      res.status(201).json(p);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  /** PATCH /api/admin/crm/projects/:id — update project */
+  app.patch("/api/admin/crm/projects/:id", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const p = await storage.updateCrmProject(Number(req.params.id), req.body);
+      if (!p) return res.status(404).json({ message: "Project not found" });
+      res.json(p);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  /** DELETE /api/admin/crm/projects/:id — delete project */
+  app.delete("/api/admin/crm/projects/:id", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const ok = await storage.deleteCrmProject(Number(req.params.id));
+      if (!ok) return res.status(404).json({ message: "Project not found" });
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── CRM Task management ────────────────────────────────────────────────────
+
+  /** GET /api/admin/crm/leads/:id/tasks — list tasks for a lead */
+  app.get("/api/admin/crm/leads/:id/tasks", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try { res.json(await storage.getCrmTasks(Number(req.params.id))); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  /** POST /api/admin/crm/leads/:id/tasks — create a task */
+  app.post("/api/admin/crm/leads/:id/tasks", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { title, description, dueDate, dueTime, priority } = req.body;
+      if (!title?.trim()) return res.status(400).json({ message: "Task title is required" });
+      const task = await storage.createCrmTask({
+        leadId: Number(req.params.id),
+        title: title.trim(),
+        description: description ?? null,
+        dueDate: dueDate ?? null,
+        dueTime: dueTime ?? null,
+        priority: priority || "medium",
+        createdBy: req.session.userId ?? null,
+        completedAt: null,
+      });
+      res.status(201).json(task);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  /** PATCH /api/admin/crm/leads/:id/tasks/:taskId — update task (e.g. complete) */
+  app.patch("/api/admin/crm/leads/:id/tasks/:taskId", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const task = await storage.updateCrmTask(Number(req.params.taskId), req.body);
+      if (!task) return res.status(404).json({ message: "Task not found" });
+      res.json(task);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  /** DELETE /api/admin/crm/leads/:id/tasks/:taskId — delete task */
+  app.delete("/api/admin/crm/leads/:id/tasks/:taskId", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const ok = await storage.deleteCrmTask(Number(req.params.taskId));
+      if (!ok) return res.status(404).json({ message: "Task not found" });
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   /** GET /api/admin/crm/leads/:id — lead detail with notes + assignee */

@@ -1,0 +1,205 @@
+CRM IMPROVEMENT REQUEST
+
+Current phase is Admin-only.
+
+IMPORTANT SAFETY RULES:
+
+- Do NOT modify authentication.
+- Do NOT modify permissions.
+- Do NOT modify user roles.
+- Do NOT modify AI systems.
+- Do NOT modify payment systems.
+- Do NOT modify Meta integrations.
+- Do NOT modify secrets, API keys, environment variables, or database credentials.
+- Do NOT modify unrelated features.
+
+Only improve the CRM lead creation and CRM lead management system.
+
+========================================
+LEAD CREATION FORM
+========================================
+
+Update the "Add New Lead" form.
+
+Required fields:
+
+1. Full Name (required)
+
+2. Phone Number (required)
+
+3. Email (optional)
+
+4. Interested Country (required)
+
+Options:
+
+- Georgia
+- Turkey
+- Northern Cyprus
+- United Arab Emirates
+
+5. Project Interested
+
+This must be managed by Admin.
+
+Create an Admin-managed project list that can be expanded later.
+
+Admin can add/edit/remove project names.
+
+Lead form must display projects from that list.
+
+6. Budget
+
+Create a dropdown starting from:
+
+40,000 USD
+
+Increase by:
+
+5,000 USD
+
+Until:
+
+2,000,000 USD
+
+Examples:
+
+40,000
+45,000
+50,000
+55,000
+...
+2,000,000
+
+7. Expected Purchase Month
+
+Create a dropdown list:
+
+06.2026
+07.2026
+08.2026
+...
+
+Continue monthly until:
+
+06.2030
+
+8. Description Information
+
+Large textarea.
+
+Used for notes and lead information.
+
+========================================
+REMOVE FIELDS
+========================================
+
+Remove:
+
+- City
+
+Country should be detected automatically when possible from the phone number prefix.
+
+The lead creator should not manually enter city.
+
+========================================
+TASK MANAGEMENT
+========================================
+
+Add a Tasks section inside every lead.
+
+Admin-only for now.
+
+Future employee support can be added later.
+
+Task creation should contain:
+
+- Task title
+- Task description
+- Due date
+- Due time
+- Priority:
+  Low
+  Medium
+  High
+
+Calendar picker required.
+
+Time picker required.
+
+Tasks must appear in the lead timeline/history.
+
+Example:
+
+Call client tomorrow 11:00 AM
+
+Follow up after property presentation
+
+Check financing documents
+
+Schedule project presentation
+
+========================================
+EMAIL AUTOMATION
+========================================
+
+If lead email exists:
+
+Automatically include CRM leads in the same email nurturing system already used by the application.
+
+Requirements:
+
+- Reuse existing email automation logic if available.
+- Do NOT create a separate mailing engine.
+- Do NOT duplicate email systems.
+- Send follow-up emails according to the existing automated email schedule currently used by registered users.
+
+If email is empty:
+
+Skip email automation.
+
+========================================
+LEAD DETAILS PAGE
+========================================
+
+Every lead should display:
+
+- Full Name
+- Phone
+- Email
+- Interested Country
+- Project Interested
+- Budget
+- Expected Purchase Month
+- Lead Status
+- Description Information
+- Notes
+- Tasks
+- Timeline
+
+========================================
+ADMIN ONLY
+========================================
+
+All CRM functionality remains Admin-only.
+
+Do not expose CRM, Tasks, Lead Data, Notes, Timeline, Reports, or Internal Information to public users.
+
+Do not expose CRM to employees yet.
+
+Prepare future Sub Admin support structure only.
+
+========================================
+AFTER COMPLETION
+========================================
+
+Provide a report including:
+
+- Database changes
+- New tables created
+- New routes
+- New admin pages
+- Files created
+- Files modified
+- Existing data affected or not
+- Confirmation that authentication, permissions, AI systems, payment systems, Meta integrations, secrets, and environment variables were not modified

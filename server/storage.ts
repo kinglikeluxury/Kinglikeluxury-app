@@ -143,13 +143,23 @@ export interface IStorage {
   completeConversation(conversationId: number): Promise<void>;
   countTodayConversations(userId: number): Promise<number>;
 
-  // CRM operations
+  // CRM lead operations
   getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null }): Promise<import("@shared/schema").CrmLead[]>;
-  getCrmLead(id: number): Promise<(import("@shared/schema").CrmLead & { crmNotes: (import("@shared/schema").CrmNote & { authorName?: string | null })[]; assigneeName?: string | null }) | undefined>;
+  getCrmLead(id: number): Promise<(import("@shared/schema").CrmLead & { crmNotes: (import("@shared/schema").CrmNote & { authorName?: string | null })[]; crmTasks: import("@shared/schema").CrmTask[]; assigneeName?: string | null }) | undefined>;
   createCrmLead(data: import("@shared/schema").InsertCrmLead): Promise<import("@shared/schema").CrmLead>;
   updateCrmLead(id: number, data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined>;
   deleteCrmLead(id: number): Promise<boolean>;
   addCrmNote(data: import("@shared/schema").InsertCrmNote): Promise<import("@shared/schema").CrmNote>;
+  // CRM project operations
+  getCrmProjects(): Promise<import("@shared/schema").CrmProject[]>;
+  createCrmProject(data: import("@shared/schema").InsertCrmProject): Promise<import("@shared/schema").CrmProject>;
+  updateCrmProject(id: number, data: Partial<import("@shared/schema").CrmProject>): Promise<import("@shared/schema").CrmProject | undefined>;
+  deleteCrmProject(id: number): Promise<boolean>;
+  // CRM task operations
+  getCrmTasks(leadId: number): Promise<import("@shared/schema").CrmTask[]>;
+  createCrmTask(data: import("@shared/schema").InsertCrmTask): Promise<import("@shared/schema").CrmTask>;
+  updateCrmTask(id: number, data: Partial<import("@shared/schema").CrmTask>): Promise<import("@shared/schema").CrmTask | undefined>;
+  deleteCrmTask(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -577,6 +587,14 @@ export class MemStorage implements IStorage {
   async updateCrmLead(_id: number, _data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined> { return undefined; }
   async deleteCrmLead(_id: number): Promise<boolean> { return false; }
   async addCrmNote(_data: import("@shared/schema").InsertCrmNote): Promise<import("@shared/schema").CrmNote> { throw new Error("Not implemented"); }
+  async getCrmProjects(): Promise<import("@shared/schema").CrmProject[]> { return []; }
+  async createCrmProject(_data: import("@shared/schema").InsertCrmProject): Promise<import("@shared/schema").CrmProject> { throw new Error("Not implemented"); }
+  async updateCrmProject(_id: number, _data: Partial<import("@shared/schema").CrmProject>): Promise<import("@shared/schema").CrmProject | undefined> { return undefined; }
+  async deleteCrmProject(_id: number): Promise<boolean> { return false; }
+  async getCrmTasks(_leadId: number): Promise<import("@shared/schema").CrmTask[]> { return []; }
+  async createCrmTask(_data: import("@shared/schema").InsertCrmTask): Promise<import("@shared/schema").CrmTask> { throw new Error("Not implemented"); }
+  async updateCrmTask(_id: number, _data: Partial<import("@shared/schema").CrmTask>): Promise<import("@shared/schema").CrmTask | undefined> { return undefined; }
+  async deleteCrmTask(_id: number): Promise<boolean> { return false; }
 }
 
 // Import the DatabaseStorage class

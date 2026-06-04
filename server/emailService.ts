@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { db } from "./db";
-import { notificationTemplates, notificationLogs, users } from "@shared/schema";
+import { notificationTemplates, notificationLogs, users, crmLeads } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import pg from "pg";
 const { Pool } = pg;
@@ -296,6 +296,37 @@ export async function sendNewPropertyNotification(property: {
   }
 }
 
+/**
+ * Send a welcome email to a newly created CRM lead.
+ * Reuses the existing "welcome" email template — no new mailing engine created.
+ */
+export async function sendCrmWelcomeEmail(lead: { fullName?: string | null; firstName?: string | null; email: string }) {
+  const resend = await getResend();
+  if (!resend) {
+    console.log("[Email] Resend not configured — skipping CRM welcome for", lead.email);
+    return;
+  }
+  const template = await getOrCreateTemplate("email", "welcome");
+  if (!template || !template.isActive) return;
+  const name = lead.fullName || lead.firstName || "Valued Client";
+  const vars = { username: name };
+  try {
+    const result = await resend.emails.send({
+      from: FROM,
+      to: lead.email,
+      subject: fillTemplate(template.subject ?? "", vars),
+      html: fillTemplate(template.bodyHtml ?? "", vars),
+      text: fillTemplate(template.bodyText ?? "", vars),
+    });
+    if (result.error) throw new Error(result.error.message);
+    await logNotification({ type: "email", trigger: "welcome", recipient: lead.email, status: "sent" });
+    console.log("[Email] ✅ CRM welcome email sent to", lead.email);
+  } catch (err: any) {
+    await logNotification({ type: "email", trigger: "welcome", recipient: lead.email, status: "failed", error: err.message });
+    console.error("[Email] ❌ CRM welcome email failed:", err.message);
+  }
+}
+
 export async function sendBulkEmail(trigger: "weekly_update" | "inactive_reminder") {
   const resend = await getResend();
   if (!resend) {
@@ -307,30 +338,45 @@ export async function sendBulkEmail(trigger: "weekly_update" | "inactive_reminde
   if (!template || !template.isActive) return { sent: 0, failed: 0, skipped: "template inactive" };
 
   const allUsers = await db.select().from(users);
-  let targetUsers = allUsers.filter(u => u.email);
+  let targetUsers: { id: number; username: string; email: string | null }[] = allUsers.filter(u => u.email);
 
   if (trigger === "inactive_reminder") {
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     targetUsers = targetUsers.filter(u => new Date(u.createdAt) < cutoff);
   }
 
+  // For weekly_update: also include CRM leads who have an email, deduplicated
+  if (trigger === "weekly_update") {
+    const allLeads = await db.select().from(crmLeads);
+    const userEmails = new Set(targetUsers.map(u => u.email?.toLowerCase()));
+    const crmContacts = allLeads
+      .filter(l => l.email?.trim() && !userEmails.has(l.email.toLowerCase()))
+      .map(l => ({ id: 0, username: l.fullName || l.firstName || "Valued Client", email: l.email! }));
+    targetUsers = [...targetUsers, ...crmContacts];
+  }
+
   let sent = 0, failed = 0;
   for (const user of targetUsers) {
+    if (!user.email) continue;
     const vars = { username: user.username };
     try {
       const result = await resend.emails.send({
         from: FROM,
-        to: user.email!,
+        to: user.email,
         subject: fillTemplate(template.subject ?? "", vars),
         html: fillTemplate(template.bodyHtml ?? "", vars),
         text: fillTemplate(template.bodyText ?? "", vars),
       });
       if (result.error) throw new Error(result.error.message);
-      await logNotification({ userId: user.id, type: "email", trigger, recipient: user.email!, status: "sent" });
+      if (user.id > 0) {
+        await logNotification({ userId: user.id, type: "email", trigger, recipient: user.email, status: "sent" });
+      }
       sent++;
       await new Promise(r => setTimeout(r, 200));
     } catch (err: any) {
-      await logNotification({ userId: user.id, type: "email", trigger, recipient: user.email!, status: "failed", error: err.message });
+      if (user.id > 0) {
+        await logNotification({ userId: user.id, type: "email", trigger, recipient: user.email!, status: "failed", error: err.message });
+      }
       failed++;
     }
   }

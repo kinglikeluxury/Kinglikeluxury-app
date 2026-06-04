@@ -572,6 +572,10 @@ export const crmLeads = pgTable("crm_leads", {
   leadScore: text("lead_score").default('cold'),
   status: text("status").notNull().default('new'),
   notes: text("notes"),
+  interestedCountry: text("interested_country"),
+  budget: text("budget"),
+  expectedPurchaseMonth: text("expected_purchase_month"),
+  description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastContactAt: timestamp("last_contact_at"),
@@ -592,3 +596,32 @@ export const crmNotes = pgTable("crm_notes", {
 export const insertCrmNoteSchema = createInsertSchema(crmNotes).omit({ id: true, createdAt: true });
 export type CrmNote = typeof crmNotes.$inferSelect;
 export type InsertCrmNote = z.infer<typeof insertCrmNoteSchema>;
+
+// ── CRM Projects — admin-managed project list ─────────────────────────────
+export const crmProjects = pgTable("crm_projects", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertCrmProjectSchema = createInsertSchema(crmProjects).omit({ id: true, createdAt: true });
+export type CrmProject = typeof crmProjects.$inferSelect;
+export type InsertCrmProject = z.infer<typeof insertCrmProjectSchema>;
+
+// ── CRM Tasks — per-lead tasks with due date, time, priority ─────────────
+export const crmTasks = pgTable("crm_tasks", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  dueDate: text("due_date"),
+  dueTime: text("due_time"),
+  priority: text("priority").default("medium"),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertCrmTaskSchema = createInsertSchema(crmTasks).omit({ id: true, createdAt: true });
+export type CrmTask = typeof crmTasks.$inferSelect;
+export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;

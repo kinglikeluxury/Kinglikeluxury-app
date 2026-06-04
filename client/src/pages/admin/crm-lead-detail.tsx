@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -14,23 +13,25 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft, Phone, Mail, MapPin, Target, Building2, Crown,
   Flame, Thermometer, Snowflake, Clock, MessageSquare, User,
   Edit3, Save, X, Loader2, Trash2, CheckCircle2, UserCheck,
-  Calendar, Globe, FileText,
+  Calendar, Globe, FileText, Plus, Flag, CheckSquare, ListTodo,
+  DollarSign, CalendarDays,
 } from "lucide-react";
-import type { CrmLead, CrmNote } from "@shared/schema";
+import type { CrmLead, CrmNote, CrmTask, CrmProject } from "@shared/schema";
 
-interface NoteWithUser extends CrmNote {
-  authorName?: string | null;
-}
+interface NoteWithUser extends CrmNote { authorName?: string | null }
 interface LeadDetail extends CrmLead {
   crmNotes: NoteWithUser[];
+  crmTasks: CrmTask[];
   assigneeName?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  // ── Active statuses (selectable for new leads) ────────────────────────────
   new:                   { label: "New",                                                    color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
   no_answer_1:           { label: "No Answer 1",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
   no_answer_2:           { label: "No Answer 2",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
@@ -47,7 +48,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   junk_lead:             { label: "Junk Lead",                                              color: "bg-gray-100 text-gray-400 border border-gray-200" },
   no_answer_converted:   { label: "After 3 No Answer - Converted to Another Sales Manager", color: "bg-slate-200 text-slate-600 border border-slate-300" },
   lost_competition:      { label: "Lost Competition",                                       color: "bg-gray-100 text-gray-500 border border-gray-300" },
-  // ── Legacy statuses — display only, not selectable for new leads ──────────
   agency:                { label: "Agency",     color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/25" },
   qualified:             { label: "Qualified",  color: "bg-[#3bcac4]/25 text-[#005476] border border-[#3bcac4]/60" },
   converted:             { label: "Converted",  color: "bg-[#005476] text-white border border-[#005476]" },
@@ -62,6 +62,12 @@ const SCORE_CONFIG: Record<string, { label: string; Icon: any; color: string; bg
   cold: { label: "Cold", Icon: Snowflake,   color: "text-sky-500",   bg: "bg-sky-50" },
 };
 
+const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  high:   { label: "High",   color: "text-red-600",   bg: "bg-red-50 border-red-200" },
+  medium: { label: "Medium", color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
+  low:    { label: "Low",    color: "text-green-600", bg: "bg-green-50 border-green-200" },
+};
+
 const SOURCE_LABELS: Record<string, string> = {
   meta: "Meta", website: "Website", whatsapp: "WhatsApp", excel: "Excel", manual: "Manual",
 };
@@ -71,7 +77,24 @@ const STATUSES = [
   "hot_buyer","entering_lead","deposited","reserved","purchased",
   "broker","second_hand","junk_lead","no_answer_converted","lost_competition",
 ];
-const SOURCES  = ["meta","website","whatsapp","excel","manual"];
+const SOURCES = ["meta","website","whatsapp","excel","manual"];
+const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates"];
+
+function genMonths(): string[] {
+  const res: string[] = [];
+  let y = 2026, m = 6;
+  while (y < 2030 || (y === 2030 && m <= 6)) {
+    res.push(`${String(m).padStart(2, "0")}.${y}`);
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return res;
+}
+const PURCHASE_MONTHS = genMonths();
+const BUDGETS = Array.from({ length: (2000000 - 40000) / 5000 + 1 }, (_, i) => 40000 + i * 5000);
+function fmtBudget(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  return `$${(n / 1000).toFixed(0)}K`;
+}
 
 function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) {
   if (!value) return null;
@@ -86,6 +109,8 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
   );
 }
 
+const EMPTY_TASK = { title: "", description: "", dueDate: "", dueTime: "", priority: "medium" };
+
 export default function CrmLeadDetailPage() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/admin/crm/:id");
@@ -96,6 +121,8 @@ export default function CrmLeadDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<CrmLead>>({});
   const [newNote, setNewNote] = useState("");
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState(EMPTY_TASK);
 
   if (!user?.isAdmin) { navigate("/"); return null; }
 
@@ -113,24 +140,25 @@ export default function CrmLeadDetailPage() {
     queryFn: () => fetch("/api/admin/users").then(r => r.json()),
   });
 
+  const { data: projects = [] } = useQuery<CrmProject[]>({
+    queryKey: ["/api/admin/crm/projects"],
+    queryFn: () => fetch("/api/admin/crm/projects").then(r => r.json()),
+  });
+
+  const invalidateLead = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads", leadId] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+  };
+
   const updateMutation = useMutation({
     mutationFn: (data: Partial<CrmLead>) => apiRequest("PATCH", `/api/admin/crm/leads/${leadId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads", leadId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
-      toast({ title: "Lead updated" });
-      setEditing(false);
-    },
+    onSuccess: () => { invalidateLead(); toast({ title: "Lead updated" }); setEditing(false); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const addNoteMutation = useMutation({
     mutationFn: (note: string) => apiRequest("POST", `/api/admin/crm/leads/${leadId}/notes`, { note }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads", leadId] });
-      toast({ title: "Note added" });
-      setNewNote("");
-    },
+    onSuccess: () => { invalidateLead(); toast({ title: "Note added" }); setNewNote(""); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -144,23 +172,54 @@ export default function CrmLeadDetailPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const createTaskMutation = useMutation({
+    mutationFn: (data: typeof taskForm) =>
+      apiRequest("POST", `/api/admin/crm/leads/${leadId}/tasks`, data),
+    onSuccess: () => {
+      invalidateLead();
+      toast({ title: "Task created" });
+      setNewTaskOpen(false);
+      setTaskForm(EMPTY_TASK);
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const completeTaskMutation = useMutation({
+    mutationFn: (taskId: number) =>
+      apiRequest("PATCH", `/api/admin/crm/leads/${leadId}/tasks/${taskId}`, {
+        completedAt: new Date().toISOString(),
+      }),
+    onSuccess: () => { invalidateLead(); toast({ title: "Task marked complete" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (taskId: number) =>
+      apiRequest("DELETE", `/api/admin/crm/leads/${leadId}/tasks/${taskId}`),
+    onSuccess: () => { invalidateLead(); toast({ title: "Task removed" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const startEdit = () => {
     if (!lead) return;
     setEditData({
-      fullName: lead.fullName ?? "",
-      firstName: lead.firstName ?? "",
-      lastName: lead.lastName ?? "",
-      phone: lead.phone ?? "",
-      email: lead.email ?? "",
-      country: lead.country ?? "",
-      city: lead.city ?? "",
-      projectInterest: lead.projectInterest ?? "",
-      campaignName: lead.campaignName ?? "",
-      adsetName: lead.adsetName ?? "",
-      adName: lead.adName ?? "",
-      formName: lead.formName ?? "",
-      leadSource: lead.leadSource,
-      notes: lead.notes ?? "",
+      fullName:              lead.fullName ?? "",
+      firstName:             lead.firstName ?? "",
+      lastName:              lead.lastName ?? "",
+      phone:                 lead.phone ?? "",
+      email:                 lead.email ?? "",
+      country:               lead.country ?? "",
+      interestedCountry:     lead.interestedCountry ?? "",
+      projectInterest:       lead.projectInterest ?? "",
+      budget:                lead.budget ?? "",
+      expectedPurchaseMonth: lead.expectedPurchaseMonth ?? "",
+      description:           lead.description ?? "",
+      campaignName:          lead.campaignName ?? "",
+      adsetName:             lead.adsetName ?? "",
+      adName:                lead.adName ?? "",
+      formName:              lead.formName ?? "",
+      leadSource:            lead.leadSource,
+      notes:                 lead.notes ?? "",
     });
     setEditing(true);
   };
@@ -182,9 +241,12 @@ export default function CrmLeadDetailPage() {
     );
   }
 
-  const scoreCfg = SCORE_CONFIG[lead.leadScore ?? "cold"] ?? SCORE_CONFIG.cold;
-  const statusCfg = STATUS_CONFIG[lead.status] ?? STATUS_CONFIG.new;
+  const scoreCfg   = SCORE_CONFIG[lead.leadScore ?? "cold"] ?? SCORE_CONFIG.cold;
+  const statusCfg  = STATUS_CONFIG[lead.status] ?? STATUS_CONFIG.new;
   const displayName = lead.fullName || `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "Unnamed Lead";
+  const tasks = lead.crmTasks ?? [];
+  const pendingTasks = tasks.filter(t => !t.completedAt);
+  const doneTasks    = tasks.filter(t =>  t.completedAt);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -254,6 +316,12 @@ export default function CrmLeadDetailPage() {
                         <scoreCfg.Icon className="h-3 w-3" />
                         {scoreCfg.label}
                       </span>
+                      {pendingTasks.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-[#3bcac4]/10 text-[#005476]">
+                          <ListTodo className="h-3 w-3" />
+                          {pendingTasks.length} task{pendingTasks.length !== 1 ? "s" : ""}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -266,10 +334,7 @@ export default function CrmLeadDetailPage() {
                   {[
                     { key: "phone" as const, label: "Phone", placeholder: "+971 50..." },
                     { key: "email" as const, label: "Email", placeholder: "email@..." },
-                    { key: "country" as const, label: "Country", placeholder: "UAE" },
-                    { key: "city" as const, label: "City", placeholder: "Dubai" },
-                    { key: "projectInterest" as const, label: "Project Interest", placeholder: "..." },
-                    { key: "campaignName" as const, label: "Campaign", placeholder: "..." },
+                    { key: "country" as const, label: "Origin Country", placeholder: "UAE" },
                   ].map(({ key, label, placeholder }) => (
                     <div key={key}>
                       <Label className="text-xs">{label}</Label>
@@ -282,6 +347,64 @@ export default function CrmLeadDetailPage() {
                     </div>
                   ))}
                   <div>
+                    <Label className="text-xs">Interested Country</Label>
+                    <Select
+                      value={(editData.interestedCountry as string) || "__none__"}
+                      onValueChange={v => setEditData(d => ({ ...d, interestedCountry: v === "__none__" ? "" : v }))}
+                    >
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Not specified —</SelectItem>
+                        {INTERESTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Project Interest</Label>
+                    <Select
+                      value={(editData.projectInterest as string) || "__none__"}
+                      onValueChange={v => setEditData(d => ({ ...d, projectInterest: v === "__none__" ? "" : v }))}
+                    >
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— None —</SelectItem>
+                        {projects.filter(p => p.isActive).map(p => (
+                          <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Budget</Label>
+                    <Select
+                      value={(editData.budget as string) || "__none__"}
+                      onValueChange={v => setEditData(d => ({ ...d, budget: v === "__none__" ? "" : v }))}
+                    >
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Not specified —</SelectItem>
+                        {BUDGETS.map(n => (
+                          <SelectItem key={n} value={String(n)}>{fmtBudget(n)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Expected Purchase Month</Label>
+                    <Select
+                      value={(editData.expectedPurchaseMonth as string) || "__none__"}
+                      onValueChange={v => setEditData(d => ({ ...d, expectedPurchaseMonth: v === "__none__" ? "" : v }))}
+                    >
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Not specified —</SelectItem>
+                        {PURCHASE_MONTHS.map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <Label className="text-xs">Lead Source</Label>
                     <Select value={editData.leadSource ?? "manual"} onValueChange={v => setEditData(d => ({ ...d, leadSource: v }))}>
                       <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
@@ -289,6 +412,24 @@ export default function CrmLeadDetailPage() {
                         {SOURCES.map(s => <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  {[
+                    { key: "campaignName" as const, label: "Campaign" },
+                  ].map(({ key, label }) => (
+                    <div key={key}>
+                      <Label className="text-xs">{label}</Label>
+                      <Input
+                        value={(editData[key] as string) ?? ""}
+                        onChange={e => setEditData(d => ({ ...d, [key]: e.target.value }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                  <div className="col-span-2">
+                    <Label className="text-xs">Description</Label>
+                    <Textarea rows={2} value={(editData.description as string) ?? ""}
+                      onChange={e => setEditData(d => ({ ...d, description: e.target.value }))}
+                      placeholder="Lead description..." className="text-sm" />
                   </div>
                   <div className="col-span-2">
                     <Label className="text-xs">Internal Notes</Label>
@@ -299,20 +440,99 @@ export default function CrmLeadDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-0.5">
-                  <InfoRow icon={Phone}     label="Phone"            value={lead.phone} />
-                  <InfoRow icon={Mail}      label="Email"            value={lead.email} />
-                  <InfoRow icon={MapPin}    label="Location"         value={[lead.city, lead.country].filter(Boolean).join(", ")} />
-                  <InfoRow icon={Building2} label="Project Interest" value={lead.projectInterest} />
-                  <InfoRow icon={Target}    label="Source"           value={SOURCE_LABELS[lead.leadSource] ?? lead.leadSource} />
-                  <InfoRow icon={Globe}     label="Campaign"         value={lead.campaignName} />
-                  <InfoRow icon={FileText}  label="Ad Set"           value={lead.adsetName} />
-                  <InfoRow icon={FileText}  label="Ad Name"          value={lead.adName} />
-                  <InfoRow icon={FileText}  label="Form Name"        value={lead.formName} />
+                  <InfoRow icon={Phone}        label="Phone"                    value={lead.phone} />
+                  <InfoRow icon={Mail}         label="Email"                    value={lead.email} />
+                  <InfoRow icon={MapPin}       label="Origin Country"           value={lead.country} />
+                  <InfoRow icon={Globe}        label="Interested Country"       value={lead.interestedCountry} />
+                  <InfoRow icon={Building2}    label="Project Interest"         value={lead.projectInterest} />
+                  <InfoRow icon={DollarSign}   label="Budget"                   value={lead.budget ? fmtBudget(Number(lead.budget)) : null} />
+                  <InfoRow icon={CalendarDays} label="Expected Purchase Month"  value={lead.expectedPurchaseMonth} />
+                  <InfoRow icon={Target}       label="Source"                   value={SOURCE_LABELS[lead.leadSource] ?? lead.leadSource} />
+                  <InfoRow icon={Globe}        label="Campaign"                 value={lead.campaignName} />
+                  <InfoRow icon={FileText}     label="Ad Set"                   value={lead.adsetName} />
+                  <InfoRow icon={FileText}     label="Ad Name"                  value={lead.adName} />
+                  <InfoRow icon={FileText}     label="Form Name"                value={lead.formName} />
+                  {lead.description && (
+                    <div className="flex items-start gap-3 py-2 border-b last:border-0">
+                      <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Description</p>
+                        <p className="text-sm text-gray-700 mt-0.5">{lead.description}</p>
+                      </div>
+                    </div>
+                  )}
                   {lead.notes && (
                     <div className="mt-3 p-3 rounded-lg bg-gray-50 border text-sm text-muted-foreground">
                       {lead.notes}
                     </div>
                   )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Tasks */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base text-[#005476] flex items-center gap-2">
+                  <ListTodo className="h-4 w-4" /> Tasks
+                  {pendingTasks.length > 0 && (
+                    <span className="text-xs font-normal text-muted-foreground">({pendingTasks.length} pending)</span>
+                  )}
+                </CardTitle>
+                <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
+                  onClick={() => setNewTaskOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> New Task
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {tasks.length === 0 ? (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  <ListTodo className="h-7 w-7 mx-auto mb-2 opacity-20" />
+                  No tasks yet.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...pendingTasks, ...doneTasks].map(task => {
+                    const pcfg = PRIORITY_CONFIG[task.priority ?? "medium"] ?? PRIORITY_CONFIG.medium;
+                    const isDone = !!task.completedAt;
+                    return (
+                      <div key={task.id}
+                        className={`flex items-start gap-3 p-3 rounded-lg border text-sm transition-opacity ${isDone ? "opacity-50 bg-gray-50" : "bg-white"}`}>
+                        <div className={`mt-0.5 shrink-0 px-1.5 py-0.5 rounded text-xs font-medium border ${pcfg.bg} ${pcfg.color}`}>
+                          {pcfg.label}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium text-[#005476] ${isDone ? "line-through" : ""}`}>{task.title}</p>
+                          {task.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{task.description}</p>
+                          )}
+                          {(task.dueDate || task.dueTime) && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                              <Clock className="h-3 w-3" />
+                              {task.dueDate} {task.dueTime}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!isDone && (
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-500 hover:text-green-700"
+                              onClick={() => completeTaskMutation.mutate(task.id)}
+                              disabled={completeTaskMutation.isPending}>
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
+                            onClick={() => { if (confirm("Delete this task?")) deleteTaskMutation.mutate(task.id); }}
+                            disabled={deleteTaskMutation.isPending}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -326,7 +546,6 @@ export default function CrmLeadDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Add Note */}
               <div className="flex gap-2 mb-5">
                 <Textarea
                   rows={2}
@@ -345,7 +564,6 @@ export default function CrmLeadDetailPage() {
                 </Button>
               </div>
 
-              {/* Timeline */}
               {lead.crmNotes.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">
                   <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
@@ -469,7 +687,7 @@ export default function CrmLeadDetailPage() {
             </Button>
           )}
 
-          {/* Last Contact */}
+          {/* Timestamps */}
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-[#005476] flex items-center gap-1.5">
@@ -502,6 +720,76 @@ export default function CrmLeadDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* New Task Dialog */}
+      <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[#005476] flex items-center gap-2">
+              <ListTodo className="h-4 w-4" /> New Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label>Title <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="Call back, send brochure..."
+                value={taskForm.title}
+                onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                rows={2}
+                placeholder="Optional details..."
+                value={taskForm.description}
+                onChange={e => setTaskForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={taskForm.dueDate}
+                  onChange={e => setTaskForm(f => ({ ...f, dueDate: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Due Time</Label>
+                <Input
+                  type="time"
+                  value={taskForm.dueTime}
+                  onChange={e => setTaskForm(f => ({ ...f, dueTime: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select value={taskForm.priority} onValueChange={v => setTaskForm(f => ({ ...f, priority: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">🔴 High</SelectItem>
+                  <SelectItem value="medium">🟡 Medium</SelectItem>
+                  <SelectItem value="low">🟢 Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setNewTaskOpen(false)}>Cancel</Button>
+              <Button
+                className="bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                disabled={!taskForm.title.trim() || createTaskMutation.isPending}
+                onClick={() => createTaskMutation.mutate(taskForm)}
+              >
+                {createTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Create Task
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
