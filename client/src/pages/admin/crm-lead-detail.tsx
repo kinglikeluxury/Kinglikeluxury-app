@@ -235,7 +235,13 @@ const EMPTY_TASK = { title: "", description: "", dueDate: "", dueTime: "", prior
 export default function CrmLeadDetailPage() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/admin/crm/:id");
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+
+  // Decode the "from" param passed by the CRM list (contains filter query string)
+  const fromParam = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("from") ?? ""
+    : "";
+  const backToCrmUrl = "/admin/crm" + (fromParam ? decodeURIComponent(fromParam) : "");
   const { toast } = useToast();
 
   const leadId = Number(params?.id);
@@ -250,6 +256,7 @@ export default function CrmLeadDetailPage() {
   const [taskForm, setTaskForm] = useState(EMPTY_TASK);
   const [statusDialog, setStatusDialog] = useState<{ newStatus: string; note: string } | null>(null);
 
+  if (authLoading) return null;
   if (!user?.isAdmin) { navigate("/"); return null; }
 
   const { data: lead, isLoading } = useQuery<LeadDetail>({
@@ -293,7 +300,7 @@ export default function CrmLeadDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
       toast({ title: "Lead deleted" });
-      navigate("/admin/crm");
+      navigate(backToCrmUrl);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -420,7 +427,7 @@ export default function CrmLeadDetailPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <p className="text-muted-foreground">Lead not found.</p>
-        <Button className="mt-4" onClick={() => navigate("/admin/crm")}>Back to CRM</Button>
+        <Button className="mt-4" onClick={() => navigate(backToCrmUrl)}>Back to CRM</Button>
       </div>
     );
   }
@@ -446,7 +453,7 @@ export default function CrmLeadDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/admin/crm")} className="gap-1.5 text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={() => navigate(backToCrmUrl)} className="gap-1.5 text-muted-foreground">
             <ArrowLeft className="h-4 w-4" /> Back to CRM
           </Button>
           <span className="text-muted-foreground">/</span>

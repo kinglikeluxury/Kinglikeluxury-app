@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -117,13 +117,26 @@ const EMPTY_FORM = {
 
 export default function CrmLeadsPage() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
 
-  const [search, setSearch]   = useState("");
-  const [status, setStatus]   = useState("all");
-  const [source, setSource]   = useState("all");
-  const [assigned, setAssigned] = useState("all");
+  // Initialise filters from URL query params so they survive navigation
+  const qs = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+  const [search, setSearch]   = useState(qs.get("search") ?? "");
+  const [status, setStatus]   = useState(qs.get("status") ?? "all");
+  const [source, setSource]   = useState(qs.get("source") ?? "all");
+  const [assigned, setAssigned] = useState(qs.get("assignedTo") ?? "all");
+
+  // Keep URL in sync with filter state (replaceState — no new history entry)
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (search)            p.set("search", search);
+    if (status !== "all")  p.set("status", status);
+    if (source !== "all")  p.set("source", source);
+    if (assigned !== "all") p.set("assignedTo", assigned);
+    const qs = p.toString();
+    window.history.replaceState(null, "", `/admin/crm${qs ? "?" + qs : ""}`);
+  }, [search, status, source, assigned]);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -132,6 +145,7 @@ export default function CrmLeadsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<{ phone?: string; email?: string }>({});
 
+  if (authLoading) return null;
   if (!user?.isAdmin) { navigate("/"); return null; }
 
   const params = new URLSearchParams();
@@ -600,7 +614,16 @@ export default function CrmLeadsPage() {
                     <tr
                       key={lead.id}
                       className="border-b last:border-0 hover:bg-[#3bcac4]/5 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/admin/crm/${lead.id}`)}
+                      onClick={() => {
+                        // Encode current filters so "Back to CRM" can restore them
+                        const backParams = new URLSearchParams();
+                        if (search)            backParams.set("search", search);
+                        if (status !== "all")  backParams.set("status", status);
+                        if (source !== "all")  backParams.set("source", source);
+                        if (assigned !== "all") backParams.set("assignedTo", assigned);
+                        const backQs = backParams.toString();
+                        navigate(`/admin/crm/${lead.id}${backQs ? "?from=" + encodeURIComponent("?" + backQs) : ""}`);
+                      }}
                     >
                       <td className="px-4 py-3">
                         <div className="font-medium text-[#005476]">
