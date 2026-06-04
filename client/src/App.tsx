@@ -46,6 +46,8 @@ import AdminUsersPage from "@/pages/admin/users";
 import LiveProjects from "@/pages/live-projects";
 import AdminLiveCameras from "@/pages/admin/live-cameras";
 import OtpLogsPage from "@/pages/admin/otp-logs";
+import CrmLeadsPage from "@/pages/admin/crm-leads";
+import CrmLeadDetailPage from "@/pages/admin/crm-lead-detail";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -87,6 +89,8 @@ function Router() {
           <Route path="/admin/users" component={AdminUsersPage} />
           <Route path="/admin/live-cameras" component={AdminLiveCameras} />
           <Route path="/admin/otp-logs" component={OtpLogsPage} />
+          <Route path="/admin/crm/:id" component={CrmLeadDetailPage} />
+          <Route path="/admin/crm" component={CrmLeadsPage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />

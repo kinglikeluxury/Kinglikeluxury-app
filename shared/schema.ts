@@ -526,3 +526,69 @@ export const projectLiveCameras = pgTable("project_live_cameras", {
 export const insertProjectLiveCameraSchema = createInsertSchema(projectLiveCameras).omit({ id: true, createdAt: true, updatedAt: true });
 export type ProjectLiveCamera = typeof projectLiveCameras.$inferSelect;
 export type InsertProjectLiveCamera = z.infer<typeof insertProjectLiveCameraSchema>;
+
+// ── Kinglike CRM ─────────────────────────────────────────────────────────────
+export const CRM_LEAD_SOURCES = {
+  META: 'meta',
+  WEBSITE: 'website',
+  WHATSAPP: 'whatsapp',
+  EXCEL: 'excel',
+  MANUAL: 'manual',
+} as const;
+
+export const CRM_LEAD_STATUSES = {
+  NEW: 'new',
+  NO_ANSWER: 'no_answer',
+  FOLLOW_UP: 'follow_up',
+  INTERESTED: 'interested',
+  QUALIFIED: 'qualified',
+  CONVERTED: 'converted',
+  LOST: 'lost',
+} as const;
+
+export const CRM_LEAD_SCORES = {
+  HOT: 'hot',
+  WARM: 'warm',
+  COLD: 'cold',
+} as const;
+
+export const crmLeads = pgTable("crm_leads", {
+  id: serial("id").primaryKey(),
+  leadSource: text("lead_source").notNull().default('manual'),
+  externalLeadId: text("external_lead_id"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  fullName: text("full_name"),
+  phone: text("phone"),
+  email: text("email"),
+  country: text("country"),
+  city: text("city"),
+  campaignName: text("campaign_name"),
+  adsetName: text("adset_name"),
+  adName: text("ad_name"),
+  formName: text("form_name"),
+  projectInterest: text("project_interest"),
+  assignedTo: integer("assigned_to").references(() => users.id, { onDelete: "set null" }),
+  leadScore: text("lead_score").default('cold'),
+  status: text("status").notNull().default('new'),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastContactAt: timestamp("last_contact_at"),
+});
+
+export const insertCrmLeadSchema = createInsertSchema(crmLeads).omit({ id: true, createdAt: true, updatedAt: true });
+export type CrmLead = typeof crmLeads.$inferSelect;
+export type InsertCrmLead = z.infer<typeof insertCrmLeadSchema>;
+
+export const crmNotes = pgTable("crm_notes", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "cascade" }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  note: text("note").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCrmNoteSchema = createInsertSchema(crmNotes).omit({ id: true, createdAt: true });
+export type CrmNote = typeof crmNotes.$inferSelect;
+export type InsertCrmNote = z.infer<typeof insertCrmNoteSchema>;

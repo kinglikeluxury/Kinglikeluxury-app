@@ -3943,6 +3943,100 @@ ${metaTags}
 
   registerAiIntelligenceRoutes(app);
 
+  // ── Kinglike CRM Admin Endpoints ──────────────────────────────────────────
+
+  /** GET /api/admin/crm/leads — list with optional filters */
+  app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { search, status, source, assignedTo } = req.query as Record<string, string>;
+      const filters: any = {};
+      if (search)     filters.search = search;
+      if (status)     filters.status = status;
+      if (source)     filters.source = source;
+      if (assignedTo === "unassigned") filters.assignedTo = null;
+      else if (assignedTo) filters.assignedTo = Number(assignedTo);
+      const leads = await storage.getCrmLeads(filters);
+      res.json(leads);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads — create a new lead */
+  app.post("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { fullName, firstName, lastName, phone, email, country, city,
+              projectInterest, leadSource, leadScore, status, notes,
+              campaignName, adsetName, adName, formName, externalLeadId } = req.body;
+      const lead = await storage.createCrmLead({
+        fullName, firstName, lastName, phone, email, country, city,
+        projectInterest, campaignName, adsetName, adName, formName,
+        externalLeadId, notes,
+        leadSource: leadSource || "manual",
+        leadScore:  leadScore  || "cold",
+        status:     status     || "new",
+      });
+      res.status(201).json(lead);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** GET /api/admin/crm/leads/:id — lead detail with notes + assignee */
+  app.get("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const lead = await storage.getCrmLead(Number(req.params.id));
+      if (!lead) return res.status(404).json({ message: "Lead not found" });
+      res.json(lead);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** PATCH /api/admin/crm/leads/:id — update any lead fields */
+  app.patch("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const updated = await storage.updateCrmLead(Number(req.params.id), req.body);
+      if (!updated) return res.status(404).json({ message: "Lead not found" });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** DELETE /api/admin/crm/leads/:id — hard delete */
+  app.delete("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const ok = await storage.deleteCrmLead(Number(req.params.id));
+      if (!ok) return res.status(404).json({ message: "Lead not found" });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads/:id/notes — add a note to a lead */
+  app.post("/api/admin/crm/leads/:id/notes", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { note } = req.body;
+      if (!note?.trim()) return res.status(400).json({ message: "Note text is required" });
+      const created = await storage.addCrmNote({
+        leadId: Number(req.params.id),
+        userId: req.session.userId ?? null,
+        note: note.trim(),
+      });
+      res.status(201).json(created);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── OTP Security Admin Endpoints ──────────────────────────────────────────
 
   /** GET /api/admin/otp-logs — returns recent OTP log entries + blocked IP list */

@@ -142,6 +142,14 @@ export interface IStorage {
   incrementConversationMessages(conversationId: number): Promise<void>;
   completeConversation(conversationId: number): Promise<void>;
   countTodayConversations(userId: number): Promise<number>;
+
+  // CRM operations
+  getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null }): Promise<import("@shared/schema").CrmLead[]>;
+  getCrmLead(id: number): Promise<(import("@shared/schema").CrmLead & { crmNotes: (import("@shared/schema").CrmNote & { authorName?: string | null })[]; assigneeName?: string | null }) | undefined>;
+  createCrmLead(data: import("@shared/schema").InsertCrmLead): Promise<import("@shared/schema").CrmLead>;
+  updateCrmLead(id: number, data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined>;
+  deleteCrmLead(id: number): Promise<boolean>;
+  addCrmNote(data: import("@shared/schema").InsertCrmNote): Promise<import("@shared/schema").CrmNote>;
 }
 
 export class MemStorage implements IStorage {
@@ -561,6 +569,14 @@ export class MemStorage implements IStorage {
   async incrementConversationMessages(_conversationId: number): Promise<void> {}
   async completeConversation(_conversationId: number): Promise<void> {}
   async countTodayConversations(_userId: number): Promise<number> { return 0; }
+
+  // CRM stubs
+  async getCrmLeads(_filters?: any): Promise<import("@shared/schema").CrmLead[]> { return []; }
+  async getCrmLead(_id: number): Promise<any> { return undefined; }
+  async createCrmLead(_data: import("@shared/schema").InsertCrmLead): Promise<import("@shared/schema").CrmLead> { throw new Error("Not implemented"); }
+  async updateCrmLead(_id: number, _data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined> { return undefined; }
+  async deleteCrmLead(_id: number): Promise<boolean> { return false; }
+  async addCrmNote(_data: import("@shared/schema").InsertCrmNote): Promise<import("@shared/schema").CrmNote> { throw new Error("Not implemented"); }
 }
 
 // Import the DatabaseStorage class

@@ -23,6 +23,12 @@ import {
   projectLiveCameras,
   type ProjectLiveCamera,
   type InsertProjectLiveCamera,
+  crmLeads,
+  crmNotes,
+  type CrmLead,
+  type InsertCrmLead,
+  type CrmNote,
+  type InsertCrmNote,
   type ContactLog,
   type User,
   type InsertUser,
@@ -957,5 +963,75 @@ export class DatabaseStorage implements IStorage {
   async deleteLiveCamera(id: number): Promise<boolean> {
     const result = await db.delete(projectLiveCameras).where(eq(projectLiveCameras.id, id)).returning();
     return result.length > 0;
+  }
+
+  // ── CRM ────────────────────────────────────────────────────────────────────
+  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null }): Promise<CrmLead[]> {
+    const conditions: any[] = [];
+    if (filters?.status)   conditions.push(eq(crmLeads.status, filters.status));
+    if (filters?.source)   conditions.push(eq(crmLeads.leadSource, filters.source));
+    if (filters?.assignedTo !== undefined && filters.assignedTo !== null)
+      conditions.push(eq(crmLeads.assignedTo, filters.assignedTo));
+    if (filters?.search) {
+      const s = `%${filters.search}%`;
+      conditions.push(or(
+        ilike(crmLeads.fullName, s),
+        ilike(crmLeads.firstName, s),
+        ilike(crmLeads.lastName, s),
+        ilike(crmLeads.phone, s),
+        ilike(crmLeads.email, s),
+      ));
+    }
+    const rows = conditions.length > 0
+      ? await db.select().from(crmLeads).where(and(...conditions)).orderBy(desc(crmLeads.createdAt))
+      : await db.select().from(crmLeads).orderBy(desc(crmLeads.createdAt));
+    // Enrich with assignee name
+    const enriched = await Promise.all(rows.map(async lead => {
+      if (!lead.assignedTo) return { ...lead, assigneeName: null };
+      const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, lead.assignedTo));
+      return { ...lead, assigneeName: u?.username ?? null };
+    }));
+    return enriched;
+  }
+
+  async getCrmLead(id: number): Promise<(CrmLead & { crmNotes: (CrmNote & { authorName?: string | null })[]; assigneeName?: string | null }) | undefined> {
+    const [lead] = await db.select().from(crmLeads).where(eq(crmLeads.id, id));
+    if (!lead) return undefined;
+    const notes = await db.select().from(crmNotes).where(eq(crmNotes.leadId, id)).orderBy(crmNotes.createdAt);
+    const enrichedNotes = await Promise.all(notes.map(async n => {
+      if (!n.userId) return { ...n, authorName: null };
+      const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, n.userId));
+      return { ...n, authorName: u?.username ?? null };
+    }));
+    let assigneeName: string | null = null;
+    if (lead.assignedTo) {
+      const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, lead.assignedTo));
+      assigneeName = u?.username ?? null;
+    }
+    return { ...lead, crmNotes: enrichedNotes, assigneeName };
+  }
+
+  async createCrmLead(data: InsertCrmLead): Promise<CrmLead> {
+    const [row] = await db.insert(crmLeads).values({ ...data, updatedAt: new Date() }).returning();
+    return row;
+  }
+
+  async updateCrmLead(id: number, data: Partial<CrmLead>): Promise<CrmLead | undefined> {
+    const { id: _id, createdAt: _c, ...safe } = data as any;
+    const [row] = await db.update(crmLeads)
+      .set({ ...safe, updatedAt: new Date() })
+      .where(eq(crmLeads.id, id))
+      .returning();
+    return row;
+  }
+
+  async deleteCrmLead(id: number): Promise<boolean> {
+    const result = await db.delete(crmLeads).where(eq(crmLeads.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async addCrmNote(data: InsertCrmNote): Promise<CrmNote> {
+    const [row] = await db.insert(crmNotes).values(data).returning();
+    return row;
   }
 }

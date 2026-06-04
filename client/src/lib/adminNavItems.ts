@@ -13,6 +13,7 @@ import {
   Tv,
   Camera,
   ShieldAlert,
+  Crown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -126,5 +127,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     path: "/admin/otp-logs",
     Icon: ShieldAlert,
     iconColorHex: "#005476",
+  },
+  {
+    labelKey: "admin.crm",
+    labelFallback: "Kinglike CRM",
+    path: "/admin/crm",
+    Icon: Crown,
+    iconColorHex: "#3bcac4",
+    highlight: true,
   },
 ];
