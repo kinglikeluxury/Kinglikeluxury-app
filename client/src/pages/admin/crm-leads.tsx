@@ -240,6 +240,15 @@ export default function CrmLeadsPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const deleteSubAgentMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/crm/sub-agents/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/sub-agents"] });
+      toast({ title: "Sub-agent removed" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   function handlePhoneChange(phone: string) {
     const result = validatePhone(phone);
     setForm(f => ({
@@ -409,6 +418,19 @@ export default function CrmLeadsPage() {
                             {a.email && <p className="text-xs text-muted-foreground">{a.email}</p>}
                           </div>
                           <Badge variant="outline" className="text-xs border-[#3bcac4] text-[#3bcac4]">Sub-Agent</Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                            disabled={deleteSubAgentMutation.isPending}
+                            onClick={() => {
+                              if (confirm(`Remove sub-agent "${a.username}"? This cannot be undone.`)) {
+                                deleteSubAgentMutation.mutate(a.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -704,6 +726,9 @@ export default function CrmLeadsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Agents</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {subAgents.map(a => (
+                    <SelectItem key={a.id} value={String(a.id)}>{a.username}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}

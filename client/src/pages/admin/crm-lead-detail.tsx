@@ -262,6 +262,10 @@ export default function CrmLeadDetailPage() {
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(EMPTY_TASK);
   const [statusDialog, setStatusDialog] = useState<{ newStatus: string; note: string } | null>(null);
+  const [pendingFieldSave, setPendingFieldSave] = useState<{
+    fieldKey: string; label: string; oldRaw: string; patch: Record<string, any>; draft: string;
+  } | null>(null);
+  const [subAgentComment, setSubAgentComment] = useState("");
 
   if (authLoading) return null;
   if (!user?.isAdmin && user?.role !== "sub_agent") { navigate("/"); return null; }
@@ -385,7 +389,7 @@ export default function CrmLeadDetailPage() {
     if (!note) return;
     const oldLabel = STATUS_CONFIG[lead.status]?.label ?? lead.status;
     const newLabel = STATUS_CONFIG[statusDialog.newStatus]?.label ?? statusDialog.newStatus;
-    updateMutation.mutate({ status: statusDialog.newStatus } as Partial<CrmLead>, {
+    updateMutation.mutate({ status: statusDialog.newStatus, _comment: note } as any, {
       onSuccess: () => {
         addNoteMutation.mutate(
           `[Status Change] ${oldLabel} → ${newLabel}\nNote: ${note}`
@@ -412,6 +416,12 @@ export default function CrmLeadDetailPage() {
       patch.country = detectedCountry;
     }
 
+    if (isSubAgent) {
+      // Sub-agents must enter a comment/reason before any field save
+      setPendingFieldSave({ fieldKey, label, oldRaw, patch, draft });
+      return;
+    }
+
     updateMutation.mutate(patch as Partial<CrmLead>, {
       onSuccess: () => {
         if (draft !== oldRaw) {
@@ -421,6 +431,24 @@ export default function CrmLeadDetailPage() {
         }
         cancelField();
       },
+    });
+  }
+
+  function submitFieldWithComment() {
+    if (!pendingFieldSave || !subAgentComment.trim()) return;
+    const { label, oldRaw, patch, draft } = pendingFieldSave;
+    updateMutation.mutate({ ...patch, _comment: subAgentComment.trim() } as any, {
+      onSuccess: () => {
+        if (draft !== oldRaw) {
+          const oldDisplay = oldRaw || "—";
+          const newDisplay = draft || "—";
+          addNoteMutation.mutate(`[Updated] ${label}: "${oldDisplay}" → "${newDisplay}"\nComment: ${subAgentComment.trim()}`);
+        }
+        setPendingFieldSave(null);
+        setSubAgentComment("");
+        cancelField();
+      },
+      onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
     });
   }
 
@@ -1123,6 +1151,43 @@ export default function CrmLeadDetailPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Sub-Agent Mandatory Comment Dialog */}
+      {pendingFieldSave && (
+        <Dialog open={true} onOpenChange={() => { setPendingFieldSave(null); setSubAgentComment(""); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-[#005476] flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" /> Required Comment
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mt-1">
+              Changing <strong className="text-[#005476]">{pendingFieldSave.label}</strong> requires a reason. It will be logged and sent to the admin.
+            </p>
+            <Textarea
+              value={subAgentComment}
+              onChange={e => setSubAgentComment(e.target.value)}
+              placeholder="Enter your reason for this change..."
+              rows={3}
+              className="mt-2"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-3">
+              <Button variant="outline" onClick={() => { setPendingFieldSave(null); setSubAgentComment(""); }}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                disabled={!subAgentComment.trim() || updateMutation.isPending}
+                onClick={submitFieldWithComment}
+              >
+                {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Save Change
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* New Task Dialog */}
       <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>

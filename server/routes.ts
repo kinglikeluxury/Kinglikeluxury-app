@@ -4209,11 +4209,20 @@ ${metaTags}
     if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
-      // Sub-agents cannot change status or reassign leads
+      // Extract sub-agent comment (required for all sub-agent changes)
+      const _comment = (req.body._comment as string | undefined)?.trim() ?? "";
+      delete req.body._comment;
+
+      // Sub-agents cannot reassign leads (always blocked)
       if (!req.session.isAdmin) {
-        delete req.body.status;
         delete req.body.assignedTo;
       }
+
+      // Sub-agents must provide a comment for every change
+      if (!req.session.isAdmin && req.session.role === "sub_agent" && !_comment) {
+        return res.status(400).json({ message: "A comment/reason is required for all changes" });
+      }
+
       const { phone, email } = req.body;
       // Validate phone if being updated
       if (phone !== undefined) {
@@ -4258,6 +4267,7 @@ ${metaTags}
           sendLeadChangeNotification({
             leadId: updated.id, leadName, leadPhone: updated.phone ?? "—",
             changedBy: changer?.username ?? "Unknown", changedAt: new Date(), changes,
+            comment: _comment || undefined,
           }).catch(() => {});
         }
       }
@@ -4330,6 +4340,21 @@ ${metaTags}
         .from(users)
         .where(eq(users.role, "sub_agent"));
       res.json(agents);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** DELETE /api/admin/crm/sub-agents/:id — remove a sub-agent account */
+  app.delete("/api/admin/crm/sub-agents/:id", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { db } = await import("./db");
+      const { users } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await db.delete(users)
+        .where(and(eq(users.id, Number(req.params.id)), eq(users.role, "sub_agent")));
+      res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

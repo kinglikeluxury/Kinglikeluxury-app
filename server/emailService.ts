@@ -402,11 +402,12 @@ export async function sendLeadChangeNotification(opts: {
   changedAt: Date;
   changes: { field: string; label: string; oldValue: string; newValue: string }[];
   statusChangeNote?: string;
+  comment?: string;
 }): Promise<void> {
   const resend = await getResend();
   if (!resend) return;
 
-  const { leadId, leadName, leadPhone, changedBy, changedAt, changes, statusChangeNote } = opts;
+  const { leadId, leadName, leadPhone, changedBy, changedAt, changes, statusChangeNote, comment } = opts;
 
   const changedAtStr = changedAt.toLocaleString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
@@ -420,10 +421,12 @@ export async function sendLeadChangeNotification(opts: {
       <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#005476;font-weight:600">${c.newValue || "—"}</td>
     </tr>`).join("");
 
-  const noteBlock = statusChangeNote
+  const noteText = statusChangeNote || comment;
+  const noteLabel = statusChangeNote ? "Status Change Reason" : "Sub-Agent Comment";
+  const noteBlock = noteText
     ? `<div style="margin-top:16px;background:#f0f9f9;border-left:4px solid #3bcac4;border-radius:0 8px 8px 0;padding:14px 18px">
-         <p style="color:#005476;font-weight:700;margin:0 0 6px;font-size:13px">Status Change Reason</p>
-         <p style="color:#374151;margin:0;font-size:14px;line-height:1.6">${statusChangeNote}</p>
+         <p style="color:#005476;font-weight:700;margin:0 0 6px;font-size:13px">${noteLabel}</p>
+         <p style="color:#374151;margin:0;font-size:14px;line-height:1.6">${noteText}</p>
        </div>` : "";
 
   const subject = `🔔 CRM Lead Modified — ${leadName}`;
