@@ -116,6 +116,7 @@ function StatusBadge({ status }: { status: string }) {
 
 const EMPTY_FORM = {
   fullName: "", phone: "", email: "",
+  country: "",
   interestedCountry: "", projectInterest: "",
   budget: "", expectedPurchaseMonth: "", description: "",
   leadSource: "manual", leadScore: "cold", status: "new",
@@ -204,7 +205,7 @@ export default function CrmLeadsPage() {
     setForm(f => ({
       ...f,
       phone,
-      ...(detected && !f.interestedCountry ? { interestedCountry: detected } : {}),
+      ...(detected ? { country: detected } : {}),
     }));
   }
 
@@ -352,10 +353,26 @@ export default function CrmLeadsPage() {
                   />
                 </div>
                 <div>
-                  <Label>Interested Country <span className="text-red-500">*</span></Label>
-                  <Select value={form.interestedCountry} onValueChange={v => setForm(f => ({ ...f, interestedCountry: v }))}>
+                  <Label className="flex items-center gap-1">
+                    Origin Country
+                    <span className="text-xs text-muted-foreground font-normal">(auto-detected)</span>
+                  </Label>
+                  <Input
+                    value={form.country}
+                    onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                    placeholder="Detected from phone prefix"
+                    className={form.country ? "border-[#3bcac4]/50 bg-[#3bcac4]/5" : ""}
+                  />
+                </div>
+                <div>
+                  <Label>Interested Country</Label>
+                  <Select
+                    value={form.interestedCountry || "__none__"}
+                    onValueChange={v => setForm(f => ({ ...f, interestedCountry: v === "__none__" ? "" : v }))}
+                  >
                     <SelectTrigger><SelectValue placeholder="Select country..." /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__none__">— Not specified —</SelectItem>
                       {INTERESTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
