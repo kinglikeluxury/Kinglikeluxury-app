@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Users, Search, Plus, Flame, Thermometer, Snowflake,
-  Phone, Mail, MapPin, RefreshCw, Loader2,
+  Phone, Mail, MapPin, Globe, RefreshCw, Loader2,
   ChevronRight, Crown, UserCheck, Building2, FolderOpen,
   Edit3, Trash2,
 } from "lucide-react";
@@ -606,10 +606,10 @@ export default function CrmLeadsPage() {
                         <div className="font-medium text-[#005476]">
                           {lead.fullName || `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "—"}
                         </div>
-                        {lead.interestedCountry && (
+                        {lead.country && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                             <MapPin className="h-3 w-3" />
-                            {lead.interestedCountry}
+                            {lead.country}
                           </div>
                         )}
                       </td>
@@ -638,7 +638,16 @@ export default function CrmLeadsPage() {
                             <Building2 className="h-3 w-3 text-muted-foreground" />
                             <span className="truncate max-w-[120px]">{lead.projectInterest}</span>
                           </div>
-                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                        ) : null}
+                        {lead.interestedCountry ? (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                            <Globe className="h-3 w-3" />
+                            <span className="truncate max-w-[120px]">{lead.interestedCountry}</span>
+                          </div>
+                        ) : null}
+                        {!lead.projectInterest && !lead.interestedCountry && (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {lead.budget ? fmtBudget(Number(lead.budget)) : "—"}
