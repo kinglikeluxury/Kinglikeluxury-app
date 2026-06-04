@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv,
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv, Crown,
 } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
@@ -303,6 +303,18 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.privacyPolicy", "سياسة الخصوصية"), path: "/privacy-policy", icon: Shield })}
             {renderItem({ label: t("nav.termsConditions", "الشروط والأحكام"), path: "/terms", icon: FileText })}
           </div>
+
+          {/* Sub-Agent CRM section */}
+          {user?.role === "sub_agent" && (
+            <div className="mb-2">
+              <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Sales CRM
+              </p>
+              <div className="bg-white">
+                {renderItem({ label: "Kinglike CRM", path: "/admin/crm", icon: Crown, highlight: true })}
+              </div>
+            </div>
+          )}
 
           {/* Admin section — driven by ADMIN_NAV_ITEMS (shared with desktop Navbar) */}
           {user?.isAdmin && (

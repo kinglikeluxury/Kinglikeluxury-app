@@ -10,6 +10,7 @@ export type User = {
   phoneNumber: string | null;
   authMethod: string | null;
   isAdmin: boolean;
+  role: string;
 };
 
 type AuthContextType = {

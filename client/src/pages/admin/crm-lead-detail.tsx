@@ -264,7 +264,9 @@ export default function CrmLeadDetailPage() {
   const [statusDialog, setStatusDialog] = useState<{ newStatus: string; note: string } | null>(null);
 
   if (authLoading) return null;
-  if (!user?.isAdmin) { navigate("/"); return null; }
+  if (!user?.isAdmin && user?.role !== "sub_agent") { navigate("/"); return null; }
+
+  const isSubAgent = user?.role === "sub_agent";
 
   const { data: lead, isLoading } = useQuery<LeadDetail>({
     queryKey: ["/api/admin/crm/leads", leadId],
@@ -466,14 +468,16 @@ export default function CrmLeadDetailPage() {
           <span className="text-muted-foreground">/</span>
           <span className="text-sm font-medium text-[#005476]">{displayName}</span>
         </div>
-        <Button
-          variant="outline" size="sm"
-          className="gap-1.5 text-red-500 hover:text-red-600 hover:border-red-300"
-          onClick={() => { if (confirm("Delete this lead?")) deleteMutation.mutate(); }}
-          disabled={deleteMutation.isPending}
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete
-        </Button>
+        {!isSubAgent && (
+          <Button
+            variant="outline" size="sm"
+            className="gap-1.5 text-red-500 hover:text-red-600 hover:border-red-300"
+            onClick={() => { if (confirm("Delete this lead?")) deleteMutation.mutate(); }}
+            disabled={deleteMutation.isPending}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

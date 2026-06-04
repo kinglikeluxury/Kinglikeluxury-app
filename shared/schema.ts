@@ -30,6 +30,7 @@ export const users = pgTable("users", {
   authMethod: text("auth_method").notNull().default(AUTH_METHODS.EMAIL),
   isVerified: boolean("is_verified").default(false).notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -44,6 +45,7 @@ export const insertUserSchema = createInsertSchema(users)
     authMethod: true,
     isAdmin: true,
     isVerified: true,
+    role: true,
   })
   .extend({
     password: z.string().optional(),

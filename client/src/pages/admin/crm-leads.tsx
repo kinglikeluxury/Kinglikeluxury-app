@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Users, Search, Plus, Flame, Thermometer, Snowflake,
   Phone, Mail, MapPin, Globe, RefreshCw, Loader2,
@@ -151,15 +152,23 @@ export default function CrmLeadsPage() {
   const [editingProjectName, setEditingProjectName] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<{ phone?: string; email?: string }>({});
+  const [subAgentsOpen, setSubAgentsOpen] = useState(false);
+  const [subAgentForm, setSubAgentForm] = useState({ username: "", email: "", password: "" });
 
   if (authLoading) return null;
-  if (!user?.isAdmin) { navigate("/"); return null; }
+  if (!user?.isAdmin && user?.role !== "sub_agent") { navigate("/"); return null; }
+
+  const isSubAgent = user?.role === "sub_agent";
 
   const params = new URLSearchParams();
-  if (search)            params.set("search", search);
-  if (status !== "all")  params.set("status", status);
-  if (source !== "all")  params.set("source", source);
-  if (assigned !== "all") params.set("assignedTo", assigned);
+  if (search)           params.set("search", search);
+  if (status !== "all") params.set("status", status);
+  if (source !== "all") params.set("source", source);
+  if (isSubAgent) {
+    params.set("assignedTo", String(user?.id)); // Backend also enforces this
+  } else if (assigned !== "all") {
+    params.set("assignedTo", assigned);
+  }
 
   const { data: leads = [], isLoading, refetch } = useQuery<CrmLeadWithAssignee[]>({
     queryKey: ["/api/admin/crm/leads", search, status, source, assigned],
@@ -211,6 +220,22 @@ export default function CrmLeadsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/projects"] });
       toast({ title: "Project removed" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const { data: subAgents = [] } = useQuery<{ id: number; username: string; email: string | null }[]>({
+    queryKey: ["/api/admin/crm/sub-agents"],
+    queryFn: () => fetch("/api/admin/crm/sub-agents").then(r => r.json()),
+    enabled: user?.isAdmin === true,
+  });
+
+  const createSubAgentMutation = useMutation({
+    mutationFn: (data: typeof subAgentForm) => apiRequest("POST", "/api/admin/crm/sub-agents", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/sub-agents"] });
+      toast({ title: "Sub-agent created successfully" });
+      setSubAgentForm({ username: "", email: "", password: "" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -274,8 +299,8 @@ export default function CrmLeadsPage() {
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
 
-          {/* Manage Projects */}
-          <Dialog open={projectsOpen} onOpenChange={setProjectsOpen}>
+          {/* Manage Projects — admin only */}
+          {user?.isAdmin && <Dialog open={projectsOpen} onOpenChange={setProjectsOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
                 <FolderOpen className="h-4 w-4" /> Projects
@@ -356,15 +381,81 @@ export default function CrmLeadsPage() {
                 </div>
               </div>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
 
-          {/* New Lead */}
+          {/* Manage Sub-Agents — admin only */}
+          {user?.isAdmin && (
+            <Dialog open={subAgentsOpen} onOpenChange={setSubAgentsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Users className="h-4 w-4" /> Sub-Agents
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-[#005476] flex items-center gap-2">
+                    <Users className="h-4 w-4" /> Manage Sub-Agents
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                  {subAgents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No sub-agents yet.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {subAgents.map(a => (
+                        <div key={a.id} className="flex items-center gap-2 p-2 rounded-lg border bg-gray-50/60">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-[#005476]">{a.username}</p>
+                            {a.email && <p className="text-xs text-muted-foreground">{a.email}</p>}
+                          </div>
+                          <Badge variant="outline" className="text-xs border-[#3bcac4] text-[#3bcac4]">Sub-Agent</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="pt-2 border-t space-y-2">
+                    <p className="text-xs font-semibold text-[#005476] uppercase tracking-wide">Add New Sub-Agent</p>
+                    <Input
+                      placeholder="Username"
+                      value={subAgentForm.username}
+                      onChange={e => setSubAgentForm(f => ({ ...f, username: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Email (optional)"
+                      type="email"
+                      value={subAgentForm.email}
+                      onChange={e => setSubAgentForm(f => ({ ...f, email: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Password (min 6 chars)"
+                      type="password"
+                      value={subAgentForm.password}
+                      onChange={e => setSubAgentForm(f => ({ ...f, password: e.target.value }))}
+                    />
+                    <Button
+                      className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                      disabled={!subAgentForm.username.trim() || !subAgentForm.password || createSubAgentMutation.isPending}
+                      onClick={() => createSubAgentMutation.mutate(subAgentForm)}
+                    >
+                      {createSubAgentMutation.isPending
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : "Create Sub-Agent"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* New Lead — admin only */}
           <Dialog open={newLeadOpen} onOpenChange={v => { setNewLeadOpen(v); if (!v) { setForm(EMPTY_FORM); setFormErrors({}); } }}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4] gap-1.5">
-                <Plus className="h-4 w-4" /> New Lead
-              </Button>
-            </DialogTrigger>
+            {!isSubAgent && (
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4] gap-1.5">
+                  <Plus className="h-4 w-4" /> New Lead
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-[#005476]">Add New Lead</DialogTitle>
@@ -607,13 +698,15 @@ export default function CrmLeadsPage() {
                 {SOURCES.map(s => <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={assigned} onValueChange={setAssigned}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="All Agents" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Agents</SelectItem>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-              </SelectContent>
-            </Select>
+            {!isSubAgent && (
+              <Select value={assigned} onValueChange={setAssigned}>
+                <SelectTrigger className="w-44"><SelectValue placeholder="All Agents" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Agents</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>

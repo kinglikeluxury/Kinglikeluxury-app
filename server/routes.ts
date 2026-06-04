@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
+import bcrypt from "bcrypt";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
 import pg from "pg";
@@ -57,6 +58,7 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     isAdmin: boolean;
+    role: string;
   }
 }
 
@@ -1039,6 +1041,7 @@ ${metaTags}
 
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
+      req.session.role = user.role ?? "user";
 
       // Fire-and-forget welcome notifications
       sendWelcomeEmail(user).catch(() => {});
@@ -1094,7 +1097,10 @@ ${metaTags}
         
         user = await storage.getUserByUsername(username);
         
-        if (!user || user.password !== password) {
+        const _emailPassOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
+          ? await bcrypt.compare(password, user.password)
+          : user.password === password;
+        if (!user || !_emailPassOk) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
       } 
@@ -1153,7 +1159,10 @@ ${metaTags}
         }
 
         // Generic error — never reveal whether username/email/phone exists or which field failed
-        if (!user || user.password !== password) {
+        const _passOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
+          ? await bcrypt.compare(password, user.password!)
+          : user.password === password;
+        if (!user || !_passOk) {
           return res.status(401).json({ message: "Invalid login credentials." });
         }
       }
@@ -1165,6 +1174,7 @@ ${metaTags}
       // Set session
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
+      req.session.role = user.role ?? "user";
       
       // Return appropriate user data
       const userResponse: any = {
@@ -1410,7 +1420,8 @@ ${metaTags}
       email: user.email,
       phoneNumber: user.phoneNumber,
       authMethod: user.authMethod,
-      isAdmin: user.isAdmin
+      isAdmin: user.isAdmin,
+      role: user.role ?? "user",
     });
   });
 
@@ -3971,17 +3982,31 @@ ${metaTags}
 
   // ── Kinglike CRM Admin Endpoints ──────────────────────────────────────────
 
+  // CRM access helpers
+  const isCrmUser = (req: any) => req.session.isAdmin || req.session.role === "sub_agent";
+  const canAccessLead = async (req: any, leadId: number): Promise<boolean> => {
+    if (req.session.isAdmin) return true;
+    const lead = await storage.getCrmLead(leadId);
+    return lead?.assignedTo === req.session.userId;
+  };
+
   /** GET /api/admin/crm/leads — list with optional filters */
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try {
       const { search, status, source, assignedTo } = req.query as Record<string, string>;
       const filters: any = {};
-      if (search)     filters.search = search;
-      if (status)     filters.status = status;
-      if (source)     filters.source = source;
-      if (assignedTo === "unassigned") filters.assignedTo = null;
-      else if (assignedTo) filters.assignedTo = Number(assignedTo);
+      if (search) filters.search = search;
+      if (status) filters.status = status;
+      if (source) filters.source = source;
+      if (!req.session.isAdmin && req.session.role === "sub_agent") {
+        // Sub-agents can only see leads assigned to them — backend-enforced
+        filters.assignedTo = req.session.userId;
+      } else if (assignedTo === "unassigned") {
+        filters.assignedTo = null;
+      } else if (assignedTo) {
+        filters.assignedTo = Number(assignedTo);
+      }
       const leads = await storage.getCrmLeads(filters);
       res.json(leads);
     } catch (err: any) {
@@ -4076,14 +4101,18 @@ ${metaTags}
 
   /** GET /api/admin/crm/leads/:id/tasks — list tasks for a lead */
   app.get("/api/admin/crm/leads/:id/tasks", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+      return res.status(403).json({ message: "Access denied" });
     try { res.json(await storage.getCrmTasks(Number(req.params.id))); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   /** POST /api/admin/crm/leads/:id/tasks — create a task */
   app.post("/api/admin/crm/leads/:id/tasks", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+      return res.status(403).json({ message: "Access denied" });
     try {
       const { title, description, dueDate, dueTime, priority } = req.body;
       if (!title?.trim()) return res.status(400).json({ message: "Task title is required" });
@@ -4114,7 +4143,9 @@ ${metaTags}
 
   /** PATCH /api/admin/crm/leads/:id/tasks/:taskId — update task (e.g. complete) */
   app.patch("/api/admin/crm/leads/:id/tasks/:taskId", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+      return res.status(403).json({ message: "Access denied" });
     try {
       const task = await storage.updateCrmTask(Number(req.params.taskId), req.body);
       if (!task) return res.status(404).json({ message: "Task not found" });
@@ -4135,7 +4166,9 @@ ${metaTags}
 
   /** DELETE /api/admin/crm/leads/:id/tasks/:taskId — delete task */
   app.delete("/api/admin/crm/leads/:id/tasks/:taskId", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+      return res.status(403).json({ message: "Access denied" });
     try {
       // Fetch task before deletion so we can include its title in the notification
       const tasksBefore = !req.session.isAdmin ? await storage.getCrmTasks(Number(req.params.id)) : [];
@@ -4159,7 +4192,8 @@ ${metaTags}
 
   /** GET /api/admin/crm/leads/:id — lead detail with notes + assignee */
   app.get("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!await canAccessLead(req, Number(req.params.id))) return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
       const lead = await storage.getCrmLead(Number(req.params.id));
       if (!lead) return res.status(404).json({ message: "Lead not found" });
@@ -4171,8 +4205,15 @@ ${metaTags}
 
   /** PATCH /api/admin/crm/leads/:id — update any lead fields */
   app.patch("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+      return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
+      // Sub-agents cannot change status or reassign leads
+      if (!req.session.isAdmin) {
+        delete req.body.status;
+        delete req.body.assignedTo;
+      }
       const { phone, email } = req.body;
       // Validate phone if being updated
       if (phone !== undefined) {
@@ -4239,7 +4280,9 @@ ${metaTags}
 
   /** POST /api/admin/crm/leads/:id/notes — add a note to a lead */
   app.post("/api/admin/crm/leads/:id/notes", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+      return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
       const { note } = req.body;
       if (!note?.trim()) return res.status(400).json({ message: "Note text is required" });
@@ -4269,6 +4312,54 @@ ${metaTags}
         } catch { /* non-critical */ }
       }
     } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Sub-Agent Management ─────────────────────────────────────────────────
+
+  /** GET /api/admin/crm/sub-agents — list all sub-agent accounts */
+  app.get("/api/admin/crm/sub-agents", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { db } = await import("./db");
+      const { users } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const agents = await db
+        .select({ id: users.id, username: users.username, email: users.email })
+        .from(users)
+        .where(eq(users.role, "sub_agent"));
+      res.json(agents);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/sub-agents — create a new sub-agent account */
+  app.post("/api/admin/crm/sub-agents", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { username, email, password } = req.body;
+      if (!username?.trim()) return res.status(400).json({ message: "Username is required" });
+      if (!password || password.length < 6)
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const agent = await storage.createUser({
+        username: username.trim(),
+        password: hashedPassword,
+        email: email?.trim() || null,
+        phoneNumber: null,
+        whatsappNumber: null,
+        facebookId: null,
+        authMethod: "email",
+        isAdmin: false,
+        isVerified: true,
+        role: "sub_agent",
+      });
+      res.status(201).json({ id: agent.id, username: agent.username, email: agent.email, role: agent.role });
+    } catch (err: any) {
+      if ((err as any).code === "23505")
+        return res.status(400).json({ message: "Username or email already exists" });
       res.status(500).json({ message: err.message });
     }
   });
