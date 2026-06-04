@@ -365,7 +365,12 @@ export default function CrmLeadsPage() {
                   />
                 </div>
                 <div>
-                  <Label>Interested Country</Label>
+                  <Label className="flex items-center gap-1">
+                    Interested Country
+                    {form.leadSource === "meta" && (
+                      <span className="text-xs text-[#3bcac4] font-normal">(from Meta data)</span>
+                    )}
+                  </Label>
                   <Select
                     value={form.interestedCountry || "__none__"}
                     onValueChange={v => setForm(f => ({ ...f, interestedCountry: v === "__none__" ? "" : v }))}
@@ -376,6 +381,11 @@ export default function CrmLeadsPage() {
                       {INTERESTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {form.leadSource === "meta" && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      For Meta leads, this is set automatically from the campaign / ad / form mapping.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>Project Interest</Label>
