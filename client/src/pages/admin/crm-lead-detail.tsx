@@ -853,15 +853,20 @@ export default function CrmLeadDetailPage() {
                               ? "bg-[#3bcac4]/60"
                               : "bg-gradient-to-br from-[#3bcac4] to-[#005476]"
                           }`}>
-                            {isStatusChange ? "⇄" : isAuto ? "↻" : (note.authorName ?? "A").charAt(0).toUpperCase()}
+                            {(note.authorName ?? (isAuto ? "S" : "A")).charAt(0).toUpperCase()}
                           </div>
                           {i < lead.crmNotes.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
                         </div>
                         <div className="flex-1 pb-3">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-sm font-medium text-[#005476]">
-                              {isStatusChange ? "Status Change" : isAuto ? "System" : (note.authorName ?? "Admin")}
+                              {note.authorName ?? (isAuto ? "System" : "Admin")}
                             </span>
+                            {isStatusChange && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-[#005476]/10 text-[#005476] border border-[#005476]/20">
+                                Status Change
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground">
                               {new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
