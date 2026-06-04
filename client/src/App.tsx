@@ -1,5 +1,4 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useCallback } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
@@ -53,7 +52,7 @@ import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getLanguageDirection } from "./lib/i18n";
 
 function Router() {
@@ -121,6 +120,12 @@ function App() {
   const { i18n } = useTranslation();
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashComplete = useCallback(() => setSplashDone(true), []);
+
+  // Safety fallback: guarantee the app becomes visible even if the splash timer fails
+  useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dir = getLanguageDirection(i18n.language);
