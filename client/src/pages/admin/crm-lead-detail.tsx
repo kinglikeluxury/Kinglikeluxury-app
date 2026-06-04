@@ -30,13 +30,26 @@ interface LeadDetail extends CrmLead {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  new:        { label: "New",        color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
-  no_answer:  { label: "No Answer",  color: "bg-gray-100 text-gray-600 border border-gray-300" },
-  follow_up:  { label: "Follow Up",  color: "bg-amber-50 text-amber-700 border border-amber-300" },
-  interested: { label: "Interested", color: "bg-blue-50 text-blue-700 border border-blue-300" },
-  qualified:  { label: "Qualified",  color: "bg-purple-50 text-purple-700 border border-purple-300" },
-  converted:  { label: "Converted",  color: "bg-green-50 text-green-700 border border-green-300" },
-  lost:       { label: "Lost",       color: "bg-red-50 text-red-600 border border-red-300" },
+  // ── Active statuses ────────────────────────────────────────────────────────
+  new:                   { label: "New",                                                    color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
+  no_answer_1:           { label: "No Answer 1",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
+  no_answer_2:           { label: "No Answer 2",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
+  no_answer_3:           { label: "No Answer 3",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
+  will_think:            { label: "Will Think",                                             color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/30" },
+  follow_up:             { label: "Follow Up",                                              color: "bg-[#3bcac4]/20 text-[#005476] border border-[#3bcac4]/50" },
+  hot_buyer:             { label: "Hot Buyer",                                              color: "bg-[#005476] text-white border border-[#005476]" },
+  entering_lead:         { label: "Entering Lead",                                          color: "bg-[#3bcac4]/10 text-[#3bcac4] border border-[#3bcac4]/30" },
+  junk_lead:             { label: "Junk Lead",                                              color: "bg-gray-100 text-gray-400 border border-gray-200" },
+  no_answer_converted:   { label: "After 3 No Answer - Converted to Another Sales Manager", color: "bg-slate-200 text-slate-600 border border-slate-300" },
+  broker:                { label: "Broker",                                                 color: "bg-[#005476]/15 text-[#005476] border border-[#005476]/40" },
+  agency:                { label: "Agency",                                                 color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/25" },
+  second_hand:           { label: "Second Hand",                                            color: "bg-slate-100 text-slate-600 border border-slate-300" },
+  qualified:             { label: "Qualified",                                              color: "bg-[#3bcac4]/25 text-[#005476] border border-[#3bcac4]/60" },
+  converted:             { label: "Converted",                                              color: "bg-[#005476] text-white border border-[#005476]" },
+  lost:                  { label: "Lost",                                                   color: "bg-gray-100 text-gray-500 border border-gray-300" },
+  // ── Legacy statuses — kept for backward compatibility with existing leads ──
+  no_answer:             { label: "No Answer",  color: "bg-slate-100 text-slate-500 border border-slate-300" },
+  interested:            { label: "Interested", color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
 };
 
 const SCORE_CONFIG: Record<string, { label: string; Icon: any; color: string; bg: string }> = {
@@ -49,7 +62,11 @@ const SOURCE_LABELS: Record<string, string> = {
   meta: "Meta", website: "Website", whatsapp: "WhatsApp", excel: "Excel", manual: "Manual",
 };
 
-const STATUSES = ["new","no_answer","follow_up","interested","qualified","converted","lost"];
+const STATUSES = [
+  "new","no_answer_1","no_answer_2","no_answer_3","will_think","follow_up",
+  "hot_buyer","entering_lead","junk_lead","no_answer_converted",
+  "broker","agency","second_hand","qualified","converted","lost",
+];
 const SOURCES  = ["meta","website","whatsapp","excel","manual"];
 
 function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) {
