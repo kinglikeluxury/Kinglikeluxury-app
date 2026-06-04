@@ -511,9 +511,18 @@ ${metaTags}
    *     `app.set("trust proxy", 1)` configured in server/index.ts.
    *     Never parse x-forwarded-for directly — it can be client-controlled.
    */
+  /**
+   * Resolve the real client IP.
+   * `cf-connecting-ip` is only trusted when the app is deployed behind Cloudflare
+   * (indicated by CLOUDFLARE_TURNSTILE_SECRET_KEY being configured). Trusting it
+   * unconditionally would let any client spoof it to bypass IP rate-limits.
+   */
+  const behindCloudflare = !!process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
   function getClientIp(req: any): string {
-    const cfIp = req.headers['cf-connecting-ip'];
-    if (typeof cfIp === 'string' && cfIp.trim()) return cfIp.trim();
+    if (behindCloudflare) {
+      const cfIp = req.headers['cf-connecting-ip'];
+      if (typeof cfIp === 'string' && cfIp.trim()) return cfIp.trim();
+    }
     return req.ip || 'unknown';
   }
 
@@ -591,13 +600,28 @@ ${metaTags}
 
   /**
    * Verify Cloudflare Turnstile token.
-   * Falls back to the Cloudflare "always-pass" test secret when no secret is configured
-   * so the feature works out-of-the-box in development without blocking users.
+   *
+   * Security rules:
+   * - In production (CLOUDFLARE_TURNSTILE_SECRET_KEY is set): always verify; fail closed
+   *   on network error or missing token so a broken CAPTCHA never silently degrades.
+   * - In development (no secret configured): skip verification and log a warning so
+   *   developers can work locally without a Cloudflare account. This branch must never
+   *   execute in production because the secret will always be present there.
+   * - The Cloudflare "always-pass" test secret (1x0000…) is intentionally NOT used as a
+   *   fallback — it would let any request bypass CAPTCHA if the secret is misconfigured.
    */
   async function verifyTurnstile(token: string | undefined, ip: string): Promise<boolean> {
+    const secret = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
+    if (!secret) {
+      // Development-only bypass: no secret means no Cloudflare account is configured.
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[Turnstile] CLOUDFLARE_TURNSTILE_SECRET_KEY is missing in production — blocking request.');
+        return false;
+      }
+      console.warn('[Turnstile] No secret configured — skipping CAPTCHA check (dev mode only).');
+      return true;
+    }
     if (!token) return false;
-    const secret = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY
-      || '1x0000000000000000000000000000000AA'; // Cloudflare test secret — always passes
     try {
       const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
         method: 'POST',
@@ -607,9 +631,10 @@ ${metaTags}
       const data = await r.json() as { success: boolean };
       return data.success === true;
     } catch (err) {
-      // Fail-open: Cloudflare unreachable → don't block legitimate users
-      console.warn('[Turnstile] Verification request failed, allowing request:', err);
-      return true;
+      // Fail-closed: if Cloudflare is unreachable in production, block the request.
+      // This prevents an outage from silently disabling bot protection.
+      console.error('[Turnstile] Verification request failed — blocking request:', err);
+      return false;
     }
   }
 
