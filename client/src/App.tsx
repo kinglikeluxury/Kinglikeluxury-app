@@ -1,4 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
+import { useCallback } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
@@ -119,6 +120,7 @@ function Router() {
 function App() {
   const { i18n } = useTranslation();
   const [splashDone, setSplashDone] = useState(false);
+  const handleSplashComplete = useCallback(() => setSplashDone(true), []);
 
   useEffect(() => {
     document.documentElement.dir = getLanguageDirection(i18n.language);
@@ -132,7 +134,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <InstallPWA />
-            {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
+            {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
             <div
               style={{
                 opacity: splashDone ? 1 : 0,
