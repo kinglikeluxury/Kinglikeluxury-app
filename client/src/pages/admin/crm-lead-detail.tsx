@@ -248,6 +248,7 @@ export default function CrmLeadDetailPage() {
   const [newNote, setNewNote] = useState("");
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(EMPTY_TASK);
+  const [statusDialog, setStatusDialog] = useState<{ newStatus: string; note: string } | null>(null);
 
   if (!user?.isAdmin) { navigate("/"); return null; }
 
@@ -355,6 +356,27 @@ export default function CrmLeadDetailPage() {
     setFieldDraft("");
     setFieldError(null);
     setDetectedCountry("");
+  }
+
+  function openStatusDialog(newStatus: string) {
+    if (!lead || newStatus === lead.status) return;
+    setStatusDialog({ newStatus, note: "" });
+  }
+
+  function confirmStatusChange() {
+    if (!statusDialog || !lead) return;
+    const note = statusDialog.note.trim();
+    if (!note) return;
+    const oldLabel = STATUS_CONFIG[lead.status]?.label ?? lead.status;
+    const newLabel = STATUS_CONFIG[statusDialog.newStatus]?.label ?? statusDialog.newStatus;
+    updateMutation.mutate({ status: statusDialog.newStatus } as Partial<CrmLead>, {
+      onSuccess: () => {
+        addNoteMutation.mutate(
+          `[Status Change] ${oldLabel} → ${newLabel}\nNote: ${note}`
+        );
+        setStatusDialog(null);
+      },
+    });
   }
 
   function saveField(fieldKey: string, label: string, oldRaw: string) {
@@ -819,34 +841,39 @@ export default function CrmLeadDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {[...lead.crmNotes].reverse().map((note, i) => {
-                    const isAuto = note.note.startsWith("[Updated]");
+                    const isStatusChange = note.note.startsWith("[Status Change]");
+                    const isAuto = note.note.startsWith("[Updated]") || isStatusChange;
                     return (
                       <div key={note.id} className="flex gap-3">
                         <div className="flex flex-col items-center">
                           <div className={`h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
-                            isAuto
+                            isStatusChange
+                              ? "bg-[#005476]"
+                              : isAuto
                               ? "bg-[#3bcac4]/60"
                               : "bg-gradient-to-br from-[#3bcac4] to-[#005476]"
                           }`}>
-                            {isAuto ? "↻" : (note.authorName ?? "A").charAt(0).toUpperCase()}
+                            {isStatusChange ? "⇄" : isAuto ? "↻" : (note.authorName ?? "A").charAt(0).toUpperCase()}
                           </div>
                           {i < lead.crmNotes.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
                         </div>
                         <div className="flex-1 pb-3">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium text-[#005476]">
-                              {isAuto ? "System" : (note.authorName ?? "Admin")}
+                              {isStatusChange ? "Status Change" : isAuto ? "System" : (note.authorName ?? "Admin")}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
-                          <p className={`text-sm rounded-lg px-3 py-2 border ${
-                            isAuto
+                          <p className={`text-sm rounded-lg px-3 py-2 border whitespace-pre-wrap ${
+                            isStatusChange
+                              ? "bg-[#005476]/5 text-[#005476] border-[#005476]/20 text-xs font-medium"
+                              : isAuto
                               ? "bg-[#3bcac4]/5 text-[#005476]/70 border-[#3bcac4]/20 text-xs"
                               : "bg-gray-50 text-gray-700"
                           }`}>
-                            {note.note}
+                            {note.note.replace(/^\[Status Change\] /, "")}
                           </p>
                         </div>
                       </div>
@@ -869,17 +896,7 @@ export default function CrmLeadDetailPage() {
               {STATUSES.map(s => (
                 <button
                   key={s}
-                  onClick={() => {
-                    const oldStatus = STATUS_CONFIG[lead.status]?.label ?? lead.status;
-                    const newStatus = STATUS_CONFIG[s]?.label ?? s;
-                    updateMutation.mutate({ status: s } as Partial<CrmLead>, {
-                      onSuccess: () => {
-                        if (s !== lead.status) {
-                          addNoteMutation.mutate(`[Updated] Status: "${oldStatus}" → "${newStatus}"`);
-                        }
-                      },
-                    });
-                  }}
+                  onClick={() => openStatusDialog(s)}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-between ${
                     lead.status === s
                       ? `${STATUS_CONFIG[s].color} ring-1 ring-inset ring-current`
@@ -960,11 +977,7 @@ export default function CrmLeadDetailPage() {
           {lead.status !== "converted" && (
             <Button
               className="w-full bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 gap-2"
-              onClick={() => {
-                updateMutation.mutate({ status: "converted" } as Partial<CrmLead>, {
-                  onSuccess: () => addNoteMutation.mutate(`[Updated] Status: "${STATUS_CONFIG[lead.status]?.label ?? lead.status}" → "Converted"`),
-                });
-              }}
+              onClick={() => openStatusDialog("converted")}
               disabled={updateMutation.isPending}
             >
               <CheckCircle2 className="h-4 w-4" /> Mark as Converted
@@ -1004,6 +1017,68 @@ export default function CrmLeadDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Status Change Dialog — requires a note */}
+      <Dialog open={!!statusDialog} onOpenChange={open => { if (!open) setStatusDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#005476] flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Change Lead Status
+            </DialogTitle>
+          </DialogHeader>
+          {statusDialog && (
+            <div className="space-y-4 mt-1">
+              {/* From → To */}
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border text-sm">
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[lead.status]?.color ?? ""}`}>
+                  {STATUS_CONFIG[lead.status]?.label ?? lead.status}
+                </span>
+                <span className="text-muted-foreground">→</span>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[statusDialog.newStatus]?.color ?? ""}`}>
+                  {STATUS_CONFIG[statusDialog.newStatus]?.label ?? statusDialog.newStatus}
+                </span>
+              </div>
+
+              {/* Required note */}
+              <div>
+                <Label className="text-sm font-medium">
+                  Reason / Note <span className="text-red-500">*</span>
+                </Label>
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  Required — explain why the status is changing.
+                </p>
+                <Textarea
+                  autoFocus
+                  rows={3}
+                  placeholder="e.g. Client paid reservation deposit. Confirmed by phone on 04/06/2026."
+                  value={statusDialog.note}
+                  onChange={e => setStatusDialog(d => d ? { ...d, note: e.target.value } : null)}
+                  className={`resize-none ${!statusDialog.note.trim() ? "border-amber-300 focus:border-amber-400" : "border-[#3bcac4]/50"}`}
+                />
+                {!statusDialog.note.trim() && (
+                  <p className="text-xs text-amber-600 mt-1">A note is required to save this status change.</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setStatusDialog(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-gradient-to-r from-[#3bcac4] to-[#005476] gap-1.5"
+                  disabled={!statusDialog.note.trim() || updateMutation.isPending}
+                  onClick={confirmStatusChange}
+                >
+                  {updateMutation.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Save className="h-4 w-4" />}
+                  Save Status Change
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* New Task Dialog */}
       <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
