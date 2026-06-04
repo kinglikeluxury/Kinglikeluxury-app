@@ -20,7 +20,7 @@ import {
   ArrowLeft, Phone, Mail, MapPin, Target, Building2, Crown,
   Flame, Thermometer, Snowflake, Clock, MessageSquare, User,
   Edit3, Save, X, Loader2, Trash2, CheckCircle2, UserCheck,
-  Calendar, Globe, FileText, Plus, Flag, CheckSquare, ListTodo,
+  Calendar, Globe, FileText, Plus, CheckSquare, ListTodo,
   DollarSign, CalendarDays,
 } from "lucide-react";
 import type { CrmLead, CrmNote, CrmTask, CrmProject } from "@shared/schema";
@@ -97,14 +97,134 @@ function fmtBudget(n: number): string {
   return `$${(n / 1000).toFixed(0)}K`;
 }
 
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) {
-  if (!value) return null;
+type FieldType = "text" | "phone" | "email" | "select" | "textarea" | "readonly";
+interface SelectOption { value: string; label: string }
+
+interface InlineFieldProps {
+  fieldKey: string;
+  label: string;
+  icon: any;
+  displayValue?: string | null;
+  editValue: string;
+  type?: FieldType;
+  options?: SelectOption[];
+  placeholder?: string;
+  noneLabel?: string;
+  extraInfo?: string | null;
+  activeField: string | null;
+  fieldDraft: string;
+  fieldError: string | null;
+  onStart: () => void;
+  onChange: (v: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  isSaving: boolean;
+}
+
+function InlineEditField({
+  fieldKey, label, icon: Icon, displayValue, type = "text",
+  options, placeholder, noneLabel = "— Not specified —", extraInfo,
+  activeField, fieldDraft, fieldError,
+  onStart, onChange, onSave, onCancel, isSaving,
+}: InlineFieldProps) {
+  const isActive = activeField === fieldKey;
+
+  if (type === "readonly") {
+    if (!displayValue) return null;
+    return (
+      <div className="flex items-start gap-3 py-2.5 border-b last:border-0">
+        <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-sm font-medium text-[#005476]">{displayValue}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isActive) {
+    return (
+      <div
+        className="group flex items-start gap-3 py-2.5 border-b last:border-0 cursor-pointer hover:bg-[#3bcac4]/5 rounded px-1 -mx-1 transition-colors"
+        onClick={onStart}
+      >
+        <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-sm font-medium text-[#005476] truncate">
+            {displayValue || (
+              <span className="italic text-muted-foreground/40 text-xs font-normal">Click to add...</span>
+            )}
+          </p>
+        </div>
+        <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-start gap-3 py-2 border-b last:border-0">
-      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium text-[#005476]">{value}</p>
+    <div className="py-2.5 border-b last:border-0 bg-[#3bcac4]/5 rounded-md px-2 -mx-1">
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon className="h-4 w-4 text-[#3bcac4] shrink-0" />
+        <span className="text-xs font-semibold text-[#005476]">{label}</span>
+      </div>
+
+      {type === "textarea" ? (
+        <Textarea
+          autoFocus
+          value={fieldDraft}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          className="text-sm w-full"
+          onKeyDown={e => { if (e.key === "Escape") onCancel(); }}
+        />
+      ) : type === "select" ? (
+        <Select value={fieldDraft || "__none__"} onValueChange={v => { onChange(v === "__none__" ? "" : v); }}>
+          <SelectTrigger className="h-8 text-sm bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">{noneLabel}</SelectItem>
+            {options?.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          autoFocus
+          value={fieldDraft}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`h-8 text-sm bg-white ${fieldError ? "border-red-400" : ""}`}
+          onKeyDown={e => {
+            if (e.key === "Enter") onSave();
+            if (e.key === "Escape") onCancel();
+          }}
+        />
+      )}
+
+      {fieldError && (
+        <p className="text-xs text-red-500 mt-1">{fieldError}</p>
+      )}
+      {extraInfo && (
+        <p className="text-xs text-[#3bcac4] mt-1 flex items-center gap-1">
+          <MapPin className="h-3 w-3" />{extraInfo}
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 mt-2">
+        <Button
+          size="sm"
+          className="h-6 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] px-3 gap-1"
+          onClick={onSave}
+          disabled={isSaving}
+        >
+          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          Save
+        </Button>
+        <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={onCancel}>
+          <X className="h-3 w-3" /> Cancel
+        </Button>
       </div>
     </div>
   );
@@ -119,9 +239,12 @@ export default function CrmLeadDetailPage() {
   const { toast } = useToast();
 
   const leadId = Number(params?.id);
-  const [editing, setEditing] = useState(false);
-  const [editData, setEditData] = useState<Partial<CrmLead>>({});
-  const [editErrors, setEditErrors] = useState<{ phone?: string; email?: string }>({});
+
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const [fieldDraft, setFieldDraft] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [detectedCountry, setDetectedCountry] = useState("");
+
   const [newNote, setNewNote] = useState("");
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(EMPTY_TASK);
@@ -154,49 +277,13 @@ export default function CrmLeadDetailPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<CrmLead>) => apiRequest("PATCH", `/api/admin/crm/leads/${leadId}`, data),
-    onSuccess: () => { invalidateLead(); toast({ title: "Lead updated" }); setEditing(false); setEditErrors({}); },
+    onSuccess: () => { invalidateLead(); toast({ title: "Lead updated" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  function handleEditPhoneChange(phone: string) {
-    const result = validatePhone(phone);
-    setEditData(d => ({
-      ...d,
-      phone,
-      country: result.valid ? result.country : (phone.trim() ? "Country not detected" : (d.country ?? "")),
-    }));
-    setEditErrors(e => ({
-      ...e,
-      phone: phone.trim() ? (result.valid ? undefined : result.error) : undefined,
-    }));
-  }
-
-  function handleEditEmailChange(email: string) {
-    setEditData(d => ({ ...d, email }));
-    if (email.trim()) {
-      const result = validateEmail(email);
-      setEditErrors(e => ({ ...e, email: result.valid ? undefined : result.error }));
-    } else {
-      setEditErrors(e => ({ ...e, email: undefined }));
-    }
-  }
-
-  function handleSave() {
-    const phoneResult = validatePhone((editData.phone as string) ?? "");
-    const emailResult = validateEmail((editData.email as string) ?? "");
-    const errors: { phone?: string; email?: string } = {};
-    if (!phoneResult.valid) errors.phone = phoneResult.error;
-    if (!emailResult.valid) errors.email = emailResult.error;
-    if (Object.keys(errors).length > 0) {
-      setEditErrors(errors);
-      return;
-    }
-    updateMutation.mutate(editData);
-  }
-
   const addNoteMutation = useMutation({
     mutationFn: (note: string) => apiRequest("POST", `/api/admin/crm/leads/${leadId}/notes`, { note }),
-    onSuccess: () => { invalidateLead(); toast({ title: "Note added" }); setNewNote(""); },
+    onSuccess: () => { invalidateLead(); setNewNote(""); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -238,29 +325,66 @@ export default function CrmLeadDetailPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const startEdit = () => {
-    if (!lead) return;
-    setEditData({
-      fullName:              lead.fullName ?? "",
-      firstName:             lead.firstName ?? "",
-      lastName:              lead.lastName ?? "",
-      phone:                 lead.phone ?? "",
-      email:                 lead.email ?? "",
-      country:               lead.country ?? "",
-      interestedCountry:     lead.interestedCountry ?? "",
-      projectInterest:       lead.projectInterest ?? "",
-      budget:                lead.budget ?? "",
-      expectedPurchaseMonth: lead.expectedPurchaseMonth ?? "",
-      description:           lead.description ?? "",
-      campaignName:          lead.campaignName ?? "",
-      adsetName:             lead.adsetName ?? "",
-      adName:                lead.adName ?? "",
-      formName:              lead.formName ?? "",
-      leadSource:            lead.leadSource,
-      notes:                 lead.notes ?? "",
+  function openField(key: string, rawValue: string) {
+    setActiveField(key);
+    setFieldDraft(rawValue ?? "");
+    setFieldError(null);
+    setDetectedCountry(key === "phone" ? (lead?.country ?? "") : "");
+  }
+
+  function changeField(value: string) {
+    setFieldDraft(value);
+    if (activeField === "phone") {
+      const r = validatePhone(value);
+      setDetectedCountry(r.valid ? r.country : "");
+      setFieldError(value.trim() && !r.valid ? (r.error ?? null) : null);
+    } else if (activeField === "email") {
+      if (value.trim()) {
+        const r = validateEmail(value);
+        setFieldError(r.valid ? null : (r.error ?? null));
+      } else {
+        setFieldError(null);
+      }
+    } else {
+      setFieldError(null);
+    }
+  }
+
+  function cancelField() {
+    setActiveField(null);
+    setFieldDraft("");
+    setFieldError(null);
+    setDetectedCountry("");
+  }
+
+  function saveField(fieldKey: string, label: string, oldRaw: string) {
+    const draft = fieldDraft;
+
+    if (fieldKey === "phone") {
+      const r = validatePhone(draft);
+      if (!r.valid) { setFieldError(r.error ?? "Invalid phone number."); return; }
+    }
+    if (fieldKey === "email" && draft.trim()) {
+      const r = validateEmail(draft);
+      if (!r.valid) { setFieldError(r.error ?? "Invalid email address."); return; }
+    }
+
+    const patch: Record<string, any> = { [fieldKey]: draft || null };
+    if (fieldKey === "phone" && detectedCountry) {
+      patch.country = detectedCountry;
+    }
+
+    updateMutation.mutate(patch as Partial<CrmLead>, {
+      onSuccess: () => {
+        if (draft !== oldRaw) {
+          const oldDisplay = oldRaw || "—";
+          const newDisplay = draft || "—";
+          addNoteMutation.mutate(`[Updated] ${label}: "${oldDisplay}" → "${newDisplay}"`);
+        }
+        cancelField();
+      },
     });
-    setEditing(true);
-  };
+  }
 
   if (isLoading) {
     return (
@@ -286,6 +410,15 @@ export default function CrmLeadDetailPage() {
   const pendingTasks = tasks.filter(t => !t.completedAt);
   const doneTasks    = tasks.filter(t =>  t.completedAt);
 
+  const sharedFieldProps = {
+    activeField,
+    fieldDraft,
+    fieldError,
+    onChange: changeField,
+    onCancel: cancelField,
+    isSaving: updateMutation.isPending,
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
@@ -297,54 +430,63 @@ export default function CrmLeadDetailPage() {
           <span className="text-muted-foreground">/</span>
           <span className="text-sm font-medium text-[#005476]">{displayName}</span>
         </div>
-        <div className="flex items-center gap-2">
-          {!editing ? (
-            <Button variant="outline" size="sm" onClick={startEdit} className="gap-1.5">
-              <Edit3 className="h-3.5 w-3.5" /> Edit
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setEditing(false)} className="gap-1.5">
-                <X className="h-3.5 w-3.5" /> Cancel
-              </Button>
-              <Button size="sm" className="bg-gradient-to-r from-[#3bcac4] to-[#005476] gap-1.5"
-                onClick={handleSave} disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save
-              </Button>
-            </>
-          )}
-          <Button
-            variant="outline" size="sm"
-            className="gap-1.5 text-red-500 hover:text-red-600 hover:border-red-300"
-            onClick={() => { if (confirm("Delete this lead?")) deleteMutation.mutate(); }}
-            disabled={deleteMutation.isPending}
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Delete
-          </Button>
-        </div>
+        <Button
+          variant="outline" size="sm"
+          className="gap-1.5 text-red-500 hover:text-red-600 hover:border-red-300"
+          onClick={() => { if (confirm("Delete this lead?")) deleteMutation.mutate(); }}
+          disabled={deleteMutation.isPending}
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Delete
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: Lead Info */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Identity */}
+
+          {/* Identity Card */}
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center text-white font-bold text-lg">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center text-white font-bold text-lg shrink-0">
                     {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    {editing ? (
-                      <Input className="text-lg font-bold h-8 mb-1"
-                        value={editData.fullName ?? ""}
-                        onChange={e => setEditData(d => ({ ...d, fullName: e.target.value }))}
-                        placeholder="Full name"
-                      />
+                    {/* Inline-editable full name */}
+                    {activeField === "fullName" ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          autoFocus
+                          value={fieldDraft}
+                          onChange={e => changeField(e.target.value)}
+                          className="text-base font-bold h-8 w-48"
+                          placeholder="Full name"
+                          onKeyDown={e => {
+                            if (e.key === "Enter") saveField("fullName", "Full Name", lead.fullName ?? "");
+                            if (e.key === "Escape") cancelField();
+                          }}
+                        />
+                        <Button
+                          size="sm" className="h-7 bg-gradient-to-r from-[#3bcac4] to-[#005476] px-2"
+                          onClick={() => saveField("fullName", "Full Name", lead.fullName ?? "")}
+                          disabled={updateMutation.isPending}
+                        >
+                          {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={cancelField}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     ) : (
-                      <h2 className="text-xl font-bold text-[#005476]">{displayName}</h2>
+                      <div
+                        className="group flex items-center gap-1.5 cursor-pointer"
+                        onClick={() => openField("fullName", lead.fullName ?? "")}
+                        title="Click to edit name"
+                      >
+                        <h2 className="text-xl font-bold text-[#005476]">{displayName}</h2>
+                        <Edit3 className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-50 transition-opacity" />
+                      </div>
                     )}
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusCfg.color}`}>
@@ -366,164 +508,213 @@ export default function CrmLeadDetailPage() {
                 <span className="text-xs text-muted-foreground">#{lead.id}</span>
               </div>
             </CardHeader>
+
             <CardContent className="pt-0">
-              {editing ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">Phone</Label>
-                    <Input
-                      value={(editData.phone as string) ?? ""}
-                      onChange={e => handleEditPhoneChange(e.target.value)}
-                      placeholder="+971 50..."
-                      className={`h-8 text-sm ${editErrors.phone ? "border-red-400" : ""}`}
-                    />
-                    {editErrors.phone && (
-                      <p className="text-xs text-red-500 mt-0.5">{editErrors.phone}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label className="text-xs">Email</Label>
-                    <Input
-                      value={(editData.email as string) ?? ""}
-                      onChange={e => handleEditEmailChange(e.target.value)}
-                      placeholder="email@..."
-                      className={`h-8 text-sm ${editErrors.email ? "border-red-400" : ""}`}
-                    />
-                    {editErrors.email && (
-                      <p className="text-xs text-red-500 mt-0.5">{editErrors.email}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label className="text-xs">Origin Country <span className="text-muted-foreground font-normal">(auto-detected)</span></Label>
-                    <Input
-                      value={(editData.country as string) ?? ""}
-                      readOnly
-                      placeholder="Enter phone to detect"
-                      className={`h-8 text-sm ${editData.country && editData.country !== "Country not detected" ? "border-[#3bcac4]/50 bg-[#3bcac4]/5" : ""}`}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Interested Country</Label>
-                    <Select
-                      value={(editData.interestedCountry as string) || "__none__"}
-                      onValueChange={v => setEditData(d => ({ ...d, interestedCountry: v === "__none__" ? "" : v }))}
-                    >
-                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— Not specified —</SelectItem>
-                        {INTERESTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Project Interest</Label>
-                    <Select
-                      value={(editData.projectInterest as string) || "__none__"}
-                      onValueChange={v => setEditData(d => ({ ...d, projectInterest: v === "__none__" ? "" : v }))}
-                    >
-                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— None —</SelectItem>
-                        {projects.filter(p => p.isActive).map(p => (
-                          <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Budget</Label>
-                    <Select
-                      value={(editData.budget as string) || "__none__"}
-                      onValueChange={v => setEditData(d => ({ ...d, budget: v === "__none__" ? "" : v }))}
-                    >
-                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— Not specified —</SelectItem>
-                        {BUDGETS.map(n => (
-                          <SelectItem key={n} value={String(n)}>{fmtBudget(n)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Expected Purchase Month</Label>
-                    <Select
-                      value={(editData.expectedPurchaseMonth as string) || "__none__"}
-                      onValueChange={v => setEditData(d => ({ ...d, expectedPurchaseMonth: v === "__none__" ? "" : v }))}
-                    >
-                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— Not specified —</SelectItem>
-                        {PURCHASE_MONTHS.map(m => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Lead Source</Label>
-                    <Select value={editData.leadSource ?? "manual"} onValueChange={v => setEditData(d => ({ ...d, leadSource: v }))}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {SOURCES.map(s => <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {[
-                    { key: "campaignName" as const, label: "Campaign" },
-                  ].map(({ key, label }) => (
-                    <div key={key}>
-                      <Label className="text-xs">{label}</Label>
-                      <Input
-                        value={(editData[key] as string) ?? ""}
-                        onChange={e => setEditData(d => ({ ...d, [key]: e.target.value }))}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  ))}
-                  <div className="col-span-2">
-                    <Label className="text-xs">Description</Label>
-                    <Textarea rows={2} value={(editData.description as string) ?? ""}
-                      onChange={e => setEditData(d => ({ ...d, description: e.target.value }))}
-                      placeholder="Lead description..." className="text-sm" />
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs">Internal Notes</Label>
-                    <Textarea rows={3} value={editData.notes ?? ""}
-                      onChange={e => setEditData(d => ({ ...d, notes: e.target.value }))}
-                      placeholder="Internal notes..." />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-0.5">
-                  <InfoRow icon={Phone}        label="Phone"                    value={lead.phone} />
-                  <InfoRow icon={Mail}         label="Email"                    value={lead.email} />
-                  <InfoRow icon={MapPin}       label="Origin Country"           value={lead.country} />
-                  <InfoRow icon={Globe}        label="Interested Country"       value={lead.interestedCountry} />
-                  <InfoRow icon={Building2}    label="Project Interest"         value={lead.projectInterest} />
-                  <InfoRow icon={DollarSign}   label="Budget"                   value={lead.budget ? fmtBudget(Number(lead.budget)) : null} />
-                  <InfoRow icon={CalendarDays} label="Expected Purchase Month"  value={lead.expectedPurchaseMonth} />
-                  <InfoRow icon={Target}       label="Source"                   value={SOURCE_LABELS[lead.leadSource] ?? lead.leadSource} />
-                  <InfoRow icon={Globe}        label="Campaign"                 value={lead.campaignName} />
-                  <InfoRow icon={FileText}     label="Ad Set"                   value={lead.adsetName} />
-                  <InfoRow icon={FileText}     label="Ad Name"                  value={lead.adName} />
-                  <InfoRow icon={FileText}     label="Form Name"                value={lead.formName} />
-                  {lead.description && (
-                    <div className="flex items-start gap-3 py-2 border-b last:border-0">
-                      <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Description</p>
-                        <p className="text-sm text-gray-700 mt-0.5">{lead.description}</p>
-                      </div>
-                    </div>
-                  )}
-                  {lead.notes && (
-                    <div className="mt-3 p-3 rounded-lg bg-gray-50 border text-sm text-muted-foreground">
-                      {lead.notes}
-                    </div>
-                  )}
-                </div>
+              <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+                <Edit3 className="h-3 w-3" />
+                Click any field to edit it
+              </p>
+
+              {/* Phone */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="phone"
+                label="Phone"
+                icon={Phone}
+                displayValue={lead.phone}
+                editValue={lead.phone ?? ""}
+                type="text"
+                placeholder="+971 50 123 4567"
+                extraInfo={detectedCountry ? `Detected country: ${detectedCountry}` : undefined}
+                onStart={() => openField("phone", lead.phone ?? "")}
+                onSave={() => saveField("phone", "Phone", lead.phone ?? "")}
+              />
+
+              {/* Email */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="email"
+                label="Email"
+                icon={Mail}
+                displayValue={lead.email}
+                editValue={lead.email ?? ""}
+                type="email"
+                placeholder="email@example.com"
+                onStart={() => openField("email", lead.email ?? "")}
+                onSave={() => saveField("email", "Email", lead.email ?? "")}
+              />
+
+              {/* Origin Country — auto-detected from phone, also manually editable */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="country"
+                label="Origin Country (auto from phone)"
+                icon={MapPin}
+                displayValue={lead.country}
+                editValue={lead.country ?? ""}
+                type="text"
+                placeholder="e.g. Georgia"
+                onStart={() => openField("country", lead.country ?? "")}
+                onSave={() => saveField("country", "Origin Country", lead.country ?? "")}
+              />
+
+              {/* Interested Country */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="interestedCountry"
+                label="Interested Country"
+                icon={Globe}
+                displayValue={lead.interestedCountry}
+                editValue={lead.interestedCountry ?? ""}
+                type="select"
+                options={INTERESTED_COUNTRIES.map(c => ({ value: c, label: c }))}
+                noneLabel="— Not specified —"
+                onStart={() => openField("interestedCountry", lead.interestedCountry ?? "")}
+                onSave={() => saveField("interestedCountry", "Interested Country", lead.interestedCountry ?? "")}
+              />
+
+              {/* Project Interest */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="projectInterest"
+                label="Project Interest"
+                icon={Building2}
+                displayValue={lead.projectInterest}
+                editValue={lead.projectInterest ?? ""}
+                type="select"
+                options={projects.filter(p => p.isActive).map(p => ({ value: p.name, label: p.name }))}
+                noneLabel="— None —"
+                onStart={() => openField("projectInterest", lead.projectInterest ?? "")}
+                onSave={() => saveField("projectInterest", "Project Interest", lead.projectInterest ?? "")}
+              />
+
+              {/* Budget */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="budget"
+                label="Budget"
+                icon={DollarSign}
+                displayValue={lead.budget ? fmtBudget(Number(lead.budget)) : null}
+                editValue={lead.budget ?? ""}
+                type="select"
+                options={BUDGETS.map(n => ({ value: String(n), label: fmtBudget(n) }))}
+                noneLabel="— Not specified —"
+                onStart={() => openField("budget", lead.budget ?? "")}
+                onSave={() => saveField("budget", "Budget", lead.budget ?? "")}
+              />
+
+              {/* Expected Purchase Month */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="expectedPurchaseMonth"
+                label="Expected Purchase Month"
+                icon={CalendarDays}
+                displayValue={lead.expectedPurchaseMonth}
+                editValue={lead.expectedPurchaseMonth ?? ""}
+                type="select"
+                options={PURCHASE_MONTHS.map(m => ({ value: m, label: m }))}
+                noneLabel="— Not specified —"
+                onStart={() => openField("expectedPurchaseMonth", lead.expectedPurchaseMonth ?? "")}
+                onSave={() => saveField("expectedPurchaseMonth", "Expected Purchase Month", lead.expectedPurchaseMonth ?? "")}
+              />
+
+              {/* Lead Source */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="leadSource"
+                label="Lead Source"
+                icon={Target}
+                displayValue={SOURCE_LABELS[lead.leadSource] ?? lead.leadSource}
+                editValue={lead.leadSource}
+                type="select"
+                options={SOURCES.map(s => ({ value: s, label: SOURCE_LABELS[s] }))}
+                noneLabel="— Select source —"
+                onStart={() => openField("leadSource", lead.leadSource)}
+                onSave={() => saveField("leadSource", "Lead Source", lead.leadSource)}
+              />
+
+              {/* Meta fields — read-only display */}
+              {lead.campaignName && (
+                <InlineEditField
+                  {...sharedFieldProps}
+                  fieldKey="campaignName"
+                  label="Campaign"
+                  icon={Globe}
+                  displayValue={lead.campaignName}
+                  editValue={lead.campaignName ?? ""}
+                  type="text"
+                  placeholder="Campaign name"
+                  onStart={() => openField("campaignName", lead.campaignName ?? "")}
+                  onSave={() => saveField("campaignName", "Campaign", lead.campaignName ?? "")}
+                />
               )}
+              {lead.adsetName && (
+                <InlineEditField
+                  {...sharedFieldProps}
+                  fieldKey="adsetName"
+                  label="Ad Set"
+                  icon={FileText}
+                  displayValue={lead.adsetName}
+                  editValue={lead.adsetName ?? ""}
+                  type="readonly"
+                  onStart={() => {}}
+                  onSave={() => {}}
+                />
+              )}
+              {lead.adName && (
+                <InlineEditField
+                  {...sharedFieldProps}
+                  fieldKey="adName"
+                  label="Ad Name"
+                  icon={FileText}
+                  displayValue={lead.adName}
+                  editValue={lead.adName ?? ""}
+                  type="readonly"
+                  onStart={() => {}}
+                  onSave={() => {}}
+                />
+              )}
+              {lead.formName && (
+                <InlineEditField
+                  {...sharedFieldProps}
+                  fieldKey="formName"
+                  label="Form Name"
+                  icon={FileText}
+                  displayValue={lead.formName}
+                  editValue={lead.formName ?? ""}
+                  type="readonly"
+                  onStart={() => {}}
+                  onSave={() => {}}
+                />
+              )}
+
+              {/* Description */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="description"
+                label="Description"
+                icon={FileText}
+                displayValue={lead.description}
+                editValue={lead.description ?? ""}
+                type="textarea"
+                placeholder="Lead description..."
+                onStart={() => openField("description", lead.description ?? "")}
+                onSave={() => saveField("description", "Description", lead.description ?? "")}
+              />
+
+              {/* Internal Notes */}
+              <InlineEditField
+                {...sharedFieldProps}
+                fieldKey="notes"
+                label="Internal Notes"
+                icon={FileText}
+                displayValue={lead.notes}
+                editValue={lead.notes ?? ""}
+                type="textarea"
+                placeholder="Internal notes..."
+                onStart={() => openField("notes", lead.notes ?? "")}
+                onSave={() => saveField("notes", "Internal Notes", lead.notes ?? "")}
+              />
             </CardContent>
           </Card>
 
@@ -594,7 +785,7 @@ export default function CrmLeadDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Notes Timeline */}
+          {/* Notes / Activity Timeline */}
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-[#005476] flex items-center gap-2">
@@ -627,25 +818,40 @@ export default function CrmLeadDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {[...lead.crmNotes].reverse().map((note, i) => (
-                    <div key={note.id} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                          {(note.authorName ?? "A").charAt(0).toUpperCase()}
+                  {[...lead.crmNotes].reverse().map((note, i) => {
+                    const isAuto = note.note.startsWith("[Updated]");
+                    return (
+                      <div key={note.id} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className={`h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                            isAuto
+                              ? "bg-[#3bcac4]/60"
+                              : "bg-gradient-to-br from-[#3bcac4] to-[#005476]"
+                          }`}>
+                            {isAuto ? "↻" : (note.authorName ?? "A").charAt(0).toUpperCase()}
+                          </div>
+                          {i < lead.crmNotes.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
                         </div>
-                        {i < lead.crmNotes.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
-                      </div>
-                      <div className="flex-1 pb-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-[#005476]">{note.authorName ?? "Admin"}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </span>
+                        <div className="flex-1 pb-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-[#005476]">
+                              {isAuto ? "System" : (note.authorName ?? "Admin")}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                          <p className={`text-sm rounded-lg px-3 py-2 border ${
+                            isAuto
+                              ? "bg-[#3bcac4]/5 text-[#005476]/70 border-[#3bcac4]/20 text-xs"
+                              : "bg-gray-50 text-gray-700"
+                          }`}>
+                            {note.note}
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 border">{note.note}</p>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -663,7 +869,17 @@ export default function CrmLeadDetailPage() {
               {STATUSES.map(s => (
                 <button
                   key={s}
-                  onClick={() => updateMutation.mutate({ status: s })}
+                  onClick={() => {
+                    const oldStatus = STATUS_CONFIG[lead.status]?.label ?? lead.status;
+                    const newStatus = STATUS_CONFIG[s]?.label ?? s;
+                    updateMutation.mutate({ status: s } as Partial<CrmLead>, {
+                      onSuccess: () => {
+                        if (s !== lead.status) {
+                          addNoteMutation.mutate(`[Updated] Status: "${oldStatus}" → "${newStatus}"`);
+                        }
+                      },
+                    });
+                  }}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-between ${
                     lead.status === s
                       ? `${STATUS_CONFIG[s].color} ring-1 ring-inset ring-current`
@@ -689,7 +905,15 @@ export default function CrmLeadDetailPage() {
                 return (
                   <button
                     key={score}
-                    onClick={() => updateMutation.mutate({ leadScore: score })}
+                    onClick={() => {
+                      updateMutation.mutate({ leadScore: score } as Partial<CrmLead>, {
+                        onSuccess: () => {
+                          if (score !== lead.leadScore) {
+                            addNoteMutation.mutate(`[Updated] Lead Score: "${lead.leadScore ?? "cold"}" → "${score}"`);
+                          }
+                        },
+                      });
+                    }}
                     className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 transition-all ${
                       active ? `border-current ${cfg.bg} ${cfg.color}` : "border-transparent hover:border-gray-200 text-gray-500"
                     }`}
@@ -712,7 +936,7 @@ export default function CrmLeadDetailPage() {
             <CardContent className="pt-0">
               <Select
                 value={lead.assignedTo ? String(lead.assignedTo) : "unassigned"}
-                onValueChange={v => updateMutation.mutate({ assignedTo: v === "unassigned" ? null : Number(v) })}
+                onValueChange={v => updateMutation.mutate({ assignedTo: v === "unassigned" ? null : Number(v) } as Partial<CrmLead>)}
               >
                 <SelectTrigger className="w-full text-sm">
                   <SelectValue placeholder="Unassigned" />
@@ -736,7 +960,11 @@ export default function CrmLeadDetailPage() {
           {lead.status !== "converted" && (
             <Button
               className="w-full bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 gap-2"
-              onClick={() => updateMutation.mutate({ status: "converted" })}
+              onClick={() => {
+                updateMutation.mutate({ status: "converted" } as Partial<CrmLead>, {
+                  onSuccess: () => addNoteMutation.mutate(`[Updated] Status: "${STATUS_CONFIG[lead.status]?.label ?? lead.status}" → "Converted"`),
+                });
+              }}
               disabled={updateMutation.isPending}
             >
               <CheckCircle2 className="h-4 w-4" /> Mark as Converted
@@ -826,9 +1054,9 @@ export default function CrmLeadDetailPage() {
               <Select value={taskForm.priority} onValueChange={v => setTaskForm(f => ({ ...f, priority: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">🔴 High</SelectItem>
-                  <SelectItem value="medium">🟡 Medium</SelectItem>
-                  <SelectItem value="low">🟢 Low</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
             </div>
