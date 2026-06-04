@@ -71,6 +71,13 @@ const SOURCES = ["meta","website","whatsapp","excel","manual"];
 
 const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates"];
 
+const CITY_SUGGESTIONS: Record<string, string[]> = {
+  "Georgia":              ["Batumi", "Tbilisi", "Gonio", "Kvariati", "Kobuleti", "Bakuriani", "Gudauri", "Kutaisi", "Other"],
+  "Turkey":               ["Istanbul", "Antalya", "Bodrum", "Fethiye", "Alanya", "Ankara", "Bursa", "Other"],
+  "Northern Cyprus":      ["Iskele", "Kyrenia", "Esentepe", "Famagusta", "Tatlisu", "Lefke", "Nicosia", "Other"],
+  "United Arab Emirates": ["Dubai", "Abu Dhabi", "Ras Al Khaimah", "Sharjah", "Ajman", "Other"],
+};
+
 function genMonths(): string[] {
   const res: string[] = [];
   let y = 2026, m = 6;
@@ -110,7 +117,7 @@ function StatusBadge({ status }: { status: string }) {
 const EMPTY_FORM = {
   fullName: "", phone: "", email: "",
   country: "",
-  interestedCountry: "", projectInterest: "",
+  interestedCountry: "", city: "", projectInterest: "",
   budget: "", expectedPurchaseMonth: "", description: "",
   leadSource: "manual", leadScore: "cold", status: "new",
 };
@@ -417,7 +424,7 @@ export default function CrmLeadsPage() {
                   </Label>
                   <Select
                     value={form.interestedCountry || "__none__"}
-                    onValueChange={v => setForm(f => ({ ...f, interestedCountry: v === "__none__" ? "" : v }))}
+                    onValueChange={v => setForm(f => ({ ...f, interestedCountry: v === "__none__" ? "" : v, city: "" }))}
                   >
                     <SelectTrigger><SelectValue placeholder="Select country..." /></SelectTrigger>
                     <SelectContent>
@@ -429,6 +436,33 @@ export default function CrmLeadsPage() {
                     <p className="text-xs text-muted-foreground mt-0.5">
                       For Meta leads, this is set automatically from the campaign / ad / form mapping.
                     </p>
+                  )}
+                </div>
+                {/* City — optional, suggestions depend on Interested Country */}
+                <div>
+                  <Label className="flex items-center gap-1">
+                    City
+                    <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                  </Label>
+                  {CITY_SUGGESTIONS[form.interestedCountry] ? (
+                    <Select
+                      value={form.city || "__none__"}
+                      onValueChange={v => setForm(f => ({ ...f, city: v === "__none__" ? "" : v }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select city..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Not specified —</SelectItem>
+                        {CITY_SUGGESTIONS[form.interestedCountry].map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Enter city..."
+                      value={form.city}
+                      onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                    />
                   )}
                 </div>
                 <div>

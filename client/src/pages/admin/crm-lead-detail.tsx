@@ -81,6 +81,13 @@ const STATUSES = [
 const SOURCES = ["meta","website","whatsapp","excel","manual"];
 const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates"];
 
+const CITY_SUGGESTIONS: Record<string, string[]> = {
+  "Georgia":              ["Batumi", "Tbilisi", "Gonio", "Kvariati", "Kobuleti", "Bakuriani", "Gudauri", "Kutaisi", "Other"],
+  "Turkey":               ["Istanbul", "Antalya", "Bodrum", "Fethiye", "Alanya", "Ankara", "Bursa", "Other"],
+  "Northern Cyprus":      ["Iskele", "Kyrenia", "Esentepe", "Famagusta", "Tatlisu", "Lefke", "Nicosia", "Other"],
+  "United Arab Emirates": ["Dubai", "Abu Dhabi", "Ras Al Khaimah", "Sharjah", "Ajman", "Other"],
+};
+
 function genMonths(): string[] {
   const res: string[] = [];
   let y = 2026, m = 6;
@@ -601,6 +608,27 @@ export default function CrmLeadDetailPage() {
                 onStart={() => openField("interestedCountry", lead.interestedCountry ?? "")}
                 onSave={() => saveField("interestedCountry", "Interested Country", lead.interestedCountry ?? "")}
               />
+
+              {/* City — optional, suggestions based on Interested Country */}
+              {(() => {
+                const citySuggestions = CITY_SUGGESTIONS[lead.interestedCountry ?? ""];
+                return (
+                  <InlineEditField
+                    {...sharedFieldProps}
+                    fieldKey="city"
+                    label="City (Optional)"
+                    icon={MapPin}
+                    displayValue={lead.city}
+                    editValue={lead.city ?? ""}
+                    type={citySuggestions ? "select" : "text"}
+                    options={citySuggestions ? citySuggestions.map(c => ({ value: c, label: c })) : undefined}
+                    noneLabel="— Not specified —"
+                    placeholder="Enter city..."
+                    onStart={() => openField("city", lead.city ?? "")}
+                    onSave={() => saveField("city", "City", lead.city ?? "")}
+                  />
+                );
+              })()}
 
               {/* Project Interest */}
               <InlineEditField
