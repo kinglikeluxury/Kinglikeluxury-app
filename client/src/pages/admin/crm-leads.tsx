@@ -28,7 +28,7 @@ interface CrmLeadWithAssignee extends CrmLead {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  // ── Active statuses ────────────────────────────────────────────────────────
+  // ── Active statuses (selectable for new leads) ────────────────────────────
   new:                   { label: "New",                                                    color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
   no_answer_1:           { label: "No Answer 1",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
   no_answer_2:           { label: "No Answer 2",                                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
@@ -37,15 +37,19 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   follow_up:             { label: "Follow Up",                                              color: "bg-[#3bcac4]/20 text-[#005476] border border-[#3bcac4]/50" },
   hot_buyer:             { label: "Hot Buyer",                                              color: "bg-[#005476] text-white border border-[#005476]" },
   entering_lead:         { label: "Entering Lead",                                          color: "bg-[#3bcac4]/10 text-[#3bcac4] border border-[#3bcac4]/30" },
+  deposited:             { label: "Deposited",                                              color: "bg-[#3bcac4]/30 text-[#005476] border border-[#3bcac4]/70" },
+  reserved:              { label: "Reserved",                                               color: "bg-[#005476]/20 text-[#005476] border border-[#005476]/50" },
+  purchased:             { label: "Purchased",                                              color: "bg-[#005476] text-white border border-[#005476]" },
+  broker:                { label: "Broker",                                                 color: "bg-[#005476]/15 text-[#005476] border border-[#005476]/40" },
+  second_hand:           { label: "Second Hand",                                            color: "bg-slate-100 text-slate-600 border border-slate-300" },
   junk_lead:             { label: "Junk Lead",                                              color: "bg-gray-100 text-gray-400 border border-gray-200" },
   no_answer_converted:   { label: "After 3 No Answer - Converted to Another Sales Manager", color: "bg-slate-200 text-slate-600 border border-slate-300" },
-  broker:                { label: "Broker",                                                 color: "bg-[#005476]/15 text-[#005476] border border-[#005476]/40" },
-  agency:                { label: "Agency",                                                 color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/25" },
-  second_hand:           { label: "Second Hand",                                            color: "bg-slate-100 text-slate-600 border border-slate-300" },
-  qualified:             { label: "Qualified",                                              color: "bg-[#3bcac4]/25 text-[#005476] border border-[#3bcac4]/60" },
-  converted:             { label: "Converted",                                              color: "bg-[#005476] text-white border border-[#005476]" },
-  lost:                  { label: "Lost",                                                   color: "bg-gray-100 text-gray-500 border border-gray-300" },
-  // ── Legacy statuses — kept for backward compatibility with existing leads ──
+  lost_competition:      { label: "Lost Competition",                                       color: "bg-gray-100 text-gray-500 border border-gray-300" },
+  // ── Legacy statuses — display only, not selectable for new leads ──────────
+  agency:                { label: "Agency",     color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/25" },
+  qualified:             { label: "Qualified",  color: "bg-[#3bcac4]/25 text-[#005476] border border-[#3bcac4]/60" },
+  converted:             { label: "Converted",  color: "bg-[#005476] text-white border border-[#005476]" },
+  lost:                  { label: "Lost",       color: "bg-gray-100 text-gray-500 border border-gray-300" },
   no_answer:             { label: "No Answer",  color: "bg-slate-100 text-slate-500 border border-slate-300" },
   interested:            { label: "Interested", color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
 };
@@ -63,8 +67,8 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const STATUSES = [
   "new","no_answer_1","no_answer_2","no_answer_3","will_think","follow_up",
-  "hot_buyer","entering_lead","junk_lead","no_answer_converted",
-  "broker","agency","second_hand","qualified","converted","lost",
+  "hot_buyer","entering_lead","deposited","reserved","purchased",
+  "broker","second_hand","junk_lead","no_answer_converted","lost_competition",
 ];
 const SOURCES  = ["meta","website","whatsapp","excel","manual"];
 
