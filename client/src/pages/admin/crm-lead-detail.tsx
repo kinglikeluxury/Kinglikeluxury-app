@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -271,13 +271,15 @@ export default function CrmLeadDetailPage() {
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
 
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
-  const { data: lead, isLoading } = useQuery<LeadDetail>({
+  const { data: lead, isLoading, error: leadError } = useQuery<LeadDetail>({
     queryKey: ["/api/admin/crm/leads", leadId],
     queryFn: () => fetch(`/api/admin/crm/leads/${leadId}`).then(r => {
-      if (!r.ok) throw new Error("Not found");
+      if (r.status === 403) throw new Error("ACCESS_DENIED");
+      if (!r.ok) throw new Error("NOT_FOUND");
       return r.json();
     }),
     enabled: isCrmAuthorized && !!leadId,
+    retry: false,
   });
 
   const { data: adminUsers = [] } = useQuery<{ id: number; username: string; role?: string }[]>({
@@ -486,9 +488,14 @@ export default function CrmLeadDetailPage() {
   }
 
   if (!lead) {
+    const isAccessDenied = (leadError as Error | null)?.message === "ACCESS_DENIED";
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <p className="text-muted-foreground">Lead not found.</p>
+        <p className="text-muted-foreground">
+          {isAccessDenied
+            ? "Access denied — this lead is not assigned to you."
+            : "Lead not found."}
+        </p>
         <Button className="mt-4" onClick={() => navigate(backToCrmUrl)}>Back to CRM</Button>
       </div>
     );
