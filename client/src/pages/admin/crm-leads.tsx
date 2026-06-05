@@ -790,25 +790,45 @@ export default function CrmLeadsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map(lead => (
+                  {leads.map(lead => {
+                    // Build href once — used by both the <a> and the row onClick.
+                    // Encodes current filter state so "Back to CRM" can restore it.
+                    const backParams = new URLSearchParams();
+                    if (search)            backParams.set("search", search);
+                    if (status !== "all")  backParams.set("status", status);
+                    if (source !== "all")  backParams.set("source", source);
+                    if (assigned !== "all") backParams.set("assignedTo", assigned);
+                    const backQs = backParams.toString();
+                    const leadHref = `/admin/crm/${lead.id}${backQs ? "?from=" + encodeURIComponent("?" + backQs) : ""}`;
+
+                    return (
                     <tr
                       key={lead.id}
                       className="border-b last:border-0 hover:bg-[#3bcac4]/5 cursor-pointer transition-colors"
-                      onClick={() => {
-                        // Encode current filters so "Back to CRM" can restore them
-                        const backParams = new URLSearchParams();
-                        if (search)            backParams.set("search", search);
-                        if (status !== "all")  backParams.set("status", status);
-                        if (source !== "all")  backParams.set("source", source);
-                        if (assigned !== "all") backParams.set("assignedTo", assigned);
-                        const backQs = backParams.toString();
-                        navigate(`/admin/crm/${lead.id}${backQs ? "?from=" + encodeURIComponent("?" + backQs) : ""}`);
+                      onClick={(e) => {
+                        // If the click originated inside an <a>, let the <a> handle it
+                        // (covers right-click → open in new tab, Ctrl+click, middle-click).
+                        if ((e.target as HTMLElement).closest("a")) return;
+                        navigate(leadHref);
                       }}
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-[#005476]">
+                        {/* Real anchor so the browser exposes its full link menu
+                            (right-click → Open in New Tab, Ctrl+click, middle-click).
+                            Normal left-click is intercepted for SPA navigation;
+                            modifier clicks fall through to the browser. */}
+                        <a
+                          href={leadHref}
+                          className="font-medium text-[#005476] hover:underline focus-visible:outline-none focus-visible:underline"
+                          onClick={(e) => {
+                            // Modifier keys or non-left-button: let browser open new tab/window
+                            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+                            e.preventDefault();
+                            navigate(leadHref);
+                          }}
+                        >
                           {lead.fullName || `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "—"}
-                        </div>
+                        </a>
                         {lead.country && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                             <MapPin className="h-3 w-3" />
@@ -871,7 +891,7 @@ export default function CrmLeadsPage() {
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </td>
                     </tr>
-                  ))}
+                  ); })}
                 </tbody>
               </table>
             </div>
