@@ -2,7 +2,7 @@ import crypto from "crypto";
 import type { Express } from "express";
 import { db } from "./db";
 import { leadImportQueue, leadImportAuditLog } from "@shared/schema";
-import { eq, desc, and, lte, count } from "drizzle-orm";
+import { eq, desc, asc, and, lte, count } from "drizzle-orm";
 import { recordLeadReceived, getAlertStatus } from "./metaLeadsService";
 import { storage } from "./storage";
 
@@ -204,6 +204,39 @@ export function registerMetaLeadsRoutes(app: Express): void {
       .offset(offset);
 
     return res.json({ duplicates, page, limit });
+  });
+
+  // ── Admin: credential config status (boolean only — no values) ──────────
+  app.get("/api/admin/meta-leads/config-status", async (req: any, res: any) => {
+    if (!(await requireAdmin(req, res))) return;
+    return res.json({
+      hasAppSecret:   !!process.env.META_APP_SECRET,
+      hasAccessToken: !!process.env.META_ACCESS_TOKEN,
+      hasVerifyToken: !!process.env.META_VERIFY_TOKEN,
+    });
+  });
+
+  // ── Admin: full diagnostic for one entry ─────────────────────────────────
+  app.get("/api/admin/meta-leads/:id/diagnostic", async (req: any, res: any) => {
+    if (!(await requireAdmin(req, res))) return;
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid id" });
+
+    const [entry] = await db
+      .select()
+      .from(leadImportQueue)
+      .where(eq(leadImportQueue.id, id))
+      .limit(1);
+
+    if (!entry) return res.status(404).json({ message: "Queue entry not found" });
+
+    const auditLogs = await db
+      .select()
+      .from(leadImportAuditLog)
+      .where(eq(leadImportAuditLog.queueEntryId, id))
+      .orderBy(asc(leadImportAuditLog.createdAt));
+
+    return res.json({ entry, auditLogs });
   });
 
   // ── Admin: audit log for one entry ───────────────────────────────────────
