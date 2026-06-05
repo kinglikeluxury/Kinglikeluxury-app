@@ -23,6 +23,7 @@ import {
   Calendar, Globe, FileText, Plus, CheckSquare, ListTodo,
   DollarSign, CalendarDays,
 } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import type { CrmLead, CrmNote, CrmTask, CrmProject } from "@shared/schema";
 
 interface NoteWithUser extends CrmNote { authorName?: string | null }
@@ -643,6 +644,20 @@ export default function CrmLeadDetailPage() {
                 onStart={() => openField("phone", lead.phone ?? "")}
                 onSave={() => saveField("phone", "Phone", lead.phone ?? "")}
               />
+
+              {/* WhatsApp quick-contact — shown only when phone is present and field is not in edit mode */}
+              {lead.phone && activeField !== "phone" && (
+                <a
+                  href={`https://wa.me/${lead.phone.replace(/[\s+\-()[\]]/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs font-medium text-green-600 hover:text-green-700 hover:underline -mt-1.5 mb-1 ml-7 w-fit py-0.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <SiWhatsapp className="h-3.5 w-3.5" />
+                  Open in WhatsApp
+                </a>
+              )}
 
               {/* Email */}
               <InlineEditField

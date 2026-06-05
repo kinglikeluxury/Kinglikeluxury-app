@@ -23,6 +23,7 @@ import {
   ChevronRight, Crown, UserCheck, Building2, FolderOpen,
   Edit3, Trash2,
 } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import type { CrmLead, CrmProject } from "@shared/schema";
 
 interface CrmLeadWithAssignee extends CrmLead { assigneeName?: string | null }
@@ -841,6 +842,16 @@ export default function CrmLeadsPage() {
                           <div className="flex items-center gap-1 text-xs">
                             <Phone className="h-3 w-3 text-muted-foreground" />
                             {lead.phone}
+                            <a
+                              href={`https://wa.me/${lead.phone.replace(/[\s+\-()[\]]/g, "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="ml-0.5 text-green-600 hover:text-green-700 shrink-0"
+                              title="Open in WhatsApp"
+                            >
+                              <SiWhatsapp className="h-3 w-3" />
+                            </a>
                           </div>
                         )}
                         {lead.email && (
