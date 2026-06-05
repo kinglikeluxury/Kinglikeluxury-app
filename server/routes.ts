@@ -4307,6 +4307,92 @@ ${metaTags}
     }
   });
 
+  /**
+   * POST /api/admin/crm/leads/:id/reassign
+   * Reassign a lead to a different admin or sub_agent.
+   * Both admin and sub_agent may call this endpoint.
+   * Sub-agent rules (backend-enforced):
+   *   - Lead must currently be assigned to the calling sub-agent.
+   *   - targetId must be an admin or sub_agent user (not a regular user).
+   *   - targetId cannot be null (sub-agents cannot set Unassigned).
+   *   - comment is mandatory.
+   * Admin rules:
+   *   - May reassign any lead to any admin or sub_agent.
+   *   - May set targetId = null (Unassigned).
+   *   - comment is optional.
+   * Always saves a [Reassignment] timeline note with old/new assignee, comment, changer, timestamp.
+   */
+  app.post("/api/admin/crm/leads/:id/reassign", isAuthenticated, async (req: any, res) => {
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    const leadId = Number(req.params.id);
+    const { targetId, comment } = req.body as { targetId: number | null; comment?: string };
+    const trimmedComment = (comment ?? "").trim();
+
+    try {
+      const { db } = await import("./db");
+      const { users } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // Fetch current lead (needed for access check + old assignee name)
+      const currentLead = await storage.getCrmLead(leadId);
+      if (!currentLead) return res.status(404).json({ message: "Lead not found" });
+
+      // Sub-agent specific enforcement
+      if (!req.session.isAdmin) {
+        // Must own the lead
+        if (currentLead.assignedTo !== req.session.userId) {
+          return res.status(403).json({ message: "You can only transfer leads assigned to you" });
+        }
+        // Cannot set Unassigned
+        if (targetId == null) {
+          return res.status(403).json({ message: "Sub-agents cannot set a lead to Unassigned" });
+        }
+        // Comment is required
+        if (!trimmedComment) {
+          return res.status(400).json({ message: "A transfer comment is required" });
+        }
+      }
+
+      // Validate target user (if not Unassigned)
+      let targetUser: { id: number; username: string; isAdmin: boolean | null; role: string | null } | null = null;
+      if (targetId != null) {
+        const [target] = await db
+          .select({ id: users.id, username: users.username, isAdmin: users.isAdmin, role: users.role })
+          .from(users)
+          .where(eq(users.id, Number(targetId)));
+        if (!target || (!target.isAdmin && target.role !== "sub_agent")) {
+          return res.status(400).json({ message: "Leads can only be assigned to admin or sub_agent users" });
+        }
+        targetUser = target;
+      }
+
+      // Resolve names for timeline note
+      const oldAssigneeName = currentLead.assigneeName ??
+        (currentLead.assignedTo
+          ? (await storage.getUser(currentLead.assignedTo))?.username ?? String(currentLead.assignedTo)
+          : "Unassigned");
+      const newAssigneeName = targetUser?.username ?? "Unassigned";
+      const changer = req.session.userId ? await storage.getUser(req.session.userId) : null;
+      const changerName = changer?.username ?? "Unknown";
+
+      // Perform the reassignment
+      const updated = await storage.updateCrmLead(leadId, { assignedTo: targetUser ? targetUser.id : null });
+      if (!updated) return res.status(404).json({ message: "Lead not found" });
+
+      // Save [Reassignment] timeline note (always)
+      const commentLine = trimmedComment ? `\nComment: ${trimmedComment}` : "";
+      await storage.addCrmNote({
+        leadId,
+        userId: req.session.userId ?? null,
+        note: `[Reassignment] ${oldAssigneeName} → ${newAssigneeName}${commentLine}\nChanged by: ${changerName}`,
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   /** POST /api/admin/crm/leads/:id/notes — add a note to a lead */
   app.post("/api/admin/crm/leads/:id/notes", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
@@ -4349,7 +4435,7 @@ ${metaTags}
 
   /** GET /api/admin/crm/assignable-agents — list users who can be assigned leads (admins + sub_agents only) */
   app.get("/api/admin/crm/assignable-agents", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try {
       const { db } = await import("./db");
       const { users } = await import("../shared/schema");

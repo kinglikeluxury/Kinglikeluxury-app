@@ -263,6 +263,8 @@ export default function CrmLeadDetailPage() {
     fieldKey: string; label: string; oldRaw: string; patch: Record<string, any>; draft: string;
   } | null>(null);
   const [subAgentComment, setSubAgentComment] = useState("");
+  const [transferTargetId, setTransferTargetId] = useState<string>("");
+  const [transferComment, setTransferComment] = useState<string>("");
 
   // Non-hook computations (safe before hooks)
   const isSubAgent = user?.role === "sub_agent";
@@ -278,10 +280,10 @@ export default function CrmLeadDetailPage() {
     enabled: isCrmAuthorized && !!leadId,
   });
 
-  const { data: adminUsers = [] } = useQuery<{ id: number; username: string }[]>({
+  const { data: adminUsers = [] } = useQuery<{ id: number; username: string; role?: string }[]>({
     queryKey: ["/api/admin/crm/assignable-agents"],
     queryFn: () => fetch("/api/admin/crm/assignable-agents").then(r => r.json()),
-    enabled: !!user?.isAdmin,
+    enabled: isCrmAuthorized,
   });
 
   const { data: projects = [] } = useQuery<CrmProject[]>({
@@ -342,6 +344,18 @@ export default function CrmLeadDetailPage() {
     mutationFn: (taskId: number) =>
       apiRequest("DELETE", `/api/admin/crm/leads/${leadId}/tasks/${taskId}`),
     onSuccess: () => { invalidateLead(); toast({ title: "Task removed" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const reassignMutation = useMutation({
+    mutationFn: (data: { targetId: number | null; comment: string }) =>
+      apiRequest("POST", `/api/admin/crm/leads/${leadId}/reassign`, data),
+    onSuccess: () => {
+      invalidateLead();
+      toast({ title: "Lead reassigned successfully" });
+      setTransferTargetId("");
+      setTransferComment("");
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -912,29 +926,37 @@ export default function CrmLeadDetailPage() {
                 <div className="space-y-3">
                   {[...lead.crmNotes].reverse().map((note, i) => {
                     const isStatusChange = note.note.startsWith("[Status Change]");
+                    const isReassignment = note.note.startsWith("[Reassignment]");
                     const isAuto = note.note.startsWith("[Updated]") || isStatusChange;
                     return (
                       <div key={note.id} className="flex gap-3">
                         <div className="flex flex-col items-center">
                           <div className={`h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
-                            isStatusChange
+                            isReassignment
+                              ? "bg-[#3bcac4]"
+                              : isStatusChange
                               ? "bg-[#005476]"
                               : isAuto
                               ? "bg-[#3bcac4]/60"
                               : "bg-gradient-to-br from-[#3bcac4] to-[#005476]"
                           }`}>
-                            {(note.authorName ?? (isAuto ? "S" : "A")).charAt(0).toUpperCase()}
+                            {(note.authorName ?? (isAuto || isReassignment ? "S" : "A")).charAt(0).toUpperCase()}
                           </div>
                           {i < lead.crmNotes.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
                         </div>
                         <div className="flex-1 pb-3">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-sm font-medium text-[#005476]">
-                              {note.authorName ?? (isAuto ? "System" : "Admin")}
+                              {note.authorName ?? (isAuto || isReassignment ? "System" : "Admin")}
                             </span>
                             {isStatusChange && (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-[#005476]/10 text-[#005476] border border-[#005476]/20">
                                 Status Change
+                              </span>
+                            )}
+                            {isReassignment && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40">
+                                Lead Transfer
                               </span>
                             )}
                             <span className="text-xs text-muted-foreground">
@@ -942,13 +964,17 @@ export default function CrmLeadDetailPage() {
                             </span>
                           </div>
                           <p className={`text-sm rounded-lg px-3 py-2 border whitespace-pre-wrap ${
-                            isStatusChange
+                            isReassignment
+                              ? "bg-[#3bcac4]/5 text-[#005476] border-[#3bcac4]/30 text-xs font-medium"
+                              : isStatusChange
                               ? "bg-[#005476]/5 text-[#005476] border-[#005476]/20 text-xs font-medium"
                               : isAuto
                               ? "bg-[#3bcac4]/5 text-[#005476]/70 border-[#3bcac4]/20 text-xs"
                               : "bg-gray-50 text-gray-700"
                           }`}>
-                            {note.note.replace(/^\[Status Change\] /, "")}
+                            {note.note
+                              .replace(/^\[Status Change\] /, "")
+                              .replace(/^\[Reassignment\] /, "")}
                           </p>
                         </div>
                       </div>
@@ -1018,7 +1044,7 @@ export default function CrmLeadDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Assignment — admin only; sub_agents cannot reassign */}
+          {/* Assignment — admin: select + reassign via /reassign endpoint */}
           {user?.isAdmin && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
@@ -1029,7 +1055,8 @@ export default function CrmLeadDetailPage() {
               <CardContent className="pt-0">
                 <Select
                   value={lead.assignedTo ? String(lead.assignedTo) : "unassigned"}
-                  onValueChange={v => updateMutation.mutate({ assignedTo: v === "unassigned" ? null : Number(v) } as Partial<CrmLead>)}
+                  onValueChange={v => reassignMutation.mutate({ targetId: v === "unassigned" ? null : Number(v), comment: "" })}
+                  disabled={reassignMutation.isPending}
                 >
                   <SelectTrigger className="w-full text-sm">
                     <SelectValue placeholder="Unassigned" />
@@ -1054,18 +1081,67 @@ export default function CrmLeadDetailPage() {
               </CardContent>
             </Card>
           )}
-          {/* Sub-agent: show assigned-to as read-only */}
-          {!user?.isAdmin && lead.assigneeName && (
+          {/* Sub-agent: Transfer Lead — only for leads assigned to this sub-agent */}
+          {!user?.isAdmin && isSubAgent && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-[#005476] flex items-center gap-1.5">
-                  <UserCheck className="h-4 w-4" /> Assigned Agent
+                  <UserCheck className="h-4 w-4" /> Transfer Lead
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0">
-                <p className="text-sm text-gray-700 flex items-center gap-1">
-                  <User className="h-3 w-3" /> {lead.assigneeName}
+              <CardContent className="pt-0 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Currently assigned to:{" "}
+                  <strong>{lead.assigneeName ?? "Unassigned"}</strong>
                 </p>
+                {lead.assignedTo === user?.id ? (
+                  <>
+                    <Select value={transferTargetId} onValueChange={setTransferTargetId}>
+                      <SelectTrigger className="w-full text-sm">
+                        <SelectValue placeholder="Select agent to transfer to..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {adminUsers
+                          .filter((u: any) => u.id !== user?.id)
+                          .map((u: any) => (
+                            <SelectItem key={u.id} value={String(u.id)}>
+                              {u.username}
+                              {u.role === "sub_agent" && (
+                                <span className="ml-1 text-xs text-gray-400">(Agent)</span>
+                              )}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Textarea
+                      value={transferComment}
+                      onChange={e => setTransferComment(e.target.value)}
+                      placeholder="Reason for transfer (required)"
+                      className="text-sm min-h-[80px] resize-none"
+                    />
+                    <Button
+                      className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:opacity-90 gap-2 text-sm"
+                      disabled={!transferTargetId || !transferComment.trim() || reassignMutation.isPending}
+                      onClick={() =>
+                        reassignMutation.mutate({
+                          targetId: Number(transferTargetId),
+                          comment: transferComment.trim(),
+                        })
+                      }
+                    >
+                      {reassignMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <UserCheck className="h-4 w-4" />
+                      )}
+                      Transfer Lead
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    You can only transfer leads assigned to you.
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
