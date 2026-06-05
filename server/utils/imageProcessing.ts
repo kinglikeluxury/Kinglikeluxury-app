@@ -1,6 +1,12 @@
-import { createCanvas, loadImage } from 'canvas';
 import path from 'path';
 import fs from 'fs';
+
+let canvasModule: any = null;
+try {
+  canvasModule = require('canvas');
+} catch (_e) {
+  console.warn('[imageProcessing] canvas native module not available — watermarking disabled');
+}
 
 const LOGO_PATH = path.join(process.cwd(), 'server', 'assets', 'watermark-logo.png');
 
@@ -8,9 +14,10 @@ let cachedLogo: any = null;
 
 async function getWatermarkLogo() {
   if (cachedLogo) return cachedLogo;
+  if (!canvasModule) return null;
   try {
     if (fs.existsSync(LOGO_PATH)) {
-      cachedLogo = await loadImage(LOGO_PATH);
+      cachedLogo = await canvasModule.loadImage(LOGO_PATH);
       return cachedLogo;
     }
   } catch (err) {
@@ -20,6 +27,7 @@ async function getWatermarkLogo() {
 }
 
 export async function addWatermark(imageDataUrl: string): Promise<string> {
+  if (!canvasModule) return imageDataUrl;
   try {
     if (!imageDataUrl.startsWith('data:')) {
       return imageDataUrl;
@@ -28,6 +36,7 @@ export async function addWatermark(imageDataUrl: string): Promise<string> {
     const base64Data = imageDataUrl.split(',')[1];
     if (!base64Data) return imageDataUrl;
 
+    const { createCanvas, loadImage } = canvasModule;
     const imageBuffer = Buffer.from(base64Data, 'base64');
     const image = await loadImage(imageBuffer);
     const canvas = createCanvas(image.width, image.height);

@@ -2023,7 +2023,7 @@ ${metaTags}
   });
 
   // Route to serve uploaded files (legacy object storage - with Range request support for video)
-  app.get("/objects/:objectPath(*)", async (req, res) => {
+  app.get(/^\/objects\/(.*)/, async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
@@ -2648,7 +2648,7 @@ ${metaTags}
   });
 
   // Serve public objects - temporarily disabled until object storage is fixed
-  app.get("/public-objects/:filePath(*)", async (req, res) => {
+  app.get(/^\/public-objects\/(.*)/, async (req, res) => {
     // TODO: Implement public object serving after fixing Google Cloud Storage issues
     res.status(503).json({ error: "Public object serving temporarily unavailable" });
   });
