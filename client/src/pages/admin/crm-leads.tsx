@@ -196,7 +196,10 @@ export default function CrmLeadsPage() {
 
   const { data: projects = [] } = useQuery<CrmProject[]>({
     queryKey: ["/api/admin/crm/projects"],
-    queryFn: () => fetch("/api/admin/crm/projects").then(r => r.json()),
+    queryFn: () => fetch("/api/admin/crm/projects").then(r => {
+      if (!r.ok) return [];
+      return r.json();
+    }),
     enabled: isCrmAuthorized,
   });
 
@@ -266,9 +269,14 @@ export default function CrmLeadsPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // ── Auth guard — AFTER all hooks ────────────────────────────────────────
-  if (authLoading) return null;
-  if (!isCrmAuthorized) { navigate("/"); return null; }
+  // ── Auth guard — effect-based redirect avoids "setState during render" ──
+  useEffect(() => {
+    if (!authLoading && !isCrmAuthorized) {
+      navigate("/");
+    }
+  }, [authLoading, isCrmAuthorized, navigate]);
+
+  if (authLoading || !isCrmAuthorized) return null;
 
   function handlePhoneChange(phone: string) {
     const result = validatePhone(phone);

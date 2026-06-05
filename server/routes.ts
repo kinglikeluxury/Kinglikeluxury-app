@@ -4064,14 +4064,14 @@ ${metaTags}
 
   // ── CRM Project management ─────────────────────────────────────────────────
 
-  /** GET /api/admin/crm/projects — list all projects */
+  /** GET /api/admin/crm/projects — list all projects (admins + sub_agents can read) */
   app.get("/api/admin/crm/projects", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try { res.json(await storage.getCrmProjects()); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  /** POST /api/admin/crm/projects — create project */
+  /** POST /api/admin/crm/projects — create project (admin only) */
   app.post("/api/admin/crm/projects", isAuthenticated, async (req: any, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
