@@ -108,3 +108,9 @@ id = "KOQmf9uFh2FTKYN8bt7g1"
 uri = "file://docs/ai-backup/AI-CONFIG-BACKUP.zip"
 type = "unspecified"
 title = "AI-CONFIG-BACKUP.zip"
+
+[[outputs]]
+id = "Etq73BquKEEwMtzO08MmZ"
+uri = "file://CRM_CHECKPOINT_2026_06_05.md"
+type = "text"
+title = "CRM Checkpoint Report — June 05, 2026"
