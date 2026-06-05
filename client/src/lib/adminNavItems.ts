@@ -14,6 +14,7 @@ import {
   Camera,
   ShieldAlert,
   Crown,
+  Megaphone,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -133,6 +134,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Kinglike CRM",
     path: "/admin/crm",
     Icon: Crown,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.metaLeads",
+    labelFallback: "Meta Lead Ads",
+    path: "/admin/meta-leads",
+    Icon: Megaphone,
     iconColorHex: "#3bcac4",
     highlight: true,
   },

@@ -635,3 +635,59 @@ export const crmTasks = pgTable("crm_tasks", {
 export const insertCrmTaskSchema = createInsertSchema(crmTasks).omit({ id: true, createdAt: true });
 export type CrmTask = typeof crmTasks.$inferSelect;
 export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;
+
+// ── Meta Lead Ads Import Queue ────────────────────────────────────────────────
+export const META_LEAD_STATUSES = {
+  PENDING: "pending",
+  PROCESSING: "processing",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  RETRY: "retry",
+  NEEDS_REVIEW: "needs_review",
+} as const;
+
+export const leadImportQueue = pgTable("lead_import_queue", {
+  id: serial("id").primaryKey(),
+  metaLeadId: text("meta_lead_id").notNull().unique(),
+  leadgenId: text("leadgen_id").notNull(),
+  formId: text("form_id"),
+  pageId: text("page_id"),
+  adId: text("ad_id"),
+  adgroupId: text("adgroup_id"),
+  campaignId: text("campaign_id"),
+  status: text("status").notNull().default("pending"),
+  retryCount: integer("retry_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(3),
+  rawWebhookPayload: jsonb("raw_webhook_payload"),
+  leadData: jsonb("lead_data"),
+  crmLeadId: integer("crm_lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  errorMessage: text("error_message"),
+  nextRetryAt: timestamp("next_retry_at"),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  metaLeadIdIdx: index("lead_import_queue_meta_lead_id_idx").on(table.metaLeadId),
+  statusIdx: index("lead_import_queue_status_idx").on(table.status),
+  receivedAtIdx: index("lead_import_queue_received_at_idx").on(table.receivedAt),
+}));
+
+export const insertLeadImportQueueSchema = createInsertSchema(leadImportQueue).omit({ id: true, createdAt: true, updatedAt: true });
+export type LeadImportQueue = typeof leadImportQueue.$inferSelect;
+export type InsertLeadImportQueue = z.infer<typeof insertLeadImportQueueSchema>;
+
+export const leadImportAuditLog = pgTable("lead_import_audit_log", {
+  id: serial("id").primaryKey(),
+  queueEntryId: integer("queue_entry_id").references(() => leadImportQueue.id, { onDelete: "cascade" }).notNull(),
+  metaLeadId: text("meta_lead_id").notNull(),
+  action: text("action").notNull(),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  queueEntryIdIdx: index("lead_import_audit_log_queue_entry_id_idx").on(table.queueEntryId),
+  metaLeadIdIdx: index("lead_import_audit_log_meta_lead_id_idx").on(table.metaLeadId),
+  createdAtIdx: index("lead_import_audit_log_created_at_idx").on(table.createdAt),
+}));
+
+export type LeadImportAuditLog = typeof leadImportAuditLog.$inferSelect;

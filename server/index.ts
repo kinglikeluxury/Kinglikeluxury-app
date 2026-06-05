@@ -9,7 +9,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
-import { logDatabaseStatus, ensureCrmIndexes } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables } from "./db";
+import { startMetaLeadsProcessor } from "./metaLeadsService";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
@@ -55,7 +56,14 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({
+  limit: "50mb",
+  verify: (req: any, _res, buf) => {
+    if (req.path === "/api/webhooks/meta-leads") {
+      req.rawBody = buf;
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 
 app.set("trust proxy", 1);
@@ -167,6 +175,10 @@ app.use((req, res, next) => {
   ensureCrmIndexes().catch(err =>
     console.error("[DB] ensureCrmIndexes failed:", err)
   );
+
+  ensureMetaLeadsTables()
+    .then(() => startMetaLeadsProcessor())
+    .catch(err => console.error("[DB] ensureMetaLeadsTables failed:", err));
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];

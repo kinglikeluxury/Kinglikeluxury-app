@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
+import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
 import bcrypt from "bcrypt";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
@@ -3980,6 +3981,7 @@ ${metaTags}
   });
 
   registerAiIntelligenceRoutes(app);
+  registerMetaLeadsRoutes(app);
 
   // ── Kinglike CRM Admin Endpoints ──────────────────────────────────────────
 

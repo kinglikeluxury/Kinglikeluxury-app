@@ -131,6 +131,61 @@ export async function ensureCrmIndexes(): Promise<void> {
   }
 }
 
+/**
+ * Creates the Meta Lead Ads import tables if they don't exist.
+ * Safe to run on every startup — all statements use IF NOT EXISTS.
+ */
+export async function ensureMetaLeadsTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lead_import_queue (
+        id               SERIAL PRIMARY KEY,
+        meta_lead_id     TEXT NOT NULL UNIQUE,
+        leadgen_id       TEXT NOT NULL,
+        form_id          TEXT,
+        page_id          TEXT,
+        ad_id            TEXT,
+        adgroup_id       TEXT,
+        campaign_id      TEXT,
+        status           TEXT NOT NULL DEFAULT 'pending',
+        retry_count      INTEGER NOT NULL DEFAULT 0,
+        max_retries      INTEGER NOT NULL DEFAULT 3,
+        raw_webhook_payload JSONB,
+        lead_data        JSONB,
+        crm_lead_id      INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+        error_message    TEXT,
+        next_retry_at    TIMESTAMP,
+        received_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+        processed_at     TIMESTAMP,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at       TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS lead_import_audit_log (
+        id               SERIAL PRIMARY KEY,
+        queue_entry_id   INTEGER NOT NULL REFERENCES lead_import_queue(id) ON DELETE CASCADE,
+        meta_lead_id     TEXT NOT NULL,
+        action           TEXT NOT NULL,
+        details          JSONB,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS lead_import_queue_meta_lead_id_idx  ON lead_import_queue(meta_lead_id);
+      CREATE INDEX IF NOT EXISTS lead_import_queue_status_idx        ON lead_import_queue(status);
+      CREATE INDEX IF NOT EXISTS lead_import_queue_received_at_idx   ON lead_import_queue(received_at DESC);
+      CREATE INDEX IF NOT EXISTS lead_import_audit_log_queue_id_idx  ON lead_import_audit_log(queue_entry_id);
+      CREATE INDEX IF NOT EXISTS lead_import_audit_log_meta_id_idx   ON lead_import_audit_log(meta_lead_id);
+      CREATE INDEX IF NOT EXISTS lead_import_audit_log_created_at_idx ON lead_import_audit_log(created_at DESC);
+    `);
+    console.log("[DB] Meta leads tables ensured");
+  } catch (err: any) {
+    console.warn("[DB] Could not create meta leads tables:", err.message);
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 
