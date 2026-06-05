@@ -244,8 +244,13 @@ export default function CrmLeadDetailPage() {
   const [, params] = useRoute("/admin/crm/:id");
   const { user, isLoading: authLoading } = useAuth();
 
-  // Back to CRM always goes to the CRM list — never to homepage or browser history
-  const backToCrmUrl = "/admin/crm";
+  // Back to CRM: restore previous CRM list state from ?from= param (encoded by crm-leads.tsx).
+  // Always stays within /admin/crm — never navigates to / or any public page.
+  const _fromQs = new URLSearchParams(window.location.search).get("from");
+  const backToCrmUrl =
+    _fromQs && _fromQs.startsWith("?")
+      ? "/admin/crm" + _fromQs
+      : "/admin/crm";
   const { toast } = useToast();
 
   const leadId = Number(params?.id);
