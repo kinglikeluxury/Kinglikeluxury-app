@@ -244,11 +244,8 @@ export default function CrmLeadDetailPage() {
   const [, params] = useRoute("/admin/crm/:id");
   const { user, isLoading: authLoading } = useAuth();
 
-  // Decode the "from" param passed by the CRM list (contains filter query string)
-  const fromParam = typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search).get("from") ?? ""
-    : "";
-  const backToCrmUrl = "/admin/crm" + (fromParam ? decodeURIComponent(fromParam) : "");
+  // Back to CRM always goes to the CRM list — never to homepage or browser history
+  const backToCrmUrl = "/admin/crm";
   const { toast } = useToast();
 
   const leadId = Number(params?.id);
@@ -267,18 +264,18 @@ export default function CrmLeadDetailPage() {
   } | null>(null);
   const [subAgentComment, setSubAgentComment] = useState("");
 
-  if (authLoading) return null;
-  if (!user?.isAdmin && user?.role !== "sub_agent") { navigate("/"); return null; }
-
+  // Non-hook computations (safe before hooks)
   const isSubAgent = user?.role === "sub_agent";
+  const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
 
+  // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: lead, isLoading } = useQuery<LeadDetail>({
     queryKey: ["/api/admin/crm/leads", leadId],
     queryFn: () => fetch(`/api/admin/crm/leads/${leadId}`).then(r => {
       if (!r.ok) throw new Error("Not found");
       return r.json();
     }),
-    enabled: !!leadId,
+    enabled: isCrmAuthorized && !!leadId,
   });
 
   const { data: adminUsers = [] } = useQuery<{ id: number; username: string }[]>({
@@ -290,6 +287,7 @@ export default function CrmLeadDetailPage() {
   const { data: projects = [] } = useQuery<CrmProject[]>({
     queryKey: ["/api/admin/crm/projects"],
     queryFn: () => fetch("/api/admin/crm/projects").then(r => r.json()),
+    enabled: isCrmAuthorized,
   });
 
   const invalidateLead = () => {
@@ -346,6 +344,10 @@ export default function CrmLeadDetailPage() {
     onSuccess: () => { invalidateLead(); toast({ title: "Task removed" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  // ── Auth guard — AFTER all hooks ────────────────────────────────────────
+  if (authLoading) return null;
+  if (!isCrmAuthorized) { navigate("/"); return null; }
 
   function openField(key: string, rawValue: string) {
     setActiveField(key);

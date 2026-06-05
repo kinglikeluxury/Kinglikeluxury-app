@@ -165,29 +165,30 @@ export default function CrmLeadsPage() {
   const [subAgentsOpen, setSubAgentsOpen] = useState(false);
   const [subAgentForm, setSubAgentForm] = useState({ username: "", email: "", password: "" });
 
-  if (authLoading) return null;
-  if (!user?.isAdmin && user?.role !== "sub_agent") { navigate("/"); return null; }
-
+  // Non-hook computations (safe before hooks)
   const isSubAgent = user?.role === "sub_agent";
+  const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
 
   const params = new URLSearchParams();
   if (search)           params.set("search", search);
   if (status !== "all") params.set("status", status);
   if (source !== "all") params.set("source", source);
-  if (isSubAgent) {
-    params.set("assignedTo", String(user?.id));
+  if (isSubAgent && user) {
+    params.set("assignedTo", String(user.id));
   } else if (assigned !== "all") {
     params.set("assignedTo", assigned);
   }
   params.set("page", String(page));
   params.set("limit", String(PAGE_SIZE));
 
+  // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: pageData, isLoading, refetch } = useQuery<{ leads: CrmLeadWithAssignee[]; total: number; page: number; limit: number }>({
     queryKey: ["/api/admin/crm/leads", search, status, source, assigned, page],
     queryFn: () => fetch(`/api/admin/crm/leads?${params}`).then(r => {
       if (!r.ok) throw new Error("Forbidden");
       return r.json();
     }),
+    enabled: isCrmAuthorized,
   });
   const leads = pageData?.leads ?? [];
   const total = pageData?.total ?? 0;
@@ -196,6 +197,7 @@ export default function CrmLeadsPage() {
   const { data: projects = [] } = useQuery<CrmProject[]>({
     queryKey: ["/api/admin/crm/projects"],
     queryFn: () => fetch("/api/admin/crm/projects").then(r => r.json()),
+    enabled: isCrmAuthorized,
   });
 
   const createMutation = useMutation({
@@ -242,7 +244,7 @@ export default function CrmLeadsPage() {
   const { data: subAgents = [] } = useQuery<{ id: number; username: string; email: string | null }[]>({
     queryKey: ["/api/admin/crm/sub-agents"],
     queryFn: () => fetch("/api/admin/crm/sub-agents").then(r => r.json()),
-    enabled: user?.isAdmin === true,
+    enabled: !!user?.isAdmin,
   });
 
   const createSubAgentMutation = useMutation({
@@ -263,6 +265,10 @@ export default function CrmLeadsPage() {
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  // ── Auth guard — AFTER all hooks ────────────────────────────────────────
+  if (authLoading) return null;
+  if (!isCrmAuthorized) { navigate("/"); return null; }
 
   function handlePhoneChange(phone: string) {
     const result = validatePhone(phone);
