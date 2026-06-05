@@ -3991,12 +3991,16 @@ ${metaTags}
     return lead?.assignedTo === req.session.userId;
   };
 
-  /** GET /api/admin/crm/leads — list with optional filters */
+  /** GET /api/admin/crm/leads — paginated list with optional filters */
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try {
-      const { search, status, source, assignedTo } = req.query as Record<string, string>;
-      const filters: any = {};
+      const { search, status, source, assignedTo, page, limit } = req.query as Record<string, string>;
+      const pageNum  = Math.max(1, parseInt(page  ?? "1",  10) || 1);
+      const limitNum = Math.min(50, Math.max(1, parseInt(limit ?? "50", 10) || 50));
+      const offset   = (pageNum - 1) * limitNum;
+
+      const filters: any = { limit: limitNum, offset };
       if (search) filters.search = search;
       if (status) filters.status = status;
       if (source) filters.source = source;
@@ -4008,8 +4012,8 @@ ${metaTags}
       } else if (assignedTo) {
         filters.assignedTo = Number(assignedTo);
       }
-      const leads = await storage.getCrmLeads(filters);
-      res.json(leads);
+      const { leads, total } = await storage.getCrmLeads(filters);
+      res.json({ leads, total, page: pageNum, limit: limitNum });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

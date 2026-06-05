@@ -9,7 +9,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
-import { logDatabaseStatus } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes } from "./db";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
@@ -161,6 +161,11 @@ app.use((req, res, next) => {
   // Log active database status after server is up
   logDatabaseStatus().catch(err =>
     console.error("[DB] Failed to log database status:", err)
+  );
+
+  // Ensure CRM performance indexes exist (idempotent — IF NOT EXISTS)
+  ensureCrmIndexes().catch(err =>
+    console.error("[DB] ensureCrmIndexes failed:", err)
   );
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────

@@ -108,6 +108,29 @@ export async function logDatabaseStatus(): Promise<void> {
   }
 }
 
+/**
+ * Creates performance indexes on crm_leads if they don't already exist.
+ * Safe to run on every startup — all statements use IF NOT EXISTS.
+ */
+export async function ensureCrmIndexes(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS crm_leads_assigned_to_idx ON crm_leads(assigned_to);
+      CREATE INDEX IF NOT EXISTS crm_leads_status_idx      ON crm_leads(status);
+      CREATE INDEX IF NOT EXISTS crm_leads_phone_idx       ON crm_leads(phone);
+      CREATE INDEX IF NOT EXISTS crm_leads_email_idx       ON crm_leads(email);
+      CREATE INDEX IF NOT EXISTS crm_leads_lead_source_idx ON crm_leads(lead_source);
+      CREATE INDEX IF NOT EXISTS crm_leads_created_at_idx  ON crm_leads(created_at DESC);
+    `);
+    console.log("[DB] CRM indexes ensured");
+  } catch (err: any) {
+    console.warn("[DB] Could not create CRM indexes:", err.message);
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

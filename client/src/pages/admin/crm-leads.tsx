@@ -130,10 +130,19 @@ export default function CrmLeadsPage() {
 
   // Initialise filters from URL query params so they survive navigation
   const qs = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-  const [search, setSearch]   = useState(qs.get("search") ?? "");
-  const [status, setStatus]   = useState(qs.get("status") ?? "all");
-  const [source, setSource]   = useState(qs.get("source") ?? "all");
-  const [assigned, setAssigned] = useState(qs.get("assignedTo") ?? "all");
+  const [search, setSearchRaw]   = useState(qs.get("search") ?? "");
+  const [status, setStatusRaw]   = useState(qs.get("status") ?? "all");
+  const [source, setSourceRaw]   = useState(qs.get("source") ?? "all");
+  const [assigned, setAssignedRaw] = useState(qs.get("assignedTo") ?? "all");
+  const [page, setPage] = useState(1);
+
+  // Wrapper setters — reset page whenever any filter changes
+  const setSearch   = (v: string)  => { setSearchRaw(v);   setPage(1); };
+  const setStatus   = (v: string)  => { setStatusRaw(v);   setPage(1); };
+  const setSource   = (v: string)  => { setSourceRaw(v);   setPage(1); };
+  const setAssigned = (v: string)  => { setAssignedRaw(v); setPage(1); };
+
+  const PAGE_SIZE = 50;
 
   // Keep URL in sync with filter state (replaceState — no new history entry)
   useEffect(() => {
@@ -142,9 +151,10 @@ export default function CrmLeadsPage() {
     if (status !== "all")  p.set("status", status);
     if (source !== "all")  p.set("source", source);
     if (assigned !== "all") p.set("assignedTo", assigned);
+    if (page > 1)          p.set("page", String(page));
     const qs = p.toString();
     window.history.replaceState(null, "", `/admin/crm${qs ? "?" + qs : ""}`);
-  }, [search, status, source, assigned]);
+  }, [search, status, source, assigned, page]);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -165,18 +175,23 @@ export default function CrmLeadsPage() {
   if (status !== "all") params.set("status", status);
   if (source !== "all") params.set("source", source);
   if (isSubAgent) {
-    params.set("assignedTo", String(user?.id)); // Backend also enforces this
+    params.set("assignedTo", String(user?.id));
   } else if (assigned !== "all") {
     params.set("assignedTo", assigned);
   }
+  params.set("page", String(page));
+  params.set("limit", String(PAGE_SIZE));
 
-  const { data: leads = [], isLoading, refetch } = useQuery<CrmLeadWithAssignee[]>({
-    queryKey: ["/api/admin/crm/leads", search, status, source, assigned],
+  const { data: pageData, isLoading, refetch } = useQuery<{ leads: CrmLeadWithAssignee[]; total: number; page: number; limit: number }>({
+    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, page],
     queryFn: () => fetch(`/api/admin/crm/leads?${params}`).then(r => {
       if (!r.ok) throw new Error("Forbidden");
       return r.json();
     }),
   });
+  const leads = pageData?.leads ?? [];
+  const total = pageData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const { data: projects = [] } = useQuery<CrmProject[]>({
     queryKey: ["/api/admin/crm/projects"],
@@ -285,7 +300,6 @@ export default function CrmLeadsPage() {
     createMutation.mutate(form);
   }
 
-  const total     = leads.length;
   const newCount  = leads.filter(l => l.status === "new").length;
   const hotCount  = leads.filter(l => l.leadScore === "hot").length;
   const converted = leads.filter(l => l.status === "converted").length;
@@ -850,6 +864,39 @@ export default function CrmLeadsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-1 py-2">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total.toLocaleString()} leads
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline" size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <span className="text-sm font-medium px-2">
+              Page {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline" size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+      {totalPages === 1 && total > 0 && (
+        <p className="text-xs text-muted-foreground px-1 py-2">
+          {total.toLocaleString()} lead{total !== 1 ? "s" : ""}
+        </p>
+      )}
     </div>
   );
 }

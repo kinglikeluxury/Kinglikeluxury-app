@@ -972,10 +972,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── CRM ────────────────────────────────────────────────────────────────────
-  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null }): Promise<CrmLead[]> {
+  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; limit?: number; offset?: number }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
+    const MAX_LIMIT = 50;
+    const limit  = Math.min(filters?.limit  ?? MAX_LIMIT, MAX_LIMIT);
+    const offset = filters?.offset ?? 0;
+
     const conditions: any[] = [];
-    if (filters?.status)   conditions.push(eq(crmLeads.status, filters.status));
-    if (filters?.source)   conditions.push(eq(crmLeads.leadSource, filters.source));
+    if (filters?.status) conditions.push(eq(crmLeads.status, filters.status));
+    if (filters?.source) conditions.push(eq(crmLeads.leadSource, filters.source));
     if (filters?.assignedTo !== undefined && filters.assignedTo !== null)
       conditions.push(eq(crmLeads.assignedTo, filters.assignedTo));
     if (filters?.search) {
@@ -988,16 +992,26 @@ export class DatabaseStorage implements IStorage {
         ilike(crmLeads.email, s),
       ));
     }
-    const rows = conditions.length > 0
-      ? await db.select().from(crmLeads).where(and(...conditions)).orderBy(desc(crmLeads.createdAt))
-      : await db.select().from(crmLeads).orderBy(desc(crmLeads.createdAt));
-    // Enrich with assignee name
-    const enriched = await Promise.all(rows.map(async lead => {
-      if (!lead.assignedTo) return { ...lead, assigneeName: null };
-      const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, lead.assignedTo));
-      return { ...lead, assigneeName: u?.username ?? null };
-    }));
-    return enriched;
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Single JOIN — no N+1 loop
+    const rows = await db
+      .select({ lead: crmLeads, assigneeName: users.username })
+      .from(crmLeads)
+      .leftJoin(users, eq(crmLeads.assignedTo, users.id))
+      .where(where)
+      .orderBy(desc(crmLeads.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Total count (same WHERE, no LIMIT)
+    const [{ total }] = await db
+      .select({ total: sql<number>`cast(count(*) as int)` })
+      .from(crmLeads)
+      .where(where);
+
+    const leads = rows.map(r => ({ ...r.lead, assigneeName: r.assigneeName ?? null }));
+    return { leads, total };
   }
 
   async getCrmLead(id: number): Promise<(CrmLead & { crmNotes: (CrmNote & { authorName?: string | null })[]; crmTasks: CrmTask[]; assigneeName?: string | null }) | undefined> {

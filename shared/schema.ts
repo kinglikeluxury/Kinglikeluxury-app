@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -581,7 +582,14 @@ export const crmLeads = pgTable("crm_leads", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastContactAt: timestamp("last_contact_at"),
-});
+}, (table) => ({
+  assignedToIdx: index("crm_leads_assigned_to_idx").on(table.assignedTo),
+  statusIdx:     index("crm_leads_status_idx").on(table.status),
+  phoneIdx:      index("crm_leads_phone_idx").on(table.phone),
+  emailIdx:      index("crm_leads_email_idx").on(table.email),
+  leadSourceIdx: index("crm_leads_lead_source_idx").on(table.leadSource),
+  createdAtIdx:  index("crm_leads_created_at_idx").on(table.createdAt),
+}));
 
 export const insertCrmLeadSchema = createInsertSchema(crmLeads).omit({ id: true, createdAt: true, updatedAt: true });
 export type CrmLead = typeof crmLeads.$inferSelect;

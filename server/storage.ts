@@ -144,7 +144,7 @@ export interface IStorage {
   countTodayConversations(userId: number): Promise<number>;
 
   // CRM lead operations
-  getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null }): Promise<import("@shared/schema").CrmLead[]>;
+  getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; limit?: number; offset?: number }): Promise<{ leads: (import("@shared/schema").CrmLead & { assigneeName?: string | null })[]; total: number }>;
   getCrmLead(id: number): Promise<(import("@shared/schema").CrmLead & { crmNotes: (import("@shared/schema").CrmNote & { authorName?: string | null })[]; crmTasks: import("@shared/schema").CrmTask[]; assigneeName?: string | null }) | undefined>;
   createCrmLead(data: import("@shared/schema").InsertCrmLead): Promise<import("@shared/schema").CrmLead>;
   updateCrmLead(id: number, data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined>;
@@ -581,7 +581,7 @@ export class MemStorage implements IStorage {
   async countTodayConversations(_userId: number): Promise<number> { return 0; }
 
   // CRM stubs
-  async getCrmLeads(_filters?: any): Promise<import("@shared/schema").CrmLead[]> { return []; }
+  async getCrmLeads(_filters?: any): Promise<{ leads: import("@shared/schema").CrmLead[]; total: number }> { return { leads: [], total: 0 }; }
   async getCrmLead(_id: number): Promise<any> { return undefined; }
   async createCrmLead(_data: import("@shared/schema").InsertCrmLead): Promise<import("@shared/schema").CrmLead> { throw new Error("Not implemented"); }
   async updateCrmLead(_id: number, _data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined> { return undefined; }
