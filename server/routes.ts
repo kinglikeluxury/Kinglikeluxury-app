@@ -1181,7 +1181,8 @@ ${metaTags}
         id: user.id, 
         username: user.username,
         authMethod: user.authMethod,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        role: user.role ?? "user",
       };
       
       // Add method-specific fields to response
