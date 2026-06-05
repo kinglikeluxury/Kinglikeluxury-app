@@ -282,8 +282,9 @@ export default function CrmLeadDetailPage() {
   });
 
   const { data: adminUsers = [] } = useQuery<{ id: number; username: string }[]>({
-    queryKey: ["/api/admin/users"],
-    queryFn: () => fetch("/api/admin/users").then(r => r.json()),
+    queryKey: ["/api/admin/crm/assignable-agents"],
+    queryFn: () => fetch("/api/admin/crm/assignable-agents").then(r => r.json()),
+    enabled: !!user?.isAdmin,
   });
 
   const { data: projects = [] } = useQuery<CrmProject[]>({
@@ -1015,35 +1016,57 @@ export default function CrmLeadDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Assignment */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-[#005476] flex items-center gap-1.5">
-                <UserCheck className="h-4 w-4" /> Assign Agent
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Select
-                value={lead.assignedTo ? String(lead.assignedTo) : "unassigned"}
-                onValueChange={v => updateMutation.mutate({ assignedTo: v === "unassigned" ? null : Number(v) } as Partial<CrmLead>)}
-              >
-                <SelectTrigger className="w-full text-sm">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {adminUsers.map((u: any) => (
-                    <SelectItem key={u.id} value={String(u.id)}>{u.username}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {lead.assigneeName && (
-                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                  <User className="h-3 w-3" /> Assigned to {lead.assigneeName}
+          {/* Assignment — admin only; sub_agents cannot reassign */}
+          {user?.isAdmin && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-[#005476] flex items-center gap-1.5">
+                  <UserCheck className="h-4 w-4" /> Assign Agent
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Select
+                  value={lead.assignedTo ? String(lead.assignedTo) : "unassigned"}
+                  onValueChange={v => updateMutation.mutate({ assignedTo: v === "unassigned" ? null : Number(v) } as Partial<CrmLead>)}
+                >
+                  <SelectTrigger className="w-full text-sm">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {adminUsers.map((u: any) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.username}
+                        {u.role === "sub_agent" && (
+                          <span className="ml-1 text-xs text-gray-400">(Agent)</span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {lead.assigneeName && (
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                    <User className="h-3 w-3" /> Assigned to {lead.assigneeName}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {/* Sub-agent: show assigned-to as read-only */}
+          {!user?.isAdmin && lead.assigneeName && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-[#005476] flex items-center gap-1.5">
+                  <UserCheck className="h-4 w-4" /> Assigned Agent
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-sm text-gray-700 flex items-center gap-1">
+                  <User className="h-3 w-3" /> {lead.assigneeName}
                 </p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Mark Converted */}
           {lead.status !== "converted" && (

@@ -4219,6 +4219,20 @@ ${metaTags}
         delete req.body.assignedTo;
       }
 
+      // Admins: validate assignedTo is an admin or sub_agent (not a regular user)
+      if (req.session.isAdmin && req.body.assignedTo != null) {
+        const { db } = await import("./db");
+        const { users } = await import("../shared/schema");
+        const { eq } = await import("drizzle-orm");
+        const [target] = await db
+          .select({ id: users.id, isAdmin: users.isAdmin, role: users.role })
+          .from(users)
+          .where(eq(users.id, Number(req.body.assignedTo)));
+        if (!target || (!target.isAdmin && target.role !== "sub_agent")) {
+          return res.status(400).json({ message: "Leads can only be assigned to admin or sub_agent users" });
+        }
+      }
+
       // Sub-agents must provide a comment for every change
       if (!req.session.isAdmin && req.session.role === "sub_agent" && !_comment) {
         return res.status(400).json({ message: "A comment/reason is required for all changes" });
@@ -4328,6 +4342,23 @@ ${metaTags}
   });
 
   // ── Sub-Agent Management ─────────────────────────────────────────────────
+
+  /** GET /api/admin/crm/assignable-agents — list users who can be assigned leads (admins + sub_agents only) */
+  app.get("/api/admin/crm/assignable-agents", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { db } = await import("./db");
+      const { users } = await import("../shared/schema");
+      const { or, eq } = await import("drizzle-orm");
+      const agents = await db
+        .select({ id: users.id, username: users.username, role: users.role })
+        .from(users)
+        .where(or(eq(users.isAdmin, true), eq(users.role, "sub_agent")));
+      res.json(agents);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
 
   /** GET /api/admin/crm/sub-agents — list all sub-agent accounts */
   app.get("/api/admin/crm/sub-agents", isAuthenticated, async (req: any, res) => {
