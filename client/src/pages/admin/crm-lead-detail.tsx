@@ -244,13 +244,22 @@ export default function CrmLeadDetailPage() {
   const [, params] = useRoute("/admin/crm/:id");
   const { user, isLoading: authLoading } = useAuth();
 
-  // Back to CRM: restore previous CRM list state from ?from= param (encoded by crm-leads.tsx).
-  // Always stays within /admin/crm — never navigates to / or any public page.
-  const _fromQs = new URLSearchParams(window.location.search).get("from");
-  const backToCrmUrl =
-    _fromQs && _fromQs.startsWith("?")
-      ? "/admin/crm" + _fromQs
-      : "/admin/crm";
+  // Back-to-CRM helper.
+  // Primary destination is ALWAYS the explicit route /admin/crm.
+  // Filter state encoded by crm-leads.tsx in ?from= is appended ONLY when it
+  // is a safe query string (starts with "?") so the final URL always begins
+  // with "/admin/crm". If anything is wrong the fallback is "/admin/crm".
+  // Never navigates to "/", never uses history.back(), never uses navigate(-1).
+  function goCrmList() {
+    try {
+      const fromQs = new URLSearchParams(window.location.search).get("from");
+      if (fromQs && fromQs.startsWith("?")) {
+        navigate("/admin/crm" + fromQs);
+        return;
+      }
+    } catch (_) { /* ignore */ }
+    navigate("/admin/crm");
+  }
   const { toast } = useToast();
 
   const leadId = Number(params?.id);
@@ -324,7 +333,7 @@ export default function CrmLeadDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
       toast({ title: "Lead deleted" });
-      navigate(backToCrmUrl);
+      goCrmList();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -501,7 +510,7 @@ export default function CrmLeadDetailPage() {
             ? "Access denied — this lead is not assigned to you."
             : "Lead not found."}
         </p>
-        <Button className="mt-4" onClick={() => navigate(backToCrmUrl)}>Back to CRM</Button>
+        <Button className="mt-4" onClick={goCrmList}>Back to CRM</Button>
       </div>
     );
   }
@@ -527,7 +536,7 @@ export default function CrmLeadDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(backToCrmUrl)} className="gap-1.5 text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={goCrmList} className="gap-1.5 text-muted-foreground">
             <ArrowLeft className="h-4 w-4" /> Back to CRM
           </Button>
           <span className="text-muted-foreground">/</span>
