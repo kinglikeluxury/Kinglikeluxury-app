@@ -3,5 +3,6 @@
 - [Sub-Agent Role](sub-agent-role.md) — CRM-only role: bcrypt login compat, isCrmUser/canAccessLead helpers, ownership-scoped access.
 - [useEffect import white-screen trap](useeffect-import-trap.md) — adding useEffect guards without updating the React import causes silent ReferenceError white screens.
 - [Socket Security blocks npm — use wget for manual installs](socket-security-wget.md) — Socket.dev policy blocks all npm installs; wget to registry.npmjs.org bypasses it for manual node_modules repair.
+- [Socket Security blocked packages history](socket-security-blocks.md) — fast-xml-parser@4.5.3 (override→4.4.1) and es5-ext@0.10.64 via memoizee (remove memoizee; it was unused).
 - [package-lock.json Replit firewall URLs](package-lock-firewall.md) — package-lock.json may contain Replit-internal URLs that block external deployment; sed-replace to fix.
 - [canvas native module — lazy import pattern](canvas-lazy-import.md) — wrap canvas require in try-catch so server starts when native binary is missing.
