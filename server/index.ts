@@ -149,7 +149,20 @@ app.use((req, res, next) => {
   if (isDevMode) {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    try {
+      serveStatic(app);
+    } catch (err: any) {
+      console.error(
+        "[Startup] serveStatic failed (dist/public missing?):",
+        err.message
+      );
+      // Fallback: port still opens so /health passes; SPA routes return 503
+      app.use("*", (_req: Request, res: Response) => {
+        res.status(503).type("text/html").end(
+          "<h1>Application starting</h1><p>Frontend assets are being built. Please wait and refresh.</p>"
+        );
+      });
+    }
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
