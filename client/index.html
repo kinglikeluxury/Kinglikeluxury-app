@@ -51,9 +51,20 @@
         window.WebSocket.prototype = _WS.prototype;
         Object.keys(_WS).forEach(function(k){ window.WebSocket[k] = _WS[k]; });
 
-        // Also swallow empty window.onerror events
+        // Also swallow empty window.onerror events and ResizeObserver loop warnings
+        // (ResizeObserver loop is a benign Radix UI / Floating UI side-effect that
+        // Replit's runtime-error-modal incorrectly treats as a fatal crash.)
         window.addEventListener('error', function (e) {
-          if (!e.message && !e.filename && !e.error) e.stopImmediatePropagation();
+          if (!e.message && !e.filename && !e.error) {
+            e.stopImmediatePropagation();
+            return;
+          }
+          if (
+            e.message === 'ResizeObserver loop completed with undelivered notifications.' ||
+            e.message === 'ResizeObserver loop limit exceeded'
+          ) {
+            e.stopImmediatePropagation();
+          }
         }, true);
       })();
     </script>
