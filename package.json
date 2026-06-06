@@ -152,5 +152,8 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "overrides": {
+    "fast-xml-parser": "4.4.1"
   }
 }
