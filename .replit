@@ -15,6 +15,10 @@ run = ["bash", "-c", "npm install --omit=dev --no-audit --no-fund && NODE_ENV=pr
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 5001
+externalPort = 3003
+
 [workflows]
 runButton = "Project"
 
