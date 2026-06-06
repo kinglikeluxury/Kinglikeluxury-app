@@ -64,7 +64,6 @@
     "@uppy/react": "^5.0.2",
     "@vitalets/google-translate-api": "^9.2.1",
     "bcrypt": "^6.0.0",
-    "canvas": "^3.1.0",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
@@ -151,7 +150,8 @@
     "vite": "^5.4.14"
   },
   "optionalDependencies": {
-    "bufferutil": "^4.0.8"
+    "bufferutil": "^4.0.8",
+    "canvas": "^3.1.0"
   },
   "overrides": {
     "fast-xml-parser": "4.4.1"
