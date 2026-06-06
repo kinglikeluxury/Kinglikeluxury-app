@@ -23,6 +23,11 @@ const app = express();
 // This guarantees no middleware or static-file handler can intercept these URLs
 // and accidentally return index.html (which would make Google think it's HTML).
 // ─────────────────────────────────────────────────────────────────────────────
+// Lightweight healthcheck — no DB, no file I/O, always 200
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true, ts: Date.now() });
+});
+
 app.get("/sitemap.xml", async (_req, res) => {
   try {
     const xml = await generateSitemapXml();
