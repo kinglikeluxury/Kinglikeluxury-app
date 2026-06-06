@@ -144,7 +144,7 @@ export interface IStorage {
   countTodayConversations(userId: number): Promise<number>;
 
   // CRM lead operations
-  getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; limit?: number; offset?: number }): Promise<{ leads: (import("@shared/schema").CrmLead & { assigneeName?: string | null })[]; total: number }>;
+  getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; expectedMonth?: string; contactDate?: string; sortOrder?: "newest" | "oldest"; limit?: number; offset?: number }): Promise<{ leads: (import("@shared/schema").CrmLead & { assigneeName?: string | null })[]; total: number }>;
   getCrmLead(id: number): Promise<(import("@shared/schema").CrmLead & { crmNotes: (import("@shared/schema").CrmNote & { authorName?: string | null })[]; crmTasks: import("@shared/schema").CrmTask[]; assigneeName?: string | null }) | undefined>;
   createCrmLead(data: import("@shared/schema").InsertCrmLead): Promise<import("@shared/schema").CrmLead>;
   updateCrmLead(id: number, data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined>;

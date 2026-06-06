@@ -1,4 +1,4 @@
-import { eq, and, like, ilike, gte, lte, desc, or, isNull, sql, gte as gteOp } from "drizzle-orm";
+import { eq, and, like, ilike, gte, lte, asc, desc, or, isNull, sql, gte as gteOp } from "drizzle-orm";
 import { db, withRetry } from "./db";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -972,7 +972,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── CRM ────────────────────────────────────────────────────────────────────
-  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; limit?: number; offset?: number }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
+  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; expectedMonth?: string; contactDate?: string; sortOrder?: "newest" | "oldest"; limit?: number; offset?: number }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
     const MAX_LIMIT = 50;
     const limit  = Math.min(filters?.limit  ?? MAX_LIMIT, MAX_LIMIT);
     const offset = filters?.offset ?? 0;
@@ -992,7 +992,55 @@ export class DatabaseStorage implements IStorage {
         ilike(crmLeads.email, s),
       ));
     }
+
+    // Expected Arrival Month filter
+    if (filters?.expectedMonth === "not_specified") {
+      conditions.push(or(
+        isNull(crmLeads.expectedPurchaseMonth),
+        eq(crmLeads.expectedPurchaseMonth, ""),
+      ));
+    } else if (filters?.expectedMonth) {
+      conditions.push(eq(crmLeads.expectedPurchaseMonth, filters.expectedMonth));
+    }
+
+    // Contact Date filter — priority: lastContactAt → createdAt
+    if (filters?.contactDate && filters.contactDate !== "all") {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      let start: Date | null = null;
+      let end:   Date | null = null;
+      switch (filters.contactDate) {
+        case "today":
+          start = todayStart; end = todayEnd; break;
+        case "yesterday":
+          start = new Date(todayStart.getTime() - 86_400_000);
+          end   = new Date(todayEnd.getTime()   - 86_400_000); break;
+        case "last7":
+          start = new Date(todayStart.getTime() - 6 * 86_400_000);
+          end   = todayEnd; break;
+        case "last30":
+          start = new Date(todayStart.getTime() - 29 * 86_400_000);
+          end   = todayEnd; break;
+        case "thisMonth":
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+          end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999); break;
+        case "prevMonth":
+          start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          end   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999); break;
+      }
+      if (start && end) {
+        conditions.push(sql`COALESCE(${crmLeads.lastContactAt}, ${crmLeads.createdAt}) >= ${start}`);
+        conditions.push(sql`COALESCE(${crmLeads.lastContactAt}, ${crmLeads.createdAt}) <= ${end}`);
+      }
+    }
+
     const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Sort: priority lastContactAt → createdAt; default newest first
+    const sortExpr = filters?.sortOrder === "oldest"
+      ? asc(sql`COALESCE(${crmLeads.lastContactAt}, ${crmLeads.createdAt})`)
+      : desc(sql`COALESCE(${crmLeads.lastContactAt}, ${crmLeads.createdAt})`);
 
     // Single JOIN — no N+1 loop
     const rows = await db
@@ -1000,7 +1048,7 @@ export class DatabaseStorage implements IStorage {
       .from(crmLeads)
       .leftJoin(users, eq(crmLeads.assignedTo, users.id))
       .where(where)
-      .orderBy(desc(crmLeads.createdAt))
+      .orderBy(sortExpr)
       .limit(limit)
       .offset(offset);
 

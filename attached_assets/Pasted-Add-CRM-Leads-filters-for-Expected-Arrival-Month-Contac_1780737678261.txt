@@ -1,0 +1,204 @@
+Add CRM Leads filters for Expected Arrival Month, Contact Date, and Activity Date sorting.
+
+FEATURES TO ADD
+
+1) Expected Arrival Month Filter
+
+Add a new filter to the CRM Leads page.
+
+Label:
+Expected Arrival Month
+
+Use the SAME format and values already used in the existing lead Expected Month field.
+
+Required values:
+
+- All Months
+- Not specified
+- 06.2026
+- 07.2026
+- 08.2026
+- 09.2026
+- 10.2026
+- 11.2026
+- 12.2026
+- 01.2027
+- 02.2027
+- 03.2027
+- 04.2027
+- 05.2027
+- 06.2027
+- 07.2027
+- 08.2027
+- 09.2027
+- 10.2027
+- 11.2027
+- 12.2027
+- 01.2028
+- 02.2028
+- 03.2028
+- 04.2028
+- 05.2028
+- 06.2028
+- 07.2028
+- 08.2028
+- 09.2028
+- 10.2028
+- 11.2028
+- 12.2028
+
+Rules:
+
+- End exactly at 12.2028.
+- Do not generate months after 12.2028.
+- Keep format MM.YYYY.
+- Reuse the existing month list generator if available.
+- "All Months" shows all leads.
+- "Not specified" shows only leads without Expected Month.
+
+2) Contact Date Filter
+
+Add a new filter.
+
+Label:
+Contact Date
+
+Options:
+
+- All Dates
+- Today
+- Yesterday
+- Last 7 Days
+- Last 30 Days
+- This Month
+- Previous Month
+
+Rules:
+
+Use priority:
+
+1. Last Contact Date
+2. Last Activity Date
+3. Created Date
+
+if the previous value does not exist.
+
+3) Activity Sort By Date
+
+Add sorting dropdown.
+
+Label:
+Activity Sort By Date
+
+Options:
+
+- Newest First
+- Oldest First
+
+Default:
+
+- Newest First
+
+Rules:
+
+Sort by:
+
+1. Last Contact Date
+2. Last Activity Date
+3. Created Date
+
+if the previous value does not exist.
+
+UI REQUIREMENTS
+
+- Mobile responsive.
+- Desktop responsive.
+- Match current CRM style.
+- Keep existing Search field.
+- Keep existing Status filter.
+- Keep existing Source filter.
+- Keep existing Agent filter.
+- Place new filters beside existing filters.
+- Visible for Admin.
+- Visible for Sub Agents.
+- Respect existing visibility permissions.
+
+MANDATORY SAFETY RULES
+
+This task is limited strictly to CRM lead filtering and sorting.
+
+DO NOT:
+
+- Modify AI models.
+- Modify AI prompts.
+- Modify AI Assistant.
+- Modify AI Intelligence Center.
+- Modify authentication.
+- Modify authorization.
+- Modify Admin/Sub Admin architecture.
+- Modify employee permissions.
+- Modify Meta Lead Ads integration.
+- Modify Meta webhooks.
+- Modify WhatsApp integration.
+- Modify Twilio.
+- Modify Railway configuration.
+- Modify Railway environment variables.
+- Modify Replit Secrets.
+- Modify payment systems.
+- Modify Stripe.
+- Modify property management.
+- Modify project management.
+- Modify blog system.
+- Modify SEO.
+- Modify sitemap.
+- Modify mobile navigation.
+- Modify admin navigation.
+- Modify live cameras.
+- Modify scheduling modules.
+- Modify Developer Registration Center.
+- Modify AI Contract Analysis.
+- Modify user accounts.
+- Modify production data.
+- Delete records.
+- Rename tables.
+- Migrate data.
+- Refactor unrelated code.
+- Change branding.
+- Change colors.
+- Change unrelated layouts.
+
+ALLOWED CHANGES ONLY
+
+- CRM Leads page.
+- CRM Leads filters.
+- CRM Leads sorting.
+- Minimal frontend code required.
+- Minimal backend code required.
+
+IMPLEMENTATION RULES
+
+1. Inspect existing CRM Leads implementation first.
+2. Inspect existing Expected Month field implementation first.
+3. Reuse existing code patterns.
+4. Make the smallest possible change.
+5. Avoid refactoring.
+6. Preserve backward compatibility.
+7. Do not deploy automatically.
+8. Do not modify database data.
+9. Do not touch secrets.
+10. Do not touch environment variables.
+
+AFTER COMPLETION RETURN
+
+- Files modified.
+- Exact changes made.
+- Any API changes.
+- Any database changes.
+- Confirmation that no unrelated systems were modified.
+- Confirmation that no production data was modified.
+- Confirmation that no secrets were changed.
+- Confirmation that no environment variables were changed.
+- Confirmation that Admin and Sub Agent functionality remains intact.
+
+RETURN REPORT FIRST.
+DO NOT DEPLOY.

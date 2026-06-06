@@ -90,6 +90,8 @@ function genMonths(): string[] {
   return res;
 }
 const PURCHASE_MONTHS = genMonths();
+// Filter dropdown ends at 12.2028 per spec (indices 0-30 of PURCHASE_MONTHS)
+const FILTER_MONTHS = PURCHASE_MONTHS.slice(0, 31);
 const BUDGETS = Array.from({ length: (2000000 - 40000) / 5000 + 1 }, (_, i) => 40000 + i * 5000);
 
 function fmtBudget(n: number): string {
@@ -131,31 +133,40 @@ export default function CrmLeadsPage() {
 
   // Initialise filters from URL query params so they survive navigation
   const qs = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-  const [search, setSearchRaw]   = useState(qs.get("search") ?? "");
-  const [status, setStatusRaw]   = useState(qs.get("status") ?? "all");
-  const [source, setSourceRaw]   = useState(qs.get("source") ?? "all");
-  const [assigned, setAssignedRaw] = useState(qs.get("assignedTo") ?? "all");
+  const [search, setSearchRaw]         = useState(qs.get("search") ?? "");
+  const [status, setStatusRaw]         = useState(qs.get("status") ?? "all");
+  const [source, setSourceRaw]         = useState(qs.get("source") ?? "all");
+  const [assigned, setAssignedRaw]     = useState(qs.get("assignedTo") ?? "all");
+  const [expectedMonth, setExpectedMonthRaw] = useState(qs.get("expectedMonth") ?? "all");
+  const [contactDate, setContactDateRaw]     = useState(qs.get("contactDate") ?? "all");
+  const [sortBy, setSortByRaw]               = useState(qs.get("sortBy") ?? "newest");
   const [page, setPage] = useState(1);
 
   // Wrapper setters — reset page whenever any filter changes
-  const setSearch   = (v: string)  => { setSearchRaw(v);   setPage(1); };
-  const setStatus   = (v: string)  => { setStatusRaw(v);   setPage(1); };
-  const setSource   = (v: string)  => { setSourceRaw(v);   setPage(1); };
-  const setAssigned = (v: string)  => { setAssignedRaw(v); setPage(1); };
+  const setSearch        = (v: string) => { setSearchRaw(v);        setPage(1); };
+  const setStatus        = (v: string) => { setStatusRaw(v);        setPage(1); };
+  const setSource        = (v: string) => { setSourceRaw(v);        setPage(1); };
+  const setAssigned      = (v: string) => { setAssignedRaw(v);      setPage(1); };
+  const setExpectedMonth = (v: string) => { setExpectedMonthRaw(v); setPage(1); };
+  const setContactDate   = (v: string) => { setContactDateRaw(v);   setPage(1); };
+  const setSortBy        = (v: string) => { setSortByRaw(v);        setPage(1); };
 
   const PAGE_SIZE = 50;
 
   // Keep URL in sync with filter state (replaceState — no new history entry)
   useEffect(() => {
     const p = new URLSearchParams();
-    if (search)            p.set("search", search);
-    if (status !== "all")  p.set("status", status);
-    if (source !== "all")  p.set("source", source);
-    if (assigned !== "all") p.set("assignedTo", assigned);
-    if (page > 1)          p.set("page", String(page));
+    if (search)                   p.set("search", search);
+    if (status !== "all")         p.set("status", status);
+    if (source !== "all")         p.set("source", source);
+    if (assigned !== "all")       p.set("assignedTo", assigned);
+    if (expectedMonth !== "all")  p.set("expectedMonth", expectedMonth);
+    if (contactDate !== "all")    p.set("contactDate", contactDate);
+    if (sortBy !== "newest")      p.set("sortBy", sortBy);
+    if (page > 1)                 p.set("page", String(page));
     const qs = p.toString();
     window.history.replaceState(null, "", `/admin/crm${qs ? "?" + qs : ""}`);
-  }, [search, status, source, assigned, page]);
+  }, [search, status, source, assigned, expectedMonth, contactDate, sortBy, page]);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -171,20 +182,23 @@ export default function CrmLeadsPage() {
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
 
   const params = new URLSearchParams();
-  if (search)           params.set("search", search);
-  if (status !== "all") params.set("status", status);
-  if (source !== "all") params.set("source", source);
+  if (search)                  params.set("search", search);
+  if (status !== "all")        params.set("status", status);
+  if (source !== "all")        params.set("source", source);
   if (isSubAgent && user) {
     params.set("assignedTo", String(user.id));
   } else if (assigned !== "all") {
     params.set("assignedTo", assigned);
   }
+  if (expectedMonth !== "all") params.set("expectedMonth", expectedMonth);
+  if (contactDate !== "all")   params.set("contactDate", contactDate);
+  if (sortBy !== "newest")     params.set("sortOrder", "oldest");
   params.set("page", String(page));
   params.set("limit", String(PAGE_SIZE));
 
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: pageData, isLoading, refetch } = useQuery<{ leads: CrmLeadWithAssignee[]; total: number; page: number; limit: number }>({
-    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, page],
+    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, expectedMonth, contactDate, sortBy, page],
     queryFn: () => fetch(`/api/admin/crm/leads?${params}`).then(r => {
       if (!r.ok) throw new Error("Forbidden");
       return r.json();
@@ -761,6 +775,35 @@ export default function CrmLeadsPage() {
                 </SelectContent>
               </Select>
             )}
+            <Select value={expectedMonth} onValueChange={setExpectedMonth}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="All Months" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
+                <SelectItem value="not_specified">Not specified</SelectItem>
+                {FILTER_MONTHS.map(m => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={contactDate} onValueChange={setContactDate}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Contact Date" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Dates</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last7">Last 7 days</SelectItem>
+                <SelectItem value="last30">Last 30 days</SelectItem>
+                <SelectItem value="thisMonth">This month</SelectItem>
+                <SelectItem value="prevMonth">Previous month</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Sort by date" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest first</SelectItem>
+                <SelectItem value="oldest">Oldest first</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
