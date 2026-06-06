@@ -153,6 +153,6 @@
     "canvas": "^3.1.0"
   },
   "overrides": {
-    "fast-xml-parser": "4.3.6"
+    "fast-xml-parser": "file:stubs/fast-xml-parser"
   }
 }

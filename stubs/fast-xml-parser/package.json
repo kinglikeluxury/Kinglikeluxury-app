@@ -1,0 +1,7 @@
+{
+  "name": "fast-xml-parser",
+  "version": "4.3.6",
+  "description": "Local stub — satisfies @google-cloud/storage import without npm registry download",
+  "main": "index.js",
+  "license": "MIT"
+}
