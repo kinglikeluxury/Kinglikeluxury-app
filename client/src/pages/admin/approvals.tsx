@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle, Star } from "lucide-react";
+import { CheckCircle, XCircle, Eye, CreditCard, AlertTriangle, Star, Pencil } from "lucide-react";
 import { slugifyProperty } from "@/lib/slugify";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -266,6 +266,13 @@ const Approvals = () => {
                                 <Eye className="h-4 w-4 mr-1" />
                                 View
                               </a>
+                            </Button>
+
+                            <Button size="sm" variant="outline" className="border-[#3bcac4] text-[#3bcac4] hover:bg-[#3bcac4] hover:text-white" asChild>
+                              <Link href={`/property/${property.id}/edit`}>
+                                <Pencil className="h-4 w-4 mr-1" />
+                                Edit
+                              </Link>
                             </Button>
 
 
