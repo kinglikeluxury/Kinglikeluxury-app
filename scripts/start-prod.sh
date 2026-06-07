@@ -14,5 +14,9 @@ else
   echo "[start-prod] dist/public/index.html found — skipping rebuild."
 fi
 
+echo "[start-prod] Installing production dependencies..."
+npm install --omit=dev --no-audit --no-fund
+echo "[start-prod] Dependencies installed."
+
 export NODE_ENV=production
 exec node dist/index.js
