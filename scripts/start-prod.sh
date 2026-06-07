@@ -15,5 +15,4 @@ else
 fi
 
 export NODE_ENV=production
-npm install --omit=dev --no-audit --no-fund
 exec node dist/index.js
