@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 # Production startup script.
-# The run container is separate from the build container — node_modules are not
-# carried over. Install production deps here before starting the server.
+# node_modules are baked into the image by the build step (npm install && npm run build).
+# Do NOT run npm install here — package-firewall.replit.local URLs in the lockfile
+# are only reachable inside the Replit dev environment, not in the run container.
 set -euo pipefail
-
-echo "[start-prod] Installing production dependencies..."
-npm install --omit=dev --prefer-offline
-echo "[start-prod] Dependencies installed."
 
 if [ ! -f "dist/public/index.html" ]; then
   echo "[start-prod] dist/public/index.html not found — running vite build..."
