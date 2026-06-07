@@ -1,5 +1,4 @@
 _no_deploy/
-node_modules/
 uploads/
 manual_backups/
 backups/
