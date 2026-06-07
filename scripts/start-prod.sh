@@ -6,10 +6,6 @@
 # outside the Replit dev environment).
 set -euo pipefail
 
-echo "[start-prod] Installing production dependencies..."
-npm install --omit=dev
-echo "[start-prod] Dependencies installed."
-
 if [ ! -f "dist/public/index.html" ]; then
   echo "[start-prod] dist/public/index.html not found — running vite build..."
   npx vite build
