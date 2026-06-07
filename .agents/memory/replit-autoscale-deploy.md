@@ -6,20 +6,23 @@ description: How to correctly configure build/run for Replit autoscale so node_m
 # Replit Autoscale Deployment
 
 ## The Rule
-- Production container starts with NO node_modules — only the workspace files are present.
-- `npm install --omit=dev` must run in the **run** command (before starting node) so openai and other runtime deps are available.
-- `npm install` (full, including dev) must also run in the **build** command so the TypeScript/Vite build succeeds.
-- Port must be `parseInt(process.env.PORT || "5000", 10)` — Replit injects PORT; hardcoding 5000 also works since Replit maps to port 5000, but reading PORT is more portable.
+- Production run container starts with NO node_modules — only workspace files are present.
+- `npm install --omit=dev` (no `--prefer-offline`) MUST run in `scripts/start-prod.sh` before `node dist/index.js`.
+- `npm install` (full) must also run in the build step so the TypeScript/Vite build succeeds.
+- Port must be `parseInt(process.env.PORT || "5000", 10)`.
 
-**Why:** esbuild uses `--packages=external`, so ALL npm packages are bare runtime imports in dist/index.js. Without node_modules in the production container, every `import` fails with ERR_MODULE_NOT_FOUND.
+**Why:** esbuild uses `--packages=external` — all npm packages are bare runtime imports in dist/index.js. Without node_modules in the run container every import fails with ERR_MODULE_NOT_FOUND.
 
-**How to apply:**
-```toml
-[deployment]
-deploymentTarget = "autoscale"
-build = ["bash", "-c", "npm install && npm run build"]
-run   = ["bash", "-c", "npm install --omit=dev && npm run start"]
+**Critical: do NOT use `--prefer-offline`** — the run container's npm cache is empty; `--prefer-offline` causes npm to fall back to lockfile `resolved` URLs. This project's lockfile contains 28 dev packages with `package-firewall.replit.local` URLs (Replit Socket Security proxy, unreachable outside dev). With `--omit=dev` those 28 are skipped cleanly. Without `--prefer-offline` npm fetches production packages straight from registry.npmjs.org (all prod packages use real registry URLs — 0 firewall URLs in prod deps).
+
+**Correct scripts/start-prod.sh run sequence:**
+```bash
+npm install --omit=dev        # install prod deps from real registry
+exec node dist/index.js       # start server
 ```
 
-## Port timeout caveat
-Replit's health check times out after ~44 seconds waiting for the port. `npm install --omit=dev` can take 40+ seconds on a cold container, potentially causing a port timeout. If this happens, move `npm install --omit=dev` to the build step and keep run as just `npm run start`.
+**Correct .replit:**
+```toml
+build = ["bash", "-c", "npm install && npm run build"]
+run   = ["bash", "-c", "bash scripts/start-prod.sh"]
+```
