@@ -5,6 +5,7 @@ export type FavoriteProperty = {
   title: string;
   price: number;
   type: string;
+  location?: string;
 };
 
 const FAVORITES_KEY = "favorites";

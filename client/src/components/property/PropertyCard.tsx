@@ -139,7 +139,7 @@ const PropertyCard = ({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            toggleFavorite({ id, title, price, type: propertyType });
+            toggleFavorite({ id, title, price, type: propertyType, location });
           }}
           className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md"
           aria-label={favorited ? t('favorites.remove', 'Remove from favorites') : t('favorites.add', 'Add to favorites')}

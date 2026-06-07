@@ -114,7 +114,7 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            toggleFavorite({ id: project.propertyId, title: propertyData.title, price: propertyData.price, type: (propertyData as any).propertyType || 'project' });
+            toggleFavorite({ id: project.propertyId, title: propertyData.title, price: propertyData.price, type: (propertyData as any).propertyType || 'project', location: (propertyData as any).location || '' });
           }}
           className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all shadow-md"
         >
