@@ -40,6 +40,7 @@ export function getAlertStatus(): AlertStatus {
 // ── Graph API ─────────────────────────────────────────────────────────────────
 async function fetchLeadFromGraph(leadgenId: string): Promise<any> {
   const accessToken = process.env.META_ACCESS_TOKEN;
+  console.log(`[MetaLeads] META_ACCESS_TOKEN present: ${!!accessToken} | token length: ${accessToken?.length ?? 0}`);
   if (!accessToken) throw new Error("META_ACCESS_TOKEN is not configured");
 
   const fields = [
