@@ -43,7 +43,7 @@ import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./w
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 
 // Configure multer for file uploads - memory storage for Cloudinary
 const upload = multer({ 
@@ -4365,6 +4365,137 @@ ${metaTags}
         }).catch(() => {});
       }
     } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── CRM Bulk Operations ───────────────────────────────────────────────────
+
+  /** GET /api/admin/crm/leads/export-selected?ids=1,2,3 — xlsx of specific leads */
+  app.get("/api/admin/crm/leads/export-selected", isAuthenticated, async (req: any, res) => {
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const raw = (req.query.ids as string) ?? "";
+      const ids = raw.split(",").map(Number).filter(n => !isNaN(n) && n > 0);
+      if (ids.length === 0) return res.status(400).json({ message: "No IDs provided" });
+      if (ids.length > 1000) return res.status(400).json({ message: "Too many IDs (max 1000)" });
+
+      const { users } = await import("../shared/schema");
+      const rows_data = await db
+        .select({
+          id: crmLeads.id,
+          fullName: crmLeads.fullName,
+          firstName: crmLeads.firstName,
+          lastName: crmLeads.lastName,
+          phone: crmLeads.phone,
+          email: crmLeads.email,
+          country: crmLeads.country,
+          leadSource: crmLeads.leadSource,
+          status: crmLeads.status,
+          assigneeName: users.username,
+          budget: crmLeads.budget,
+          projectInterest: crmLeads.projectInterest,
+          interestedCountry: crmLeads.interestedCountry,
+          city: crmLeads.city,
+          expectedPurchaseMonth: crmLeads.expectedPurchaseMonth,
+          description: crmLeads.description,
+          notes: crmLeads.notes,
+          lastContactedAt: crmLeads.lastContactedAt,
+          createdAt: crmLeads.createdAt,
+          updatedAt: crmLeads.updatedAt,
+        })
+        .from(crmLeads)
+        .leftJoin(users, eq(crmLeads.assignedTo, users.id))
+        .where(inArray(crmLeads.id, ids));
+
+      const XLSX = await import("xlsx");
+      const rows = rows_data.map((l: any) => ({
+        "ID":                     l.id,
+        "Full Name":              l.fullName ?? "",
+        "First Name":             l.firstName ?? "",
+        "Last Name":              l.lastName ?? "",
+        "Phone":                  l.phone ?? "",
+        "Email":                  l.email ?? "",
+        "Country":                l.country ?? "",
+        "Source":                 l.leadSource ?? "",
+        "Status":                 l.status ?? "",
+        "Assigned Agent":         l.assigneeName ?? "",
+        "Budget":                 l.budget ?? "",
+        "Project Interest":       l.projectInterest ?? "",
+        "Interested Country":     l.interestedCountry ?? "",
+        "City":                   l.city ?? "",
+        "Expected Purchase Month": l.expectedPurchaseMonth ?? "",
+        "Description":            l.description ?? "",
+        "Notes":                  l.notes ?? "",
+        "Last Contacted":         l.lastContactedAt ? new Date(l.lastContactedAt).toISOString() : "",
+        "Created At":             l.createdAt ? new Date(l.createdAt).toISOString() : "",
+        "Updated At":             l.updatedAt ? new Date(l.updatedAt).toISOString() : "",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Leads");
+      const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const date = new Date().toISOString().slice(0, 10);
+      res.setHeader("Content-Disposition", `attachment; filename="crm-selected-${date}.xlsx"`);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.send(buf);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads/bulk-update — bulk status or agent assignment */
+  app.post("/api/admin/crm/leads/bulk-update", isAuthenticated, async (req: any, res) => {
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { ids, status, assignedTo } = req.body as {
+        ids: number[];
+        status?: string;
+        assignedTo?: number | null;
+      };
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: "ids array required" });
+      if (ids.length > 1000) return res.status(400).json({ message: "Too many IDs (max 1000)" });
+      if (!status && assignedTo === undefined) return res.status(400).json({ message: "Provide status or assignedTo" });
+
+      // Sub-agents may not reassign leads
+      if (!req.session.isAdmin && assignedTo !== undefined) {
+        return res.status(403).json({ message: "Sub-agents cannot reassign leads" });
+      }
+
+      // Validate assignee if provided
+      if (req.session.isAdmin && assignedTo != null) {
+        const { users } = await import("../shared/schema");
+        const [target] = await db
+          .select({ id: users.id, isAdmin: users.isAdmin, role: users.role })
+          .from(users)
+          .where(eq(users.id, Number(assignedTo)));
+        if (!target || (!target.isAdmin && target.role !== "sub_agent")) {
+          return res.status(400).json({ message: "Leads can only be assigned to admin or sub_agent users" });
+        }
+      }
+
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      if (status)              updateData.status     = status;
+      if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+
+      await db.update(crmLeads).set(updateData).where(inArray(crmLeads.id, ids));
+      res.json({ updated: ids.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads/bulk-delete — admin only */
+  app.post("/api/admin/crm/leads/bulk-delete", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const { ids } = req.body as { ids: number[] };
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: "ids array required" });
+      if (ids.length > 1000) return res.status(400).json({ message: "Too many IDs (max 1000)" });
+      await db.delete(crmLeads).where(inArray(crmLeads.id, ids));
+      res.json({ deleted: ids.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   /** GET /api/admin/crm/leads/:id — lead detail with notes + assignee */

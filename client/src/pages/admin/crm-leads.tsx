@@ -187,6 +187,14 @@ export default function CrmLeadsPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importResultOpen, setImportResultOpen] = useState(false);
 
+  // ── Bulk selection state ───────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkActionPending, setBulkActionPending] = useState(false);
+  const [bulkAssignTarget, setBulkAssignTarget] = useState<string>("__unassign__");
+
   // Non-hook computations (safe before hooks)
   const isSubAgent = user?.role === "sub_agent";
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
@@ -218,6 +226,10 @@ export default function CrmLeadsPage() {
   const leads = pageData?.leads ?? [];
   const total = pageData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // ── Selection computed values ──────────────────────────────────────────────
+  const allVisibleSelected = leads.length > 0 && leads.every(l => selectedIds.has(l.id));
+  const someVisibleSelected = leads.some(l => selectedIds.has(l.id));
 
   const { data: projects = [] } = useQuery<CrmProject[]>({
     queryKey: ["/api/admin/crm/projects"],
@@ -324,6 +336,78 @@ export default function CrmLeadsPage() {
     } else {
       setFormErrors(e => ({ ...e, email: undefined }));
     }
+  }
+
+  // ── Bulk selection handlers ────────────────────────────────────────────────
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allVisibleSelected) {
+      setSelectedIds(prev => { const n = new Set(prev); leads.forEach(l => n.delete(l.id)); return n; });
+    } else {
+      setSelectedIds(prev => { const n = new Set(prev); leads.forEach(l => n.add(l.id)); return n; });
+    }
+  }
+
+  function clearSelection() { setSelectedIds(new Set()); }
+
+  function handleExportSelected() {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    window.location.href = `/api/admin/crm/leads/export-selected?ids=${ids.join(",")}`;
+  }
+
+  async function handleBulkStatus(newStatus: string) {
+    setBulkActionPending(true);
+    try {
+      const r = await fetch("/api/admin/crm/leads/bulk-update", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds), status: newStatus }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      toast({ title: `${selectedIds.size} lead${selectedIds.size !== 1 ? "s" : ""} updated to "${STATUS_CONFIG[newStatus]?.label ?? newStatus}"` });
+      clearSelection(); setBulkStatusOpen(false);
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    finally { setBulkActionPending(false); }
+  }
+
+  async function handleBulkAssign() {
+    setBulkActionPending(true);
+    try {
+      const agentId = bulkAssignTarget === "__unassign__" ? null : Number(bulkAssignTarget);
+      const r = await fetch("/api/admin/crm/leads/bulk-update", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds), assignedTo: agentId }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      const agentName = agentId ? (subAgents.find(a => a.id === agentId)?.username ?? "agent") : "unassigned";
+      toast({ title: `${selectedIds.size} lead${selectedIds.size !== 1 ? "s" : ""} assigned to ${agentName}` });
+      clearSelection(); setBulkAssignOpen(false); setBulkAssignTarget("__unassign__");
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    finally { setBulkActionPending(false); }
+  }
+
+  async function handleBulkDelete() {
+    setBulkActionPending(true);
+    try {
+      const r = await fetch("/api/admin/crm/leads/bulk-delete", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      toast({ title: `${selectedIds.size} lead${selectedIds.size !== 1 ? "s" : ""} deleted` });
+      clearSelection(); setBulkDeleteOpen(false);
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    finally { setBulkActionPending(false); }
   }
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -885,6 +969,57 @@ export default function CrmLeadsPage() {
         </CardContent>
       </Card>
 
+      {/* Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-3 px-4 py-3 rounded-xl bg-[#005476] text-white shadow-md">
+          <span className="text-sm font-semibold shrink-0">
+            {selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <div className="flex flex-wrap gap-2 ml-auto items-center">
+            <button
+              onClick={toggleSelectAll}
+              className="text-xs px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors font-medium"
+            >
+              {allVisibleSelected ? "Deselect Page" : "Select Page"}
+            </button>
+            <button
+              onClick={clearSelection}
+              className="text-xs px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors font-medium"
+            >
+              Clear
+            </button>
+            <button
+              onClick={handleExportSelected}
+              className="text-xs px-3 py-1.5 rounded-lg bg-[#3bcac4] hover:bg-[#2db0aa] text-[#005476] font-semibold transition-colors flex items-center gap-1"
+            >
+              <Download className="h-3.5 w-3.5" /> Export
+            </button>
+            <button
+              onClick={() => setBulkStatusOpen(true)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors font-medium"
+            >
+              Change Status
+            </button>
+            {user?.isAdmin && (
+              <button
+                onClick={() => setBulkAssignOpen(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors font-medium"
+              >
+                Assign Agent
+              </button>
+            )}
+            {user?.isAdmin && (
+              <button
+                onClick={() => setBulkDeleteOpen(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 transition-colors font-semibold flex items-center gap-1"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <Card className="border-0 shadow-sm">
         <CardContent className="p-0">
@@ -903,6 +1038,16 @@ export default function CrmLeadsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50/60">
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        ref={el => { if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected; }}
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 cursor-pointer accent-[#005476] rounded"
+                        aria-label="Select all visible leads"
+                      />
+                    </th>
                     {["Lead", "Contact", "Source", "Project / Country", "Budget", "Status", "Score", "Assigned", "Added", ""].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
                         {h}
@@ -925,14 +1070,22 @@ export default function CrmLeadsPage() {
                     return (
                     <tr
                       key={lead.id}
-                      className="border-b last:border-0 hover:bg-[#3bcac4]/5 cursor-pointer transition-colors"
+                      className={`border-b last:border-0 hover:bg-[#3bcac4]/5 cursor-pointer transition-colors ${selectedIds.has(lead.id) ? "bg-[#3bcac4]/10" : ""}`}
                       onClick={(e) => {
-                        // If the click originated inside an <a>, let the <a> handle it
-                        // (covers right-click → open in new tab, Ctrl+click, middle-click).
                         if ((e.target as HTMLElement).closest("a")) return;
+                        if ((e.target as HTMLElement).closest("[data-bulk-check]")) return;
                         navigate(leadHref);
                       }}
                     >
+                      <td className="px-4 py-3 w-10" data-bulk-check onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(lead.id)}
+                          onChange={() => toggleSelect(lead.id)}
+                          className="h-4 w-4 cursor-pointer accent-[#005476] rounded"
+                          aria-label={`Select ${lead.fullName ?? lead.firstName ?? "lead"}`}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         {/* Real anchor so the browser exposes its full link menu
                             (right-click → Open in New Tab, Ctrl+click, middle-click).
@@ -1062,6 +1215,100 @@ export default function CrmLeadsPage() {
           {total.toLocaleString()} lead{total !== 1 ? "s" : ""}
         </p>
       )}
+
+      {/* Bulk Status Modal */}
+      <Dialog open={bulkStatusOpen} onOpenChange={v => { if (!bulkActionPending) setBulkStatusOpen(v); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[#005476]">Change Status</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-3">
+            Select a new status for <span className="font-semibold text-[#005476]">{selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""}</span>:
+          </p>
+          <div className="max-h-72 overflow-y-auto rounded-lg border divide-y">
+            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+              <button
+                key={key}
+                disabled={bulkActionPending}
+                onClick={() => handleBulkStatus(key)}
+                className="w-full text-left px-4 py-2.5 hover:bg-[#3bcac4]/10 transition-colors flex items-center justify-between disabled:opacity-50"
+              >
+                <StatusBadge status={key} />
+                {bulkActionPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-[#3bcac4]" />}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button variant="outline" size="sm" onClick={() => setBulkStatusOpen(false)} disabled={bulkActionPending}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Modal */}
+      <Dialog open={bulkAssignOpen} onOpenChange={v => { if (!bulkActionPending) setBulkAssignOpen(v); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[#005476]">Assign Agent</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-3">
+            Assign <span className="font-semibold text-[#005476]">{selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""}</span> to:
+          </p>
+          <Select value={bulkAssignTarget} onValueChange={setBulkAssignTarget}>
+            <SelectTrigger className="border-[#3bcac4]/50 focus:ring-[#3bcac4]">
+              <SelectValue placeholder="Select agent..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__unassign__">— Unassign —</SelectItem>
+              {subAgents.map(a => (
+                <SelectItem key={a.id} value={String(a.id)}>{a.username}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setBulkAssignOpen(false)} disabled={bulkActionPending}>Cancel</Button>
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+              onClick={handleBulkAssign}
+              disabled={bulkActionPending}
+            >
+              {bulkActionPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+              Assign
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={v => { if (!bulkActionPending) setBulkDeleteOpen(v); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="h-5 w-5" /> Delete Leads
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-1">
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              You are about to permanently delete{" "}
+              <span className="font-bold">{selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""}</span>.
+              This action <span className="font-bold">cannot be undone</span>.
+            </div>
+            <p className="text-sm text-muted-foreground">All associated notes and tasks for these leads will also be removed.</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" size="sm" onClick={() => setBulkDeleteOpen(false)} disabled={bulkActionPending}>Cancel</Button>
+              <Button
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleBulkDelete}
+                disabled={bulkActionPending}
+              >
+                {bulkActionPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+                Delete {selectedIds.size} Lead{selectedIds.size !== 1 ? "s" : ""}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Import Result Modal */}
       <Dialog open={importResultOpen} onOpenChange={setImportResultOpen}>

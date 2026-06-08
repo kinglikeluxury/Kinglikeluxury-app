@@ -1,0 +1,104 @@
+Build bulk lead selection functionality in Kinglike CRM.
+
+STRICT RULES:
+- Do NOT modify authentication.
+- Do NOT modify permissions system except using existing admin/sub-agent permissions.
+- Do NOT modify Meta leads integration.
+- Do NOT modify database schema unless absolutely required.
+- Do NOT deploy automatically.
+
+Goal:
+Add a selectable checkbox column before each lead row in Kinglike CRM.
+
+Requirements:
+
+1. Lead Selection Checkbox
+- Add a checkbox at the far left of every lead row.
+- Admin and Sub-Agent users can use it.
+- Normal users cannot access CRM.
+
+2. Select All
+- Add a master checkbox in the table header.
+- Checking it selects all currently visible leads.
+- Unchecking it deselects all visible leads.
+
+3. Bulk Action Bar
+When one or more leads are selected, display a bulk action toolbar.
+
+Show:
+- Selected count
+- Select All
+- Clear Selection
+
+4. Bulk Actions
+Create the framework for:
+
+- Export Selected Leads
+- Mark Status
+- Assign Agent
+- Delete Selected (ADMIN ONLY)
+
+Delete must require:
+- Confirmation modal
+- Show number of selected leads
+- Prevent accidental deletion
+
+5. Status Actions
+Allow bulk status update:
+
+- New
+- Contacted
+- Follow Up
+- Qualified
+- Converted
+- Closed
+- Lost
+
+6. Bulk Assign Agent
+Allow admin to assign selected leads to an agent.
+
+7. Export Selected
+Export only selected leads to Excel.
+
+8. Mobile Compatibility
+Checkboxes and bulk action toolbar must work correctly on mobile and desktop.
+
+9. UI
+Use existing Kinglike CRM design.
+Do not change current layout.
+Simply add:
+
+[☑] Lead Name
+
+instead of
+
+Lead Name
+
+10. Permissions
+
+Admin:
+- Select leads
+- Export selected
+- Change status
+- Assign agents
+- Delete selected
+
+Sub-Agent:
+- Select leads
+- Export selected
+- Change status
+- Only assign leads if existing permissions already allow it
+- Cannot delete leads
+
+11. Validation
+Verify:
+
+- Single lead selection works
+- Multi-select works
+- Select all works
+- Mobile works
+- Export selected works
+- Existing CRM functions remain unchanged
+
+Do not deploy automatically.
+Show a summary of changed files after implementation.
