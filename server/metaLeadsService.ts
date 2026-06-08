@@ -53,21 +53,33 @@ async function fetchLeadFromGraph(leadgenId: string): Promise<any> {
 
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
+      console.log(`[MetaLeads] Graph API → HTTP ${res.statusCode} for leadgen_id=${leadgenId}`);
       let raw = "";
       res.on("data", (chunk) => (raw += chunk));
       res.on("end", () => {
         try {
           const parsed = JSON.parse(raw);
           if (parsed.error) {
-            reject(new Error(`Meta Graph API: ${parsed.error.message} (code ${parsed.error.code})`));
+            const errMsg = `Meta Graph API: ${parsed.error.message} (code ${parsed.error.code})`;
+            console.warn(`[MetaLeads] Graph API error for leadgen_id=${leadgenId} — ${errMsg}`);
+            reject(new Error(errMsg));
           } else {
+            const fieldKeys = (parsed.field_data || []).map((f: any) => f.name);
+            console.log(
+              `[MetaLeads] Graph API success for leadgen_id=${leadgenId} — field_data keys: [${fieldKeys.join(", ")}]`
+            );
             resolve(parsed);
           }
         } catch {
-          reject(new Error(`Graph API response parse error: ${raw.substring(0, 200)}`));
+          const parseErr = `Graph API response parse error: ${raw.substring(0, 200)}`;
+          console.error(`[MetaLeads] ${parseErr}`);
+          reject(new Error(parseErr));
         }
       });
-    }).on("error", reject);
+    }).on("error", (err) => {
+      console.error(`[MetaLeads] Graph API network error for leadgen_id=${leadgenId} — ${err.message}`);
+      reject(err);
+    });
   });
 }
 

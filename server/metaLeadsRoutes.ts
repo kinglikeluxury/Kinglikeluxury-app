@@ -1,10 +1,27 @@
 import crypto from "crypto";
+import https from "https";
 import type { Express } from "express";
 import { db } from "./db";
 import { leadImportQueue, leadImportAuditLog } from "@shared/schema";
 import { eq, desc, asc, and, lte, count } from "drizzle-orm";
 import { recordLeadReceived, getAlertStatus } from "./metaLeadsService";
 import { storage } from "./storage";
+
+const META_GRAPH_VERSION = "v19.0";
+const META_GRAPH_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
+
+function graphGet(path: string): Promise<{ status: number; data: any }> {
+  return new Promise((resolve) => {
+    https.get(`${META_GRAPH_BASE}${path}`, (r) => {
+      let raw = "";
+      r.on("data", (c) => (raw += c));
+      r.on("end", () => {
+        try { resolve({ status: r.statusCode ?? 0, data: JSON.parse(raw) }); }
+        catch { resolve({ status: r.statusCode ?? 0, data: { error: { message: raw.slice(0, 200) } } }); }
+      });
+    }).on("error", (e) => resolve({ status: 0, data: { error: { message: e.message } } }));
+  });
+}
 
 // ── Signature verification ────────────────────────────────────────────────────
 function verifyMetaSignature(rawBody: Buffer, signature: string): boolean {
@@ -81,14 +98,27 @@ export function registerMetaLeadsRoutes(app: Express): void {
       try {
         const payload = JSON.parse(rawBody.toString("utf8"));
 
+        console.log(`[MetaLeads] ▶ Webhook received — entries: ${(payload.entry || []).length}`);
+
         for (const entry of payload.entry || []) {
           for (const change of entry.changes || []) {
+            // Log every change field we see (safe — no secrets)
+            console.log(`[MetaLeads] ▷ change.field="${change.field}" page_id="${entry.id || "?"}"`);
+
             if (change.field !== "leadgen") continue;
 
             const { leadgen_id, form_id, page_id, ad_id, adgroup_id, campaign_id } =
               change.value || {};
 
-            if (!leadgen_id) continue;
+            // Safe diagnostic log — IDs only, no personal data
+            console.log(
+              `[MetaLeads] leadgen event — leadgen_id=${leadgen_id ?? "missing"} | form_id=${form_id ?? "—"} | page_id=${page_id ?? "—"} | ad_id=${ad_id ?? "—"} | META_ACCESS_TOKEN present: ${!!process.env.META_ACCESS_TOKEN}`
+            );
+
+            if (!leadgen_id) {
+              console.warn("[MetaLeads] ✗ Skipping: leadgen_id is missing in payload");
+              continue;
+            }
 
             recordLeadReceived();
 
@@ -100,7 +130,7 @@ export function registerMetaLeadsRoutes(app: Express): void {
               .limit(1);
 
             if (existing.length > 0) {
-              console.log(`[MetaLeads] Duplicate lead ignored: ${leadgen_id}`);
+              console.log(`[MetaLeads] ⚠ Duplicate — leadgen_id=${leadgen_id} already in queue (queueId=${existing[0].id}). Skipping.`);
               await db.insert(leadImportAuditLog).values({
                 queueEntryId: existing[0].id,
                 metaLeadId: leadgen_id,
@@ -204,6 +234,63 @@ export function registerMetaLeadsRoutes(app: Express): void {
       .offset(offset);
 
     return res.json({ duplicates, page, limit });
+  });
+
+  // ── Admin: token diagnostic — calls Meta Graph API, never exposes token value ──
+  app.post("/api/admin/meta-leads/token-test", async (req: any, res: any) => {
+    if (!(await requireAdmin(req, res))) return;
+
+    const token = process.env.META_ACCESS_TOKEN;
+    if (!token) {
+      return res.json({
+        tokenPresent: false,
+        tokenValid: false,
+        error: "META_ACCESS_TOKEN is not configured",
+      });
+    }
+
+    const esc = encodeURIComponent(token);
+
+    // Step 1 — basic token validity
+    const meRes = await graphGet(`/me?access_token=${esc}&fields=id,name`);
+    if (meRes.data?.error) {
+      return res.json({
+        tokenPresent: true,
+        tokenValid: false,
+        httpStatus: meRes.status,
+        error: meRes.data.error.message,
+        errorCode: meRes.data.error.code,
+        errorType: meRes.data.error.type,
+      });
+    }
+
+    // Step 2 — permissions granted to this token
+    const permsRes = await graphGet(`/me/permissions?access_token=${esc}`);
+    const permissions: string[] = (permsRes.data?.data || [])
+      .filter((p: any) => p.status === "granted")
+      .map((p: any) => p.permission as string);
+
+    // Step 3 — pages accessible (name + id only, no tokens)
+    const pagesRes = await graphGet(`/me/accounts?access_token=${esc}&fields=id,name,tasks`);
+    const pages = (pagesRes.data?.data || []).slice(0, 10).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      tasks: p.tasks || [],
+    }));
+
+    return res.json({
+      tokenPresent: true,
+      tokenValid: true,
+      identity: {
+        id:   meRes.data?.id   ?? "—",
+        name: meRes.data?.name ?? "—",
+      },
+      permissions,
+      hasLeadsRetrieval:       permissions.includes("leads_retrieval"),
+      hasPagesReadEngagement:  permissions.includes("pages_read_engagement"),
+      hasAdsManagement:        permissions.includes("ads_management"),
+      pages,
+    });
   });
 
   // ── Admin: credential config status (boolean only — no values) ──────────

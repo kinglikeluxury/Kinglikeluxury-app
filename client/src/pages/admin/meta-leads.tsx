@@ -316,6 +316,185 @@ function DiagnosticDetailDialog({
   );
 }
 
+// ── Token test box ────────────────────────────────────────────────────────────
+interface TokenTestResult {
+  tokenPresent: boolean;
+  tokenValid: boolean;
+  error?: string;
+  errorCode?: number;
+  errorType?: string;
+  httpStatus?: number;
+  identity?: { id: string; name: string };
+  permissions?: string[];
+  hasLeadsRetrieval?: boolean;
+  hasPagesReadEngagement?: boolean;
+  hasAdsManagement?: boolean;
+  pages?: { id: string; name: string; tasks: string[] }[];
+}
+
+function TokenTestBox() {
+  const [result, setResult] = useState<TokenTestResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function runTest() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const r = await fetch("/api/admin/meta-leads/token-test", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await r.json();
+      setResult(data);
+    } catch (e: any) {
+      setResult({ tokenPresent: false, tokenValid: false, error: e.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const ok   = <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />;
+  const fail = <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />;
+  const warn = <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />;
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-[#005476]" />
+          <span className="text-sm font-semibold text-[#005476]">Test Meta Token</span>
+          <span className="text-xs text-gray-400 ml-1">(token value is never returned)</span>
+        </div>
+        <Button
+          size="sm"
+          onClick={runTest}
+          disabled={loading}
+          className="h-7 px-3 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white"
+        >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Activity className="h-3.5 w-3.5 mr-1.5" />}
+          {loading ? "Testing…" : "Run Test"}
+        </Button>
+      </div>
+
+      {!result && !loading && (
+        <p className="text-xs text-gray-400 px-4 py-4 text-center">
+          Click <span className="font-semibold">Run Test</span> to verify your Meta access token, permissions, and connected Pages.
+        </p>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 gap-2 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin text-[#3bcac4]" />
+          Calling Meta Graph API…
+        </div>
+      )}
+
+      {result && (
+        <div className="p-4 space-y-3">
+
+          {/* Token validity */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Token</p>
+            <div className="flex items-center gap-2 text-xs">
+              {result.tokenPresent ? ok : fail}
+              <span className="text-gray-700">
+                META_ACCESS_TOKEN: {result.tokenPresent ? "present" : <span className="text-red-600 font-semibold">missing</span>}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              {result.tokenValid ? ok : fail}
+              <span className="text-gray-700">
+                Token valid: {result.tokenValid
+                  ? <span className="text-emerald-600 font-semibold">yes — authenticated as "{result.identity?.name}" (id: {result.identity?.id})</span>
+                  : <span className="text-red-600 font-semibold">no</span>}
+              </span>
+            </div>
+            {result.error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 font-mono">
+                {result.errorCode && <span className="font-bold">Code {result.errorCode}: </span>}
+                {result.error}
+                {result.errorType && <span className="text-red-400 ml-2">({result.errorType})</span>}
+              </div>
+            )}
+          </div>
+
+          {result.tokenValid && result.permissions !== undefined && (
+            <>
+              {/* Key permissions */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Required Permissions</p>
+                {(
+                  [
+                    { key: "leads_retrieval",        label: "leads_retrieval",         has: result.hasLeadsRetrieval,      required: true },
+                    { key: "pages_read_engagement",  label: "pages_read_engagement",   has: result.hasPagesReadEngagement, required: true },
+                    { key: "ads_management",         label: "ads_management",          has: result.hasAdsManagement,       required: false },
+                  ] as { key: string; label: string; has?: boolean; required: boolean }[]
+                ).map(({ key, label, has, required }) => (
+                  <div key={key} className="flex items-center gap-2 text-xs">
+                    {has ? ok : required ? fail : warn}
+                    <span className={`font-mono ${has ? "text-gray-700" : required ? "text-red-600 font-semibold" : "text-amber-600"}`}>
+                      {label}
+                    </span>
+                    <span className="text-gray-400">
+                      {has ? "✓ granted" : required ? "✗ NOT granted (required)" : "not granted (optional)"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* All permissions */}
+              {(result.permissions?.length ?? 0) > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">All Granted Permissions</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {result.permissions!.map(p => (
+                      <span key={p} className="text-xs font-mono bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30 px-2 py-0.5 rounded-full">
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Connected pages */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Connected Facebook Pages ({result.pages?.length ?? 0})
+                </p>
+                {!result.pages?.length ? (
+                  <div className="flex items-center gap-2 text-xs">
+                    {warn}
+                    <span className="text-amber-700">No pages found. Token may be a User token without page access, or no pages are linked.</span>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border divide-y overflow-hidden">
+                    {result.pages!.map(p => (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50">
+                        <div>
+                          <span className="text-xs font-medium text-gray-800">{p.name}</span>
+                          <span className="text-xs text-gray-400 font-mono ml-2">id: {p.id}</span>
+                        </div>
+                        <div className="flex gap-1 flex-wrap justify-end">
+                          {p.tasks.length > 0
+                            ? p.tasks.map((t: string) => (
+                                <span key={t} className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">{t}</span>
+                              ))
+                            : <span className="text-xs text-gray-400">no tasks listed</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Diagnostics tab ───────────────────────────────────────────────────────────
 function DiagnosticsTab() {
   const [diagPage, setDiagPage] = useState(1);
@@ -340,6 +519,9 @@ function DiagnosticsTab() {
 
       {/* Credential status */}
       <ConfigStatusBox />
+
+      {/* Token test */}
+      <TokenTestBox />
 
       {/* Test lead note */}
       <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
