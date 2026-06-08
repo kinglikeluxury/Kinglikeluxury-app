@@ -91,12 +91,32 @@ export function registerMetaLeadsRoutes(app: Express): void {
     const token     = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    if (mode === "subscribe" && token === process.env.META_VERIFY_TOKEN) {
-      console.log("[MetaLeads] Webhook verified by Meta");
+    // Support all common Railway/env variable name variants
+    const ENV_NAMES = ["META_VERIFY_TOKEN", "VERIFY_TOKEN", "META_WEBHOOK_VERIFY_TOKEN"] as const;
+    let configuredToken: string | undefined;
+    let usedEnvName: string | undefined;
+    for (const name of ENV_NAMES) {
+      const val = process.env[name];
+      if (val) { configuredToken = val; usedEnvName = name; break; }
+    }
+
+    console.log(
+      `[MetaLeads][GET] hub.mode=${mode ?? "missing"} | hub.challenge=${challenge ? "present" : "missing"} | hub.verify_token=${token ? "present" : "missing"} | env_var_used=${usedEnvName ?? "NONE_SET"} | token_configured=${!!configuredToken}`
+    );
+
+    if (mode === "subscribe" && token && configuredToken && token === configuredToken) {
+      console.log(`[MetaLeads][GET] ✓ Verification succeeded — returning challenge`);
       return res.status(200).send(challenge);
     }
-    console.warn("[MetaLeads] Webhook verification failed — token mismatch");
-    return res.status(403).json({ message: "Verification failed" });
+
+    const reason =
+      !configuredToken        ? "no verify token configured in env (checked META_VERIFY_TOKEN, VERIFY_TOKEN, META_WEBHOOK_VERIFY_TOKEN)" :
+      mode !== "subscribe"    ? `hub.mode="${mode}" is not "subscribe"` :
+      !token                  ? "hub.verify_token query param missing" :
+                                "hub.verify_token does not match configured token";
+
+    console.warn(`[MetaLeads][GET] ✗ Verification failed — ${reason}`);
+    return res.status(403).json({ message: "Verification failed", reason });
   });
 
   // ── Webhook: POST (receive lead events) ──────────────────────────────────
