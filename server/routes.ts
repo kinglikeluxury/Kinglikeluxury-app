@@ -15,7 +15,8 @@ import {
   insertProjectSchema,
   insertBlogPostSchema,
   PROPERTY_TYPES,
-  PROPERTY_STATUS
+  PROPERTY_STATUS,
+  crmLeads,
 } from "@shared/schema";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
@@ -4062,6 +4063,172 @@ ${metaTags}
         sendCrmWelcomeEmail({ fullName: lead.fullName, firstName: lead.firstName, email: lead.email }).catch(() => {});
       }
       res.status(201).json(lead);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── CRM Export / Import ────────────────────────────────────────────────────
+
+  /** GET /api/admin/crm/leads/export — download all leads as .xlsx (admin only) */
+  app.get("/api/admin/crm/leads/export", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const XLSX = await import("xlsx");
+      const { leads } = await storage.getCrmLeads({ limit: 100_000, offset: 0 });
+
+      const rows = leads.map((l: any) => ({
+        "ID":                   l.id,
+        "Full Name":            l.fullName            ?? "",
+        "First Name":           l.firstName           ?? "",
+        "Last Name":            l.lastName            ?? "",
+        "Phone":                l.phone               ?? "",
+        "Email":                l.email               ?? "",
+        "Country":              l.country             ?? "",
+        "Source":               l.leadSource          ?? "",
+        "Status":               l.status              ?? "",
+        "Assigned Agent":       l.assigneeName         ?? "",
+        "Budget":               l.budget              ?? "",
+        "Interest / Project":   l.projectInterest     ?? "",
+        "Interested Country":   l.interestedCountry   ?? "",
+        "City":                 l.city                ?? "",
+        "Expected Month":       l.expectedPurchaseMonth ?? "",
+        "Comment":              l.description         ?? "",
+        "Notes":                l.notes               ?? "",
+        "Last Contact":         l.lastContactAt  ? new Date(l.lastContactAt).toISOString()  : "",
+        "Created At":           l.createdAt      ? new Date(l.createdAt).toISOString()      : "",
+        "Updated At":           l.updatedAt      ? new Date(l.updatedAt).toISOString()      : "",
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, "CRM Leads");
+      const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="crm-leads-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+      res.send(buf);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads/import — upload xlsx and create new leads (admin only) */
+  const excelUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const validMime = [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+      ];
+      const validExt = /\.(xlsx|xls)$/i.test(file.originalname);
+      if (validMime.includes(file.mimetype) || validExt) {
+        cb(null, true);
+      } else {
+        cb(new Error("Only .xlsx and .xls files are allowed"));
+      }
+    },
+  });
+
+  app.post("/api/admin/crm/leads/import", isAuthenticated, excelUpload.single("file"), async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!req.file)            return res.status(400).json({ message: "No file uploaded" });
+
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(req.file.buffer, { type: "buffer" });
+      if (!wb.SheetNames.length) return res.status(400).json({ message: "Empty workbook" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, "");
+
+      function pick(row: Record<string, any>, ...candidates: string[]): string {
+        for (const key of Object.keys(row)) {
+          const nk = norm(key);
+          if (candidates.some(c => nk === norm(c))) {
+            const v = String(row[key] ?? "").trim();
+            if (v) return v;
+          }
+        }
+        return "";
+      }
+
+      let importedCount = 0, duplicates = 0, failed = 0;
+      const failedRows: { row: number; reason: string }[] = [];
+
+      for (let i = 0; i < rawRows.length; i++) {
+        const row   = rawRows[i];
+        const rowNum = i + 2;
+
+        const phone   = pick(row, "phone", "mobile", "whatsapp", "phone_number", "phonenumber");
+        const email   = pick(row, "email");
+
+        if (!phone && !email) {
+          failed++;
+          failedRows.push({ row: rowNum, reason: "Phone or email is required" });
+          continue;
+        }
+
+        try {
+          let isDuplicate = false;
+
+          if (phone) {
+            const [dup] = await db.select({ id: crmLeads.id }).from(crmLeads).where(eq(crmLeads.phone, phone)).limit(1);
+            if (dup) {
+              isDuplicate = true;
+              failedRows.push({ row: rowNum, reason: `Duplicate phone: ${phone}` });
+            }
+          }
+          if (!isDuplicate && email) {
+            const [dup] = await db.select({ id: crmLeads.id }).from(crmLeads).where(eq(crmLeads.email, email)).limit(1);
+            if (dup) {
+              isDuplicate = true;
+              failedRows.push({ row: rowNum, reason: `Duplicate email: ${email}` });
+            }
+          }
+          if (isDuplicate) { duplicates++; continue; }
+
+          const fullName   = pick(row, "name", "fullName", "full_name", "clientName", "client_name", "fullname", "clientname");
+          const firstName  = pick(row, "firstName", "first_name", "firstname");
+          const lastName   = pick(row, "lastName",  "last_name",  "lastname");
+          const country    = pick(row, "country");
+          const city       = pick(row, "city");
+          const interestedCountry  = pick(row, "interestedCountry", "interested_country", "interestedcountry");
+          const budget     = pick(row, "budget");
+          const projectInterest    = pick(row, "project", "projectInterest", "project_interest", "projectinterest", "interest");
+          const expectedPurchaseMonth = pick(row, "expectedMonth", "expected_month", "expectedmonth", "expectedpurchasemonth", "expected purchase month");
+          const notes      = pick(row, "comment", "notes", "description", "note");
+          const status     = pick(row, "status") || "new";
+          const leadSource = pick(row, "source", "lead_source", "leadsource") || "excel_import";
+
+          await storage.createCrmLead({
+            fullName:     fullName  || null,
+            firstName:    firstName || null,
+            lastName:     lastName  || null,
+            phone:        phone     || null,
+            email:        email     || null,
+            country:      country   || null,
+            city:         city      || null,
+            interestedCountry:       interestedCountry       || null,
+            budget:                  budget                  || null,
+            projectInterest:         projectInterest         || null,
+            expectedPurchaseMonth:   expectedPurchaseMonth   || null,
+            description:  null,
+            notes:        notes     || null,
+            leadSource,
+            leadScore:    "cold",
+            status,
+          });
+          importedCount++;
+        } catch (rowErr: any) {
+          failed++;
+          failedRows.push({ row: rowNum, reason: rowErr.message ?? "Unknown error" });
+        }
+      }
+
+      res.json({ total: rawRows.length, imported: importedCount, duplicates, failed, failedRows });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
