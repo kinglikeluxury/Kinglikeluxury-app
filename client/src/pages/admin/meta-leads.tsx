@@ -17,6 +17,7 @@ import {
   Activity, Users, ChevronLeft, ChevronRight,
   KeyRound, Terminal, ChevronDown, ChevronUp, Info,
   Stethoscope, Database, CheckCheck, Minus,
+  Zap, Radio, Globe,
 } from "lucide-react";
 import { SiMeta } from "react-icons/si";
 import type { LeadImportQueue, LeadImportAuditLog } from "@shared/schema";
@@ -316,6 +317,214 @@ function DiagnosticDetailDialog({
   );
 }
 
+// ── Webhook endpoint test box ─────────────────────────────────────────────────
+interface WebhookVerifyResult {
+  verifyTokenPresent: boolean;
+  reachable: boolean;
+  httpStatus?: number;
+  challengeMatch: boolean;
+  responseBody?: string;
+  callbackUrl: string;
+  note: string;
+  error?: string;
+}
+
+function WebhookTestBox() {
+  const [result, setResult] = useState<WebhookVerifyResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function runTest() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const r = await fetch("/api/admin/meta-leads/webhook-verify-test", {
+        method: "POST",
+        credentials: "include",
+      });
+      setResult(await r.json());
+    } catch (e: any) {
+      setResult({
+        verifyTokenPresent: false, reachable: false, challengeMatch: false,
+        callbackUrl: "https://www.kinglikeluxury.app/api/webhooks/meta-leads",
+        note: e.message, error: e.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const ok   = <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />;
+  const fail = <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />;
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-[#005476]" />
+          <span className="text-sm font-semibold text-[#005476]">Test Webhook Endpoint</span>
+          <span className="text-xs text-gray-400 ml-1">(calls production URL, no secrets returned)</span>
+        </div>
+        <Button
+          size="sm"
+          onClick={runTest}
+          disabled={loading}
+          className="h-7 px-3 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white"
+        >
+          {loading
+            ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Testing…</>
+            : <><Zap className="h-3.5 w-3.5 mr-1.5" />Run Test</>}
+        </Button>
+      </div>
+
+      {!result && !loading && (
+        <p className="text-xs text-gray-400 px-4 py-4 text-center">
+          Calls <span className="font-mono text-[#005476]">https://www.kinglikeluxury.app/api/webhooks/meta-leads</span> with hub.challenge=KINGLIKE_TEST_OK and checks whether the endpoint returns it correctly — exactly what Meta does.
+        </p>
+      )}
+      {loading && (
+        <div className="flex items-center justify-center py-6 gap-2 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin text-[#3bcac4]" /> Calling production endpoint…
+        </div>
+      )}
+
+      {result && (
+        <div className="p-4 space-y-2">
+          <div className="flex items-center gap-2 text-xs">
+            {result.verifyTokenPresent ? ok : fail}
+            <span className="text-gray-700">META_VERIFY_TOKEN: {result.verifyTokenPresent ? "present" : <span className="text-red-600 font-semibold">not set</span>}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            {result.reachable ? ok : fail}
+            <span className="text-gray-700">
+              Endpoint reachable: {result.reachable
+                ? <span className="text-emerald-600 font-semibold">yes — HTTP {result.httpStatus}</span>
+                : <span className="text-red-600 font-semibold">no — network error</span>}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            {result.challengeMatch ? ok : fail}
+            <span className="text-gray-700">
+              Challenge echo: {result.challengeMatch
+                ? <span className="text-emerald-600 font-semibold">KINGLIKE_TEST_OK returned ✓</span>
+                : <span className="text-red-600 font-semibold">mismatch — returned: "{result.responseBody}"</span>}
+            </span>
+          </div>
+          <div className={`mt-2 rounded-lg px-3 py-2 text-xs font-medium ${result.challengeMatch ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+            {result.note}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-1">
+            <Globe className="h-3 w-3" />
+            <span className="font-mono">{result.callbackUrl}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Webhook recent receipts box ───────────────────────────────────────────────
+interface WebhookReceipt {
+  ts: string;
+  hasSignature: boolean;
+  outcome: "verified" | "rejected_signature" | "missing_signature" | "missing_rawbody" | "processing_error";
+  bodyType?: string;
+  entryCount?: number;
+  changes?: Array<{ field: string; leadgenId?: string; formId?: string; pageId?: string }>;
+  error?: string;
+}
+
+const OUTCOME_CFG: Record<string, { label: string; color: string }> = {
+  verified:            { label: "Verified ✓",          color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  rejected_signature:  { label: "Bad Signature ✗",     color: "bg-red-50 text-red-700 border-red-200" },
+  missing_signature:   { label: "No Signature ✗",      color: "bg-amber-50 text-amber-700 border-amber-200" },
+  missing_rawbody:     { label: "No Raw Body ✗",       color: "bg-orange-50 text-orange-700 border-orange-200" },
+  processing_error:    { label: "Processing Error ✗",  color: "bg-red-50 text-red-700 border-red-200" },
+};
+
+function WebhookReceiptsBox() {
+  const { data, isLoading, refetch, dataUpdatedAt } = useQuery<{ receipts: WebhookReceipt[] }>({
+    queryKey: ["/api/admin/meta-leads/webhook-receipts"],
+    refetchInterval: 10_000,
+  });
+
+  const receipts = data?.receipts || [];
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <div className="flex items-center gap-2">
+          <Radio className="h-4 w-4 text-[#005476]" />
+          <span className="text-sm font-semibold text-[#005476]">Webhook Recent Receipts</span>
+          <span className="text-xs text-gray-400 ml-1">(last 20 POST hits, in-memory, auto-refreshes every 10s)</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => refetch()}
+          className="h-7 w-7 p-0 text-gray-400 hover:text-[#005476]"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 gap-2 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin text-[#3bcac4]" /> Loading…
+        </div>
+      ) : receipts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-gray-400 gap-2">
+          <Radio className="h-8 w-8 opacity-20" />
+          <p className="text-sm">No webhook POSTs received since last server restart</p>
+          <p className="text-xs text-gray-300">This log resets when the server restarts. If Meta is sending events, they appear here within seconds.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {receipts.map((r, i) => {
+            const cfg = OUTCOME_CFG[r.outcome] || { label: r.outcome, color: "bg-gray-50 text-gray-600 border-gray-200" };
+            return (
+              <div key={i} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${cfg.color}`}>
+                    {cfg.label}
+                  </span>
+                  <span className="text-xs text-gray-400 font-mono">
+                    {new Date(r.ts).toLocaleTimeString()} · {new Date(r.ts).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                  <span>signature: <span className={r.hasSignature ? "text-emerald-600 font-semibold" : "text-red-500 font-semibold"}>{r.hasSignature ? "present" : "absent"}</span></span>
+                  {r.bodyType    && <span>body: <span className="font-mono text-gray-700">{r.bodyType}</span></span>}
+                  {r.entryCount !== undefined && <span>entries: <span className="font-mono text-gray-700">{r.entryCount}</span></span>}
+                </div>
+                {r.changes && r.changes.length > 0 && (
+                  <div className="mt-1.5 space-y-0.5">
+                    {r.changes.map((c, j) => (
+                      <div key={j} className="text-xs font-mono text-gray-500 bg-gray-50 rounded px-2 py-0.5">
+                        field=<span className="text-[#005476] font-semibold">{c.field}</span>
+                        {c.leadgenId && <> · leadgen_id=<span className="text-gray-700">{c.leadgenId}</span></>}
+                        {c.formId    && <> · form_id=<span className="text-gray-700">{c.formId}</span></>}
+                        {c.pageId    && <> · page_id=<span className="text-gray-700">{c.pageId}</span></>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {r.error && (
+                  <div className="mt-1 text-xs text-red-500 font-mono bg-red-50 rounded px-2 py-0.5">{r.error}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {dataUpdatedAt > 0 && (
+        <div className="px-4 py-2 border-t text-xs text-gray-300 text-right">
+          Last checked: {new Date(dataUpdatedAt).toLocaleTimeString()}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Token test box ────────────────────────────────────────────────────────────
 interface TokenTestResult {
   tokenPresent: boolean;
@@ -520,7 +729,13 @@ function DiagnosticsTab() {
       {/* Credential status */}
       <ConfigStatusBox />
 
-      {/* Token test */}
+      {/* Webhook endpoint test */}
+      <WebhookTestBox />
+
+      {/* Webhook receipt log */}
+      <WebhookReceiptsBox />
+
+      {/* Meta token test */}
       <TokenTestBox />
 
       {/* Test lead note */}

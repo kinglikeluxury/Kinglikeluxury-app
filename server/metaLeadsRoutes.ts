@@ -23,6 +23,33 @@ function graphGet(path: string): Promise<{ status: number; data: any }> {
   });
 }
 
+function httpsGet(url: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve) => {
+    https.get(url, (r) => {
+      let body = "";
+      r.on("data", (c) => (body += c));
+      r.on("end", () => resolve({ status: r.statusCode ?? 0, body }));
+    }).on("error", (e) => resolve({ status: 0, body: String(e.message) }));
+  });
+}
+
+// ── In-memory webhook receipt log (last 20, never contains secrets or lead values) ──
+interface WebhookReceipt {
+  ts: string;
+  hasSignature: boolean;
+  outcome: "verified" | "rejected_signature" | "missing_signature" | "missing_rawbody" | "processing_error";
+  bodyType?: string;
+  entryCount?: number;
+  changes?: Array<{ field: string; leadgenId?: string; formId?: string; pageId?: string }>;
+  error?: string;
+}
+const webhookReceipts: WebhookReceipt[] = [];
+function pushReceipt(r: WebhookReceipt): WebhookReceipt {
+  webhookReceipts.unshift(r);
+  if (webhookReceipts.length > 20) webhookReceipts.pop();
+  return r;
+}
+
 // ── Signature verification ────────────────────────────────────────────────────
 function verifyMetaSignature(rawBody: Buffer, signature: string): boolean {
   const appSecret = process.env.META_APP_SECRET;
@@ -77,18 +104,34 @@ export function registerMetaLeadsRoutes(app: Express): void {
     const signature: string = req.headers["x-hub-signature-256"] as string || "";
     const rawBody: Buffer | undefined = req.rawBody;
 
+    // ── Record every POST attempt in the in-memory receipt log ──────────────
+    const receipt = pushReceipt({
+      ts:           new Date().toISOString(),
+      hasSignature: !!signature,
+      outcome:      "processing_error", // updated below at each exit
+    });
+
+    console.log(
+      `[MetaLeads][POST] Webhook hit — x-hub-signature-256 present: ${!!signature} | rawBody present: ${!!rawBody} | content-type: ${req.headers["content-type"] ?? "none"}`
+    );
+
     if (!rawBody) {
-      console.error("[MetaLeads] rawBody missing");
+      receipt.outcome = "missing_rawbody";
+      console.error("[MetaLeads][POST] ✗ rawBody missing — check express.json verify()");
       return res.status(400).json({ message: "No raw body" });
     }
     if (!signature) {
-      console.warn("[MetaLeads] Missing X-Hub-Signature-256");
+      receipt.outcome = "missing_signature";
+      console.warn("[MetaLeads][POST] ✗ X-Hub-Signature-256 header absent — request likely not from Meta");
       return res.status(400).json({ message: "Missing signature" });
     }
     if (!verifyMetaSignature(rawBody, signature)) {
-      console.warn("[MetaLeads] Invalid webhook signature — request rejected");
+      receipt.outcome = "rejected_signature";
+      console.warn("[MetaLeads][POST] ✗ Signature verification failed — META_APP_SECRET mismatch or payload tampered");
       return res.status(401).json({ message: "Invalid signature" });
     }
+
+    receipt.outcome = "verified";
 
     // Always respond 200 immediately so Meta doesn't retry
     res.status(200).json({ status: "ok" });
@@ -98,25 +141,37 @@ export function registerMetaLeadsRoutes(app: Express): void {
       try {
         const payload = JSON.parse(rawBody.toString("utf8"));
 
-        console.log(`[MetaLeads] ▶ Webhook received — entries: ${(payload.entry || []).length}`);
+        receipt.bodyType    = typeof payload;
+        receipt.entryCount  = (payload.entry || []).length;
+        receipt.changes     = [];
+
+        console.log(`[MetaLeads][POST] ▶ Verified — entries: ${receipt.entryCount} | bodyType: ${receipt.bodyType}`);
 
         for (const entry of payload.entry || []) {
           for (const change of entry.changes || []) {
-            // Log every change field we see (safe — no secrets)
-            console.log(`[MetaLeads] ▷ change.field="${change.field}" page_id="${entry.id || "?"}"`);
+            const cv = change.value || {};
+            const changeRecord = {
+              field:     String(change.field ?? ""),
+              leadgenId: cv.leadgen_id ?? undefined,
+              formId:    cv.form_id    ?? undefined,
+              pageId:    cv.page_id    ?? undefined,
+            };
+            receipt.changes.push(changeRecord);
+
+            console.log(
+              `[MetaLeads][POST] ▷ field="${change.field}" | leadgen_id=${cv.leadgen_id ?? "—"} | form_id=${cv.form_id ?? "—"} | page_id=${cv.page_id ?? "—"}`
+            );
 
             if (change.field !== "leadgen") continue;
 
-            const { leadgen_id, form_id, page_id, ad_id, adgroup_id, campaign_id } =
-              change.value || {};
+            const { leadgen_id, form_id, page_id, ad_id, adgroup_id, campaign_id } = cv;
 
-            // Safe diagnostic log — IDs only, no personal data
             console.log(
-              `[MetaLeads] leadgen event — leadgen_id=${leadgen_id ?? "missing"} | form_id=${form_id ?? "—"} | page_id=${page_id ?? "—"} | ad_id=${ad_id ?? "—"} | META_ACCESS_TOKEN present: ${!!process.env.META_ACCESS_TOKEN}`
+              `[MetaLeads][POST] leadgen event — leadgen_id=${leadgen_id ?? "missing"} | form_id=${form_id ?? "—"} | page_id=${page_id ?? "—"} | ad_id=${ad_id ?? "—"} | token_present=${!!process.env.META_ACCESS_TOKEN}`
             );
 
             if (!leadgen_id) {
-              console.warn("[MetaLeads] ✗ Skipping: leadgen_id is missing in payload");
+              console.warn("[MetaLeads][POST] ✗ Skipping: leadgen_id is missing in payload");
               continue;
             }
 
@@ -130,7 +185,7 @@ export function registerMetaLeadsRoutes(app: Express): void {
               .limit(1);
 
             if (existing.length > 0) {
-              console.log(`[MetaLeads] ⚠ Duplicate — leadgen_id=${leadgen_id} already in queue (queueId=${existing[0].id}). Skipping.`);
+              console.log(`[MetaLeads][POST] ⚠ Duplicate — leadgen_id=${leadgen_id} already queued (queueId=${existing[0].id})`);
               await db.insert(leadImportAuditLog).values({
                 queueEntryId: existing[0].id,
                 metaLeadId: leadgen_id,
@@ -159,11 +214,13 @@ export function registerMetaLeadsRoutes(app: Express): void {
               details: { pageId: page_id, formId: form_id, adId: ad_id },
             });
 
-            console.log(`[MetaLeads] Queued: metaLeadId=${leadgen_id} queueId=${queued.id}`);
+            console.log(`[MetaLeads][POST] ✓ Queued — metaLeadId=${leadgen_id} queueId=${queued.id}`);
           }
         }
       } catch (err) {
-        console.error("[MetaLeads] Webhook payload processing error:", err);
+        receipt.outcome = "processing_error";
+        receipt.error   = String(err).slice(0, 300);
+        console.error("[MetaLeads][POST] Payload processing error:", err);
       }
     })();
   });
@@ -300,6 +357,55 @@ export function registerMetaLeadsRoutes(app: Express): void {
       hasAppSecret:   !!process.env.META_APP_SECRET,
       hasAccessToken: !!process.env.META_ACCESS_TOKEN,
       hasVerifyToken: !!process.env.META_VERIFY_TOKEN,
+    });
+  });
+
+  // ── Admin: webhook receipt log (in-memory, last 20) ───────────────────────
+  app.get("/api/admin/meta-leads/webhook-receipts", async (req: any, res: any) => {
+    if (!(await requireAdmin(req, res))) return;
+    return res.json({ receipts: webhookReceipts });
+  });
+
+  // ── Admin: test webhook GET endpoint (challenge verification) ─────────────
+  // Calls the PRODUCTION callback URL so we know if Meta can actually reach it.
+  app.post("/api/admin/meta-leads/webhook-verify-test", async (req: any, res: any) => {
+    if (!(await requireAdmin(req, res))) return;
+
+    const verifyToken = process.env.META_VERIFY_TOKEN;
+    const callbackUrl = "https://www.kinglikeluxury.app/api/webhooks/meta-leads";
+    const challenge   = "KINGLIKE_TEST_OK";
+
+    if (!verifyToken) {
+      return res.json({
+        verifyTokenPresent: false,
+        reachable:          false,
+        challengeMatch:     false,
+        error:              "META_VERIFY_TOKEN is not configured",
+        callbackUrl,
+      });
+    }
+
+    const testUrl =
+      `${callbackUrl}?hub.mode=subscribe` +
+      `&hub.verify_token=${encodeURIComponent(verifyToken)}` +
+      `&hub.challenge=${encodeURIComponent(challenge)}`;
+
+    const result = await httpsGet(testUrl);
+    const responseBody = result.body.trim();
+    const challengeMatch = responseBody === challenge;
+
+    return res.json({
+      verifyTokenPresent: true,
+      reachable:          result.status !== 0,
+      httpStatus:         result.status,
+      challengeMatch,
+      responseBody:       responseBody.slice(0, 100), // safe — just the challenge text
+      callbackUrl,
+      note: challengeMatch
+        ? "✓ Endpoint reachable — challenge verification works correctly"
+        : result.status === 0
+          ? `✗ Network error — could not reach ${callbackUrl}`
+          : `✗ Expected "${challenge}", got HTTP ${result.status}: "${responseBody.slice(0, 60)}"`,
     });
   });
 
