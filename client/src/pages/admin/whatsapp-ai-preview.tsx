@@ -19,7 +19,7 @@ interface RecoveryExample { scenario: string; name: string; message: string }
 interface FlowStep        { step: number; topic: string; question: string }
 interface SimTurn         { sender: "ai" | "lead"; text: string }
 
-// ── AI Rules list ─────────────────────────────────────────────────────────────
+// ── Static data ────────────────────────────────────────────────────────────────
 
 const AI_RULES_FORBIDDEN = [
   "No legal advice",
@@ -124,6 +124,7 @@ function Bubble({ sender, text }: { sender: "ai" | "lead"; text: string }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function WhatsappAiPreviewPage() {
+  // ── ALL hooks must come first — no conditional returns before this block ──
   const { user, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
 
@@ -132,14 +133,7 @@ export default function WhatsappAiPreviewPage() {
   const [flowSteps, setFlowSteps]               = useState<FlowStep[]>([]);
   const [simTurns, setSimTurns]                 = useState<SimTurn[]>([]);
 
-  useEffect(() => {
-    if (!authLoading && !user?.isAdmin) navigate("/");
-  }, [authLoading, user, navigate]);
-
-  if (authLoading || !user?.isAdmin) return null;
-
-  // ── Mutations ──────────────────────────────────────────────────────────────
-
+  // All mutations declared unconditionally (Rules of Hooks)
   const openingMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/admin/whatsapp-ai/preview/opening", {}),
     onSuccess: (data: any) => setOpeningExamples(data.examples ?? []),
@@ -159,6 +153,36 @@ export default function WhatsappAiPreviewPage() {
     mutationFn: () => apiRequest("POST", "/api/admin/whatsapp-ai/preview/simulate", {}),
     onSuccess: (data: any) => setSimTurns(data.turns ?? []),
   });
+
+  useEffect(() => {
+    if (!authLoading && user !== undefined && !user?.isAdmin) {
+      navigate("/");
+    }
+  }, [authLoading, user, navigate]);
+
+  // ── Guard: show spinner while auth resolves ────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50/50">
+        <div className="flex flex-col items-center gap-3 text-[#005476]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#3bcac4]" />
+          <p className="text-sm font-medium">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Guard: not an admin ────────────────────────────────────────────────────
+  if (!user?.isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50/50">
+        <div className="text-center text-muted-foreground">
+          <ShieldCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Admin access required.</p>
+        </div>
+      </div>
+    );
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -195,7 +219,6 @@ export default function WhatsappAiPreviewPage() {
             budget are never asked in the first message.
           </p>
 
-          {/* Current template */}
           <div className="bg-[#005476]/4 border border-[#3bcac4]/25 rounded-xl p-4 mb-4 text-sm" dir="rtl">
             <p className="text-[10px] font-semibold text-[#005476] mb-2 text-left" dir="ltr">Current template (default fallback):</p>
             <p className="text-[#005476] whitespace-pre-wrap leading-relaxed">
@@ -213,6 +236,10 @@ export default function WhatsappAiPreviewPage() {
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating…</>
               : <><RefreshCw className="h-3.5 w-3.5" /> Generate 5 Examples</>}
           </Button>
+
+          {openingMutation.isError && (
+            <p className="text-xs text-red-500 mb-3">Failed to generate — check OpenAI key.</p>
+          )}
 
           {openingExamples.length > 0 && (
             <div className="space-y-4">
@@ -256,6 +283,10 @@ export default function WhatsappAiPreviewPage() {
               : <><RefreshCw className="h-3.5 w-3.5" /> Generate 5 Recovery Scenarios</>}
           </Button>
 
+          {recoveryMutation.isError && (
+            <p className="text-xs text-red-500 mb-3">Failed to generate — check OpenAI key.</p>
+          )}
+
           {recoveryExamples.length > 0 && (
             <div className="space-y-4">
               {recoveryExamples.map((ex, i) => (
@@ -288,7 +319,6 @@ export default function WhatsappAiPreviewPage() {
             Arabic questions for each step.
           </p>
 
-          {/* Static step list always visible */}
           <div className="grid grid-cols-1 gap-2 mb-4">
             {QUALIFICATION_STEPS.map(s => {
               const live = flowSteps.find(f => f.step === s.step);
@@ -323,6 +353,10 @@ export default function WhatsappAiPreviewPage() {
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating…</>
               : <><RefreshCw className="h-3.5 w-3.5" /> {flowSteps.length ? "Regenerate Sample Questions" : "Generate Sample Questions"}</>}
           </Button>
+
+          {flowMutation.isError && (
+            <p className="text-xs text-red-500 mt-3">Failed to generate — check OpenAI key.</p>
+          )}
         </Section>
 
         {/* ── Section 4: AI Rules ──────────────────────────────────────────── */}
@@ -389,6 +423,10 @@ export default function WhatsappAiPreviewPage() {
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating conversation…</>
               : <><Play className="h-3.5 w-3.5" /> {simTurns.length ? "Regenerate Conversation" : "Generate Simulated Conversation"}</>}
           </Button>
+
+          {simulateMutation.isError && (
+            <p className="text-xs text-red-500 mb-3">Failed to generate — check OpenAI key.</p>
+          )}
 
           {simTurns.length > 0 && (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 border border-[#3bcac4]/15 rounded-xl p-4 bg-white">
