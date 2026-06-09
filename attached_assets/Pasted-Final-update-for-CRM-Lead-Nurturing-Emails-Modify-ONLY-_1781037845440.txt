@@ -1,0 +1,134 @@
+Final update for CRM Lead Nurturing Emails.
+
+Modify ONLY the Email Nurturing System.
+
+Do NOT modify:
+
+- Auth
+- Payments
+- Meta Leads
+- WhatsApp AI
+- Developer Registration Center
+- CRM lead logic
+- Property pages
+- Blog/SEO
+- Database schema unless strictly required for email template fields
+
+Required updates:
+
+1. WhatsApp CTA Button
+
+All email CTA buttons should open WhatsApp directly.
+
+Use this WhatsApp link:
+
+https://wa.me/995591000058?text=Hello%20Kinglike%20Luxury%2C%20I%20would%20like%20to%20know%20more%20about%20real%20estate%20investment.
+
+Button text in Arabic:
+
+تواصل معنا عبر واتساب
+
+2. Add attractive hero image to Email #1
+
+Add a professional hero image at the top of the first welcome email.
+
+Image style:
+
+- luxury real estate investment
+- Georgia / Batumi / Tbilisi feeling
+- clean and premium
+- no heavy text on image
+- use Kinglike Luxury brand colors if possible: turquoise #3bcac4 and dark blue #005476
+- responsive email-safe image
+- full width on mobile
+- rounded corners if supported
+
+If there is no existing image asset, use a safe hosted image placeholder setting that admin can later replace from Email Settings.
+
+Do not break the email if image is missing.
+
+3. Improve Email #1 Arabic content
+
+Replace the current welcome email content with this:
+
+Subject:
+أهلاً بك في Kinglike Luxury 🏡
+
+Body:
+
+أهلاً {{firstName}} 👋
+
+شكراً لتواصلك مع Kinglike Luxury — يسعدنا اهتمامك بالاستثمار العقاري في جورجيا.
+
+في Kinglike Luxury نساعد المستثمرين العرب على اختيار الفرص العقارية المناسبة بطريقة واضحة وآمنة، من خلال خدمات استشارية مجانية ومتابعة احترافية قبل الشراء وبعده.
+
+ما الذي تحصل عليه عند التعامل معنا؟
+
+• لا تدفع لنا أي عمولة إضافية عند الشراء.
+• نساعدك على مقارنة المشاريع المناسبة حسب ميزانيتك وهدفك.
+• نوضح لك خطوات الشراء الأساسية قبل اتخاذ القرار.
+• نساعدك على مراجعة وفهم البنود الأساسية قبل التوقيع، ويمكننا التنسيق مع مختصين قانونيين عند الحاجة.
+• نتابع معك تحديثات المشروع ومراحل البناء عند توفرها.
+• نساعدك في خدمات التأجير وإدارة العقار.
+• ندعمك في إعادة البيع مستقبلاً عند الحاجة.
+• يحصل عملاؤنا على متابعة VIP قبل وبعد الشراء.
+
+هدفنا أن تتخذ قرارك بثقة ووضوح، بعيداً عن الضغط أو المعلومات غير الدقيقة.
+
+اضغط على الزر أدناه للتواصل معنا مباشرة عبر واتساب.
+
+CTA:
+تواصل معنا عبر واتساب
+
+4. Keep legal language safe
+
+Do NOT use:
+
+- نضمن
+- عائد مضمون
+- ربح مضمون
+- تدقيق قانوني كامل
+- نضمن سلامة العقد
+- استثمار بدون مخاطر
+
+Use only safe wording:
+نساعدك على مراجعة وفهم البنود الأساسية قبل التوقيع، ويمكننا التنسيق مع مختصين قانونيين عند الحاجة.
+
+5. Email design improvements
+
+Make the welcome email:
+
+- mobile friendly
+- readable font size
+- proper spacing
+- clear bullet points
+- brand colors #3bcac4 and #005476
+- CTA button clearly visible
+- footer with:
+  Kinglike Luxury
+  Invest with Vision
+  info@kinglikeluxury.app
+
+6. Email Preview
+
+Update the email preview modal so admin can clearly see:
+
+- hero image
+- subject
+- recipient
+- sent date
+- CTA link
+- full email body
+
+7. Validation
+
+After changes:
+
+- Create a test lead with email.
+- Verify welcome email is generated.
+- Verify hero image appears.
+- Verify CTA opens:
+  https://wa.me/995591000058
+- Verify no Azerbaijan mention exists anywhere in templates.
+- Verify sender/contact email is info@kinglikeluxury.app.
+- Verify no unrelated systems were changed.

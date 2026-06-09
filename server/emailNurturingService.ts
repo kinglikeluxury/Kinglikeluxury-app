@@ -59,238 +59,306 @@ function btnStyle() {
   return `display:inline-block;background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:700;margin-top:20px`;
 }
 
-// ─── Default templates ─────────────────────────────────────────────────────────
+// ─── Template version (bump when content changes to auto-migrate DB) ───────────
+const TEMPLATE_VERSION = "v2";
+
+// ─── Default templates — trust-based Georgia real estate sequence ──────────────
 function defaultTemplates() {
   return [
+    // ── Email 1 — Day 0 (immediate): Welcome + services ────────────────────────
     {
       day_offset: 0, sort_order: 1, is_recurring: false,
-      subject: "أهلاً بك في Kinglike Luxury 🏡",
-      body_text: "أهلاً {{firstName}}، شكراً لتواصلك مع Kinglike Luxury. نحن هنا لمساعدتك في رحلتك العقارية.",
+      subject: "مرحباً بك في Kinglike Luxury",
+      body_text: "أهلاً {{firstName}}، شكراً لاهتمامك. سيتواصل معك مستشار من فريقنا قريباً.",
       get body_html() {
         return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">أهلاً {{firstName}}! 👋</h2>
+          <h2 style="color:#005476;margin-top:0;font-size:22px">مرحباً {{firstName}} 👋</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            شكراً لتواصلك مع <strong>Kinglike Luxury</strong> — نحن سعداء بانضمامك إلينا.
+            شكراً لاهتمامك بـ <strong>Kinglike Luxury</strong>.
           </p>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            نحن شركة عقارية متخصصة ومرخصة، نعمل على مساعدة العملاء في العثور على أفضل الفرص العقارية
-            وتقديم الدعم الكامل طوال مراحل الشراء — دون أي عمولة إضافية من جانبك.
+            سيتواصل معك أحد مستشارينا قريباً لمساعدتك في رحلتك الاستثمارية.
           </p>
+          <div style="background:#f0f9f9;border-radius:12px;padding:24px 28px;margin:24px 0">
+            <p style="color:#005476;font-weight:700;font-size:16px;margin:0 0 16px">لماذا تختار Kinglike Luxury؟</p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${[
+                ["✓", "لا عمولة على المشتري", "خدماتنا مجانية لك تماماً"],
+                ["✓", "تمثيل رسمي لعدة مطورين", "نمنحك أوسع نطاق من الخيارات"],
+                ["✓", "توجيه قبل الشراء", "نساعدك على اتخاذ القرار الصحيح"],
+                ["✓", "دعم بعد الشراء", "علاقتنا لا تنتهي بعد التوقيع"],
+                ["✓", "متابعة تقدم المشروع", "نبقيك على اطلاع دائم بمراحل البناء"],
+                ["✓", "مساعدة في إدارة الإيجار", "نساعدك في استثمار عقارك"],
+                ["✓", "دعم إعادة البيع", "شبكتنا في خدمتك عند البيع"],
+                ["✓", "خدمات VIP", "رعاية شخصية لكل عميل"],
+              ].map(([check, title, desc]) => `
+                <tr>
+                  <td width="28" valign="top" style="padding:6px 0">
+                    <span style="color:#3bcac4;font-weight:700;font-size:16px">${check}</span>
+                  </td>
+                  <td style="padding:6px 0 6px 8px">
+                    <strong style="color:#005476;font-size:14px">${title}</strong>
+                    <span style="color:#777;font-size:13px"> — ${desc}</span>
+                  </td>
+                </tr>
+              `).join("")}
+            </table>
+          </div>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            في الأيام القادمة، سنشاركك معلومات مفيدة عن:
-          </p>
-          <ul style="color:#444;line-height:2;font-size:15px;padding-right:20px">
-            <li>كيف نساعدك قبل التوقيع على العقد</li>
-            <li>ما يحدث بعد الشراء وكيف ندعمك</li>
-            <li>خدمات إدارة العقار والإيجار والإعادة البيع</li>
-          </ul>
-          <p style="color:#444;line-height:1.9;font-size:15px">
-            فريقنا متاح لك في أي وقت. لا تتردد في التواصل معنا.
+            نحن هنا لمساعدة المستثمرين على اتخاذ قرارات مدروسة وتقديم التوجيه المهني في كل مرحلة.
           </p>
           <div style="text-align:center">
-            <a href="https://wa.me/995593151100" style="${btnStyle()}">تواصل معنا عبر واتساب</a>
+            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">احجز استشارة مجانية</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
     },
+
+    // ── Email 2 — Day 2: Why Georgia in 2026 ───────────────────────────────────
     {
       day_offset: 2, sort_order: 2, is_recurring: false,
-      subject: "لماذا يختار المستثمرون Kinglike Luxury؟",
-      body_text: "أهلاً {{firstName}}، تعرف على مزايا Kinglike Luxury ولماذا نختلف عن غيرنا.",
+      subject: "لماذا يختار المستثمرون جورجيا في 2026؟",
+      body_text: "أهلاً {{firstName}}، اكتشف لماذا تتصدر جورجيا قائمة وجهات الاستثمار العقاري في 2026.",
       get body_html() {
         return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">لماذا يختار المستثمرون Kinglike Luxury؟</h2>
+          <h2 style="color:#005476;margin-top:0;font-size:22px">لماذا يختار المستثمرون جورجيا في 2026؟</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            هناك أسباب كثيرة تجعل عملاءنا يثقون بنا في رحلتهم العقارية. إليك أبرزها:
+            تتصدر جورجيا قائمة الوجهات الاستثمارية الواعدة في المنطقة. إليك أبرز الأسباب التي تدفع المستثمرين إلى اختيارها:
           </p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:20px 0">
             ${[
-              ["🏢", "شركة مرخصة ومتخصصة", "نعمل بشفافية كاملة وبموجب التراخيص المعتمدة في المجال العقاري."],
-              ["💰", "بدون عمولة إضافية", "لا ندفع عمولة من جيبك — خدماتنا لا تكلفك أي رسوم إضافية."],
-              ["🤝", "دعم قبل وبعد الشراء", "نرافقك من لحظة البحث حتى ما بعد استلام مفاتيح عقارك."],
-              ["🌍", "فريق متعدد اللغات", "فريقنا يتحدث العربية والروسية والإنجليزية والجورجية وغيرها."],
-              ["📊", "مقارنة الخيارات", "نساعدك على مقارنة الخيارات المتاحة وفق هدفك وميزانيتك."],
+              ["🏖️", "قطاع سياحي متنامٍ", "تشهد جورجيا نمواً متسارعاً في أعداد السياح سنة بعد سنة، مما يرفع الطلب على الإيجارات قصيرة المدى."],
+              ["📈", "تزايد الطلب على العقارات", "يتصاعد الطلب المحلي والدولي على العقارات، مما يدعم استقرار السوق واتجاهاته على المدى البعيد."],
+              ["🏗️", "توسع البنية التحتية", "مشاريع طرق ومطارات وبنية تحتية تُحوّل مناطق واعدة إلى وجهات استثمارية حيوية."],
+              ["🌍", "ملكية حرة للأجانب", "يمنح القانون الجورجي الأجانب حق التملك الكامل للعقارات دون قيود أو اشتراطات معقدة."],
+              ["🔭", "إمكانات على المدى البعيد", "يجمع الموقع الاستراتيجي والاستقرار الاقتصادي والبيئة الاستثمارية المواتية لتوفير فرص طويلة الأمد."],
             ].map(([icon, title, desc]) => `
               <tr>
-                <td width="48" valign="top" style="padding:8px 0">
-                  <div style="width:40px;height:40px;background:#3bcac4/10;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;background:#e8faf9;text-align:center;line-height:40px">${icon}</div>
+                <td width="52" valign="top" style="padding:10px 0">
+                  <div style="width:44px;height:44px;background:#e8faf9;border-radius:10px;text-align:center;line-height:44px;font-size:22px">${icon}</div>
                 </td>
-                <td style="padding:8px 0 8px 12px">
-                  <strong style="color:#005476;font-size:14px">${title}</strong>
-                  <p style="margin:2px 0 0;color:#666;font-size:13px;line-height:1.7">${desc}</p>
+                <td style="padding:10px 0 10px 14px;border-bottom:1px solid #f0f0f0">
+                  <strong style="color:#005476;font-size:14px;display:block;margin-bottom:4px">${title}</strong>
+                  <span style="color:#666;font-size:13px;line-height:1.7">${desc}</span>
                 </td>
               </tr>
             `).join("")}
           </table>
-          <p style="color:#444;line-height:1.9;font-size:15px;margin-top:20px">
-            هل لديك أسئلة؟ فريقنا مستعد للإجابة عليها في أي وقت.
+          <p style="color:#888;font-size:13px;line-height:1.7;border-right:3px solid #3bcac4;padding-right:12px;margin:20px 0">
+            هذه المعلومات لأغراض توعوية فقط. الاستثمار العقاري ينطوي على مخاطر، وننصح دائماً بالبحث الدقيق والاستشارة المتخصصة قبل اتخاذ أي قرار.
           </p>
           <div style="text-align:center">
-            <a href="https://wa.me/995593151100" style="${btnStyle()}">تحدث مع أحد مستشارينا</a>
+            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">تحدث مع مستشار</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
     },
+
+    // ── Email 3 — Day 5: Common investor mistakes ───────────────────────────────
     {
       day_offset: 5, sort_order: 3, is_recurring: false,
-      subject: "كيف نساعدك قبل توقيع العقد؟",
-      body_text: "أهلاً {{firstName}}، نساعدك على مراجعة وفهم البنود الأساسية قبل التوقيع.",
+      subject: "أخطاء شائعة يقع فيها المستثمرون قبل شراء العقار",
+      body_text: "أهلاً {{firstName}}، تعرف على أبرز الأخطاء التي يجب تجنبها قبل اتخاذ قرار الشراء.",
       get body_html() {
         return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">كيف نساعدك قبل التوقيع؟</h2>
+          <h2 style="color:#005476;margin-top:0;font-size:22px">أخطاء شائعة يقع فيها المستثمرون</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            مرحلة التوقيع على العقد تستحق الاهتمام الكافي. نحن في Kinglike Luxury نقدم لك دعماً حقيقياً خلال هذه المرحلة:
+            من خبرتنا في العمل مع مئات المستثمرين، رصدنا أبرز الأخطاء التي تؤدي إلى قرارات مكلفة. نشاركها معك لتتجنبها:
           </p>
-          <div style="background:#f0f9f9;border-right:4px solid #3bcac4;border-radius:8px;padding:16px 20px;margin:20px 0">
-            <p style="color:#005476;font-weight:700;margin:0 0 8px;font-size:15px">📄 مراجعة البنود الأساسية</p>
-            <p style="color:#555;margin:0;line-height:1.8;font-size:14px">
-              نساعدك على مراجعة وفهم البنود الأساسية قبل التوقيع، ويمكننا التنسيق مع مختصين قانونيين عند الحاجة.
-            </p>
+          ${[
+            ["❌", "الشراء دون بحث في السوق", "يتسرع بعض المستثمرين في اتخاذ القرار دون فهم كافٍ للسوق المحلي واتجاهاته وأسعاره المرجعية."],
+            ["❌", "اختيار الموقع الخاطئ", "الموقع هو العامل الأكثر تأثيراً في قيمة العقار. مناطق بعيدة عن الخدمات أو السياحة قد لا تحقق العوائد المرجوة."],
+            ["❌", "تجاهل سمعة المطور", "التاريخ البنائي للمطور وسجله في التسليم والجودة من أهم المعايير التي لا يجب إغفالها."],
+            ["❌", "إغفال مراجعة الوثائق", "نساعد عملاءنا على فهم الوثائق المتاحة والتنسيق مع الأطراف ذات الصلة عند الحاجة — دون الاستعاضة عن المشورة القانونية المتخصصة."],
+            ["❌", "التركيز على السعر فقط", "أدنى سعر لا يعني أفضل صفقة. الجودة والموقع وموثوقية المطور عوامل لا تقل أهمية عن السعر."],
+          ].map(([icon, title, desc]) => `
+            <div style="background:#fff8f8;border-right:4px solid #e8a0a0;border-radius:8px;padding:14px 18px;margin:12px 0">
+              <p style="color:#c0392b;font-weight:700;margin:0 0 6px;font-size:14px">${icon} ${title}</p>
+              <p style="color:#666;margin:0;font-size:13px;line-height:1.7">${desc}</p>
+            </div>
+          `).join("")}
+          <div style="background:linear-gradient(135deg,#e8faf9 0%,#e0f0f8 100%);border-radius:10px;padding:20px 24px;margin:24px 0;text-align:center">
+            <p style="color:#005476;font-weight:700;font-size:15px;margin:0 0 6px">نحن هنا لمساعدتك على تجنب هذه الأخطاء</p>
+            <p style="color:#555;font-size:13px;margin:0;line-height:1.7">توجيه مهني خطوة بخطوة — قبل أي قرار وبعده.</p>
           </div>
-          <div style="background:#f0f9f9;border-right:4px solid #3bcac4;border-radius:8px;padding:16px 20px;margin:20px 0">
-            <p style="color:#005476;font-weight:700;margin:0 0 8px;font-size:15px">📋 شرح خطوات الشراء</p>
-            <p style="color:#555;margin:0;line-height:1.8;font-size:14px">
-              نشرح لك كل خطوة في عملية الشراء بوضوح — من الحجز حتى استلام المفاتيح.
-            </p>
-          </div>
-          <div style="background:#f0f9f9;border-right:4px solid #3bcac4;border-radius:8px;padding:16px 20px;margin:20px 0">
-            <p style="color:#005476;font-weight:700;margin:0 0 8px;font-size:15px">⚖️ تنسيق مع المختصين</p>
-            <p style="color:#555;margin:0;line-height:1.8;font-size:14px">
-              إذا احتجت إلى مشورة قانونية أو ضريبية متخصصة، يمكننا التنسيق مع المختصين المناسبين.
-              القرارات القانونية والضريبية النهائية تُتخذ مع المختصين المؤهلين.
-            </p>
-          </div>
-          <p style="color:#888;font-size:13px;line-height:1.7;margin-top:16px">
-            نحن هنا لدعمك وتوجيهك — لا لبيع خدمات إضافية. تواصل معنا بكل ثقة.
-          </p>
           <div style="text-align:center">
-            <a href="https://wa.me/995593151100" style="${btnStyle()}">استفسر الآن</a>
+            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">اطلب توجيهاً احترافياً</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
     },
+
+    // ── Email 4 — Day 10: Services value proposition ───────────────────────────
     {
       day_offset: 10, sort_order: 4, is_recurring: false,
-      subject: "ماذا يحدث بعد الشراء؟ 🔑",
-      body_text: "أهلاً {{firstName}}، تعرف على كيف ندعمك بعد الشراء وعملية الاستلام.",
+      subject: "ما الخدمات التي يحصل عليها عملاء Kinglike Luxury؟",
+      body_text: "أهلاً {{firstName}}، اكتشف الخدمات الشاملة التي نقدمها لعملائنا في كل مرحلة.",
       get body_html() {
         return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">ماذا يحدث بعد الشراء؟</h2>
+          <h2 style="color:#005476;margin-top:0;font-size:22px">ما الذي يحصل عليه عملاء Kinglike Luxury؟</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            كثيرون يتساءلون عما يحدث بعد اتمام عملية الشراء. إليك كيف نرافقك:
+            في Kinglike Luxury، نرافقك في كل مرحلة من رحلتك الاستثمارية. إليك ما يحصل عليه عملاؤنا:
           </p>
-          <ol style="color:#444;line-height:2.2;font-size:15px;padding-right:20px">
-            <li><strong style="color:#005476">متابعة تقدم البناء</strong> — إذا كان العقار قيد الإنشاء، نبقيك على اطلاع دائم.</li>
-            <li><strong style="color:#005476">التنسيق للاستلام</strong> — نساعدك في ترتيبات تسليم العقار وفحصه.</li>
-            <li><strong style="color:#005476">خدمات ما بعد البيع</strong> — أي مشكلة تواجهها بعد الاستلام، نحن هنا.</li>
-            <li><strong style="color:#005476">التوثيق والتسجيل</strong> — نرشدك خلال إجراءات التسجيل الرسمي للملكية.</li>
-            <li><strong style="color:#005476">خيارات الإيجار والإدارة</strong> — إذا أردت تأجير عقارك، لدينا شبكة دعم متكاملة.</li>
-          </ol>
-          <div style="background:linear-gradient(135deg,#e8faf9 0%,#e0f0f8 100%);border-radius:10px;padding:20px;margin-top:20px;text-align:center">
-            <p style="color:#005476;font-weight:700;font-size:15px;margin:0 0 6px">علاقتنا لا تنتهي بعد الشراء</p>
-            <p style="color:#555;font-size:13px;margin:0;line-height:1.7">نحن شركاؤك على المدى البعيد — ليس فقط لصفقة واحدة.</p>
-          </div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:20px 0">
+            ${[
+              ["🏘️", "مساعدة في اختيار المشروع", "نستعرض معك الخيارات المتاحة ونساعدك على تقييمها وفق أهدافك وميزانيتك."],
+              ["🤝", "التنسيق مع المطور", "نتولى التواصل مع المطور نيابة عنك لتوفير وقتك وضمان سلاسة المراحل."],
+              ["📋", "دعم عملية الشراء", "نساعدك على فهم الوثائق المتاحة والتنسيق مع الأطراف ذات الصلة عند الحاجة."],
+              ["🏗️", "تحديثات البناء", "نبقيك على اطلاع منتظم بمراحل تقدم مشروعك حتى التسليم."],
+              ["🏠", "مساعدة في الإيجار", "عند رغبتك في تأجير عقارك، نساعدك بشبكة دعم متكاملة."],
+              ["📊", "دعم إعادة البيع", "عندما يحين وقت البيع، نوفر لك شبكة مشترين وخبرة ميدانية."],
+              ["👑", "خدمة VIP", "رعاية شخصية ومستشار مخصص لكل عميل طوال رحلته الاستثمارية."],
+            ].map(([icon, title, desc]) => `
+              <tr>
+                <td width="52" valign="top" style="padding:8px 0">
+                  <div style="width:40px;height:40px;background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);border-radius:10px;text-align:center;line-height:40px;font-size:18px">${icon}</div>
+                </td>
+                <td style="padding:8px 0 8px 14px;border-bottom:1px solid #f5f5f5">
+                  <strong style="color:#005476;font-size:14px;display:block;margin-bottom:3px">${title}</strong>
+                  <span style="color:#666;font-size:13px;line-height:1.7">${desc}</span>
+                </td>
+              </tr>
+            `).join("")}
+          </table>
+          <p style="color:#888;font-size:13px;line-height:1.7;text-align:center;margin-top:8px">
+            جميع الخدمات المذكورة مجانية للمشتري — لا عمولات ولا رسوم خفية.
+          </p>
           <div style="text-align:center">
-            <a href="https://wa.me/995593151100" style="${btnStyle()}">تحدث معنا</a>
+            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">تواصل مع فريقنا</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
     },
+
+    // ── Email 5 — Day 20: Investment opportunities in Georgia ──────────────────
     {
-      day_offset: 18, sort_order: 5, is_recurring: false,
-      subject: "إدارة العقار والإيجار — نحن نتولى ذلك",
-      body_text: "أهلاً {{firstName}}، اكتشف كيف يمكننا دعمك في إدارة عقارك والإيجار.",
+      day_offset: 20, sort_order: 5, is_recurring: false,
+      subject: "أحدث فرص الاستثمار في جورجيا",
+      body_text: "أهلاً {{firstName}}، اكتشف أبرز فرص الاستثمار العقاري المتاحة حالياً في جورجيا.",
       get body_html() {
         return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">إدارة عقارك والإيجار — خدمة شاملة</h2>
+          <h2 style="color:#005476;margin-top:0;font-size:22px">أحدث فرص الاستثمار في جورجيا</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            هل فكرت في تأجير عقارك؟ أو تبحث عن إدارة احترافية له؟ نحن نقدم دعماً متكاملاً في هذا المجال:
+            نشارك معك نماذج من الفرص الاستثمارية المتاحة حالياً في جورجيا عبر شركاء Kinglike Luxury:
           </p>
-          <div style="display:grid;gap:12px;margin:20px 0">
+          ${[
+            {
+              title: "مشروع سكني في قلب تبليسي",
+              location: "📍 تبليسي — وسط المدينة",
+              price: "يبدأ من 55,000 $",
+              desc: "وحدات سكنية حديثة بموقع مميز في قلب العاصمة، قريبة من المعالم السياحية والمرافق الرئيسية.",
+            },
+            {
+              title: "مجمع فندقي على البحر الأسود",
+              location: "📍 باتومي — الواجهة البحرية",
+              price: "يبدأ من 45,000 $",
+              desc: "استوديوهات وشقق بإطلالة بحرية في أكثر المناطق السياحية حيوية على البحر الأسود.",
+            },
+            {
+              title: "فلل ومنازل في المناطق الجبلية",
+              location: "📍 منطقة كوداوري والمناطق الجبلية",
+              price: "يبدأ من 80,000 $",
+              desc: "منازل وفلل في مناطق سياحية جبلية تشهد طلباً متزايداً طوال العام.",
+            },
+          ].map(op => `
+            <div style="border:1px solid #e0f0ed;border-radius:10px;overflow:hidden;margin:16px 0">
+              <div style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:14px 20px">
+                <p style="color:#fff;font-weight:700;font-size:15px;margin:0">${op.title}</p>
+                <p style="color:rgba(255,255,255,0.85);font-size:12px;margin:4px 0 0">${op.location}</p>
+              </div>
+              <div style="padding:16px 20px;background:#fff">
+                <p style="color:#3bcac4;font-weight:700;font-size:16px;margin:0 0 8px">${op.price}</p>
+                <p style="color:#666;font-size:13px;line-height:1.7;margin:0">${op.desc}</p>
+              </div>
+            </div>
+          `).join("")}
+          <p style="color:#888;font-size:12px;line-height:1.7;text-align:center;margin:16px 0 0;border-top:1px solid #f0f0f0;padding-top:16px">
+            هذه أمثلة توضيحية. للاطلاع على قائمة الفرص الحالية وفق ميزانيتك وأهدافك، تواصل مع فريقنا مباشرة.
+          </p>
+          <div style="text-align:center">
+            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">اعرض الفرص المتاحة</a>
+          </div>
+        `, "{{unsubscribeUrl}}");
+      }
+    },
+
+    // ── Email 6 — Day 35: Re-engagement ────────────────────────────────────────
+    {
+      day_offset: 35, sort_order: 6, is_recurring: false,
+      subject: "هل لا تزال تفكر في الاستثمار في جورجيا؟",
+      body_text: "أهلاً {{firstName}}، نحن هنا متى كنت مستعداً — مع أحدث تحديثات السوق وفرصة استشارة مجانية.",
+      get body_html() {
+        return emailWrapper(`
+          <h2 style="color:#005476;margin-top:0;font-size:22px">هل لا تزال تفكر في الاستثمار في جورجيا؟</h2>
+          <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
+          <p style="color:#444;line-height:1.9;font-size:15px">
+            نعلم أن قرار الاستثمار يحتاج وقتاً ودراسة — لهذا لن نضغط عليك. نحن هنا متى كنت مستعداً.
+          </p>
+          <div style="background:#f0f9f9;border-radius:12px;padding:22px 26px;margin:22px 0">
+            <p style="color:#005476;font-weight:700;font-size:15px;margin:0 0 14px">ما يمكننا تقديمه لك الآن:</p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${[
+                ["📊", "تحديثات السوق", "آخر مستجدات سوق العقارات في جورجيا وأبرز التوجهات."],
+                ["🎯", "استشارة مجانية", "جلسة شخصية مع أحد مستشارينا للإجابة عن أسئلتك دون أي التزام."],
+                ["💡", "توصيات شخصية", "فرص مختارة وفق ميزانيتك وأهدافك الاستثمارية تحديداً."],
+              ].map(([icon, title, desc]) => `
+                <tr>
+                  <td width="36" valign="top" style="padding:6px 0">
+                    <span style="font-size:20px">${icon}</span>
+                  </td>
+                  <td style="padding:6px 0 6px 10px">
+                    <strong style="color:#005476;font-size:14px">${title}</strong>
+                    <p style="margin:2px 0 0;color:#666;font-size:13px;line-height:1.6">${desc}</p>
+                  </td>
+                </tr>
+              `).join("")}
+            </table>
+          </div>
+          <p style="color:#444;line-height:1.9;font-size:15px">
+            رسالة واحدة منك تكفي لنبدأ المحادثة. فريقنا في انتظارك.
+          </p>
+          <div style="text-align:center">
+            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">حدد موعداً</a>
+          </div>
+        `, "{{unsubscribeUrl}}");
+      }
+    },
+
+    // ── Email 7 — Day 65, then every 30 days: Monthly update ──────────────────
+    {
+      day_offset: 65, sort_order: 7, is_recurring: true,
+      subject: "تحديثات شهرية من Kinglike Luxury",
+      body_text: "أهلاً {{firstName}}، إليك أبرز تحديثات السوق العقاري في جورجيا هذا الشهر.",
+      get body_html() {
+        return emailWrapper(`
+          <h2 style="color:#005476;margin-top:0;font-size:22px">تحديثات شهرية — سوق العقارات في جورجيا</h2>
+          <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
+          <p style="color:#444;line-height:1.9;font-size:15px">
+            رسالتنا الشهرية لإبقائك على اطلاع بأبرز مستجدات السوق العقاري في جورجيا:
+          </p>
+          <div style="margin:20px 0">
             ${[
-              ["🏠", "إدارة العقار", "نتولى الإشراف على عقارك وصيانته وإدارته بشكل احترافي."],
-              ["📅", "دعم الإيجار", "نساعدك في إيجاد المستأجرين المناسبين والتنسيق معهم."],
-              ["🔧", "متابعة الصيانة", "نتابع أعمال الصيانة والإصلاح نيابة عنك."],
-              ["📊", "تقارير دورية", "نرسل لك تقارير منتظمة عن حالة عقارك."],
+              ["📈", "تحديثات السوق", "يواصل سوق العقارات في جورجيا نموه، مع ارتفاع مستمر في الطلب على العقارات السكنية والسياحية في المدن الرئيسية."],
+              ["🏗️", "تحديثات البناء", "تتواصل مشاريع البنية التحتية ومشاريع التطوير العقاري في تبليسي وباتومي وكوداوري."],
+              ["🆕", "فرص جديدة", "لمعرفة أحدث المشاريع المتاحة وفق ميزانيتك، تواصل مع فريقنا مباشرة للحصول على قائمة مخصصة."],
+              ["⚖️", "تحديثات تنظيمية", "يحتفظ القانون الجورجي بحق التملك الكامل للأجانب دون قيود. للاطلاع على آخر المستجدات القانونية، ننصح بمتابعة المصادر الرسمية."],
+              ["💡", "رؤى الاستثمار", "الاستثمار العقاري قرار مدروس يستوجب البحث والتخطيط. فريقنا جاهز لمناقشة خياراتك بكل موضوعية."],
             ].map(([icon, title, desc]) => `
-              <div style="background:#f8feff;border:1px solid #d0f0ed;border-radius:8px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px">
-                <span style="font-size:22px;flex-shrink:0">${icon}</span>
-                <div>
-                  <strong style="color:#005476;font-size:14px">${title}</strong>
-                  <p style="margin:3px 0 0;color:#666;font-size:13px;line-height:1.6">${desc}</p>
-                </div>
+              <div style="border-right:4px solid #3bcac4;border-radius:0 8px 8px 0;background:#f8feff;padding:14px 18px;margin:12px 0">
+                <p style="color:#005476;font-weight:700;font-size:14px;margin:0 0 6px">${icon} ${title}</p>
+                <p style="color:#666;font-size:13px;line-height:1.7;margin:0">${desc}</p>
               </div>
             `).join("")}
           </div>
-          <p style="color:#888;font-size:13px;margin-top:8px;line-height:1.7">
-            خدمات الإدارة والإيجار تساعدك على الاستفادة الكاملة من استثمارك.
-            تواصل معنا لمعرفة التفاصيل.
+          <p style="color:#888;font-size:12px;line-height:1.7;text-align:center;border-top:1px solid #f0f0f0;padding-top:16px;margin-top:8px">
+            هذه المعلومات لأغراض توعوية فقط ولا تمثل نصيحة استثمارية. استشر متخصصين قبل اتخاذ أي قرار.
           </p>
           <div style="text-align:center">
-            <a href="https://wa.me/995593151100" style="${btnStyle()}">اعرف المزيد</a>
-          </div>
-        `, "{{unsubscribeUrl}}");
-      }
-    },
-    {
-      day_offset: 30, sort_order: 6, is_recurring: false,
-      subject: "إعادة البيع والخدمات الحصرية لعملائنا",
-      body_text: "أهلاً {{firstName}}، تعرف على خدمات إعادة البيع والمزايا الحصرية لعملاء Kinglike Luxury.",
-      get body_html() {
-        return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">خدمات حصرية لعملائنا المميزين</h2>
-          <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
-          <p style="color:#444;line-height:1.9;font-size:15px">
-            في Kinglike Luxury، علاقتنا مع عملائنا لا تنتهي عند الشراء — بل تبدأ مرحلة جديدة من الشراكة:
-          </p>
-          <div style="background:linear-gradient(135deg,#005476 0%,#00405a 100%);border-radius:12px;padding:24px;color:#fff;margin:20px 0">
-            <h3 style="margin:0 0 16px;font-size:17px;color:#fff">👑 خدمات VIP لعملائنا</h3>
-            <ul style="margin:0;padding-right:20px;line-height:2.2;font-size:14px;color:rgba(255,255,255,0.9)">
-              <li>إشعارات أولى بأفضل الفرص العقارية الجديدة</li>
-              <li>دعم متخصص في مرحلة إعادة بيع عقارك</li>
-              <li>شبكة متواصلة من المشترين والمستثمرين</li>
-              <li>مستشار عقاري شخصي لمتابعة احتياجاتك</li>
-              <li>تقارير دورية عن اتجاهات السوق العقاري</li>
-            </ul>
-          </div>
-          <p style="color:#444;line-height:1.9;font-size:15px">
-            سواء كنت تفكر في شراء عقار ثانٍ، أو إعادة بيع عقارك الحالي — نحن هنا لدعمك في كل خطوة.
-          </p>
-          <div style="text-align:center">
-            <a href="https://wa.me/995593151100" style="${btnStyle()}">انضم إلى برنامجنا المميز</a>
-          </div>
-        `, "{{unsubscribeUrl}}");
-      }
-    },
-    {
-      day_offset: 60, sort_order: 7, is_recurring: true,
-      subject: "نحن هنا عندما تكون مستعداً 🏡",
-      body_text: "أهلاً {{firstName}}، نحن هنا متى احتجتنا. السوق العقاري يوفر دائماً فرصاً مناسبة لكل الأهداف.",
-      get body_html() {
-        return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">لا تزال الفرص متاحة لك 🏡</h2>
-          <p style="color:#444;line-height:1.9;font-size:15px">أهلاً {{firstName}}،</p>
-          <p style="color:#444;line-height:1.9;font-size:15px">
-            نحن نعلم أن قرار الاستثمار العقاري يحتاج تفكيراً وتخطيطاً. لهذا لا نضغط عليك — نحن هنا متى كنت مستعداً.
-          </p>
-          <div style="background:#f0f9f9;border-radius:10px;padding:20px 24px;margin:20px 0">
-            <p style="color:#005476;font-weight:700;margin:0 0 10px;font-size:15px">تذكير بسيط:</p>
-            <ul style="color:#555;line-height:2.1;font-size:14px;padding-right:20px;margin:0">
-              <li>فريقنا متاح للإجابة عن أي سؤال لديك</li>
-              <li>يمكننا مشاركة أحدث الفرص العقارية وفق ميزانيتك وأهدافك</li>
-              <li>لا عمولة إضافية عليك — خدمتنا مجانية لك</li>
-              <li>يمكننا تنسيق زيارة ميدانية أو جولة افتراضية في أي وقت</li>
-            </ul>
-          </div>
-          <p style="color:#444;line-height:1.9;font-size:15px">
-            مجرد رسالة واحدة تكفي لنبدأ المحادثة. نحن ننتظرك.
-          </p>
-          <div style="text-align:center">
-            <a href="https://wa.me/995593151100" style="${btnStyle()}">ابدأ المحادثة</a>
+            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">تواصل مع فريقنا</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
@@ -397,9 +465,13 @@ export async function ensureEmailNurturingTables(): Promise<void> {
       await client.query(`INSERT INTO email_nurturing_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING`, [key, value]);
     }
 
-    // Default sequence + templates (seed once)
+    // Default sequence + templates — seed on first run, migrate on version bump
     const existing = await client.query(`SELECT id FROM email_nurturing_sequences LIMIT 1`);
+    const versionRow = await client.query(`SELECT value FROM email_nurturing_settings WHERE key='template_version' LIMIT 1`);
+    const currentVersion = versionRow.rows[0]?.value ?? null;
+
     if (existing.rows.length === 0) {
+      // Fresh install — create sequence and seed templates
       const seqRes = await client.query(`
         INSERT INTO email_nurturing_sequences(name, description, is_active)
         VALUES('متابعة العملاء الجدد', 'تسلسل بريد الكتروني لبناء الثقة وتعزيز التفاعل مع العملاء الجدد', true)
@@ -413,7 +485,28 @@ export async function ensureEmailNurturingTables(): Promise<void> {
           VALUES($1,$2,$3,$4,true,$5,$6,$7)
         `, [seqId, t.day_offset, t.sort_order, t.is_recurring, t.subject, t.body_html, t.body_text]);
       }
+      await client.query(`
+        INSERT INTO email_nurturing_settings(key,value,updated_at) VALUES('template_version',$1,NOW())
+        ON CONFLICT(key) DO UPDATE SET value=$1, updated_at=NOW()
+      `, [TEMPLATE_VERSION]);
       console.log("[EmailNurturing] Default sequence and templates seeded");
+
+    } else if (currentVersion !== TEMPLATE_VERSION) {
+      // Version mismatch — replace templates in-place (preserves lead sequence status)
+      const seqId = existing.rows[0].id;
+      await client.query(`DELETE FROM email_nurturing_templates WHERE sequence_id=$1`, [seqId]);
+      for (const t of defaultTemplates()) {
+        await client.query(`
+          INSERT INTO email_nurturing_templates
+            (sequence_id, day_offset, sort_order, is_recurring, is_active, subject, body_html, body_text)
+          VALUES($1,$2,$3,$4,true,$5,$6,$7)
+        `, [seqId, t.day_offset, t.sort_order, t.is_recurring, t.subject, t.body_html, t.body_text]);
+      }
+      await client.query(`
+        INSERT INTO email_nurturing_settings(key,value,updated_at) VALUES('template_version',$1,NOW())
+        ON CONFLICT(key) DO UPDATE SET value=$1, updated_at=NOW()
+      `, [TEMPLATE_VERSION]);
+      console.log(`[EmailNurturing] Templates migrated to ${TEMPLATE_VERSION}`);
     }
 
     console.log("[DB] Email nurturing tables ensured");

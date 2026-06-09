@@ -1,0 +1,299 @@
+TASK: Upgrade CRM Email Nurturing System for Kinglike Luxury
+
+IMPORTANT SAFETY RULES
+
+Before making any changes:
+
+DO NOT modify:
+
+- Authentication
+- User accounts
+- Roles and permissions
+- Payments
+- Meta Leads integration
+- WhatsApp AI system
+- Developer Registration Center
+- Database tables unrelated to Email Nurturing
+- Property pages
+- Blog system
+- SEO system
+- AI models
+- Existing CRM lead records
+
+ONLY modify:
+
+- Email Nurturing System
+- Email Templates
+- Email Sequence Logic
+- Email History UI
+- Email Settings related to nurturing emails
+
+====================================================
+
+OBJECTIVE
+
+Replace the current generic marketing email sequence with a trust-based and service-based nurturing sequence designed specifically for real estate investors interested in Georgia.
+
+The goal is NOT to send property advertisements.
+
+The goal IS to build trust, increase engagement, and encourage the lead to contact Kinglike Luxury.
+
+====================================================
+
+SENDER
+
+Use:
+
+info@kinglikeluxury.app
+
+Company:
+Kinglike Luxury
+
+Brand Colors:
+Turquoise #3bcac4
+Dark Blue #005476
+
+====================================================
+
+EMAIL #1
+SEND IMMEDIATELY AFTER LEAD CREATION
+
+Subject:
+Welcome to Kinglike Luxury
+
+Purpose:
+Build trust and explain our services.
+
+Content:
+
+Hello {firstName},
+
+Thank you for your interest.
+
+A Kinglike Luxury consultant will contact you shortly.
+
+Why work with Kinglike Luxury?
+
+✓ No commission charged to buyers
+✓ Official representation of multiple developers
+✓ Guidance before purchasing
+✓ Support after purchasing
+✓ Project progress follow-up
+✓ Rental management assistance
+✓ Resale support
+✓ VIP client services
+
+We help investors make informed decisions and provide professional guidance throughout the process.
+
+CTA Button:
+Book a Free Consultation
+
+====================================================
+
+EMAIL #2
+SEND 2 DAYS LATER
+
+Subject:
+Why investors are choosing Georgia in 2026
+
+Purpose:
+Educational content.
+
+Topics:
+
+- Growing tourism
+- Increasing property demand
+- Infrastructure expansion
+- Foreign ownership opportunities
+- Long-term investment potential
+
+CTA:
+Speak with a Consultant
+
+====================================================
+
+EMAIL #3
+SEND 5 DAYS LATER
+
+Subject:
+Common mistakes investors make before buying property
+
+Purpose:
+Build authority and trust.
+
+Topics:
+
+- Buying without market research
+- Choosing the wrong location
+- Ignoring developer reputation
+- Failing to review documentation
+- Focusing only on price
+
+CTA:
+Request Professional Guidance
+
+====================================================
+
+EMAIL #4
+SEND 10 DAYS LATER
+
+Subject:
+What services do Kinglike Luxury clients receive?
+
+Purpose:
+Explain value proposition.
+
+Mention:
+
+✓ Project selection assistance
+✓ Developer coordination
+✓ Purchase support
+✓ Construction updates
+✓ Rental assistance
+✓ Resale support
+✓ VIP service
+
+CTA:
+Talk to Our Team
+
+====================================================
+
+EMAIL #5
+SEND 20 DAYS LATER
+
+Subject:
+Latest investment opportunities in Georgia
+
+Purpose:
+Show selected opportunities.
+
+Limit:
+Maximum 3 opportunities.
+
+Include:
+
+- Project image
+- Location
+- Starting price
+- Short description
+
+CTA:
+View Details
+
+====================================================
+
+EMAIL #6
+SEND 35 DAYS LATER
+
+Subject:
+Still considering investing in Georgia?
+
+Purpose:
+Re-engagement.
+
+Mention:
+
+- Market updates
+- Free consultation
+- Personalized recommendations
+
+CTA:
+Schedule a Call
+
+====================================================
+
+ONGOING COMMUNICATION
+
+After Email #6:
+
+DO NOT send emails every 2 days.
+
+Instead:
+
+Send ONE email every 30 days.
+
+Monthly emails may contain:
+
+- Market updates
+- Construction updates
+- New opportunities
+- Legal updates
+- Investment insights
+
+Avoid repetitive sales emails.
+
+====================================================
+
+LEGAL COMPLIANCE
+
+DO NOT promise:
+
+- Guaranteed profits
+- Guaranteed ROI
+- Guaranteed appreciation
+- Guaranteed rental income
+
+DO NOT state:
+
+"We review contracts on behalf of clients"
+
+Instead use:
+
+"We help clients understand available documentation and coordinate with relevant parties when needed."
+
+Include unsubscribe link in every email.
+
+====================================================
+
+IMPORT LEADS
+
+Apply the exact same nurturing workflow to:
+
+- Meta Leads
+- Manual CRM Leads
+- Excel Imported Leads
+
+If a lead is imported and has a valid email address:
+
+Automatically start Email Sequence #1.
+
+====================================================
+
+ADMIN FEATURES
+
+Email History page:
+
+Show:
+
+- Recipient
+- Subject
+- Date
+- Status
+- Opened
+- Clicked
+- Bounced
+- Unsubscribed
+
+Lead Detail page:
+
+Show:
+
+- Current sequence step
+- Last email sent
+- Next scheduled email
+- Engagement score
+
+====================================================
+
+VALIDATION
+
+After implementation:
+
+1. Create a test lead.
+2. Verify sequence starts automatically.
+3. Verify email history is created.
+4. Verify next email scheduling works.
+5. Verify imported Excel leads also enter the sequence.
+
+Do not modify any other system.
+Only upgrade the Email Nurturing System.
