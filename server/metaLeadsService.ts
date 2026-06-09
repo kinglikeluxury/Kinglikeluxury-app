@@ -242,6 +242,13 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       console.error(`[DeveloperRegistration] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
     );
 
+    // ── Email Nurturing: start sequence for new Meta lead ─────────────────────
+    import("./emailNurturingService").then(({ initNurturingForLead }) =>
+      initNurturingForLead(crmLead.id, crmLead.email, { firstName: crmLead.firstName, fullName: crmLead.fullName })
+    ).catch(err =>
+      console.error(`[EmailNurturing] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
+    );
+
     // ── Step D: mark queue entry completed ─────────────────────────────────
     await db.update(leadImportQueue).set({
       status:       "completed",
@@ -504,6 +511,13 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             projectInterest: crmLead.projectInterest,
           }).catch(err =>
             console.error(`[DeveloperRegistration] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
+          );
+
+          // ── Email Nurturing: start sequence for new Meta pull-sync lead ───────
+          import("./emailNurturingService").then(({ initNurturingForLead }) =>
+            initNurturingForLead(crmLead.id, crmLead.email, { firstName: crmLead.firstName, fullName: crmLead.fullName })
+          ).catch(err =>
+            console.error(`[EmailNurturing] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
           );
 
           // Parse created_time — Meta sends ISO string from /leads, integer from webhooks

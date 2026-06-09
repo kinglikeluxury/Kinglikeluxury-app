@@ -186,6 +186,7 @@ export default function CrmLeadsPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importResultOpen, setImportResultOpen] = useState(false);
+  const [importStartNurturing, setImportStartNurturing] = useState(false);
 
   // ── Bulk selection state ───────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -416,6 +417,7 @@ export default function CrmLeadsPage() {
     setImportLoading(true);
     const fd = new FormData();
     fd.append("file", file);
+    if (importStartNurturing) fd.append("startNurturing", "true");
     try {
       const r = await fetch("/api/admin/crm/leads/import", { method: "POST", body: fd });
       const data = await r.json();
@@ -497,18 +499,29 @@ export default function CrmLeadsPage() {
                 className="hidden"
                 onChange={handleImportFile}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-[#005476] text-[#005476] hover:bg-[#005476]/10"
-                disabled={importLoading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {importLoading
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Upload className="h-4 w-4" />}
-                {importLoading ? "Importing…" : "Import Excel"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 accent-[#3bcac4]"
+                    checked={importStartNurturing}
+                    onChange={e => setImportStartNurturing(e.target.checked)}
+                  />
+                  <span className="text-xs text-slate-500 whitespace-nowrap">Email Nurturing</span>
+                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-[#005476] text-[#005476] hover:bg-[#005476]/10"
+                  disabled={importLoading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {importLoading
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Upload className="h-4 w-4" />}
+                  {importLoading ? "Importing…" : "Import Excel"}
+                </Button>
+              </div>
             </>
           )}
 

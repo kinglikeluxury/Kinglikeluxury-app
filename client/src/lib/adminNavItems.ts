@@ -16,6 +16,8 @@ import {
   Crown,
   Megaphone,
   Building2,
+  MailOpen,
+  History,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -153,5 +155,20 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     Icon: Building2,
     iconColorHex: "#3bcac4",
     highlight: true,
+  },
+  {
+    labelKey: "admin.emailSequences",
+    labelFallback: "Email Nurturing",
+    path: "/admin/email-sequences",
+    Icon: MailOpen,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.emailHistory",
+    labelFallback: "Email History",
+    path: "/admin/email-history",
+    Icon: History,
+    iconColorHex: "#005476",
   },
 ];

@@ -22,7 +22,8 @@ import {
   Edit3, Save, X, Loader2, Trash2, CheckCircle2, UserCheck,
   Calendar, Globe, FileText, Plus, CheckSquare, ListTodo,
   DollarSign, CalendarDays, Bot, RefreshCw, UserX, StopCircle,
-  AlertCircle, ChevronDown, ChevronUp, Send,
+  AlertCircle, ChevronDown, ChevronUp, Send, MailOpen, Pause, Play,
+  TrendingUp, MousePointerClick, Eye,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import type { CrmLead, CrmNote, CrmTask, CrmProject, WhatsappAiConversation, WhatsappAiMessage, WhatsappAiAgentReport } from "@shared/schema";
@@ -378,6 +379,37 @@ export default function CrmLeadDetailPage() {
       setTransferComment("");
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Email Nurturing hooks ──────────────────────────────────────────────────
+  const { data: nurturingData, refetch: nurturingRefetch } = useQuery<{
+    status: any; events: any[];
+  }>({
+    queryKey: ["/api/admin/email-nurturing/lead", leadId],
+    queryFn: () =>
+      fetch(`/api/admin/email-nurturing/lead/${leadId}`).then(r => {
+        if (r.status === 403) return { status: null, events: [] };
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      }),
+    enabled: isCrmAuthorized && !!leadId && (user?.isAdmin ?? false),
+  });
+
+  const pauseNurturingMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/admin/email-nurturing/lead/${leadId}/pause`),
+    onSuccess: () => { nurturingRefetch(); toast({ title: "Email sequence paused" }); },
+  });
+  const resumeNurturingMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/admin/email-nurturing/lead/${leadId}/resume`),
+    onSuccess: () => { nurturingRefetch(); toast({ title: "Email sequence resumed" }); },
+  });
+  const stopNurturingMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/admin/email-nurturing/lead/${leadId}/stop`, { reason: "manual_admin" }),
+    onSuccess: () => { nurturingRefetch(); toast({ title: "Email sequence stopped" }); },
+  });
+  const startNurturingMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/admin/email-nurturing/lead/${leadId}/start`),
+    onSuccess: () => { nurturingRefetch(); toast({ title: "Email sequence started" }); },
   });
 
   // ── WhatsApp AI hooks ────────────────────────────────────────────────────
@@ -1606,6 +1638,150 @@ export default function CrmLeadDetailPage() {
             )}
           </Card>
           )}
+        </div>
+      )}
+
+      {/* ── Email Nurturing Section ────────────────────────────────────────── */}
+      {user?.isAdmin && (
+        <div className="mt-6">
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardContent className="p-0">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#3bcac4]/20 to-[#005476]/20 flex items-center justify-center">
+                    <MailOpen className="h-4.5 w-4.5 text-[#005476]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#005476]">Email Nurturing</p>
+                    <p className="text-xs text-muted-foreground">Automated trust-building email sequence</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {nurturingData?.status?.status === "active" && (
+                    <>
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7 border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => pauseNurturingMutation.mutate()} disabled={pauseNurturingMutation.isPending}>
+                        {pauseNurturingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />} Pause
+                      </Button>
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7 border-red-300 text-red-600 hover:bg-red-50" onClick={() => stopNurturingMutation.mutate()} disabled={stopNurturingMutation.isPending}>
+                        {stopNurturingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <StopCircle className="h-3 w-3" />} Stop
+                      </Button>
+                    </>
+                  )}
+                  {nurturingData?.status?.status === "paused" && (
+                    <Button size="sm" className="gap-1.5 text-xs h-7 bg-gradient-to-r from-[#3bcac4] to-[#005476]" onClick={() => resumeNurturingMutation.mutate()} disabled={resumeNurturingMutation.isPending}>
+                      {resumeNurturingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />} Resume
+                    </Button>
+                  )}
+                  {(!nurturingData?.status || ["stopped", "completed"].includes(nurturingData.status.status)) && (
+                    <Button size="sm" className="gap-1.5 text-xs h-7 bg-gradient-to-r from-[#3bcac4] to-[#005476]" onClick={() => startNurturingMutation.mutate()} disabled={startNurturingMutation.isPending}>
+                      {startNurturingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <MailOpen className="h-3 w-3" />} Start Sequence
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status info */}
+              <div className="px-5 py-4">
+                {!nurturingData?.status ? (
+                  <div className="text-center text-slate-400 text-sm py-4">
+                    <MailOpen className="h-8 w-8 mx-auto mb-2 opacity-25" />
+                    <p>No email sequence started for this lead.</p>
+                    {!lead.email && <p className="text-xs mt-1 text-amber-600">⚠️ Lead has no email address — sequence will be skipped until one is added.</p>}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Status row */}
+                    <div className="flex flex-wrap gap-3">
+                      {[
+                        {
+                          label: "Status",
+                          value: <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                            nurturingData.status.status === "active"      ? "bg-green-100 text-green-700" :
+                            nurturingData.status.status === "paused"      ? "bg-amber-100 text-amber-700" :
+                            nurturingData.status.status === "stopped"     ? "bg-red-100 text-red-600" :
+                            nurturingData.status.status === "unsubscribed"? "bg-gray-100 text-gray-600" :
+                            "bg-[#3bcac4]/10 text-[#005476]"
+                          }`}>{nurturingData.status.status}</span>
+                        },
+                        { label: "Started",   value: nurturingData.status.started_at   ? new Date(nurturingData.status.started_at).toLocaleDateString()  : "—" },
+                        { label: "Last Email", value: nurturingData.status.last_sent_at ? new Date(nurturingData.status.last_sent_at).toLocaleDateString() : "—" },
+                        { label: "Next Email", value: nurturingData.status.next_send_at ? new Date(nurturingData.status.next_send_at).toLocaleDateString() : "—" },
+                      ].map(item => (
+                        <div key={item.label} className="bg-slate-50 rounded-lg px-3 py-2 min-w-[100px]">
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">{item.label}</p>
+                          <div className="text-xs text-[#005476] font-medium">{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Engagement score */}
+                    <div className="bg-gradient-to-r from-[#3bcac4]/5 to-[#005476]/5 rounded-lg px-4 py-3 flex items-center gap-4">
+                      <TrendingUp className="h-5 w-5 text-[#3bcac4] flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-[#005476]">Engagement Score: {nurturingData.status.engagement_score || 0}</p>
+                        <p className={`text-xs mt-0.5 ${
+                          nurturingData.status.engagement_label === "high"   ? "text-green-600" :
+                          nurturingData.status.engagement_label === "medium" ? "text-amber-600" : "text-slate-400"
+                        }`}>
+                          {nurturingData.status.engagement_label === "high"   ? "🔥 High Interest" :
+                           nurturingData.status.engagement_label === "medium" ? "📊 Medium Interest" : "❄️ Low Interest"}
+                          {" — "}Email Opened +5 · Link Clicked +10 · Reply +20
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Events timeline */}
+                    {nurturingData.events.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-[#005476] mb-2">Email History</p>
+                        <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                          {nurturingData.events.slice(0, 20).map((ev: any) => (
+                            <div key={ev.id} className="flex items-start gap-2.5 py-1.5 px-2.5 rounded-lg bg-slate-50 text-xs">
+                              <span className={`flex-shrink-0 ${
+                                ev.event_type === "email_sent"              ? "text-[#3bcac4]" :
+                                ev.event_type === "email_opened"            ? "text-green-500" :
+                                ev.event_type === "link_clicked"            ? "text-purple-500" :
+                                ev.event_type === "email_bounced"           ? "text-red-400" :
+                                ev.event_type === "email_unsubscribed"      ? "text-gray-400" :
+                                ev.event_type === "sequence_started"        ? "text-[#005476]" :
+                                ev.event_type === "email_skipped_disabled"  ? "text-amber-500" :
+                                "text-slate-400"
+                              }`}>
+                                {ev.event_type === "email_sent"             ? <Send className="h-3.5 w-3.5" /> :
+                                 ev.event_type === "email_opened"           ? <Eye className="h-3.5 w-3.5" /> :
+                                 ev.event_type === "link_clicked"           ? <MousePointerClick className="h-3.5 w-3.5" /> :
+                                 ev.event_type === "email_bounced"          ? <AlertCircle className="h-3.5 w-3.5" /> :
+                                 ev.event_type === "email_skipped_disabled" ? <MailOpen className="h-3.5 w-3.5" /> :
+                                 ev.event_type === "sequence_started"       ? <CheckCircle2 className="h-3.5 w-3.5" /> :
+                                 <Mail className="h-3.5 w-3.5" />}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-[#005476]">
+                                  {ev.event_type === "email_sent"             ? "Email Sent" :
+                                   ev.event_type === "email_opened"           ? "Email Opened" :
+                                   ev.event_type === "link_clicked"           ? "Link Clicked" :
+                                   ev.event_type === "email_bounced"          ? "Email Bounced" :
+                                   ev.event_type === "email_unsubscribed"     ? "Unsubscribed" :
+                                   ev.event_type === "sequence_started"       ? "Sequence Started" :
+                                   ev.event_type === "email_skipped_disabled" ? "Simulated (sending off)" :
+                                   ev.event_type}
+                                </span>
+                                {ev.subject && <span className="text-slate-400 ml-1 truncate">· {ev.subject}</span>}
+                              </div>
+                              <span className="text-slate-400 flex-shrink-0 whitespace-nowrap">
+                                {new Date(ev.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

@@ -4076,6 +4076,10 @@ ${metaTags}
           projectInterest: lead.projectInterest,
         })
       ).catch(() => {});
+      // Email Nurturing: start sequence for new lead (fire-and-forget)
+      import("./emailNurturingService").then(({ initNurturingForLead }) =>
+        initNurturingForLead(lead.id, lead.email, { firstName: lead.firstName, fullName: lead.fullName })
+      ).catch(() => {});
       res.status(201).json(lead);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4249,6 +4253,12 @@ ${metaTags}
               projectInterest: importedLead.projectInterest,
             })
           ).catch(() => {});
+          // Email Nurturing hook — only if admin opted in via startNurturing flag (fire-and-forget)
+          if (req.body.startNurturing === "true" || req.body.startNurturing === true) {
+            import("./emailNurturingService").then(({ initNurturingForLead }) =>
+              initNurturingForLead(importedLead.id, importedLead.email, { firstName: importedLead.firstName, fullName: importedLead.fullName })
+            ).catch(() => {});
+          }
           importedCount++;
         } catch (rowErr: any) {
           failed++;
@@ -4612,6 +4622,12 @@ ${metaTags}
       if (req.body.status) {
         import("./developerRegistrationService").then(({ handleDevRegLeadStatusChange }) =>
           handleDevRegLeadStatusChange(updated.id, req.body.status)
+        ).catch(() => {});
+      }
+      // Email Nurturing: stop sequence on terminal statuses
+      if (req.body.status) {
+        import("./emailNurturingService").then(({ handleLeadStatusChangeForNurturing }) =>
+          handleLeadStatusChangeForNurturing(updated.id, req.body.status)
         ).catch(() => {});
       }
       // Notify admin when a sub-admin / employee (non-admin) makes changes.

@@ -14,6 +14,8 @@ import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsServ
 import { registerWhatsappAiRoutes } from "./whatsappAiRoutes";
 import { registerDeveloperRegistrationRoutes } from "./developerRegistrationRoutes";
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
+import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
+import { ensureEmailNurturingTables, startNurturingScheduler } from "./emailNurturingService";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
@@ -121,6 +123,7 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
+  registerEmailNurturingRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -217,6 +220,10 @@ app.use((req, res, next) => {
   ensureDeveloperRegistrationTables()
     .then(() => startDeveloperRegistrationScheduler())
     .catch(err => console.error("[DB] ensureDeveloperRegistrationTables failed:", err));
+
+  ensureEmailNurturingTables()
+    .then(() => startNurturingScheduler())
+    .catch(err => console.error("[DB] ensureEmailNurturingTables failed:", err));
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];
