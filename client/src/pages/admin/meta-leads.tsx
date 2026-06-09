@@ -1140,10 +1140,7 @@ export default function MetaLeadsPage() {
   const [auditId, setAuditId] = useState<number | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
 
-  if (!user?.isAdmin) {
-    navigate("/");
-    return null;
-  }
+  const isAdmin = !!user?.isAdmin;
 
   const { data, isLoading, refetch } = useQuery<{
     rows: LeadImportQueue[];
@@ -1158,6 +1155,7 @@ export default function MetaLeadsPage() {
         credentials: "include",
       }).then((r) => r.json()),
     refetchInterval: 30_000,
+    enabled: isAdmin,
   });
 
   const { data: alerts } = useQuery<{
@@ -1168,6 +1166,7 @@ export default function MetaLeadsPage() {
   }>({
     queryKey: ["/api/admin/meta-leads/alerts"],
     refetchInterval: 60_000,
+    enabled: isAdmin,
   });
 
   const retryMutation = useMutation({
@@ -1182,6 +1181,11 @@ export default function MetaLeadsPage() {
       setRetryingId(null);
     },
   });
+
+  if (!isAdmin) {
+    navigate("/");
+    return null;
+  }
 
   const handleRetry = (id: number) => {
     setRetryingId(id);
