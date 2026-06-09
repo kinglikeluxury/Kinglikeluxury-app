@@ -3,6 +3,7 @@ import { leadImportQueue, leadImportAuditLog, crmLeads } from "@shared/schema";
 import { eq, and, lte } from "drizzle-orm";
 import https from "https";
 import { initConversationForLead } from "./whatsappAiService";
+import { initDeveloperRegistrationsForLead } from "./developerRegistrationService";
 
 export interface PullSyncResult {
   formsChecked: number;
@@ -224,6 +225,21 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       assignedTo:      crmLead.assignedTo,
     }).catch(err =>
       console.error(`[WhatsAppAI] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
+    );
+
+    // ── Developer Registration: prepare records for all active developers ───
+    initDeveloperRegistrationsForLead(crmLead.id, {
+      id:              crmLead.id,
+      fullName:        crmLead.fullName,
+      firstName:       crmLead.firstName,
+      lastName:        crmLead.lastName,
+      phone:           crmLead.phone,
+      country:         crmLead.country,
+      city:            crmLead.city,
+      budget:          crmLead.budget,
+      projectInterest: crmLead.projectInterest,
+    }).catch(err =>
+      console.error(`[DeveloperRegistration] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
     );
 
     // ── Step D: mark queue entry completed ─────────────────────────────────
@@ -473,6 +489,21 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             assignedTo:      crmLead.assignedTo,
           }).catch(err =>
             console.error(`[WhatsAppAI] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
+          );
+
+          // ── Developer Registration: prepare records for all active developers ─
+          initDeveloperRegistrationsForLead(crmLead.id, {
+            id:              crmLead.id,
+            fullName:        crmLead.fullName,
+            firstName:       crmLead.firstName,
+            lastName:        crmLead.lastName,
+            phone:           crmLead.phone,
+            country:         crmLead.country,
+            city:            crmLead.city,
+            budget:          crmLead.budget,
+            projectInterest: crmLead.projectInterest,
+          }).catch(err =>
+            console.error(`[DeveloperRegistration] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
           );
 
           // Parse created_time — Meta sends ISO string from /leads, integer from webhooks

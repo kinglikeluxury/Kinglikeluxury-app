@@ -9,9 +9,11 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
-import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables } from "./db";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { registerWhatsappAiRoutes } from "./whatsappAiRoutes";
+import { registerDeveloperRegistrationRoutes } from "./developerRegistrationRoutes";
+import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
@@ -118,6 +120,7 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
   registerWhatsappAiRoutes(app);
+  registerDeveloperRegistrationRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -210,6 +213,10 @@ app.use((req, res, next) => {
   ensureWhatsappAiTables().catch(err =>
     console.error("[DB] ensureWhatsappAiTables failed:", err)
   );
+
+  ensureDeveloperRegistrationTables()
+    .then(() => startDeveloperRegistrationScheduler())
+    .catch(err => console.error("[DB] ensureDeveloperRegistrationTables failed:", err));
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];

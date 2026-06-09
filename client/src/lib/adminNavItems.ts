@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Crown,
   Megaphone,
+  Building2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -142,6 +143,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Meta Lead Ads",
     path: "/admin/meta-leads",
     Icon: Megaphone,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.developerRegistration",
+    labelFallback: "Developer Registration",
+    path: "/admin/developer-registration-center",
+    Icon: Building2,
     iconColorHex: "#3bcac4",
     highlight: true,
   },

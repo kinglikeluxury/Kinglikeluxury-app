@@ -4062,6 +4062,20 @@ ${metaTags}
         const { sendCrmWelcomeEmail } = await import("./emailService");
         sendCrmWelcomeEmail({ fullName: lead.fullName, firstName: lead.firstName, email: lead.email }).catch(() => {});
       }
+      // Developer Registration: prepare records for all active developer companies (fire-and-forget)
+      import("./developerRegistrationService").then(({ initDeveloperRegistrationsForLead }) =>
+        initDeveloperRegistrationsForLead(lead.id, {
+          id:              lead.id,
+          fullName:        lead.fullName,
+          firstName:       lead.firstName,
+          lastName:        lead.lastName,
+          phone:           lead.phone,
+          country:         lead.country,
+          city:            lead.city,
+          budget:          lead.budget,
+          projectInterest: lead.projectInterest,
+        })
+      ).catch(() => {});
       res.status(201).json(lead);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4203,7 +4217,7 @@ ${metaTags}
           const status     = pick(row, "status") || "new";
           const leadSource = pick(row, "source", "lead_source", "leadsource") || "excel_import";
 
-          await storage.createCrmLead({
+          const importedLead = await storage.createCrmLead({
             fullName:     fullName  || null,
             firstName:    firstName || null,
             lastName:     lastName  || null,
@@ -4221,6 +4235,20 @@ ${metaTags}
             leadScore:    "cold",
             status,
           });
+          // Developer Registration hook (fire-and-forget)
+          import("./developerRegistrationService").then(({ initDeveloperRegistrationsForLead }) =>
+            initDeveloperRegistrationsForLead(importedLead.id, {
+              id:              importedLead.id,
+              fullName:        importedLead.fullName,
+              firstName:       importedLead.firstName,
+              lastName:        importedLead.lastName,
+              phone:           importedLead.phone,
+              country:         importedLead.country,
+              city:            importedLead.city,
+              budget:          importedLead.budget,
+              projectInterest: importedLead.projectInterest,
+            })
+          ).catch(() => {});
           importedCount++;
         } catch (rowErr: any) {
           failed++;
@@ -4578,6 +4606,12 @@ ${metaTags}
             projectInterest: updated.projectInterest,
             assignedTo:      updated.assignedTo,
           })
+        ).catch(() => {});
+      }
+      // Developer Registration: stop registrations if status is a stop status
+      if (req.body.status) {
+        import("./developerRegistrationService").then(({ handleDevRegLeadStatusChange }) =>
+          handleDevRegLeadStatusChange(updated.id, req.body.status)
         ).catch(() => {});
       }
       // Notify admin when a sub-admin / employee (non-admin) makes changes.

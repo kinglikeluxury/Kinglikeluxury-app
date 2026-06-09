@@ -259,6 +259,136 @@ export async function ensureWhatsappAiTables(): Promise<void> {
   }
 }
 
+/**
+ * Creates all Developer Registration Center tables.
+ * Safe to run on every startup — all statements use IF NOT EXISTS.
+ */
+export async function ensureDeveloperRegistrationTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      -- Developer companies directory
+      CREATE TABLE IF NOT EXISTS developer_companies (
+        id                         SERIAL PRIMARY KEY,
+        name                       TEXT NOT NULL,
+        form_url                   TEXT,
+        is_active                  BOOLEAN NOT NULL DEFAULT true,
+        registration_interval_days INTEGER NOT NULL DEFAULT 40,
+        registration_mode          TEXT NOT NULL DEFAULT 'manual',
+        created_at                 TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at                 TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- Per-company field configuration (JSON-driven, no code change needed for new devs)
+      CREATE TABLE IF NOT EXISTS developer_form_configs (
+        id                    SERIAL PRIMARY KEY,
+        developer_company_id  INTEGER NOT NULL REFERENCES developer_companies(id) ON DELETE CASCADE,
+        config_json           JSONB,
+        is_active             BOOLEAN NOT NULL DEFAULT true,
+        created_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at            TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- One record per lead per developer company
+      CREATE TABLE IF NOT EXISTS developer_registration_records (
+        id                        SERIAL PRIMARY KEY,
+        crm_lead_id               INTEGER NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+        developer_company_id      INTEGER NOT NULL REFERENCES developer_companies(id) ON DELETE CASCADE,
+        status                    TEXT NOT NULL DEFAULT 'pending',
+        registration_payload_json JSONB,
+        last_registered_at        TIMESTAMP,
+        next_registration_at      TIMESTAMP,
+        attempt_count             INTEGER NOT NULL DEFAULT 0,
+        last_error                TEXT,
+        protection_status         TEXT NOT NULL DEFAULT 'protected',
+        created_at                TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at                TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- Audit log for every registration attempt
+      CREATE TABLE IF NOT EXISTS developer_registration_attempts (
+        id                    SERIAL PRIMARY KEY,
+        registration_record_id INTEGER NOT NULL REFERENCES developer_registration_records(id) ON DELETE CASCADE,
+        crm_lead_id           INTEGER NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+        developer_company_id  INTEGER NOT NULL REFERENCES developer_companies(id) ON DELETE CASCADE,
+        attempt_type          TEXT NOT NULL DEFAULT 'manual',
+        status                TEXT NOT NULL DEFAULT 'success',
+        payload_json          JSONB,
+        result_message        TEXT,
+        created_by            INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at            TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- Indexes
+      CREATE INDEX IF NOT EXISTS dev_reg_records_lead_id_idx    ON developer_registration_records(crm_lead_id);
+      CREATE INDEX IF NOT EXISTS dev_reg_records_company_id_idx ON developer_registration_records(developer_company_id);
+      CREATE INDEX IF NOT EXISTS dev_reg_records_status_idx     ON developer_registration_records(status);
+      CREATE INDEX IF NOT EXISTS dev_reg_attempts_record_idx    ON developer_registration_attempts(registration_record_id);
+    `);
+
+    // Seed Silk Development if not present
+    const existing = await client.query(`SELECT id FROM developer_companies WHERE name='Silk Development' LIMIT 1`);
+    if (existing.rows.length === 0) {
+      const compResult = await client.query(`
+        INSERT INTO developer_companies (name, form_url, is_active, registration_interval_days, registration_mode, created_at, updated_at)
+        VALUES ('Silk Development', 'https://system.silkdevelopment.ge/custom/Broker/', true, 40, 'manual', NOW(), NOW())
+        RETURNING id
+      `);
+      const silkId = compResult.rows[0].id;
+
+      const silkConfig = {
+        field_mappings: {
+          clientType:    "Company",
+          companyName:   "Kinglike Luxury",
+          companyId:     "383838388383838383",
+          companyPhone:  "591000058",
+          companyEmail:  "info@kinglikeluxury.com",
+          projectName:   "Silk Towers",
+          totalBudget:   "150000",
+          comment:       "We are in touch with him",
+          contactEmail:  "info@kinglikeluxury.com",
+          representative: "Aslan Glonti",
+        },
+        required_fields: ["contactName", "contactPhone"],
+        default_values: { apartmentType: "" },
+        payload_rules: {
+          use_lead_full_name_as_contact_name: true,
+          use_lead_phone_as_contact_phone:    true,
+          generate_stable_contact_id:          true,
+          contact_email_override:              "info@kinglikeluxury.com",
+        },
+        representative_settings: { name: "Aslan Glonti" },
+        compatibility_checker_result: {
+          can_auto_fill:             false,
+          captcha_detected:          null,
+          cloudflare_detected:       null,
+          submit_button_detected:    null,
+          required_fields_detected:  null,
+          success_message_detected:  null,
+          risk_level:                "medium",
+          last_checked_at:           null,
+          notes:                     "Phase 1 — manual workflow only",
+        },
+        risk_level: "medium",
+        notes: "Silk Development — Broker registration portal (manual Phase 1)",
+      };
+
+      await client.query(`
+        INSERT INTO developer_form_configs (developer_company_id, config_json, is_active, created_at, updated_at)
+        VALUES ($1, $2, true, NOW(), NOW())
+      `, [silkId, JSON.stringify(silkConfig)]);
+
+      console.log("[DeveloperRegistration] Seeded Silk Development");
+    }
+
+    console.log("[DB] Developer registration tables ensured");
+  } catch (err: any) {
+    console.warn("[DB] Could not create developer registration tables:", err.message);
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

@@ -1,0 +1,446 @@
+Implement Phase 1 of Developer Registration Center for Kinglike Luxury CRM.
+
+MAIN GOAL:
+Build an admin-only multi-developer registration system that prepares and manages registration of every new CRM lead into developer/company registration forms.
+
+This protects Kinglike Luxury’s right to sell the client by registering the lead under our company before developer protection expires.
+
+IMPORTANT:
+This must be a multi-developer engine from day one.
+
+Silk Development is only the first configured developer company.
+
+Do NOT hardcode Silk-specific logic inside the engine.
+
+All developer-specific settings must be stored in database configuration tables.
+
+The engine must support unlimited future developer companies without code changes.
+
+Adding a new developer later should require only admin configuration:
+- company name
+- form URL
+- field mapping
+- default values
+- representative settings
+- registration interval
+- active/inactive status
+
+No code deployment should be required when adding future developers.
+
+VERY IMPORTANT SAFETY RULES:
+Do NOT modify:
+- authentication logic
+- payment logic
+- WhatsApp sending logic
+- Meta lead webhook logic except adding a safe post-lead-created hook
+- AI model settings unrelated to this feature
+- public property pages
+- property upload/edit pages
+- existing CRM lead data destructively
+- existing database tables destructively
+- existing routes unrelated to this feature
+- secrets or environment variables
+- production deployment settings
+
+Only add the Developer Registration Center feature and the minimum safe hooks needed for newly created CRM leads.
+
+FEATURE NAME:
+Developer Registration Center
+Arabic meaning: نظام تسجيل العملاء لدى شركات الإنشاء
+
+PHASE 1 SCOPE:
+This phase must NOT auto-submit real client data to external developer websites unless explicitly triggered by an admin.
+
+For now, build:
+1. Database tables.
+2. Admin-only UI.
+3. Multi-developer registration engine.
+4. Registration queue.
+5. Silk Development as the first configured developer.
+6. Prepared registration records.
+7. Manual “Open & Register” / “Copy Payload” / “Mark Submitted” workflow.
+8. 40-day re-registration scheduler.
+9. Status-based stop rules.
+10. Audit logs.
+11. Compatibility checker placeholder.
+12. Future developer configuration system.
+
+DO NOT build blind automatic external form submission in Phase 1.
+
+DATABASE:
+Create safe IF NOT EXISTS tables only.
+
+1. developer_companies
+Fields:
+- id
+- name
+- form_url
+- is_active
+- registration_interval_days default 40
+- registration_mode default manual
+- created_at
+- updated_at
+
+2. developer_form_configs
+Fields:
+- id
+- developer_company_id
+- config_json
+- is_active
+- created_at
+- updated_at
+
+config_json must support:
+- field_mappings
+- default_values
+- required_fields
+- dropdown_values
+- representative_settings
+- payload_rules
+- compatibility_checker_result
+- risk_level
+- notes
+
+3. developer_registration_records
+Fields:
+- id
+- crm_lead_id
+- developer_company_id
+- status: pending, prepared, submitted, failed, duplicate, needs_review, stopped, pending_re_registration
+- registration_payload_json
+- last_registered_at
+- next_registration_at
+- attempt_count
+- last_error
+- protection_status: protected, expired, stopped, sold
+- created_at
+- updated_at
+
+4. developer_registration_attempts
+Fields:
+- id
+- registration_record_id
+- crm_lead_id
+- developer_company_id
+- attempt_type: initial, re_registration, manual
+- status: success, failed, needs_review
+- payload_json
+- result_message
+- created_by
+- created_at
+
+SEED FIRST DEVELOPER COMPANY:
+Create Silk Development only if it does not exist.
+
+Developer:
+Name: Silk Development
+URL: https://system.silkdevelopment.ge/custom/Broker/
+registration_interval_days: 40
+registration_mode: manual
+is_active: true
+
+SILK DEVELOPMENT FORM CONFIG:
+Store this config in developer_form_configs.config_json.
+Do not hardcode it in the engine.
+
+Silk payload should be prepared as follows:
+
+Client Type:
+Company
+
+Company Name:
+Kinglike Luxury
+
+Company ID:
+383838388383838383
+
+Company Phone:
+591000058
+
+Company Email:
+info@kinglikeluxury.com
+
+Contact Name, Surname:
+Use CRM lead full name.
+If missing, combine first_name + last_name.
+If still missing, use phone as fallback and mark needs_review.
+
+Contact ID:
+If the form requires ID, generate a stable internal numeric ID per lead and save it in registration_payload_json so it never changes on retries.
+Do NOT generate a new random ID every time.
+If the field is optional, leave it empty unless the config says required.
+
+Passport:
+Leave empty unless CRM lead has passport.
+
+Contact Phone:
+Use full CRM lead phone exactly, including country code.
+Example:
++972 52-514-4496
+
+Contact Email:
+Always use:
+info@kinglikeluxury.com
+
+Never send the client’s real email to the developer form unless admin explicitly changes it.
+
+Project Name:
+Silk Towers
+
+Type of Apartment:
+If CRM lead has apartment type, use it.
+If missing and form requires it, use configured default.
+If no safe default exists, mark needs_review.
+
+Total Budget:
+150000
+
+Comment:
+We are in touch with him
+
+Company Representative:
+Aslan Glonti only.
+
+MULTI-DEVELOPER STRATEGY:
+When a new CRM lead is created, the system must create registration records for ALL active developer_companies.
+
+This means:
+Even if the lead is interested in Silk, prepare registrations for all active developers configured in the system.
+
+For Phase 1, only Silk is seeded.
+But the architecture must support Petra, Gumbati, Next Partners, Ambassadori, Wyndham, Rotana, and future developers without code changes.
+
+LEAD SOURCES:
+Create developer_registration_records when a CRM lead is created from:
+- Meta webhook
+- Meta pull sync
+- manual CRM entry
+- Excel import if available
+
+For Phase 1:
+Do not submit externally automatically.
+Set status = prepared or needs_review depending on required data availability.
+
+RE-REGISTRATION RULE:
+Every active submitted registration record should be re-registered every 40 days.
+
+Set:
+next_registration_at = last_registered_at + 40 days
+
+If never submitted:
+next_registration_at should remain null until submitted.
+
+A scheduled job should run daily and mark due records as pending_re_registration when:
+today >= next_registration_at
+and lead status allows re-registration
+and protection_status is not stopped or sold.
+
+IMPORTANT:
+In Phase 1, do not auto-submit re-registration.
+Only show due records in the admin queue as Pending Re-registration with manual actions.
+
+CRM LEAD STATUS RULES:
+
+Continue registration and re-registration for these lead statuses:
+- New
+- No Answer 1
+- No Answer 2
+- No Answer 3
+- Will Think
+- Follow Up
+- Hot Buyer
+- Entering Lead
+- Broker
+- Deposited
+- Reserved
+
+Stop registration and re-registration for these lead statuses:
+- Purchased
+- Second Hand
+- Junk Lead
+- After 3 No Answer - Converted to Another Sales Manager
+- Lost Competition
+- Sold by Kinglike Luxury
+- Not Interested
+- Invalid Number
+- Duplicate
+
+If Sold by Kinglike Luxury or Not Interested do not currently exist in the CRM status list:
+Do not break the CRM.
+Add support safely only if the status list is centralized and easy to extend.
+Otherwise only include them in stop logic for future compatibility.
+
+When a CRM lead status changes to a stop status:
+- mark related developer_registration_records as stopped
+- set protection_status = sold if status is Purchased or Sold by Kinglike Luxury
+- otherwise set protection_status = stopped
+- cancel future re-registration
+
+ADMIN UI:
+Create admin-only page:
+
+/admin/developer-registration-center
+
+Add it to admin navigation only if safe and consistent with existing admin menu patterns.
+
+Page sections:
+
+1. Dashboard cards:
+- Pending registrations
+- Prepared registrations
+- Submitted
+- Failed
+- Needs Review
+- Pending Re-registration
+- Protected
+- Stopped
+
+2. Developer companies list:
+Show:
+- company name
+- form URL
+- active/inactive
+- interval days
+- mode
+- last compatibility check
+- risk level
+
+Actions:
+- Add developer
+- Edit developer
+- Activate/deactivate developer
+- Edit config JSON safely
+- View field mapping
+- Run compatibility check placeholder
+
+3. Registration Queue:
+Columns:
+- Lead name
+- Phone
+- CRM Status
+- Developer
+- Registration status
+- Last registered
+- Next registration
+- Protection status
+- Last error
+- Actions
+
+Actions:
+- View prepared payload
+- Open developer form
+- Copy prepared data
+- Mark Submitted
+- Mark Failed
+- Mark Needs Review
+- Stop Protection
+- Resume Protection if lead status allows it
+
+4. Lead detail integration:
+Inside each CRM lead detail page, add a section:
+
+Developer Registrations
+
+Show:
+- Developer company
+- Status
+- Last registration
+- Next registration
+- Protection status
+- Last error
+- Actions
+
+5. Future developer setup:
+Allow admin to add a new developer company with:
+- name
+- form_url
+- registration_interval_days
+- registration_mode
+- active/inactive
+- config_json
+
+PERMISSIONS:
+Admin:
+- can view all registration records
+- can submit/mark/stop/resume/generate payload
+- can add/edit/deactivate developer companies
+- can edit configs
+
+Sub-agent:
+- no access to Developer Registration Center in Phase 1
+- if any registration status is shown in CRM lead detail, sub-agent can only view records for leads assigned to them
+- sub-agent cannot edit, submit, stop, resume, or modify developer configs
+
+All permissions must be enforced server-side, not only in UI.
+
+API ENDPOINTS:
+Create admin-protected routes only.
+
+Suggested endpoints:
+GET /api/admin/developer-registration/overview
+GET /api/admin/developer-registration/queue
+GET /api/admin/developer-registration/lead/:leadId
+POST /api/admin/developer-registration/lead/:leadId/prepare
+POST /api/admin/developer-registration/:recordId/mark-submitted
+POST /api/admin/developer-registration/:recordId/mark-failed
+POST /api/admin/developer-registration/:recordId/needs-review
+POST /api/admin/developer-registration/:recordId/stop
+POST /api/admin/developer-registration/:recordId/resume
+GET /api/admin/developer-registration/companies
+POST /api/admin/developer-registration/companies
+PATCH /api/admin/developer-registration/companies/:id
+POST /api/admin/developer-registration/companies/:id/compatibility-check
+
+All endpoints must return 403 for unauthenticated or unauthorized users.
+
+FORM AUTOMATION:
+Phase 1 must not blindly auto-submit external forms.
+
+Implement only:
+- prepared payload
+- open form link
+- copy field values
+- manual submit confirmation
+- mark submitted manually
+
+Add placeholder for future compatibility checker:
+Fields:
+- can_auto_fill
+- captcha_detected
+- cloudflare_detected
+- submit_button_detected
+- required_fields_detected
+- success_message_detected
+- risk_level: low, medium, high
+- last_checked_at
+- notes
+
+No real browser automation or external submit should happen in Phase 1.
+
+LOGGING:
+Add clear logs:
+[DeveloperRegistration] Prepared registration leadId=...
+[DeveloperRegistration] Created records for active developers leadId=...
+[DeveloperRegistration] Marked submitted recordId=...
+[DeveloperRegistration] Marked pending_re_registration recordId=...
+[DeveloperRegistration] Stopped due to lead status recordId=...
+[DeveloperRegistration] Developer config updated developerId=...
+
+VALIDATION:
+After implementation verify:
+1. Existing app starts without TypeScript errors.
+2. Existing CRM lead pages still work.
+3. Existing Meta leads still appear.
+4. New CRM lead creation creates prepared Silk registration record.
+5. Admin page /admin/developer-registration-center opens.
+6. Admin can view payload for Silk.
+7. Admin can add a future developer from UI without code changes.
+8. Mark Submitted sets last_registered_at and next_registration_at +40 days.
+9. Daily scheduler marks due records as pending_re_registration.
+10. Stop statuses cancel future re-registration.
+11. Unauthenticated requests return 403.
+12. Sub-agent cannot modify registration records.
+13. No external developer form is auto-submitted in Phase 1.
+
+DO NOT RUN DESTRUCTIVE DB MIGRATIONS.
+Use additive schema changes only.
