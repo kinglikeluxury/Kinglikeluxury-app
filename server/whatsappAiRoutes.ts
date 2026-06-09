@@ -31,6 +31,101 @@ async function canAccessLeadWhatsApp(req: any, leadId: number): Promise<boolean>
 export function registerWhatsappAiRoutes(app: Express): void {
 
   /**
+   * POST /api/admin/whatsapp-ai/lead/:leadId/init
+   * Creates a draft conversation for a lead that doesn't have one yet.
+   * Access: admin only
+   */
+  app.post(
+    "/api/admin/whatsapp-ai/lead/:leadId/init",
+    async (req: Request, res: Response) => {
+      if (!req.session.isAdmin) {
+        return res.status(403).json({ message: "Admin only" });
+      }
+      const leadId = Number(req.params.leadId);
+      if (!leadId) return res.status(400).json({ message: "Invalid lead id" });
+
+      const [lead] = await db
+        .select()
+        .from(crmLeads)
+        .where(eq(crmLeads.id, leadId))
+        .limit(1);
+
+      if (!lead) return res.status(404).json({ message: "Lead not found" });
+
+      const { initConversationForLead } = await import("./whatsappAiService");
+      await initConversationForLead(lead.id, {
+        fullName:        lead.fullName,
+        firstName:       lead.firstName,
+        phone:           lead.phone,
+        country:         lead.country,
+        city:            lead.city,
+        budget:          lead.budget,
+        projectInterest: lead.projectInterest,
+        assignedTo:      lead.assignedTo,
+      });
+
+      const data = await getConversationData(leadId);
+      return res.json(data);
+    }
+  );
+
+  /**
+   * POST /api/admin/whatsapp-ai/backfill
+   * Creates draft conversations for ALL CRM leads that don't have one.
+   * Access: admin only
+   */
+  app.post(
+    "/api/admin/whatsapp-ai/backfill",
+    async (req: Request, res: Response) => {
+      if (!req.session.isAdmin) {
+        return res.status(403).json({ message: "Admin only" });
+      }
+      const { pool } = await import("./db");
+      const { initConversationForLead } = await import("./whatsappAiService");
+
+      const client = await pool.connect();
+      let processed = 0;
+      let skipped = 0;
+      let errors = 0;
+      try {
+        const { rows } = await client.query(`
+          SELECT cl.id, cl.full_name, cl.first_name, cl.phone, cl.country,
+                 cl.city, cl.budget, cl.project_interest, cl.assigned_to
+          FROM crm_leads cl
+          WHERE NOT EXISTS (
+            SELECT 1 FROM whatsapp_ai_conversations wc WHERE wc.lead_id = cl.id
+          )
+          ORDER BY cl.id
+        `);
+        console.log(`[WhatsAppAI][Backfill] ${rows.length} leads need conversations`);
+        for (const l of rows) {
+          try {
+            await initConversationForLead(l.id, {
+              fullName:        l.full_name,
+              firstName:       l.first_name,
+              phone:           l.phone,
+              country:         l.country,
+              city:            l.city,
+              budget:          l.budget,
+              projectInterest: l.project_interest,
+              assignedTo:      l.assigned_to,
+            });
+            processed++;
+          } catch (err: any) {
+            console.error(`[WhatsAppAI][Backfill] lead=${l.id} error: ${err.message}`);
+            errors++;
+          }
+        }
+        skipped = 0;
+      } finally {
+        client.release();
+      }
+      console.log(`[WhatsAppAI][Backfill] done — processed=${processed} errors=${errors}`);
+      return res.json({ processed, skipped, errors });
+    }
+  );
+
+  /**
    * GET /api/admin/whatsapp-ai/lead/:leadId
    * Returns full conversation + messages + agent report.
    * Access: admin (any lead) | sub_agent (only assigned leads)

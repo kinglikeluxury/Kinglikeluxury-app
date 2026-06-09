@@ -419,6 +419,16 @@ export default function CrmLeadDetailPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const initAiMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/admin/whatsapp-ai/lead/${leadId}/init`, {}),
+    onSuccess: () => {
+      aiRefetch();
+      toast({ title: "AI conversation initialized" });
+    },
+    onError: (e: any) => toast({ title: "Init failed", description: e.message, variant: "destructive" }),
+  });
+
   // ── Auth guard — effect-based redirect avoids "setState during render" ──
   useEffect(() => {
     if (!authLoading && !isCrmAuthorized) {
@@ -1276,8 +1286,35 @@ export default function CrmLeadDetailPage() {
       </div>
 
       {/* ── WhatsApp AI Qualification Section ─────────────────────────────── */}
-      {aiData?.conversation && (
+      {aiData !== undefined && (
         <div className="mt-6">
+          {/* No conversation yet — show init card */}
+          {!aiData.conversation && user?.isAdmin && (
+            <Card className="border-0 shadow-sm border border-dashed border-[#3bcac4]/40">
+              <CardContent className="py-6 flex flex-col items-center gap-3 text-center">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#3bcac4]/20 to-[#005476]/20 flex items-center justify-center">
+                  <Bot className="h-5 w-5 text-[#005476]" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-[#005476]">WhatsApp AI Qualification</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">No AI conversation exists for this lead yet.</p>
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-[#3bcac4] to-[#005476] gap-1.5 text-xs"
+                  disabled={initAiMutation.isPending}
+                  onClick={() => initAiMutation.mutate()}
+                >
+                  {initAiMutation.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Bot className="h-3.5 w-3.5" />}
+                  Initialize AI Conversation
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {aiData.conversation && (
           <Card className="border-0 shadow-sm overflow-hidden">
             {/* Header — always visible */}
             <CardHeader
@@ -1540,6 +1577,7 @@ export default function CrmLeadDetailPage() {
               </CardContent>
             )}
           </Card>
+          )}
         </div>
       )}
 
