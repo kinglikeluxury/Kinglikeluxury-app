@@ -209,6 +209,8 @@ export default function CrmLeadsPage() {
     failedRows: { row: number; reason: string }[];
   }
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [assigningUnassigned, setAssigningUnassigned] = useState(false);
+
   const [importWizardOpen, setImportWizardOpen] = useState(false);
   const [importStep, setImportStep] = useState<"upload" | "preview" | "done">("upload");
   const [importLoading, setImportLoading] = useState(false);
@@ -441,6 +443,20 @@ export default function CrmLeadsPage() {
     finally { setBulkActionPending(false); }
   }
 
+  async function handleAssignUnassigned() {
+    setAssigningUnassigned(true);
+    try {
+      const r = await fetch("/api/admin/crm/leads/assign-unassigned", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || "Assignment failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      toast({ title: data.assigned > 0 ? `${data.assigned} lead${data.assigned !== 1 ? "s" : ""} assigned` : "No unassigned leads found", description: data.message });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    finally { setAssigningUnassigned(false); }
+  }
+
   async function handleImportFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -550,6 +566,22 @@ export default function CrmLeadsPage() {
               onClick={() => { setImportWizardOpen(true); setImportStep("upload"); }}
             >
               <FileText className="h-4 w-4" /> Import File
+            </Button>
+          )}
+
+          {/* Assign Unassigned Leads — admin only */}
+          {user?.isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4]/10"
+              onClick={handleAssignUnassigned}
+              disabled={assigningUnassigned}
+            >
+              {assigningUnassigned
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <UserCheck className="h-4 w-4" />}
+              Assign Unassigned
             </Button>
           )}
 

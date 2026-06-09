@@ -4,6 +4,7 @@ import { eq, and, lte } from "drizzle-orm";
 import https from "https";
 import { initConversationForLead } from "./whatsappAiService";
 import { initDeveloperRegistrationsForLead } from "./developerRegistrationService";
+import { getEligibleSubAgents, pickNextSubAgentId, cycleAgentId } from "./leadAssignmentService";
 
 export interface PullSyncResult {
   formsChecked: number;
@@ -173,6 +174,8 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       null;
 
     // ── Step C: insert into CRM leads ──────────────────────────────────────
+    const webhookAssignedTo = await pickNextSubAgentId();
+
     const crmPayload = {
       leadSource:      "meta_ads" as const,
       externalLeadId:  entry.metaLeadId,
@@ -193,6 +196,7 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       budget:    fields["budget"] || null,
       status:    "new"  as const,
       leadScore: "cold" as const,
+      assignedTo: webhookAssignedTo,
     };
 
     console.log(
@@ -212,6 +216,9 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       `[MetaLeads][Processor] Step C ✓ — CRM lead created | ` +
       `queueId=${entry.id} | crmLeadId=${crmLead.id}`
     );
+    if (crmLead.assignedTo) {
+      console.log(`[LeadAssignment] Assigned leadId=${crmLead.id} to userId=${crmLead.assignedTo}`);
+    }
 
     // ── WhatsApp AI: init draft conversation (Phase 1 — no message sent) ───
     initConversationForLead(crmLead.id, {
@@ -412,6 +419,10 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
   const forms: any[] = formsData.data || [];
   result.formsChecked = forms.length;
 
+  // Round-robin sub-agent assignment — fetch agents once before the batch loop
+  const pullSyncAgents = await getEligibleSubAgents();
+  let pullSyncOffset = 0;
+
   // Step 2: for each form, fetch and import leads
   for (const form of forms) {
     let inserted = 0, dups = 0, errs = 0, found = 0;
@@ -464,6 +475,7 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             [firstName, lastName].filter(Boolean).join(" ") || null;
 
           // Insert CRM lead
+          const pullSyncAssignedTo = cycleAgentId(pullSyncAgents, pullSyncOffset++);
           const [crmLead] = await db.insert(crmLeads).values({
             leadSource:      "meta_ads" as const,
             externalLeadId:  leadId,
@@ -480,9 +492,13 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             budget:    fields["budget"] || null,
             status:    "new"  as const,
             leadScore: "cold" as const,
+            assignedTo: pullSyncAssignedTo,
           }).returning();
 
           if (!crmLead) throw new Error("CRM insert returned no row");
+          if (crmLead.assignedTo) {
+            console.log(`[LeadAssignment] Assigned leadId=${crmLead.id} to userId=${crmLead.assignedTo}`);
+          }
 
           // ── WhatsApp AI: init draft conversation (Phase 1 — no message sent) ──
           initConversationForLead(crmLead.id, {

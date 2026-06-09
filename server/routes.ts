@@ -4049,6 +4049,9 @@ ${metaTags}
         }
       }
 
+      const { pickNextSubAgentId: pickAgent } = await import("./leadAssignmentService");
+      const autoAssignedTo = await pickAgent();
+
       const lead = await storage.createCrmLead({
         fullName, firstName, lastName, phone, email, country, city,
         interestedCountry, projectInterest, budget, expectedPurchaseMonth, description,
@@ -4056,7 +4059,11 @@ ${metaTags}
         leadSource: leadSource || "manual",
         leadScore:  leadScore  || "cold",
         status:     status     || "new",
+        assignedTo: autoAssignedTo,
       });
+      if (autoAssignedTo) {
+        console.log(`[LeadAssignment] Assigned leadId=${lead.id} to userId=${autoAssignedTo}`);
+      }
       // Trigger welcome email if lead has an email address (fire-and-forget)
       if (lead.email?.trim()) {
         const { sendCrmWelcomeEmail } = await import("./emailService");
@@ -4304,6 +4311,11 @@ ${metaTags}
       const importUsers = await db.select({ id: users.id, username: users.username }).from(users);
       const importUserList = importUsers.map(u => ({ id: u.id, name: u.username.toLowerCase().trim() }));
 
+      // Round-robin sub-agent assignment — fetch once before the import loop
+      const { getEligibleSubAgents: getImportAgents, cycleAgentId: cycleImport } = await import("./leadAssignmentService");
+      const importAgents = await getImportAgents();
+      let importOffset = 0;
+
       let importedCount = 0, duplicates = 0, failed = 0;
       const failedRows: { row: number; reason: string }[] = [];
 
@@ -4375,7 +4387,7 @@ ${metaTags}
             leadSource:            lead.leadSource            || "excel_import",
             leadScore:             "cold",
             status:                lead.status                || "new",
-            assignedTo:            assignedToId,
+            assignedTo:            assignedToId !== null ? assignedToId : cycleImport(importAgents, importOffset++),
             lastContactAt:         lastContactAtDate,
           });
 
@@ -4668,6 +4680,21 @@ ${metaTags}
       if (ids.length > 1000) return res.status(400).json({ message: "Too many IDs (max 1000)" });
       await db.delete(crmLeads).where(inArray(crmLeads.id, ids));
       res.json({ deleted: ids.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads/assign-unassigned — round-robin assign all leads with assigned_to=null */
+  app.post("/api/admin/crm/leads/assign-unassigned", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const { backfillUnassignedLeads } = await import("./leadAssignmentService");
+      const result = await backfillUnassignedLeads();
+      if (result.agentCount === 0) {
+        return res.json({ assigned: 0, message: "No eligible sub-agents found. Add sub-agents first." });
+      }
+      res.json({ assigned: result.assigned, agentCount: result.agentCount, message: `Assigned ${result.assigned} leads across ${result.agentCount} sub-agent(s)` });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
