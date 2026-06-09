@@ -215,7 +215,12 @@ export function registerMetaLeadsRoutes(app: Express): void {
               continue;
             }
 
-            const [queued] = await db.insert(leadImportQueue).values({
+            console.log(
+              `[MetaLeads][POST] → inserting into leadImportQueue — ` +
+              `leadgen_id=${leadgen_id} | form_id=${form_id ?? "—"} | page_id=${page_id ?? "—"}`
+            );
+
+            const insertResult = await db.insert(leadImportQueue).values({
               metaLeadId: leadgen_id,
               leadgenId: leadgen_id,
               formId: form_id || null,
@@ -227,14 +232,26 @@ export function registerMetaLeadsRoutes(app: Express): void {
               status: "pending",
             }).returning();
 
+            const queued = insertResult[0];
+
+            if (!queued) {
+              console.error(
+                `[MetaLeads][POST] ✗ Queue insert returned no row — ` +
+                `leadgen_id=${leadgen_id} | This is a silent failure point — possible DB constraint`
+              );
+              continue;
+            }
+
+            console.log(
+              `[MetaLeads][POST] ✓ Queued — metaLeadId=${leadgen_id} | queueId=${queued.id} | status=pending`
+            );
+
             await db.insert(leadImportAuditLog).values({
               queueEntryId: queued.id,
               metaLeadId: leadgen_id,
               action: "received",
               details: { pageId: page_id, formId: form_id, adId: ad_id },
             });
-
-            console.log(`[MetaLeads][POST] ✓ Queued — metaLeadId=${leadgen_id} queueId=${queued.id}`);
           }
         }
       } catch (err) {
