@@ -321,6 +321,150 @@ export async function generateAiReport(
   }
 }
 
+// ── triggerNoAnswer3Recovery ──────────────────────────────────────────────────
+/**
+ * Called when a CRM lead status changes to "no_answer_3".
+ * Ensures a conversation exists, then appends an Arabic recovery draft message.
+ * Updates qualification_json with recovery_reason + recovery_triggered_at.
+ * NEVER sends any real WhatsApp message — Phase 1 is internal only.
+ */
+export async function triggerNoAnswer3Recovery(
+  leadId: number,
+  leadData: {
+    fullName?: string | null;
+    firstName?: string | null;
+    phone?: string | null;
+    country?: string | null;
+    city?: string | null;
+    budget?: string | null;
+    projectInterest?: string | null;
+    assignedTo?: number | null;
+  }
+): Promise<void> {
+  try {
+    console.log(`[WhatsAppAI][Recovery] No Answer 3 detected leadId=${leadId}`);
+
+    // Step 1: Ensure conversation exists
+    let [conv] = await db
+      .select()
+      .from(whatsappAiConversations)
+      .where(eq(whatsappAiConversations.leadId, leadId))
+      .limit(1);
+
+    if (!conv) {
+      await initConversationForLead(leadId, leadData);
+      const [fresh] = await db
+        .select()
+        .from(whatsappAiConversations)
+        .where(eq(whatsappAiConversations.leadId, leadId))
+        .limit(1);
+      if (!fresh) {
+        console.error(`[WhatsAppAI][Recovery] Failed to create conversation leadId=${leadId}`);
+        return;
+      }
+      conv = fresh;
+    }
+
+    // Step 2: Idempotency — skip if a recovery message already exists
+    const { sql } = await import("drizzle-orm");
+    const [existing] = await db
+      .select({ id: whatsappAiMessages.id })
+      .from(whatsappAiMessages)
+      .where(
+        sql`${whatsappAiMessages.conversationId} = ${conv.id}
+          AND ${whatsappAiMessages.rawPayloadJson}->>'messageType' = 'no_answer_3_recovery'`
+      )
+      .limit(1);
+
+    if (existing) {
+      console.log(`[WhatsAppAI][Recovery] Recovery message already exists leadId=${leadId} — skipping`);
+      return;
+    }
+
+    // Step 3: Generate Arabic recovery message
+    const clientName = buildClientName(leadData);
+    const DEFAULT_RECOVERY =
+      `مرحباً أستاذي، حاول فريق Kinglike Luxury التواصل معك بخصوص اهتمامك بالعقارات، ` +
+      `ويبدو أن الوقت لم يكن مناسباً.\n` +
+      `إذا ما زال الموضوع يهمك، أخبرني فقط ما هو الوقت الأنسب ليتواصل معك أحد مستشارينا، ` +
+      `أو يمكنك كتابة الدولة/المدينة التي تهمك وسنجهز لك الخيارات المناسبة.`;
+
+    let recoveryMessage = DEFAULT_RECOVERY;
+
+    if (openai) {
+      try {
+        const userPrompt =
+          `أنشئ رسالة واتساب لاسترداد العميل` +
+          (clientName ? ` "${clientName}"` : "") +
+          ` الذي لم يرد على 3 مكالمات من فريق Kinglike Luxury.\n\n` +
+          `القواعد الصارمة:\n` +
+          `- أسلوب مهذب وهادئ ومحترم تماماً.\n` +
+          `- لا تقل "اتصلنا بك 3 مرات" بطريقة عتاب أو ضغط.\n` +
+          `- لا تلوم العميل على عدم الرد.\n` +
+          `- اسأله عن أفضل وقت للتواصل.\n` +
+          `- اسأله إن كان لا يزال مهتماً بخيارات الاستثمار.\n` +
+          `- لا تفضّل دولة أو مدينة أو مشروعاً بعينه.\n` +
+          `- لا تعطِ وعوداً قانونية أو ضريبية أو مالية.\n` +
+          `- لا ترسل روابط.\n` +
+          `- رسالة قصيرة (3-4 أسطر فقط).`;
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: WHATSAPP_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: 250,
+          temperature: 0.6,
+        });
+
+        const aiText = response.choices[0]?.message?.content?.trim();
+        if (aiText) recoveryMessage = aiText;
+      } catch (err: any) {
+        console.warn(
+          `[WhatsAppAI][Recovery] OpenAI failed, using default recovery message leadId=${leadId}: ${err.message}`
+        );
+      }
+    }
+
+    // Step 4: Store recovery message
+    const triggeredAt = new Date().toISOString();
+    await db.insert(whatsappAiMessages).values({
+      conversationId: conv.id,
+      sender: "ai",
+      messageText: recoveryMessage,
+      rawPayloadJson: {
+        messageType: "no_answer_3_recovery",
+        triggeredAt,
+      },
+    });
+
+    console.log(`[WhatsAppAI][Recovery] Draft message created leadId=${leadId}`);
+
+    // Step 5: Update qualification_json with recovery metadata
+    const existingJson = (conv.qualificationJson as Record<string, unknown>) ?? {};
+    await db
+      .update(whatsappAiConversations)
+      .set({
+        qualificationJson: {
+          ...existingJson,
+          recovery_reason: "no_answer_3",
+          recovery_triggered_at: triggeredAt,
+        },
+        lastMessageAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(whatsappAiConversations.id, conv.id));
+
+    console.log(`[WhatsAppAI][Recovery] No WhatsApp message sent in Phase 1`);
+  } catch (err: any) {
+    console.error(
+      `[WhatsAppAI][Recovery] triggerNoAnswer3Recovery failed leadId=${leadId}:`,
+      err.message
+    );
+  }
+}
+
 // ── getConversationData ───────────────────────────────────────────────────────
 /**
  * Fetches full conversation + messages + report for a lead.

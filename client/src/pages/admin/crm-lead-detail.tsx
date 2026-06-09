@@ -1409,6 +1409,9 @@ export default function CrmLeadDetailPage() {
                           const isAi = msg.sender === "ai";
                           const isClient = msg.sender === "client";
                           const isSystem = msg.sender === "system" || msg.sender === "admin";
+                          const payload = msg.rawPayloadJson as Record<string, string> | null;
+                          const isRecovery = payload?.messageType === "no_answer_3_recovery";
+
                           if (isSystem) {
                             return (
                               <div key={msg.id} className="flex justify-center">
@@ -1418,6 +1421,31 @@ export default function CrmLeadDetailPage() {
                               </div>
                             );
                           }
+
+                          if (isRecovery) {
+                            return (
+                              <div key={msg.id} className="rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3 space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                    <Bot className="h-3 w-3" />
+                                    No Answer 3 Recovery Draft
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground ml-auto">
+                                    {payload?.triggeredAt
+                                      ? new Date(payload.triggeredAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })
+                                      : new Date(msg.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-amber-900 whitespace-pre-wrap break-words leading-relaxed" dir="rtl">
+                                  {msg.messageText}
+                                </p>
+                                <p className="text-[10px] text-amber-600 opacity-70">
+                                  Draft only — not sent via WhatsApp (Phase 1)
+                                </p>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div key={msg.id} className={`flex ${isClient ? "justify-end" : "justify-start"}`}>
                               <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap break-words ${

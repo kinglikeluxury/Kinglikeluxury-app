@@ -4565,6 +4565,21 @@ ${metaTags}
       const updated = await storage.updateCrmLead(Number(req.params.id), req.body);
       if (!updated) return res.status(404).json({ message: "Lead not found" });
       res.json(updated);
+      // No Answer 3 recovery — fire in background, never blocks response
+      if (req.body.status === "no_answer_3") {
+        import("./whatsappAiService").then(({ triggerNoAnswer3Recovery }) =>
+          triggerNoAnswer3Recovery(updated.id, {
+            fullName:        updated.fullName,
+            firstName:       updated.firstName,
+            phone:           updated.phone,
+            country:         updated.country,
+            city:            updated.city,
+            budget:          updated.budget,
+            projectInterest: updated.projectInterest,
+            assignedTo:      updated.assignedTo,
+          })
+        ).catch(() => {});
+      }
       // Notify admin when a sub-admin / employee (non-admin) makes changes.
       // Status changes are handled via the notes endpoint (which includes the reason).
       if (!req.session.isAdmin && leadBefore) {
