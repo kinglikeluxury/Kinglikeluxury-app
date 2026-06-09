@@ -12,7 +12,7 @@ const UNSUBSCRIBE_SECRET = process.env.EMAIL_NURTURING_UNSUBSCRIBE_SECRET || "ki
 const ENABLED = () => process.env.EMAIL_NURTURING_ENABLED === "true";
 const APP_URL = process.env.APP_URL || "https://www.kinglikeluxury.app";
 const WHATSAPP_CTA = "https://wa.me/995591000058?text=Hello%20Kinglike%20Luxury%2C%20I%20would%20like%20to%20know%20more%20about%20real%20estate%20investment.";
-const WHATSAPP_BTN = "تواصل معنا عبر واتساب";
+const WHATSAPP_BTN = "تواصل معنا مباشرة عبر واتساب";
 
 /** Statuses that permanently stop nurturing */
 const STOP_STATUSES = new Set([
@@ -30,24 +30,31 @@ function emailWrapper(content: string, unsubscribeUrl: string, heroHtml: string 
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f9f9;padding:40px 20px">
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,84,118,0.10)">
+      <!-- ── Hero Banner ── -->
       <tr>
-        <td style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:32px 40px;text-align:center">
-          <h1 style="color:#fff;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.5px">Kinglike Luxury</h1>
-          <p style="color:rgba(255,255,255,0.85);margin:5px 0 0;font-size:13px;letter-spacing:1px">Invest with Vision</p>
+        <td style="background:linear-gradient(135deg,#005476 0%,#3bcac4 100%);padding:36px 40px 28px;text-align:center">
+          <h1 style="color:#fff;margin:0 0 4px;font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.1">Kinglike Luxury</h1>
+          <p style="color:rgba(255,255,255,0.95);margin:0 0 14px;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase">Invest with Vision</p>
+          <p style="color:rgba(255,255,255,0.80);margin:0 0 8px;font-size:12px;letter-spacing:0.5px">Georgia &bull; Batumi &bull; Tbilisi</p>
+          <p style="color:rgba(255,255,255,0.70);margin:0;font-size:11px;letter-spacing:0.3px">Real Estate Investment &amp; Advisory Services</p>
         </td>
       </tr>
+      <!-- ── Investment Hero Image ── -->
       ${heroHtml ? `<tr><td style="padding:0;line-height:0">${heroHtml}</td></tr>` : ""}
+      <!-- ── Body Content ── -->
       <tr>
         <td style="padding:36px 40px 24px">
           ${content}
         </td>
       </tr>
+      <!-- ── Footer ── -->
       <tr>
-        <td style="padding:0 40px 32px;text-align:center;border-top:1px solid #e8f4f8">
-          <p style="color:#005476;font-size:13px;font-weight:700;margin:20px 0 2px">Kinglike Luxury</p>
-          <p style="color:#3bcac4;font-size:11px;font-weight:600;margin:0 0 6px;letter-spacing:0.5px">Invest with Vision</p>
-          <a href="mailto:info@kinglikeluxury.app" style="color:#3bcac4;font-size:11px;text-decoration:none">info@kinglikeluxury.app</a>
-          <p style="color:#bbb;font-size:11px;margin:12px 0 0">
+        <td style="padding:0 40px 32px;text-align:center;border-top:2px solid #e8f4f8">
+          <p style="color:#005476;font-size:14px;font-weight:800;margin:22px 0 2px;letter-spacing:-0.3px">Kinglike Luxury</p>
+          <p style="color:#3bcac4;font-size:11px;font-weight:700;margin:0 0 10px;letter-spacing:1px;text-transform:uppercase">Invest with Vision</p>
+          <a href="mailto:info@kinglikeluxury.app" style="color:#005476;font-size:11px;text-decoration:none;display:block;margin-bottom:3px">info@kinglikeluxury.app</a>
+          <a href="https://www.kinglikeluxury.app" style="color:#3bcac4;font-size:11px;text-decoration:none;display:block">www.kinglikeluxury.app</a>
+          <p style="color:#bbb;font-size:11px;margin:14px 0 0">
             إذا كنت لا تريد تلقي هذه الرسائل، يمكنك
             <a href="${unsubscribeUrl}" style="color:#3bcac4;text-decoration:underline">إلغاء الاشتراك من هنا</a>
           </p>
@@ -65,7 +72,7 @@ function btnStyle() {
 }
 
 // ─── Template version (bump when content changes to auto-migrate DB) ───────────
-const TEMPLATE_VERSION = "v3";
+const TEMPLATE_VERSION = "v4";
 
 // ─── Default templates — trust-based Georgia real estate sequence ──────────────
 function defaultTemplates() {
@@ -76,44 +83,51 @@ function defaultTemplates() {
       subject: "أهلاً بك في Kinglike Luxury 🏡",
       body_text: "أهلاً {{firstName}}، شكراً لتواصلك مع Kinglike Luxury — يسعدنا اهتمامك بالاستثمار العقاري في جورجيا.",
       get body_html() {
-        const hero = `<img src="{{heroImageUrl}}" alt="Kinglike Luxury — Real Estate Investment in Georgia" width="600" style="width:100%;max-width:600px;display:block;object-fit:cover;max-height:260px" />`;
+        const hero = `<img src="{{heroImageUrl}}" alt="Kinglike Luxury — Luxury Real Estate Investment in Batumi, Georgia" width="600" style="width:100%;max-width:600px;display:block;object-fit:cover;height:300px" />`;
         return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">أهلاً {{firstName}} 👋</h2>
+          <h2 style="color:#005476;margin-top:0;font-size:24px;font-weight:800">أهلاً {{firstName}} 👋</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">
             شكراً لتواصلك مع <strong>Kinglike Luxury</strong> — يسعدنا اهتمامك بالاستثمار العقاري في جورجيا.
           </p>
           <p style="color:#444;line-height:1.9;font-size:15px">
             في Kinglike Luxury نساعد المستثمرين العرب على اختيار الفرص العقارية المناسبة بطريقة واضحة وآمنة، من خلال خدمات استشارية مجانية ومتابعة احترافية قبل الشراء وبعده.
           </p>
-          <div style="background:#f0f9f9;border-radius:12px;padding:24px 28px;margin:24px 0">
-            <p style="color:#005476;font-weight:700;font-size:16px;margin:0 0 16px">ما الذي تحصل عليه عند التعامل معنا؟</p>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              ${[
-                "لا تدفع لنا أي عمولة إضافية عند الشراء.",
-                "نساعدك على مقارنة المشاريع المناسبة حسب ميزانيتك وهدفك.",
-                "نوضح لك خطوات الشراء الأساسية قبل اتخاذ القرار.",
-                "نساعدك على مراجعة وفهم البنود الأساسية قبل التوقيع، ويمكننا التنسيق مع مختصين قانونيين عند الحاجة.",
-                "نتابع معك تحديثات المشروع ومراحل البناء عند توفرها.",
-                "نساعدك في خدمات التأجير وإدارة العقار.",
-                "ندعمك في إعادة البيع مستقبلاً عند الحاجة.",
-                "يحصل عملاؤنا على متابعة VIP قبل وبعد الشراء.",
-              ].map(item => `
-                <tr>
-                  <td width="24" valign="top" style="padding:7px 0">
-                    <span style="color:#3bcac4;font-weight:700;font-size:17px">•</span>
-                  </td>
-                  <td style="padding:7px 0 7px 10px;color:#444;font-size:14px;line-height:1.75">${item}</td>
-                </tr>
-              `).join("")}
-            </table>
-          </div>
-          <p style="color:#444;line-height:1.9;font-size:15px">
+
+          <!-- ── Benefits Cards ── -->
+          <p style="color:#005476;font-weight:800;font-size:17px;margin:28px 0 16px">ما الذي تحصل عليه عند التعامل معنا؟</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0 10px">
+            ${[
+              ["🎯", "لا عمولة إضافية عند الشراء", "خدماتنا الاستشارية مجانية — لا تدفع أي رسوم إضافية عند شراء العقار."],
+              ["🔍", "توجيه قبل الشراء", "نساعدك على مقارنة المشاريع المناسبة حسب ميزانيتك وهدفك الاستثماري."],
+              ["🤝", "دعم ما بعد الشراء", "متابعة احترافية ما بعد إتمام الصفقة، لضمان راحتك التامة."],
+              ["📋", "مراجعة مستندية أولية", "نساعدك على مراجعة وفهم البنود الأساسية قبل التوقيع."],
+              ["🏠", "خدمات التأجير وإدارة العقار", "نساعدك في تأجير عقارك وإدارته بأفضل العوائد الممكنة."],
+              ["💼", "دعم إعادة البيع", "ندعمك في إعادة بيع عقارك مستقبلاً عند الحاجة."],
+              ["⭐", "تجربة VIP", "يحصل عملاؤنا على متابعة VIP متكاملة قبل وبعد الشراء."],
+            ].map(([icon, title, desc]) => `
+              <tr>
+                <td style="background:#f0f9f9;border-radius:12px;padding:14px 18px;border-right:4px solid #3bcac4">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td width="38" valign="middle" style="font-size:22px;padding-left:12px">${icon}</td>
+                      <td valign="middle">
+                        <strong style="color:#005476;font-size:14px;display:block;margin-bottom:3px">${title}</strong>
+                        <span style="color:#666;font-size:12px;line-height:1.6">${desc}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            `).join("")}
+          </table>
+
+          <p style="color:#444;line-height:1.9;font-size:15px;margin-top:28px">
             هدفنا أن تتخذ قرارك بثقة ووضوح، بعيداً عن الضغط أو المعلومات غير الدقيقة.
           </p>
           <p style="color:#444;line-height:1.9;font-size:15px">
             اضغط على الزر أدناه للتواصل معنا مباشرة عبر واتساب.
           </p>
-          <div style="text-align:center">
+          <div style="text-align:center;margin-top:8px">
             <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
         `, "{{unsubscribeUrl}}", hero);
@@ -466,7 +480,7 @@ export async function ensureEmailNurturingTables(): Promise<void> {
       ["sender_name",            "Kinglike Luxury"],
       ["sender_email",           "info@kinglikeluxury.app"],
       ["reply_to",               "info@kinglikeluxury.app"],
-      ["welcome_email_hero_url", "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80&auto=format&fit=crop"],
+      ["welcome_email_hero_url", "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=600&q=85&auto=format&fit=crop"],
     ];
     for (const [key, value] of defaultSettings) {
       await client.query(`INSERT INTO email_nurturing_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING`, [key, value]);
@@ -509,6 +523,12 @@ export async function ensureEmailNurturingTables(): Promise<void> {
           VALUES($1,$2,$3,$4,true,$5,$6,$7)
         `, [seqId, t.day_offset, t.sort_order, t.is_recurring, t.subject, t.body_html, t.body_text]);
       }
+      // Update hero image to premium investment visual
+      await client.query(`
+        INSERT INTO email_nurturing_settings(key,value,updated_at)
+        VALUES('welcome_email_hero_url','https://images.unsplash.com/photo-1486325212027-8081e485255e?w=600&q=85&auto=format&fit=crop',NOW())
+        ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+      `);
       await client.query(`
         INSERT INTO email_nurturing_settings(key,value,updated_at) VALUES('template_version',$1,NOW())
         ON CONFLICT(key) DO UPDATE SET value=$1, updated_at=NOW()
