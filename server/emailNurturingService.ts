@@ -480,7 +480,7 @@ export async function ensureEmailNurturingTables(): Promise<void> {
       ["sender_name",            "Kinglike Luxury"],
       ["sender_email",           "info@kinglikeluxury.app"],
       ["reply_to",               "info@kinglikeluxury.app"],
-      ["welcome_email_hero_url", "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=600&q=85&auto=format&fit=crop"],
+      ["welcome_email_hero_url", "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=85&auto=format&fit=crop"],
     ];
     for (const [key, value] of defaultSettings) {
       await client.query(`INSERT INTO email_nurturing_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING`, [key, value]);
@@ -526,7 +526,7 @@ export async function ensureEmailNurturingTables(): Promise<void> {
       // Update hero image to premium investment visual
       await client.query(`
         INSERT INTO email_nurturing_settings(key,value,updated_at)
-        VALUES('welcome_email_hero_url','https://images.unsplash.com/photo-1486325212027-8081e485255e?w=600&q=85&auto=format&fit=crop',NOW())
+        VALUES('welcome_email_hero_url','https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=85&auto=format&fit=crop',NOW())
         ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
       `);
       await client.query(`
@@ -683,11 +683,13 @@ async function getSettings(client: any): Promise<{ senderName: string; senderEma
   const r = await client.query(`SELECT key, value FROM email_nurturing_settings`);
   const m: Record<string, string> = {};
   for (const row of r.rows) m[row.key] = row.value;
+  const heroImageUrl = m["welcome_email_hero_url"] || "";
+  console.log(`[EmailNurturing] Welcome template hero image URL = ${heroImageUrl}`);
   return {
     senderName:    m["sender_name"]          || "Kinglike Luxury",
     senderEmail:   m["sender_email"]         || "info@kinglikeluxury.app",
     replyTo:       m["reply_to"]             || "info@kinglikeluxury.app",
-    heroImageUrl:  m["welcome_email_hero_url"] || "",
+    heroImageUrl,
   };
 }
 
