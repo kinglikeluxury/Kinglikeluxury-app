@@ -39,7 +39,7 @@ export function getAlertStatus(): AlertStatus {
   const minutesSinceLast = Math.round((Date.now() - lastLeadReceivedAt.getTime()) / 60_000);
   return {
     alertActive: isConfigured && minutesSinceLast > 30,
-    lastReceivedAt,
+    lastReceivedAt: lastLeadReceivedAt,
     minutesSinceLast,
     isConfigured,
   };
