@@ -186,6 +186,79 @@ export async function ensureMetaLeadsTables(): Promise<void> {
   }
 }
 
+/**
+ * Creates the WhatsApp AI qualification tables and adds assignment-tracking
+ * columns to crm_leads if they don't already exist.
+ * Safe to run on every startup — all statements use IF NOT EXISTS / ADD COLUMN IF NOT EXISTS.
+ */
+export async function ensureWhatsappAiTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      -- Assignment tracking columns on existing crm_leads table
+      ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS assigned_at      TIMESTAMP;
+      ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS assigned_by      INTEGER REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS assignment_history_json JSONB;
+
+      -- WhatsApp AI conversations
+      CREATE TABLE IF NOT EXISTS whatsapp_ai_conversations (
+        id               SERIAL PRIMARY KEY,
+        lead_id          INTEGER NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+        client_phone     TEXT,
+        status           TEXT NOT NULL DEFAULT 'draft',
+        language         TEXT NOT NULL DEFAULT 'ar',
+        qualification_json JSONB,
+        priority_score   TEXT,
+        handoff_reason   TEXT,
+        last_message_at  TIMESTAMP,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at       TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- WhatsApp AI messages
+      CREATE TABLE IF NOT EXISTS whatsapp_ai_messages (
+        id               SERIAL PRIMARY KEY,
+        conversation_id  INTEGER NOT NULL REFERENCES whatsapp_ai_conversations(id) ON DELETE CASCADE,
+        sender           TEXT NOT NULL,
+        message_text     TEXT NOT NULL,
+        raw_payload_json JSONB,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- WhatsApp AI agent reports
+      CREATE TABLE IF NOT EXISTS whatsapp_ai_agent_reports (
+        id                       SERIAL PRIMARY KEY,
+        lead_id                  INTEGER NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+        assigned_agent_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        summary_text             TEXT,
+        client_interest          TEXT,
+        country                  TEXT,
+        city                     TEXT,
+        budget                   TEXT,
+        property_type            TEXT,
+        payment_method           TEXT,
+        investment_goal          TEXT,
+        buying_timeframe         TEXT,
+        best_call_time           TEXT,
+        priority_score           TEXT,
+        recommended_next_action  TEXT,
+        created_at               TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at               TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- Indexes
+      CREATE INDEX IF NOT EXISTS whatsapp_ai_conv_lead_id_idx    ON whatsapp_ai_conversations(lead_id);
+      CREATE INDEX IF NOT EXISTS whatsapp_ai_msg_conv_id_idx     ON whatsapp_ai_messages(conversation_id);
+      CREATE INDEX IF NOT EXISTS whatsapp_ai_report_lead_id_idx  ON whatsapp_ai_agent_reports(lead_id);
+    `);
+    console.log("[DB] WhatsApp AI tables ensured");
+  } catch (err: any) {
+    console.warn("[DB] Could not create WhatsApp AI tables:", err.message);
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

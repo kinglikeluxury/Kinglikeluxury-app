@@ -691,3 +691,51 @@ export const leadImportAuditLog = pgTable("lead_import_audit_log", {
 }));
 
 export type LeadImportAuditLog = typeof leadImportAuditLog.$inferSelect;
+
+// ── WhatsApp AI Qualification System (Phase 1 — internal only) ───────────────
+
+export const whatsappAiConversations = pgTable("whatsapp_ai_conversations", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "cascade" }).notNull(),
+  clientPhone: text("client_phone"),
+  status: text("status").notNull().default("draft"),
+  language: text("language").notNull().default("ar"),
+  qualificationJson: jsonb("qualification_json"),
+  priorityScore: text("priority_score"),
+  handoffReason: text("handoff_reason"),
+  lastMessageAt: timestamp("last_message_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type WhatsappAiConversation = typeof whatsappAiConversations.$inferSelect;
+
+export const whatsappAiMessages = pgTable("whatsapp_ai_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").references(() => whatsappAiConversations.id, { onDelete: "cascade" }).notNull(),
+  sender: text("sender").notNull(),
+  messageText: text("message_text").notNull(),
+  rawPayloadJson: jsonb("raw_payload_json"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type WhatsappAiMessage = typeof whatsappAiMessages.$inferSelect;
+
+export const whatsappAiAgentReports = pgTable("whatsapp_ai_agent_reports", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "cascade" }).notNull(),
+  assignedAgentId: integer("assigned_agent_id").references(() => users.id, { onDelete: "set null" }),
+  summaryText: text("summary_text"),
+  clientInterest: text("client_interest"),
+  country: text("country"),
+  city: text("city"),
+  budget: text("budget"),
+  propertyType: text("property_type"),
+  paymentMethod: text("payment_method"),
+  investmentGoal: text("investment_goal"),
+  buyingTimeframe: text("buying_timeframe"),
+  bestCallTime: text("best_call_time"),
+  priorityScore: text("priority_score"),
+  recommendedNextAction: text("recommended_next_action"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type WhatsappAiAgentReport = typeof whatsappAiAgentReports.$inferSelect;

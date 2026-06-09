@@ -21,10 +21,11 @@ import {
   Flame, Thermometer, Snowflake, Clock, MessageSquare, User,
   Edit3, Save, X, Loader2, Trash2, CheckCircle2, UserCheck,
   Calendar, Globe, FileText, Plus, CheckSquare, ListTodo,
-  DollarSign, CalendarDays,
+  DollarSign, CalendarDays, Bot, RefreshCw, UserX, StopCircle,
+  AlertCircle, ChevronDown, ChevronUp, Send,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
-import type { CrmLead, CrmNote, CrmTask, CrmProject } from "@shared/schema";
+import type { CrmLead, CrmNote, CrmTask, CrmProject, WhatsappAiConversation, WhatsappAiMessage, WhatsappAiAgentReport } from "@shared/schema";
 
 interface NoteWithUser extends CrmNote { authorName?: string | null }
 interface LeadDetail extends CrmLead {
@@ -375,6 +376,45 @@ export default function CrmLeadDetailPage() {
       toast({ title: "Lead reassigned successfully" });
       setTransferTargetId("");
       setTransferComment("");
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // ── WhatsApp AI hooks ────────────────────────────────────────────────────
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiTab, setAiTab] = useState<"transcript" | "report">("transcript");
+
+  const { data: aiData, isLoading: aiLoading, refetch: aiRefetch } = useQuery<{
+    conversation: WhatsappAiConversation | null;
+    messages: WhatsappAiMessage[];
+    report: WhatsappAiAgentReport | null;
+  }>({
+    queryKey: ["/api/admin/whatsapp-ai/lead", leadId],
+    queryFn: () =>
+      fetch(`/api/admin/whatsapp-ai/lead/${leadId}`).then(r => {
+        if (r.status === 403) return { conversation: null, messages: [], report: null };
+        if (!r.ok) throw new Error("Failed to load AI conversation");
+        return r.json();
+      }),
+    enabled: isCrmAuthorized && !!leadId,
+  });
+
+  const generateReportMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/admin/whatsapp-ai/lead/${leadId}/report/generate`, {}),
+    onSuccess: () => {
+      aiRefetch();
+      toast({ title: "AI report generated" });
+    },
+    onError: (e: any) => toast({ title: "Report generation failed", description: e.message, variant: "destructive" }),
+  });
+
+  const updateAiStatusMutation = useMutation({
+    mutationFn: (body: { status: string; handoff_reason?: string }) =>
+      apiRequest("PATCH", `/api/admin/whatsapp-ai/lead/${leadId}/status`, body),
+    onSuccess: () => {
+      aiRefetch();
+      toast({ title: "Conversation status updated" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -1234,6 +1274,274 @@ export default function CrmLeadDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* ── WhatsApp AI Qualification Section ─────────────────────────────── */}
+      {aiData?.conversation && (
+        <div className="mt-6">
+          <Card className="border-0 shadow-sm overflow-hidden">
+            {/* Header — always visible */}
+            <CardHeader
+              className="pb-3 cursor-pointer select-none bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5 hover:from-[#005476]/10 hover:to-[#3bcac4]/10 transition-colors"
+              onClick={() => setAiOpen(o => !o)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center shrink-0">
+                    <Bot className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold text-[#005476] flex items-center gap-2">
+                      {user?.isAdmin ? "WhatsApp AI Conversation" : "AI WhatsApp Conversation & Summary"}
+                      {/* Status badge */}
+                      {(() => {
+                        const s = aiData.conversation!.status;
+                        const cfg: Record<string, string> = {
+                          draft:       "bg-slate-100 text-slate-600 border-slate-300",
+                          active:      "bg-[#3bcac4]/20 text-[#005476] border-[#3bcac4]/50",
+                          completed:   "bg-[#005476]/15 text-[#005476] border-[#005476]/30",
+                          needs_human: "bg-amber-50 text-amber-700 border-amber-200",
+                          stopped:     "bg-red-50 text-red-600 border-red-200",
+                        };
+                        const labels: Record<string, string> = {
+                          draft: "Draft", active: "Active", completed: "Completed",
+                          needs_human: "Needs Human", stopped: "Stopped",
+                        };
+                        return (
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${cfg[s] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                            {labels[s] ?? s}
+                          </span>
+                        );
+                      })()}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Phase 1 — Internal only · No WhatsApp message sent
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {aiData.report?.priorityScore && (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      aiData.report.priorityScore === "high"
+                        ? "bg-red-50 text-red-600"
+                        : aiData.report.priorityScore === "medium"
+                        ? "bg-amber-50 text-amber-600"
+                        : "bg-green-50 text-green-600"
+                    }`}>
+                      {aiData.report.priorityScore.toUpperCase()} PRIORITY
+                    </span>
+                  )}
+                  {aiOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </div>
+            </CardHeader>
+
+            {aiOpen && (
+              <CardContent className="pt-0">
+                {/* Tab bar */}
+                <div className="flex gap-1 border-b mb-4 mt-3">
+                  {(["transcript", "report"] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setAiTab(t)}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                        aiTab === t
+                          ? "border-[#3bcac4] text-[#005476]"
+                          : "border-transparent text-muted-foreground hover:text-[#005476]"
+                      }`}
+                    >
+                      {t === "transcript" ? "Conversation" : "Agent Report"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── Transcript tab ───────────────────────────────────── */}
+                {aiTab === "transcript" && (
+                  <div className="space-y-4">
+                    {aiLoading ? (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm py-4 justify-center">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading conversation…
+                      </div>
+                    ) : aiData.messages.length === 0 ? (
+                      <div className="text-center text-muted-foreground text-sm py-6">
+                        <Bot className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        No messages yet
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                        {aiData.messages.map((msg) => {
+                          const isAi = msg.sender === "ai";
+                          const isClient = msg.sender === "client";
+                          const isSystem = msg.sender === "system" || msg.sender === "admin";
+                          if (isSystem) {
+                            return (
+                              <div key={msg.id} className="flex justify-center">
+                                <span className="text-[10px] text-muted-foreground bg-gray-50 px-3 py-1 rounded-full border">
+                                  {msg.messageText}
+                                </span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={msg.id} className={`flex ${isClient ? "justify-end" : "justify-start"}`}>
+                              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap break-words ${
+                                isAi
+                                  ? "bg-gradient-to-br from-[#005476]/8 to-[#3bcac4]/8 text-[#005476] border border-[#3bcac4]/20"
+                                  : "bg-[#005476] text-white"
+                              }`}>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  {isAi && <Bot className="h-3 w-3 opacity-60 shrink-0" />}
+                                  <span className="text-[10px] font-medium opacity-60">
+                                    {isAi ? "AI (Khalid)" : "Client"}
+                                  </span>
+                                  <span className="text-[10px] opacity-40 ml-auto">
+                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </div>
+                                {msg.messageText}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Admin action buttons */}
+                    {user?.isAdmin && (
+                      <div className="flex flex-wrap gap-2 pt-3 border-t">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-amber-600 border-amber-200 hover:bg-amber-50 text-xs"
+                          disabled={updateAiStatusMutation.isPending}
+                          onClick={() => updateAiStatusMutation.mutate({ status: "needs_human", handoff_reason: "Admin marked" })}
+                        >
+                          {updateAiStatusMutation.isPending
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <UserX className="h-3.5 w-3.5" />}
+                          Mark Needs Human
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 text-xs"
+                          disabled={updateAiStatusMutation.isPending}
+                          onClick={() => updateAiStatusMutation.mutate({ status: "stopped" })}
+                        >
+                          {updateAiStatusMutation.isPending
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <StopCircle className="h-3.5 w-3.5" />}
+                          Stop AI
+                        </Button>
+                        {aiData.conversation!.status === "stopped" || aiData.conversation!.status === "needs_human" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-[#3bcac4] border-[#3bcac4]/40 hover:bg-[#3bcac4]/10 text-xs"
+                            disabled={updateAiStatusMutation.isPending}
+                            onClick={() => updateAiStatusMutation.mutate({ status: "draft" })}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" /> Reactivate
+                          </Button>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-slate-400 border-slate-200 text-xs cursor-not-allowed opacity-60 ml-auto"
+                          disabled
+                          title="WhatsApp API integration — Phase 2"
+                        >
+                          <Send className="h-3.5 w-3.5" /> Send via WhatsApp API — Phase 2
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Handoff reason */}
+                    {aiData.conversation!.handoffReason && (
+                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        Handoff reason: {aiData.conversation!.handoffReason}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Report tab ───────────────────────────────────────── */}
+                {aiTab === "report" && (
+                  <div className="space-y-4">
+                    {aiData.report ? (
+                      <>
+                        {/* Summary */}
+                        {aiData.report.summaryText && (
+                          <div className="bg-[#005476]/5 border border-[#005476]/15 rounded-lg px-4 py-3">
+                            <p className="text-xs font-semibold text-[#005476] mb-1 flex items-center gap-1">
+                              <FileText className="h-3.5 w-3.5" /> Summary
+                            </p>
+                            <p className="text-sm text-[#005476]/80 leading-relaxed">
+                              {aiData.report.summaryText}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Qualification grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                          {[
+                            { label: "Country", value: aiData.report.country },
+                            { label: "City",    value: aiData.report.city },
+                            { label: "Budget",  value: aiData.report.budget },
+                            { label: "Property Type", value: aiData.report.propertyType },
+                            { label: "Payment Method", value: aiData.report.paymentMethod },
+                            { label: "Investment Goal", value: aiData.report.investmentGoal },
+                            { label: "Buying Timeframe", value: aiData.report.buyingTimeframe },
+                            { label: "Best Call Time",   value: aiData.report.bestCallTime },
+                            { label: "Client Interest",  value: aiData.report.clientInterest },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
+                              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-0.5">{label}</p>
+                              <p className="text-xs text-[#005476] font-medium">{value || "—"}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Recommended action */}
+                        {aiData.report.recommendedNextAction && (
+                          <div className="bg-[#3bcac4]/10 border border-[#3bcac4]/30 rounded-lg px-4 py-3">
+                            <p className="text-xs font-semibold text-[#005476] mb-1 flex items-center gap-1">
+                              <Target className="h-3.5 w-3.5" /> Recommended Next Action
+                            </p>
+                            <p className="text-sm text-[#005476]/80">{aiData.report.recommendedNextAction}</p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center text-muted-foreground text-sm py-6">
+                        <Bot className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        No report yet
+                      </div>
+                    )}
+
+                    {/* Admin: Generate/Refresh Report button */}
+                    {user?.isAdmin && (
+                      <div className="flex justify-end pt-2 border-t">
+                        <Button
+                          size="sm"
+                          className="bg-gradient-to-r from-[#3bcac4] to-[#005476] gap-1.5 text-xs"
+                          disabled={generateReportMutation.isPending}
+                          onClick={() => generateReportMutation.mutate()}
+                        >
+                          {generateReportMutation.isPending
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <RefreshCw className="h-3.5 w-3.5" />}
+                          {aiData.report ? "Refresh AI Report" : "Generate AI Report"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* Status Change Dialog — requires a note */}
       <Dialog open={!!statusDialog} onOpenChange={open => { if (!open) setStatusDialog(null); }}>

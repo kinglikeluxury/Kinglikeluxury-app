@@ -1,0 +1,213 @@
+Implement Phase 1: Smart AI WhatsApp Qualification System for Kinglike Luxury CRM.
+
+Important:
+This is Phase 1 only.
+Do NOT connect WhatsApp API yet.
+Do NOT send any real WhatsApp messages.
+Do NOT modify payments, authentication, public property pages, existing Meta Pull Sync logic, webhook logic, or unrelated AI features.
+Build the internal CRM structure, admin UI, permissions, AI prompt, conversation storage, and agent visibility rules only.
+
+Goal:
+When a new Meta lead enters the CRM, create an internal AI WhatsApp qualification workflow.
+The AI should behave like a professional Kinglike Luxury real estate advisor, prepare a natural WhatsApp-style conversation, collect client information gradually, and generate reports for the assigned agent.
+
+Core AI behavior:
+The AI must not act like a dumb form.
+It should:
+- Speak in professional Arabic by default.
+- Use the client name if available.
+- Be polite, patient, calm, and respectful.
+- Ask one question at a time.
+- Keep messages short and natural.
+- Keep the client interested without pressure.
+- Collect information gradually:
+  1. Country of interest
+  2. City of interest
+  3. Property type
+  4. Budget
+  5. Payment method: cash or installments
+  6. Investment/residence goal
+  7. Buying timeframe
+  8. Best time for advisor call
+  9. Preferred language
+
+Strict AI rules:
+- Do NOT prefer one country over another.
+- Do NOT prefer one city over another.
+- Do NOT prefer one project over another.
+- Do NOT say any project/country/city is “best”.
+- Do NOT give legal advice.
+- Do NOT give tax advice.
+- Do NOT promise residency, citizenship, ROI, resale profit, rental income, or price appreciation.
+- Do NOT invent prices, availability, discounts, delivery dates, or guarantees.
+- Do NOT send developer links.
+- Do NOT send construction company links.
+- Do NOT send direct project website links.
+- Do NOT direct clients outside Kinglike Luxury.
+- If asked about sensitive/legal/tax/guarantee details, answer politely that a specialized advisor will confirm.
+- If client asks for a human advisor, mark needs_human.
+- If client insults, mocks, or behaves rudely, AI must remain respectful and calm.
+
+Example respectful response to rude client:
+"ولا يهمك أستاذي، أنا موجود لمساعدتك فقط. إذا تحب، أقدر أسجل اهتمامك وأطلب من أحد المستشارين التواصل معك بالوقت المناسب."
+
+Neutrality response example:
+"الاختيار الأنسب يعتمد على هدفك وميزانيتك وتفضيلاتك، ومستشار Kinglike Luxury سيوضح لك الخيارات المناسبة بدون تفضيل عشوائي."
+
+Database:
+Add tables/fields if missing:
+
+1. whatsapp_ai_conversations
+- id
+- lead_id
+- client_phone
+- status: draft | active | completed | needs_human | stopped
+- language
+- created_at
+- updated_at
+- last_message_at
+- qualification_json
+- priority_score
+- handoff_reason
+
+2. whatsapp_ai_messages
+- id
+- conversation_id
+- sender: ai | client | admin | system
+- message_text
+- created_at
+- raw_payload_json
+
+3. whatsapp_ai_agent_reports
+- id
+- lead_id
+- assigned_agent_id
+- summary_text
+- client_interest
+- country
+- city
+- budget
+- property_type
+- payment_method
+- investment_goal
+- buying_timeframe
+- best_call_time
+- priority_score
+- recommended_next_action
+- created_at
+- updated_at
+
+Permissions:
+Admin:
+- Can see all leads.
+- Can see all full WhatsApp AI conversations.
+- Can see all raw transcripts.
+- Can see all reports.
+- Can transfer/reassign leads.
+- Can view assignment history.
+
+Assigned agent/subagent only:
+- Can see the lead only if assigned_to equals their user id.
+- Can see the full WhatsApp AI conversation only for leads assigned to them.
+- Can see the AI report only for leads assigned to them.
+- Can see client phone only for leads assigned to them.
+- Can update lead status and add notes for assigned leads.
+
+Other agents:
+- Must NOT see the lead details.
+- Must NOT see the phone number.
+- Must NOT see the WhatsApp conversation.
+- Must NOT see the AI report.
+- Must NOT access raw transcript via API.
+
+Important:
+Enforce permissions server-side, not UI only.
+
+Assignment fields:
+Add or verify:
+- assigned_to
+- assigned_at
+- assigned_by
+- assignment_history_json or assignment history table
+
+When a lead is transferred:
+- Keep full assignment history.
+- New assigned agent can see full previous AI conversation and previous lead notes.
+- Other agents lose access.
+
+Admin UI:
+Inside CRM lead details add:
+"WhatsApp AI Conversation" tab.
+
+Admin sees:
+- full transcript
+- AI status
+- qualification fields
+- priority score
+- handoff reason
+- generated agent report
+- assignment history
+- button: Generate/Refresh AI Report
+- button: Mark Needs Human
+- button: Stop AI
+- disabled placeholder button: Send via WhatsApp API - Phase 2
+
+Agent UI:
+Inside assigned lead details add:
+"AI WhatsApp Conversation & Summary"
+
+Assigned agent sees:
+- full conversation transcript for this assigned lead only
+- AI summary
+- qualification data
+- best call time
+- priority score
+- recommended next action
+
+Phase 1 automation:
+When a new Meta lead is inserted into CRM:
+- Create whatsapp_ai_conversation with status=draft.
+- Generate suggested WhatsApp opening message.
+- Generate first qualification question.
+- Create initial AI report placeholder.
+- Do NOT send anything externally.
+
+AI report should include:
+- Client interest
+- Country/city
+- Property type
+- Budget
+- Payment method
+- Investment goal
+- Buying timeframe
+- Best call time
+- Client tone/style
+- Objections or concerns
+- Priority score
+- Recommended next action
+
+Logging:
+[WhatsAppAI] Draft conversation created leadId=X
+[WhatsAppAI] Opening message generated leadId=X
+[WhatsAppAI] Report generated leadId=X
+[WhatsAppAI] Admin transcript access granted leadId=X
+[WhatsAppAI] Agent transcript access granted leadId=X agentId=Y
+[WhatsAppAI] Access denied leadId=X userId=Y
+[WhatsAppAI] No WhatsApp message sent in Phase 1
+
+Testing:
+1. Create or use a test CRM lead.
+2. Confirm admin can see full WhatsApp AI tab.
+3. Confirm assigned agent can see full conversation and report for assigned lead only.
+4. Confirm unassigned agent cannot access conversation, phone, or report.
+5. Confirm new Meta Pull Sync lead automatically gets draft conversation.
+6. Confirm no real WhatsApp message is sent.
+7. Confirm build passes.
+8. Commit changes.
+
+Return:
+- Summary of changed files.
+- Database changes.
+- How to test as admin.
+- How to test as assigned agent.
+- How to confirm no WhatsApp message was sent.

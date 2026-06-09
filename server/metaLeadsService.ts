@@ -2,6 +2,7 @@ import { db } from "./db";
 import { leadImportQueue, leadImportAuditLog, crmLeads } from "@shared/schema";
 import { eq, and, lte } from "drizzle-orm";
 import https from "https";
+import { initConversationForLead } from "./whatsappAiService";
 
 export interface PullSyncResult {
   formsChecked: number;
@@ -209,6 +210,20 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
     console.log(
       `[MetaLeads][Processor] Step C ✓ — CRM lead created | ` +
       `queueId=${entry.id} | crmLeadId=${crmLead.id}`
+    );
+
+    // ── WhatsApp AI: init draft conversation (Phase 1 — no message sent) ───
+    initConversationForLead(crmLead.id, {
+      fullName:        crmLead.fullName,
+      firstName:       crmLead.firstName,
+      phone:           crmLead.phone,
+      country:         crmLead.country,
+      city:            crmLead.city,
+      budget:          crmLead.budget,
+      projectInterest: crmLead.projectInterest,
+      assignedTo:      crmLead.assignedTo,
+    }).catch(err =>
+      console.error(`[WhatsAppAI] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
     );
 
     // ── Step D: mark queue entry completed ─────────────────────────────────
@@ -445,6 +460,20 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
           }).returning();
 
           if (!crmLead) throw new Error("CRM insert returned no row");
+
+          // ── WhatsApp AI: init draft conversation (Phase 1 — no message sent) ──
+          initConversationForLead(crmLead.id, {
+            fullName:        crmLead.fullName,
+            firstName:       crmLead.firstName,
+            phone:           crmLead.phone,
+            country:         crmLead.country,
+            city:            crmLead.city,
+            budget:          crmLead.budget,
+            projectInterest: crmLead.projectInterest,
+            assignedTo:      crmLead.assignedTo,
+          }).catch(err =>
+            console.error(`[WhatsAppAI] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
+          );
 
           // Parse created_time — Meta sends ISO string from /leads, integer from webhooks
           const now = new Date();

@@ -9,8 +9,9 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
-import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables } from "./db";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
+import { registerWhatsappAiRoutes } from "./whatsappAiRoutes";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
@@ -116,6 +117,7 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+  registerWhatsappAiRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -204,6 +206,10 @@ app.use((req, res, next) => {
       }
     })
     .catch(err => console.error("[DB] ensureMetaLeadsTables failed:", err));
+
+  ensureWhatsappAiTables().catch(err =>
+    console.error("[DB] ensureWhatsappAiTables failed:", err)
+  );
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];
