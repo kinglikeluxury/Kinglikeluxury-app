@@ -1,0 +1,147 @@
+INVESTIGATION TASK ONLY – DO NOT MODIFY ANY CODE YET
+
+I need a complete root-cause analysis before making any changes.
+
+Problem:
+
+Lead "salim" was created and received the first nurturing email successfully.
+
+A new lead "Dayana" was created afterwards:
+
+Name: Dayana
+Email: kayali.dayana@gmail.com
+
+The lead appears correctly in CRM but:
+
+- No email was sent.
+- No record appeared in Email History.
+- No nurturing sequence appears to have started.
+
+I need a full investigation report.
+
+CHECK THE FOLLOWING:
+
+1) CRM LEAD CREATION FLOW
+
+Trace the exact path used when Dayana was created.
+
+Identify:
+
+- Which endpoint created the lead.
+- Which service handled the creation.
+- Whether Email Nurturing was triggered.
+- Whether startLeadNurturing() (or equivalent) was called.
+- Whether any condition prevented execution.
+
+Show the exact execution path.
+
+--------------------------------------------------
+
+2) DATABASE VERIFICATION
+
+Check whether Dayana exists in:
+
+- crm_leads
+- email_nurturing_leads
+- email_nurturing_sequences
+- email_history
+- email_events
+- email_queue
+
+For each table show:
+
+- Found / Not Found
+- Relevant IDs
+- Status values
+
+--------------------------------------------------
+
+3) EMAIL NURTURING LOGIC
+
+Find the exact rule that decides whether a lead should enter nurturing.
+
+Verify:
+
+- Email exists.
+- Lead status.
+- Source type.
+- Duplicate checks.
+- Opt-out checks.
+- Existing sequence checks.
+
+Determine which rule excluded Dayana.
+
+--------------------------------------------------
+
+4) COMPARE WITH SALIM
+
+Compare:
+
+Lead: salim
+Lead: Dayana
+
+Show:
+
+- CRM record differences.
+- Source differences.
+- Email differences.
+- Sequence differences.
+- Trigger differences.
+
+Explain why salim entered nurturing and Dayana did not.
+
+--------------------------------------------------
+
+5) CHECK IMPORT / MANUAL CREATION HOOKS
+
+Verify all creation paths:
+
+- Manual CRM lead creation
+- Excel import
+- Meta lead import
+- API creation
+- Bulk import
+
+For each path answer:
+
+YES / NO
+
+Does it start Email Nurturing?
+
+--------------------------------------------------
+
+6) SERVER LOGS
+
+Search logs for:
+
+Dayana
+kayali.dayana@gmail.com
+EmailNurturing
+Sequence
+Queue
+
+Show any errors, warnings, skips, or ignored records.
+
+--------------------------------------------------
+
+7) DO NOT CHANGE CODE YET
+
+Do NOT modify:
+
+- Database schema
+- Meta Leads
+- Developer Registration Center
+- WhatsApp AI
+- Email templates
+- Authentication
+
+I only want a complete investigation report.
+
+After the investigation, provide:
+
+A) Root cause.
+B) Exact file responsible.
+C) Exact function responsible.
+D) Recommended fix.
+
+DO NOT IMPLEMENT THE FIX YET.
