@@ -1,0 +1,151 @@
+Fix Smart CRM Excel Import Mapper — Missing Required Fields
+
+The previous implementation is incomplete.
+
+Original requirement included:
+
+Lead Owner / Agent / Assigned To → assignedAgent
+
+But the current result shows:
+
+Lead Owner → skip
+
+This must be fixed before importing real leads.
+
+Required changes:
+
+1. Lead Owner Mapping
+
+Auto-map these headers:
+
+Lead Owner
+Owner
+Agent
+Assigned To
+Sales Agent
+Sales Manager
+Employee
+الموظف
+المسؤول
+المندوب
+
+to:
+
+assignedAgent
+
+If assignedAgent does not exist as a direct DB column, map it to the correct existing CRM assignment field used by the app.
+
+If the Excel value is an agent name, match it to an existing sub-agent/user by name when possible.
+
+If no matching agent exists:
+
+- keep the imported value in notes or importMetadata
+- do not lose it
+- show warning in preview:
+  "Agent name not matched, stored in metadata"
+
+2. Last Activity Time Mapping
+
+Auto-map:
+
+Last Activity Time
+Last Activity
+Activity Date
+Last Contacted
+آخر نشاط
+تاريخ آخر تواصل
+
+to:
+
+lastActivityTime
+
+If no DB field exists:
+store safely in notes or importMetadata.
+
+Do not skip it silently.
+
+3. Expected Purchase Month Mapping
+
+Auto-map:
+
+Expected Purchase Month
+expecting purchase month
+Expected Month
+Purchase Month
+Expected Buying Month
+الشهر المتوقع
+شهر الشراء المتوقع
+
+to:
+
+expectedPurchaseMonth
+
+If no DB field exists:
+store safely in notes or importMetadata.
+
+Do not skip it silently.
+
+4. Project Mapping Verification
+
+The previous result mapped:
+
+Project interesteding purchase → projectInterest
+
+Verify that this field is actually displayed in CRM as the lead’s Project / Interested Project.
+
+If the CRM uses projectName instead, map to projectName.
+
+If both exist, store:
+
+- projectName for display
+- projectInterest for raw imported value
+
+5. Import Preview
+
+The preview must clearly show:
+
+Lead Owner → assignedAgent or stored metadata
+Last Activity Time → lastActivityTime or stored metadata
+Expected Purchase Month → expectedPurchaseMonth or stored metadata
+Project interesteding purchase → projectName/projectInterest
+
+No important column should be marked Skip unless the admin manually chooses Skip.
+
+6. Import Test
+
+Test with headers:
+
+Lead Owner
+Lead Name
+Last Name
+Phone
+Email
+Lead Source
+Lead Status
+Last Activity Time
+Origin Country
+Budget
+Project interesteding purchase
+Expected Purchase Month
+Comment
+
+Expected result:
+
+- Lead Owner is not skipped.
+- Project appears in CRM.
+- Expected Purchase Month is preserved.
+- Last Activity Time is preserved.
+- No data is silently lost.
+
+Do not modify:
+
+- Meta Leads
+- WhatsApp AI
+- Developer Registration logic
+- Email templates
+- Auth
+- Payments
+- Blog/SEO
+- Public pages
+
+Only fix the Smart CRM Excel Import Mapper.

@@ -4141,17 +4141,20 @@ ${metaTags}
 
   /** CRM field → accepted header name variants (pre-normalised) */
   const IMPORT_FIELD_MAP: Record<string, string[]> = {
-    firstName:       ["leadname","firstname","name","first"],
-    lastName:        ["lastname","surname","familyname","lastnameofclient"],
-    phone:           ["phone","mobile","whatsapp","contactnumber","phonenumber","رقمالهاتف","هاتف","موبايل","واتساب"],
-    email:           ["email","emailaddress","البريدالإلكتروني","إيميل","بريد"],
-    country:         ["origincountry","country","البلد","الدولة","بلدالأصل"],
-    city:            ["city","المدينة","مدينة"],
-    budget:          ["budget","totalbudget","الميزانية","ميزانية"],
-    projectInterest: ["projectinteresteding","projectinteresting","projectinterest","project","interestedproject","المشروع","مشروع"],
-    notes:           ["comment","comments","notes","description","note","ملاحظات","تعليق","ملاحظة","وصف"],
-    status:          ["leadstatus","status","الحالة","حالة"],
-    leadSource:      ["leadsource","source","المصدر","مصدر"],
+    firstName:            ["leadname","firstname","name","first"],
+    lastName:             ["lastname","surname","familyname","lastnameofclient"],
+    phone:                ["phone","mobile","whatsapp","contactnumber","phonenumber","رقمالهاتف","هاتف","موبايل","واتساب"],
+    email:                ["email","emailaddress","البريدالإلكتروني","إيميل","بريد"],
+    country:              ["origincountry","country","البلد","الدولة","بلدالأصل"],
+    city:                 ["city","المدينة","مدينة"],
+    budget:               ["budget","totalbudget","الميزانية","ميزانية"],
+    projectInterest:      ["projectinteresteding","projectinteresting","projectinterest","project","interestedproject","المشروع","مشروع"],
+    notes:                ["comment","comments","notes","description","note","ملاحظات","تعليق","ملاحظة","وصف"],
+    status:               ["leadstatus","status","الحالة","حالة"],
+    leadSource:           ["leadsource","source","المصدر","مصدر"],
+    assignedAgent:        ["leadowner","owner","agent","assignedto","salesagent","salesmanager","employee","الموظف","المسؤول","المندوب"],
+    lastActivityTime:     ["lastactivitytime","lastactivity","activitydate","lastcontacted","lastcontact","آخرنشاط","تاريخآخرتواصل"],
+    expectedPurchaseMonth:["expectedpurchasemonth","expectedmonth","purchasemonth","expectingpurchasemonth","expectedbuyingmonth","الشهرالمتوقع","شهرالشراءالمتوقع"],
   };
 
   const normalizePhone = (raw: string): string => {
@@ -4247,10 +4250,29 @@ ${metaTags}
         }
       }
 
+      // Agent name matching — load users once for preview warnings
+      const allUsers = await db.select({ id: users.id, username: users.username }).from(users);
+      const userNames = allUsers.map(u => u.username.toLowerCase().trim());
+      let unmatchedAgentCount = 0;
+      const agentHeader = headers.find(h => detectedMapping[h] === "assignedAgent");
+      if (agentHeader) {
+        for (const row of rawRows) {
+          const agentRaw = String(row[agentHeader] ?? "").trim();
+          if (!agentRaw) continue;
+          const aLow = agentRaw.toLowerCase();
+          const matched = userNames.some(u => u === aLow || u.includes(aLow) || aLow.includes(u));
+          if (!matched) unmatchedAgentCount++;
+        }
+      }
+
       const skipped = headers.filter(h => detectedMapping[h] === "(skip)");
-      const warnings: string[] = skipped.length
-        ? [`${skipped.length} column(s) could not be auto-mapped and are set to "Skip": ${skipped.slice(0, 4).join(", ")}${skipped.length > 4 ? "…" : ""}`]
-        : [];
+      const warnings: string[] = [];
+      if (skipped.length) {
+        warnings.push(`${skipped.length} column(s) could not be auto-mapped and are set to "Skip": ${skipped.slice(0, 4).join(", ")}${skipped.length > 4 ? "…" : ""}`);
+      }
+      if (unmatchedAgentCount > 0) {
+        warnings.push(`${unmatchedAgentCount} agent name(s) in "Lead Owner" column did not match an existing user — will be preserved in lead notes`);
+      }
 
       res.json({ headers, detectedMapping, sampleRows, stats: { total: rawRows.length, withPhone, withEmail, withNeither, estimatedDuplicates }, warnings });
     } catch (err: any) {
@@ -4277,6 +4299,10 @@ ${metaTags}
         columnMapping = autoMapColumns(Object.keys(rawRows[0]));
       }
       const skipNurturing = req.body.skipNurturing === "true" || req.body.skipNurturing === true;
+
+      // Pre-load users once for agent name resolution
+      const importUsers = await db.select({ id: users.id, username: users.username }).from(users);
+      const importUserList = importUsers.map(u => ({ id: u.id, name: u.username.toLowerCase().trim() }));
 
       let importedCount = 0, duplicates = 0, failed = 0;
       const failedRows: { row: number; reason: string }[] = [];
@@ -4305,23 +4331,52 @@ ${metaTags}
           }
           if (isDuplicate) { duplicates++; continue; }
 
+          // Resolve assignedAgent → assignedTo (user id) or notes
+          let assignedToId: number | null = null;
+          const metaNotes: string[] = [];
+          if (lead.assignedAgent) {
+            const aLow = lead.assignedAgent.toLowerCase().trim();
+            const matched = importUserList.find(u => u.name === aLow || u.name.includes(aLow) || aLow.includes(u.name));
+            if (matched) {
+              assignedToId = matched.id;
+            } else {
+              metaNotes.push(`Agent: ${lead.assignedAgent}`);
+            }
+          }
+
+          // Resolve lastActivityTime → lastContactAt or notes
+          let lastContactAtDate: Date | null = null;
+          if (lead.lastActivityTime) {
+            const parsed = new Date(lead.lastActivityTime);
+            if (!isNaN(parsed.getTime())) {
+              lastContactAtDate = parsed;
+            } else {
+              metaNotes.push(`Last Activity: ${lead.lastActivityTime}`);
+            }
+          }
+
+          // Build final notes — original + any unresolved metadata
+          const finalNotes = [lead.notes, ...metaNotes].filter(Boolean).join(" | ") || null;
+
           const importedLead = await storage.createCrmLead({
-            fullName:              lead.fullName        || null,
-            firstName:             lead.firstName       || null,
-            lastName:              lead.lastName        || null,
-            phone:                 phone                || null,
-            email:                 email                || null,
-            country:               lead.country         || null,
-            city:                  lead.city            || null,
+            fullName:              lead.fullName              || null,
+            firstName:             lead.firstName             || null,
+            lastName:              lead.lastName              || null,
+            phone:                 phone                      || null,
+            email:                 email                      || null,
+            country:               lead.country               || null,
+            city:                  lead.city                  || null,
             interestedCountry:     null,
-            budget:                lead.budget          || null,
-            projectInterest:       lead.projectInterest || null,
-            expectedPurchaseMonth: null,
+            budget:                lead.budget                || null,
+            projectInterest:       lead.projectInterest       || null,
+            expectedPurchaseMonth: lead.expectedPurchaseMonth || null,
             description:           null,
-            notes:                 lead.notes           || null,
-            leadSource:            lead.leadSource      || "excel_import",
+            notes:                 finalNotes,
+            leadSource:            lead.leadSource            || "excel_import",
             leadScore:             "cold",
-            status:                lead.status          || "new",
+            status:                lead.status                || "new",
+            assignedTo:            assignedToId,
+            lastContactAt:         lastContactAtDate,
           });
 
           import("./developerRegistrationService").then(({ initDeveloperRegistrationsForLead }) =>

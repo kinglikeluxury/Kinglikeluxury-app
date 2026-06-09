@@ -128,18 +128,21 @@ const EMPTY_FORM = {
 };
 
 const CRM_FIELD_LABELS: Record<string, string> = {
-  "(skip)":        "— Skip Column —",
-  firstName:       "First Name",
-  lastName:        "Last Name",
-  phone:           "Phone",
-  email:           "Email",
-  country:         "Country",
-  city:            "City",
-  budget:          "Budget",
-  projectInterest: "Project Interest",
-  notes:           "Notes",
-  status:          "Status",
-  leadSource:      "Lead Source",
+  "(skip)":               "— Skip Column —",
+  firstName:              "First Name",
+  lastName:               "Last Name",
+  phone:                  "Phone",
+  email:                  "Email",
+  country:                "Country",
+  city:                   "City",
+  budget:                 "Budget",
+  projectInterest:        "Project Interest",
+  notes:                  "Notes / Comment",
+  status:                 "Status",
+  leadSource:             "Lead Source",
+  assignedAgent:          "Assigned Agent (Lead Owner)",
+  lastActivityTime:       "Last Activity Time",
+  expectedPurchaseMonth:  "Expected Purchase Month",
 };
 
 export default function CrmLeadsPage() {
