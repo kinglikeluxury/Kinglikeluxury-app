@@ -76,7 +76,7 @@ function PayloadModal({ recordId, onClose }: { recordId: number; onClose: () => 
   const { toast } = useToast();
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/admin/developer-registration", recordId, "payload"],
-    queryFn: () => apiRequest("GET", `/api/admin/developer-registration/${recordId}/payload`),
+    queryFn: () => apiRequest("GET", `/api/admin/developer-registration/${recordId}/payload`).then(r => r.json()),
   });
 
   const payload = data?.registration_payload_json
@@ -298,20 +298,20 @@ export default function DeveloperRegistrationCenterPage() {
   // Queries — always called
   const { data: overview } = useQuery<any>({
     queryKey: ["/api/admin/developer-registration/overview"],
-    queryFn: () => apiRequest("GET", "/api/admin/developer-registration/overview"),
+    queryFn: () => apiRequest("GET", "/api/admin/developer-registration/overview").then(r => r.json()),
     enabled: !!user?.isAdmin,
     refetchInterval: 30000,
   });
 
   const { data: queueData, isLoading: queueLoading, refetch: refetchQueue } = useQuery<any>({
     queryKey: ["/api/admin/developer-registration/queue", statusFilter],
-    queryFn: () => apiRequest("GET", `/api/admin/developer-registration/queue${statusFilter ? `?status=${statusFilter}` : ""}`),
+    queryFn: () => apiRequest("GET", `/api/admin/developer-registration/queue${statusFilter ? `?status=${statusFilter}` : ""}`).then(r => r.json()),
     enabled: !!user?.isAdmin,
   });
 
   const { data: companies, refetch: refetchCompanies } = useQuery<any[]>({
     queryKey: ["/api/admin/developer-registration/companies"],
-    queryFn: () => apiRequest("GET", "/api/admin/developer-registration/companies"),
+    queryFn: () => apiRequest("GET", "/api/admin/developer-registration/companies").then(r => r.json()),
     enabled: !!user?.isAdmin,
   });
 
