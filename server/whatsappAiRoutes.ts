@@ -288,4 +288,162 @@ export function registerWhatsappAiRoutes(app: Express): void {
       return res.json(data);
     }
   );
+
+  // ── Preview / Prompt Inspection endpoints (admin only) ────────────────────
+
+  const SYSTEM_PROMPT = `أنت خالد — عضو في فريق Kinglike Luxury للعقارات الفاخرة.
+أسلوبك: إنساني، دافئ، محترف، صبور، طبيعي — كأنك صديق خبير يتحدث عبر واتساب.
+
+ترتيب الأسئلة (سؤال واحد فقط في كل رسالة):
+1. الهدف: استثمار / سكن / عطلات
+2. الدولة المفضلة
+3. المدينة أو المنطقة
+4. نوع العقار
+5. الميزانية
+6. طريقة الدفع
+7. الإطار الزمني للشراء
+8. أفضل وقت للتواصل
+
+القواعد الصارمة:
+- العربية الفصحى المعاصرة، رسائل قصيرة مناسبة لواتساب.
+- السؤال الأول دائماً: الاستثمار أم السكن أم قضاء العطلات.
+- لا تسأل عن الدولة أو الميزانية أو المدينة في الرسالة الأولى.
+- لا تقل "أنا مستشارك" أو "خبير استثماري" أو "مستشار قانوني".
+- لا تذكر أسعاراً أو ضمانات أو عوائد استثمارية أو نسب ربح.
+- لا تفضّل دولة على أخرى، ولا مشروعاً على آخر، ولا مدينة على أخرى.
+- لا تعطِ نصائح قانونية أو ضريبية أو هجرة أو إقامة أو جنسية.
+- لا ترسل روابط خارجية أو روابط مشاريع أو روابط مطورين إطلاقاً.`;
+
+  async function aiCall(messages: { role: "system" | "user" | "assistant"; content: string }[], maxTokens = 800): Promise<string> {
+    const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
+    if (!apiKey) throw new Error("OPENAI_API_KEY not set");
+    const OpenAI = (await import("openai")).default;
+    const client = new OpenAI({ apiKey });
+    const r = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.75,
+      response_format: { type: "json_object" },
+    });
+    return r.choices[0]?.message?.content ?? "{}";
+  }
+
+  /**
+   * POST /api/admin/whatsapp-ai/preview/opening
+   * Generate 5 opening message examples. Admin only.
+   */
+  app.post("/api/admin/whatsapp-ai/preview/opening", async (req: Request, res: Response) => {
+    if (!(req as any).session?.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const raw = await aiCall([
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content:
+            `أنشئ 5 رسائل واتساب ترحيبية مختلفة لعملاء جدد. كل رسالة يجب أن:\n` +
+            `- تبدأ بالتحية المناسبة (باستخدام الاسم الأول إذا متوفر، أو "أستاذي" إذا غير متوفر) مع إيموجي 🌷\n` +
+            `- تشكر العميل على اهتمامه بالعقارات مع Kinglike Luxury\n` +
+            `- تعرّف بنفسك: خالد من فريق Kinglike Luxury (لا تقل مستشار أو خبير)\n` +
+            `- تنهي بالسؤال الأول الإلزامي: هل تبحث عن عقار بهدف الاستثمار أم السكن أم قضاء العطلات؟\n` +
+            `- لا تسأل عن الدولة أو المدينة أو الميزانية\n\n` +
+            `استخدم أسماء متنوعة: أحمد، سارة، محمد، فاطمة، (بلا اسم).\n\n` +
+            `أعد JSON بهذا الشكل بالضبط:\n` +
+            `{"examples":[{"name":"أحمد","message":"..."},{"name":"سارة","message":"..."},{"name":"محمد","message":"..."},{"name":"فاطمة","message":"..."},{"name":"(بلا اسم)","message":"..."}]}`,
+        },
+      ], 1200);
+      return res.json(JSON.parse(raw));
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
+   * POST /api/admin/whatsapp-ai/preview/recovery
+   * Generate 5 No Answer 3 recovery examples. Admin only.
+   */
+  app.post("/api/admin/whatsapp-ai/preview/recovery", async (req: Request, res: Response) => {
+    if (!(req as any).session?.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const raw = await aiCall([
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content:
+            `أنشئ 5 رسائل استرداد لعملاء لم يردوا (No Answer 3). كل رسالة تبدأ بـ 🌷\n` +
+            `القواعد: لا تقل "اتصلنا بك 3 مرات"، لا لوم، لا ضغط، إنساني ودافئ.\n\n` +
+            `السيناريوهات:\n` +
+            `1. عميل عام (لا توجد معلومات)\n` +
+            `2. عميل مهتم بالعقارات في جورجيا\n` +
+            `3. عميل مهتم بباتومي تحديداً\n` +
+            `4. عميل مهتم بتبليسي تحديداً\n` +
+            `5. عميل معروفة ميزانيته (100,000 - 200,000 دولار)\n\n` +
+            `أعد JSON:\n` +
+            `{"examples":[{"scenario":"عميل عام","name":"أستاذي","message":"..."},{"scenario":"مهتم بجورجيا","name":"أحمد","message":"..."},{"scenario":"مهتم بباتومي","name":"سارة","message":"..."},{"scenario":"مهتم بتبليسي","name":"محمد","message":"..."},{"scenario":"ميزانية معروفة","name":"فاطمة","message":"..."}]}`,
+        },
+      ], 1400);
+      return res.json(JSON.parse(raw));
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
+   * POST /api/admin/whatsapp-ai/preview/flow
+   * Generate sample AI question for each qualification step. Admin only.
+   */
+  app.post("/api/admin/whatsapp-ai/preview/flow", async (req: Request, res: Response) => {
+    if (!(req as any).session?.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const raw = await aiCall([
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content:
+            `أنشئ سؤالاً واتساب نموذجياً لكل خطوة من خطوات التأهيل الـ8 أدناه.\n` +
+            `كل سؤال يجب أن يكون قصيراً وطبيعياً كأنك تتحدث مع صديق.\n\n` +
+            `أعد JSON:\n` +
+            `{"steps":[\n` +
+            `{"step":1,"topic":"الهدف","question":"..."},\n` +
+            `{"step":2,"topic":"الدولة","question":"..."},\n` +
+            `{"step":3,"topic":"المدينة","question":"..."},\n` +
+            `{"step":4,"topic":"نوع العقار","question":"..."},\n` +
+            `{"step":5,"topic":"الميزانية","question":"..."},\n` +
+            `{"step":6,"topic":"طريقة الدفع","question":"..."},\n` +
+            `{"step":7,"topic":"الإطار الزمني","question":"..."},\n` +
+            `{"step":8,"topic":"أفضل وقت للتواصل","question":"..."}\n` +
+            `]}`,
+        },
+      ], 900);
+      return res.json(JSON.parse(raw));
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
+   * POST /api/admin/whatsapp-ai/preview/simulate
+   * Generate a full simulated qualification conversation. Admin only.
+   */
+  app.post("/api/admin/whatsapp-ai/preview/simulate", async (req: Request, res: Response) => {
+    if (!(req as any).session?.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const raw = await aiCall([
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content:
+            `أنشئ محادثة تأهيل كاملة بين خالد (AI) وعميل وهمي اسمه "عمر".\n` +
+            `المحادثة يجب أن تغطي جميع خطوات التأهيل الـ8 بطريقة طبيعية وإنسانية.\n` +
+            `عمر مهتم بشراء شقة للاستثمار في جورجيا، ميزانيته 150,000 دولار، يريد دفع نقدي.\n\n` +
+            `أعد JSON:\n` +
+            `{"turns":[{"sender":"ai","text":"..."},{"sender":"lead","text":"..."},...]}\n\n` +
+            `استمر حتى اكتمال التأهيل (8-12 رسالة تقريباً).`,
+        },
+      ], 2000);
+      return res.json(JSON.parse(raw));
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
 }

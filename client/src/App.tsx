@@ -49,6 +49,7 @@ import OtpLogsPage from "@/pages/admin/otp-logs";
 import CrmLeadsPage from "@/pages/admin/crm-leads";
 import CrmLeadDetailPage from "@/pages/admin/crm-lead-detail";
 import MetaLeadsPage from "@/pages/admin/meta-leads";
+import WhatsappAiPreviewPage from "@/pages/admin/whatsapp-ai-preview";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -93,6 +94,7 @@ function Router() {
           <Route path="/admin/crm/:id" component={CrmLeadDetailPage} />
           <Route path="/admin/crm" component={CrmLeadsPage} />
           <Route path="/admin/meta-leads" component={MetaLeadsPage} />
+          <Route path="/admin/whatsapp-ai-preview" component={WhatsappAiPreviewPage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />
