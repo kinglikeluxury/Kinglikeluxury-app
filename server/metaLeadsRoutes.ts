@@ -326,14 +326,27 @@ export function registerMetaLeadsRoutes(app: Express): void {
       });
     }
 
-    const esc = encodeURIComponent(token);
+    const esc        = encodeURIComponent(token);
+    const tokenLen   = token.length;
+    // Rough token-type heuristic: EAA… = long-lived user/page token, EAAB… = app token
+    const tokenTypeGuess =
+      token.startsWith("EAA") ? "facebook_token" :
+      token.length < 80       ? "short_lived_or_page" :
+                                "long_lived";
 
-    // Step 1 — basic token validity
+    // Step 1 — basic identity (/me works for both User and Page Access Tokens)
     const meRes = await graphGet(`/me?access_token=${esc}&fields=id,name`);
     if (meRes.data?.error) {
+      console.warn(
+        `[MetaLeads][token-test] /me failed — ` +
+        `token_present=true | token_length=${tokenLen} | ` +
+        `error_code=${meRes.data.error.code} | error_type=${meRes.data.error.type}`
+      );
       return res.json({
         tokenPresent: true,
         tokenValid: false,
+        tokenLength: tokenLen,
+        tokenTypeGuess,
         httpStatus: meRes.status,
         error: meRes.data.error.message,
         errorCode: meRes.data.error.code,
@@ -341,32 +354,87 @@ export function registerMetaLeadsRoutes(app: Express): void {
       });
     }
 
-    // Step 2 — permissions granted to this token
+    const meId   = meRes.data?.id   ?? null;
+    const meName = meRes.data?.name ?? null;
+
+    // Step 2 — real leads_retrieval test: call /me/leadgen_forms directly.
+    //   For a Page Access Token, /me IS the page, so this is the correct call.
+    //   Returns data:[] (empty array) on success even if no forms exist.
+    //   Returns an error object if the permission is missing.
+    const formsRes  = await graphGet(`/me/leadgen_forms?access_token=${esc}&fields=id,name,status&limit=5`);
+    const formsErr  = formsRes.data?.error ?? null;
+    const formsData: any[] = Array.isArray(formsRes.data?.data) ? formsRes.data.data : [];
+    const formsAccessGranted = !formsErr;
+
+    // Step 3 — permission list (informational; sparse for Page tokens)
     const permsRes = await graphGet(`/me/permissions?access_token=${esc}`);
     const permissions: string[] = (permsRes.data?.data || [])
       .filter((p: any) => p.status === "granted")
       .map((p: any) => p.permission as string);
 
-    // Step 3 — pages accessible (name + id only, no tokens)
-    const pagesRes = await graphGet(`/me/accounts?access_token=${esc}&fields=id,name,tasks`);
-    const pages = (pagesRes.data?.data || []).slice(0, 10).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      tasks: p.tasks || [],
-    }));
+    // Step 4 — accounts (User token → lists owned pages; Page token → likely empty)
+    const accountsRes   = await graphGet(`/me/accounts?access_token=${esc}&fields=id,name`);
+    const accountPages: Array<{ id: string; name: string }> =
+      (accountsRes.data?.data || []).slice(0, 10).map((p: any) => ({
+        id: p.id, name: p.name,
+      }));
+
+    // If /me/accounts returned nothing but /me/leadgen_forms succeeded, the token IS
+    // a Page Access Token and /me is the page itself — surface it as the connected page.
+    const isPageToken   = formsAccessGranted || accountPages.length === 0;
+    const connectedPages =
+      accountPages.length > 0
+        ? accountPages
+        : (meId ? [{ id: meId, name: meName ?? "—" }] : []);
+
+    // Derive permission flags from real API results, not just the permission list.
+    // Page Access Tokens often omit "leads_retrieval" from /me/permissions even when
+    // the token actually has access — the proof is /me/leadgen_forms succeeding.
+    const hasLeadsRetrieval      = permissions.includes("leads_retrieval")      || formsAccessGranted;
+    const hasPagesReadEngagement = permissions.includes("pages_read_engagement") || !!meName;
+    const hasAdsManagement       = permissions.includes("ads_management");
+
+    console.log(
+      `[MetaLeads][token-test] ` +
+      `token_present=true | token_length=${tokenLen} | token_type_guess=${tokenTypeGuess} | ` +
+      `page_id=${meId ?? "unknown"} | forms_count=${formsData.length} | ` +
+      `forms_access_granted=${formsAccessGranted} | ` +
+      `is_page_token=${isPageToken} | ` +
+      `leads_retrieval=${hasLeadsRetrieval} | pages_read_engagement=${hasPagesReadEngagement}`
+    );
+    if (formsErr) {
+      console.warn(
+        `[MetaLeads][token-test] /me/leadgen_forms error — ` +
+        `error_code=${formsErr.code} | error_type=${formsErr.type}`
+      );
+    }
 
     return res.json({
       tokenPresent: true,
       tokenValid: true,
-      identity: {
-        id:   meRes.data?.id   ?? "—",
-        name: meRes.data?.name ?? "—",
-      },
+      tokenLength: tokenLen,
+      tokenTypeGuess,
+      isPageToken,
+      identity: { id: meId ?? "—", name: meName ?? "—" },
       permissions,
-      hasLeadsRetrieval:       permissions.includes("leads_retrieval"),
-      hasPagesReadEngagement:  permissions.includes("pages_read_engagement"),
-      hasAdsManagement:        permissions.includes("ads_management"),
-      pages,
+      hasLeadsRetrieval,
+      hasPagesReadEngagement,
+      hasAdsManagement,
+      pages: connectedPages,
+      leadgenForms: formsAccessGranted
+        ? {
+            granted:  true,
+            count:    formsData.length,
+            sample:   formsData.slice(0, 3).map((f: any) => ({
+              id: f.id, name: f.name, status: f.status ?? "—",
+            })),
+          }
+        : {
+            granted:      false,
+            errorCode:    formsErr?.code    ?? null,
+            errorType:    formsErr?.type    ?? null,
+            errorMessage: formsErr?.message ?? null,
+          },
     });
   });
 
