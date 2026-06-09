@@ -11,6 +11,8 @@ import { pool } from "./db";
 const UNSUBSCRIBE_SECRET = process.env.EMAIL_NURTURING_UNSUBSCRIBE_SECRET || "kinglike-unsub-secret-2024";
 const ENABLED = () => process.env.EMAIL_NURTURING_ENABLED === "true";
 const APP_URL = process.env.APP_URL || "https://www.kinglikeluxury.app";
+const WHATSAPP_CTA = "https://wa.me/995591000058?text=Hello%20Kinglike%20Luxury%2C%20I%20would%20like%20to%20know%20more%20about%20real%20estate%20investment.";
+const WHATSAPP_BTN = "تواصل معنا عبر واتساب";
 
 /** Statuses that permanently stop nurturing */
 const STOP_STATUSES = new Set([
@@ -20,7 +22,7 @@ const STOP_STATUSES = new Set([
 ]);
 
 // ─── Email HTML wrapper ────────────────────────────────────────────────────────
-function emailWrapper(content: string, unsubscribeUrl: string): string {
+function emailWrapper(content: string, unsubscribeUrl: string, heroHtml: string = ""): string {
   return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kinglike Luxury</title></head>
@@ -29,20 +31,23 @@ function emailWrapper(content: string, unsubscribeUrl: string): string {
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,84,118,0.10)">
       <tr>
-        <td style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:40px;text-align:center">
-          <h1 style="color:#fff;margin:0;font-size:28px;font-weight:800;letter-spacing:-0.5px">Kinglike Luxury</h1>
-          <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px">منصة العقارات الفاخرة</p>
+        <td style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:32px 40px;text-align:center">
+          <h1 style="color:#fff;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.5px">Kinglike Luxury</h1>
+          <p style="color:rgba(255,255,255,0.85);margin:5px 0 0;font-size:13px;letter-spacing:1px">Invest with Vision</p>
         </td>
       </tr>
+      ${heroHtml ? `<tr><td style="padding:0;line-height:0">${heroHtml}</td></tr>` : ""}
       <tr>
-        <td style="padding:40px 40px 24px">
+        <td style="padding:36px 40px 24px">
           ${content}
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 32px;text-align:center;border-top:1px solid #e8f4f8">
-          <p style="color:#aaa;font-size:12px;margin:16px 0 4px">Kinglike Luxury — منصة العقارات الفاخرة</p>
-          <p style="color:#aaa;font-size:11px;margin:0">
+          <p style="color:#005476;font-size:13px;font-weight:700;margin:20px 0 2px">Kinglike Luxury</p>
+          <p style="color:#3bcac4;font-size:11px;font-weight:600;margin:0 0 6px;letter-spacing:0.5px">Invest with Vision</p>
+          <a href="mailto:info@kinglikeluxury.app" style="color:#3bcac4;font-size:11px;text-decoration:none">info@kinglikeluxury.app</a>
+          <p style="color:#bbb;font-size:11px;margin:12px 0 0">
             إذا كنت لا تريد تلقي هذه الرسائل، يمكنك
             <a href="${unsubscribeUrl}" style="color:#3bcac4;text-decoration:underline">إلغاء الاشتراك من هنا</a>
           </p>
@@ -60,57 +65,58 @@ function btnStyle() {
 }
 
 // ─── Template version (bump when content changes to auto-migrate DB) ───────────
-const TEMPLATE_VERSION = "v2";
+const TEMPLATE_VERSION = "v3";
 
 // ─── Default templates — trust-based Georgia real estate sequence ──────────────
 function defaultTemplates() {
   return [
-    // ── Email 1 — Day 0 (immediate): Welcome + services ────────────────────────
+    // ── Email 1 — Day 0 (immediate): Welcome + full services ──────────────────
     {
       day_offset: 0, sort_order: 1, is_recurring: false,
-      subject: "مرحباً بك في Kinglike Luxury",
-      body_text: "أهلاً {{firstName}}، شكراً لاهتمامك. سيتواصل معك مستشار من فريقنا قريباً.",
+      subject: "أهلاً بك في Kinglike Luxury 🏡",
+      body_text: "أهلاً {{firstName}}، شكراً لتواصلك مع Kinglike Luxury — يسعدنا اهتمامك بالاستثمار العقاري في جورجيا.",
       get body_html() {
+        const hero = `<img src="{{heroImageUrl}}" alt="Kinglike Luxury — Real Estate Investment in Georgia" width="600" style="width:100%;max-width:600px;display:block;object-fit:cover;max-height:260px" />`;
         return emailWrapper(`
-          <h2 style="color:#005476;margin-top:0;font-size:22px">مرحباً {{firstName}} 👋</h2>
+          <h2 style="color:#005476;margin-top:0;font-size:22px">أهلاً {{firstName}} 👋</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            شكراً لاهتمامك بـ <strong>Kinglike Luxury</strong>.
+            شكراً لتواصلك مع <strong>Kinglike Luxury</strong> — يسعدنا اهتمامك بالاستثمار العقاري في جورجيا.
           </p>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            سيتواصل معك أحد مستشارينا قريباً لمساعدتك في رحلتك الاستثمارية.
+            في Kinglike Luxury نساعد المستثمرين العرب على اختيار الفرص العقارية المناسبة بطريقة واضحة وآمنة، من خلال خدمات استشارية مجانية ومتابعة احترافية قبل الشراء وبعده.
           </p>
           <div style="background:#f0f9f9;border-radius:12px;padding:24px 28px;margin:24px 0">
-            <p style="color:#005476;font-weight:700;font-size:16px;margin:0 0 16px">لماذا تختار Kinglike Luxury؟</p>
+            <p style="color:#005476;font-weight:700;font-size:16px;margin:0 0 16px">ما الذي تحصل عليه عند التعامل معنا؟</p>
             <table width="100%" cellpadding="0" cellspacing="0">
               ${[
-                ["✓", "لا عمولة على المشتري", "خدماتنا مجانية لك تماماً"],
-                ["✓", "تمثيل رسمي لعدة مطورين", "نمنحك أوسع نطاق من الخيارات"],
-                ["✓", "توجيه قبل الشراء", "نساعدك على اتخاذ القرار الصحيح"],
-                ["✓", "دعم بعد الشراء", "علاقتنا لا تنتهي بعد التوقيع"],
-                ["✓", "متابعة تقدم المشروع", "نبقيك على اطلاع دائم بمراحل البناء"],
-                ["✓", "مساعدة في إدارة الإيجار", "نساعدك في استثمار عقارك"],
-                ["✓", "دعم إعادة البيع", "شبكتنا في خدمتك عند البيع"],
-                ["✓", "خدمات VIP", "رعاية شخصية لكل عميل"],
-              ].map(([check, title, desc]) => `
+                "لا تدفع لنا أي عمولة إضافية عند الشراء.",
+                "نساعدك على مقارنة المشاريع المناسبة حسب ميزانيتك وهدفك.",
+                "نوضح لك خطوات الشراء الأساسية قبل اتخاذ القرار.",
+                "نساعدك على مراجعة وفهم البنود الأساسية قبل التوقيع، ويمكننا التنسيق مع مختصين قانونيين عند الحاجة.",
+                "نتابع معك تحديثات المشروع ومراحل البناء عند توفرها.",
+                "نساعدك في خدمات التأجير وإدارة العقار.",
+                "ندعمك في إعادة البيع مستقبلاً عند الحاجة.",
+                "يحصل عملاؤنا على متابعة VIP قبل وبعد الشراء.",
+              ].map(item => `
                 <tr>
-                  <td width="28" valign="top" style="padding:6px 0">
-                    <span style="color:#3bcac4;font-weight:700;font-size:16px">${check}</span>
+                  <td width="24" valign="top" style="padding:7px 0">
+                    <span style="color:#3bcac4;font-weight:700;font-size:17px">•</span>
                   </td>
-                  <td style="padding:6px 0 6px 8px">
-                    <strong style="color:#005476;font-size:14px">${title}</strong>
-                    <span style="color:#777;font-size:13px"> — ${desc}</span>
-                  </td>
+                  <td style="padding:7px 0 7px 10px;color:#444;font-size:14px;line-height:1.75">${item}</td>
                 </tr>
               `).join("")}
             </table>
           </div>
           <p style="color:#444;line-height:1.9;font-size:15px">
-            نحن هنا لمساعدة المستثمرين على اتخاذ قرارات مدروسة وتقديم التوجيه المهني في كل مرحلة.
+            هدفنا أن تتخذ قرارك بثقة ووضوح، بعيداً عن الضغط أو المعلومات غير الدقيقة.
+          </p>
+          <p style="color:#444;line-height:1.9;font-size:15px">
+            اضغط على الزر أدناه للتواصل معنا مباشرة عبر واتساب.
           </p>
           <div style="text-align:center">
-            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">احجز استشارة مجانية</a>
+            <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
-        `, "{{unsubscribeUrl}}");
+        `, "{{unsubscribeUrl}}", hero);
       }
     },
 
@@ -149,7 +155,7 @@ function defaultTemplates() {
             هذه المعلومات لأغراض توعوية فقط. الاستثمار العقاري ينطوي على مخاطر، وننصح دائماً بالبحث الدقيق والاستشارة المتخصصة قبل اتخاذ أي قرار.
           </p>
           <div style="text-align:center">
-            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">تحدث مع مستشار</a>
+            <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
@@ -184,7 +190,7 @@ function defaultTemplates() {
             <p style="color:#555;font-size:13px;margin:0;line-height:1.7">توجيه مهني خطوة بخطوة — قبل أي قرار وبعده.</p>
           </div>
           <div style="text-align:center">
-            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">اطلب توجيهاً احترافياً</a>
+            <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
@@ -227,7 +233,7 @@ function defaultTemplates() {
             جميع الخدمات المذكورة مجانية للمشتري — لا عمولات ولا رسوم خفية.
           </p>
           <div style="text-align:center">
-            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">تواصل مع فريقنا</a>
+            <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
@@ -280,7 +286,7 @@ function defaultTemplates() {
             هذه أمثلة توضيحية. للاطلاع على قائمة الفرص الحالية وفق ميزانيتك وأهدافك، تواصل مع فريقنا مباشرة.
           </p>
           <div style="text-align:center">
-            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">اعرض الفرص المتاحة</a>
+            <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
@@ -322,7 +328,7 @@ function defaultTemplates() {
             رسالة واحدة منك تكفي لنبدأ المحادثة. فريقنا في انتظارك.
           </p>
           <div style="text-align:center">
-            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">حدد موعداً</a>
+            <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
@@ -358,7 +364,7 @@ function defaultTemplates() {
             هذه المعلومات لأغراض توعوية فقط ولا تمثل نصيحة استثمارية. استشر متخصصين قبل اتخاذ أي قرار.
           </p>
           <div style="text-align:center">
-            <a href="https://www.kinglikeluxury.app/consultation" style="${btnStyle()}">تواصل مع فريقنا</a>
+            <a href="${WHATSAPP_CTA}" style="${btnStyle()}">${WHATSAPP_BTN}</a>
           </div>
         `, "{{unsubscribeUrl}}");
       }
@@ -457,9 +463,10 @@ export async function ensureEmailNurturingTables(): Promise<void> {
 
     // Default settings
     const defaultSettings = [
-      ["sender_name",  "Kinglike Luxury"],
-      ["sender_email", "info@kinglikeluxury.app"],
-      ["reply_to",     "info@kinglikeluxury.app"],
+      ["sender_name",            "Kinglike Luxury"],
+      ["sender_email",           "info@kinglikeluxury.app"],
+      ["reply_to",               "info@kinglikeluxury.app"],
+      ["welcome_email_hero_url", "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80&auto=format&fit=crop"],
     ];
     for (const [key, value] of defaultSettings) {
       await client.query(`INSERT INTO email_nurturing_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING`, [key, value]);
@@ -652,14 +659,15 @@ async function bumpEngagement(client: any, leadId: number, points: number): Prom
 }
 
 // ─── Get settings ───────────────────────────────────────────────────────────────
-async function getSettings(client: any): Promise<{ senderName: string; senderEmail: string; replyTo: string }> {
+async function getSettings(client: any): Promise<{ senderName: string; senderEmail: string; replyTo: string; heroImageUrl: string }> {
   const r = await client.query(`SELECT key, value FROM email_nurturing_settings`);
   const m: Record<string, string> = {};
   for (const row of r.rows) m[row.key] = row.value;
   return {
-    senderName:  m["sender_name"]  || "Kinglike Luxury",
-    senderEmail: m["sender_email"] || "info@kinglikeluxury.app",
-    replyTo:     m["reply_to"]     || "info@kinglikeluxury.app",
+    senderName:    m["sender_name"]          || "Kinglike Luxury",
+    senderEmail:   m["sender_email"]         || "info@kinglikeluxury.app",
+    replyTo:       m["reply_to"]             || "info@kinglikeluxury.app",
+    heroImageUrl:  m["welcome_email_hero_url"] || "",
   };
 }
 
@@ -668,17 +676,16 @@ async function sendOneEmail(
   leadId: number, statusId: number, template: any,
   recipientEmail: string, leadData: { firstName?: string | null; fullName?: string | null }
 ): Promise<boolean> {
-  const firstName = leadData.firstName || leadData.fullName?.split(" ")[0] || "عزيزي";
-  const unsub = unsubscribeUrl(leadId);
-  const vars = { firstName, unsubscribeUrl: unsub };
-  const subject   = fillTemplate(template.subject,   vars);
-  const bodyHtml  = fillTemplate(template.body_html,  vars);
-  const bodyText  = fillTemplate(template.body_text || "", vars);
-
   const client = await pool.connect();
   try {
     const settings = await getSettings(client);
     const from = `${settings.senderName} <${settings.senderEmail}>`;
+    const firstName = leadData.firstName || leadData.fullName?.split(" ")[0] || "عزيزي";
+    const unsub = unsubscribeUrl(leadId);
+    const vars = { firstName, unsubscribeUrl: unsub, heroImageUrl: settings.heroImageUrl };
+    const subject   = fillTemplate(template.subject,   vars);
+    const bodyHtml  = fillTemplate(template.body_html,  vars);
+    const bodyText  = fillTemplate(template.body_text || "", vars);
 
     if (!ENABLED()) {
       console.log(`[EmailNurturing] Sending disabled, would send templateId=${template.id} leadId=${leadId} to=${recipientEmail}`);

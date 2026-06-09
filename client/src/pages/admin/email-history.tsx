@@ -177,28 +177,72 @@ export default function EmailHistoryPage() {
 
       {/* Email content viewer */}
       <Dialog open={!!viewEvent} onOpenChange={open => { if (!open) setViewEvent(null); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-[#005476] text-sm">
-              Email to {viewEvent?.full_name || viewEvent?.recipient_email}
+            <DialogTitle className="text-[#005476]">
+              Email Preview — {viewEvent?.full_name || viewEvent?.recipient_email}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-1">
-            <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600 space-y-1">
-              <p><span className="font-medium">To:</span> {viewEvent?.recipient_email}</p>
-              <p><span className="font-medium">Subject:</span> {viewEvent?.subject}</p>
-              <p><span className="font-medium">Sent:</span> {viewEvent?.created_at ? new Date(viewEvent.created_at).toLocaleString() : "—"}</p>
-              <div className="flex gap-2 pt-1">
-                {viewEvent?.opened  && <Badge className="text-xs bg-green-100 text-green-700 border border-green-200">Opened</Badge>}
-                {viewEvent?.clicked && <Badge className="text-xs bg-purple-100 text-purple-700 border border-purple-200">Link Clicked</Badge>}
-                {viewEvent?.bounced && <Badge className="text-xs bg-red-100 text-red-700 border border-red-200">Bounced</Badge>}
+            {/* Metadata panel */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-100 text-xs">
+              <div className="flex gap-2 px-3 py-2">
+                <span className="font-semibold text-slate-500 w-16 shrink-0">To</span>
+                <span className="text-slate-700">{viewEvent?.recipient_email || "—"}</span>
+              </div>
+              <div className="flex gap-2 px-3 py-2">
+                <span className="font-semibold text-slate-500 w-16 shrink-0">Subject</span>
+                <span className="text-slate-700 font-medium">{viewEvent?.subject || "—"}</span>
+              </div>
+              <div className="flex gap-2 px-3 py-2">
+                <span className="font-semibold text-slate-500 w-16 shrink-0">Sent</span>
+                <span className="text-slate-700">
+                  {viewEvent?.created_at ? new Date(viewEvent.created_at).toLocaleString("en-US", {
+                    dateStyle: "medium", timeStyle: "short"
+                  }) : "—"}
+                </span>
+              </div>
+              {/* Extract CTA link from HTML */}
+              {viewEvent?.body_html && (() => {
+                const match = viewEvent.body_html.match(/href="(https?:\/\/[^"]+)"/);
+                const ctaUrl = match?.[1] || null;
+                return ctaUrl ? (
+                  <div className="flex gap-2 px-3 py-2">
+                    <span className="font-semibold text-slate-500 w-16 shrink-0">CTA</span>
+                    <a
+                      href={ctaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#3bcac4] underline underline-offset-2 truncate max-w-[360px]"
+                    >
+                      {ctaUrl}
+                    </a>
+                  </div>
+                ) : null;
+              })()}
+              {/* Status badges */}
+              <div className="flex gap-2 px-3 py-2 items-center">
+                <span className="font-semibold text-slate-500 w-16 shrink-0">Status</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {viewEvent?.opened  && <Badge className="text-xs bg-green-100 text-green-700 border border-green-200">Opened</Badge>}
+                  {viewEvent?.clicked && <Badge className="text-xs bg-purple-100 text-purple-700 border border-purple-200">Link Clicked</Badge>}
+                  {viewEvent?.bounced && <Badge className="text-xs bg-red-100 text-red-700 border border-red-200">Bounced</Badge>}
+                  {!viewEvent?.opened && !viewEvent?.clicked && !viewEvent?.bounced && (
+                    <span className="text-slate-400 italic">No engagement yet</span>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Full email body */}
             {viewEvent?.body_html ? (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="bg-slate-100 border-b border-slate-200 px-3 py-1.5 text-xs text-slate-500 font-medium">
+                  Email Body Preview
+                </div>
                 <iframe
                   srcDoc={viewEvent.body_html}
-                  className="w-full h-[460px]"
+                  className="w-full h-[500px]"
                   sandbox="allow-same-origin"
                   title="Email content"
                 />
