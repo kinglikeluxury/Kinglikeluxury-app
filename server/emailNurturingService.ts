@@ -83,7 +83,7 @@ function defaultTemplates() {
       subject: "أهلاً بك في Kinglike Luxury 🏡",
       body_text: "أهلاً {{firstName}}، شكراً لتواصلك مع Kinglike Luxury — يسعدنا اهتمامك بالاستثمار العقاري في جورجيا.",
       get body_html() {
-        const hero = `<img src="{{heroImageUrl}}" alt="Kinglike Luxury — Luxury Real Estate Investment in Batumi, Georgia" width="600" style="width:100%;max-width:600px;display:block;object-fit:cover;height:300px" />`;
+        const hero = `<img src="{{heroImageUrl}}" alt="Kinglike Luxury Georgia Real Estate Investment" width="600" style="width:100%;max-width:600px;display:block;object-fit:cover;height:300px" />`;
         return emailWrapper(`
           <h2 style="color:#005476;margin-top:0;font-size:24px;font-weight:800">أهلاً {{firstName}} 👋</h2>
           <p style="color:#444;line-height:1.9;font-size:15px">
@@ -480,7 +480,7 @@ export async function ensureEmailNurturingTables(): Promise<void> {
       ["sender_name",            "Kinglike Luxury"],
       ["sender_email",           "info@kinglikeluxury.app"],
       ["reply_to",               "info@kinglikeluxury.app"],
-      ["welcome_email_hero_url", "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=85&auto=format&fit=crop"],
+      ["welcome_email_hero_url", "https://www.kinglikeluxury.app/email-hero-georgia.jpeg"],
     ];
     for (const [key, value] of defaultSettings) {
       await client.query(`INSERT INTO email_nurturing_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING`, [key, value]);
@@ -526,7 +526,7 @@ export async function ensureEmailNurturingTables(): Promise<void> {
       // Update hero image to premium investment visual
       await client.query(`
         INSERT INTO email_nurturing_settings(key,value,updated_at)
-        VALUES('welcome_email_hero_url','https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=85&auto=format&fit=crop',NOW())
+        VALUES('welcome_email_hero_url','https://www.kinglikeluxury.app/email-hero-georgia.jpeg',NOW())
         ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
       `);
       await client.query(`

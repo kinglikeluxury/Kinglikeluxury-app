@@ -1,0 +1,108 @@
+EMAIL HERO IMAGE FINAL UPGRADE — UPLOAD IMAGE + USE PERMANENT URL
+
+Goal:
+Replace the current welcome email hero image with the new Kinglike Luxury Georgia premium banner image.
+
+Important:
+The image must NOT be referenced as a temporary local file.
+It must be uploaded to a permanent public URL first, then that URL must be used in the email template/settings.
+
+Use the provided image file:
+"/mnt/data/a_wide_ultra_high_resolution_panoramic_cityscape.png"
+
+Required steps:
+
+1. Upload the image to permanent storage
+
+Preferred:
+
+- Cloudinary, using the existing app Cloudinary setup if available.
+
+If Cloudinary upload utilities already exist in the codebase, reuse them.
+If not, place the image in a public static assets directory only if it will be permanently served in production by Railway.
+
+Do not use temporary Replit file URLs.
+
+2. Get the final permanent public image URL.
+
+The URL must:
+
+- be publicly accessible without authentication
+- work inside email clients
+- be HTTPS
+- not expire
+
+3. Replace the welcome email hero image everywhere
+
+Update:
+
+- "email_nurturing_settings" database value for "welcome_email_hero_url"
+- default setting in "server/emailNurturingService.ts"
+- migration/fallback blocks in "server/emailNurturingService.ts"
+- any hardcoded old hero image URL
+
+Remove old image references:
+
+- house with keys image
+- generic city image
+- old Unsplash URLs used for the welcome hero
+
+4. Preserve all existing email content and logic
+
+Do NOT modify:
+
+- email sequence timing
+- scheduler
+- sending logic
+- Resend integration
+- Email History
+- Meta Leads
+- CRM logic
+- Developer Registration Center
+- Lead assignment
+- authentication
+- payments
+- public website pages
+- blog/SEO
+
+This task is visual branding only.
+
+5. Email rendering requirements
+
+The new hero image should display:
+
+- full width inside the email container
+- clean crop
+- good mobile rendering
+- no distortion
+- suitable alt text:
+  "Kinglike Luxury Georgia Real Estate Investment"
+
+6. Verification
+
+After implementation:
+
+A) Search the codebase and database for old image URLs and confirm they are no longer active for new emails.
+
+B) Confirm:
+
+- "welcome_email_hero_url" points to the new permanent image URL
+- new welcome emails use the new image
+- old historical Email History previews remain unchanged by design
+
+C) Create a test lead and trigger the welcome email generation.
+
+D) Verify the new test email preview shows the new Georgia banner image.
+
+E) Return:
+
+- permanent image URL used
+- files changed
+- database setting updated
+- old URLs removed
+- test lead ID
+- confirmation from generated email preview/body HTML
+
+Important:
+Do not change any business logic.
+Do not touch unrelated systems.
