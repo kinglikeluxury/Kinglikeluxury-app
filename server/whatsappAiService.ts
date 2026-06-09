@@ -12,22 +12,33 @@ const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
 const openai: OpenAI | null = apiKey ? new OpenAI({ apiKey }) : null;
 
 // ── System prompt for WhatsApp qualification AI ───────────────────────────────
-const WHATSAPP_SYSTEM_PROMPT = `أنت خالد — مستشار واتساب محترف من فريق Kinglike Luxury للعقارات الفاخرة.
-مهمتك: استقبال العملاء الجدد بطريقة دافئة ومهنية، وجمع معلومات التأهيل تدريجياً دون أي ضغط.
+const WHATSAPP_SYSTEM_PROMPT = `أنت خالد — عضو في فريق Kinglike Luxury للعقارات الفاخرة.
+أسلوبك: إنساني، دافئ، محترف، صبور، طبيعي — كأنك صديق خبير يتحدث عبر واتساب.
+
+ترتيب الأسئلة (سؤال واحد فقط في كل رسالة):
+1. الهدف: استثمار / سكن / عطلات
+2. الدولة المفضلة
+3. المدينة أو المنطقة
+4. نوع العقار
+5. الميزانية
+6. طريقة الدفع
+7. الإطار الزمني للشراء
+8. أفضل وقت للتواصل
 
 القواعد الصارمة:
-- تكلّم بالعربية الفصحى المعاصرة (راقية وطبيعية، ليست مترجمة).
-- سؤال واحد فقط في كل رسالة.
-- رسائل قصيرة وطبيعية (لا تتجاوز 3 أسطر).
+- العربية الفصحى المعاصرة (راقية وطبيعية، ليست مترجمة).
+- لا تسأل عن الدولة أو الميزانية أو المدينة في الرسالة الأولى.
+- السؤال الأول دائماً: الاستثمار أم السكن أم قضاء العطلات.
+- لا تقل "أنا مستشارك" أو "خبير استثماري" أو "مستشار قانوني".
 - لا تذكر أسعاراً أو ضمانات أو عوائد استثمارية أو نسب ربح.
 - لا تفضّل دولة على أخرى، ولا مشروعاً على آخر، ولا مدينة على أخرى.
-- لا تعطِ نصائح قانونية أو ضريبية.
-- إذا سأل العميل عن تفاصيل قانونية أو ضمانات: "سيوضح لك المستشار المختص هذه التفاصيل بالكامل."
-- إذا طلب العميل التحدث مع شخص حقيقي: أبلغه بأنك ستحيله فوراً لمستشار.
-- إذا كان العميل غير مهذب أو غاضباً: ابقَ هادئاً ومحترماً دائماً.
-  مثال: "ولا يهمك أستاذي، أنا موجود لمساعدتك فقط. إذا تحب، أقدر أسجل اهتمامك وأطلب من أحد المستشارين التواصل معك بالوقت المناسب."
+- لا تعطِ نصائح قانونية أو ضريبية أو هجرة أو إقامة أو جنسية.
 - لا ترسل روابط خارجية أو روابط مشاريع أو روابط مطورين إطلاقاً.
-- إذا سُئلت عن أفضل خيار: "الاختيار الأنسب يعتمد على هدفك وميزانيتك وتفضيلاتك، ومستشار Kinglike Luxury سيوضح لك الخيارات المناسبة."`;
+- إذا سأل عن تفاصيل قانونية أو ضمانات: "سيوضح لك المستشار المختص هذه التفاصيل بالكامل."
+- إذا طلب التحدث مع شخص حقيقي: أبلغه أنك ستحيله فوراً لمستشار.
+- إذا كان غير مهذب أو غاضباً: ابقَ هادئاً ومحترماً دائماً.
+- إذا سُئلت عن أفضل خيار: "الاختيار الأنسب يعتمد على هدفك وميزانيتك، والمستشار سيوضح لك الخيارات."
+- رسائل قصيرة ومناسبة لواتساب (لا تتجاوز 4 أسطر).`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,14 +49,44 @@ function buildClientName(data: {
   return data.fullName?.trim() || data.firstName?.trim() || "";
 }
 
-function getDefaultOpeningMessage(clientName: string): string {
-  const greeting = clientName
-    ? `السلام عليكم ${clientName}،`
-    : "السلام عليكم،";
+function getDefaultOpeningMessage(firstName: string | null | undefined): string {
+  const greeting = firstName?.trim()
+    ? `مرحباً أستاذ ${firstName.trim()} 🌷`
+    : `مرحباً أستاذي 🌷`;
   return (
-    `${greeting}\n` +
-    `معك خالد من فريق Kinglike Luxury للعقارات الفاخرة 🏡\n` +
-    `يسعدنا تواصلك معنا — في أي دولة تفضل الاستثمار أو الإقامة؟`
+    `${greeting}\n\n` +
+    `أشكرك على اهتمامك بالعقارات معنا في Kinglike Luxury.\n\n` +
+    `أنا خالد من فريق Kinglike Luxury، وسأساعدك في العثور على الخيارات المناسبة حسب هدفك وميزانيتك.\n\n` +
+    `بدايةً، هل تبحث عن عقار بهدف الاستثمار أم السكن أم قضاء العطلات؟`
+  );
+}
+
+function getDefaultRecoveryMessage(
+  firstName: string | null | undefined,
+  data: { country?: string | null; city?: string | null; projectInterest?: string | null }
+): string {
+  const greeting = firstName?.trim()
+    ? `مرحباً أستاذ ${firstName.trim()} 🌷`
+    : `مرحباً أستاذي 🌷`;
+
+  // Smart personalization: mention known interest naturally
+  let personalLine = "";
+  if (data.city?.trim()) {
+    personalLine = `\n\nلاحظت أنك كنت مهتماً سابقاً بالعقارات في ${data.city.trim()}، وأردت فقط أن أتأكد إن كنت ما زلت مهتماً بذلك أو بفرص أخرى.`;
+  } else if (data.country?.trim()) {
+    personalLine = `\n\nلاحظت أنك كنت مهتماً سابقاً بالعقارات في ${data.country.trim()}، وأردت فقط أن أتأكد إن كنت ما زلت مهتماً بذلك أو بفرص أخرى.`;
+  } else if (data.projectInterest?.trim()) {
+    personalLine = `\n\nلاحظت أنك كنت مهتماً سابقاً بـ${data.projectInterest.trim()}، وأردت فقط أن أتأكد إن كنت ما زلت مهتماً بذلك.`;
+  } else {
+    personalLine = `\n\nأردت فقط أن أتأكد إن كنت ما زلت مهتماً بالعقارات أو الفرص الاستثمارية التي سجلت اهتمامك بها.`;
+  }
+
+  return (
+    `${greeting}\n\n` +
+    `حاول فريقنا التواصل معك سابقاً، ويبدو أن الوقت لم يكن مناسباً.` +
+    personalLine +
+    `\n\nإذا كان الوقت غير مناسب حالياً، فقط أخبرني بالوقت الأفضل للتواصل معك، وسنرتب ذلك بكل سرور.` +
+    `\n\nوإذا تغير اهتمامك فلا يوجد أي إزعاج، فقط أخبرني بذلك 😊`
   );
 }
 
@@ -116,19 +157,25 @@ export async function initConversationForLead(
 
     // Step 2: Generate opening message
     const clientName = buildClientName(leadData);
-    let openingMessage = getDefaultOpeningMessage(clientName);
+    const firstName = leadData.firstName?.trim() || null;
+    let openingMessage = getDefaultOpeningMessage(firstName);
 
     if (openai) {
       try {
+        const greeting = firstName ? `مرحباً أستاذ ${firstName} 🌷` : `مرحباً أستاذي 🌷`;
         const userPrompt =
-          `أنشئ رسالة واتساب ترحيبية أولى للعميل الجديد` +
-          (clientName ? ` "${clientName}"` : "") +
-          `.\n` +
-          `المعلومات المتوفرة من النموذج:\n` +
-          (leadData.country ? `- الدولة المذكورة: ${leadData.country}\n` : "") +
-          (leadData.projectInterest ? `- اهتمامه المذكور: ${leadData.projectInterest}\n` : "") +
+          `أنشئ رسالة واتساب ترحيبية أولى للعميل الجديد.\n\n` +
+          `معلومات متوفرة (للسياق فقط — لا تذكرها مباشرة):\n` +
+          (leadData.country ? `- الدولة: ${leadData.country}\n` : "") +
+          (leadData.projectInterest ? `- اهتمامه: ${leadData.projectInterest}\n` : "") +
           `\n` +
-          `المطلوب: رسالة دافئة ومهنية (جملتان إلى ثلاث)، تُرحّب بالعميل، تُعرّفه بنفسك باختصار، وتسأله سؤالاً طبيعياً واحداً عن الدولة التي يهتم بالاستثمار أو الإقامة فيها.`;
+          `الرسالة يجب أن:\n` +
+          `- تبدأ بـ: "${greeting}"\n` +
+          `- تشكره على اهتمامه بالعقارات مع Kinglike Luxury.\n` +
+          `- تعرّف بنفسك باختصار: أنا خالد من فريق Kinglike Luxury (لا تقل "مستشار" أو "خبير").\n` +
+          `- تنهي بالسؤال الأول الإلزامي: هل تبحث عن عقار بهدف الاستثمار أم السكن أم قضاء العطلات؟\n` +
+          `- لا تسأل عن الدولة أو الميزانية أو المدينة في هذه الرسالة.\n` +
+          `- قصيرة ومناسبة لواتساب (4-5 أسطر كحد أقصى).`;
 
         const response = await openai.chat.completions.create({
           model: "gpt-4o",
@@ -383,30 +430,47 @@ export async function triggerNoAnswer3Recovery(
 
     // Step 3: Generate Arabic recovery message
     const clientName = buildClientName(leadData);
-    const DEFAULT_RECOVERY =
-      `مرحباً أستاذي، حاول فريق Kinglike Luxury التواصل معك بخصوص اهتمامك بالعقارات، ` +
-      `ويبدو أن الوقت لم يكن مناسباً.\n` +
-      `إذا ما زال الموضوع يهمك، أخبرني فقط ما هو الوقت الأنسب ليتواصل معك أحد مستشارينا، ` +
-      `أو يمكنك كتابة الدولة/المدينة التي تهمك وسنجهز لك الخيارات المناسبة.`;
+    const firstName = leadData.firstName?.trim() || null;
+    const recoveryDefault = getDefaultRecoveryMessage(firstName, {
+      country: leadData.country,
+      city: leadData.city,
+      projectInterest: leadData.projectInterest,
+    });
 
-    let recoveryMessage = DEFAULT_RECOVERY;
+    let recoveryMessage = recoveryDefault;
 
     if (openai) {
       try {
+        const greeting = firstName ? `مرحباً أستاذ ${firstName} 🌷` : `مرحباً أستاذي 🌷`;
+
+        // Build smart personalization hint for AI
+        let personalizationHint = "";
+        if (leadData.city?.trim()) {
+          personalizationHint = `- اذكر بشكل طبيعي أنه كان مهتماً سابقاً بالعقارات في ${leadData.city.trim()} (بدون ضغط).\n`;
+        } else if (leadData.country?.trim()) {
+          personalizationHint = `- اذكر بشكل طبيعي أنه كان مهتماً سابقاً بالعقارات في ${leadData.country.trim()} (بدون ضغط).\n`;
+        } else if (leadData.projectInterest?.trim()) {
+          personalizationHint = `- اذكر بشكل طبيعي اهتمامه السابق بـ${leadData.projectInterest.trim()} (بدون ضغط).\n`;
+        }
+
         const userPrompt =
-          `أنشئ رسالة واتساب لاسترداد العميل` +
+          `أنشئ رسالة واتساب لاسترداد العلاقة مع العميل` +
           (clientName ? ` "${clientName}"` : "") +
-          ` الذي لم يرد على 3 مكالمات من فريق Kinglike Luxury.\n\n` +
+          ` الذي لم يتمكن من الرد على فريق Kinglike Luxury.\n\n` +
+          `الرسالة يجب أن:\n` +
+          `- تبدأ بـ: "${greeting}"\n` +
+          `- تشير بلطف إلى أن الفريق حاول التواصل، ويبدو أن الوقت لم يكن مناسباً.\n` +
+          (personalizationHint || `- تذكّره باهتمامه العام بالعقارات والفرص الاستثمارية.\n`) +
+          `- تسأله عن أفضل وقت للتواصل، أو تؤكد له أنه يمكنه التواصل متى شاء.\n` +
+          `- تنهي بجملة إنسانية دافئة تجعله يشعر أنه غير مُلزَم بشيء.\n\n` +
           `القواعد الصارمة:\n` +
-          `- أسلوب مهذب وهادئ ومحترم تماماً.\n` +
-          `- لا تقل "اتصلنا بك 3 مرات" بطريقة عتاب أو ضغط.\n` +
-          `- لا تلوم العميل على عدم الرد.\n` +
-          `- اسأله عن أفضل وقت للتواصل.\n` +
-          `- اسأله إن كان لا يزال مهتماً بخيارات الاستثمار.\n` +
+          `- لا تقل أبداً: "اتصلنا بك 3 مرات" أو "لم ترد علينا".\n` +
+          `- لا تضغط على العميل ولا تُشعره بالذنب.\n` +
+          `- لا تبدو كبوت مبيعات — كن إنسانياً وصادقاً.\n` +
           `- لا تفضّل دولة أو مدينة أو مشروعاً بعينه.\n` +
-          `- لا تعطِ وعوداً قانونية أو ضريبية أو مالية.\n` +
+          `- لا تعطِ وعوداً قانونية أو مالية أو ضريبية.\n` +
           `- لا ترسل روابط.\n` +
-          `- رسالة قصيرة (3-4 أسطر فقط).`;
+          `- قصيرة ومناسبة لواتساب (5-6 أسطر كحد أقصى).`;
 
         const response = await openai.chat.completions.create({
           model: "gpt-4o",
