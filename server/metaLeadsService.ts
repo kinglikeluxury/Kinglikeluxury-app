@@ -3,6 +3,14 @@ import { leadImportQueue, leadImportAuditLog, crmLeads } from "@shared/schema";
 import { eq, and, lte } from "drizzle-orm";
 import https from "https";
 
+export interface PullSyncResult {
+  formsChecked: number;
+  leadsFound: number;
+  leadsInserted: number;
+  duplicatesSkipped: number;
+  errors: number;
+}
+
 const META_GRAPH_VERSION = "v19.0";
 const META_GRAPH_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 
@@ -321,4 +329,200 @@ export function startMetaLeadsProcessor(): void {
   console.log("[MetaLeads] Queue processor started — polling every 30s");
   processQueue();
   setInterval(processQueue, 30_000);
+}
+
+// ── Pull Sync: fetch leads directly from Meta Graph API ───────────────────────
+async function graphGetPull(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      let raw = "";
+      res.on("data", (c) => (raw += c));
+      res.on("end", () => {
+        try { resolve(JSON.parse(raw)); }
+        catch { reject(new Error(`JSON parse error: ${raw.slice(0, 200)}`)); }
+      });
+    }).on("error", reject);
+  });
+}
+
+export async function pullSyncFromMeta(): Promise<PullSyncResult> {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token) throw new Error("META_ACCESS_TOKEN is not configured");
+
+  const tokenLen = token.length;
+  const result: PullSyncResult = {
+    formsChecked: 0, leadsFound: 0, leadsInserted: 0, duplicatesSkipped: 0, errors: 0,
+  };
+
+  console.log("[MetaLeads][PullSync] start");
+
+  // Step 1: fetch all lead forms
+  const formsUrl = `${META_GRAPH_BASE}/me/leadgen_forms?access_token=${encodeURIComponent(token)}&fields=id,name,status&limit=100`;
+  console.log(`[MetaLeads][PullSync] GET /me/leadgen_forms?access_token=[len=${tokenLen}]&fields=id,name,status&limit=100`);
+
+  let formsData: any;
+  try {
+    formsData = await graphGetPull(formsUrl);
+  } catch (err: any) {
+    throw new Error(`Failed to fetch forms: ${err.message}`);
+  }
+
+  if (formsData.error) {
+    throw new Error(`Meta error: ${formsData.error.message} (code ${formsData.error.code})`);
+  }
+
+  const forms: any[] = formsData.data || [];
+  result.formsChecked = forms.length;
+
+  // Step 2: for each form, fetch and import leads
+  for (const form of forms) {
+    let inserted = 0, dups = 0, errs = 0, found = 0;
+
+    try {
+      const leadsUrl =
+        `${META_GRAPH_BASE}/${form.id}/leads` +
+        `?access_token=${encodeURIComponent(token)}` +
+        `&fields=id,created_time,field_data,ad_id,form_id,campaign_id&limit=25`;
+      console.log(
+        `[MetaLeads][PullSync] GET /${form.id}/leads?access_token=[len=${tokenLen}]` +
+        `&fields=id,created_time,field_data,ad_id,form_id,campaign_id&limit=25`
+      );
+
+      const leadsData = await graphGetPull(leadsUrl);
+
+      if (leadsData.error) {
+        console.warn(`[MetaLeads][PullSync] form_id=${form.id} error: ${leadsData.error.message}`);
+        result.errors++;
+        continue;
+      }
+
+      const leads: any[] = leadsData.data || [];
+      found = leads.length;
+      result.leadsFound += found;
+
+      for (const lead of leads) {
+        try {
+          const leadId = String(lead.id);
+
+          // Dedup check against queue (metaLeadId is unique)
+          const existing = await db
+            .select({ id: leadImportQueue.id })
+            .from(leadImportQueue)
+            .where(eq(leadImportQueue.metaLeadId, leadId))
+            .limit(1);
+
+          if (existing.length > 0) {
+            dups++;
+            result.duplicatesSkipped++;
+            continue;
+          }
+
+          // Extract CRM fields from field_data
+          const fields = extractFields(lead.field_data || []);
+          const firstName = fields["first_name"] || null;
+          const lastName  = fields["last_name"]  || null;
+          const fullName  =
+            fields["full_name"] || fields["name"] ||
+            [firstName, lastName].filter(Boolean).join(" ") || null;
+
+          // Insert CRM lead
+          const [crmLead] = await db.insert(crmLeads).values({
+            leadSource:      "meta_ads" as const,
+            externalLeadId:  leadId,
+            firstName,
+            lastName,
+            fullName,
+            phone:           fields["phone_number"] || fields["phone"] || null,
+            email:           fields["email"]        || null,
+            country:         fields["country"]      || null,
+            city:            fields["city"]         || null,
+            projectInterest:
+              fields["project_interest"] ||
+              fields["what_project_are_you_interested_in"] || null,
+            budget:    fields["budget"] || null,
+            status:    "new"  as const,
+            leadScore: "cold" as const,
+          }).returning();
+
+          if (!crmLead) throw new Error("CRM insert returned no row");
+
+          // Parse created_time — Meta sends ISO string from /leads, integer from webhooks
+          const now = new Date();
+          const createdTime = lead.created_time
+            ? typeof lead.created_time === "number"
+              ? new Date(lead.created_time * 1000)
+              : new Date(lead.created_time)
+            : now;
+
+          // Insert queue entry as completed (data already in hand)
+          const [queueEntry] = await db.insert(leadImportQueue).values({
+            metaLeadId:        leadId,
+            leadgenId:         leadId,
+            formId:            String(form.id),
+            pageId:            null,
+            adId:              lead.ad_id      ? String(lead.ad_id)      : null,
+            campaignId:        lead.campaign_id ? String(lead.campaign_id) : null,
+            status:            "completed",
+            retryCount:        0,
+            maxRetries:        3,
+            rawWebhookPayload: lead,
+            leadData:          lead,
+            crmLeadId:         crmLead.id,
+            processedAt:       now,
+            receivedAt:        createdTime,
+          }).returning();
+
+          if (queueEntry) {
+            await logAudit(queueEntry.id, leadId, "pull_sync_inserted", {
+              formId:    form.id,
+              formName:  form.name,
+              crmLeadId: crmLead.id,
+            });
+          }
+
+          inserted++;
+          result.leadsInserted++;
+        } catch (err: any) {
+          console.error(`[MetaLeads][PullSync] lead=${lead.id} error: ${err.message}`);
+          errs++;
+          result.errors++;
+        }
+      }
+    } catch (err: any) {
+      console.error(`[MetaLeads][PullSync] form_id=${form.id} fetch error: ${err.message}`);
+      result.errors++;
+    }
+
+    console.log(
+      `[MetaLeads][PullSync] form_id=${form.id} leads_found=${found} ` +
+      `inserted=${inserted} duplicates=${dups} errors=${errs}`
+    );
+  }
+
+  console.log(
+    `[MetaLeads][PullSync] complete — forms=${result.formsChecked} ` +
+    `found=${result.leadsFound} inserted=${result.leadsInserted} ` +
+    `dups=${result.duplicatesSkipped} errors=${result.errors}`
+  );
+  return result;
+}
+
+let pullSyncRunning = false;
+
+async function runPullSync(): Promise<void> {
+  if (pullSyncRunning) return;
+  pullSyncRunning = true;
+  try {
+    await pullSyncFromMeta();
+  } catch (err: any) {
+    console.error("[MetaLeads][PullSync] Scheduler error:", err.message);
+  } finally {
+    pullSyncRunning = false;
+  }
+}
+
+export function startPullSyncScheduler(): void {
+  console.log("[MetaLeads][PullSync] Scheduler started — running every 5 minutes");
+  runPullSync();
+  setInterval(runPullSync, 5 * 60_000);
 }

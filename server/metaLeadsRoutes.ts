@@ -4,7 +4,7 @@ import type { Express } from "express";
 import { db } from "./db";
 import { leadImportQueue, leadImportAuditLog } from "@shared/schema";
 import { eq, desc, asc, and, lte, count } from "drizzle-orm";
-import { recordLeadReceived, getAlertStatus } from "./metaLeadsService";
+import { recordLeadReceived, getAlertStatus, pullSyncFromMeta } from "./metaLeadsService";
 import { storage } from "./storage";
 
 const META_GRAPH_VERSION = "v19.0";
@@ -595,5 +595,17 @@ export function registerMetaLeadsRoutes(app: Express): void {
   app.get("/api/admin/meta-leads/alerts", async (req: any, res: any) => {
     if (!(await requireAdmin(req, res))) return;
     return res.json(getAlertStatus());
+  });
+
+  // ── Admin: manual pull sync — fetch leads directly from Meta Graph API ────
+  app.post("/api/admin/meta-leads/sync", async (req: any, res: any) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const result = await pullSyncFromMeta();
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error("[MetaLeads][PullSync] Manual sync error:", err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
   });
 }

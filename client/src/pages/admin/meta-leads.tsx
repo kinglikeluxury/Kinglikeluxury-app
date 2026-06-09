@@ -17,7 +17,7 @@ import {
   Activity, Users, ChevronLeft, ChevronRight,
   KeyRound, Terminal, ChevronDown, ChevronUp, Info,
   Stethoscope, Database, CheckCheck, Minus,
-  Zap, Radio, Globe,
+  Zap, Radio, Globe, CloudDownload,
 } from "lucide-react";
 import { SiMeta } from "react-icons/si";
 import type { LeadImportQueue, LeadImportAuditLog } from "@shared/schema";
@@ -40,7 +40,8 @@ const ACTION_CFG: Record<string, { label: string; color: string }> = {
   retry_scheduled:    { label: "Retry Scheduled",    color: "bg-amber-50 text-amber-700" },
   duplicate_detected: { label: "Duplicate Detected", color: "bg-purple-50 text-purple-700" },
   needs_review:       { label: "Needs Review",        color: "bg-orange-50 text-orange-700" },
-  manual_retry:       { label: "Manual Retry",        color: "bg-[#005476]/10 text-[#005476]" },
+  manual_retry:          { label: "Manual Retry",          color: "bg-[#005476]/10 text-[#005476]" },
+  pull_sync_inserted:    { label: "Pull Sync Inserted",    color: "bg-[#3bcac4]/10 text-[#005476]" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -705,6 +706,130 @@ function TokenTestBox() {
 }
 
 // ── Diagnostics tab ───────────────────────────────────────────────────────────
+// ── Pull Sync Box ─────────────────────────────────────────────────────────────
+function PullSyncBox() {
+  const { toast } = useToast();
+  const [lastResult, setLastResult] = useState<{
+    success: boolean;
+    formsChecked?: number;
+    leadsFound?: number;
+    leadsInserted?: number;
+    duplicatesSkipped?: number;
+    errors?: number;
+    error?: string;
+  } | null>(null);
+
+  const syncMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/admin/meta-leads/sync").then((r) => r.json()),
+    onSuccess: (data: any) => {
+      setLastResult(data);
+      if (data.success) {
+        toast({
+          title: "Pull sync complete",
+          description:
+            `${data.leadsInserted} inserted · ${data.duplicatesSkipped} skipped · ${data.errors} errors`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/meta-leads/dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/meta-leads/alerts"] });
+      } else {
+        toast({ title: "Sync failed", description: data.error, variant: "destructive" });
+      }
+    },
+    onError: (err: any) => {
+      setLastResult({ success: false, error: err.message });
+      toast({ title: "Sync failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="rounded-xl border border-[#3bcac4]/30 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/5">
+        <CloudDownload className="h-4 w-4 text-[#005476]" />
+        <span className="text-sm font-semibold text-[#005476]">Meta Lead Pull Sync</span>
+        <span className="text-xs text-gray-400 ml-1">— fallback to webhook</span>
+      </div>
+
+      <div className="px-4 py-4 space-y-3">
+        <p className="text-xs text-gray-500 leading-relaxed">
+          Fetches leads directly from all active Meta lead forms using the Page Access Token.
+          Only new leads not already in the queue are imported. Duplicates are safely skipped.
+          The scheduler runs automatically every 5 minutes when{" "}
+          <span className="font-mono">META_LEAD_PULL_SYNC_ENABLED=true</span>.
+        </p>
+
+        <Button
+          onClick={() => syncMutation.mutate()}
+          disabled={syncMutation.isPending}
+          className="gap-2 text-white"
+          style={{ background: "linear-gradient(135deg, #3bcac4, #005476)" }}
+        >
+          {syncMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <CloudDownload className="h-4 w-4" />
+          )}
+          {syncMutation.isPending ? "Syncing…" : "Sync Meta Leads Now"}
+        </Button>
+
+        {lastResult && (
+          <div
+            className={`rounded-lg border px-4 py-3 space-y-2 ${
+              lastResult.success
+                ? "bg-[#3bcac4]/8 border-[#3bcac4]/30"
+                : "bg-red-50 border-red-200"
+            }`}
+          >
+            {lastResult.success ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-[#3bcac4]" />
+                  <span className="text-sm font-semibold text-[#005476]">Sync complete</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { label: "Forms checked",    value: lastResult.formsChecked ?? 0 },
+                    { label: "Leads found",       value: lastResult.leadsFound ?? 0 },
+                    { label: "Inserted",          value: lastResult.leadsInserted ?? 0,     highlight: true },
+                    { label: "Skipped (dup)",     value: lastResult.duplicatesSkipped ?? 0 },
+                    { label: "Errors",            value: lastResult.errors ?? 0,             warn: (lastResult.errors ?? 0) > 0 },
+                  ].map(({ label, value, highlight, warn }) => (
+                    <div
+                      key={label}
+                      className={`rounded-md px-3 py-2 text-center border ${
+                        warn
+                          ? "bg-red-50 border-red-200"
+                          : highlight
+                          ? "bg-[#3bcac4]/10 border-[#3bcac4]/30"
+                          : "bg-white border-gray-200"
+                      }`}
+                    >
+                      <div className={`text-lg font-bold ${
+                        warn ? "text-red-600" : highlight ? "text-[#005476]" : "text-gray-700"
+                      }`}>
+                        {value}
+                      </div>
+                      <div className="text-xs text-gray-500">{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-start gap-2">
+                <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-red-700">Sync failed</p>
+                  <p className="text-xs text-red-600 mt-0.5">{lastResult.error}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DiagnosticsTab() {
   const [diagPage, setDiagPage] = useState(1);
   const [diagId, setDiagId] = useState<number | null>(null);
@@ -725,6 +850,9 @@ function DiagnosticsTab() {
 
   return (
     <div className="p-4 space-y-4">
+
+      {/* Pull sync */}
+      <PullSyncBox />
 
       {/* Credential status */}
       <ConfigStatusBox />

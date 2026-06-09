@@ -10,7 +10,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
 import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables } from "./db";
-import { startMetaLeadsProcessor } from "./metaLeadsService";
+import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
@@ -195,7 +195,14 @@ app.use((req, res, next) => {
   );
 
   ensureMetaLeadsTables()
-    .then(() => startMetaLeadsProcessor())
+    .then(() => {
+      startMetaLeadsProcessor();
+      if (process.env.META_LEAD_PULL_SYNC_ENABLED === "true") {
+        startPullSyncScheduler();
+      } else {
+        console.log("[MetaLeads][PullSync] Scheduler disabled — set META_LEAD_PULL_SYNC_ENABLED=true to enable");
+      }
+    })
     .catch(err => console.error("[DB] ensureMetaLeadsTables failed:", err));
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
