@@ -4131,7 +4131,67 @@ ${metaTags}
     }
   });
 
-  /** POST /api/admin/crm/leads/import — upload xlsx and create new leads (admin only) */
+  // ─── CRM Excel / CSV Import helpers ─────────────────────────────────────────
+
+  /** Normalise a column header for fuzzy matching (lowercase, strip punctuation) */
+  const normHdr = (s: string) =>
+    (s ?? "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\s_\-().'،,]/g, "");
+
+  /** CRM field → accepted header name variants (pre-normalised) */
+  const IMPORT_FIELD_MAP: Record<string, string[]> = {
+    firstName:       ["leadname","firstname","name","first"],
+    lastName:        ["lastname","surname","familyname","lastnameofclient"],
+    phone:           ["phone","mobile","whatsapp","contactnumber","phonenumber","رقمالهاتف","هاتف","موبايل","واتساب"],
+    email:           ["email","emailaddress","البريدالإلكتروني","إيميل","بريد"],
+    country:         ["origincountry","country","البلد","الدولة","بلدالأصل"],
+    city:            ["city","المدينة","مدينة"],
+    budget:          ["budget","totalbudget","الميزانية","ميزانية"],
+    projectInterest: ["projectinteresteding","projectinteresting","projectinterest","project","interestedproject","المشروع","مشروع"],
+    notes:           ["comment","comments","notes","description","note","ملاحظات","تعليق","ملاحظة","وصف"],
+    status:          ["leadstatus","status","الحالة","حالة"],
+    leadSource:      ["leadsource","source","المصدر","مصدر"],
+  };
+
+  const normalizePhone = (raw: string): string => {
+    const t = String(raw ?? "").trim();
+    if (!t) return "";
+    const hasPlus = t.startsWith("+");
+    const digits = t.replace(/[^\d]/g, "");
+    return digits ? (hasPlus ? "+" : "") + digits : "";
+  };
+
+  /** Auto-detect column header → CRM field mapping */
+  const autoMapColumns = (headers: string[]): Record<string, string> => {
+    const result: Record<string, string> = {};
+    for (const h of headers) {
+      const nk = normHdr(h);
+      let matched = "(skip)";
+      outer: for (const [field, variants] of Object.entries(IMPORT_FIELD_MAP)) {
+        for (const v of variants) {
+          if (nk === v || nk.startsWith(v) || v.startsWith(nk)) { matched = field; break outer; }
+        }
+      }
+      result[h] = matched;
+    }
+    return result;
+  };
+
+  /** Build a lead field map from one row using the provided column mapping */
+  const mapImportRow = (row: Record<string, any>, mapping: Record<string, string>): Record<string, string> => {
+    const lead: Record<string, string> = {};
+    for (const [header, field] of Object.entries(mapping)) {
+      if (field === "(skip)") continue;
+      const raw = String(row[header] ?? "").trim();
+      if (!raw || lead[field]) continue;
+      lead[field] = field === "phone" ? normalizePhone(raw) : raw;
+    }
+    if (!lead.fullName && (lead.firstName || lead.lastName))
+      lead.fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+    return lead;
+  };
+
   const excelUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 },
@@ -4139,20 +4199,69 @@ ${metaTags}
       const validMime = [
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel",
+        "text/csv", "application/csv", "text/plain",
       ];
-      const validExt = /\.(xlsx|xls)$/i.test(file.originalname);
-      if (validMime.includes(file.mimetype) || validExt) {
-        cb(null, true);
-      } else {
-        cb(new Error("Only .xlsx and .xls files are allowed"));
-      }
+      const validExt = /\.(xlsx|xls|csv)$/i.test(file.originalname);
+      if (validMime.includes(file.mimetype) || validExt) cb(null, true);
+      else cb(new Error("Only .xlsx, .xls and .csv files are allowed"));
     },
   });
 
+  /** POST /api/admin/crm/leads/import/preview — parse & auto-map, no DB writes */
+  app.post("/api/admin/crm/leads/import/preview", isAuthenticated, excelUpload.single("file"), async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!req.file)            return res.status(400).json({ message: "No file uploaded" });
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(req.file.buffer, { type: "buffer" });
+      if (!wb.SheetNames.length) return res.status(400).json({ message: "Empty file" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      if (!rawRows.length) return res.json({
+        headers: [], detectedMapping: {}, sampleRows: [],
+        stats: { total: 0, withPhone: 0, withEmail: 0, withNeither: 0, estimatedDuplicates: 0 },
+        warnings: [],
+      });
+
+      const headers = Object.keys(rawRows[0]);
+      const detectedMapping = autoMapColumns(headers);
+      const sampleRows = rawRows.slice(0, 5).map(r =>
+        Object.fromEntries(headers.map(h => [h, String(r[h] ?? "").trim()]))
+      );
+
+      let withPhone = 0, withEmail = 0, withNeither = 0, estimatedDuplicates = 0;
+      for (const row of rawRows) {
+        const lead = mapImportRow(row, detectedMapping);
+        const ph = normalizePhone(lead.phone ?? "");
+        const em = (lead.email ?? "").trim();
+        if (!ph && !em) { withNeither++; continue; }
+        if (ph) withPhone++;
+        if (em) withEmail++;
+        if (ph) {
+          const [dup] = await db.select({ id: crmLeads.id }).from(crmLeads).where(eq(crmLeads.phone, ph)).limit(1);
+          if (dup) { estimatedDuplicates++; continue; }
+        }
+        if (em) {
+          const [dup] = await db.select({ id: crmLeads.id }).from(crmLeads).where(eq(crmLeads.email, em)).limit(1);
+          if (dup) { estimatedDuplicates++; }
+        }
+      }
+
+      const skipped = headers.filter(h => detectedMapping[h] === "(skip)");
+      const warnings: string[] = skipped.length
+        ? [`${skipped.length} column(s) could not be auto-mapped and are set to "Skip": ${skipped.slice(0, 4).join(", ")}${skipped.length > 4 ? "…" : ""}`]
+        : [];
+
+      res.json({ headers, detectedMapping, sampleRows, stats: { total: rawRows.length, withPhone, withEmail, withNeither, estimatedDuplicates }, warnings });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads/import — import leads with provided column mapping */
   app.post("/api/admin/crm/leads/import", isAuthenticated, excelUpload.single("file"), async (req: any, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     if (!req.file)            return res.status(400).json({ message: "No file uploaded" });
-
     try {
       const XLSX = await import("xlsx");
       const wb = XLSX.read(req.file.buffer, { type: "buffer" });
@@ -4160,105 +4269,78 @@ ${metaTags}
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
-      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, "");
-
-      function pick(row: Record<string, any>, ...candidates: string[]): string {
-        for (const key of Object.keys(row)) {
-          const nk = norm(key);
-          if (candidates.some(c => nk === norm(c))) {
-            const v = String(row[key] ?? "").trim();
-            if (v) return v;
-          }
-        }
-        return "";
+      let columnMapping: Record<string, string> = {};
+      if (req.body.columnMapping) {
+        try { columnMapping = JSON.parse(req.body.columnMapping); } catch {}
       }
+      if (!Object.keys(columnMapping).length && rawRows.length) {
+        columnMapping = autoMapColumns(Object.keys(rawRows[0]));
+      }
+      const skipNurturing = req.body.skipNurturing === "true" || req.body.skipNurturing === true;
 
       let importedCount = 0, duplicates = 0, failed = 0;
       const failedRows: { row: number; reason: string }[] = [];
 
       for (let i = 0; i < rawRows.length; i++) {
-        const row   = rawRows[i];
         const rowNum = i + 2;
-
-        const phone   = pick(row, "phone", "mobile", "whatsapp", "phone_number", "phonenumber");
-        const email   = pick(row, "email");
-
-        if (!phone && !email) {
-          failed++;
-          failedRows.push({ row: rowNum, reason: "Phone or email is required" });
-          continue;
-        }
-
         try {
-          let isDuplicate = false;
+          const lead  = mapImportRow(rawRows[i], columnMapping);
+          const phone = normalizePhone(lead.phone ?? "");
+          const email = (lead.email ?? "").trim();
 
+          if (!phone && !email) {
+            failed++;
+            failedRows.push({ row: rowNum, reason: "Phone or email is required" });
+            continue;
+          }
+
+          let isDuplicate = false;
           if (phone) {
             const [dup] = await db.select({ id: crmLeads.id }).from(crmLeads).where(eq(crmLeads.phone, phone)).limit(1);
-            if (dup) {
-              isDuplicate = true;
-              failedRows.push({ row: rowNum, reason: `Duplicate phone: ${phone}` });
-            }
+            if (dup) { isDuplicate = true; failedRows.push({ row: rowNum, reason: `Duplicate phone: ${phone}` }); }
           }
           if (!isDuplicate && email) {
             const [dup] = await db.select({ id: crmLeads.id }).from(crmLeads).where(eq(crmLeads.email, email)).limit(1);
-            if (dup) {
-              isDuplicate = true;
-              failedRows.push({ row: rowNum, reason: `Duplicate email: ${email}` });
-            }
+            if (dup) { isDuplicate = true; failedRows.push({ row: rowNum, reason: `Duplicate email: ${email}` }); }
           }
           if (isDuplicate) { duplicates++; continue; }
 
-          const fullName   = pick(row, "name", "fullName", "full_name", "clientName", "client_name", "fullname", "clientname");
-          const firstName  = pick(row, "firstName", "first_name", "firstname");
-          const lastName   = pick(row, "lastName",  "last_name",  "lastname");
-          const country    = pick(row, "country");
-          const city       = pick(row, "city");
-          const interestedCountry  = pick(row, "interestedCountry", "interested_country", "interestedcountry");
-          const budget     = pick(row, "budget");
-          const projectInterest    = pick(row, "project", "projectInterest", "project_interest", "projectinterest", "interest");
-          const expectedPurchaseMonth = pick(row, "expectedMonth", "expected_month", "expectedmonth", "expectedpurchasemonth", "expected purchase month");
-          const notes      = pick(row, "comment", "notes", "description", "note");
-          const status     = pick(row, "status") || "new";
-          const leadSource = pick(row, "source", "lead_source", "leadsource") || "excel_import";
-
           const importedLead = await storage.createCrmLead({
-            fullName:     fullName  || null,
-            firstName:    firstName || null,
-            lastName:     lastName  || null,
-            phone:        phone     || null,
-            email:        email     || null,
-            country:      country   || null,
-            city:         city      || null,
-            interestedCountry:       interestedCountry       || null,
-            budget:                  budget                  || null,
-            projectInterest:         projectInterest         || null,
-            expectedPurchaseMonth:   expectedPurchaseMonth   || null,
-            description:  null,
-            notes:        notes     || null,
-            leadSource,
-            leadScore:    "cold",
-            status,
+            fullName:              lead.fullName        || null,
+            firstName:             lead.firstName       || null,
+            lastName:              lead.lastName        || null,
+            phone:                 phone                || null,
+            email:                 email                || null,
+            country:               lead.country         || null,
+            city:                  lead.city            || null,
+            interestedCountry:     null,
+            budget:                lead.budget          || null,
+            projectInterest:       lead.projectInterest || null,
+            expectedPurchaseMonth: null,
+            description:           null,
+            notes:                 lead.notes           || null,
+            leadSource:            lead.leadSource      || "excel_import",
+            leadScore:             "cold",
+            status:                lead.status          || "new",
           });
-          // Developer Registration hook (fire-and-forget)
+
           import("./developerRegistrationService").then(({ initDeveloperRegistrationsForLead }) =>
             initDeveloperRegistrationsForLead(importedLead.id, {
-              id:              importedLead.id,
-              fullName:        importedLead.fullName,
-              firstName:       importedLead.firstName,
-              lastName:        importedLead.lastName,
-              phone:           importedLead.phone,
-              country:         importedLead.country,
-              city:            importedLead.city,
-              budget:          importedLead.budget,
+              id: importedLead.id, fullName: importedLead.fullName,
+              firstName: importedLead.firstName, lastName: importedLead.lastName,
+              phone: importedLead.phone, country: importedLead.country,
+              city: importedLead.city, budget: importedLead.budget,
               projectInterest: importedLead.projectInterest,
             })
           ).catch(() => {});
-          // Email Nurturing hook — only if admin opted in via startNurturing flag (fire-and-forget)
-          if (req.body.startNurturing === "true" || req.body.startNurturing === true) {
+
+          // Email Nurturing — ON by default; skipped only if admin checked "Do not start"
+          if (!skipNurturing) {
             import("./emailNurturingService").then(({ initNurturingForLead }) =>
               initNurturingForLead(importedLead.id, importedLead.email, { firstName: importedLead.firstName, fullName: importedLead.fullName })
-            ).catch(() => {});
+            ).catch(err => console.error(`[EmailNurturing] Import init failed leadId=${importedLead.id}: ${err.message}`));
           }
+
           importedCount++;
         } catch (rowErr: any) {
           failed++;

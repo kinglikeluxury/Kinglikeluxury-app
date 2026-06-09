@@ -22,6 +22,7 @@ import {
   Phone, Mail, MapPin, Globe, RefreshCw, Loader2,
   ChevronRight, Crown, UserCheck, Building2, FolderOpen,
   Edit3, Trash2, Upload, Download, CheckCircle2, XCircle, AlertCircle,
+  FileText,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import type { CrmLead, CrmProject } from "@shared/schema";
@@ -126,6 +127,21 @@ const EMPTY_FORM = {
   leadSource: "manual", leadScore: "cold", status: "new",
 };
 
+const CRM_FIELD_LABELS: Record<string, string> = {
+  "(skip)":        "— Skip Column —",
+  firstName:       "First Name",
+  lastName:        "Last Name",
+  phone:           "Phone",
+  email:           "Email",
+  country:         "Country",
+  city:            "City",
+  budget:          "Budget",
+  projectInterest: "Project Interest",
+  notes:           "Notes",
+  status:          "Status",
+  leadSource:      "Lead Source",
+};
+
 export default function CrmLeadsPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: authLoading } = useAuth();
@@ -178,15 +194,26 @@ export default function CrmLeadsPage() {
   const [subAgentForm, setSubAgentForm] = useState({ username: "", email: "", password: "" });
 
   // ── Import / Export state ──────────────────────────────────────────────────
+  interface ImportPreviewData {
+    headers: string[];
+    detectedMapping: Record<string, string>;
+    sampleRows: Record<string, string>[];
+    stats: { total: number; withPhone: number; withEmail: number; withNeither: number; estimatedDuplicates: number };
+    warnings: string[];
+  }
   interface ImportResult {
     total: number; imported: number; duplicates: number; failed: number;
     failedRows: { row: number; reason: string }[];
   }
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importWizardOpen, setImportWizardOpen] = useState(false);
+  const [importStep, setImportStep] = useState<"upload" | "preview" | "done">("upload");
   const [importLoading, setImportLoading] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
+  const [importMapping, setImportMapping] = useState<Record<string, string>>({});
+  const [importSkipNurturing, setImportSkipNurturing] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [importResultOpen, setImportResultOpen] = useState(false);
-  const [importStartNurturing, setImportStartNurturing] = useState(false);
 
   // ── Bulk selection state ───────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -411,25 +438,47 @@ export default function CrmLeadsPage() {
     finally { setBulkActionPending(false); }
   }
 
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImportFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportFile(file);
     setImportLoading(true);
     const fd = new FormData();
     fd.append("file", file);
-    if (importStartNurturing) fd.append("startNurturing", "true");
+    try {
+      const r = await fetch("/api/admin/crm/leads/import/preview", { method: "POST", body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || "Preview failed");
+      setImportPreview(data);
+      setImportMapping(data.detectedMapping);
+      setImportStep("preview");
+    } catch (err: any) {
+      toast({ title: "File analysis failed", description: err.message, variant: "destructive" });
+      setImportFile(null);
+    } finally {
+      setImportLoading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleImportConfirm() {
+    if (!importPreview || !importFile) return;
+    setImportLoading(true);
+    const fd = new FormData();
+    fd.append("file", importFile);
+    fd.append("columnMapping", JSON.stringify(importMapping));
+    if (importSkipNurturing) fd.append("skipNurturing", "true");
     try {
       const r = await fetch("/api/admin/crm/leads/import", { method: "POST", body: fd });
       const data = await r.json();
       if (!r.ok) throw new Error(data.message || "Import failed");
       setImportResult(data);
-      setImportResultOpen(true);
+      setImportStep("done");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
     } finally {
       setImportLoading(false);
-      e.target.value = "";
     }
   }
 
@@ -489,40 +538,16 @@ export default function CrmLeadsPage() {
             </Button>
           )}
 
-          {/* Import Excel — admin only */}
+          {/* Import File — admin only */}
           {user?.isAdmin && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={handleImportFile}
-              />
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5 accent-[#3bcac4]"
-                    checked={importStartNurturing}
-                    onChange={e => setImportStartNurturing(e.target.checked)}
-                  />
-                  <span className="text-xs text-slate-500 whitespace-nowrap">Email Nurturing</span>
-                </label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 border-[#005476] text-[#005476] hover:bg-[#005476]/10"
-                  disabled={importLoading}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {importLoading
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <Upload className="h-4 w-4" />}
-                  {importLoading ? "Importing…" : "Import Excel"}
-                </Button>
-              </div>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-[#005476] text-[#005476] hover:bg-[#005476]/10"
+              onClick={() => { setImportWizardOpen(true); setImportStep("upload"); }}
+            >
+              <FileText className="h-4 w-4" /> Import File
+            </Button>
           )}
 
           {/* Manage Projects — admin only */}
@@ -1323,17 +1348,163 @@ export default function CrmLeadsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Import Result Modal */}
-      <Dialog open={importResultOpen} onOpenChange={setImportResultOpen}>
-        <DialogContent className="max-w-lg">
+      {/* ── Import Wizard ─────────────────────────────────────────────────── */}
+      <Dialog
+        open={importWizardOpen}
+        onOpenChange={v => {
+          if (!v && !importLoading) {
+            setImportWizardOpen(false);
+            setImportStep("upload");
+            setImportPreview(null);
+            setImportFile(null);
+            setImportResult(null);
+            setImportMapping({});
+            setImportSkipNurturing(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-[#005476] flex items-center gap-2">
-              <Upload className="h-5 w-5 text-[#3bcac4]" /> Import Results
+              {importStep === "upload"  && <><FileText className="h-5 w-5 text-[#3bcac4]" /> Import Leads</>}
+              {importStep === "preview" && <><Upload className="h-5 w-5 text-[#3bcac4]" /> Column Mapping &amp; Preview</>}
+              {importStep === "done"    && <><CheckCircle2 className="h-5 w-5 text-[#3bcac4]" /> Import Complete</>}
             </DialogTitle>
           </DialogHeader>
-          {importResult && (
+
+          {/* ── Step 1: Upload ── */}
+          {importStep === "upload" && (
             <div className="space-y-4 mt-2">
-              {/* Summary cards */}
+              <p className="text-sm text-muted-foreground">
+                Upload an Excel (.xlsx, .xls) or CSV file. The system will auto-detect column names in English or Arabic.
+              </p>
+              {importLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 className="h-10 w-10 animate-spin text-[#3bcac4]" />
+                  <p className="text-sm text-muted-foreground">Analysing file and mapping columns…</p>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed border-[#3bcac4]/40 rounded-xl p-12 text-center cursor-pointer hover:border-[#3bcac4]/70 hover:bg-[#3bcac4]/5 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-10 w-10 text-[#3bcac4]/50 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-[#005476] mb-1">Click to choose a file</p>
+                  <p className="text-xs text-muted-foreground">Supports .xlsx · .xls · .csv — max 10 MB</p>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleImportFileSelect}
+              />
+            </div>
+          )}
+
+          {/* ── Step 2: Preview + Mapping ── */}
+          {importStep === "preview" && importPreview && (
+            <div className="space-y-4 mt-2">
+              {/* Stats row */}
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { label: "Total",       value: importPreview.stats.total,               cls: "bg-gray-50 text-[#005476]" },
+                  { label: "With Phone",  value: importPreview.stats.withPhone,            cls: "bg-[#3bcac4]/10 text-[#005476]" },
+                  { label: "With Email",  value: importPreview.stats.withEmail,            cls: "bg-blue-50 text-blue-700" },
+                  { label: "No Contact",  value: importPreview.stats.withNeither,          cls: "bg-red-50 text-red-700" },
+                  { label: "Duplicates",  value: importPreview.stats.estimatedDuplicates,  cls: "bg-amber-50 text-amber-700" },
+                ].map(({ label, value, cls }) => (
+                  <div key={label} className={`rounded-lg border p-2 text-center ${cls}`}>
+                    <p className="text-xs font-medium opacity-70">{label}</p>
+                    <p className="text-xl font-bold mt-0.5">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Warnings */}
+              {importPreview.warnings.length > 0 && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 space-y-1">
+                  {importPreview.warnings.map((w, i) => (
+                    <p key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" /> {w}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Column mapping */}
+              <div>
+                <p className="text-sm font-semibold text-[#005476] mb-2">Column Mapping</p>
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-2 bg-[#005476]/5 border-b px-3 py-2">
+                    <p className="text-xs font-semibold text-[#005476]">Excel / CSV Column</p>
+                    <p className="text-xs font-semibold text-[#005476]">Maps To</p>
+                  </div>
+                  <div className="divide-y max-h-64 overflow-y-auto">
+                    {importPreview.headers.map(header => (
+                      <div key={header} className="grid grid-cols-2 items-center px-3 py-1.5 hover:bg-gray-50/60 gap-2">
+                        <p className="text-xs font-mono text-gray-700 truncate" title={header}>{header}</p>
+                        <Select
+                          value={importMapping[header] ?? "(skip)"}
+                          onValueChange={v => setImportMapping(m => ({ ...m, [header]: v }))}
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(CRM_FIELD_LABELS).map(([val, label]) => (
+                              <SelectItem key={val} value={val} className="text-xs">{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Nurturing toggle — ON by default */}
+              <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[#3bcac4]/5 border border-[#3bcac4]/20">
+                <input
+                  type="checkbox"
+                  id="skipNurturing"
+                  className="h-4 w-4 accent-[#3bcac4]"
+                  checked={importSkipNurturing}
+                  onChange={e => setImportSkipNurturing(e.target.checked)}
+                />
+                <label htmlFor="skipNurturing" className="text-sm text-gray-700 cursor-pointer select-none">
+                  Do not start Email Nurturing for imported leads
+                </label>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={importLoading}
+                  onClick={() => { setImportStep("upload"); setImportPreview(null); setImportFile(null); }}
+                >
+                  ← Back
+                </Button>
+                <Button
+                  className="flex-1 bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                  disabled={importLoading}
+                  onClick={handleImportConfirm}
+                >
+                  {importLoading
+                    ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Importing…</>
+                    : <>Import {Math.max(0, importPreview.stats.total - importPreview.stats.withNeither - importPreview.stats.estimatedDuplicates)} Lead{importPreview.stats.total !== 1 ? "s" : ""} →</>
+                  }
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Result ── */}
+          {importStep === "done" && importResult && (
+            <div className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border p-3 bg-gray-50">
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Rows</p>
@@ -1352,20 +1523,18 @@ export default function CrmLeadsPage() {
                   </p>
                 </div>
                 <div className="rounded-lg border p-3 bg-red-50 border-red-200">
-                  <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Failed</p>
+                  <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Failed / Skipped</p>
                   <p className="text-2xl font-bold text-red-700 mt-0.5 flex items-center gap-1.5">
                     <XCircle className="h-5 w-5" /> {importResult.failed}
                   </p>
                 </div>
               </div>
-
-              {/* Failed rows detail */}
               {importResult.failedRows.length > 0 && (
                 <div className="space-y-1.5">
                   <p className="text-sm font-semibold text-[#005476]">
                     Failed / Skipped Rows ({importResult.failedRows.length})
                   </p>
-                  <div className="max-h-48 overflow-y-auto rounded-lg border bg-gray-50 divide-y text-xs">
+                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-gray-50 divide-y text-xs">
                     {importResult.failedRows.map((fr, i) => (
                       <div key={i} className="flex items-start gap-2 px-3 py-2">
                         <span className="font-mono text-muted-foreground whitespace-nowrap">Row {fr.row}</span>
@@ -1375,10 +1544,17 @@ export default function CrmLeadsPage() {
                   </div>
                 </div>
               )}
-
               <Button
                 className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476]"
-                onClick={() => setImportResultOpen(false)}
+                onClick={() => {
+                  setImportWizardOpen(false);
+                  setImportStep("upload");
+                  setImportResult(null);
+                  setImportPreview(null);
+                  setImportFile(null);
+                  setImportMapping({});
+                  setImportSkipNurturing(false);
+                }}
               >
                 Done
               </Button>
