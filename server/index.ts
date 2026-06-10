@@ -9,12 +9,13 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
-import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables } from "./db";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { registerWhatsappAiRoutes } from "./whatsappAiRoutes";
 import { registerDeveloperRegistrationRoutes } from "./developerRegistrationRoutes";
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
 import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
+import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
 import { ensureEmailNurturingTables, startNurturingScheduler } from "./emailNurturingService";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
@@ -125,6 +126,7 @@ app.use((req, res, next) => {
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
+  registerWhatsappApiHistoryRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -226,6 +228,9 @@ app.use((req, res, next) => {
   ensureEmailNurturingTables()
     .then(() => startNurturingScheduler())
     .catch(err => console.error("[DB] ensureEmailNurturingTables failed:", err));
+
+  ensureWhatsAppApiTables()
+    .catch(err => console.error("[DB] ensureWhatsAppApiTables failed:", err));
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];

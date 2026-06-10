@@ -53,6 +53,7 @@ import WhatsappAiPreviewPage from "@/pages/admin/whatsapp-ai-preview";
 import DeveloperRegistrationCenterPage from "@/pages/admin/developer-registration-center";
 import EmailSequencesPage from "@/pages/admin/email-sequences";
 import EmailHistoryPage from "@/pages/admin/email-history";
+import WhatsappApiChatHistoryPage from "@/pages/admin/whatsapp-api-chat-history";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -101,6 +102,7 @@ function Router() {
           <Route path="/admin/developer-registration-center" component={DeveloperRegistrationCenterPage} />
           <Route path="/admin/email-sequences" component={EmailSequencesPage} />
           <Route path="/admin/email-history" component={EmailHistoryPage} />
+          <Route path="/admin/whatsapp-api-chat-history" component={WhatsappApiChatHistoryPage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />

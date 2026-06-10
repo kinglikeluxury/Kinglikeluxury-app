@@ -12,7 +12,12 @@
  * NOT used for public property contact buttons (those use +995591000058).
  * NOT used for CRM employee WhatsApp icons (those open wa.me/[lead_phone]).
  * NOT used for SMS/OTP (Twilio handles that).
+ *
+ * Every successful send is logged to whatsapp_api_conversations +
+ * whatsapp_api_messages for the admin Chat History viewer.
  */
+
+import { pool } from "../db";
 
 const PHONE_NUMBER_ID =
   process.env.WHATSAPP_PHONE_NUMBER_ID ?? "1110445448828325";
@@ -115,15 +120,88 @@ export async function sendMetaWhatsApp(
       console.error(`${tag} ✗ HTTP ${res.status} — ${errMsg}`);
     }
 
-    return {
+    const result: MetaSendResult = {
       success,
       recipient,
       messageId,
       error:          success ? undefined : (parsed?.error?.message ?? `HTTP ${res.status}`),
       responseStatus: res.status,
     };
+
+    // Log every send attempt to the admin Chat History tables (fire-and-forget)
+    logOutboundMessage({
+      phone:     recipient,
+      text:      message,
+      context:   context,
+      wamid:     messageId,
+      status:    success ? "sent" : "failed",
+      errorMsg:  result.error,
+    }).catch(() => { /* non-critical */ });
+
+    return result;
   } catch (err: any) {
     console.error(`${tag} fetch error:`, err.message);
+
+    logOutboundMessage({
+      phone:    toMetaPhone(phone),
+      text:     message,
+      context:  context,
+      status:   "failed",
+      errorMsg: err.message,
+    }).catch(() => { /* non-critical */ });
+
     return { success: false, recipient, error: err.message };
+  }
+}
+
+// ── Chat History Logging ──────────────────────────────────────────────────────
+
+async function logOutboundMessage(opts: {
+  phone:     string;
+  text:      string;
+  context?:  string;
+  wamid?:    string;
+  status:    string;
+  errorMsg?: string;
+}): Promise<void> {
+  const client = await pool.connect();
+  try {
+    // Upsert conversation row keyed on phone number
+    const convResult = await client.query(`
+      INSERT INTO whatsapp_api_conversations
+        (phone_number, last_message_at, last_message_preview, source, updated_at)
+      VALUES ($1, NOW(), $2, $3, NOW())
+      ON CONFLICT (phone_number) DO UPDATE SET
+        last_message_at      = NOW(),
+        last_message_preview = EXCLUDED.last_message_preview,
+        updated_at           = NOW()
+      RETURNING id
+    `, [
+      opts.phone,
+      (opts.text || "").slice(0, 120),
+      opts.context === "welcome"           ? "crm"
+        : opts.context === "weekly_update" ? "manual"
+        : opts.context === "inactive_reminder" ? "manual"
+        : "ai",
+    ]);
+
+    const conversationId = convResult.rows[0]?.id;
+    if (!conversationId) return;
+
+    await client.query(`
+      INSERT INTO whatsapp_api_messages
+        (conversation_id, direction, message_text, message_type,
+         wamid, status, context_label, error_message, created_at)
+      VALUES ($1, 'outbound', $2, 'text', $3, $4, $5, $6, NOW())
+    `, [
+      conversationId,
+      opts.text,
+      opts.wamid   ?? null,
+      opts.status,
+      opts.context ?? null,
+      opts.errorMsg ?? null,
+    ]);
+  } catch { /* non-critical — never throw */ } finally {
+    client.release();
   }
 }

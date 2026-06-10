@@ -18,6 +18,7 @@ import {
   Building2,
   MailOpen,
   History,
+  MessageCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -170,5 +171,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     path: "/admin/email-history",
     Icon: History,
     iconColorHex: "#005476",
+  },
+  {
+    labelKey: "admin.whatsappApiChatHistory",
+    labelFallback: "WhatsApp API Chat History",
+    path: "/admin/whatsapp-api-chat-history",
+    Icon: MessageCircle,
+    iconColorHex: "#3bcac4",
+    highlight: true,
   },
 ];

@@ -389,6 +389,57 @@ export async function ensureDeveloperRegistrationTables(): Promise<void> {
   }
 }
 
+/**
+ * Creates the WhatsApp API Chat History tables.
+ * Additive only — never drops or modifies existing tables.
+ */
+export async function ensureWhatsAppApiTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS whatsapp_api_conversations (
+        id                  SERIAL PRIMARY KEY,
+        phone_number        TEXT NOT NULL UNIQUE,
+        contact_name        TEXT,
+        lead_id             INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+        last_message_at     TIMESTAMP,
+        last_message_preview TEXT,
+        unread_count        INTEGER NOT NULL DEFAULT 0,
+        source              TEXT NOT NULL DEFAULT 'unknown',
+        assigned_agent_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at          TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS whatsapp_api_messages (
+        id                SERIAL PRIMARY KEY,
+        conversation_id   INTEGER NOT NULL REFERENCES whatsapp_api_conversations(id) ON DELETE CASCADE,
+        direction         TEXT NOT NULL DEFAULT 'outbound',
+        message_text      TEXT,
+        message_type      TEXT NOT NULL DEFAULT 'text',
+        wamid             TEXT,
+        status            TEXT NOT NULL DEFAULT 'sent',
+        context_label     TEXT,
+        error_message     TEXT,
+        raw_payload       JSONB,
+        created_at        TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS wa_api_conv_phone_idx        ON whatsapp_api_conversations(phone_number);
+      CREATE INDEX IF NOT EXISTS wa_api_conv_last_msg_idx     ON whatsapp_api_conversations(last_message_at DESC);
+      CREATE INDEX IF NOT EXISTS wa_api_conv_lead_idx         ON whatsapp_api_conversations(lead_id);
+      CREATE INDEX IF NOT EXISTS wa_api_messages_conv_idx     ON whatsapp_api_messages(conversation_id);
+      CREATE INDEX IF NOT EXISTS wa_api_messages_created_idx  ON whatsapp_api_messages(created_at DESC);
+      CREATE INDEX IF NOT EXISTS wa_api_messages_wamid_idx    ON whatsapp_api_messages(wamid);
+    `);
+    console.log("[DB] WhatsApp API chat tables ensured");
+  } catch (err: any) {
+    console.warn("[DB] Could not create WhatsApp API chat tables:", err.message);
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 
