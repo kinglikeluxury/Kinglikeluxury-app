@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import https from "https";
 import type { Express } from "express";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { leadImportQueue, leadImportAuditLog } from "@shared/schema";
 import { eq, desc, asc, and, lte, count } from "drizzle-orm";
 import { recordLeadReceived, getAlertStatus, pullSyncFromMeta } from "./metaLeadsService";
@@ -185,6 +185,57 @@ export function registerMetaLeadsRoutes(app: Express): void {
 
             // ── Handle inbound WhatsApp messages (WABA replies) ────────────────
             if (change.field === "messages") {
+              // ── Process delivery status callbacks ──────────────────────────
+              const statuses: any[] = cv.statuses ?? [];
+              for (const statusEntry of statuses) {
+                try {
+                  const wamid     = statusEntry.id as string;
+                  const newStatus = statusEntry.status as string; // sent/delivered/read/failed
+                  if (!wamid || !newStatus) continue;
+
+                  const errors    = statusEntry.errors ?? [];
+                  const errCode   = errors[0]?.code?.toString() ?? null;
+                  const errMsg    = errors[0]?.message ?? errors[0]?.title ?? null;
+
+                  const dbClient = await pool.connect();
+                  try {
+                    // 1. Persist raw event to status events log
+                    await dbClient.query(`
+                      INSERT INTO whatsapp_api_message_status_events
+                        (wamid, status, error_code, error_message, raw_payload_json)
+                      VALUES ($1, $2, $3, $4, $5)
+                    `, [wamid, newStatus, errCode, errMsg, JSON.stringify(statusEntry)]);
+
+                    // 2. Update the message row — only advance status (sent→delivered→read)
+                    //    Never downgrade read→delivered. Failed always wins.
+                    await dbClient.query(`
+                      UPDATE whatsapp_api_messages
+                      SET
+                        status        = CASE
+                          WHEN $1 = 'failed'                              THEN 'failed'
+                          WHEN $1 = 'read'                                THEN 'read'
+                          WHEN $1 = 'delivered' AND status != 'read'      THEN 'delivered'
+                          WHEN $1 = 'sent'      AND status NOT IN ('delivered','read','failed') THEN 'sent'
+                          ELSE status
+                        END,
+                        error_message = COALESCE($2, error_message),
+                        updated_at    = NOW()
+                      WHERE wamid = $3
+                    `, [newStatus, errMsg, wamid]);
+
+                    console.log(
+                      `[MetaLeads][WA-Status] wamid=${wamid.slice(0,24)}… → ${newStatus}` +
+                      (errMsg ? ` | error: ${errMsg}` : "")
+                    );
+                  } finally {
+                    dbClient.release();
+                  }
+                } catch (statusErr: any) {
+                  console.error("[MetaLeads][WA-Status] persist error:", statusErr.message);
+                }
+              }
+
+              // ── Process inbound messages ───────────────────────────────────
               const messages: any[] = cv.messages ?? [];
               for (const msg of messages) {
                 try {

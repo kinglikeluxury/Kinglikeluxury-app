@@ -137,7 +137,7 @@ export function registerWhatsappApiHistoryRoutes(app: Express): void {
       const messages = await client.query(`
         SELECT
           id, direction, message_text, message_type,
-          wamid, status, context_label, error_message, created_at
+          wamid, status, context_label, error_message, created_at, updated_at
         FROM whatsapp_api_messages
         WHERE conversation_id = $1
         ORDER BY created_at ASC
@@ -161,10 +161,11 @@ export function registerWhatsappApiHistoryRoutes(app: Express): void {
     try {
       const result = await client.query(`
         SELECT
-          (SELECT COUNT(*) FROM whatsapp_api_conversations)                                    AS total_conversations,
-          (SELECT COUNT(*) FROM whatsapp_api_messages WHERE direction = 'outbound')            AS total_outbound,
-          (SELECT COUNT(*) FROM whatsapp_api_messages WHERE direction = 'inbound')             AS total_inbound,
-          (SELECT COUNT(*) FROM whatsapp_api_messages WHERE status = 'failed')                 AS total_failed,
+          (SELECT COUNT(*) FROM whatsapp_api_conversations)                                          AS total_conversations,
+          (SELECT COUNT(*) FROM whatsapp_api_messages WHERE direction = 'outbound')                  AS total_outbound,
+          (SELECT COUNT(*) FROM whatsapp_api_messages WHERE direction = 'inbound')                   AS total_inbound,
+          (SELECT COUNT(*) FROM whatsapp_api_messages WHERE status = 'failed')                       AS total_failed,
+          (SELECT COUNT(*) FROM whatsapp_api_messages WHERE status IN ('delivered','read'))          AS total_delivered,
           (SELECT COUNT(*) FROM whatsapp_api_messages WHERE created_at > NOW() - interval '24 hours') AS last_24h
       `);
       res.json(result.rows[0]);

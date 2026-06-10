@@ -39,6 +39,7 @@ interface Message {
   context_label: string | null;
   error_message: string | null;
   created_at: string;
+  updated_at: string | null;
 }
 
 interface ConversationDetail {
@@ -53,6 +54,7 @@ interface Stats {
   total_outbound: string;
   total_inbound: string;
   total_failed: string;
+  total_delivered: string;
   last_24h: string;
 }
 
@@ -74,10 +76,18 @@ function sourceBadge(source: string) {
 
 function statusIcon(status: string) {
   if (status === "read")      return <CheckCheck className="h-3.5 w-3.5 text-[#3bcac4]" />;
-  if (status === "delivered") return <CheckCheck className="h-3.5 w-3.5 text-slate-400" />;
-  if (status === "sent")      return <Check className="h-3.5 w-3.5 text-slate-400" />;
-  if (status === "failed")    return <AlertCircle className="h-3.5 w-3.5 text-red-400" />;
-  return <Clock className="h-3.5 w-3.5 text-slate-300" />;
+  if (status === "delivered") return <CheckCheck className="h-3.5 w-3.5 text-slate-300" />;
+  if (status === "sent")      return <Check className="h-3.5 w-3.5 text-slate-300" />;
+  if (status === "failed")    return <AlertCircle className="h-3.5 w-3.5 text-red-300" />;
+  return <Clock className="h-3.5 w-3.5 text-slate-200" />;
+}
+
+function statusLabel(status: string): { text: string; cls: string } {
+  if (status === "read")      return { text: "Read",      cls: "text-[#3bcac4]" };
+  if (status === "delivered") return { text: "Delivered", cls: "text-slate-300" };
+  if (status === "sent")      return { text: "Sent",      cls: "text-white/50" };
+  if (status === "failed")    return { text: "Failed",    cls: "text-red-300" };
+  return                             { text: "Pending",   cls: "text-white/30" };
 }
 
 function fmtTime(ts: string | null): string {
@@ -174,13 +184,14 @@ export default function WhatsappApiChatHistoryPage() {
 
           {/* Stats row */}
           {stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {[
-                { label: "Conversations",  val: stats.total_conversations },
-                { label: "Sent",           val: stats.total_outbound },
-                { label: "Received",       val: stats.total_inbound },
-                { label: "Failed",         val: stats.total_failed },
-                { label: "Last 24h",       val: stats.last_24h },
+                { label: "Conversations", val: stats.total_conversations },
+                { label: "Sent",          val: stats.total_outbound },
+                { label: "Delivered ✓✓",  val: stats.total_delivered },
+                { label: "Received",      val: stats.total_inbound },
+                { label: "Failed",        val: stats.total_failed },
+                { label: "Last 24h",      val: stats.last_24h },
               ].map(s => (
                 <div key={s.label} className="bg-white/10 rounded-xl px-4 py-3 text-center">
                   <p className="text-2xl font-bold">{parseInt(s.val || "0").toLocaleString()}</p>
@@ -409,7 +420,21 @@ export default function WhatsappApiChatHistoryPage() {
                                   <span className={`text-xs ${isOut ? "text-white/60" : "text-slate-400"}`}>
                                     {fmtFull(msg.created_at)}
                                   </span>
-                                  {isOut && <span className="ml-1">{statusIcon(msg.status)}</span>}
+                                  {isOut && (
+                                    <span
+                                      className="flex items-center gap-0.5 ml-1"
+                                      title={
+                                        msg.updated_at
+                                          ? `Status updated: ${fmtFull(msg.updated_at)}`
+                                          : `Status: ${msg.status}`
+                                      }
+                                    >
+                                      {statusIcon(msg.status)}
+                                      <span className={`text-xs font-medium ${statusLabel(msg.status).cls}`}>
+                                        {statusLabel(msg.status).text}
+                                      </span>
+                                    </span>
+                                  )}
                                 </div>
 
                                 {/* Error message */}
