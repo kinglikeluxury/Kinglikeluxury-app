@@ -50,7 +50,7 @@ async function runOnce(): Promise<void> {
     const nudgeResult = await client.query(`
       SELECT id, lead_id, phone, retry_count
       FROM wa_qual_sessions
-      WHERE status NOT IN ('completed','timed_out','failed','opt_out','already_qualified','idle','template_sent')
+      WHERE status NOT IN ('completed','timed_out','failed','opt_out','already_qualified','idle','template_sent','postponed')
         AND last_message_at < NOW() - INTERVAL '1 hour'
         AND retry_count < $1
     `, [MAX_NUDGES]);

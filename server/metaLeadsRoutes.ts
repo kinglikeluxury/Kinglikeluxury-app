@@ -259,6 +259,11 @@ export function registerMetaLeadsRoutes(app: Express): void {
                       listId   = iact.list_reply?.id;
                       bodyText = iact.list_reply?.title ?? listId ?? "";
                     }
+                  } else if (msg.type === "button") {
+                    // Template quick-reply button tap — Meta sends type="button"
+                    // (distinct from interactive button_reply)
+                    buttonId = msg.button?.payload;
+                    bodyText = msg.button?.text ?? buttonId ?? "";
                   } else {
                     // Unsupported type — log but don't route to qualifier
                     bodyText = `[${msg.type ?? "unknown"} message]`;

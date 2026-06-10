@@ -7,9 +7,12 @@
  * State machine:
  *   idle → template_sent → q1_sent → q2_sent → q3_sent → q4_sent
  *                       → [q4b_sent] → q5_sent → q6_sent → completed
+ *                ↓
+ *            postponed  (user tapped "⏳ لاحقاً" — excluded from all outbound)
  *
- *   template_sent : opener template sent; waiting for any customer reply to
- *                   open the 24-hour conversation window before Q1 is sent.
+ *   template_sent : opener template sent; two quick-reply buttons.
+ *                   QUAL_YES → window opens → Q1 immediately.
+ *                   QUAL_LATER → status=postponed, no further messages.
  *   (greeting_sent kept for legacy/manual-restart paths)
  *
  * Terminal states: completed | timed_out | failed | opt_out | already_qualified
@@ -728,9 +731,26 @@ export async function handleInboundMessage(opts: {
 
   // ── Dispatch by current state ─────────────────────────────────────────────
 
-  // ── template_sent: any reply from customer opens the 24h window ──────────
+  // ── template_sent: button-gated opener ──────────────────────────────────
   if (state === "template_sent") {
-    console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} reply="${rawText.slice(0, 40)}"`);
+    const isYes  = answerId === "QUAL_YES"
+                || rawText.match(/^(نعم|yes|اه|ايه|أيوا|يلا|هيا|ابدأ|اوك|ok|sure|✅)/i) !== null;
+    const isLater = answerId === "QUAL_LATER";
+
+    if (isLater) {
+      // User chose "⏳ لاحقاً" — postpone; no further outbound messages
+      await updateSession(session.id, {
+        status:           "postponed",
+        last_message_at:  new Date(),
+      });
+      console.log(
+        `[WaQual][QUALIFICATION_POSTPONED] sessionId=${session.id} phone=${digits}`
+      );
+      return;
+    }
+
+    // QUAL_YES button OR any free-text reply → window is open, start Q1
+    console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} answerId=${answerId ?? "text"}`);
     console.log(`[WaQual][QUALIFICATION_STARTED] sessionId=${session.id} phone=${digits}`);
     await sendQ1Budget(session);
     console.log(`[WaQual][QUESTION_SENT] sessionId=${session.id} question=Q1_budget phone=${digits}`);

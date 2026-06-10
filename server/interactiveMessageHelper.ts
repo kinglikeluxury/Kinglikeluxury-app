@@ -230,17 +230,12 @@ async function logToHistory(
 // Template name : kinglike_qual_opener
 // Language      : ar
 // Category      : UTILITY
-// Body text     :
-//   مرحباً 👋
+// Buttons (quick reply):
+//   index 0  payload=QUAL_YES   "✅ نعم، أود المتابعة"
+//   index 1  payload=QUAL_LATER "⏳ لاحقاً"
 //
-//   شكراً لتواصلك مع Kinglike Luxury.
-//
-//   تم استلام طلبك بنجاح، ويسعدنا مساعدتك في العثور على الفرصة العقارية المناسبة.
-//
-//   يرجى الرد على هذه الرسالة بكلمة:
-//   (مرحبا)
-//
-//   وسيقوم مساعدنا الذكي بمتابعة الأسئلة معك مباشرة.
+// When the user taps a button Meta sends msg.type="button" with
+// msg.button.payload = "QUAL_YES" | "QUAL_LATER"
 //
 export async function sendQualOpenerTemplate(
   phone: string,
@@ -260,6 +255,20 @@ export async function sendQualOpenerTemplate(
     template: {
       name:     templateName,
       language: { code: "ar" },
+      components: [
+        {
+          type:     "button",
+          sub_type: "quick_reply",
+          index:    "0",
+          parameters: [{ type: "payload", payload: "QUAL_YES" }],
+        },
+        {
+          type:     "button",
+          sub_type: "quick_reply",
+          index:    "1",
+          parameters: [{ type: "payload", payload: "QUAL_LATER" }],
+        },
+      ],
     },
   });
 
