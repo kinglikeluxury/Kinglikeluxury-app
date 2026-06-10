@@ -1,0 +1,40 @@
+============================================================
+  Kinglike Luxury Platform — Backup Manifest
+============================================================
+
+Backup Creation Date    : 2026-06-10
+Generated At (UTC)      : 2026-06-10T17:45:52.598Z
+
+------------------------------------------------------------
+  GIT
+------------------------------------------------------------
+Git Commit Hash         : 7c2f897abc9d4db61f6ea70555fec181fd1e8401
+Branch                  : main
+
+------------------------------------------------------------
+  DATABASE SNAPSHOT
+------------------------------------------------------------
+Database Name           : neondb
+Total Tables            : 42
+
+------------------------------------------------------------
+  CONTENT COUNTS
+------------------------------------------------------------
+CRM Leads               : 91
+Users                   : 9
+Properties              : 80
+Projects                : 30
+Blog Posts              : 45
+
+------------------------------------------------------------
+  BACKUP FILES
+------------------------------------------------------------
+Source Code Archive     : kinglike-luxury-full-code-backup-2026-06-10.zip
+Database Backup (raw)   : kinglike-luxury-db-backup-2026-06-10.sql
+Database Backup (gzip)  : kinglike-luxury-db-backup-2026-06-10.sql.gz
+Manifest                : backup-manifest-2026-06-10.txt
+
+============================================================
+  This backup was generated as a read-only checkpoint.
+  No code, database records, or secrets were modified.
+============================================================
