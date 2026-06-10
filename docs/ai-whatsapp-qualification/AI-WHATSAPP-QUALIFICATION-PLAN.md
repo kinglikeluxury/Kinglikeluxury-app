@@ -1,11 +1,16 @@
 # AI WhatsApp Lead Qualification — Revised Implementation Plan
 
 **Status:** Design only. No code modified. No schema changed.
-**Version:** 2.0 — Revised June 2026
+**Version:** 2.1 — Revised June 2026
 **Author:** Kinglike Luxury AI Planning
 
+> **Revision notes (v2.1 vs v2.0):**
+> - **Post-Completion Incoming Messages Rule added:** After COMPLETED, AI stops replying but all inbound messages are still logged to Chat History and trigger an internal CRM notification. Messages are never silently dropped.
+> - **Duplicate Qualification Prevention Rule added:** If the same phone number already has a completed qualification within the last 60 days, no new AI flow is started. New lead is linked to the existing record; CRM shows "Already Qualified".
+> - State machine, handoff rules, CRM integration, Chat History section, and implementation phases updated accordingly.
+>
 > **Revision notes (v2.0 vs v1.0):**
-> - Phase 1 outbound-only **removed** — first implementation is fully interactive
+> - Phase 1 outbound-only removed — first implementation is fully interactive
 > - WhatsApp interactive buttons/list messages added throughout
 > - Lead score `STANDARD` replaced with `COLD` everywhere
 > - Budget tiers and upgrade rules updated
@@ -21,7 +26,7 @@
 
 ### Overview
 
-When a new Meta lead arrives in the CRM, an AI agent named **خالد** contacts the lead via the production Meta Cloud API and walks them through a **fully interactive** 6-question qualification flow using WhatsApp reply buttons and list messages. Answers are stored in the CRM. After completion the agent scores the lead, writes a qualification summary, creates an internal CRM notification, and sends the lead a thank-you message. Every outbound question and every inbound reply is logged to the WhatsApp API Chat History.
+When a new Meta lead arrives in the CRM, an AI agent named **خالد** contacts the lead via the production Meta Cloud API and walks them through a **fully interactive** 6-question qualification flow using WhatsApp reply buttons and list messages. Answers are stored in the CRM. After completion the agent scores the lead, writes a qualification summary, creates an internal CRM notification, and sends the lead a thank-you message. Every outbound question and every inbound reply is logged to the WhatsApp API Chat History — including all messages received **after** qualification is complete.
 
 ### Component Map
 
@@ -31,6 +36,18 @@ When a new Meta lead arrives in the CRM, an AI agent named **خالد** contacts
 │  Facebook Ad → Meta Webhook → metaLeadsService → crm_leads      │
 └─────────────────────────────┬────────────────────────────────────┘
                               │  new lead inserted (fire-and-forget)
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────────┐
+│          DUPLICATE QUALIFICATION CHECK (new — v2.1)              │
+│                                                                  │
+│  waQualService.checkDuplicateQualification(phone)                │
+│  ├── Query: completed session for this phone within 60 days?     │
+│  ├── YES → link new lead, create CRM note "Already Qualified",   │
+│  │         skip AI flow entirely                                 │
+│  └── NO  → proceed to triggerQualification(leadId)              │
+└─────────────────────────────┬────────────────────────────────────┘
+                              │  no duplicate found
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │               AI WHATSAPP QUALIFICATION ENGINE                   │
@@ -38,6 +55,10 @@ When a new Meta lead arrives in the CRM, an AI agent named **خالد** contacts
 │  waQualService.ts          (new)                                 │
 │  ├── triggerQualification(leadId)  ← called after lead insert    │
 │  ├── handleInboundReply(fromNumber, bodyText, buttonId?)          │
+│  │     ├── if session COMPLETED → log to Chat History +          │
+│  │     │     create CRM notification, do NOT send AI reply       │
+│  │     ├── if session OPT_OUT/FAILED/TIMED_OUT → log only        │
+│  │     └── if session active → advance state machine             │
 │  ├── advanceStateMachine(sessionId, parsedAnswer)                │
 │  ├── sendInteractiveQuestion(phone, questionSpec)                │
 │  ├── scoreLeadFromAnswers(answers) → COLD/WARM/HOT/VIP           │
@@ -59,7 +80,8 @@ When a new Meta lead arrives in the CRM, an AI agent named **خالد** contacts
           ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                         CRM                                      │
-│  crm_leads.qualification_status   none/in_progress/completed     │
+│  crm_leads.qualification_status   none/in_progress/completed/    │
+│                                   already_qualified              │
 │  crm_leads.qualification_score    COLD/WARM/HOT/VIP              │
 │  crm_leads.qualification_summary  short summary text             │
 │  crm_leads.opt_out                boolean                        │
@@ -80,7 +102,9 @@ When a new Meta lead arrives in the CRM, an AI agent named **خالد** contacts
 - **Idempotent:** If a session already exists for a `lead_id`, the trigger is a no-op.
 - **Stateless service:** All state lives in `wa_qual_sessions`. The engine can restart without losing progress.
 - **Interactive from day one:** Every question uses WhatsApp buttons or list messages — never plain numeric-only text.
-- **Full audit trail:** Every outbound AI message and every inbound reply is written to the WhatsApp API Chat History tables.
+- **Full audit trail:** Every outbound AI message and every inbound reply is written to the WhatsApp API Chat History, including post-completion messages.
+- **Never lose a message:** Even after AI handoff, inbound messages are always logged and always trigger a CRM notification.
+- **No repeated qualification:** A customer who already completed qualification within 60 days is never re-qualified automatically.
 - **Reuses existing sender:** No new Meta API key needed. Uses `sendMetaWhatsApp()` for text, adds `sendInteractiveMessage()` for buttons/lists.
 
 ---
@@ -108,9 +132,24 @@ WhatsApp supports two interactive types:
 ## 3. WhatsApp Conversation Flow
 
 ```
-AI sends greeting (plain text)
+NEW LEAD INSERTED
         │
         ▼
+┌──────────────────────────────────────────────────┐
+│  DUPLICATE CHECK (v2.1)                          │
+│  Has this phone number completed qualification   │
+│  in the last 60 days?                            │
+└──────┬────────────────────┬─────────────────────┘
+       │ YES                │ NO
+       ▼                    ▼
+┌──────────────┐    ┌──────────────────────────────┐
+│  ALREADY     │    │  PROCEED TO AI FLOW          │
+│  QUALIFIED   │    └──────────────┬───────────────┘
+│  - Link lead │                   │
+│  - CRM note  │                   ▼
+│  - No AI msg │    AI sends greeting (plain text)
+└──────────────┘            │
+                            ▼
 ┌──────────────────────────────────────────────────┐
 │  GREETING                                        │
 │  "مرحباً [name]! أنا خالد من Kinglike Luxury.   │
@@ -120,83 +159,7 @@ AI sends greeting (plain text)
 └──────────────────┬───────────────────────────────┘
                    │  any reply or button press
                    ▼
-┌──────────────────────────────────────────────────┐
-│  Q1 — PURCHASE GOAL                              │
-│  "ما هو هدفك من الشراء؟"                        │
-│  [Reply Buttons - 3 options]                     │
-│  ┌──────────────────┐                            │
-│  │  استثمار          │                           │
-│  │  سكن              │                           │
-│  │  استثمار وسكن معاً │                          │
-│  └──────────────────┘                            │
-└──────────────────┬───────────────────────────────┘
-                   │  button press or text reply
-                   ▼
-┌──────────────────────────────────────────────────┐
-│  Q2 — CITY                                       │
-│  "أي مدينة تفضل؟"                               │
-│  [List Message - 5 options]                      │
-│  • باتومي                                        │
-│  • تبليسي                                        │
-│  • شمال قبرص                                     │
-│  • إسطنبول                                       │
-│  • أحتاج توصية                                   │
-└──────────────────┬───────────────────────────────┘
-                   │
-                   ▼
-┌──────────────────────────────────────────────────┐
-│  Q3 — BUDGET                                     │
-│  "ما هي ميزانيتك التقريبية؟"                     │
-│  [List Message - 4 options]                      │
-│  • 50,000 – 80,000 USD                           │
-│  • 80,000 – 100,000 USD                          │
-│  • 100,000 – 150,000 USD                         │
-│  • أكثر من 150,000 USD                           │
-└──────────────────┬───────────────────────────────┘
-                   │
-                   ▼
-┌──────────────────────────────────────────────────┐
-│  Q4 — SPECIFIC PROJECT?                          │
-│  "هل أنت مهتم بمشروع محدد؟"                     │
-│  [Reply Buttons - 3 options]                     │
-│  ┌──────────────────────┐                        │
-│  │  نعم                 │                        │
-│  │  لا                  │                        │
-│  │  أريد توصيات          │                       │
-│  └──────────────────────┘                        │
-└──────┬───────────────────────┬───────────────────┘
-       │ "نعم"                 │ "لا" / "أريد توصيات"
-       ▼                       ▼
-┌──────────────┐       ┌──────────────────────────┐
-│  Q4b —       │       │  Skip to Q5              │
-│  "ما اسم     │       │  (store null / pref)     │
-│  المشروع؟"   │       └──────────┬───────────────┘
-│  (free text) │                  │
-└──────┬───────┘                  │
-       │                          │
-       └──────────┬───────────────┘
-                  ▼
-┌──────────────────────────────────────────────────┐
-│  Q5 — VISIT TIMELINE                             │
-│  "هل تخطط لزيارة قريباً؟"                        │
-│  [List Message - 4 options]                      │
-│  • خلال شهر واحد                                 │
-│  • خلال 3 أشهر                                   │
-│  • لاحقاً                                        │
-│  • لم أقرر بعد                                   │
-└──────────────────┬───────────────────────────────┘
-                   │
-                   ▼
-┌──────────────────────────────────────────────────┐
-│  Q6 — PROPERTY TYPE                              │
-│  "نوع العقار المفضل؟"                            │
-│  [Reply Buttons - 3 options]                     │
-│  ┌─────────────────────┐                         │
-│  │  جاهز للتسليم        │                        │
-│  │  قيد الإنشاء         │                        │
-│  │  لا تفضيل            │                        │
-│  └─────────────────────┘                         │
-└──────────────────┬───────────────────────────────┘
+                [Q1 → Q2 → Q3 → Q4 → Q4b? → Q5 → Q6]
                    │  all 6 answers collected
                    ▼
         ┌──────────────────────┐
@@ -225,6 +188,21 @@ AI sends greeting (plain text)
                    ▼
               HANDOFF DONE
          crm_leads status → completed
+                   │
+                   │  ← session is now COMPLETED (terminal for AI)
+                   │
+                   ▼
+┌──────────────────────────────────────────────────┐
+│  POST-COMPLETION MESSAGES (v2.1)                 │
+│                                                  │
+│  Any future inbound message from same phone:     │
+│  ✓ Stored in Chat History                        │
+│  ✓ Linked to correct CRM lead/conversation       │
+│  ✓ Shown as new incoming message in thread       │
+│  ✓ Triggers internal CRM notification            │
+│  ✗ AI does NOT auto-reply                        │
+│  ✗ AI does NOT restart qualification             │
+└──────────────────────────────────────────────────┘
 ```
 
 ---
@@ -298,9 +276,9 @@ Button 3: "أريد توصيات"    id: project_recommend
 Body: "هل تخطط لزيارة المشاريع قريباً؟ ✈️"
 List button text: "اختر الوقت"
 Section: "موعد الزيارة"
-  Row 1: id=visit_1month   title="خلال شهر واحد"
-  Row 2: id=visit_3months  title="خلال 3 أشهر"
-  Row 3: id=visit_later    title="لاحقاً"
+  Row 1: id=visit_1month    title="خلال شهر واحد"
+  Row 2: id=visit_3months   title="خلال 3 أشهر"
+  Row 3: id=visit_later     title="لاحقاً"
   Row 4: id=visit_undecided title="لم أقرر بعد"
 ```
 
@@ -341,7 +319,89 @@ Button 3: "لا تفضيل"       id: type_nopref
 
 ---
 
-## 5. Required Database Fields (Proposal Only)
+## 5. Duplicate Qualification Prevention (v2.1)
+
+### Rule
+
+Before starting any new AI qualification session, check:
+
+> Does this phone number already have a `COMPLETED` qualification session with `completed_at` within the last **60 days**?
+
+### If YES — Already Qualified
+
+1. Do **not** send any WhatsApp message to the lead
+2. Do **not** start a new session
+3. Set new `crm_leads.qualification_status = 'already_qualified'`
+4. Set new `crm_leads.qualification_score` = score from existing session
+5. Copy the existing `qualification_summary` to the new lead record
+6. Link the new lead to the existing `whatsapp_api_conversations` row for that phone (so future messages appear in the same thread)
+7. Create an internal CRM notification:
+   > "العميل مؤهَّل مسبقاً بتاريخ [date]. تم استخدام التأهيل الموجود."
+   > *(Lead already qualified on [date]. Qualification reused.)*
+8. CRM lead card shows **"Already Qualified"** badge with date
+
+### If NO — Start Normal Flow
+
+Proceed with `triggerQualification(leadId)` as normal.
+
+### 60-Day Window Logic
+
+```
+checkDuplicateQualification(phoneNumber):
+  SELECT s.*, l.phone FROM wa_qual_sessions s
+  JOIN crm_leads l ON s.lead_id = l.id
+  WHERE l.phone = phoneNumber
+    AND s.status = 'completed'
+    AND s.completed_at > NOW() - INTERVAL '60 days'
+  LIMIT 1
+  → If row found: return existing session
+  → If not found: return null (proceed with new session)
+```
+
+### Edge Cases
+
+| Scenario | Behaviour |
+|---|---|
+| Phone number has a `timed_out` or `failed` session | Treated as no completed session — new flow starts |
+| Phone number has an `opt_out` session | Treated as opt-out across all leads — do not start new flow; show OPT-OUT badge |
+| Phone number has `in_progress` session from another lead | Do not start second parallel session; attach new lead, notify consultant |
+| Completed session is older than 60 days | Normal new flow starts |
+
+---
+
+## 6. Post-Completion Incoming Messages Rule (v2.1)
+
+### Current Behaviour (v2.0 — changed)
+
+~~After COMPLETED, further inbound messages from the lead are silently ignored by the AI.~~
+
+### New Behaviour (v2.1)
+
+After a session reaches `COMPLETED`, `OPT_OUT`, `TIMED_OUT`, or `FAILED`:
+
+**The AI stops all outbound sends.** No qualification questions, no auto-replies, no restarts.
+
+**But every inbound message is still:**
+1. **Stored in WhatsApp API Chat History** — logged to `whatsapp_api_messages` with `direction = 'inbound'` and `context_label = 'post_completion'`
+2. **Linked to the correct conversation** — the existing `whatsapp_api_conversations` row for that phone number
+3. **Shown in the Chat History thread** as a new incoming message bubble
+4. **Triggers an internal CRM notification** for the assigned consultant/admin:
+   > "رسالة جديدة من [name/phone] — بعد اكتمال التأهيل. يرجى الرد مباشرة."
+   > *(New message from [name/phone] after qualification handoff. Please respond directly.)*
+
+### Why This Matters
+
+> We must never lose a customer message after handoff. The AI stops, but logging and CRM notification always continue. A customer reaching out after qualification is a high-intent signal — the consultant must see it immediately.
+
+### Implementation Note
+
+`handleInboundReply()` checks session status first:
+- If `COMPLETED` / `OPT_OUT` / `TIMED_OUT` / `FAILED` → log to Chat History + fire CRM notification, return without advancing state machine
+- If `already_qualified` (no session, but existing completed record for phone) → same as above
+
+---
+
+## 7. Required Database Fields (Proposal Only)
 
 > **No migrations yet.** This section describes what will be added when implementation begins.
 
@@ -388,7 +448,7 @@ Button 3: "لا تفضيل"       id: type_nopref
 
 | Column | Type | Notes |
 |---|---|---|
-| `qualification_status` | text | `none` / `in_progress` / `completed` / `failed` / `timed_out` / `opt_out` |
+| `qualification_status` | text | `none` / `in_progress` / `completed` / `failed` / `timed_out` / `opt_out` / `already_qualified` |
 | `qualification_score` | text | `VIP` / `HOT` / `WARM` / `COLD` / null |
 | `qualification_summary` | text | short summary for CRM list view |
 | `qualified_at` | timestamptz | |
@@ -396,7 +456,7 @@ Button 3: "لا تفضيل"       id: type_nopref
 
 ---
 
-## 6. Lead Scoring Design
+## 8. Lead Scoring Design
 
 ### Score Tiers
 
@@ -435,9 +495,9 @@ Button 3: "لا تفضيل"       id: type_nopref
 
 ---
 
-## 7. WhatsApp API Chat History Integration
+## 9. WhatsApp API Chat History Integration
 
-Every message in the qualification flow must appear in the existing **WhatsApp API Chat History** admin page (`/admin/whatsapp-api-chat-history`).
+Every message in the qualification flow must appear in the existing **WhatsApp API Chat History** admin page (`/admin/whatsapp-api-chat-history`). This includes all messages received after qualification is complete.
 
 ### Logging Rules
 
@@ -448,15 +508,17 @@ Every message in the qualification flow must appear in the existing **WhatsApp A
 | Q4b prompt sent | `outbound` | `qual_q4b` | |
 | Nudge sent | `outbound` | `qual_nudge` | |
 | Thank-you sent | `outbound` | `qual_thankyou` | |
-| Lead reply (any) | `inbound` | `qual_reply` | |
+| Lead reply (active session) | `inbound` | `qual_reply` | |
 | Opt-out received | `inbound` | `qual_optout` | |
 | Qualification summary | `outbound` | `qual_summary` | System message, not sent to lead |
+| **Post-completion inbound** | `inbound` | **`post_completion`** | **v2.1 — always logged, never dropped** |
+| **Already-qualified inbound** | `inbound` | **`post_completion`** | **v2.1 — logged to existing thread** |
 
 All logging via the existing `logOutboundMessage()` / `logInboundMessage()` helpers in `metaWhatsAppService.ts`. The qualification summary is logged as a special outbound system message appended to the conversation after COMPLETED state is set.
 
 ### Chat History Conversation Display
 
-The conversation thread will show the full interactive Q&A as a natural chat:
+The conversation thread shows the full lifecycle of a customer's interaction:
 
 ```
 خالد (AI): مرحباً محمد 👋 أنا خالد من Kinglike Luxury…       [outbound bubble]
@@ -465,55 +527,24 @@ The conversation thread will show the full interactive Q&A as a natural chat:
 محمد:       باتومي                                            [inbound bubble]
 ...
 خالد (AI): شكراً لتزويدنا بالمعلومات 🌷 …                    [outbound bubble]
-───────────────── تقرير التأهيل ─────────────────
+─────────────── تقرير التأهيل ───────────────
 خالد (AI): 📋 ملخص التأهيل — الهدف: استثمار وسكن…           [system bubble]
+═════════════ تم التسليم للمستشار ═══════════
+محمد:       هل يمكنني الاستفسار عن السعر؟                    [inbound bubble — post_completion]
+محمد:       متى يمكن زيارة المشروع؟                          [inbound bubble — post_completion]
 ```
+
+Post-completion messages appear in the same thread with a visual separator ("تم التسليم للمستشار") so consultants can see the full context.
 
 ---
 
-## 8. CRM Integration Plan
-
-### Trigger Point
-
-`metaLeadsService.ts` — after a new `crm_leads` row is inserted successfully:
-
-```typescript
-// PROPOSED addition (not yet in code):
-// fire-and-forget — never throws, never delays webhook response
-waQualService.triggerQualification(crmLead.id).catch(() => {});
-```
-
-### CRM Lead Card
-
-The lead detail page (`crm-lead-detail.tsx`) will gain:
-- A **Qualification badge**: pill showing `VIP` / `HOT` / `WARM` / `COLD` / `In Progress` / `Pending` / `Opt-Out`
-- A **Qualification tab**: shows all 6 answers, score, score reason, and link to Chat History thread
-- A **"Restart Qualification"** button for admins (only if status = `failed` / `timed_out`)
-- **OPT-OUT badge**: prominent warning if lead has opted out
-
-### CRM List View
-
-`crm-leads.tsx` filter sidebar will gain:
-- Filter by `qualification_score` (VIP / HOT / WARM / COLD)
-- Filter by `qualification_status`
-- Visual badge on each lead card (brand colours: VIP=teal, HOT=deep blue, WARM=teal/50%, COLD=grey)
-
-### Internal Notification (no WhatsApp to consultant)
-
-When qualification completes:
-1. **In-app CRM notification** (existing push system): "تم تأهيل العميل: [name] — Score: VIP"
-2. **CRM badge** on the lead card visible to all agents
-3. ✗ No WhatsApp message sent to consultant
-
----
-
-## 9. AI State Machine Design
+## 10. AI State Machine Design
 
 ### States
 
 ```
 IDLE
-  → on triggerQualification()
+  → on triggerQualification() after duplicate check passes
 GREETING_SENT
   → on any inbound reply
 Q1_SENT → Q1_ANSWERED
@@ -528,31 +559,60 @@ Q6_SENT → Q6_ANSWERED
   → SUMMARY_LOGGED
   → CONSULTANT_NOTIFIED (internal)
 COMPLETED
-  (terminal — AI stops all sends)
+  (terminal for AI sends)
+  (inbound messages → logged + CRM notification only)
 
 FAILED        (terminal — hard API error or non-WA number)
+              (inbound messages → logged + CRM notification only)
 TIMED_OUT     (terminal — no reply after nudge window exhausted)
+              (inbound messages → logged + CRM notification only)
 OPT_OUT       (terminal — lead replied stop keyword)
+              (inbound messages → logged only, no CRM notification)
+
+ALREADY_QUALIFIED  (virtual — no session row created)
+              (inbound messages → logged to existing thread + CRM notification)
 ```
 
 ### Transition Logic
 
 ```
 handleInboundReply(fromNumber, bodyText, buttonId?):
-  1. Lookup active session WHERE lead.phone = fromNumber
-     AND status NOT IN (COMPLETED, FAILED, OPT_OUT, TIMED_OUT)
-  2. If none → ignore (not a qualification conversation)
-  3. Check opt-out keywords → transition to OPT_OUT, send confirmation, stop
-  4. Determine answer:
-     a. Button ID present → use buttonId directly (authoritative)
-     b. List row ID present → use row ID directly
-     c. Plain text → parse against current question's expected values
-        - Match Arabic/English numerals, partial keyword match
-        - If unrecognised: increment invalid_input_count, send clarification
-        - If invalid_input_count ≥ 2: skip question (null), advance
-  5. Store answer in wa_qual_answers, advance state
-  6. Send next question (or Q4b if Q4="yes")
-  7. If last question answered → SCORING → THANKYOU → SUMMARY_LOGGED → NOTIFY → COMPLETED
+
+  [STEP 0 — Always log first]
+  logInboundMessage({ phone: fromNumber, text: bodyText, ... })
+
+  [STEP 1 — Find session]
+  session = findSessionByPhone(fromNumber)
+
+  [STEP 2 — Terminated sessions (post-completion rule)]
+  if session.status IN (COMPLETED, FAILED, TIMED_OUT):
+    createCrmNotification(session.lead_id, "رسالة جديدة بعد التسليم")
+    return  ← no AI reply, no state change
+
+  if session.status = OPT_OUT:
+    return  ← log already done in Step 0, no notification
+
+  [STEP 3 — No session but phone has already_qualified lead]
+  if session is null AND existsAlreadyQualifiedLead(fromNumber):
+    createCrmNotification for that lead
+    return
+
+  [STEP 4 — No session at all]
+  if session is null:
+    return  ← unrelated inbound, ignore
+
+  [STEP 5 — Active session: check opt-out]
+  if isOptOutKeyword(bodyText):
+    → transition to OPT_OUT, send confirmation, stop
+
+  [STEP 6 — Parse and advance]
+  answer = parseAnswer(session.current_question, bodyText, buttonId)
+  if valid: store answer, advance to next state, send next question
+  if invalid: increment invalid_input_count, send clarification
+  if invalid_input_count ≥ 2: skip question (null), advance
+
+  [STEP 7 — After Q6 answered]
+  → SCORING → THANKYOU_SENT → SUMMARY_LOGGED → NOTIFY → COMPLETED
 ```
 
 ### Input Normalisation
@@ -565,9 +625,9 @@ handleInboundReply(fromNumber, bodyText, buttonId?):
 
 ---
 
-## 10. Opt-Out and Stop Conditions
+## 11. Opt-Out and Stop Conditions
 
-### Opt-Out Keywords (checked on every inbound message)
+### Opt-Out Keywords (checked on every inbound message during active session)
 
 ```
 Arabic:  لا أريد, إلغاء, اخرج, وقف, بلاش, لا شكرا, إيقاف
@@ -586,11 +646,52 @@ English: stop, unsubscribe, no more, cancel, quit
    ```
 5. Log opt-out to Chat History (context: `qual_optout`)
 6. Stop all further AI sends — session is terminal
-7. CRM lead card shows **OPT-OUT** badge in red
+7. CRM lead card shows **OPT-OUT** badge
+8. Future inbound messages from opt-out phone are logged but generate no CRM notification
 
 ---
 
-## 11. Failure and Timeout Handling
+## 12. CRM Integration Plan
+
+### Trigger Point
+
+`metaLeadsService.ts` — after a new `crm_leads` row is inserted successfully:
+
+```typescript
+// PROPOSED addition (not yet in code):
+// fire-and-forget — never throws, never delays webhook response
+waQualService.checkAndTrigger(crmLead.id, crmLead.phone).catch(() => {});
+// checkAndTrigger() = duplicate check → if clear, triggerQualification()
+```
+
+### CRM Lead Card
+
+The lead detail page (`crm-lead-detail.tsx`) will gain:
+- A **Qualification badge**: pill showing `VIP` / `HOT` / `WARM` / `COLD` / `In Progress` / `Pending` / `Opt-Out` / **`Already Qualified`**
+- A **Qualification tab**: shows all 6 answers, score, score reason, and link to Chat History thread
+- A **"Restart Qualification"** button for admins (only if status = `failed` / `timed_out`)
+- **OPT-OUT badge**: prominent warning if lead has opted out
+- **"Already Qualified" notice**: shows original qualification date and score if reused
+
+### CRM List View
+
+`crm-leads.tsx` filter sidebar will gain:
+- Filter by `qualification_score` (VIP / HOT / WARM / COLD)
+- Filter by `qualification_status` (including `already_qualified`)
+- Visual badge on each lead card (brand colours: VIP=teal, HOT=deep blue, WARM=teal/50%, COLD=grey)
+
+### Internal Notifications (no WhatsApp to consultant)
+
+| Event | Notification Text |
+|---|---|
+| Qualification completed | "تم تأهيل العميل: [name] — Score: [tier]" |
+| Post-completion inbound message | "رسالة جديدة من [name] بعد اكتمال التأهيل" |
+| Duplicate lead detected | "العميل مؤهَّل مسبقاً بتاريخ [date]. تم استخدام التأهيل الموجود." |
+| Session timed out | "انتهت مهلة تأهيل العميل [name] دون رد" |
+
+---
+
+## 13. Failure and Timeout Handling
 
 ### Timeout Policy
 
@@ -601,6 +702,7 @@ English: stop, unsubscribe, no more, cancel, quit
 | 72h total with no reply | Set `TIMED_OUT` — create internal CRM notification |
 
 Max **2 nudge messages** per session. No further sends after timeout.
+Post-timeout inbound messages still logged + CRM notification fired (per v2.1 rule).
 
 ### Hard Failures
 
@@ -611,21 +713,21 @@ Max **2 nudge messages** per session. No further sends after timeout.
 | Lead replies opt-out keyword | Set `OPT_OUT`, send confirmation, stop |
 | Lead has no phone number | Skip qualification entirely (no session created) |
 | DB write fails | Log, retry once, then set `FAILED` |
+| Duplicate phone — in-progress session exists | Do not create second session; attach new lead to existing session |
 
 ---
 
-## 12. Estimated Implementation Plan
+## 14. Estimated Implementation Plan
 
-> Phase 1 outbound-only has been **removed**. Implementation starts interactive from day 1.
-
-### Phase 1 — Interactive Core Flow
+### Phase 1 — Interactive Core Flow + Safety Rules
 **Scope:**
 - `wa_qual_sessions`, `wa_qual_answers`, `wa_qual_summaries` tables
-- `waQualService.ts` with full state machine
+- `waQualService.ts` with full state machine including duplicate check and post-completion logging
 - `sendInteractiveMessage()` helper for buttons + list messages
 - Greeting → Q1–Q6 → score → thank-you → summary log → internal CRM notification
 - Opt-out detection on every inbound message
-- Full Chat History logging (all outbound + inbound)
+- Full Chat History logging (all outbound + inbound, including post-completion)
+- Duplicate qualification prevention (60-day check)
 - Webhook extension to route inbound WA messages to `handleInboundReply()`
 - CRM lead card badge + qualification tab
 - `crm_leads` new columns
@@ -637,10 +739,12 @@ Max **2 nudge messages** per session. No further sends after timeout.
 
 ### Phase 2 — CRM Qualification UI + Filters
 **Scope:**
-- Filter by score in CRM list view
+- Filter by score and status in CRM list view
+- "Already Qualified" badge and notice
 - Restart qualification button (failed / timed_out sessions)
 - Admin score override in lead detail
 - OPT-OUT status prominently shown
+- Post-completion message indicator in Chat History thread (separator)
 
 **Estimated effort:** 2–3 days
 **Risk:** Low — frontend only
@@ -663,8 +767,8 @@ Max **2 nudge messages** per session. No further sends after timeout.
 
 | Phase | Scope | Days |
 |---|---|---|
-| Phase 1 | Interactive core + webhook + CRM badge + logging | 6–8 |
-| Phase 2 | CRM UI + filters + override | 2–3 |
+| Phase 1 | Interactive core + webhook + safety rules + CRM badge + logging | 6–8 |
+| Phase 2 | CRM UI + filters + override + already-qualified UI | 2–3 |
 | Phase 3 | Timeout nudge scheduler | 2 |
 | **Total** | | **10–13 days** |
 
@@ -673,24 +777,25 @@ Max **2 nudge messages** per session. No further sends after timeout.
 ## Appendix A — New Files Required (Implementation Phase)
 
 ```
-server/waQualService.ts          — state machine, scoring, summary, opt-out
-server/waQualScheduler.ts        — timeout nudge cron
-server/waQualRoutes.ts           — admin API (restart, score-override)
-server/interactiveMessageHelper.ts — sendInteractiveMessage() (buttons + lists)
-client/.../wa-qualification-tab.tsx  — CRM lead detail qualification tab
-client/.../wa-qual-badge.tsx         — reusable score tier badge component
+server/waQualService.ts               — state machine, scoring, summary, opt-out,
+                                        duplicate check, post-completion logging
+server/waQualScheduler.ts             — timeout nudge cron
+server/waQualRoutes.ts                — admin API (restart, score-override)
+server/interactiveMessageHelper.ts    — sendInteractiveMessage() (buttons + lists)
+client/.../wa-qualification-tab.tsx   — CRM lead detail qualification tab
+client/.../wa-qual-badge.tsx          — reusable score tier badge component
 ```
 
 ## Appendix B — Existing Files Touched (Implementation Phase)
 
 ```
-server/db.ts                         — add ensureWaQualTables()
-server/metaLeadsService.ts           — add fire-and-forget triggerQualification() after insert
-server/routes.ts (webhook handler)   — route inbound WA messages to handleInboundReply()
+server/db.ts                           — add ensureWaQualTables()
+server/metaLeadsService.ts             — add fire-and-forget checkAndTrigger() after insert
+server/routes.ts (webhook handler)     — route inbound WA messages to handleInboundReply()
 server/services/metaWhatsAppService.ts — add logInboundMessage() helper for inbound logging
-server/index.ts                      — register waQualRoutes, start waQualScheduler, call ensureWaQualTables()
-client/.../crm-lead-detail.tsx       — add Qualification tab + badge
-client/.../crm-leads.tsx             — add score filter + badge
+server/index.ts                        — register waQualRoutes, start waQualScheduler, call ensureWaQualTables()
+client/.../crm-lead-detail.tsx         — add Qualification tab + badge + already-qualified notice
+client/.../crm-leads.tsx               — add score filter + badge + already_qualified status
 ```
 
 ## Appendix C — Files NOT Touched (Safety Boundary)
@@ -710,4 +815,4 @@ Meta lead sync core logic                — only trigger point added (fire-and-
 
 ---
 
-*This document is planning only — Version 2.0. No production code, database schema, or environment variables have been modified.*
+*This document is planning only — Version 2.1. No production code, database schema, or environment variables have been modified.*
