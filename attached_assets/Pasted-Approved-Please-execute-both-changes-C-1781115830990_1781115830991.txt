@@ -1,0 +1,111 @@
+Approved.
+
+Please execute both changes.
+
+====================================================
+CHANGE 1 — Instant Welcome Email
+====================================================
+
+Update notification_templates:
+
+- id = 3
+- type = email
+- trigger = welcome
+
+Use the approved short welcome email preview exactly as shown.
+
+Requirements:
+
+- Keep subject:
+  أهلاً بك في Kinglike Luxury 🏡
+
+- Keep hero image
+- Keep branding colors
+- Keep WhatsApp CTA
+- Keep {{username}} personalization
+
+Purpose:
+
+This email is sent immediately after lead creation.
+
+It should be:
+
+- Short
+- Professional
+- Trust-building
+- Confirmation-focused
+
+Do NOT include the long marketing/services section.
+
+====================================================
+CHANGE 2 — Move Long Benefits Email To Day 1
+====================================================
+
+Update:
+
+email_nurturing_templates
+id = 22
+
+Current:
+day_offset = 0
+
+Change to:
+day_offset = 1
+
+Desired journey:
+
+Day 0
+→ Short Welcome Email (notification_templates id=3)
+
+Day 1
+→ Long Benefits / Georgia Investment Email (email_nurturing_templates id=22)
+
+Day 2
+→ Existing Email #2
+
+Day 5
+→ Existing Email #3
+
+Day 10
+→ Existing Email #4
+
+Day 20
+→ Existing Email #5
+
+Day 35
+→ Existing Email #6
+
+Monthly
+→ Existing recurring update
+
+====================================================
+STRICT SAFETY RULES
+====================================================
+
+Do NOT modify:
+
+- Email sending logic
+- Scheduler logic
+- CRM logic
+- WhatsApp API
+- Meta Leads
+- AI Qualification
+- Routes
+- Database schema
+- Any code files
+- Any template except:
+  - notification_templates id=3
+  - email_nurturing_templates id=22 (day_offset only)
+
+====================================================
+AFTER EXECUTION
+====================================================
+
+Return:
+
+1. Exact SQL statements executed.
+2. Before/After values.
+3. Confirmation that id=22 now sends on Day 1.
+4. Confirmation that no code files were modified.
+5. Confirmation that only the two database records above were changed.
+6. Confirmation that no deployment was required.
