@@ -1,42 +1,44 @@
-import Twilio from "twilio";
+/**
+ * WhatsApp Notification Service
+ *
+ * Sends automated WhatsApp messages (welcome, weekly_update, inactive_reminder)
+ * via Meta Cloud API — NOT Twilio.
+ *
+ * Twilio is kept only for SMS/OTP delivery (see server/routes.ts).
+ */
+
 import { db } from "./db";
 import { notificationTemplates, notificationLogs, users } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getOrCreateTemplate } from "./emailService";
+import { sendMetaWhatsApp, isMetaWhatsAppConfigured } from "./services/metaWhatsAppService";
 
-const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const AUTH_TOKEN  = process.env.TWILIO_AUTH_TOKEN;
-const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER;
-
-function getClient() {
-  if (!ACCOUNT_SID || !AUTH_TOKEN) return null;
-  return Twilio(ACCOUNT_SID, AUTH_TOKEN);
-}
+// ── Re-export so callers that check this flag still work ──────────────────────
 
 export function isWhatsAppConfigured(): boolean {
-  return !!(ACCOUNT_SID && AUTH_TOKEN && FROM_NUMBER);
+  return isMetaWhatsAppConfigured();
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fillTemplate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
 }
 
 async function logNotification(params: {
-  userId?: number;
-  type: string;
-  trigger: string;
+  userId?:   number;
+  type:      string;
+  trigger:   string;
   recipient?: string;
-  status: string;
-  error?: string;
+  status:    string;
+  error?:    string;
 }) {
-  await db.insert(notificationLogs).values(params);
+  try {
+    await db.insert(notificationLogs).values(params);
+  } catch { /* non-critical */ }
 }
 
-function toWhatsAppNumber(phone: string): string {
-  const clean = phone.replace(/\s/g, "");
-  const e164 = clean.startsWith("+") ? clean : `+${clean}`;
-  return `whatsapp:${e164}`;
-}
+// ── Default message templates ─────────────────────────────────────────────────
 
 const DEFAULT_WHATSAPP_TEXTS: Record<string, string> = {
   welcome: `مرحباً *{{username}}*! 👋
@@ -74,18 +76,19 @@ const DEFAULT_WHATSAPP_TEXTS: Record<string, string> = {
 فريق Kinglike Luxury`,
 };
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
 export async function sendWelcomeWhatsApp(user: {
-  id: number;
-  username: string;
-  phoneNumber?: string | null;
+  id:             number;
+  username:       string;
+  phoneNumber?:   string | null;
   whatsappNumber?: string | null;
 }) {
   const phone = user.whatsappNumber || user.phoneNumber;
   if (!phone) return;
 
-  const client = getClient();
-  if (!client) {
-    console.log("[WhatsApp] Twilio not configured — skipping welcome for", phone);
+  if (!isMetaWhatsAppConfigured()) {
+    console.log("[WhatsApp] Meta not configured — skipping welcome for", phone);
     return;
   }
 
@@ -97,29 +100,28 @@ export async function sendWelcomeWhatsApp(user: {
     { username: user.username }
   );
 
-  try {
-    await client.messages.create({
-      from: `whatsapp:${FROM_NUMBER}`,
-      to: toWhatsAppNumber(phone),
-      body,
-    });
-    await logNotification({ userId: user.id, type: "whatsapp", trigger: "welcome", recipient: phone, status: "sent" });
-    console.log("[WhatsApp] Welcome sent to", phone);
-  } catch (err: any) {
-    await logNotification({ userId: user.id, type: "whatsapp", trigger: "welcome", recipient: phone, status: "failed", error: err.message });
-    console.error("[WhatsApp] Failed welcome:", err.message);
-  }
+  const result = await sendMetaWhatsApp(phone, body, "welcome");
+
+  await logNotification({
+    userId:    user.id,
+    type:      "whatsapp",
+    trigger:   "welcome",
+    recipient: phone,
+    status:    result.success ? "sent" : "failed",
+    error:     result.error,
+  });
 }
 
 export async function sendBulkWhatsApp(trigger: "weekly_update" | "inactive_reminder") {
-  const client = getClient();
-  if (!client) {
-    console.log("[WhatsApp] Twilio not configured — skipping bulk", trigger);
+  if (!isMetaWhatsAppConfigured()) {
+    console.log("[WhatsApp] Meta not configured — skipping bulk", trigger);
     return { sent: 0, failed: 0, skipped: "not configured" };
   }
 
   const template = await getOrCreateTemplate("whatsapp", trigger);
-  if (!template || !template.isActive) return { sent: 0, failed: 0, skipped: "template inactive" };
+  if (!template || !template.isActive) {
+    return { sent: 0, failed: 0, skipped: "template inactive" };
+  }
 
   const allUsers = await db.select().from(users);
   let targetUsers = allUsers.filter(u => u.phoneNumber || u.whatsappNumber);
@@ -130,25 +132,29 @@ export async function sendBulkWhatsApp(trigger: "weekly_update" | "inactive_remi
   }
 
   let sent = 0, failed = 0;
+
   for (const user of targetUsers) {
     const phone = user.whatsappNumber || user.phoneNumber!;
-    const body = fillTemplate(
+    const body  = fillTemplate(
       template.bodyText ?? DEFAULT_WHATSAPP_TEXTS[trigger],
       { username: user.username }
     );
-    try {
-      await client.messages.create({
-        from: `whatsapp:${FROM_NUMBER}`,
-        to: toWhatsAppNumber(phone),
-        body,
-      });
-      await logNotification({ userId: user.id, type: "whatsapp", trigger, recipient: phone, status: "sent" });
-      sent++;
-      await new Promise(r => setTimeout(r, 300));
-    } catch (err: any) {
-      await logNotification({ userId: user.id, type: "whatsapp", trigger, recipient: phone, status: "failed", error: err.message });
-      failed++;
-    }
+
+    const result = await sendMetaWhatsApp(phone, body, trigger);
+
+    await logNotification({
+      userId:    user.id,
+      type:      "whatsapp",
+      trigger,
+      recipient: phone,
+      status:    result.success ? "sent" : "failed",
+      error:     result.error,
+    });
+
+    if (result.success) { sent++; } else { failed++; }
+
+    // Respect Meta rate limits — short pause between sends
+    await new Promise(r => setTimeout(r, 200));
   }
 
   console.log(`[WhatsApp] Bulk ${trigger}: ${sent} sent, ${failed} failed`);

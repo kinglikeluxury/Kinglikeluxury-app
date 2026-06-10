@@ -692,33 +692,19 @@ ${metaTags}
       const fromNumber = process.env.TWILIO_PHONE_NUMBER;
       const msgBody = `🔐 Kinglike Luxury\nرمز التحقق: *${code}*\nصالح 10 دقائق.`;
 
-      // 1️⃣ Try WhatsApp first
-      let method = "whatsapp";
+      // Send OTP via SMS only (Twilio) — WhatsApp OTP removed, Twilio WhatsApp is not configured
+      const method = "sms";
+      const smsBody = `Kinglike Luxury - رمز التحقق: ${code} (صالح 10 دقائق)`;
       try {
-        await twilioClient.messages.create({
-          body: msgBody,
-          from: `whatsapp:${fromNumber}`,
-          to: `whatsapp:${phoneNumber}`,
-        });
-        console.log(`✅ WhatsApp OTP sent to ${phoneNumber}`);
-      } catch (waError: any) {
-        // WhatsApp failed — fallback to SMS
-        console.warn(`⚠️ WhatsApp failed (${waError.code}), falling back to SMS...`);
-        method = "sms";
-        const smsBody = `Kinglike Luxury - رمز التحقق: ${code} (صالح 10 دقائق)`;
-        // 2️⃣ Try messaging service SID first, then fall back to direct phone number
-        try {
-          if (msgSid) {
-            await twilioClient.messages.create({ body: smsBody, to: phoneNumber, messagingServiceSid: msgSid });
-          } else {
-            throw new Error("No messaging service SID");
-          }
-        } catch {
-          // 3️⃣ Final fallback: send directly from Twilio phone number
-          await twilioClient.messages.create({ body: smsBody, to: phoneNumber, from: fromNumber });
+        if (msgSid) {
+          await twilioClient.messages.create({ body: smsBody, to: phoneNumber, messagingServiceSid: msgSid });
+        } else {
+          throw new Error("No messaging service SID");
         }
-        console.log(`✅ SMS OTP sent to ${phoneNumber}`);
+      } catch {
+        await twilioClient.messages.create({ body: smsBody, to: phoneNumber, from: fromNumber });
       }
+      console.log(`✅ SMS OTP sent to ${phoneNumber}`);
 
       addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'sent', method: method as 'whatsapp' | 'sms', userAgent: ua });
       res.json({ success: true, method, message: method === "whatsapp" ? "Verification code sent via WhatsApp" : "Verification code sent via SMS" });
@@ -854,24 +840,18 @@ ${metaTags}
         let codeSent = false;
 
         if (twilioClient) {
+          // Use SMS only — Twilio WhatsApp is not configured
           const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
           const fromNumber = process.env.TWILIO_PHONE_NUMBER;
           try {
-            // Try WhatsApp first
-            await twilioClient.messages.create({ body: msgBody, from: `whatsapp:${fromNumber}`, to: `whatsapp:${phoneNumber}` });
-            codeSent = true;
-          } catch {
-            // WhatsApp failed — try SMS
-            try {
-              if (msgSid) {
-                await twilioClient.messages.create({ body: msgBody, to: phoneNumber, messagingServiceSid: msgSid });
-              } else {
-                await twilioClient.messages.create({ body: msgBody, to: phoneNumber, from: fromNumber });
-              }
-              codeSent = true;
-            } catch (smsErr: any) {
-              console.warn('[Reset OTP] SMS failed:', smsErr.message);
+            if (msgSid) {
+              await twilioClient.messages.create({ body: msgBody, to: phoneNumber, messagingServiceSid: msgSid });
+            } else {
+              await twilioClient.messages.create({ body: msgBody, to: phoneNumber, from: fromNumber });
             }
+            codeSent = true;
+          } catch (smsErr: any) {
+            console.warn('[Reset OTP] SMS failed:', smsErr.message);
           }
         }
 

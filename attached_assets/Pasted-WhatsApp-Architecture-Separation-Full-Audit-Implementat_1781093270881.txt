@@ -1,0 +1,194 @@
+WhatsApp Architecture Separation – Full Audit & Implementation Plan
+
+We now have 3 different WhatsApp purposes. They must remain fully separated.
+
+1. Public Website / Property WhatsApp Contact
+
+Public number:
++995591000058
+
+This number must be used only for public customer contact buttons.
+
+Required behavior:
+
+- Property detail page “Contact via WhatsApp” button must open:
+  https://wa.me/995591000058
+- Property cards WhatsApp button must open:
+  https://wa.me/995591000058
+- Mobile property contact buttons must open:
+  https://wa.me/995591000058
+- Public inquiry buttons must open:
+  https://wa.me/995591000058
+
+Do NOT use the API number on public property pages.
+
+2. Meta Cloud API / AI / Automation Number
+
+API number:
++995511508266
+
+Meta details:
+Phone Number ID:
+1110445448828325
+
+WhatsApp Business Account ID:
+2006683553274156
+
+This number is only for:
+
+- WhatsApp Cloud API
+- AI automation
+- CRM automated messages
+- internal system messaging
+- scheduled WhatsApp notifications
+
+Required environment variables:
+WHATSAPP_PHONE_NUMBER_ID=1110445448828325
+WHATSAPP_BUSINESS_ACCOUNT_ID=2006683553274156
+WHATSAPP_ACCESS_TOKEN=<permanent Meta access token>
+
+Do not expose this number on public property pages.
+
+3. CRM Employee WhatsApp Communication
+
+Inside CRM, WhatsApp icons beside lead phone numbers must NOT use:
+
+- +995591000058
+- +995511508266
+- Twilio
+- Meta Cloud API
+
+Required CRM behavior:
+When an employee clicks the WhatsApp icon beside a lead phone number, open a standard WhatsApp link to the lead:
+
+https://wa.me/[lead_phone]
+
+This must launch WhatsApp Web/Desktop and use the logged-in employee’s own WhatsApp account.
+
+Applies to:
+
+- CRM lead list WhatsApp icon
+- CRM lead details WhatsApp button
+- AI Leads WhatsApp button
+- any CRM contact shortcuts
+
+4. Twilio Removal From WhatsApp Sending
+
+Audit confirmed production is still using Twilio for WhatsApp:
+
+TWILIO_PHONE_NUMBER=+17623363379
+
+All sends fail with:
+“Twilio could not find a Channel with the specified From address”
+
+Required:
+
+- Do not use Twilio for WhatsApp sending anymore.
+- Replace automated WhatsApp sending with Meta Cloud API.
+- Keep Twilio only for SMS/OTP if still needed.
+
+Create centralized Meta WhatsApp sending service:
+server/services/metaWhatsAppService.ts
+
+All automated WhatsApp sends must go through:
+
+POST https://graph.facebook.com/v23.0/1110445448828325/messages
+
+Required:
+
+- Validate env variables at startup.
+- If missing, log clear error and disable automated WhatsApp sending.
+- Log every send attempt:
+  recipient
+  message type
+  payload
+  Meta response
+  success/failure
+
+5. Developer Registration Center – Silk Only
+
+Current audit confirmed:
+
+- Silk payloads are prepared.
+- No HTTP requests are sent.
+- developer_registration_attempts is empty.
+- Current system is manual-only Phase 1.
+
+Implement Phase 2 only for Silk Development.
+
+Silk URL:
+https://system.silkdevelopment.ge/custom/Broker/
+
+Required behavior:
+
+- Add Silk-specific submission adapter.
+- Admin-triggered only.
+- Add button: “Submit to Silk”
+- Do not auto-submit all records.
+- Do not implement Gumbati, Petra, Next Partners, or other companies yet.
+
+Save every attempt in developer_registration_attempts:
+
+- crm_lead_id
+- developer_company_id
+- developer_registration_record_id
+- destination_url
+- request_payload
+- response_status
+- response_body
+- success/failure
+- error_message
+- created_at
+
+Registration statuses:
+
+- prepared = data ready, not sent
+- submitted = request sent
+- success = accepted by Silk
+- failed = not accepted
+- stopped = stopped by CRM status
+
+Never mark success just because request was sent.
+Success requires evidence from Silk response.
+
+Add clear admin UI warning:
+“Prepared does not mean registered. The lead is registered only after successful Silk confirmation.”
+
+6. Do NOT Modify
+
+Do not modify:
+
+- Meta Leads sync logic
+- CRM lead creation logic
+- Email nurturing
+- AI lead scoring
+- Authentication
+- Payments
+- Public website structure
+- Other developer companies
+- Blog/SEO
+- Property database
+
+7. Return Required Report
+
+After implementation return:
+
+A. WhatsApp:
+
+- files checked
+- files changed
+- all public WhatsApp URLs confirmed
+- all CRM WhatsApp URLs confirmed
+- confirmation public pages use +995591000058
+- confirmation CRM icons open https://wa.me/[lead_phone]
+- confirmation automated sends use Meta Cloud API only
+- confirmation Twilio WhatsApp sending is disabled/removed
+
+B. Silk:
+
+- files changed
+- Silk endpoint used
+- sample payload
+- sample response
+- validation result using one test lead only
+- confirmation no other companies were modified

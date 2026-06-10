@@ -19,6 +19,7 @@ import { ensureEmailNurturingTables, startNurturingScheduler } from "./emailNurt
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
+import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 
 const app = express();
 
@@ -191,6 +192,7 @@ app.use((req, res, next) => {
 
   startScheduler();
   startDailyBackup();
+  validateMetaWhatsAppConfig();
 
   // Log active database status after server is up
   logDatabaseStatus().catch(err =>
