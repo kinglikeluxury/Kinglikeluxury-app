@@ -16,6 +16,7 @@ export interface PullSyncResult {
 
 const META_GRAPH_VERSION = "v19.0";
 const META_GRAPH_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
+const META_PAGE_ID = process.env.META_PAGE_ID || "127710467090772";
 
 // ── Alert tracking (in-memory) ────────────────────────────────────────────────
 let lastLeadReceivedAt: Date | null = null;
@@ -395,15 +396,21 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
   if (!token) throw new Error("META_ACCESS_TOKEN is not configured");
 
   const tokenLen = token.length;
+  const tokenType = "SYSTEM_USER";
+  const pageId = META_PAGE_ID;
+  const formsEndpoint = `/${pageId}/leadgen_forms`;
   const result: PullSyncResult = {
     formsChecked: 0, leadsFound: 0, leadsInserted: 0, duplicatesSkipped: 0, errors: 0,
   };
 
   console.log("[MetaLeads][PullSync] start");
+  console.log(`[MetaLeads][PullSync] token_type=${tokenType} | token_len=${tokenLen} | page_id=${pageId}`);
+  console.log(`[MetaLeads][PullSync] endpoint=GET ${formsEndpoint}`);
 
-  // Step 1: fetch all lead forms
-  const formsUrl = `${META_GRAPH_BASE}/me/leadgen_forms?access_token=${encodeURIComponent(token)}&fields=id,name,status&limit=100`;
-  console.log(`[MetaLeads][PullSync] GET /me/leadgen_forms?access_token=[len=${tokenLen}]&fields=id,name,status&limit=100`);
+  // Step 1: fetch all lead forms via /{page_id}/leadgen_forms
+  // NOTE: /me/leadgen_forms does NOT work for SYSTEM_USER tokens — system users have no leadgen_forms edge.
+  const formsUrl = `${META_GRAPH_BASE}/${pageId}/leadgen_forms?access_token=${encodeURIComponent(token)}&fields=id,name,status&limit=100`;
+  console.log(`[MetaLeads][PullSync] GET /${pageId}/leadgen_forms?access_token=[len=${tokenLen}]&fields=id,name,status&limit=100`);
 
   let formsData: any;
   try {
@@ -413,7 +420,20 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
   }
 
   if (formsData.error) {
-    throw new Error(`Meta error: ${formsData.error.message} (code ${formsData.error.code})`);
+    const errMsg: string = formsData.error.message || "";
+    const errCode: number = formsData.error.code || 0;
+    if (errCode === 200 || errMsg.toLowerCase().includes("pages_manage_ads")) {
+      console.error(
+        "[MetaLeads][PullSync] PERMISSION ERROR: Missing pages_manage_ads permission. " +
+        "Add pages_manage_ads to the System User token in Facebook Business Manager and regenerate META_ACCESS_TOKEN."
+      );
+      throw new Error(
+        `Meta permission error: Missing pages_manage_ads. ` +
+        `Go to Business Manager → System Users → add pages_manage_ads → regenerate META_ACCESS_TOKEN. ` +
+        `(original: ${errMsg})`
+      );
+    }
+    throw new Error(`Meta error: ${errMsg} (code ${errCode})`);
   }
 
   const forms: any[] = formsData.data || [];
