@@ -3,6 +3,7 @@ import { leadImportQueue, leadImportAuditLog, crmLeads } from "@shared/schema";
 import { eq, and, lte } from "drizzle-orm";
 import https from "https";
 import { initConversationForLead } from "./whatsappAiService";
+import { checkAndTrigger as waQualCheckAndTrigger } from "./waQualService";
 import { initDeveloperRegistrationsForLead } from "./developerRegistrationService";
 import { getEligibleSubAgents, pickNextSubAgentId, cycleAgentId } from "./leadAssignmentService";
 
@@ -233,6 +234,11 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       assignedTo:      crmLead.assignedTo,
     }).catch(err =>
       console.error(`[WhatsAppAI] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
+    );
+
+    // ── WA Qualification: start interactive flow ──────────────────────────
+    waQualCheckAndTrigger(crmLead.id, crmLead.phone, crmLead.firstName).catch(err =>
+      console.error(`[WaQual] Trigger failed crmLeadId=${crmLead.id}: ${err.message}`)
     );
 
     // ── Developer Registration: prepare records for all active developers ───
@@ -557,6 +563,11 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             assignedTo:      crmLead.assignedTo,
           }).catch(err =>
             console.error(`[WhatsAppAI] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
+          );
+
+          // ── WA Qualification: start interactive flow ────────────────────────
+          waQualCheckAndTrigger(crmLead.id, crmLead.phone, crmLead.firstName).catch(err =>
+            console.error(`[WaQual] Trigger failed crmLeadId=${crmLead.id}: ${err.message}`)
           );
 
           // ── Developer Registration: prepare records for all active developers ─

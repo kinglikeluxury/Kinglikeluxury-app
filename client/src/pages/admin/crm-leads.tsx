@@ -159,6 +159,7 @@ export default function CrmLeadsPage() {
   const [expectedMonth, setExpectedMonthRaw] = useState(qs.get("expectedMonth") ?? "all");
   const [contactDate, setContactDateRaw]     = useState(qs.get("contactDate") ?? "all");
   const [sortBy, setSortByRaw]               = useState(qs.get("sortBy") ?? "newest");
+  const [qualScore, setQualScoreRaw]         = useState(qs.get("qualScore") ?? "all");
   const [page, setPage] = useState(1);
 
   // Wrapper setters — reset page whenever any filter changes
@@ -169,6 +170,7 @@ export default function CrmLeadsPage() {
   const setExpectedMonth = (v: string) => { setExpectedMonthRaw(v); setPage(1); };
   const setContactDate   = (v: string) => { setContactDateRaw(v);   setPage(1); };
   const setSortBy        = (v: string) => { setSortByRaw(v);        setPage(1); };
+  const setQualScore     = (v: string) => { setQualScoreRaw(v);     setPage(1); };
 
   const PAGE_SIZE = 50;
 
@@ -182,10 +184,11 @@ export default function CrmLeadsPage() {
     if (expectedMonth !== "all")  p.set("expectedMonth", expectedMonth);
     if (contactDate !== "all")    p.set("contactDate", contactDate);
     if (sortBy !== "newest")      p.set("sortBy", sortBy);
+    if (qualScore !== "all")      p.set("qualScore", qualScore);
     if (page > 1)                 p.set("page", String(page));
     const qs = p.toString();
     window.history.replaceState(null, "", `/admin/crm${qs ? "?" + qs : ""}`);
-  }, [search, status, source, assigned, expectedMonth, contactDate, sortBy, page]);
+  }, [search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, page]);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -244,12 +247,13 @@ export default function CrmLeadsPage() {
   if (expectedMonth !== "all") params.set("expectedMonth", expectedMonth);
   if (contactDate !== "all")   params.set("contactDate", contactDate);
   if (sortBy !== "newest")     params.set("sortOrder", "oldest");
+  if (qualScore !== "all")     params.set("qualScore", qualScore);
   params.set("page", String(page));
   params.set("limit", String(PAGE_SIZE));
 
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: pageData, isLoading, refetch } = useQuery<{ leads: CrmLeadWithAssignee[]; total: number; page: number; limit: number }>({
-    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, expectedMonth, contactDate, sortBy, page],
+    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, page],
     queryFn: () => fetch(`/api/admin/crm/leads?${params}`).then(r => {
       if (!r.ok) throw new Error("Forbidden");
       return r.json();
@@ -1038,6 +1042,18 @@ export default function CrmLeadsPage() {
                 <SelectItem value="oldest">Oldest first</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={qualScore} onValueChange={setQualScore}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="WA Qual Score" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All WA Scores</SelectItem>
+                <SelectItem value="vip">⭐ VIP</SelectItem>
+                <SelectItem value="hot">🔥 Hot</SelectItem>
+                <SelectItem value="warm">🌡️ Warm</SelectItem>
+                <SelectItem value="cold">❄️ Cold</SelectItem>
+                <SelectItem value="in_progress">⏳ In Progress</SelectItem>
+                <SelectItem value="none">— Not qualified</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -1237,6 +1253,28 @@ export default function CrmLeadsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <ScoreBadge score={lead.leadScore} />
+                        {(() => {
+                          const qs = (lead as any).qualification_score as string | null;
+                          const qst = (lead as any).qualification_status as string | null;
+                          if (!qs && qst !== "in_progress") return null;
+                          const cfg: Record<string, { label: string; cls: string }> = {
+                            vip:  { label: "VIP",  cls: "bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white" },
+                            hot:  { label: "Hot",  cls: "bg-red-100 text-red-700 border border-red-200" },
+                            warm: { label: "Warm", cls: "bg-amber-100 text-amber-700 border border-amber-200" },
+                            cold: { label: "Cold", cls: "bg-sky-100 text-sky-700 border border-sky-200" },
+                          };
+                          if (qst === "in_progress") return (
+                            <span className="mt-1 flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30 w-fit">
+                              <SiWhatsapp className="h-2.5 w-2.5" /> Qual…
+                            </span>
+                          );
+                          const c = cfg[qs ?? ""] ?? { label: qs ?? "", cls: "bg-gray-100 text-gray-600" };
+                          return (
+                            <span className={`mt-1 flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full w-fit font-medium ${c.cls}`}>
+                              <SiWhatsapp className="h-2.5 w-2.5" /> {c.label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {lead.assigneeName ?? "—"}

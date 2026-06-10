@@ -156,6 +156,49 @@ export async function sendMetaWhatsApp(
 
 // ── Chat History Logging ──────────────────────────────────────────────────────
 
+/** Log an inbound WhatsApp message to Chat History. */
+export async function logInboundMessage(opts: {
+  phone:  string;
+  text:   string;
+  wamid?: string;
+  context?: string;
+}): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const convResult = await client.query(`
+      INSERT INTO whatsapp_api_conversations
+        (phone_number, last_message_at, last_message_preview, source, updated_at)
+      VALUES ($1, NOW(), $2, $3, NOW())
+      ON CONFLICT (phone_number) DO UPDATE SET
+        last_message_at      = NOW(),
+        last_message_preview = EXCLUDED.last_message_preview,
+        updated_at           = NOW()
+      RETURNING id
+    `, [
+      opts.phone,
+      (opts.text || "").slice(0, 120),
+      opts.context ?? "inbound",
+    ]);
+
+    const conversationId = convResult.rows[0]?.id;
+    if (!conversationId) return;
+
+    await client.query(`
+      INSERT INTO whatsapp_api_messages
+        (conversation_id, direction, message_text, message_type,
+         wamid, status, context_label, created_at)
+      VALUES ($1, 'inbound', $2, 'text', $3, 'received', $4, NOW())
+    `, [
+      conversationId,
+      opts.text,
+      opts.wamid   ?? null,
+      opts.context ?? null,
+    ]);
+  } catch { /* non-critical */ } finally {
+    client.release();
+  }
+}
+
 async function logOutboundMessage(opts: {
   phone:     string;
   text:      string;

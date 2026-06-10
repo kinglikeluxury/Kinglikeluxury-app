@@ -440,6 +440,72 @@ export async function ensureWhatsAppApiTables(): Promise<void> {
   }
 }
 
+// ── WA Qualification Tables ───────────────────────────────────────────────────
+
+export async function ensureWaQualTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    // Sessions table — one row per lead
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wa_qual_sessions (
+        id                   SERIAL PRIMARY KEY,
+        lead_id              INTEGER NOT NULL UNIQUE REFERENCES crm_leads(id) ON DELETE CASCADE,
+        phone                TEXT NOT NULL,
+        status               TEXT NOT NULL DEFAULT 'idle',
+        current_question     TEXT,
+        last_message_at      TIMESTAMPTZ,
+        last_outbound_wamid  TEXT,
+        retry_count          INTEGER NOT NULL DEFAULT 0,
+        invalid_input_count  INTEGER NOT NULL DEFAULT 0,
+        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        completed_at         TIMESTAMPTZ
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_qual_sessions_phone  ON wa_qual_sessions (phone)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_qual_sessions_status ON wa_qual_sessions (status)`);
+
+    // Answers table — one row per question per session (upsert by session_id+question_key)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wa_qual_answers (
+        id                SERIAL PRIMARY KEY,
+        session_id        INTEGER NOT NULL REFERENCES wa_qual_sessions(id) ON DELETE CASCADE,
+        question_key      TEXT NOT NULL,
+        raw_input         TEXT,
+        normalised_value  TEXT,
+        input_method      TEXT NOT NULL DEFAULT 'text',
+        received_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (session_id, question_key)
+      )
+    `);
+
+    // Summaries table — computed on completion
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wa_qual_summaries (
+        id            SERIAL PRIMARY KEY,
+        session_id    INTEGER NOT NULL UNIQUE REFERENCES wa_qual_sessions(id) ON DELETE CASCADE,
+        qual_score    TEXT NOT NULL,
+        score_reason  TEXT,
+        summary_text  TEXT,
+        generated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // Extra columns on crm_leads (idempotent)
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_status  TEXT    DEFAULT 'none'`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_score   TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_summary TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualified_at          TIMESTAMPTZ`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS opt_out_wa            BOOLEAN NOT NULL DEFAULT FALSE`);
+
+    console.log("[DB] ensureWaQualTables ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureWaQualTables error:", err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

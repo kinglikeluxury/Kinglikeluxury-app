@@ -5,6 +5,7 @@ import { db } from "./db";
 import { leadImportQueue, leadImportAuditLog } from "@shared/schema";
 import { eq, desc, asc, and, lte, count } from "drizzle-orm";
 import { recordLeadReceived, getAlertStatus, pullSyncFromMeta } from "./metaLeadsService";
+import { handleInboundMessage as waQualHandleInbound } from "./waQualService";
 import { storage } from "./storage";
 
 const META_GRAPH_VERSION = "v19.0";
@@ -181,6 +182,57 @@ export function registerMetaLeadsRoutes(app: Express): void {
             console.log(
               `[MetaLeads][POST] ▷ field="${change.field}" | leadgen_id=${cv.leadgen_id ?? "—"} | form_id=${cv.form_id ?? "—"} | page_id=${cv.page_id ?? "—"}`
             );
+
+            // ── Handle inbound WhatsApp messages (WABA replies) ────────────────
+            if (change.field === "messages") {
+              const messages: any[] = cv.messages ?? [];
+              for (const msg of messages) {
+                try {
+                  const fromPhone: string = msg.from ?? "";
+                  if (!fromPhone) continue;
+
+                  // Extract text / interactive reply
+                  let bodyText  = "";
+                  let buttonId: string | undefined;
+                  let listId:   string | undefined;
+                  const wamid  = msg.id;
+
+                  if (msg.type === "text") {
+                    bodyText = msg.text?.body ?? "";
+                  } else if (msg.type === "interactive") {
+                    const iact = msg.interactive ?? {};
+                    if (iact.type === "button_reply") {
+                      buttonId = iact.button_reply?.id;
+                      bodyText = iact.button_reply?.title ?? buttonId ?? "";
+                    } else if (iact.type === "list_reply") {
+                      listId   = iact.list_reply?.id;
+                      bodyText = iact.list_reply?.title ?? listId ?? "";
+                    }
+                  } else {
+                    // Unsupported type — log but don't route to qualifier
+                    bodyText = `[${msg.type ?? "unknown"} message]`;
+                  }
+
+                  console.log(
+                    `[MetaLeads][WA-Inbound] from=${fromPhone} | type=${msg.type} | ` +
+                    `buttonId=${buttonId ?? "—"} | listId=${listId ?? "—"} | wamid=${wamid ?? "—"}`
+                  );
+
+                  waQualHandleInbound({
+                    phone:    fromPhone,
+                    bodyText,
+                    wamid,
+                    buttonId,
+                    listId,
+                  }).catch(err =>
+                    console.error(`[MetaLeads][WA-Inbound] handleInbound error:`, err.message)
+                  );
+                } catch (msgErr: any) {
+                  console.error("[MetaLeads][WA-Inbound] message parse error:", msgErr.message);
+                }
+              }
+              continue;
+            }
 
             if (change.field !== "leadgen") continue;
 

@@ -461,6 +461,42 @@ export default function CrmLeadDetailPage() {
     onError: (e: any) => toast({ title: "Init failed", description: e.message, variant: "destructive" }),
   });
 
+  // ── WA Qualification hooks ───────────────────────────────────────────────
+  const [qualOpen, setQualOpen] = useState(false);
+  const [qualScoreOverride, setQualScoreOverride] = useState("");
+
+  const { data: qualData, isLoading: qualLoading, refetch: qualRefetch } = useQuery<{
+    session: { id: number; state: string; score: number | null; qualified_score: string | null; qualified_at: string | null; opt_out: boolean } | null;
+    answers: { question_key: string; answer_label: string }[];
+    summary: string | null;
+  }>({
+    queryKey: ["/api/admin/wa-qual/lead", leadId],
+    queryFn: () =>
+      fetch(`/api/admin/wa-qual/lead/${leadId}`).then(r => {
+        if (r.status === 404 || r.status === 403) return { session: null, answers: [], summary: null };
+        if (!r.ok) throw new Error("Failed to load qualification data");
+        return r.json();
+      }),
+    enabled: isCrmAuthorized && !!leadId && (user?.isAdmin ?? false),
+  });
+
+  const restartQualMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/admin/wa-qual/lead/${leadId}/restart`, {}),
+    onSuccess: () => { qualRefetch(); toast({ title: "Qualification flow restarted" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const overrideQualScoreMutation = useMutation({
+    mutationFn: (score: string) => apiRequest("PATCH", `/api/admin/wa-qual/lead/${leadId}/score`, { score }),
+    onSuccess: () => {
+      qualRefetch();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads", leadId] });
+      toast({ title: "Qualification score updated" });
+      setQualScoreOverride("");
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   // ── Auth guard — effect-based redirect avoids "setState during render" ──
   useEffect(() => {
     if (!authLoading && !isCrmAuthorized) {
@@ -1638,6 +1674,169 @@ export default function CrmLeadDetailPage() {
             )}
           </Card>
           )}
+        </div>
+      )}
+
+      {/* ── WA Qualification Section ─────────────────────────────────────── */}
+      {user?.isAdmin && (
+        <div className="mt-6">
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardContent className="p-0">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#3bcac4]/20 to-[#005476]/20 flex items-center justify-center">
+                    <SiWhatsapp className="h-4 w-4 text-[#005476]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#005476]">WhatsApp Qualification</p>
+                    <p className="text-xs text-muted-foreground">AI-driven interactive lead scoring</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 items-center">
+                  {qualData?.session && (
+                    <Button
+                      size="sm" variant="outline"
+                      className="gap-1.5 text-xs h-7 border-[#3bcac4]/50 text-[#005476] hover:bg-[#3bcac4]/10"
+                      onClick={() => setQualOpen(v => !v)}
+                    >
+                      {qualOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {qualOpen ? "Hide" : "Details"}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-xs h-7 bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                    onClick={() => restartQualMutation.mutate()}
+                    disabled={restartQualMutation.isPending}
+                  >
+                    {restartQualMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    {qualData?.session ? "Re-qualify" : "Start Flow"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="px-5 py-4">
+                {qualLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#3bcac4]" />
+                  </div>
+                ) : !qualData?.session ? (
+                  <div className="text-center text-slate-400 text-sm py-4">
+                    <SiWhatsapp className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p>No qualification flow started for this lead yet.</p>
+                    {!lead.phone && <p className="text-xs mt-1 text-amber-600">⚠️ Lead has no phone number — flow requires WhatsApp.</p>}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Score + Status row */}
+                    <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">WA Score</span>
+                        {qualData.session.qualified_score ? (
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                            qualData.session.qualified_score === "vip"  ? "bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white" :
+                            qualData.session.qualified_score === "hot"  ? "bg-red-100 text-red-700" :
+                            qualData.session.qualified_score === "warm" ? "bg-amber-100 text-amber-700" :
+                                                                          "bg-sky-100 text-sky-700"
+                          }`}>
+                            <Crown className="h-3 w-3" />
+                            {qualData.session.qualified_score.toUpperCase()}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">State</span>
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                          qualData.session.state === "completed"          ? "bg-green-100 text-green-700" :
+                          qualData.session.state === "in_progress" || qualData.session.state.includes("_sent") ? "bg-[#3bcac4]/10 text-[#005476]" :
+                          qualData.session.state === "timed_out"          ? "bg-amber-100 text-amber-700" :
+                          qualData.session.state === "opt_out"            ? "bg-gray-100 text-gray-500" :
+                                                                            "bg-slate-100 text-slate-500"
+                        }`}>
+                          {qualData.session.state.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      {qualData.session.score !== null && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-muted-foreground">Points</span>
+                          <span className="text-xs font-semibold text-[#005476]">{qualData.session.score}</span>
+                        </div>
+                      )}
+                      {qualData.session.qualified_at && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-muted-foreground">Qualified</span>
+                          <span className="text-xs text-[#005476]">{new Date(qualData.session.qualified_at).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      {qualData.session.opt_out && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                          <UserX className="h-3 w-3" /> Opted out
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Summary */}
+                    {qualData.summary && (
+                      <div className="rounded-lg bg-[#3bcac4]/5 border border-[#3bcac4]/20 px-4 py-3">
+                        <p className="text-xs font-semibold text-[#005476] mb-1">AI Summary</p>
+                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{qualData.summary}</p>
+                      </div>
+                    )}
+
+                    {/* Answers accordion */}
+                    {qualOpen && qualData.answers.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-[#005476] mb-2">Q&A Breakdown</p>
+                        <div className="space-y-1.5">
+                          {qualData.answers.map((a, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs">
+                              <span className="shrink-0 mt-0.5 h-4 w-4 rounded-full bg-[#3bcac4]/20 text-[#005476] flex items-center justify-center text-[10px] font-bold">
+                                {i + 1}
+                              </span>
+                              <div>
+                                <p className="text-muted-foreground">{a.question_key.replace(/_/g, " ")}</p>
+                                <p className="font-medium text-[#005476]">{a.answer_label}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Admin override */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                      <p className="text-xs text-muted-foreground shrink-0">Override score:</p>
+                      <Select value={qualScoreOverride} onValueChange={setQualScoreOverride}>
+                        <SelectTrigger className="h-7 text-xs w-28">
+                          <SelectValue placeholder="Select…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="vip">⭐ VIP</SelectItem>
+                          <SelectItem value="hot">🔥 Hot</SelectItem>
+                          <SelectItem value="warm">🌡️ Warm</SelectItem>
+                          <SelectItem value="cold">❄️ Cold</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={!qualScoreOverride || overrideQualScoreMutation.isPending}
+                        onClick={() => qualScoreOverride && overrideQualScoreMutation.mutate(qualScoreOverride)}
+                      >
+                        {overrideQualScoreMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

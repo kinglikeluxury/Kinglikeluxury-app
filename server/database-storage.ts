@@ -972,7 +972,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── CRM ────────────────────────────────────────────────────────────────────
-  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; expectedMonth?: string; contactDate?: string; sortOrder?: "newest" | "oldest"; limit?: number; offset?: number }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
+  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; expectedMonth?: string; contactDate?: string; sortOrder?: "newest" | "oldest"; limit?: number; offset?: number; qualScore?: string }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
     const MAX_LIMIT = 50;
     const limit  = Math.min(filters?.limit  ?? MAX_LIMIT, MAX_LIMIT);
     const offset = filters?.offset ?? 0;
@@ -1032,6 +1032,17 @@ export class DatabaseStorage implements IStorage {
       if (start && end) {
         conditions.push(sql`COALESCE(${crmLeads.lastContactAt}, ${crmLeads.createdAt}) >= ${start}`);
         conditions.push(sql`COALESCE(${crmLeads.lastContactAt}, ${crmLeads.createdAt}) <= ${end}`);
+      }
+    }
+
+    // WA Qualification score filter (column added via raw SQL migration)
+    if (filters?.qualScore && filters.qualScore !== "all") {
+      if (filters.qualScore === "in_progress") {
+        conditions.push(sql`qualification_status = 'in_progress'`);
+      } else if (filters.qualScore === "none") {
+        conditions.push(sql`(qualification_status IS NULL OR qualification_status = 'none')`);
+      } else {
+        conditions.push(sql`qualification_score = ${filters.qualScore}`);
       }
     }
 
