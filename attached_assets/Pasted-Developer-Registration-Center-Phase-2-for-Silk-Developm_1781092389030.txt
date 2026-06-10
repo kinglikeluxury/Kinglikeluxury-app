@@ -1,0 +1,89 @@
+Developer Registration Center – Phase 2 for Silk Development only.
+
+Current audit confirmed:
+
+- Silk registration payloads are prepared correctly.
+- No HTTP requests are currently sent.
+- developer_registration_attempts is empty.
+- Current system is Phase 1 manual-only.
+
+Goal:
+Implement real submission ONLY for Silk Development.
+
+Scope:
+Only Silk Development:
+https://system.silkdevelopment.ge/custom/Broker/
+
+Do not implement Gumbati, Petra, Next Partners, or any other company yet.
+
+Required behavior:
+
+1. Add a Silk-specific submission adapter.
+
+2. When admin clicks “Submit to Silk” from Developer Registration Center:
+   
+   - Send the prepared payload to Silk.
+   - Do not auto-submit all records automatically.
+   - Submission must be admin-triggered only.
+
+3. Save every attempt in developer_registration_attempts:
+   
+   - crm_lead_id
+   - developer_company_id
+   - developer_registration_record_id
+   - destination_url
+   - request_payload
+   - response_status
+   - response_body
+   - success/failure
+   - error_message
+   - created_at
+
+4. Update registration record status:
+   
+   - prepared before submission
+   - submitted while request is being sent
+   - success only if Silk confirms acceptance
+   - failed if HTTP request fails or Silk rejects the submission
+
+5. Never mark success just because the HTTP request was sent.
+   Success requires evidence from Silk response.
+
+6. Add clear admin UI labels:
+   
+   - Prepared = data ready, not sent
+   - Submitted = request sent
+   - Success = accepted by Silk
+   - Failed = not accepted
+
+7. Add a visible warning:
+   “Prepared does not mean registered. The lead is registered only after successful Silk confirmation.”
+
+8. Add audit view for each Silk registration:
+   
+   - request payload
+   - response status
+   - response body
+   - timestamp
+
+9. Keep all changes admin-only.
+
+Do NOT modify:
+
+- Meta Leads
+- WhatsApp integration
+- CRM lead creation
+- Email nurturing
+- AI Leads
+- Auth
+- Payments
+- Public website
+- Other developer companies
+
+Return:
+
+- files changed
+- exact Silk endpoint used
+- sample payload
+- sample response
+- validation result using one test lead only

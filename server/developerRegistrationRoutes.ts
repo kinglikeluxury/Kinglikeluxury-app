@@ -1,12 +1,17 @@
 /**
  * Developer Registration Center — API Routes
  * All endpoints are admin-only (403 for unauthenticated or non-admin users).
- * Phase 1: No external form auto-submission.
+ * Phase 2: Real HTTP submission for Silk Development only (company id=1).
  */
 
 import { type Express, type Request, type Response } from "express";
 import { pool } from "./db";
 import { prepareRegistrationPayload } from "./developerRegistrationService";
+import {
+  submitRecordToSilk,
+  ensureSilkAttemptColumns,
+  SILK_COMPANY_ID,
+} from "./silkSubmissionAdapter";
 
 function adminOnly(req: Request, res: Response): boolean {
   if (!(req as any).session?.isAdmin) {
@@ -17,6 +22,9 @@ function adminOnly(req: Request, res: Response): boolean {
 }
 
 export function registerDeveloperRegistrationRoutes(app: Express): void {
+
+  // Ensure Phase 2 attempt columns exist (idempotent, runs once at startup)
+  ensureSilkAttemptColumns().catch(() => {});
 
   // ── Overview dashboard ────────────────────────────────────────────────────
 
@@ -494,6 +502,73 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
 
         console.log(`[DeveloperRegistration] Developer config updated developerId=${companyId}`);
         res.json({ message: "Updated" });
+      } finally { client.release(); }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Submit to Silk (Phase 2 — Silk Development only) ─────────────────────
+
+  app.post("/api/admin/developer-registration/:recordId/submit-to-silk", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const recordId = parseInt(req.params.recordId, 10);
+      const adminId  = (req as any).session.userId ?? 0;
+      if (!recordId) return res.status(400).json({ message: "Invalid record id" });
+
+      // Confirm this record actually belongs to Silk before handing off
+      const client = await pool.connect();
+      let devCompanyId: number;
+      try {
+        const chk = await client.query(
+          `SELECT developer_company_id, status FROM developer_registration_records WHERE id=$1`,
+          [recordId]
+        );
+        if (chk.rows.length === 0) return res.status(404).json({ message: "Record not found" });
+        devCompanyId = chk.rows[0].developer_company_id;
+        if (devCompanyId !== SILK_COMPANY_ID) {
+          return res.status(400).json({
+            message: `submit-to-silk is only supported for Silk Development (company id=${SILK_COMPANY_ID}). This record belongs to company id=${devCompanyId}.`,
+          });
+        }
+        if (chk.rows[0].status === "stopped") {
+          return res.status(400).json({ message: "Cannot submit a stopped record" });
+        }
+        if (chk.rows[0].status === "submitting") {
+          return res.status(409).json({ message: "Submission already in progress for this record" });
+        }
+      } finally { client.release(); }
+
+      const result = await submitRecordToSilk(recordId, adminId);
+      console.log(`[DeveloperRegistration][Silk] submit complete recordId=${recordId} success=${result.success}`);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[DeveloperRegistration][Silk] submit error:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Attempt audit log for a record ────────────────────────────────────────
+
+  app.get("/api/admin/developer-registration/:recordId/attempts", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const recordId = parseInt(req.params.recordId, 10);
+      if (!recordId) return res.status(400).json({ message: "Invalid record id" });
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          `SELECT id, registration_record_id, crm_lead_id, developer_company_id,
+                  attempt_type, status, payload_json, result_message,
+                  destination_url, response_status, response_body, error_message,
+                  created_by, created_at
+             FROM developer_registration_attempts
+            WHERE registration_record_id = $1
+            ORDER BY created_at DESC`,
+          [recordId]
+        );
+        res.json(result.rows);
       } finally { client.release(); }
     } catch (err: any) {
       res.status(500).json({ message: err.message });
