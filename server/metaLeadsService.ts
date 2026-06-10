@@ -404,13 +404,38 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
   };
 
   console.log("[MetaLeads][PullSync] start");
-  console.log(`[MetaLeads][PullSync] token_type=${tokenType} | token_len=${tokenLen} | page_id=${pageId}`);
-  console.log(`[MetaLeads][PullSync] endpoint=GET ${formsEndpoint}`);
+  console.log(`[MetaLeads][PullSync] system token valid | token_len=${tokenLen} | token_type=${tokenType}`);
 
-  // Step 1: fetch all lead forms via /{page_id}/leadgen_forms
-  // NOTE: /me/leadgen_forms does NOT work for SYSTEM_USER tokens — system users have no leadgen_forms edge.
-  const formsUrl = `${META_GRAPH_BASE}/${pageId}/leadgen_forms?access_token=${encodeURIComponent(token)}&fields=id,name,status&limit=100`;
-  console.log(`[MetaLeads][PullSync] GET /${pageId}/leadgen_forms?access_token=[len=${tokenLen}]&fields=id,name,status&limit=100`);
+  // Step A: exchange SYSTEM_USER token for the Page Access Token via /me/accounts
+  // /{page_id}/leadgen_forms requires a Page Access Token (Meta error #190 with system user token).
+  // We use the system user token to fetch /me/accounts, extract the page token, and use it only
+  // for the forms + leads calls. The system user token is never replaced or stored.
+  const accountsUrl = `${META_GRAPH_BASE}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(token)}`;
+  console.log(`[MetaLeads][PullSync] GET /me/accounts?fields=id,name,access_token (fetching page token for page_id=${pageId})`);
+
+  let accountsData: any;
+  try {
+    accountsData = await graphGetPull(accountsUrl);
+  } catch (err: any) {
+    throw new Error(`Failed to fetch /me/accounts: ${err.message}`);
+  }
+
+  if (accountsData.error) {
+    throw new Error(`Meta /me/accounts error: ${accountsData.error.message} (code ${accountsData.error.code})`);
+  }
+
+  const pages: any[] = accountsData.data || [];
+  const pageEntry = pages.find((p: any) => p.id === pageId) || pages[0];
+  if (!pageEntry) {
+    throw new Error(`No pages found via /me/accounts. Confirm the System User has access to page ${pageId}.`);
+  }
+  const pageToken: string = pageEntry.access_token;
+  const resolvedPageId: string = pageEntry.id;
+  console.log(`[MetaLeads][PullSync] page token retrieved | page_id=${resolvedPageId} | page_name=${pageEntry.name}`);
+
+  // Step B: fetch lead forms using the Page Access Token
+  const formsUrl = `${META_GRAPH_BASE}/${resolvedPageId}/leadgen_forms?access_token=${encodeURIComponent(pageToken)}&fields=id,name,status&limit=100`;
+  console.log(`[MetaLeads][PullSync] GET /${resolvedPageId}/leadgen_forms (using page token)`);
 
   let formsData: any;
   try {
@@ -424,12 +449,12 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
     const errCode: number = formsData.error.code || 0;
     if (errCode === 200 || errMsg.toLowerCase().includes("pages_manage_ads")) {
       console.error(
-        "[MetaLeads][PullSync] PERMISSION ERROR: Missing pages_manage_ads permission. " +
-        "Add pages_manage_ads to the System User token in Facebook Business Manager and regenerate META_ACCESS_TOKEN."
+        "[MetaLeads][PullSync] PERMISSION ERROR: Missing pages_manage_ads on page token. " +
+        "Ensure the System User has pages_manage_ads in Business Manager and regenerate META_ACCESS_TOKEN."
       );
       throw new Error(
-        `Meta permission error: Missing pages_manage_ads. ` +
-        `Go to Business Manager → System Users → add pages_manage_ads → regenerate META_ACCESS_TOKEN. ` +
+        `Meta permission error: Missing pages_manage_ads on page token. ` +
+        `Ensure System User has pages_manage_ads in Business Manager and regenerate META_ACCESS_TOKEN. ` +
         `(original: ${errMsg})`
       );
     }
@@ -450,10 +475,10 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
     try {
       const leadsUrl =
         `${META_GRAPH_BASE}/${form.id}/leads` +
-        `?access_token=${encodeURIComponent(token)}` +
+        `?access_token=${encodeURIComponent(pageToken)}` +
         `&fields=id,created_time,field_data,ad_id,form_id,campaign_id&limit=25`;
       console.log(
-        `[MetaLeads][PullSync] GET /${form.id}/leads?access_token=[len=${tokenLen}]` +
+        `[MetaLeads][PullSync] GET /${form.id}/leads?access_token=[page_token_len=${pageToken.length}]` +
         `&fields=id,created_time,field_data,ad_id,form_id,campaign_id&limit=25`
       );
 
