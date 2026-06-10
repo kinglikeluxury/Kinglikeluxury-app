@@ -733,24 +733,37 @@ export async function handleInboundMessage(opts: {
 
   // ── template_sent: button-gated opener ──────────────────────────────────
   if (state === "template_sent") {
-    const isYes  = answerId === "QUAL_YES"
-                || rawText.match(/^(نعم|yes|اه|ايه|أيوا|يلا|هيا|ابدأ|اوك|ok|sure|✅)/i) !== null;
-    const isLater = answerId === "QUAL_LATER";
+    // Log exact payload received from Meta for every reply to this template
+    console.log(
+      `[WaQual][TEMPLATE_REPLY] sessionId=${session.id} phone=${digits} ` +
+      `buttonPayload=${answerId ?? "—"} text="${rawText.slice(0, 60)}"`
+    );
+
+    // Match "yes" — payload QUAL_YES OR button text "نعم، أود المتابعة" as payload OR free-text
+    const isYes = answerId === "QUAL_YES"
+               || answerId === "نعم، أود المتابعة"
+               || rawText.match(/^(نعم|yes|اه|ايه|أيوا|يلا|هيا|ابدأ|اوك|ok|sure|✅)/i) !== null;
+
+    // Match "later" — payload QUAL_LATER OR button text "لاحقاً" as payload
+    const isLater = answerId === "QUAL_LATER"
+                 || answerId === "لاحقاً";
 
     if (isLater) {
-      // User chose "⏳ لاحقاً" — postpone; no further outbound messages
+      // User chose "لاحقاً" — postpone; no further outbound messages
+      const now = new Date();
       await updateSession(session.id, {
-        status:           "postponed",
-        last_message_at:  new Date(),
+        status:          "postponed",
+        last_message_at: now,
+        completed_at:    now,   // serves as postponed_at timestamp
       });
       console.log(
-        `[WaQual][QUALIFICATION_POSTPONED] sessionId=${session.id} phone=${digits}`
+        `[WaQual][QUALIFICATION_POSTPONED] sessionId=${session.id} phone=${digits} postponed_at=${now.toISOString()}`
       );
       return;
     }
 
-    // QUAL_YES button OR any free-text reply → window is open, start Q1
-    console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} answerId=${answerId ?? "text"}`);
+    // QUAL_YES button OR any free-text reply → window open, start Q1
+    console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} payload=${answerId ?? "free-text"}`);
     console.log(`[WaQual][QUALIFICATION_STARTED] sessionId=${session.id} phone=${digits}`);
     await sendQ1Budget(session);
     console.log(`[WaQual][QUESTION_SENT] sessionId=${session.id} question=Q1_budget phone=${digits}`);
