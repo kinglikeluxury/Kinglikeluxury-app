@@ -114,3 +114,9 @@ id = "Etq73BquKEEwMtzO08MmZ"
 uri = "file://CRM_CHECKPOINT_2026_06_05.md"
 type = "text"
 title = "CRM Checkpoint Report — June 05, 2026"
+
+[[outputs]]
+id = "CSJwoqPkpOd4lcqsMvZn4"
+uri = "file://docs/ai-whatsapp-qualification/AI-WHATSAPP-QUALIFICATION-PLAN.md"
+type = "text"
+title = "AI WhatsApp Lead Qualification — Full Planning Document"
