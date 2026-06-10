@@ -120,3 +120,15 @@ id = "CSJwoqPkpOd4lcqsMvZn4"
 uri = "file://docs/ai-whatsapp-qualification/AI-WHATSAPP-QUALIFICATION-PLAN.md"
 type = "text"
 title = "AI WhatsApp Lead Qualification — Full Planning Document"
+
+[[outputs]]
+id = "365OjJ3g18JfD3Wf5-t3H"
+uri = "file://kinglike-luxury-full-code-backup-2026-06-10.zip"
+type = "unspecified"
+title = "Source Code Backup — kinglike-luxury-full-code-backup-2026-06-10.zip (2.8 MB)"
+
+[[outputs]]
+id = "Qd8AF9dGKxX25M30_7grj"
+uri = "file://kinglike-luxury-db-backup-2026-06-10.sql.gz"
+type = "unspecified"
+title = "Database Backup — kinglike-luxury-db-backup-2026-06-10.sql.gz (879 KB compressed / 5.2 MB raw)"

@@ -1,0 +1,149 @@
+Create Full Safe Backup Checkpoint Before AI Qualification Implementation
+
+IMPORTANT:
+
+This task is BACKUP ONLY.
+
+DO NOT:
+- modify any code
+- modify database
+- modify schema
+- modify secrets
+- modify deployment
+- install packages
+- create migrations
+- restart services
+- change any production behavior
+
+Goal:
+Create a complete recovery checkpoint of the current production system.
+
+====================================================
+1. SOURCE CODE BACKUP
+====================================================
+
+Create a full source code archive.
+
+Include:
+- server/
+- client/
+- shared/
+- migrations/
+- package.json
+- package-lock.json
+- tsconfig files
+- config files
+- deployment files
+
+Export as:
+
+kinglike-luxury-full-code-backup-[DATE].zip
+
+Store outside Replit workspace if possible and provide download link.
+
+====================================================
+2. DATABASE BACKUP
+====================================================
+
+Create a complete PostgreSQL dump.
+
+Include:
+- all tables
+- all data
+- all indexes
+- all constraints
+- all sequences
+
+Export as:
+
+kinglike-luxury-db-backup-[DATE].sql
+
+Return:
+- file size
+- total tables
+- total rows
+- largest tables
+
+====================================================
+3. GIT CHECKPOINT
+====================================================
+
+Create a Git checkpoint.
+
+Return:
+- commit hash
+- branch name
+- files tracked
+- repository status
+
+====================================================
+4. DATABASE INVENTORY REPORT
+====================================================
+
+Return:
+
+- database name
+- total tables
+- row count per table
+- largest tables
+- backup file size
+
+====================================================
+5. SECRETS INVENTORY
+====================================================
+
+Return ONLY secret names.
+
+DO NOT reveal secret values.
+
+Example:
+
+META_ACCESS_TOKEN
+WHATSAPP_ACCESS_TOKEN
+DATABASE_URL
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+
+Names only.
+
+====================================================
+6. SYSTEM VALIDATION
+====================================================
+
+Verify current production status:
+
+- Meta Leads Sync = PASS / FAIL
+- WhatsApp Cloud API = PASS / FAIL
+- Silk Registration = PASS / FAIL
+- Application Build = PASS / FAIL
+
+====================================================
+7. FINAL REPORT
+====================================================
+
+Return:
+
+1. Code backup location
+2. SQL backup location
+3. Download links
+4. Git commit hash
+5. SQL backup size
+6. Validation results
+
+IMPORTANT:
+
+This is a SAFE BACKUP TASK ONLY.
+
+Do NOT modify:
+- Meta Leads
+- WhatsApp API
+- Silk
+- Developer Registration Center
+- CRM
+- Authentication
+- Email systems
+- OTP systems
+- Database schema
+- Production code
+
+Generate backups and reports only.
