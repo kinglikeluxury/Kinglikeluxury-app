@@ -1,0 +1,140 @@
+Update AI WhatsApp Qualification Plan Before Implementation
+
+The planning document is good, but revise it before any implementation.
+
+Important corrections:
+
+1. Remove Phase 1 outbound-only.
+   Do NOT implement a phase where AI sends all 6 questions without processing replies.
+   This is not acceptable for customer experience.
+
+The first implementation must be interactive:
+
+- send greeting
+- send Q1
+- wait for reply/button
+- store answer
+- send Q2
+- continue step by step
+
+2. Use WhatsApp interactive buttons/list messages whenever supported.
+   Do not rely only on numeric text replies.
+
+For up to 3 options, use WhatsApp reply buttons.
+For more than 3 options, use WhatsApp list message.
+
+Questions:
+
+Q1 Purchase goal:
+
+- Investment
+- Residence
+- Investment & Residence
+
+Q2 City:
+
+- Batumi
+- Tbilisi
+- North Cyprus
+- Istanbul
+- Need recommendation
+
+Q3 Budget:
+
+- 50k – 80k USD
+- 80k – 100k USD
+- 100k – 150k USD
+- More than 150k USD
+
+Q4 Specific project:
+
+- Yes
+- No
+- I want recommendations
+
+If Yes, ask project name as free text.
+
+Q5 Visit timeline:
+
+- Within 1 month
+- Within 3 months
+- Later
+- Not decided yet
+
+Q6 Property type:
+
+- Ready property
+- Under construction
+- No preference
+
+3. Replace STANDARD with COLD.
+   Lead scores must be:
+
+- VIP
+- HOT
+- WARM
+- COLD
+
+Budget scoring:
+
+- More than 150k USD = HOT
+- 100k – 150k USD = WARM
+- 80k – 100k USD = WARM
+- 50k – 80k USD = COLD
+
+Upgrade rules:
+
+- Visit within 1 month: +1 tier
+- Specific project selected: +1 tier
+- Investment & Residence: +1 tier
+  Maximum score: VIP
+
+4. Remove consultant WhatsApp notification for now.
+   Do NOT send WhatsApp messages to consultants yet.
+   Only:
+
+- update CRM
+- create internal CRM notification
+- show badge in CRM
+
+5. WhatsApp API Chat History integration is required.
+   Every outbound AI question and every inbound customer reply must appear inside:
+   WhatsApp API Chat History
+
+Also show a qualification summary inside the conversation after completion:
+Goal:
+City:
+Budget:
+Project:
+Visit timeline:
+Property type:
+Lead score:
+
+6. Final thank-you message to customer:
+
+شكراً لتزويدنا بالمعلومات 🌷
+
+سيقوم أحد مستشارينا العقاريين بالتواصل معكم في أسرع وقت ممكن لتزويدكم بكافة المعلومات والفرص المناسبة لاحتياجاتكم.
+
+نتمنى لكم يوماً سعيداً.
+
+7. Stop conditions:
+   If lead replies with stop / لا أريد / إلغاء / unsubscribe / no more:
+
+- set OPT_OUT
+- stop AI messages immediately
+- show this status in CRM
+
+8. Safety:
+   Do not modify:
+
+- Meta lead sync except adding a safe fire-and-forget trigger after new lead insert
+- Silk registration
+- Developer Registration Center
+- Email nurturing
+- OTP/Twilio SMS
+- public website WhatsApp links
+- existing WhatsApp API sender except adding interactive message support if needed
+
+Return the revised implementation plan first.
+Do not implement code until the revised plan is approved.
