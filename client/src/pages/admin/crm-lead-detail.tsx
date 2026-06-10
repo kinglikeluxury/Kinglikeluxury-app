@@ -1779,11 +1779,24 @@ export default function CrmLeadDetailPage() {
                       )}
                     </div>
 
-                    {/* Summary */}
+                    {/* Preferred contact time badge */}
+                    {(() => {
+                      const ctAnswer = qualData.answers.find(a => a.question_key === "contact_time");
+                      return ctAnswer ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground shrink-0">وقت التواصل</span>
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-[#005476]/10 text-[#005476] border border-[#005476]/20">
+                            🕐 {ctAnswer.answer_label}
+                          </span>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* Qualification summary */}
                     {qualData.summary && (
                       <div className="rounded-lg bg-[#3bcac4]/5 border border-[#3bcac4]/20 px-4 py-3">
-                        <p className="text-xs font-semibold text-[#005476] mb-1">AI Summary</p>
-                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{qualData.summary}</p>
+                        <p className="text-xs font-semibold text-[#005476] mb-1.5">ملخص التأهيل</p>
+                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap" dir="rtl">{qualData.summary}</p>
                       </div>
                     )}
 

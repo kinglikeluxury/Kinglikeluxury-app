@@ -491,9 +491,10 @@ export async function ensureWaQualTables(): Promise<void> {
     `);
 
     // Extra columns on crm_leads (idempotent)
-    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_status  TEXT    DEFAULT 'none'`);
-    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_score   TEXT`);
-    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_summary TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_status    TEXT    DEFAULT 'none'`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_score     TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualification_summary   TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS preferred_contact_time  TEXT`);
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualified_at          TIMESTAMPTZ`);
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS opt_out_wa            BOOLEAN NOT NULL DEFAULT FALSE`);
 

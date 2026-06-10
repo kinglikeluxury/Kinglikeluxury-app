@@ -6,7 +6,7 @@
  *
  * State machine:
  *   idle → template_sent → q1_sent → q2_sent → q3_sent → q4_sent
- *                       → [q4b_sent] → q5_sent → q6_sent → completed
+ *                       → [q4b_sent] → q5_sent → q6_sent → q7_sent → completed
  *                ↓
  *            postponed  (user tapped "⏳ لاحقاً" — excluded from all outbound)
  *
@@ -71,6 +71,50 @@ const Q_VISIT_OPTIONS = [
   { id: "visit_later", title: "ربما لاحقاً" },
   { id: "visit_no",   title: "لا" },
 ];
+
+const Q_CONTACT_TIME_OPTIONS = [
+  { id: "contact_morning",   title: "بين 10 صباحاً و 1 ظهراً" },
+  { id: "contact_afternoon", title: "بين 2 ظهراً و 5 عصراً" },
+  { id: "contact_evening",   title: "بين 6 مساءً و 9 ليلاً" },
+  { id: "contact_anytime",   title: "أي وقت مناسب" },
+];
+
+// ── Human-readable Arabic labels for summary generation ─────────────────────
+
+const BUDGET_LABEL: Record<string, string> = {
+  "budget_lt50":    "أقل من 50 ألف $",
+  "budget_50_80":   "50 - 80 ألف $",
+  "budget_80_100":  "80 - 100 ألف $",
+  "budget_100_150": "100 - 150 ألف $",
+  "budget_150_200": "150 - 200 ألف $",
+  "budget_gt200":   "أكثر من 200 ألف $",
+};
+const TIMELINE_LABEL: Record<string, string> = {
+  "timeline_1m":  "هذا الشهر",
+  "timeline_3m":  "خلال 3 أشهر",
+  "timeline_6m+": "6 أشهر أو أكثر",
+};
+const GOAL_LABEL: Record<string, string> = {
+  "goal_invest": "استثمار",
+  "goal_reside": "سكن",
+  "goal_both":   "استثمار وسكن",
+};
+const VISIT_LABEL: Record<string, string> = {
+  "visit_1m":    "خلال شهر",
+  "visit_later": "ربما لاحقاً",
+  "visit_no":    "لا",
+};
+const CONTACT_TIME_LABEL: Record<string, string> = {
+  "contact_morning":   "10 صباحاً - 1 ظهراً",
+  "contact_afternoon": "2 ظهراً - 5 عصراً",
+  "contact_evening":   "6 مساءً - 9 ليلاً",
+  "contact_anytime":   "أي وقت",
+};
+
+function labelOf(map: Record<string, string>, id: string | undefined): string {
+  if (!id) return "—";
+  return map[id] ?? id;
+}
 
 // ── Session helpers ───────────────────────────────────────────────────────────
 
@@ -279,6 +323,7 @@ async function updateCrmLeadScore(
   score: string,
   status: string,
   summary: string,
+  preferredContactTime?: string,
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -289,13 +334,14 @@ async function updateCrmLeadScore(
 
     await client.query(`
       UPDATE crm_leads
-      SET qualification_status  = $1,
-          qualification_score   = $2,
-          qualification_summary = $3,
-          qualified_at          = NOW(),
-          lead_score            = $4
+      SET qualification_status   = $1,
+          qualification_score    = $2,
+          qualification_summary  = $3,
+          qualified_at           = NOW(),
+          lead_score             = $4,
+          preferred_contact_time = COALESCE($6, preferred_contact_time)
       WHERE id = $5
-    `, [status, score, summary, mappedLeadScore, leadId]);
+    `, [status, score, summary, mappedLeadScore, leadId, preferredContactTime ?? null]);
   } finally {
     client.release();
   }
@@ -304,16 +350,33 @@ async function updateCrmLeadScore(
 async function createCrmNotification(
   leadId: number,
   score: string,
+  answers: Record<string, string>,
+  city: string | null,
 ): Promise<void> {
   const client = await pool.connect();
   try {
-    // Get assigned user for the lead
     const lr = await client.query(
-      `SELECT assigned_to, full_name FROM crm_leads WHERE id = $1`,
+      `SELECT assigned_to, full_name, phone FROM crm_leads WHERE id = $1`,
       [leadId]
     );
     const lead = lr.rows[0];
     if (!lead || !lead.assigned_to) return;
+
+    const scoreEmoji =
+      score === "VIP" ? "⭐⭐⭐" :
+      score === "HOT" ? "🔥" :
+      score === "WARM" ? "♨️" : "❄️";
+
+    const budgetLabel      = labelOf(BUDGET_LABEL,       answers["budget"]);
+    const contactTimeLabel = labelOf(CONTACT_TIME_LABEL, answers["contact_time"]);
+
+    const title   = `${scoreEmoji} Lead ${score} جديد`;
+    const message =
+      `الاسم: ${lead.full_name ?? "—"}\n` +
+      `الهاتف: ${lead.phone ?? "—"}\n\n` +
+      `المدينة: ${city ?? "—"}\n` +
+      `الميزانية: ${budgetLabel}\n\n` +
+      `وقت التواصل:\n${contactTimeLabel}`;
 
     await client.query(`
       INSERT INTO user_notifications
@@ -321,8 +384,8 @@ async function createCrmNotification(
       VALUES ($1, 'qualification_complete', $2, $3, $4, false, NOW())
     `, [
       lead.assigned_to,
-      `Lead Qualified: ${score}`,
-      `${lead.full_name ?? "A lead"} completed WhatsApp qualification with score: ${score}`,
+      title,
+      message,
       JSON.stringify({ leadId, score, type: "qualification_complete" }),
     ]);
   } catch {
@@ -505,6 +568,16 @@ async function sendQ6Notes(session: Session): Promise<void> {
   );
 }
 
+async function sendQ7ContactTime(session: Session): Promise<void> {
+  await sendAndUpdateSession(session, "q7_sent", "contact_time", () =>
+    sendInteractiveMessage(
+      session.phone,
+      "هل يوجد توقيت مناسب للتواصل معكم؟ 🕐",
+      Q_CONTACT_TIME_OPTIONS,
+    )
+  );
+}
+
 async function sendCompletion(
   session: Session,
   firstName: string | null,
@@ -564,34 +637,47 @@ async function finishQualification(session: Session): Promise<void> {
   const answers   = await getAnswers(session.id);
   const { score, reason } = computeScore(answers);
 
-  const summaryLines: string[] = [
-    `Score: ${score} (${reason})`,
-    `Budget: ${answers["budget"] ?? "not given"}`,
-    `Timeline: ${answers["timeline"] ?? "not given"}`,
-    `Goal: ${answers["goal"] ?? "not given"}`,
-    `Project: ${answers["has_project"] === "proj_yes" ? (answers["project_name"] ?? "specified") : "needs suggestions"}`,
-    `Site visit: ${answers["site_visit"] ?? "not given"}`,
-    `Notes: ${answers["notes"] && answers["notes"] !== "لا" ? answers["notes"] : "none"}`,
-  ];
-  const summaryText = summaryLines.join(" | ");
-
-  // Get lead info for personalisation
+  // Fetch lead info (first name + city for summary and notification)
   const client = await pool.connect();
   let firstName: string | null = null;
+  let city:      string | null = null;
   try {
     const lr = await client.query(
-      `SELECT first_name FROM crm_leads WHERE id = $1`,
+      `SELECT first_name, city FROM crm_leads WHERE id = $1`,
       [session.lead_id]
     );
     firstName = lr.rows[0]?.first_name ?? null;
+    city      = lr.rows[0]?.city      ?? null;
   } finally {
     client.release();
   }
 
-  // Send completion message
+  // ── Arabic qualification summary ─────────────────────────────────────────
+  const contactTimeId    = answers["contact_time"];
+  const preferredContact = labelOf(CONTACT_TIME_LABEL, contactTimeId);
+
+  const hasProject    = answers["has_project"] === "proj_yes";
+  const projectLine   = hasProject ? (answers["project_name"] ?? "نعم") : "لا";
+  const noteValue     = answers["notes"];
+  const hasNotes      = noteValue && noteValue !== "لا";
+
+  const summaryLines: string[] = [
+    `الهدف: ${labelOf(GOAL_LABEL, answers["goal"])}`,
+    `المدينة: ${city ?? "—"}`,
+    `الميزانية: ${labelOf(BUDGET_LABEL, answers["budget"])}`,
+    `مشروع محدد: ${projectLine}`,
+    `موعد الزيارة: ${labelOf(VISIT_LABEL, answers["site_visit"])}`,
+    `وقت التواصل: ${preferredContact}`,
+  ];
+  if (hasNotes) summaryLines.push(`ملاحظات: ${noteValue}`);
+  summaryLines.push(``, `Lead Score: ${score}`);
+
+  const summaryText = summaryLines.join("\n");
+
+  // Send completion message to customer
   await sendCompletion(session, firstName, score);
 
-  // Save summary
+  // Save to wa_qual_summaries
   const c2 = await pool.connect();
   try {
     await c2.query(`
@@ -608,11 +694,14 @@ async function finishQualification(session: Session): Promise<void> {
     c2.release();
   }
 
-  // Update CRM lead
-  await updateCrmLeadScore(session.lead_id, score, "completed", summaryText);
+  // Update CRM lead (includes preferred_contact_time)
+  await updateCrmLeadScore(
+    session.lead_id, score, "completed", summaryText,
+    contactTimeId ?? undefined,
+  );
 
-  // Create in-app notification for assigned agent
-  await createCrmNotification(session.lead_id, score);
+  // Create internal CRM notification for assigned agent
+  await createCrmNotification(session.lead_id, score, answers, city);
 
   console.log(`[WaQual] Session ${session.id} completed — leadId=${session.lead_id} score=${score}`);
 }
@@ -893,7 +982,21 @@ export async function handleInboundMessage(opts: {
     // Free-text notes (always accepted)
     const normalised = rawText.match(/^(لا|no|نا|لأ)$/i) ? "لا" : rawText;
     await saveAnswer(session.id, "notes", rawText, normalised, "text");
-    await finishQualification(session);
+    await sendQ7ContactTime(session);
+    return;
+  }
+
+  if (state === "q7_sent") {
+    const validIds = Q_CONTACT_TIME_OPTIONS.map(o => o.id);
+    if (answerId && validIds.includes(answerId)) {
+      await saveAnswer(session.id, "contact_time", opts.bodyText, answerId, "button");
+      await finishQualification(session);
+    } else {
+      // Accept any non-empty free text as "any time"
+      const fallback = rawText.length > 0 ? rawText : "contact_anytime";
+      await saveAnswer(session.id, "contact_time", rawText, fallback, "text");
+      await finishQualification(session);
+    }
     return;
   }
 
@@ -909,7 +1012,7 @@ export async function handleNudge(
 ): Promise<void> {
   const session = await getSession(sessionId);
   if (!session) return;
-  if (!["greeting_sent","q1_sent","q2_sent","q3_sent","q4_sent","q4b_sent","q5_sent","q6_sent"].includes(session.status)) return;
+  if (!["greeting_sent","q1_sent","q2_sent","q3_sent","q4_sent","q4b_sent","q5_sent","q6_sent","q7_sent"].includes(session.status)) return;
 
   await updateSession(sessionId, { retry_count: currentRetryCount + 1 });
 
