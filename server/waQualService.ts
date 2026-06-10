@@ -5,8 +5,12 @@
  * reply buttons and list messages.
  *
  * State machine:
- *   idle → greeting_sent → q1_sent → q2_sent → q3_sent → q4_sent
- *        → [q4b_sent] → q5_sent → q6_sent → completed
+ *   idle → template_sent → q1_sent → q2_sent → q3_sent → q4_sent
+ *                       → [q4b_sent] → q5_sent → q6_sent → completed
+ *
+ *   template_sent : opener template sent; waiting for any customer reply to
+ *                   open the 24-hour conversation window before Q1 is sent.
+ *   (greeting_sent kept for legacy/manual-restart paths)
  *
  * Terminal states: completed | timed_out | failed | opt_out | already_qualified
  *
@@ -14,7 +18,7 @@
  */
 
 import { pool } from "./db";
-import { sendInteractiveMessage, sendQualTextMessage } from "./interactiveMessageHelper";
+import { sendInteractiveMessage, sendQualTextMessage, sendQualOpenerTemplate } from "./interactiveMessageHelper";
 
 // ── Opt-out keywords ──────────────────────────────────────────────────────────
 const OPT_OUT_KEYWORDS = new Set([
@@ -396,6 +400,40 @@ async function sendGreeting(session: Session, firstName: string | null): Promise
   );
 }
 
+// ── First-contact: send approved template to open conversation window ─────────
+//
+// WhatsApp Cloud API rule: only approved templates may be sent as the first
+// outbound message to a cold lead (outside 24-hour window).  Interactive and
+// free-form messages require a customer-initiated reply first.
+//
+// State: idle → template_sent
+// Next:  any inbound reply → window opens → sendQ1Budget (QUALIFICATION_STARTED)
+async function sendQualOpener(session: Session): Promise<void> {
+  console.log(`[WaQual][TEMPLATE_SENT] Sending opener template sessionId=${session.id} phone=${session.phone}`);
+
+  const result = await sendQualOpenerTemplate(session.phone);
+
+  await updateSession(session.id, {
+    status:              "template_sent",
+    current_question:    "opener_template",
+    last_message_at:     new Date(),
+    last_outbound_wamid: result.wamid ?? null,
+    invalid_input_count: 0,
+  });
+
+  if (!result.success) {
+    console.error(
+      `[WaQual][TEMPLATE_SENT] FAILED sessionId=${session.id} phone=${session.phone} — ` +
+      `${result.error ?? "unknown error"}. ` +
+      `ACTION REQUIRED: Create template "kinglike_qual_opener" (UTILITY/ar) in Meta Business Suite.`
+    );
+  } else {
+    console.log(
+      `[WaQual][TEMPLATE_SENT] ✓ sessionId=${session.id} phone=${session.phone} wamid=${result.wamid}`
+    );
+  }
+}
+
 async function sendQ1Budget(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q1_sent", "budget", () =>
     sendInteractiveMessage(
@@ -640,9 +678,9 @@ export async function checkAndTrigger(
   const session = await getSession(sessionId);
   if (!session) return;
 
-  // Send greeting
-  await sendGreeting(session, firstName).catch(err =>
-    console.error(`[WaQual] sendGreeting failed sessionId=${sessionId}:`, err.message)
+  // Send opener template (compliant first-contact for cold leads)
+  await sendQualOpener(session).catch(err =>
+    console.error(`[WaQual] sendQualOpener failed sessionId=${sessionId}:`, err.message)
   );
 }
 
@@ -689,6 +727,15 @@ export async function handleInboundMessage(opts: {
   const state = session.status;
 
   // ── Dispatch by current state ─────────────────────────────────────────────
+
+  // ── template_sent: any reply from customer opens the 24h window ──────────
+  if (state === "template_sent") {
+    console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} reply="${rawText.slice(0, 40)}"`);
+    console.log(`[WaQual][QUALIFICATION_STARTED] sessionId=${session.id} phone=${digits}`);
+    await sendQ1Budget(session);
+    console.log(`[WaQual][QUESTION_SENT] sessionId=${session.id} question=Q1_budget phone=${digits}`);
+    return;
+  }
 
   if (state === "greeting_sent") {
     if (answerId === "greet_yes" || rawText.match(/^(نعم|yes|اه|ايه|أيوا|يلا|هيا|ابدأ|اوك|ok|sure)/i)) {

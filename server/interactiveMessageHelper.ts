@@ -189,6 +189,7 @@ async function logToHistory(
   status:   string,
   wamid?:   string,
   errorMsg?: string,
+  msgType:  string = "interactive",
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -211,11 +212,83 @@ async function logToHistory(
       INSERT INTO whatsapp_api_messages
         (conversation_id, direction, message_text, message_type,
          wamid, status, context_label, error_message, created_at)
-      VALUES ($1, 'outbound', $2, 'interactive', $3, $4, 'qualification', $5, NOW())
-    `, [convId, text, wamid ?? null, status, errorMsg ?? null]);
+      VALUES ($1, 'outbound', $2, $3, $4, $5, 'qualification', $6, NOW())
+    `, [convId, text, msgType, wamid ?? null, status, errorMsg ?? null]);
   } catch {
     // non-critical
   } finally {
     client.release();
+  }
+}
+
+// ── Template sender: first-contact opener for cold leads ─────────────────────
+//
+// Sends the approved "kinglike_qual_opener" template (Arabic, UTILITY category).
+// This is the ONLY compliant way to open a WhatsApp conversation with a cold
+// lead outside a 24-hour customer-initiated window.
+//
+// Template name : kinglike_qual_opener
+// Language      : ar
+// Category      : UTILITY
+// Body text     :
+//   مرحباً 👋
+//
+//   شكراً لتواصلك مع Kinglike Luxury.
+//
+//   تم استلام طلبك بنجاح، ويسعدنا مساعدتك في العثور على الفرصة العقارية المناسبة.
+//
+//   يرجى الرد على هذه الرسالة بكلمة:
+//   (مرحبا)
+//
+//   وسيقوم مساعدنا الذكي بمتابعة الأسئلة معك مباشرة.
+//
+export async function sendQualOpenerTemplate(
+  phone: string,
+  templateName = "kinglike_qual_opener",
+): Promise<InteractiveSendResult> {
+  const token = getToken();
+  if (!token) return { success: false, error: "No token" };
+
+  const to = toMetaPhone(phone);
+  if (!to) return { success: false, error: `Invalid phone: ${phone}` };
+
+  const body = JSON.stringify({
+    messaging_product: "whatsapp",
+    recipient_type:    "individual",
+    to,
+    type:     "template",
+    template: {
+      name:     templateName,
+      language: { code: "ar" },
+    },
+  });
+
+  try {
+    const res = await fetch(API_URL, {
+      method:  "POST",
+      headers: {
+        "Content-Type":  "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body,
+    });
+
+    const json: any = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const errMsg = json?.error?.message ?? `HTTP ${res.status}`;
+      console.error(`[QualTemplate] ✗ TEMPLATE_SENT FAILED to=${to} template=${templateName}: ${errMsg}`);
+      await logToHistory(to, `[TEMPLATE:${templateName}]`, "failed", undefined, errMsg, "template");
+      return { success: false, error: errMsg };
+    }
+
+    const wamid: string | undefined = json?.messages?.[0]?.id;
+    console.log(`[QualTemplate] ✓ TEMPLATE_SENT to=${to} | template=${templateName} | wamid=${wamid ?? "—"}`);
+    await logToHistory(to, `[TEMPLATE:${templateName}]`, "sent", wamid, undefined, "template");
+    return { success: true, wamid };
+  } catch (err: any) {
+    console.error(`[QualTemplate] ✗ Network error to=${to}:`, err.message);
+    await logToHistory(to, `[TEMPLATE:${templateName}]`, "failed", undefined, err.message, "template");
+    return { success: false, error: err.message };
   }
 }
