@@ -25,6 +25,9 @@ ziqNN445
 # ── Temp download serving (never commit) ─────────────────────────────────────
 public/downloads/
 
+# ── Pasted task/prompt text dumps (may contain PII) ──────────────────────────
+attached_assets/Pasted-*.txt
+
 # ── Logs and temp ─────────────────────────────────────────────────────────────
 *.log
 logs/
