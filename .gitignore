@@ -9,6 +9,7 @@ vite.config.ts.*
 *.zip
 *.tar.gz
 *.sql
+*.sql.gz
 *.apk
 *.aab
 _no_deploy/
