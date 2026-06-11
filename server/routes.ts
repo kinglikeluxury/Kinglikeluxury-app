@@ -4105,6 +4105,10 @@ ${metaTags}
       import("./emailNurturingService").then(({ initNurturingForLead }) =>
         initNurturingForLead(lead.id, lead.email, { firstName: lead.firstName, fullName: lead.fullName })
       ).catch(() => {});
+      // WhatsApp AI Qualification — trigger for all new leads with a valid phone (fire-and-forget)
+      import("./waQualService").then(({ checkAndTrigger }) =>
+        checkAndTrigger(lead.id, lead.phone, lead.firstName)
+      ).catch(err => console.error(`[WaQual] Trigger failed leadId=${lead.id}: ${err.message}`));
       res.status(201).json(lead);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4426,6 +4430,10 @@ ${metaTags}
               initNurturingForLead(importedLead.id, importedLead.email, { firstName: importedLead.firstName, fullName: importedLead.fullName })
             ).catch(err => console.error(`[EmailNurturing] Import init failed leadId=${importedLead.id}: ${err.message}`));
           }
+          // WhatsApp AI Qualification — trigger for each imported lead with a phone (fire-and-forget)
+          import("./waQualService").then(({ checkAndTrigger }) =>
+            checkAndTrigger(importedLead.id, importedLead.phone, importedLead.firstName)
+          ).catch(err => console.error(`[WaQual] Trigger failed leadId=${importedLead.id}: ${err.message}`));
 
           importedCount++;
           // Track assignment for post-import bulk notification
