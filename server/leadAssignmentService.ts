@@ -72,10 +72,11 @@ export function cycleAgentId(agents: SubAgent[], offset: number): number | null 
 export async function backfillUnassignedLeads(): Promise<{
   assigned: number;
   agentCount: number;
+  assignments: { leadId: number; agentId: number }[];
 }> {
   const agents = await getEligibleSubAgents();
   if (!agents.length) {
-    return { assigned: 0, agentCount: 0 };
+    return { assigned: 0, agentCount: 0, assignments: [] };
   }
 
   const unassigned = await pool.query<{ id: number }>(
@@ -83,6 +84,7 @@ export async function backfillUnassignedLeads(): Promise<{
   );
 
   let assigned = 0;
+  const assignments: { leadId: number; agentId: number }[] = [];
   for (let i = 0; i < unassigned.rows.length; i++) {
     const leadId  = unassigned.rows[i].id;
     const agentId = agents[i % agents.length].id;
@@ -91,8 +93,9 @@ export async function backfillUnassignedLeads(): Promise<{
       [agentId, leadId]
     );
     console.log(`[LeadAssignment] Backfill assigned leadId=${leadId} to userId=${agentId}`);
+    assignments.push({ leadId, agentId });
     assigned++;
   }
 
-  return { assigned, agentCount: agents.length };
+  return { assigned, agentCount: agents.length, assignments };
 }

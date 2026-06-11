@@ -4074,6 +4074,13 @@ ${metaTags}
       });
       if (autoAssignedTo) {
         console.log(`[LeadAssignment] Assigned leadId=${lead.id} to userId=${autoAssignedTo}`);
+        import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
+          notifyAgentOfLeadAssignment({
+            leadId: lead.id, leadName: lead.fullName, leadPhone: lead.phone,
+            leadEmail: lead.email, leadSource: lead.leadSource,
+            assignedToUserId: autoAssignedTo, context: "new",
+          })
+        ).catch(() => {});
       }
       // Trigger welcome email if lead has an email address (fire-and-forget)
       if (lead.email?.trim()) {
@@ -4329,6 +4336,7 @@ ${metaTags}
 
       let importedCount = 0, duplicates = 0, failed = 0;
       const failedRows: { row: number; reason: string }[] = [];
+      const importAssignCounts = new Map<number, number[]>();
 
       for (let i = 0; i < rawRows.length; i++) {
         const rowNum = i + 2;
@@ -4420,10 +4428,24 @@ ${metaTags}
           }
 
           importedCount++;
+          // Track assignment for post-import bulk notification
+          if (importedLead.assignedTo) {
+            if (!importAssignCounts.has(importedLead.assignedTo)) importAssignCounts.set(importedLead.assignedTo, []);
+            importAssignCounts.get(importedLead.assignedTo)!.push(importedLead.id);
+          }
         } catch (rowErr: any) {
           failed++;
           failedRows.push({ row: rowNum, reason: rowErr.message ?? "Unknown error" });
         }
+      }
+
+      // Notify each assigned agent with a bulk summary (one email per agent)
+      if (importAssignCounts.size > 0) {
+        import("./leadAssignmentNotificationService").then(({ notifyAgentOfBulkAssignment }) => {
+          Array.from(importAssignCounts.entries()).forEach(([agentId, leadIds]) => {
+            notifyAgentOfBulkAssignment({ assignedToUserId: agentId, leadCount: leadIds.length, leadIds }).catch(() => {});
+          });
+        }).catch(() => {});
       }
 
       res.json({ total: rawRows.length, imported: importedCount, duplicates, failed, failedRows });
@@ -4689,6 +4711,12 @@ ${metaTags}
 
       await db.update(crmLeads).set(updateData).where(bulkWhere);
       res.json({ updated: ids.length });
+      // Notify agent of bulk assignment (admin only)
+      if (req.session.isAdmin && assignedTo != null) {
+        import("./leadAssignmentNotificationService").then(({ notifyAgentOfBulkAssignment }) =>
+          notifyAgentOfBulkAssignment({ assignedToUserId: assignedTo, leadCount: ids.length, leadIds: ids })
+        ).catch(() => {});
+      }
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4718,6 +4746,19 @@ ${metaTags}
         return res.json({ assigned: 0, message: "No eligible sub-agents found. Add sub-agents first." });
       }
       res.json({ assigned: result.assigned, agentCount: result.agentCount, message: `Assigned ${result.assigned} leads across ${result.agentCount} sub-agent(s)` });
+      // Notify each agent of their newly assigned leads (one bulk email per agent)
+      if (result.assignments.length > 0) {
+        import("./leadAssignmentNotificationService").then(({ notifyAgentOfBulkAssignment }) => {
+          const byAgent = new Map<number, number[]>();
+          for (const { leadId, agentId } of result.assignments) {
+            if (!byAgent.has(agentId)) byAgent.set(agentId, []);
+            byAgent.get(agentId)!.push(leadId);
+          }
+          Array.from(byAgent.entries()).forEach(([agentId, leadIds]) => {
+            notifyAgentOfBulkAssignment({ assignedToUserId: agentId, leadCount: leadIds.length, leadIds }).catch(() => {});
+          });
+        }).catch(() => {});
+      }
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4790,6 +4831,16 @@ ${metaTags}
       const updated = await storage.updateCrmLead(Number(req.params.id), req.body);
       if (!updated) return res.status(404).json({ message: "Lead not found" });
       res.json(updated);
+      // Notify agent when admin assigns/reassigns lead via PATCH
+      if (req.session.isAdmin && req.body.assignedTo != null) {
+        import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
+          notifyAgentOfLeadAssignment({
+            leadId: updated.id, leadName: updated.fullName, leadPhone: updated.phone,
+            leadEmail: updated.email, leadSource: updated.leadSource,
+            assignedToUserId: Number(req.body.assignedTo), context: "reassigned",
+          })
+        ).catch(() => {});
+      }
       // No Answer 3 recovery — fire in background, never blocks response
       if (req.body.status === "no_answer_3") {
         import("./whatsappAiService").then(({ triggerNoAnswer3Recovery }) =>
@@ -4943,6 +4994,16 @@ ${metaTags}
       });
 
       res.json(updated);
+      // Notify the newly assigned agent
+      if (targetUser) {
+        import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
+          notifyAgentOfLeadAssignment({
+            leadId: updated.id, leadName: updated.fullName, leadPhone: updated.phone,
+            leadEmail: updated.email, leadSource: updated.leadSource,
+            assignedToUserId: targetUser.id, context: "reassigned",
+          })
+        ).catch(() => {});
+      }
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

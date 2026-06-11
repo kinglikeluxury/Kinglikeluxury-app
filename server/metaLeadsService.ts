@@ -220,6 +220,13 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
     );
     if (crmLead.assignedTo) {
       console.log(`[LeadAssignment] Assigned leadId=${crmLead.id} to userId=${crmLead.assignedTo}`);
+      import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
+        notifyAgentOfLeadAssignment({
+          leadId: crmLead.id, leadName: crmLead.fullName, leadPhone: crmLead.phone,
+          leadEmail: crmLead.email, leadSource: crmLead.leadSource,
+          assignedToUserId: crmLead.assignedTo!, context: "new",
+        })
+      ).catch(() => {});
     }
 
     // ── WhatsApp AI: init draft conversation (Phase 1 — no message sent) ───
@@ -549,6 +556,13 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
           if (!crmLead) throw new Error("CRM insert returned no row");
           if (crmLead.assignedTo) {
             console.log(`[LeadAssignment] Assigned leadId=${crmLead.id} to userId=${crmLead.assignedTo}`);
+            import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
+              notifyAgentOfLeadAssignment({
+                leadId: crmLead.id, leadName: crmLead.fullName, leadPhone: crmLead.phone,
+                leadEmail: crmLead.email, leadSource: crmLead.leadSource,
+                assignedToUserId: crmLead.assignedTo!, context: "new",
+              })
+            ).catch(() => {});
           }
 
           // ── WhatsApp AI: init draft conversation (Phase 1 — no message sent) ──
