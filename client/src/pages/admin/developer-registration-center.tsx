@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
@@ -18,8 +18,9 @@ import { Separator } from "@/components/ui/separator";
 import {
   Building2, CheckCircle2, AlertCircle, Clock, XCircle,
   RefreshCw, Eye, ExternalLink, Copy, ShieldCheck, ShieldOff,
-  Plus, Loader2, ChevronRight, RotateCcw, FileText,
-  Send, History, AlertTriangle, Info,
+  Plus, Loader2, ChevronRight, FileText,
+  Send, History, AlertTriangle, Info, Play, CalendarDays,
+  TrendingUp, Users, BarChart3, Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,6 +46,14 @@ const PROT_CONFIG: Record<string, { label: string; color: string }> = {
   sold:      { label: "Sold",       color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/30" },
 };
 
+const ATTEMPT_TYPE_LABELS: Record<string, string> = {
+  initial:          "Initial",
+  re_registration:  "Re-Registration",
+  manual_retry:     "Manual Retry",
+  silk_auto:        "Auto",
+  manual:           "Manual",
+};
+
 function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; color: string }> }) {
   const cfg = map[status] ?? { label: status, color: "bg-gray-100 text-gray-500 border border-gray-200" };
   return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cfg.color}`}>{cfg.label}</span>;
@@ -62,7 +71,7 @@ function fmtDateTime(d: string | null | undefined) {
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
+function StatCard({ label, value, icon, color, sub }: { label: string; value: number | string; icon: React.ReactNode; color: string; sub?: string }) {
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="p-4 flex items-center gap-3">
@@ -72,6 +81,7 @@ function StatCard({ label, value, icon, color }: { label: string; value: number;
         <div>
           <p className="text-2xl font-bold text-[#005476]">{value}</p>
           <p className="text-xs text-muted-foreground">{label}</p>
+          {sub && <p className="text-[10px] text-[#3bcac4] font-medium">{sub}</p>}
         </div>
       </CardContent>
     </Card>
@@ -221,19 +231,18 @@ function AttemptsModal({ recordId, leadName, onClose }: { recordId: number; lead
                     ? <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                     : <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${a.status === "success" ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-red-50 text-red-600 border-red-200"}`}>
                         {a.status === "success" ? "SUCCESS — Accepted by Silk" : "FAILED — Not accepted"}
                       </span>
+                      <span className="text-[10px] bg-[#005476]/10 text-[#005476] border border-[#005476]/20 px-2 py-0.5 rounded-full font-semibold">
+                        {ATTEMPT_TYPE_LABELS[a.attempt_type] ?? a.attempt_type}
+                      </span>
                       {a.response_status && (
-                        <span className="text-[10px] text-muted-foreground">
-                          HTTP {a.response_status}
-                        </span>
+                        <span className="text-[10px] text-muted-foreground">HTTP {a.response_status}</span>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {fmtDateTime(a.created_at)} · attempt_type: {a.attempt_type}
-                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{fmtDateTime(a.created_at)}</p>
                   </div>
                 </div>
                 <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${expanded === idx ? "rotate-90" : ""}`} />
@@ -246,19 +255,14 @@ function AttemptsModal({ recordId, leadName, onClose }: { recordId: number; lead
                       <strong>Error:</strong> {a.error_message}
                     </div>
                   )}
-
                   <div className="mt-3">
                     <p className="text-[10px] font-bold text-[#005476] mb-1.5 uppercase tracking-wide">Request Payload Sent to Silk</p>
                     <pre className="text-[10px] bg-[#005476]/4 border border-[#3bcac4]/20 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
                       {a.payload_json
-                        ? JSON.stringify(
-                            typeof a.payload_json === "string" ? JSON.parse(a.payload_json) : a.payload_json,
-                            null, 2
-                          )
+                        ? JSON.stringify(typeof a.payload_json === "string" ? JSON.parse(a.payload_json) : a.payload_json, null, 2)
                         : "—"}
                     </pre>
                   </div>
-
                   {a.response_body && (
                     <div>
                       <p className="text-[10px] font-bold text-[#005476] mb-1.5 uppercase tracking-wide">
@@ -269,7 +273,6 @@ function AttemptsModal({ recordId, leadName, onClose }: { recordId: number; lead
                       </pre>
                     </div>
                   )}
-
                   {a.destination_url && (
                     <p className="text-[10px] text-muted-foreground">
                       Destination: <code className="bg-gray-100 px-1 rounded">{a.destination_url}</code>
@@ -295,11 +298,12 @@ function CompanyModal({
   company, onClose, onSaved,
 }: { company?: any; onClose: () => void; onSaved: () => void }) {
   const { toast } = useToast();
-  const [name, setName]           = useState(company?.name ?? "");
-  const [formUrl, setFormUrl]     = useState(company?.form_url ?? "");
-  const [interval, setInterval]   = useState(String(company?.registration_interval_days ?? 40));
-  const [mode, setMode]           = useState(company?.registration_mode ?? "manual");
-  const [active, setActive]       = useState(company?.is_active ?? true);
+  const [name, setName]                   = useState(company?.name ?? "");
+  const [formUrl, setFormUrl]             = useState(company?.form_url ?? "");
+  const [interval, setInterval]           = useState(String(company?.registration_interval_days ?? 30));
+  const [mode, setMode]                   = useState(company?.registration_mode ?? "manual");
+  const [active, setActive]               = useState(company?.is_active ?? true);
+  const [autoRegEnabled, setAutoRegEnabled] = useState(company?.auto_register_enabled ?? true);
   const [configJson, setConfigJson] = useState(
     company?.config_json
       ? JSON.stringify(typeof company.config_json === "string" ? JSON.parse(company.config_json) : company.config_json, null, 2)
@@ -329,12 +333,14 @@ function CompanyModal({
       if (company?.id) {
         await apiRequest("PATCH", `/api/admin/developer-registration/companies/${company.id}`, {
           name, form_url: formUrl, registration_interval_days: parseInt(interval, 10),
-          registration_mode: mode, is_active: active, config_json: JSON.parse(configJson),
+          registration_mode: mode, is_active: active, auto_register_enabled: autoRegEnabled,
+          config_json: JSON.parse(configJson),
         });
       } else {
         await apiRequest("POST", "/api/admin/developer-registration/companies", {
           name, form_url: formUrl, registration_interval_days: parseInt(interval, 10),
-          registration_mode: mode, is_active: active, config_json: JSON.parse(configJson),
+          registration_mode: mode, is_active: active, auto_register_enabled: autoRegEnabled,
+          config_json: JSON.parse(configJson),
         });
       }
       toast({ title: "Saved", description: `${name} ${company?.id ? "updated" : "added"} successfully.` });
@@ -370,9 +376,21 @@ function CompanyModal({
             <Input value={mode} onChange={e => setMode(e.target.value)} placeholder="manual" />
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Switch checked={active} onCheckedChange={setActive} />
-          <Label>{active ? "Active" : "Inactive"}</Label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
+            <Switch checked={active} onCheckedChange={setActive} />
+            <div>
+              <Label className="text-sm">{active ? "Active" : "Inactive"}</Label>
+              <p className="text-[10px] text-muted-foreground">New leads enqueued only when active</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
+            <Switch checked={autoRegEnabled} onCheckedChange={setAutoRegEnabled} />
+            <div>
+              <Label className="text-sm">{autoRegEnabled ? "Auto-Register ON" : "Auto-Register OFF"}</Label>
+              <p className="text-[10px] text-muted-foreground">Auto-enqueue new leads &amp; re-register on schedule</p>
+            </div>
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label>Field Config JSON</Label>
@@ -398,6 +416,44 @@ function CompanyModal({
   );
 }
 
+// ── Per-developer stats table ─────────────────────────────────────────────────
+
+function PerDeveloperTable({ rows }: { rows: any[] }) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-[#005476]/5 border-b">
+            <th className="text-left px-4 py-2.5 font-semibold text-[#005476]">Developer</th>
+            <th className="text-right px-3 py-2.5 font-semibold text-[#005476]">Total</th>
+            <th className="text-right px-3 py-2.5 font-semibold text-emerald-700">Success</th>
+            <th className="text-right px-3 py-2.5 font-semibold text-red-600">Failed</th>
+            <th className="text-right px-3 py-2.5 font-semibold text-slate-500">Stopped</th>
+            <th className="text-right px-3 py-2.5 font-semibold text-purple-600">Re-Reg Due</th>
+            <th className="text-left px-3 py-2.5 font-semibold text-[#005476]">Last Registered</th>
+            <th className="text-left px-3 py-2.5 font-semibold text-[#005476]">Next Due</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.developerId} className="border-b hover:bg-gray-50/60">
+              <td className="px-4 py-2.5 font-semibold text-[#005476]">{r.developerName}</td>
+              <td className="px-3 py-2.5 text-right font-bold text-[#005476]">{r.total}</td>
+              <td className="px-3 py-2.5 text-right text-emerald-700 font-semibold">{r.success}</td>
+              <td className="px-3 py-2.5 text-right text-red-600 font-semibold">{r.failed}</td>
+              <td className="px-3 py-2.5 text-right text-slate-500">{r.stopped}</td>
+              <td className="px-3 py-2.5 text-right text-purple-600 font-semibold">{r.pendingReReg}</td>
+              <td className="px-3 py-2.5 text-muted-foreground">{fmtDate(r.lastRegisteredAt)}</td>
+              <td className="px-3 py-2.5 text-muted-foreground">{fmtDate(r.nextDueAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function DeveloperRegistrationCenterPage() {
@@ -412,19 +468,35 @@ export default function DeveloperRegistrationCenterPage() {
   const [editCompany,     setEditCompany]     = useState<any | null>(null);
   const [addCompany,      setAddCompany]      = useState(false);
   const [statusFilter,    setStatusFilter]    = useState("");
+  const [developerFilter, setDeveloperFilter] = useState("");
+  const [searchFilter,    setSearchFilter]    = useState("");
+  const [dateFrom,        setDateFrom]        = useState("");
+  const [dateTo,          setDateTo]          = useState("");
+  const [sourceFilter,    setSourceFilter]    = useState("");
   const [failReason,      setFailReason]      = useState("");
   const [failRecordId,    setFailRecordId]    = useState<number | null>(null);
 
-  const { data: overview } = useQuery<any>({
+  const { data: overview, refetch: refetchOverview } = useQuery<any>({
     queryKey: ["/api/admin/developer-registration/overview"],
     queryFn: () => apiRequest("GET", "/api/admin/developer-registration/overview").then(r => r.json()),
     enabled: !!user?.isAdmin,
     refetchInterval: 30000,
   });
 
+  const queueParams = new URLSearchParams();
+  if (statusFilter)    queueParams.set("status", statusFilter);
+  if (developerFilter) queueParams.set("developer_id", developerFilter);
+  if (searchFilter)    queueParams.set("search", searchFilter);
+  if (dateFrom)        queueParams.set("date_from", dateFrom);
+  if (dateTo)          queueParams.set("date_to", dateTo);
+  if (sourceFilter)    queueParams.set("lead_source", sourceFilter);
+
   const { data: queueData, isLoading: queueLoading, refetch: refetchQueue } = useQuery<any>({
-    queryKey: ["/api/admin/developer-registration/queue", statusFilter],
-    queryFn: () => apiRequest("GET", `/api/admin/developer-registration/queue${statusFilter ? `?status=${statusFilter}` : ""}`).then(r => r.json()),
+    queryKey: ["/api/admin/developer-registration/queue", statusFilter, developerFilter, searchFilter, dateFrom, dateTo, sourceFilter],
+    queryFn: () => {
+      const qs = queueParams.toString();
+      return apiRequest("GET", `/api/admin/developer-registration/queue${qs ? `?${qs}` : ""}`).then(r => r.json());
+    },
     enabled: !!user?.isAdmin,
   });
 
@@ -450,6 +522,7 @@ export default function DeveloperRegistrationCenterPage() {
         });
       }
       refetchQueue();
+      refetchOverview();
     },
     onError: (e: any) =>
       toast({ title: "Submission Error", description: e.message, variant: "destructive" }),
@@ -457,25 +530,20 @@ export default function DeveloperRegistrationCenterPage() {
 
   const markSubmittedMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/admin/developer-registration/${id}/mark-submitted`, {}),
-    onSuccess: () => { toast({ title: "Marked submitted" }); refetchQueue(); },
+    onSuccess: () => { toast({ title: "Marked submitted" }); refetchQueue(); refetchOverview(); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const stopMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/admin/developer-registration/${id}/stop`, {}),
-    onSuccess: () => { toast({ title: "Protection stopped" }); refetchQueue(); },
+    onSuccess: () => { toast({ title: "Protection stopped" }); refetchQueue(); refetchOverview(); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const resumeMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/admin/developer-registration/${id}/resume`, {}),
-    onSuccess: () => { toast({ title: "Protection resumed" }); refetchQueue(); },
+    onSuccess: () => { toast({ title: "Protection resumed" }); refetchQueue(); refetchOverview(); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const needsReviewMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("POST", `/api/admin/developer-registration/${id}/needs-review`, {}),
-    onSuccess: () => { toast({ title: "Flagged for review" }); refetchQueue(); },
   });
 
   const markFailedMutation = useMutation({
@@ -489,9 +557,18 @@ export default function DeveloperRegistrationCenterPage() {
     onSuccess: () => { toast({ title: "Compatibility check run (Phase 1 placeholder)" }); refetchCompanies(); },
   });
 
-  useEffect(() => {
-    if (!authLoading && user !== undefined && !user?.isAdmin) navigate("/");
-  }, [authLoading, user, navigate]);
+  const runDueRegsMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/developer-registration/run-due-registrations", {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      toast({
+        title: "✅ Re-registration run complete",
+        description: `Marked: ${data.marked} · Submitted: ${data.submitted} · Failed: ${data.failed} · Skipped: ${data.skipped}`,
+      });
+      refetchQueue();
+      refetchOverview();
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
   if (authLoading) {
     return (
@@ -512,13 +589,17 @@ export default function DeveloperRegistrationCenterPage() {
   }
 
   const stats    = overview?.stats ?? {};
+  const today    = overview?.today ?? { total: 0, success: 0, failed: 0 };
+  const perDev   = overview?.perDeveloper ?? [];
+  const nextDue  = overview?.nextDueAt;
+
   const statCards = [
-    { label: "Pending",        key: "pending",               icon: <Clock className="h-5 w-5 text-slate-500" />,          color: "bg-slate-100" },
     { label: "Prepared",       key: "prepared",              icon: <FileText className="h-5 w-5 text-[#3bcac4]" />,       color: "bg-[#3bcac4]/10" },
     { label: "Success",        key: "success",               icon: <CheckCircle2 className="h-5 w-5 text-emerald-700" />, color: "bg-emerald-100" },
     { label: "Submitted",      key: "submitted",             icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, color: "bg-emerald-50" },
     { label: "Failed",         key: "failed",                icon: <XCircle className="h-5 w-5 text-red-500" />,          color: "bg-red-50" },
     { label: "Needs Review",   key: "needs_review",          icon: <AlertCircle className="h-5 w-5 text-amber-600" />,    color: "bg-amber-50" },
+    { label: "Re-Reg Due",     key: "pending_re_registration", icon: <RefreshCw className="h-5 w-5 text-purple-600" />,   color: "bg-purple-50" },
     { label: "Protected",      key: "_protected",            icon: <ShieldCheck className="h-5 w-5 text-emerald-600" />,  color: "bg-emerald-50" },
     { label: "Stopped / Sold", key: "_stopped",              icon: <ShieldOff className="h-5 w-5 text-slate-500" />,      color: "bg-slate-100" },
   ];
@@ -537,21 +618,81 @@ export default function DeveloperRegistrationCenterPage() {
           <h1 className="text-base font-bold text-[#005476]">Developer Registration Center</h1>
           <p className="text-xs text-muted-foreground">نظام تسجيل العملاء لدى شركات الإنشاء — Phase 2 (Silk Live)</p>
         </div>
-        <Badge className="ml-auto text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
-          Phase 2 — Silk Auto-Submit Active
-        </Badge>
+        <div className="ml-auto flex items-center gap-2">
+          <Badge className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Phase 2 — Silk Auto-Submit Active
+          </Badge>
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white"
+            disabled={runDueRegsMutation.isPending}
+            onClick={() => runDueRegsMutation.mutate()}
+          >
+            {runDueRegsMutation.isPending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Play className="h-3.5 w-3.5" />}
+            Run Due Re-registrations Now
+          </Button>
+        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
+
+        {/* ── Today's summary strip ──────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-[#005476] to-[#3bcac4] text-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <CalendarDays className="h-8 w-8 opacity-80" />
+              <div>
+                <p className="text-2xl font-bold">{today.total}</p>
+                <p className="text-xs opacity-90">Attempts Today</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-emerald-700" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-emerald-700">{today.success}</p>
+                <p className="text-xs text-muted-foreground">Successful Today</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center">
+                <XCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-red-600">{today.failed}</p>
+                <p className="text-xs text-muted-foreground">Failed Today</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#005476]">{nextDue ? fmtDate(nextDue) : "—"}</p>
+                <p className="text-xs text-muted-foreground">Next Re-Reg Due</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── All-time stat cards ─────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {statCards.map(sc => (
             <StatCard
               key={sc.key}
               label={sc.label}
               value={
                 sc.key === "_protected" ? (overview?.protected ?? 0) :
-                sc.key === "_stopped"   ? (overview?.stopped ?? 0) :
+                sc.key === "_stopped"   ? (overview?.stopped   ?? 0) :
                 (stats[sc.key] ?? 0)
               }
               icon={sc.icon}
@@ -563,23 +704,23 @@ export default function DeveloperRegistrationCenterPage() {
         <Tabs defaultValue="queue">
           <TabsList className="mb-4">
             <TabsTrigger value="queue">Registration Queue</TabsTrigger>
+            <TabsTrigger value="reports">
+              <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+              Reports
+            </TabsTrigger>
             <TabsTrigger value="companies">Developer Companies</TabsTrigger>
             <TabsTrigger value="legend">Status Guide</TabsTrigger>
           </TabsList>
 
           {/* ── Queue tab ──────────────────────────────────────────────────── */}
           <TabsContent value="queue">
-            {/* Warning banner */}
             <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-amber-800">
-                  Prepared does not mean registered.
-                </p>
+                <p className="text-sm font-semibold text-amber-800">Prepared does not mean registered.</p>
                 <p className="text-xs text-amber-700 mt-0.5">
                   The lead is registered with Silk Development <strong>only after a successful Silk confirmation</strong> (status = Success ✓).
-                  A "Prepared" status means the payload is ready but <strong>no HTTP request has been sent yet</strong>.
-                  Click <em>"Submit to Silk"</em> to send the registration — the system will show Success or Failed based on Silk's actual response.
+                  Click <em>"Submit to Silk"</em> to send. The system will show Success or Failed based on Silk's actual response.
                 </p>
               </div>
             </div>
@@ -590,21 +731,75 @@ export default function DeveloperRegistrationCenterPage() {
                   <CardTitle className="text-sm font-semibold text-[#005476]">
                     Registration Queue ({queueData?.total ?? 0})
                   </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <select
-                      className="text-xs border rounded-md px-2 py-1 text-[#005476] bg-white"
-                      value={statusFilter}
-                      onChange={e => setStatusFilter(e.target.value)}
-                    >
-                      <option value="">All Statuses</option>
-                      {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
-                    <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => refetchQueue()}>
-                      <RefreshCw className="h-3 w-3" /> Refresh
-                    </Button>
+                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => refetchQueue()}>
+                    <RefreshCw className="h-3 w-3" /> Refresh
+                  </Button>
+                </div>
+
+                {/* Filters row */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search lead name / phone…"
+                      value={searchFilter}
+                      onChange={e => setSearchFilter(e.target.value)}
+                      className="pl-7 h-8 text-xs w-48"
+                    />
                   </div>
+                  <select
+                    className="text-xs border rounded-md px-2 py-1 text-[#005476] bg-white h-8"
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                  >
+                    <option value="">All Statuses</option>
+                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="text-xs border rounded-md px-2 py-1 text-[#005476] bg-white h-8"
+                    value={developerFilter}
+                    onChange={e => setDeveloperFilter(e.target.value)}
+                  >
+                    <option value="">All Developers</option>
+                    {(companies ?? []).map(c => (
+                      <option key={c.id} value={String(c.id)}>{c.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="text-xs border rounded-md px-2 py-1 text-[#005476] bg-white h-8"
+                    value={sourceFilter}
+                    onChange={e => setSourceFilter(e.target.value)}
+                  >
+                    <option value="">All Sources</option>
+                    <option value="meta">Meta</option>
+                    <option value="manual">Manual</option>
+                    <option value="import">Import</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="website">Website</option>
+                  </select>
+                  <Input
+                    type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    className="h-8 text-xs w-36"
+                    title="From date"
+                  />
+                  <Input
+                    type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    className="h-8 text-xs w-36"
+                    title="To date"
+                  />
+                  {(statusFilter || developerFilter || searchFilter || dateFrom || dateTo || sourceFilter) && (
+                    <Button
+                      size="sm" variant="ghost" className="h-8 text-xs text-red-500 hover:text-red-700"
+                      onClick={() => {
+                        setStatusFilter(""); setDeveloperFilter(""); setSearchFilter("");
+                        setDateFrom(""); setDateTo(""); setSourceFilter("");
+                      }}
+                    >
+                      <XCircle className="h-3.5 w-3.5 mr-1" /> Clear
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -645,6 +840,11 @@ export default function DeveloperRegistrationCenterPage() {
                                   <ChevronRight className="h-3 w-3 opacity-50" />
                                 </a>
                                 <span className="text-muted-foreground">{rec.lead_phone ?? "—"}</span>
+                                {rec.lead_source && (
+                                  <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 border border-gray-200 px-1 rounded">
+                                    {rec.lead_source}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-2.5 font-medium text-[#005476]">
                                 {rec.developer_name}
@@ -667,13 +867,10 @@ export default function DeveloperRegistrationCenterPage() {
                               <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(rec.next_registration_at)}</td>
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-1 flex-wrap">
-                                  {/* Payload */}
                                   <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] gap-1"
                                     onClick={() => setPayloadRecordId(rec.id)}>
                                     <Eye className="h-3 w-3" /> Payload
                                   </Button>
-
-                                  {/* Audit log (all records) */}
                                   <Button
                                     size="sm" variant="outline"
                                     className="h-6 px-2 text-[10px] gap-1 text-[#005476] border-[#3bcac4]/40"
@@ -684,8 +881,6 @@ export default function DeveloperRegistrationCenterPage() {
                                   >
                                     <History className="h-3 w-3" /> Audit
                                   </Button>
-
-                                  {/* Submit to Silk — Silk records only */}
                                   {isSilk && canSubmit && (
                                     <Button
                                       size="sm"
@@ -699,8 +894,6 @@ export default function DeveloperRegistrationCenterPage() {
                                       Submit to Silk
                                     </Button>
                                   )}
-
-                                  {/* Open form (non-Silk only) */}
                                   {!isSilk && rec.form_url && (
                                     <a href={rec.form_url} target="_blank" rel="noopener noreferrer">
                                       <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] gap-1">
@@ -708,8 +901,6 @@ export default function DeveloperRegistrationCenterPage() {
                                       </Button>
                                     </a>
                                   )}
-
-                                  {/* Manual mark submitted (non-Silk only) */}
                                   {!isSilk && rec.status !== "submitted" && rec.status !== "stopped" && (
                                     <Button size="sm"
                                       className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -718,8 +909,6 @@ export default function DeveloperRegistrationCenterPage() {
                                       <CheckCircle2 className="h-3 w-3" /> Submitted
                                     </Button>
                                   )}
-
-                                  {/* Mark failed */}
                                   {rec.status !== "stopped" && rec.status !== "success" && (
                                     <Button size="sm" variant="outline"
                                       className="h-6 px-2 text-[10px] gap-1 text-red-600 border-red-200"
@@ -727,8 +916,6 @@ export default function DeveloperRegistrationCenterPage() {
                                       <XCircle className="h-3 w-3" /> Failed
                                     </Button>
                                   )}
-
-                                  {/* Stop / Resume */}
                                   {rec.protection_status !== "stopped" && rec.protection_status !== "sold" ? (
                                     <Button size="sm" variant="outline"
                                       className="h-6 px-2 text-[10px] gap-1 text-slate-600"
@@ -757,6 +944,125 @@ export default function DeveloperRegistrationCenterPage() {
             </Card>
           </TabsContent>
 
+          {/* ── Reports tab ────────────────────────────────────────────────── */}
+          <TabsContent value="reports">
+            <div className="space-y-5">
+
+              {/* Today strip */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-[#005476] flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-[#3bcac4]" />
+                    Today's Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 rounded-xl bg-[#005476]/5">
+                      <p className="text-3xl font-bold text-[#005476]">{today.total}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Total Attempts Today</p>
+                    </div>
+                    <div className="text-center p-4 rounded-xl bg-emerald-50">
+                      <p className="text-3xl font-bold text-emerald-700">{today.success}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Successful Today</p>
+                    </div>
+                    <div className="text-center p-4 rounded-xl bg-red-50">
+                      <p className="text-3xl font-bold text-red-600">{today.failed}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Failed Today</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Global stats */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-[#005476] flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#3bcac4]" />
+                    All-Time Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: "Total Prepared",       value: (stats.prepared ?? 0) + (stats.needs_review ?? 0),  color: "text-[#005476]" },
+                      { label: "Total Success",         value: stats.success  ?? 0,  color: "text-emerald-700" },
+                      { label: "Total Failed",          value: stats.failed   ?? 0,  color: "text-red-600" },
+                      { label: "Pending Re-Reg",        value: stats.pending_re_registration ?? 0, color: "text-purple-600" },
+                      { label: "Protected Leads",       value: overview?.protected ?? 0, color: "text-emerald-700" },
+                      { label: "Stopped / Sold",        value: overview?.stopped ?? 0, color: "text-slate-500" },
+                      { label: "Needs Review",          value: stats.needs_review ?? 0, color: "text-amber-600" },
+                      { label: "Next Re-Reg Due",       value: nextDue ? fmtDate(nextDue) : "—", color: "text-[#005476]" },
+                    ].map(item => (
+                      <div key={item.label} className="p-3 rounded-xl border bg-white">
+                        <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{item.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Per-developer breakdown */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-[#005476] flex items-center gap-2">
+                    <Users className="h-4 w-4 text-[#3bcac4]" />
+                    Leads Registered Per Developer
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PerDeveloperTable rows={perDev} />
+                  {(!perDev || perDev.length === 0) && (
+                    <p className="text-center text-muted-foreground text-sm py-6">No developer data available.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Scheduler info */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-[#005476] flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-[#3bcac4]" />
+                    Scheduler Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-[#005476]/5 border border-[#3bcac4]/20">
+                      <p className="text-xs font-semibold text-[#005476] mb-1">Daily Auto Re-registration</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Runs automatically every 24 hours. Finds all leads with <strong>next_registration_at ≤ today</strong>,
+                        marks them as Re-Reg Due, and auto-submits Silk records to the Silk API.
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#005476]/5 border border-[#3bcac4]/20">
+                      <p className="text-xs font-semibold text-[#005476] mb-1">30-Day Re-registration Rule</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        After a successful registration, <strong>next_registration_at = success_date + interval_days</strong>.
+                        Default interval is 30 days (configurable per developer company).
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#005476]/5 border border-[#3bcac4]/20">
+                      <p className="text-xs font-semibold text-[#005476] mb-1">Protection Rules</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Leads marked as Sold, Stopped, Junk, Not Interested, or Duplicate are
+                        automatically excluded from all re-registration runs.
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#005476]/5 border border-[#3bcac4]/20">
+                      <p className="text-xs font-semibold text-[#005476] mb-1">Duplicate Prevention</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        The scheduler prevents concurrent runs. Each lead is processed only once per run.
+                        Use the <strong>"Run Due Re-registrations Now"</strong> button for an immediate manual trigger.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           {/* ── Companies tab ──────────────────────────────────────────────── */}
           <TabsContent value="companies">
             <Card className="border-0 shadow-sm">
@@ -783,6 +1089,7 @@ export default function DeveloperRegistrationCenterPage() {
                       const riskLevel = cfg.risk_level ?? cfg.compatibility_checker_result?.risk_level ?? "—";
                       const lastCheck = cfg.compatibility_checker_result?.last_checked_at;
                       const isSilkCo  = co.id === 1 || co.name === "Silk Development";
+                      const autoReg   = co.auto_register_enabled !== false;
                       return (
                         <div key={co.id} className="px-5 py-4 hover:bg-gray-50/70 transition-colors">
                           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -792,7 +1099,10 @@ export default function DeveloperRegistrationCenterPage() {
                                 <Badge className={`text-[10px] ${co.is_active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200"}`}>
                                   {co.is_active ? "Active" : "Inactive"}
                                 </Badge>
-                                <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/20">
+                                <Badge className={`text-[10px] ${autoReg ? "bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/20" : "bg-orange-50 text-orange-600 border border-orange-200"}`}>
+                                  {autoReg ? "Auto-Register ON" : "Auto-Register OFF"}
+                                </Badge>
+                                <Badge className="text-[10px] bg-gray-100 text-gray-600 border border-gray-200">
                                   {co.registration_mode}
                                 </Badge>
                                 {isSilkCo && (
@@ -843,7 +1153,7 @@ export default function DeveloperRegistrationCenterPage() {
                   Adding future developer companies (Petra, Gumbati, Next Partners, Ambassadori, Wyndham, Rotana, etc.)
                   requires <strong>no code changes</strong>. Click <em>Add Developer</em> above and fill in the company name,
                   form URL, registration interval, and config JSON with field mappings.
-                  New leads will automatically receive registration records for all active developers.
+                  New leads will automatically receive registration records for all active developers that have <strong>Auto-Register ON</strong>.
                 </p>
               </CardContent>
             </Card>
@@ -873,11 +1183,25 @@ export default function DeveloperRegistrationCenterPage() {
                 <Separator className="my-4" />
 
                 <div className="space-y-2">
+                  <p className="text-xs font-semibold text-[#005476]">Attempt Types</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    {Object.entries(ATTEMPT_TYPE_LABELS).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 p-2 rounded-lg bg-[#005476]/5">
+                        <span className="text-[10px] bg-[#005476]/10 text-[#005476] border border-[#005476]/20 px-2 py-0.5 rounded-full font-semibold">{v}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{k}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                <div className="space-y-2">
                   <p className="text-xs font-semibold text-[#005476]">Silk Submission Flow</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                     <span className="bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40 px-2 py-0.5 rounded-full text-[10px] font-semibold">Prepared</span>
                     <span>→</span>
-                    <span className="italic">[Admin clicks Submit to Silk]</span>
+                    <span className="italic">[Admin clicks Submit to Silk or scheduler runs]</span>
                     <span>→</span>
                     <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">Submitting…</span>
                     <span>→</span>

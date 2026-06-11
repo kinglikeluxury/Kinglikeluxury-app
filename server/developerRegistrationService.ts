@@ -1,7 +1,7 @@
 /**
  * Developer Registration Center — Service Layer
- * Phase 1: Prepares registration payloads for all active developer companies.
- *          No external form submission in Phase 1 — manual-only workflow.
+ * Auto-registers all new CRM leads with active developer companies.
+ * Scheduler auto-re-submits pending_re_registration records to Silk daily.
  */
 
 import { pool } from "./db";
@@ -120,13 +120,15 @@ export async function initDeveloperRegistrationsForLead(
 ): Promise<void> {
   const client = await pool.connect();
   try {
-    // Get all active developer companies
+    // Get all active developer companies that have auto_register_enabled
     const companiesResult = await client.query(`
       SELECT dc.id, dc.name, dc.form_url, dc.registration_interval_days, dc.registration_mode,
+             COALESCE(dc.auto_register_enabled, true) AS auto_register_enabled,
              dfc.config_json
         FROM developer_companies dc
         JOIN developer_form_configs dfc ON dfc.developer_company_id = dc.id AND dfc.is_active = true
        WHERE dc.is_active = true
+         AND COALESCE(dc.auto_register_enabled, true) = true
     `);
 
     if (companiesResult.rows.length === 0) return;
@@ -166,6 +168,25 @@ export async function initDeveloperRegistrationsForLead(
           status,
           JSON.stringify(payload),
           reviewReason || null,
+        ]);
+
+        // Audit log — initial preparation
+        await client.query(`
+          INSERT INTO developer_registration_attempts
+            (registration_record_id, crm_lead_id, developer_company_id, attempt_type, status,
+             payload_json, result_message, created_by, created_at)
+          SELECT drr.id, $1, $2, 'initial', $3, $4, $5, 0, NOW()
+            FROM developer_registration_records drr
+           WHERE drr.crm_lead_id=$1 AND drr.developer_company_id=$2
+           ORDER BY drr.created_at DESC LIMIT 1
+        `, [
+          leadId,
+          company.id,
+          status,
+          JSON.stringify(payload),
+          status === "prepared"
+            ? "Registration payload prepared automatically on lead creation"
+            : `Auto-prepared with review needed: ${reviewReason}`,
         ]);
 
         console.log(
@@ -248,40 +269,128 @@ export async function refreshPayloadForRecord(
   }
 }
 
-// ── Daily re-registration scheduler ──────────────────────────────────────────
+// ── Due re-registration runner ────────────────────────────────────────────────
 
-async function runDailyReRegistrationCheck(): Promise<void> {
+export interface ReRegistrationResult {
+  marked: number;
+  submitted: number;
+  failed: number;
+  skipped: number;
+}
+
+export async function runDueReRegistrations(): Promise<ReRegistrationResult> {
   const client = await pool.connect();
+  const result: ReRegistrationResult = { marked: 0, submitted: 0, failed: 0, skipped: 0 };
+
   try {
-    const result = await client.query(`
+    // Step 1 — Mark overdue success/submitted records as pending_re_registration
+    const markResult = await client.query(`
       UPDATE developer_registration_records
          SET status     = 'pending_re_registration',
              updated_at = NOW()
-       WHERE status = 'submitted'
+       WHERE status IN ('success', 'submitted')
          AND protection_status = 'protected'
          AND next_registration_at IS NOT NULL
          AND next_registration_at <= NOW()
-      RETURNING id
+      RETURNING id, developer_company_id
     `);
 
-    if (result.rows.length > 0) {
-      console.log(
-        `[DeveloperRegistration] Marked pending_re_registration count=${result.rows.length}`
-      );
-      for (const row of result.rows) {
-        console.log(`[DeveloperRegistration] Marked pending_re_registration recordId=${row.id}`);
+    result.marked = markResult.rows.length;
+    if (result.marked > 0) {
+      console.log(`[DeveloperRegistration] Marked pending_re_registration count=${result.marked}`);
+    }
+
+    // Step 2 — Find all pending_re_registration records for Silk (auto-submit capable)
+    const dueResult = await client.query(`
+      SELECT drr.id, drr.crm_lead_id, drr.developer_company_id
+        FROM developer_registration_records drr
+        JOIN developer_companies dc ON dc.id = drr.developer_company_id
+        JOIN crm_leads cl ON cl.id = drr.crm_lead_id
+       WHERE drr.status = 'pending_re_registration'
+         AND drr.protection_status = 'protected'
+         AND dc.is_active = true
+         AND COALESCE(dc.auto_register_enabled, true) = true
+         AND cl.status NOT IN ('purchased','sold_by_kinglike_luxury','junk_lead','not_interested','invalid_number','duplicate','blacklisted')
+       ORDER BY drr.updated_at ASC
+       LIMIT 50
+    `);
+
+    if (dueResult.rows.length === 0) {
+      client.release();
+      return result;
+    }
+
+    // Lazy-import the silk adapter to avoid circular deps
+    const { submitRecordToSilk, SILK_COMPANY_ID } = await import("./silkSubmissionAdapter");
+
+    for (const rec of dueResult.rows) {
+      try {
+        if (rec.developer_company_id === SILK_COMPANY_ID) {
+          // Auto-submit to Silk with attempt_type = 're_registration'
+          const submitResult = await submitRecordToSilk(rec.id, 0, "re_registration");
+          if (submitResult.success) {
+            result.submitted++;
+            console.log(`[DeveloperRegistration] Auto re-registered to Silk recordId=${rec.id} leadId=${rec.crm_lead_id}`);
+          } else {
+            result.failed++;
+            console.warn(`[DeveloperRegistration] Silk re-registration failed recordId=${rec.id}: ${submitResult.errorMessage}`);
+          }
+        } else {
+          // Non-Silk developer — keep as pending_re_registration for manual processing
+          result.skipped++;
+        }
+      } catch (err: any) {
+        result.failed++;
+        console.error(`[DeveloperRegistration] Auto re-reg error recordId=${rec.id}: ${err.message}`);
       }
     }
+
+    console.log(
+      `[DeveloperRegistration] Re-registration run complete — marked=${result.marked} submitted=${result.submitted} failed=${result.failed} skipped=${result.skipped}`
+    );
   } catch (err: any) {
-    console.error("[DeveloperRegistration] Daily re-registration check failed:", err.message);
+    console.error("[DeveloperRegistration] runDueReRegistrations failed:", err.message);
   } finally {
-    client.release();
+    // client already released inside submitRecordToSilk calls; release here only if still held
+    try { client.release(); } catch { /* already released */ }
   }
+
+  return result;
 }
 
+// ── Schema migration (also called by routes at startup) ───────────────────────
+
+export async function ensureAutoRegColumn(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      ALTER TABLE developer_companies
+        ADD COLUMN IF NOT EXISTS auto_register_enabled BOOLEAN NOT NULL DEFAULT true
+    `);
+  } catch { /* column may already exist */ } finally { client.release(); }
+}
+
+// ── Scheduler ─────────────────────────────────────────────────────────────────
+
+let _schedulerRunning = false;
+
 export function startDeveloperRegistrationScheduler(): void {
-  // Run immediately on startup, then every 24 hours
-  runDailyReRegistrationCheck().catch(() => {});
-  setInterval(() => runDailyReRegistrationCheck().catch(() => {}), 24 * 60 * 60 * 1000);
+  // Ensure the column exists before the first run, then proceed
+  ensureAutoRegColumn()
+    .catch(() => {})
+    .then(() => runDueReRegistrations())
+    .catch(() => {});
+
+  setInterval(() => {
+    if (_schedulerRunning) {
+      console.log("[DeveloperRegistration] Scheduler already running — skipping");
+      return;
+    }
+    _schedulerRunning = true;
+    runDueReRegistrations()
+      .catch(e => console.error("[DeveloperRegistration] Scheduler error:", e.message))
+      .finally(() => { _schedulerRunning = false; });
+  }, 24 * 60 * 60 * 1000);
+
   console.log("[DeveloperRegistration] Daily scheduler started");
 }

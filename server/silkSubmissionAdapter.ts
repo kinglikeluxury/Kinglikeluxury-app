@@ -108,8 +108,9 @@ export interface SilkSubmitResult {
 // ── Main submission function ──────────────────────────────────────────────────
 
 export async function submitRecordToSilk(
-  recordId: number,
-  adminId:  number
+  recordId:    number,
+  adminId:     number,
+  attemptType: "initial" | "re_registration" | "manual_retry" | "silk_auto" | "manual" = "manual_retry"
 ): Promise<SilkSubmitResult> {
   const client = await pool.connect();
   try {
@@ -221,12 +222,13 @@ export async function submitRecordToSilk(
          (registration_record_id, crm_lead_id, developer_company_id,
           attempt_type, status, payload_json, result_message, created_by, created_at,
           destination_url, response_status, response_body, error_message)
-       VALUES ($1,$2,$3,'silk_auto',$4,$5,$6,$7,NOW(),$8,$9,$10,$11)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),$9,$10,$11,$12)
        RETURNING id`,
       [
         recordId,
         rec.crm_lead_id,
         rec.developer_company_id,
+        attemptType,
         success ? "success" : "failed",
         JSON.stringify(silkPayload),
         success ? "Silk confirmed acceptance" : (errorMessage ?? "Unknown error"),

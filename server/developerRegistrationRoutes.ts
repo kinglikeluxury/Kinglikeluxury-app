@@ -6,12 +6,29 @@
 
 import { type Express, type Request, type Response } from "express";
 import { pool } from "./db";
-import { prepareRegistrationPayload } from "./developerRegistrationService";
+import { prepareRegistrationPayload, runDueReRegistrations } from "./developerRegistrationService";
 import {
   submitRecordToSilk,
   ensureSilkAttemptColumns,
   SILK_COMPANY_ID,
 } from "./silkSubmissionAdapter";
+
+// ── Schema migration — idempotent, runs once at startup ───────────────────────
+
+async function ensureDevRegSchemaColumns(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      ALTER TABLE developer_companies
+        ADD COLUMN IF NOT EXISTS auto_register_enabled BOOLEAN NOT NULL DEFAULT true
+    `);
+    console.log("[DeveloperRegistration] Schema columns ensured (auto_register_enabled)");
+  } catch (err: any) {
+    console.error("[DeveloperRegistration] Schema migration failed:", err.message);
+  } finally {
+    client.release();
+  }
+}
 
 function adminOnly(req: Request, res: Response): boolean {
   if (!(req as any).session?.isAdmin) {
@@ -23,7 +40,8 @@ function adminOnly(req: Request, res: Response): boolean {
 
 export function registerDeveloperRegistrationRoutes(app: Express): void {
 
-  // Ensure Phase 2 attempt columns exist (idempotent, runs once at startup)
+  // Ensure schema columns and attempt table columns exist (idempotent, runs once at startup)
+  ensureDevRegSchemaColumns().catch(() => {});
   ensureSilkAttemptColumns().catch(() => {});
 
   // ── Overview dashboard ────────────────────────────────────────────────────
@@ -33,23 +51,65 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
     try {
       const client = await pool.connect();
       try {
-        const statsResult = await client.query(`
-          SELECT status, COUNT(*) AS count
-            FROM developer_registration_records
-           GROUP BY status
-        `);
-        const protectedResult = await client.query(`
-          SELECT COUNT(*) AS count FROM developer_registration_records WHERE protection_status='protected'
-        `);
-        const stoppedResult = await client.query(`
-          SELECT COUNT(*) AS count FROM developer_registration_records WHERE protection_status='stopped' OR protection_status='sold'
-        `);
+        const [statsResult, protectedResult, stoppedResult, todayResult, perDevResult, nextDueResult] =
+          await Promise.all([
+            client.query(`SELECT status, COUNT(*) AS count FROM developer_registration_records GROUP BY status`),
+            client.query(`SELECT COUNT(*) AS count FROM developer_registration_records WHERE protection_status='protected'`),
+            client.query(`SELECT COUNT(*) AS count FROM developer_registration_records WHERE protection_status IN ('stopped','sold')`),
+            client.query(`
+              SELECT
+                COUNT(*) FILTER (WHERE dra.created_at >= CURRENT_DATE) AS today_total,
+                COUNT(*) FILTER (WHERE dra.created_at >= CURRENT_DATE AND dra.status = 'success') AS today_success,
+                COUNT(*) FILTER (WHERE dra.created_at >= CURRENT_DATE AND dra.status = 'failed')  AS today_failed
+              FROM developer_registration_attempts dra
+            `),
+            client.query(`
+              SELECT dc.name AS developer_name, dc.id AS developer_id,
+                     COUNT(drr.id) AS total,
+                     COUNT(drr.id) FILTER (WHERE drr.status = 'success')   AS success,
+                     COUNT(drr.id) FILTER (WHERE drr.status = 'failed')    AS failed,
+                     COUNT(drr.id) FILTER (WHERE drr.status = 'stopped')   AS stopped,
+                     COUNT(drr.id) FILTER (WHERE drr.status = 'pending_re_registration') AS pending_re_reg,
+                     MAX(drr.last_registered_at)  AS last_registered_at,
+                     MIN(drr.next_registration_at) FILTER (WHERE drr.next_registration_at IS NOT NULL AND drr.protection_status = 'protected') AS next_due_at
+                FROM developer_companies dc
+                LEFT JOIN developer_registration_records drr ON drr.developer_company_id = dc.id
+               GROUP BY dc.id, dc.name
+               ORDER BY dc.id
+            `),
+            client.query(`
+              SELECT MIN(next_registration_at) AS next_due
+                FROM developer_registration_records
+               WHERE next_registration_at IS NOT NULL
+                 AND protection_status = 'protected'
+                 AND status NOT IN ('stopped')
+            `),
+          ]);
+
         const stats: Record<string, number> = {};
         for (const row of statsResult.rows) stats[row.status] = parseInt(row.count, 10);
+
         res.json({
           stats,
-          protected: parseInt(protectedResult.rows[0]?.count ?? "0", 10),
-          stopped:   parseInt(stoppedResult.rows[0]?.count ?? "0", 10),
+          protected:    parseInt(protectedResult.rows[0]?.count ?? "0", 10),
+          stopped:      parseInt(stoppedResult.rows[0]?.count ?? "0", 10),
+          today: {
+            total:   parseInt(todayResult.rows[0]?.today_total   ?? "0", 10),
+            success: parseInt(todayResult.rows[0]?.today_success ?? "0", 10),
+            failed:  parseInt(todayResult.rows[0]?.today_failed  ?? "0", 10),
+          },
+          perDeveloper: perDevResult.rows.map(r => ({
+            developerId:   r.developer_id,
+            developerName: r.developer_name,
+            total:         parseInt(r.total    ?? "0", 10),
+            success:       parseInt(r.success  ?? "0", 10),
+            failed:        parseInt(r.failed   ?? "0", 10),
+            stopped:       parseInt(r.stopped  ?? "0", 10),
+            pendingReReg:  parseInt(r.pending_re_reg ?? "0", 10),
+            lastRegisteredAt: r.last_registered_at,
+            nextDueAt:     r.next_due_at,
+          })),
+          nextDueAt: nextDueResult.rows[0]?.next_due ?? null,
         });
       } finally { client.release(); }
     } catch (err: any) {
@@ -62,7 +122,10 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
   app.get("/api/admin/developer-registration/queue", async (req: Request, res: Response) => {
     if (!adminOnly(req, res)) return;
     try {
-      const { status, developer_id, page = "1", limit = "50" } = req.query as Record<string, string>;
+      const {
+        status, developer_id, page = "1", limit = "50",
+        search, date_from, date_to, assigned_to, lead_source,
+      } = req.query as Record<string, string>;
       const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
       const conditions: string[] = [];
@@ -76,13 +139,37 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
         params.push(parseInt(developer_id, 10));
         conditions.push(`drr.developer_company_id = $${params.length}`);
       }
+      if (search) {
+        params.push(`%${search}%`);
+        conditions.push(`(cl.full_name ILIKE $${params.length} OR cl.first_name ILIKE $${params.length} OR cl.phone ILIKE $${params.length})`);
+      }
+      if (date_from) {
+        params.push(date_from);
+        conditions.push(`drr.created_at >= $${params.length}::date`);
+      }
+      if (date_to) {
+        params.push(date_to);
+        conditions.push(`drr.created_at < ($${params.length}::date + INTERVAL '1 day')`);
+      }
+      if (assigned_to) {
+        params.push(assigned_to);
+        conditions.push(`cl.assigned_to = $${params.length}`);
+      }
+      if (lead_source) {
+        params.push(lead_source);
+        conditions.push(`cl.source = $${params.length}`);
+      }
 
       const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
 
       const client = await pool.connect();
       try {
         const countResult = await client.query(
-          `SELECT COUNT(*) AS total FROM developer_registration_records drr ${where}`,
+          `SELECT COUNT(*) AS total
+             FROM developer_registration_records drr
+             JOIN developer_companies dc ON dc.id = drr.developer_company_id
+             JOIN crm_leads cl ON cl.id = drr.crm_lead_id
+           ${where}`,
           params
         );
         const total = parseInt(countResult.rows[0].total, 10);
@@ -103,12 +190,14 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
             drr.last_error,
             drr.created_at,
             drr.updated_at,
-            dc.name  AS developer_name,
+            dc.name    AS developer_name,
             dc.form_url,
             cl.full_name   AS lead_full_name,
             cl.first_name  AS lead_first_name,
             cl.phone       AS lead_phone,
-            cl.status      AS lead_status
+            cl.status      AS lead_status,
+            cl.source      AS lead_source,
+            cl.assigned_to AS lead_assigned_to
           FROM developer_registration_records drr
           JOIN developer_companies dc ON dc.id = drr.developer_company_id
           JOIN crm_leads cl ON cl.id = drr.crm_lead_id
@@ -411,8 +500,9 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
     if (!adminOnly(req, res)) return;
     try {
       const {
-        name, form_url, registration_interval_days = 40,
+        name, form_url, registration_interval_days = 30,
         registration_mode = "manual", is_active = true,
+        auto_register_enabled = true,
         config_json,
       } = req.body;
 
@@ -422,10 +512,10 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
       try {
         const companyResult = await client.query(`
           INSERT INTO developer_companies
-            (name, form_url, is_active, registration_interval_days, registration_mode, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+            (name, form_url, is_active, auto_register_enabled, registration_interval_days, registration_mode, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
           RETURNING *
-        `, [name.trim(), form_url || null, is_active, registration_interval_days, registration_mode]);
+        `, [name.trim(), form_url || null, is_active, auto_register_enabled, registration_interval_days, registration_mode]);
 
         const company = companyResult.rows[0];
 
@@ -472,7 +562,7 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
     try {
       const companyId = parseInt(req.params.id, 10);
       const {
-        name, form_url, is_active,
+        name, form_url, is_active, auto_register_enabled,
         registration_interval_days, registration_mode,
         config_json,
       } = req.body;
@@ -485,11 +575,12 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
              SET name                      = COALESCE($1, name),
                  form_url                  = COALESCE($2, form_url),
                  is_active                 = COALESCE($3, is_active),
-                 registration_interval_days= COALESCE($4, registration_interval_days),
-                 registration_mode         = COALESCE($5, registration_mode),
+                 auto_register_enabled     = COALESCE($4, auto_register_enabled),
+                 registration_interval_days= COALESCE($5, registration_interval_days),
+                 registration_mode         = COALESCE($6, registration_mode),
                  updated_at                = NOW()
-           WHERE id = $6
-        `, [name || null, form_url || null, is_active ?? null, registration_interval_days || null, registration_mode || null, companyId]);
+           WHERE id = $7
+        `, [name || null, form_url || null, is_active ?? null, auto_register_enabled ?? null, registration_interval_days || null, registration_mode || null, companyId]);
 
         // Update config if provided
         if (config_json !== undefined) {
@@ -503,6 +594,19 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
         console.log(`[DeveloperRegistration] Developer config updated developerId=${companyId}`);
         res.json({ message: "Updated" });
       } finally { client.release(); }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Manual trigger: run due re-registrations now ──────────────────────────
+
+  app.post("/api/admin/developer-registration/run-due-registrations", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const result = await runDueReRegistrations();
+      console.log(`[DeveloperRegistration] Manual run triggered by admin — result:`, result);
+      res.json({ message: "Re-registration run complete", ...result });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -540,7 +644,7 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
         }
       } finally { client.release(); }
 
-      const result = await submitRecordToSilk(recordId, adminId);
+      const result = await submitRecordToSilk(recordId, adminId, "manual_retry");
       console.log(`[DeveloperRegistration][Silk] submit complete recordId=${recordId} success=${result.success}`);
       res.json(result);
     } catch (err: any) {
