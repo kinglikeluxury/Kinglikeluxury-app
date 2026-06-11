@@ -264,6 +264,13 @@ export default function CrmLeadsPage() {
   const total = pageData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // ── CRM stats (scoped to user's own leads for agents, global for admin) ───
+  const { data: crmStats } = useQuery<{ total: number; new: number; hot: number; qualified: number; converted: number }>({
+    queryKey: ["/api/admin/crm/stats"],
+    queryFn: () => fetch("/api/admin/crm/stats").then(r => r.json()),
+    enabled: isCrmAuthorized,
+  });
+
   // ── Selection computed values ──────────────────────────────────────────────
   const allVisibleSelected = leads.length > 0 && leads.every(l => selectedIds.has(l.id));
   const someVisibleSelected = leads.some(l => selectedIds.has(l.id));
@@ -281,6 +288,7 @@ export default function CrmLeadsPage() {
     mutationFn: (data: typeof form) => apiRequest("POST", "/api/admin/crm/leads", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/stats"] });
       toast({ title: "Lead created successfully" });
       setNewLeadOpen(false);
       setForm(EMPTY_FORM);
@@ -409,6 +417,7 @@ export default function CrmLeadsPage() {
       });
       if (!r.ok) throw new Error((await r.json()).message);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/stats"] });
       toast({ title: `${selectedIds.size} lead${selectedIds.size !== 1 ? "s" : ""} updated to "${STATUS_CONFIG[newStatus]?.label ?? newStatus}"` });
       clearSelection(); setBulkStatusOpen(false);
     } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
@@ -425,6 +434,7 @@ export default function CrmLeadsPage() {
       });
       if (!r.ok) throw new Error((await r.json()).message);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/stats"] });
       const agentName = agentId ? (subAgents.find(a => a.id === agentId)?.username ?? "agent") : "unassigned";
       toast({ title: `${selectedIds.size} lead${selectedIds.size !== 1 ? "s" : ""} assigned to ${agentName}` });
       clearSelection(); setBulkAssignOpen(false); setBulkAssignTarget("__unassign__");
@@ -441,6 +451,7 @@ export default function CrmLeadsPage() {
       });
       if (!r.ok) throw new Error((await r.json()).message);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/stats"] });
       toast({ title: `${selectedIds.size} lead${selectedIds.size !== 1 ? "s" : ""} deleted` });
       clearSelection(); setBulkDeleteOpen(false);
     } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
@@ -456,6 +467,7 @@ export default function CrmLeadsPage() {
       const data = await r.json();
       if (!r.ok) throw new Error(data.message || "Assignment failed");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/stats"] });
       toast({ title: data.assigned > 0 ? `${data.assigned} lead${data.assigned !== 1 ? "s" : ""} assigned` : "No unassigned leads found", description: data.message });
     } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     finally { setAssigningUnassigned(false); }
@@ -498,6 +510,7 @@ export default function CrmLeadsPage() {
       setImportResult(data);
       setImportStep("done");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/stats"] });
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
     } finally {
@@ -527,9 +540,11 @@ export default function CrmLeadsPage() {
     createMutation.mutate(form);
   }
 
-  const newCount  = leads.filter(l => l.status === "new").length;
-  const hotCount  = leads.filter(l => l.leadScore === "hot").length;
-  const converted = leads.filter(l => l.status === "converted").length;
+  const statsTotal     = crmStats?.total     ?? 0;
+  const statsNew       = crmStats?.new       ?? 0;
+  const statsHot       = crmStats?.hot       ?? 0;
+  const statsQual      = crmStats?.qualified ?? 0;
+  const statsConverted = crmStats?.converted ?? 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -953,10 +968,10 @@ export default function CrmLeadsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Total Leads",  value: total,     icon: Users,     color: "from-[#3bcac4] to-[#005476]" },
-          { label: "New Leads",    value: newCount,  icon: Plus,      color: "from-blue-400 to-blue-600" },
-          { label: "Hot Leads",    value: hotCount,  icon: Flame,     color: "from-red-400 to-red-600" },
-          { label: "Converted",    value: converted, icon: UserCheck, color: "from-green-400 to-green-600" },
+          { label: isSubAgent ? "My Leads"     : "Total Leads", value: statsTotal,     icon: Users,     color: "from-[#3bcac4] to-[#005476]" },
+          { label: isSubAgent ? "My New Leads" : "New Leads",   value: statsNew,       icon: Plus,      color: "from-blue-400 to-blue-600" },
+          { label: isSubAgent ? "My Hot Leads" : "Hot Leads",   value: statsHot,       icon: Flame,     color: "from-red-400 to-red-600" },
+          { label: isSubAgent ? "My Qualified" : "Converted",   value: isSubAgent ? statsQual : statsConverted, icon: UserCheck, color: "from-green-400 to-green-600" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="border-0 shadow-sm">
             <CardContent className="p-4">

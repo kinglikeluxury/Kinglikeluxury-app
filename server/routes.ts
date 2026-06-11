@@ -43,7 +43,7 @@ import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./w
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, count as sqlCount } from "drizzle-orm";
 
 // Configure multer for file uploads - memory storage for Cloudinary
 const upload = multer({ 
@@ -3974,6 +3974,36 @@ ${metaTags}
     return lead?.assignedTo === req.session.userId;
   };
 
+  /** GET /api/admin/crm/stats — scoped lead counts (admin: global, sub_agent: own) */
+  app.get("/api/admin/crm/stats", isAuthenticated, async (req: any, res) => {
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const isAgent = !req.session.isAdmin && req.session.role === "sub_agent";
+      const uid = req.session.userId as number;
+      const scope = isAgent ? eq(crmLeads.assignedTo, uid) : undefined;
+
+      async function cnt(extra?: any): Promise<number> {
+        const [row] = await db
+          .select({ n: sqlCount() })
+          .from(crmLeads)
+          .where(scope && extra ? and(scope, extra) : scope ?? extra);
+        return Number(row?.n ?? 0);
+      }
+
+      const [total, newLeads, hotLeads, qualified, converted] = await Promise.all([
+        cnt(),
+        cnt(eq(crmLeads.status, "new")),
+        cnt(eq(crmLeads.leadScore, "hot")),
+        cnt(eq(crmLeads.status, "qualified")),
+        cnt(eq(crmLeads.status, "converted")),
+      ]);
+
+      res.json({ total, new: newLeads, hot: hotLeads, qualified, converted });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   /** GET /api/admin/crm/leads — paginated list with optional filters */
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
@@ -4547,6 +4577,12 @@ ${metaTags}
       if (ids.length > 1000) return res.status(400).json({ message: "Too many IDs (max 1000)" });
 
       const { users } = await import("../shared/schema");
+      // Sub-agents may only export leads assigned to themselves
+      const isAgent = !req.session.isAdmin && req.session.role === "sub_agent";
+      const exportWhere = isAgent
+        ? and(inArray(crmLeads.id, ids), eq(crmLeads.assignedTo, req.session.userId as number))
+        : inArray(crmLeads.id, ids);
+
       const rows_data = await db
         .select({
           id: crmLeads.id,
@@ -4572,7 +4608,7 @@ ${metaTags}
         })
         .from(crmLeads)
         .leftJoin(users, eq(crmLeads.assignedTo, users.id))
-        .where(inArray(crmLeads.id, ids));
+        .where(exportWhere);
 
       const XLSX = await import("xlsx");
       const rows = rows_data.map((l: any) => ({
@@ -4645,7 +4681,13 @@ ${metaTags}
       if (status)              updateData.status     = status;
       if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
 
-      await db.update(crmLeads).set(updateData).where(inArray(crmLeads.id, ids));
+      // Sub-agents may only update leads assigned to themselves
+      const isAgent = !req.session.isAdmin && req.session.role === "sub_agent";
+      const bulkWhere = isAgent
+        ? and(inArray(crmLeads.id, ids), eq(crmLeads.assignedTo, req.session.userId as number))
+        : inArray(crmLeads.id, ids);
+
+      await db.update(crmLeads).set(updateData).where(bulkWhere);
       res.json({ updated: ids.length });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
