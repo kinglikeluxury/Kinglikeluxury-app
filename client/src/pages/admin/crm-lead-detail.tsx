@@ -540,6 +540,18 @@ export default function CrmLeadDetailPage() {
 
   function openStatusDialog(newStatus: string) {
     if (!lead || newStatus === lead.status) return;
+    // No Answer statuses save immediately — no popup, no mandatory reason
+    const NO_ANSWER_STATUSES = ["no_answer_1", "no_answer_2", "no_answer_3", "no_answer"];
+    if (NO_ANSWER_STATUSES.includes(newStatus)) {
+      const oldLabel = STATUS_CONFIG[lead.status]?.label ?? lead.status;
+      const newLabel = STATUS_CONFIG[newStatus]?.label ?? newStatus;
+      updateMutation.mutate({ status: newStatus } as any, {
+        onSuccess: () => {
+          addNoteMutation.mutate(`[Status Change] ${oldLabel} → ${newLabel}`);
+        },
+      });
+      return;
+    }
     setStatusDialog({ newStatus, note: "" });
   }
 
@@ -572,12 +584,28 @@ export default function CrmLeadDetailPage() {
     }
 
     const patch: Record<string, any> = { [fieldKey]: draft || null };
-    if (fieldKey === "phone" && detectedCountry) {
+    // Only auto-set country from phone if the lead has no country yet (preserve manual overrides)
+    if (fieldKey === "phone" && detectedCountry && !lead?.country) {
       patch.country = detectedCountry;
     }
 
     if (isSubAgent) {
-      // Sub-agents must enter a comment/reason before any field save
+      // Name fields don't require a comment from sub-agents — save directly
+      const NAME_FIELDS = ["fullName", "firstName", "lastName"];
+      if (NAME_FIELDS.includes(fieldKey)) {
+        updateMutation.mutate(patch as Partial<CrmLead>, {
+          onSuccess: () => {
+            if (draft !== oldRaw) {
+              const oldDisplay = oldRaw || "—";
+              const newDisplay = draft || "—";
+              addNoteMutation.mutate(`[Updated] ${label}: "${oldDisplay}" → "${newDisplay}"`);
+            }
+            cancelField();
+          },
+        });
+        return;
+      }
+      // All other fields: require a comment/reason
       setPendingFieldSave({ fieldKey, label, oldRaw, patch, draft });
       return;
     }

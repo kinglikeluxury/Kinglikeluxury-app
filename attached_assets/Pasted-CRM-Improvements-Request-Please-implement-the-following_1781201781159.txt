@@ -1,0 +1,82 @@
+CRM Improvements Request
+
+Please implement the following CRM UX improvements only. Do not modify Meta Leads, WhatsApp flows, Email Marketing, AI Qualification logic, authentication, or any unrelated systems.
+
+1) Auto-detect Origin Country from phone number
+When a lead is created or updated and a phone number exists:
+
+- Detect country automatically from the phone prefix.
+- Populate "Origin Country" automatically.
+- Examples:
+  +972 → Israel
+  +995 → Georgia
+  +90 → Turkey
+  +971 → UAE
+  etc.
+
+Rules:
+- Run automatically on lead creation.
+- Run automatically when phone number is edited.
+- Do not overwrite Origin Country if admin manually changes it later.
+- Existing leads should also be backfilled where Origin Country is empty.
+
+------------------------------------------------
+
+2) Remove mandatory comment when editing lead name
+
+Current behavior:
+When an employee edits the lead name, the system forces a reason/comment.
+
+New behavior:
+- Allow editing lead name without requiring any comment.
+- Comment field becomes optional.
+- Audit log may still store the change if already implemented.
+- No popup should block saving.
+
+------------------------------------------------
+
+3) Skip reason popup for No Answer statuses
+
+Current behavior:
+Changing lead status opens a mandatory reason popup.
+
+New behavior:
+When changing status to:
+
+- No Answer 1
+- No Answer 2
+- No Answer 3
+
+The status should save immediately with NO popup and NO mandatory reason.
+
+For all other statuses:
+- Keep existing popup behavior unchanged.
+- Keep existing audit trail unchanged.
+
+Examples:
+New → No Answer 1 = no popup
+No Answer 1 → No Answer 2 = no popup
+No Answer 2 → No Answer 3 = no popup
+
+But:
+
+New → Interested = popup remains
+New → Not Interested = popup remains
+Interested → Closed Won = popup remains
+
+------------------------------------------------
+
+Requirements
+
+- Preserve all existing CRM data.
+- Preserve all permissions.
+- Preserve audit history.
+- Preserve notifications.
+- Preserve email workflows.
+- Preserve Meta Lead integrations.
+
+After implementation provide:
+1. Files changed.
+2. Exact logic used for country detection.
+3. Confirmation that No Answer statuses bypass the popup.
+4. Confirmation that lead name edits no longer require comments.

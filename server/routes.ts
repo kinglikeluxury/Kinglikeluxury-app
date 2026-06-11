@@ -4806,8 +4806,12 @@ ${metaTags}
         }
       }
 
-      // Sub-agents must provide a comment for every change
-      if (!req.session.isAdmin && req.session.role === "sub_agent" && !_comment) {
+      // Sub-agents must provide a comment — except for name edits and No Answer status changes
+      const _bodyKeys = Object.keys(req.body);
+      const _isNameOnlyChange = _bodyKeys.length > 0 && _bodyKeys.every((k: string) => ["fullName","firstName","lastName"].includes(k));
+      const _noAnswerStatuses = ["no_answer_1","no_answer_2","no_answer_3","no_answer"];
+      const _isNoAnswerChange = _bodyKeys.length === 1 && _bodyKeys[0] === "status" && _noAnswerStatuses.includes(req.body.status);
+      if (!req.session.isAdmin && req.session.role === "sub_agent" && !_comment && !_isNameOnlyChange && !_isNoAnswerChange) {
         return res.status(400).json({ message: "A comment/reason is required for all changes" });
       }
 
@@ -5161,6 +5165,33 @@ ${metaTags}
     blockedIPs.delete(target);
     console.log(`[OTP Security] Admin unblocked IP: ${target}`);
     res.json({ success: true, blockedIPs: Array.from(blockedIPs) });
+  });
+
+  // ── One-time startup: backfill country for leads that have a phone but no country ──
+  // Runs silently in the background after server starts; never blocks startup.
+  setImmediate(async () => {
+    try {
+      const rows = await pool.query<{ id: number; phone: string }>(
+        "SELECT id, phone FROM crm_leads WHERE (country IS NULL OR country = '') AND phone IS NOT NULL AND phone != '' ORDER BY id ASC"
+      );
+      if (rows.rows.length === 0) return;
+      let backfilled = 0;
+      for (const row of rows.rows) {
+        const result = vPhone(row.phone);
+        if (result.valid && result.country) {
+          await pool.query(
+            "UPDATE crm_leads SET country=$1, updated_at=NOW() WHERE id=$2 AND (country IS NULL OR country = '')",
+            [result.country, row.id]
+          );
+          backfilled++;
+        }
+      }
+      if (backfilled > 0) {
+        console.log(`[CountryBackfill] Auto-detected country for ${backfilled} lead(s) from phone prefix`);
+      }
+    } catch (err: any) {
+      console.error(`[CountryBackfill] Failed: ${err.message}`);
+    }
   });
 
   return httpServer;
