@@ -47,11 +47,12 @@ const PROT_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const ATTEMPT_TYPE_LABELS: Record<string, string> = {
-  initial:          "Initial",
-  re_registration:  "Re-Registration",
-  manual_retry:     "Manual Retry",
-  silk_auto:        "Auto",
-  manual:           "Manual",
+  initial:            "Initial",
+  re_registration:    "Re-Registration",
+  manual_retry:       "Manual Retry",
+  silk_auto:          "Auto (Silk)",
+  ambassadori_auto:   "Auto (Ambassadori)",
+  manual:             "Manual",
 };
 
 function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; color: string }> }) {
@@ -115,7 +116,7 @@ function PayloadModal({ recordId, onClose }: { recordId: number; onClose: () => 
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-700 font-medium">
-          Prepared does not mean registered. The lead is registered only after successful Silk confirmation.
+          Prepared does not mean registered. The lead is registered only after a successful portal confirmation (status = Success ✓).
         </p>
       </div>
 
@@ -528,6 +529,34 @@ export default function DeveloperRegistrationCenterPage() {
       toast({ title: "Submission Error", description: e.message, variant: "destructive" }),
   });
 
+  const submitToAmbassadoriMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("POST", `/api/admin/developer-registration/${id}/submit-to-ambassadori`, {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data.outcome === "success") {
+        toast({
+          title: "✅ Ambassadori deal created",
+          description: `Registration confirmed${data.dealId ? ` — deal ID: ${data.dealId}` : ""}.`,
+        });
+      } else if (data.outcome === "protected") {
+        toast({
+          title: "🛡️ Lead already registered (Ambassadori)",
+          description: "Duplicate detected — lead is now marked as protected.",
+        });
+      } else {
+        toast({
+          title: "❌ Ambassadori submission failed",
+          description: data.errorMessage ?? "Check the audit log for details.",
+          variant: "destructive",
+        });
+      }
+      refetchQueue();
+      refetchOverview();
+    },
+    onError: (e: any) =>
+      toast({ title: "Ambassadori Error", description: e.message, variant: "destructive" }),
+  });
+
   const markSubmittedMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/admin/developer-registration/${id}/mark-submitted`, {}),
     onSuccess: () => { toast({ title: "Marked submitted" }); refetchQueue(); refetchOverview(); },
@@ -605,7 +634,8 @@ export default function DeveloperRegistrationCenterPage() {
   ];
 
   const records: any[] = queueData?.records ?? [];
-  const isSilkRecord  = (rec: any) => rec.developer_company_id === 1 || rec.developer_name === "Silk Development";
+  const isSilkRecord        = (rec: any) => rec.developer_company_id === 1 || rec.developer_name === "Silk Development";
+  const isAmbassadoriRecord = (rec: any) => rec.developer_company_id === 2 || (rec.developer_name ?? "").toLowerCase().includes("ambassadori");
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -616,11 +646,14 @@ export default function DeveloperRegistrationCenterPage() {
         </div>
         <div>
           <h1 className="text-base font-bold text-[#005476]">Developer Registration Center</h1>
-          <p className="text-xs text-muted-foreground">نظام تسجيل العملاء لدى شركات الإنشاء — Phase 2 (Silk Live)</p>
+          <p className="text-xs text-muted-foreground">نظام تسجيل العملاء لدى شركات الإنشاء — Phase 3 (Silk + Ambassadori)</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Badge className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Phase 2 — Silk Auto-Submit Active
+            Silk Active
+          </Badge>
+          <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30">
+            Ambassadori Active
           </Badge>
           <Button
             size="sm"
@@ -827,9 +860,10 @@ export default function DeveloperRegistrationCenterPage() {
                       </thead>
                       <tbody>
                         {records.map(rec => {
-                          const isSilk = isSilkRecord(rec);
-                          const canSubmit = isSilk && !["stopped", "submitting", "success"].includes(rec.status);
-                          const isSubmitting = submitToSilkMutation.isPending;
+                          const isSilk         = isSilkRecord(rec);
+                          const isAmb          = isAmbassadoriRecord(rec);
+                          const canSubmitSilk  = isSilk && !["stopped", "submitting", "success"].includes(rec.status);
+                          const canSubmitAmb   = isAmb  && !["stopped", "submitting", "success"].includes(rec.status);
 
                           return (
                             <tr key={rec.id} className="border-b hover:bg-gray-50/70 transition-colors">
@@ -849,7 +883,10 @@ export default function DeveloperRegistrationCenterPage() {
                               <td className="px-4 py-2.5 font-medium text-[#005476]">
                                 {rec.developer_name}
                                 {isSilk && (
-                                  <span className="ml-1 text-[9px] bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/30 px-1 rounded">Phase 2</span>
+                                  <span className="ml-1 text-[9px] bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/30 px-1 rounded">Silk</span>
+                                )}
+                                {isAmb && (
+                                  <span className="ml-1 text-[9px] bg-purple-50 text-purple-700 border border-purple-200 px-1 rounded">Amb</span>
                                 )}
                               </td>
                               <td className="px-4 py-2.5">
@@ -881,27 +918,40 @@ export default function DeveloperRegistrationCenterPage() {
                                   >
                                     <History className="h-3 w-3" /> Audit
                                   </Button>
-                                  {isSilk && canSubmit && (
+                                  {isSilk && canSubmitSilk && (
                                     <Button
                                       size="sm"
                                       className="h-6 px-2 text-[10px] gap-1 bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white"
-                                      disabled={isSubmitting}
+                                      disabled={submitToSilkMutation.isPending}
                                       onClick={() => submitToSilkMutation.mutate(rec.id)}
                                     >
-                                      {isSubmitting
+                                      {submitToSilkMutation.isPending
                                         ? <Loader2 className="h-3 w-3 animate-spin" />
                                         : <Send className="h-3 w-3" />}
                                       Submit to Silk
                                     </Button>
                                   )}
-                                  {!isSilk && rec.form_url && (
+                                  {isAmb && canSubmitAmb && (
+                                    <Button
+                                      size="sm"
+                                      className="h-6 px-2 text-[10px] gap-1 bg-purple-600 hover:bg-purple-700 text-white"
+                                      disabled={submitToAmbassadoriMutation.isPending}
+                                      onClick={() => submitToAmbassadoriMutation.mutate(rec.id)}
+                                    >
+                                      {submitToAmbassadoriMutation.isPending
+                                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                                        : <Send className="h-3 w-3" />}
+                                      Submit to Amb
+                                    </Button>
+                                  )}
+                                  {!isSilk && !isAmb && rec.form_url && (
                                     <a href={rec.form_url} target="_blank" rel="noopener noreferrer">
                                       <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] gap-1">
                                         <ExternalLink className="h-3 w-3" /> Form
                                       </Button>
                                     </a>
                                   )}
-                                  {!isSilk && rec.status !== "submitted" && rec.status !== "stopped" && (
+                                  {!isSilk && !isAmb && rec.status !== "submitted" && rec.status !== "stopped" && (
                                     <Button size="sm"
                                       className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                                       disabled={markSubmittedMutation.isPending}
@@ -1107,7 +1157,12 @@ export default function DeveloperRegistrationCenterPage() {
                                 </Badge>
                                 {isSilkCo && (
                                   <Badge className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                    Phase 2 — Live Submission
+                                    Silk — Live Submission
+                                  </Badge>
+                                )}
+                                {(co.id === 2 || (co.name ?? "").toLowerCase().includes("ambassadori")) && (
+                                  <Badge className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200">
+                                    Ambassadori — HTTP Adapter
                                   </Badge>
                                 )}
                               </div>
@@ -1150,7 +1205,7 @@ export default function DeveloperRegistrationCenterPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground">
-                  Adding future developer companies (Petra, Gumbati, Next Partners, Ambassadori, Wyndham, Rotana, etc.)
+                  Adding future developer companies (Petra, Gumbati, Next Partners, Wyndham, Rotana, etc.)
                   requires <strong>no code changes</strong>. Click <em>Add Developer</em> above and fill in the company name,
                   form URL, registration interval, and config JSON with field mappings.
                   New leads will automatically receive registration records for all active developers that have <strong>Auto-Register ON</strong>.
@@ -1212,6 +1267,31 @@ export default function DeveloperRegistrationCenterPage() {
                   <p className="text-[11px] text-muted-foreground">
                     Success requires <strong>explicit confirmation from Silk's API</strong> (<code>&#123;"status":"success"&#125;</code> in response body).
                     HTTP 200 alone is not enough. Every attempt — including failures — is saved to the audit log.
+                  </p>
+                </div>
+
+                <Separator className="my-4" />
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-[#005476]">Ambassadori Island Batumi — Submission Flow</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    <span className="bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40 px-2 py-0.5 rounded-full text-[10px] font-semibold">Prepared</span>
+                    <span>→</span>
+                    <span className="italic">[Admin clicks "Submit to Amb" or scheduler runs]</span>
+                    <span>→</span>
+                    <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">Submitting…</span>
+                    <span>→</span>
+                    <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-semibold">Success ✓</span>
+                    <span className="text-muted-foreground">or</span>
+                    <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">Protected (duplicate)</span>
+                    <span className="text-muted-foreground">or</span>
+                    <span className="bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">Failed</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Uses the <strong>ITRIELT broker portal HTTP API</strong>. Authenticates via <code>GET /api/get-hash</code> (MD5 password).
+                    Uniqueness checked via <code>GET /api/get-buys-loot-check</code> before creation.
+                    Requires <strong>AMBASSADORI_BROKER_USERNAME</strong> and <strong>AMBASSADORI_BROKER_PASSWORD</strong> in Secrets.
+                    Expert: <em>Aphina Martley</em> · Project: <em>Ambassadori Island Batumi</em> · Type: <em>Apartments</em>. Re-registers every 30 days.
                   </p>
                 </div>
               </CardContent>

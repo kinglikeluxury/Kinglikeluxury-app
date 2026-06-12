@@ -12,6 +12,12 @@ import {
   ensureSilkAttemptColumns,
   SILK_COMPANY_ID,
 } from "./silkSubmissionAdapter";
+import {
+  submitRecordToAmbassadori,
+  ensureAmbassadoriAttemptColumns,
+  ensureAmbassadoriCompany,
+  AMBASSADORI_COMPANY_ID,
+} from "./ambassadoriSubmissionAdapter";
 
 // ── Schema migration — idempotent, runs once at startup ───────────────────────
 
@@ -43,6 +49,8 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
   // Ensure schema columns and attempt table columns exist (idempotent, runs once at startup)
   ensureDevRegSchemaColumns().catch(() => {});
   ensureSilkAttemptColumns().catch(() => {});
+  ensureAmbassadoriAttemptColumns().catch(() => {});
+  ensureAmbassadoriCompany().catch(() => {});
 
   // ── Overview dashboard ────────────────────────────────────────────────────
 
@@ -157,7 +165,7 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
       }
       if (lead_source) {
         params.push(lead_source);
-        conditions.push(`cl.source = $${params.length}`);
+        conditions.push(`cl.lead_source = $${params.length}`);
       }
 
       const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
@@ -196,7 +204,7 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
             cl.first_name  AS lead_first_name,
             cl.phone       AS lead_phone,
             cl.status      AS lead_status,
-            cl.source      AS lead_source,
+            cl.lead_source AS lead_source,
             cl.assigned_to AS lead_assigned_to
           FROM developer_registration_records drr
           JOIN developer_companies dc ON dc.id = drr.developer_company_id
@@ -608,6 +616,42 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
       console.log(`[DeveloperRegistration] Manual run triggered by admin — result:`, result);
       res.json({ message: "Re-registration run complete", ...result });
     } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Submit to Ambassadori ─────────────────────────────────────────────────
+
+  app.post("/api/admin/developer-registration/:recordId/submit-to-ambassadori", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const recordId = parseInt(req.params.recordId, 10);
+      const adminId  = (req as any).session?.userId ?? 0;
+      if (!recordId) return res.status(400).json({ message: "Invalid record id" });
+
+      const client = await pool.connect();
+      let devCompanyId: number;
+      try {
+        const chk = await client.query(
+          `SELECT developer_company_id, status FROM developer_registration_records WHERE id=$1`,
+          [recordId]
+        );
+        if (chk.rows.length === 0) return res.status(404).json({ message: "Record not found" });
+        devCompanyId = chk.rows[0].developer_company_id;
+        if (devCompanyId !== AMBASSADORI_COMPANY_ID) {
+          return res.status(400).json({
+            message: `submit-to-ambassadori is only for Ambassadori (company id=${AMBASSADORI_COMPANY_ID}). This record belongs to company id=${devCompanyId}.`,
+          });
+        }
+        if (chk.rows[0].status === "stopped")     return res.status(400).json({ message: "Cannot submit a stopped record" });
+        if (chk.rows[0].status === "submitting")  return res.status(409).json({ message: "Submission already in progress" });
+      } finally { client.release(); }
+
+      const result = await submitRecordToAmbassadori(recordId, adminId, "manual_retry");
+      console.log(`[Ambassadori] submit complete recordId=${recordId} outcome=${result.outcome}`);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Ambassadori] submit error:", err.message);
       res.status(500).json({ message: err.message });
     }
   });

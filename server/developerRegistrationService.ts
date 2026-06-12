@@ -300,7 +300,7 @@ export async function runDueReRegistrations(): Promise<ReRegistrationResult> {
       console.log(`[DeveloperRegistration] Marked pending_re_registration count=${result.marked}`);
     }
 
-    // Step 2 — Find all pending_re_registration records for Silk (auto-submit capable)
+    // Step 2 — Find all pending_re_registration records for auto-submit capable developers
     const dueResult = await client.query(`
       SELECT drr.id, drr.crm_lead_id, drr.developer_company_id
         FROM developer_registration_records drr
@@ -320,13 +320,13 @@ export async function runDueReRegistrations(): Promise<ReRegistrationResult> {
       return result;
     }
 
-    // Lazy-import the silk adapter to avoid circular deps
+    // Lazy-import adapters to avoid circular deps
     const { submitRecordToSilk, SILK_COMPANY_ID } = await import("./silkSubmissionAdapter");
+    const { submitRecordToAmbassadori, AMBASSADORI_COMPANY_ID } = await import("./ambassadoriSubmissionAdapter");
 
     for (const rec of dueResult.rows) {
       try {
         if (rec.developer_company_id === SILK_COMPANY_ID) {
-          // Auto-submit to Silk with attempt_type = 're_registration'
           const submitResult = await submitRecordToSilk(rec.id, 0, "re_registration");
           if (submitResult.success) {
             result.submitted++;
@@ -335,8 +335,17 @@ export async function runDueReRegistrations(): Promise<ReRegistrationResult> {
             result.failed++;
             console.warn(`[DeveloperRegistration] Silk re-registration failed recordId=${rec.id}: ${submitResult.errorMessage}`);
           }
+        } else if (rec.developer_company_id === AMBASSADORI_COMPANY_ID) {
+          const submitResult = await submitRecordToAmbassadori(rec.id, 0, "ambassadori_auto");
+          if (submitResult.success) {
+            result.submitted++;
+            console.log(`[DeveloperRegistration] Auto re-registered to Ambassadori recordId=${rec.id} leadId=${rec.crm_lead_id} outcome=${submitResult.outcome}`);
+          } else {
+            result.failed++;
+            console.warn(`[DeveloperRegistration] Ambassadori re-registration failed recordId=${rec.id}: ${submitResult.errorMessage}`);
+          }
         } else {
-          // Non-Silk developer — keep as pending_re_registration for manual processing
+          // Other developers — keep as pending_re_registration for manual processing
           result.skipped++;
         }
       } catch (err: any) {
