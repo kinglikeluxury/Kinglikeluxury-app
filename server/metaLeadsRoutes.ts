@@ -168,6 +168,30 @@ export function registerMetaLeadsRoutes(app: Express): void {
 
         console.log(`[MetaLeads][POST] ▶ Verified — entries: ${receipt.entryCount} | bodyType: ${receipt.bodyType}`);
 
+        // ── AUDIT LOG — persist every verified payload to wa_webhook_audit_log ──
+        // This is a permanent diagnostic table; rows accumulate for review.
+        // object_field = top-level "object" from Meta (e.g. "page", "whatsapp_business_account")
+        // plus first change.field found (e.g. "leadgen", "messages")
+        try {
+          const topObject   = payload.object ?? null;
+          const firstField  = payload.entry?.[0]?.changes?.[0]?.field ?? null;
+          const sourceIp    = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+                              ?? req.socket?.remoteAddress
+                              ?? null;
+          await pool.query(`
+            INSERT INTO wa_webhook_audit_log
+              (received_at, source_ip, hub_verify, object_field, raw_payload, note)
+            VALUES (NOW(), $1, FALSE, $2, $3::jsonb, NULL)
+          `, [
+            sourceIp,
+            topObject && firstField ? `${topObject}/${firstField}` : (topObject ?? firstField ?? "unknown"),
+            JSON.stringify(payload),
+          ]);
+        } catch (auditErr: any) {
+          console.warn("[MetaLeads][AUDIT] Failed to write audit log:", auditErr.message);
+        }
+        // ── END AUDIT LOG ──────────────────────────────────────────────────────
+
         for (const entry of payload.entry || []) {
           for (const change of entry.changes || []) {
             const cv = change.value || {};
