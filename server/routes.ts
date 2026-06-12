@@ -4025,11 +4025,12 @@ ${metaTags}
           c.query(`
             SELECT
               COUNT(*)                                                                          AS total,
-              COUNT(*) FILTER(WHERE status = 'new')                                            AS new_leads,
+              COUNT(*) FILTER(WHERE status IN ('new','new_fresh_after_3_no_answer'))           AS new_leads,
               COUNT(*) FILTER(WHERE created_at >= CURRENT_DATE)                                AS new_today,
               COUNT(*) FILTER(WHERE status = 'no_answer_1')                                    AS no_answer_1,
               COUNT(*) FILTER(WHERE status = 'no_answer_2')                                    AS no_answer_2,
               COUNT(*) FILTER(WHERE status = 'no_answer_3')                                    AS no_answer_3,
+              COUNT(*) FILTER(WHERE status = 'no_answer_4')                                    AS no_answer_4,
               COUNT(*) FILTER(WHERE status = 'follow_up')                                      AS follow_up,
               COUNT(*) FILTER(WHERE status = 'interested')                                     AS interested,
               COUNT(*) FILTER(WHERE status = 'qualified')                                      AS qualified,
@@ -4077,6 +4078,7 @@ ${metaTags}
             noAnswer1:   Number(s.no_answer_1),
             noAnswer2:   Number(s.no_answer_2),
             noAnswer3:   Number(s.no_answer_3),
+            noAnswer4:   Number(s.no_answer_4),
             followUp:    Number(s.follow_up),
             interested:  Number(s.interested),
             qualified:   Number(s.qualified),
@@ -4307,6 +4309,10 @@ ${metaTags}
     if ((s.includes("sold") || s.includes("closed") || s.includes("converted")) && s.includes("kinglike"))
       return "sold_by_kinglike_luxury";
 
+    // "new fresh" variations → new_fresh_after_3_no_answer
+    if (s.includes("new fresh") || s.includes("fresh after 3"))
+      return "new_fresh_after_3_no_answer";
+
     const map: Record<string, string> = {
       "new":                    "new",
       "follow up":              "follow_up",
@@ -4315,6 +4321,7 @@ ${metaTags}
       "no answer 1":            "no_answer_1",
       "no answer 2":            "no_answer_2",
       "no answer 3":            "no_answer_3",
+      "no answer 4":            "no_answer_4",
       "after 3 no answer":      "no_answer_3",
       "will think":             "will_think",
       "hot buyer":              "hot_buyer",

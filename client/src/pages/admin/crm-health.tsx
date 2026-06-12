@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 interface CrmHealthData {
   totals: {
     total: number; new: number; newToday: number;
-    noAnswer1: number; noAnswer2: number; noAnswer3: number;
+    noAnswer1: number; noAnswer2: number; noAnswer3: number; noAnswer4: number;
     followUp: number; interested: number; qualified: number;
     hotBuyers: number; vipBuyers: number; sold: number; lost: number;
   };
@@ -195,7 +195,7 @@ export default function CrmHealthPage() {
             {/* ── Row 2: No-Answer Funnel ── */}
             <section>
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">No Answer Funnel</h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <KpiCard
                   label="No Answer 1"
                   value={t.noAnswer1}
@@ -222,6 +222,15 @@ export default function CrmHealthPage() {
                   color="text-red-700"
                   bg="bg-red-50"
                   border="border-red-200"
+                />
+                <KpiCard
+                  label="No Answer 4"
+                  value={t.noAnswer4}
+                  sub="Fourth attempt"
+                  icon={PhoneOff}
+                  color="text-red-900"
+                  bg="bg-red-100"
+                  border="border-red-300"
                 />
               </div>
             </section>
@@ -307,6 +316,7 @@ export default function CrmHealthPage() {
                     { label: "No Answer 1",  value: t.noAnswer1,  color: "bg-amber-400" },
                     { label: "No Answer 2",  value: t.noAnswer2,  color: "bg-orange-400" },
                     { label: "No Answer 3",  value: t.noAnswer3,  color: "bg-red-400" },
+                    { label: "No Answer 4",  value: t.noAnswer4,  color: "bg-red-700" },
                     { label: "Follow Up",    value: t.followUp,   color: "bg-blue-400" },
                     { label: "Interested",   value: t.interested, color: "bg-indigo-400" },
                     { label: "Qualified",    value: t.qualified,  color: "bg-purple-500" },

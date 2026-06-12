@@ -57,6 +57,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   after_3_no_answer_whatsapp_contacted: { label: "After 3 No Answer (WhatsApp Contacted)", color: "bg-slate-200 text-slate-700 border border-slate-400" },
   not_interested_maybe_later:           { label: "Not Interested for Now - Maybe Later",   color: "bg-gray-100 text-gray-500 border border-gray-300" },
   sold_by_kinglike_luxury:              { label: "Sold by Kinglike Luxury",                color: "bg-[#005476] text-white border border-[#005476]" },
+  no_answer_4:                          { label: "No Answer 4",                            color: "bg-slate-100 text-slate-500 border border-slate-300" },
+  new_fresh_after_3_no_answer:          { label: "New Fresh - after 3 no answer",          color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
 };
 
 const SCORE_CONFIG: Record<string, { label: string; Icon: any; color: string }> = {
@@ -76,6 +78,7 @@ const STATUSES = [
   "broker","second_hand","junk_lead","no_answer_converted","lost_competition",
   "not_qualified","re_sale",
   "after_3_no_answer_whatsapp_contacted","not_interested_maybe_later","sold_by_kinglike_luxury",
+  "no_answer_4","new_fresh_after_3_no_answer",
 ];
 const SOURCES = ["meta","website","whatsapp","excel","manual"];
 
