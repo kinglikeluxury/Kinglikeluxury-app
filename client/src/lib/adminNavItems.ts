@@ -19,6 +19,7 @@ import {
   MailOpen,
   History,
   MessageCircle,
+  Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -177,6 +178,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "WhatsApp API Chat History",
     path: "/admin/whatsapp-api-chat-history",
     Icon: MessageCircle,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.crmHealth",
+    labelFallback: "CRM Health Dashboard",
+    path: "/admin/crm-health",
+    Icon: Activity,
     iconColorHex: "#3bcac4",
     highlight: true,
   },

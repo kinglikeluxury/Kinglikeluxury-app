@@ -4004,6 +4004,90 @@ ${metaTags}
     }
   });
 
+  /** GET /api/admin/crm/health — full CRM health dashboard data (admin only) */
+  app.get("/api/admin/crm/health", isAuthenticated, async (req: any, res) => {
+    if (!req.session?.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const { pool: pgPool } = await import("./db");
+      const c = await pgPool.connect();
+      try {
+        const [statusRow, agentRows, metaRow, waRow, emailRow] = await Promise.all([
+          c.query(`
+            SELECT
+              COUNT(*)                                                                          AS total,
+              COUNT(*) FILTER(WHERE status = 'new')                                            AS new_leads,
+              COUNT(*) FILTER(WHERE created_at >= CURRENT_DATE)                                AS new_today,
+              COUNT(*) FILTER(WHERE status = 'no_answer_1')                                    AS no_answer_1,
+              COUNT(*) FILTER(WHERE status = 'no_answer_2')                                    AS no_answer_2,
+              COUNT(*) FILTER(WHERE status = 'no_answer_3')                                    AS no_answer_3,
+              COUNT(*) FILTER(WHERE status = 'follow_up')                                      AS follow_up,
+              COUNT(*) FILTER(WHERE status = 'interested')                                     AS interested,
+              COUNT(*) FILTER(WHERE status = 'qualified')                                      AS qualified,
+              COUNT(*) FILTER(WHERE qualification_score IN ('HOT','VIP') OR lead_score = 'hot') AS hot_buyers,
+              COUNT(*) FILTER(WHERE qualification_score = 'VIP')                               AS vip_buyers,
+              COUNT(*) FILTER(WHERE status IN ('converted','sold_by_kinglike_luxury'))         AS sold,
+              COUNT(*) FILTER(WHERE status IN ('lost_competition','not_interested','junk_lead')) AS lost
+            FROM crm_leads
+          `),
+          c.query(`
+            SELECT
+              COALESCE(u.username, 'Unassigned') AS agent,
+              COUNT(l.id)::int                   AS cnt
+            FROM crm_leads l
+            LEFT JOIN users u ON u.id = l.assigned_to
+            GROUP BY u.username
+            ORDER BY cnt DESC
+          `),
+          c.query(`
+            SELECT COUNT(*)::int AS cnt
+            FROM crm_leads
+            WHERE (lead_source ILIKE '%meta%' OR lead_source ILIKE '%facebook%' OR lead_source = 'meta_ad')
+              AND created_at >= CURRENT_DATE
+          `),
+          c.query(`
+            SELECT COUNT(*)::int AS cnt
+            FROM whatsapp_api_conversations
+            WHERE last_message_at >= CURRENT_DATE
+          `),
+          c.query(`
+            SELECT COUNT(*)::int AS cnt
+            FROM lead_email_events
+            WHERE event_type IN ('email_sent','email_skipped_disabled')
+              AND created_at >= CURRENT_DATE
+          `),
+        ]);
+
+        const s = statusRow.rows[0];
+        res.json({
+          totals: {
+            total:       Number(s.total),
+            new:         Number(s.new_leads),
+            newToday:    Number(s.new_today),
+            noAnswer1:   Number(s.no_answer_1),
+            noAnswer2:   Number(s.no_answer_2),
+            noAnswer3:   Number(s.no_answer_3),
+            followUp:    Number(s.follow_up),
+            interested:  Number(s.interested),
+            qualified:   Number(s.qualified),
+            hotBuyers:   Number(s.hot_buyers),
+            vipBuyers:   Number(s.vip_buyers),
+            sold:        Number(s.sold),
+            lost:        Number(s.lost),
+          },
+          agentsBreakdown: agentRows.rows,
+          activityToday: {
+            metaLeads:    metaRow.rows[0].cnt,
+            whatsappConvs: waRow.rows[0].cnt,
+            emailSends:   emailRow.rows[0].cnt,
+          },
+          generatedAt: new Date().toISOString(),
+        });
+      } finally { c.release(); }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   /** GET /api/admin/crm/leads — paginated list with optional filters */
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
