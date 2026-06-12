@@ -116,6 +116,19 @@ function labelOf(map: Record<string, string>, id: string | undefined): string {
   return map[id] ?? id;
 }
 
+// ── wa_stage helper ───────────────────────────────────────────────────────────
+
+async function updateWaStage(leadId: number, stage: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`UPDATE crm_leads SET wa_stage = $1 WHERE id = $2`, [stage, leadId]);
+  } catch {
+    // non-critical
+  } finally {
+    client.release();
+  }
+}
+
 // ── Session helpers ───────────────────────────────────────────────────────────
 
 interface Session {
@@ -339,7 +352,8 @@ async function updateCrmLeadScore(
           qualification_summary  = $3,
           qualified_at           = NOW(),
           lead_score             = $4,
-          preferred_contact_time = COALESCE($6, preferred_contact_time)
+          preferred_contact_time = COALESCE($6, preferred_contact_time),
+          wa_stage               = 'qualified'
       WHERE id = $5
     `, [status, score, summary, mappedLeadScore, leadId, preferredContactTime ?? null]);
   } finally {
@@ -504,7 +518,7 @@ async function sendQ1Budget(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q1_sent", "budget", () =>
     sendInteractiveMessage(
       session.phone,
-      "ما هي ميزانيتك التقريبية؟ (بالدولار الأمريكي) 💰",
+      "💰 ما هي ميزانيتك التقريبية للاستثمار؟\n(بالدولار الأمريكي)",
       Q_BUDGET_OPTIONS,
     )
   );
@@ -514,7 +528,7 @@ async function sendQ2Timeline(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q2_sent", "timeline", () =>
     sendInteractiveMessage(
       session.phone,
-      "متى تخطط للشراء؟ 📅",
+      "📅 متى تتوقع إتمام عملية الشراء؟",
       Q_TIMELINE_OPTIONS,
     )
   );
@@ -524,7 +538,7 @@ async function sendQ3Goal(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q3_sent", "goal", () =>
     sendInteractiveMessage(
       session.phone,
-      "ما هو هدفك الرئيسي من الشراء؟ 🎯",
+      "🎯 ما هو هدفك الرئيسي من هذا الاستثمار العقاري؟",
       Q_GOAL_OPTIONS,
     )
   );
@@ -534,7 +548,7 @@ async function sendQ4Project(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q4_sent", "has_project", () =>
     sendInteractiveMessage(
       session.phone,
-      "هل لديك مشروع عقاري محدد في ذهنك؟ 🏢",
+      "🏢 هل لديك مشروع عقاري محدد في ذهنك؟",
       Q_PROJECT_OPTIONS,
     )
   );
@@ -544,7 +558,7 @@ async function sendQ4bProjectName(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q4b_sent", "project_name", () =>
     sendQualTextMessage(
       session.phone,
-      "رائع! ما اسم المشروع الذي تهتم به؟ (اكتب اسمه)"
+      "📝 رائع! ما اسم المشروع الذي يثير اهتمامك؟\n(اكتبه لنا بحرية)"
     )
   );
 }
@@ -553,7 +567,7 @@ async function sendQ5Visit(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q5_sent", "site_visit", () =>
     sendInteractiveMessage(
       session.phone,
-      "هل تريد زيارة مشاريعنا خلال الشهر القادم؟ 📍",
+      "📍 هل أنت مهتم بجولة ميدانية خاصة لأبرز مشاريعنا الفاخرة خلال الشهر القادم؟",
       Q_VISIT_OPTIONS,
     )
   );
@@ -563,7 +577,7 @@ async function sendQ6Notes(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q6_sent", "notes", () =>
     sendQualTextMessage(
       session.phone,
-      "شكراً! هل لديك أي ملاحظات أو متطلبات إضافية؟\n(اكتب ملاحظاتك أو أرسل \"لا\" للتخطي)"
+      "✍️ هل لديك أي متطلبات خاصة أو ملاحظات إضافية؟\n\nاكتبها بحرية، أو أرسل \"لا\" للتخطي."
     )
   );
 }
@@ -572,7 +586,7 @@ async function sendQ7ContactTime(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q7_sent", "contact_time", () =>
     sendInteractiveMessage(
       session.phone,
-      "هل يوجد توقيت مناسب للتواصل معكم؟ 🕐",
+      "🕐 آخر سؤال!\n\nما هو الوقت المفضل لديك لاستقبال مكالمة من أحد مستشارينا المتخصصين؟",
       Q_CONTACT_TIME_OPTIONS,
     )
   );
@@ -591,9 +605,10 @@ async function sendCompletion(
 
   const text =
     `شكراً ${name}! ${scoreEmoji}\n\n` +
-    `تم حفظ تفضيلاتك بنجاح. سيتواصل معك أحد مستشارينا المتخصصين قريباً لمساعدتك في ` +
-    `إيجاد عقار أحلامك. 🏠\n\n` +
-    `*Kinglike Luxury* — جودة لا تُضاهى.`;
+    `تم حفظ بياناتك ومتطلباتك بنجاح ✅\n\n` +
+    `سيتواصل معك أحد مستشارينا المتخصصين في العقارات الفاخرة قريباً، ` +
+    `لمساعدتك في إيجاد العقار المثالي الذي يلائم تطلعاتك.\n\n` +
+    `🏢 *Kinglike Luxury — الفخامة في كل تفصيلة.*`;
 
   const result = await sendQualTextMessage(session.phone, text);
   await updateSession(session.id, {
@@ -607,8 +622,9 @@ async function sendCompletion(
 
 async function sendOptOutAck(session: Session): Promise<void> {
   const text =
-    "نفهم تماماً! إذا احتجت مساعدة في المستقبل، لا تتردد في التواصل معنا. 🙏\n" +
-    "*Kinglike Luxury* — في خدمتك دائماً.";
+    "نفهم تماماً ونحترم قرارك. 🙏\n\n" +
+    "إذا احتجت مساعدة في أي وقت، لا تتردد في التواصل معنا.\n\n" +
+    "🏢 *Kinglike Luxury — في خدمتك دائماً.*";
 
   const result = await sendQualTextMessage(session.phone, text);
   await updateSession(session.id, {
@@ -854,6 +870,19 @@ export async function handleInboundMessage(opts: {
     // QUAL_YES button OR any free-text reply → window open, start Q1
     console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} payload=${answerId ?? "free-text"}`);
     console.log(`[WaQual][QUALIFICATION_STARTED] sessionId=${session.id} phone=${digits}`);
+
+    // Mark lead as Interested in CRM
+    await updateWaStage(session.lead_id, 'interested');
+
+    // Send warm welcome before Q1
+    await sendQualTextMessage(
+      session.phone,
+      `يسعدنا استقبالك! 🌟\n\n` +
+      `سنطرح عليك بضعة أسئلة سريعة لمعرفة احتياجاتك، ` +
+      `وتقديم أفضل الخيارات العقارية الفاخرة المناسبة لك.\n\n` +
+      `_Kinglike Luxury — الفخامة في كل تفصيلة_`
+    );
+
     await sendQ1Budget(session);
     console.log(`[WaQual][QUESTION_SENT] sessionId=${session.id} question=Q1_budget phone=${digits}`);
     return;
@@ -1018,7 +1047,7 @@ export async function handleNudge(
 
   await sendQualTextMessage(
     phone,
-    "مرحباً! 👋 نودّ متابعة استفساركم عن العقارات الفاخرة. هل أنت مستعد للمتابعة؟"
+    "مرحباً! 👋\n\nنودّ متابعة اهتمامك بالعقارات الفاخرة مع *Kinglike Luxury*.\nهل أنت متاح للإجابة على بعض الأسئلة؟"
   );
 }
 

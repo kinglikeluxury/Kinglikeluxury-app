@@ -582,6 +582,7 @@ export const crmLeads = pgTable("crm_leads", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastContactAt: timestamp("last_contact_at"),
+  waStage: text("wa_stage").default('new_lead'),
 }, (table) => ({
   assignedToIdx: index("crm_leads_assigned_to_idx").on(table.assignedTo),
   statusIdx:     index("crm_leads_status_idx").on(table.status),

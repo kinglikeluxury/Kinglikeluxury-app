@@ -5125,6 +5125,17 @@ ${metaTags}
             assignedToUserId: Number(req.body.assignedTo), context: "reassigned",
           })
         ).catch(() => {});
+        // Advance WhatsApp conversation stage to Advisor Assigned
+        import("./db").then(({ pool }) =>
+          pool.connect().then(async client => {
+            try {
+              await client.query(
+                `UPDATE crm_leads SET wa_stage = 'advisor_assigned' WHERE id = $1`,
+                [updated.id]
+              );
+            } finally { client.release(); }
+          })
+        ).catch(() => {});
       }
       // No Answer 3 recovery — fire in background, never blocks response
       if (req.body.status === "no_answer_3") {

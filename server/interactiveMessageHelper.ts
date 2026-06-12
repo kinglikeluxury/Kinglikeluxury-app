@@ -64,11 +64,14 @@ export async function sendInteractiveMessage(
   // Build interactive payload
   let interactivePayload: object;
 
+  const FOOTER = "🏢 Kinglike Luxury للعقارات الفاخرة";
+
   if (options.length <= 3) {
     // Reply buttons (max 3)
     interactivePayload = {
       type: "button",
-      body: { text: bodyText.slice(0, 1024) },
+      body:   { text: bodyText.slice(0, 1024) },
+      footer: { text: FOOTER },
       action: {
         buttons: options.slice(0, 3).map(o => ({
           type: "reply",
@@ -83,7 +86,8 @@ export async function sendInteractiveMessage(
     // List message (max 10 rows per section)
     interactivePayload = {
       type: "list",
-      body: { text: bodyText.slice(0, 4096) },
+      body:   { text: bodyText.slice(0, 4096) },
+      footer: { text: FOOTER },
       action: {
         button: listButtonLabel.slice(0, 20),
         sections: [

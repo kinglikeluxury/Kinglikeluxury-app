@@ -67,6 +67,25 @@ const SCORE_CONFIG: Record<string, { label: string; Icon: any; color: string }> 
   cold: { label: "Cold", Icon: Snowflake,   color: "text-sky-400" },
 };
 
+const WA_STAGE_CONFIG: Record<string, { label: string; color: string }> = {
+  new_lead:         { label: "New Lead",        color: "bg-slate-100 text-slate-500 border border-slate-200" },
+  interested:       { label: "💬 Interested",    color: "bg-green-50 text-green-700 border border-green-200" },
+  qualified:        { label: "✅ Qualified",      color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
+  advisor_assigned: { label: "👤 Advisor Assigned", color: "bg-[#005476]/10 text-[#005476] border border-[#005476]/30" },
+};
+
+function WaStageBadge({ stage }: { stage?: string | null }) {
+  if (!stage || stage === "new_lead") return null;
+  const cfg = WA_STAGE_CONFIG[stage];
+  if (!cfg) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
+      <SiWhatsapp className="h-2.5 w-2.5" />
+      {cfg.label}
+    </span>
+  );
+}
+
 const SOURCE_LABELS: Record<string, string> = {
   meta: "Meta", website: "Website", whatsapp: "WhatsApp",
   excel: "Excel", manual: "Manual",
@@ -1294,7 +1313,10 @@ export default function CrmLeadsPage() {
                         {lead.budget ? fmtBudget(Number(lead.budget)) : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={lead.status} />
+                        <div className="flex flex-col gap-1">
+                          <StatusBadge status={lead.status} />
+                          <WaStageBadge stage={(lead as any).waStage} />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <ScoreBadge score={lead.leadScore} />
