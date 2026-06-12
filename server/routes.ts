@@ -4365,6 +4365,13 @@ ${metaTags}
       .replace(/moufti/g, "mofti");       // spelling normalisation
   };
 
+  /**
+   * Slugs that mean "assign to admin".
+   * slugifyAgent("info") → "info", slugifyAgent("admin") → "admin",
+   * slugifyAgent("kinglike_admin") / slugifyAgent("Kinglike Admin") → "kinglikeadmin"
+   */
+  const ADMIN_ALIAS_SLUGS = new Set(["info", "admin", "kinglikeadmin"]);
+
   /** Parse budget strings like "80k", "50k-80k", "$50,000 - $80,000" → highest numeric value */
   const parseBudgetToNumber = (raw: string): number | null => {
     if (!raw) return null;
@@ -4469,8 +4476,12 @@ ${metaTags}
 
       // Agent name matching — load users once for preview warnings
       const { users: usersTable } = await import("@shared/schema");
-      const allUsers = await db.select({ id: usersTable.id, username: usersTable.username }).from(usersTable);
-      const userSlugs = allUsers.map(u => ({ id: u.id, username: u.username, slug: slugifyAgent(u.username) }));
+      const allUsers = await db.select({ id: usersTable.id, username: usersTable.username, isAdmin: usersTable.isAdmin }).from(usersTable);
+      const userSlugs = allUsers.map(u => ({ id: u.id, username: u.username, slug: slugifyAgent(u.username), isAdmin: u.isAdmin }));
+      // Helper: resolve an admin alias slug → the preferred admin user
+      const resolveAdminUser = () =>
+        userSlugs.find(u => u.slug === "kinglikeadmin") ??
+        userSlugs.find(u => u.isAdmin) ?? null;
       let unmatchedAgentCount = 0;
       const agentHeader = headers.find(h => detectedMapping[h] === "assignedAgent");
       if (agentHeader) {
@@ -4478,6 +4489,8 @@ ${metaTags}
           const agentRaw = String(row[agentHeader] ?? "").trim();
           if (!agentRaw) continue;
           const aSlug = slugifyAgent(agentRaw);
+          // Admin aliases always resolve
+          if (ADMIN_ALIAS_SLUGS.has(aSlug)) continue;
           const matched = userSlugs.some(u =>
             u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
           );
@@ -4503,10 +4516,15 @@ ${metaTags}
         let matchedAgent = "";
         if (lead.assignedAgent) {
           const aSlug = slugifyAgent(lead.assignedAgent);
-          const found = userSlugs.find(u =>
-            u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
-          );
-          matchedAgent = found ? found.username : `⚠ No match — will remain unassigned`;
+          if (ADMIN_ALIAS_SLUGS.has(aSlug)) {
+            const adminUser = resolveAdminUser();
+            matchedAgent = adminUser ? adminUser.username : `⚠ No admin user found`;
+          } else {
+            const found = userSlugs.find(u =>
+              u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
+            );
+            matchedAgent = found ? found.username : `⚠ No match — will remain unassigned`;
+          }
         }
         return {
           originalPhone:         rawPhone,
@@ -4552,8 +4570,12 @@ ${metaTags}
 
       // Pre-load users once for agent name resolution
       const { users: usersTable2 } = await import("@shared/schema");
-      const importUsers = await db.select({ id: usersTable2.id, username: usersTable2.username }).from(usersTable2);
-      const importUserList = importUsers.map(u => ({ id: u.id, name: u.username, slug: slugifyAgent(u.username) }));
+      const importUsers = await db.select({ id: usersTable2.id, username: usersTable2.username, isAdmin: usersTable2.isAdmin }).from(usersTable2);
+      const importUserList = importUsers.map(u => ({ id: u.id, name: u.username, slug: slugifyAgent(u.username), isAdmin: u.isAdmin }));
+      // Helper: resolve admin alias → preferred admin user (kinglike_admin first, then any isAdmin)
+      const resolveImportAdmin = () =>
+        importUserList.find(u => u.slug === "kinglikeadmin") ??
+        importUserList.find(u => u.isAdmin) ?? null;
 
       // Round-robin sub-agent assignment — fetched once, only used when autoDistribute is on
       const { getEligibleSubAgents: getImportAgents, cycleAgentId: cycleImport } = await import("./leadAssignmentService");
@@ -4596,14 +4618,21 @@ ${metaTags}
           if (lead.assignedAgent) {
             hasExcelAgent = true;
             const aSlug = slugifyAgent(lead.assignedAgent);
-            const matched = importUserList.find(u =>
-              u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
-            );
-            if (matched) {
-              assignedToId = matched.id;
+            if (ADMIN_ALIAS_SLUGS.has(aSlug)) {
+              // "info" / "admin" / "kinglike_admin" → assign to admin user, never round-robin
+              const adminUser = resolveImportAdmin();
+              if (adminUser) assignedToId = adminUser.id;
+              else metaNotes.push(`Lead Owner: ${lead.assignedAgent} (no admin user found)`);
             } else {
-              // Unmatched agent — preserve in notes, do NOT fall back to round-robin
-              metaNotes.push(`Lead Owner: ${lead.assignedAgent}`);
+              const matched = importUserList.find(u =>
+                u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
+              );
+              if (matched) {
+                assignedToId = matched.id;
+              } else {
+                // Unmatched agent — preserve in notes, do NOT fall back to round-robin
+                metaNotes.push(`Lead Owner: ${lead.assignedAgent}`);
+              }
             }
           }
 
