@@ -4291,37 +4291,78 @@ ${metaTags}
 
   /** Normalise Excel status labels → CRM DB keys */
   const normalizeImportStatus = (raw: string): string => {
-    const s = raw.toLowerCase().trim().replace(/[\s\-_]+/g, " ");
+    // Strip parens / slashes / brackets, then collapse separators
+    const s = raw.toLowerCase().trim()
+      .replace(/[()\/\[\]]/g, " ")
+      .replace(/[\s\-_]+/g, " ")
+      .trim();
+
+    // Priority checks — order matters; these must run BEFORE the generic map
+    if (s.includes("whatsapp contacted"))
+      return "after_3_no_answer_whatsapp_contacted";
+    if (s.includes("not interested") && (s.includes("maybe later") || s.includes("for now")))
+      return "not_interested_maybe_later";
+    if (s === "maybe later")
+      return "not_interested_maybe_later";
+    if ((s.includes("sold") || s.includes("closed") || s.includes("converted")) && s.includes("kinglike"))
+      return "sold_by_kinglike_luxury";
+
     const map: Record<string, string> = {
-      "new":                  "new",
-      "follow up":            "follow_up",
-      "followup":             "follow_up",
-      "no answer":            "no_answer_1",
-      "no answer 1":          "no_answer_1",
-      "no answer 2":          "no_answer_2",
-      "no answer 3":          "no_answer_3",
-      "will think":           "will_think",
-      "hot buyer":            "hot_buyer",
-      "hot":                  "hot_buyer",
-      "entering lead":        "entering_lead",
-      "deposited":            "deposited",
-      "reserved":             "reserved",
-      "purchased":            "purchased",
-      "broker":               "broker",
-      "second hand":          "second_hand",
-      "junk lead":            "junk_lead",
-      "junk":                 "junk_lead",
-      "not qualified":        "not_qualified",
-      "re sale":              "re_sale",
-      "resale":               "re_sale",
-      "lost competition":     "lost_competition",
-      "interested":           "interested",
-      "qualified":            "qualified",
-      "converted":            "converted",
-      "lost":                 "lost",
-      "agency":               "agency",
+      "new":                    "new",
+      "follow up":              "follow_up",
+      "followup":               "follow_up",
+      "no answer":              "no_answer_1",
+      "no answer 1":            "no_answer_1",
+      "no answer 2":            "no_answer_2",
+      "no answer 3":            "no_answer_3",
+      "after 3 no answer":      "no_answer_3",
+      "will think":             "will_think",
+      "hot buyer":              "hot_buyer",
+      "hot":                    "hot_buyer",
+      "entering lead":          "entering_lead",
+      "deposited":              "deposited",
+      "reserved":               "reserved",
+      "purchased":              "purchased",
+      "sold":                   "purchased",
+      "broker":                 "broker",
+      "second hand":            "second_hand",
+      "junk lead":              "junk_lead",
+      "junk":                   "junk_lead",
+      "not qualified":          "not_qualified",
+      "re sale":                "re_sale",
+      "resale":                 "re_sale",
+      "lost competition":       "lost_competition",
+      "interested":             "interested",
+      "qualified":              "qualified",
+      "converted":              "converted",
+      "lost":                   "lost",
+      "agency":                 "agency",
     };
-    return map[s] ?? raw;  // fall back to raw if no match (DB accepts any text)
+    return map[s] ?? "new";  // unknown statuses default to "new"
+  };
+
+  /**
+   * Normalise an agent/owner name to a compact slug for fuzzy matching.
+   * Handles Latin + Arabic first-name lookup.
+   * "Fadi al-Mofti", "Fadi Al-Moufti", "Fadi al moufti", "فادي" → "fadialmofti"
+   */
+  const ARABIC_AGENT_MAP: Record<string, string> = {
+    "فادي": "fadi",
+    "سامر": "samer",
+    "سامير": "samer",
+  };
+  const slugifyAgent = (raw: string): string => {
+    let s = raw.toLowerCase().trim();
+    // Arabic → Latin lookup (full word)
+    if (/[\u0600-\u06FF]/.test(s)) {
+      const mapped = ARABIC_AGENT_MAP[s];
+      if (mapped) s = mapped;
+      else return s; // unknown Arabic — return as-is so matching may still work on contains
+    }
+    return s
+      .replace(/['\u2018\u2019`]/g, "")  // remove apostrophes
+      .replace(/[\s\-_.]/g, "")           // collapse separators
+      .replace(/moufti/g, "mofti");       // spelling normalisation
   };
 
   /** Parse budget strings like "80k", "50k-80k", "$50,000 - $80,000" → highest numeric value */
@@ -4429,15 +4470,17 @@ ${metaTags}
       // Agent name matching — load users once for preview warnings
       const { users: usersTable } = await import("@shared/schema");
       const allUsers = await db.select({ id: usersTable.id, username: usersTable.username }).from(usersTable);
-      const userNames = allUsers.map(u => u.username.toLowerCase().trim());
+      const userSlugs = allUsers.map(u => ({ id: u.id, username: u.username, slug: slugifyAgent(u.username) }));
       let unmatchedAgentCount = 0;
       const agentHeader = headers.find(h => detectedMapping[h] === "assignedAgent");
       if (agentHeader) {
         for (const row of rawRows) {
           const agentRaw = String(row[agentHeader] ?? "").trim();
           if (!agentRaw) continue;
-          const aLow = agentRaw.toLowerCase();
-          const matched = userNames.some(u => u === aLow || u.includes(aLow) || aLow.includes(u));
+          const aSlug = slugifyAgent(agentRaw);
+          const matched = userSlugs.some(u =>
+            u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
+          );
           if (!matched) unmatchedAgentCount++;
         }
       }
@@ -4459,12 +4502,11 @@ ${metaTags}
         const parsedBudgetNum = parseBudgetToNumber(lead.budget ?? "");
         let matchedAgent = "";
         if (lead.assignedAgent) {
-          const aLow = lead.assignedAgent.toLowerCase().trim();
-          const found = allUsers.find((u: any) => {
-            const uLow = u.username.toLowerCase().trim();
-            return uLow === aLow || uLow.includes(aLow) || aLow.includes(uLow);
-          });
-          matchedAgent = found ? found.username : `⚠ No match`;
+          const aSlug = slugifyAgent(lead.assignedAgent);
+          const found = userSlugs.find(u =>
+            u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
+          );
+          matchedAgent = found ? found.username : `⚠ No match — will remain unassigned`;
         }
         return {
           originalPhone:         rawPhone,
@@ -4511,7 +4553,7 @@ ${metaTags}
       // Pre-load users once for agent name resolution
       const { users: usersTable2 } = await import("@shared/schema");
       const importUsers = await db.select({ id: usersTable2.id, username: usersTable2.username }).from(usersTable2);
-      const importUserList = importUsers.map(u => ({ id: u.id, name: u.username.toLowerCase().trim() }));
+      const importUserList = importUsers.map(u => ({ id: u.id, name: u.username, slug: slugifyAgent(u.username) }));
 
       // Round-robin sub-agent assignment — fetched once, only used when autoDistribute is on
       const { getEligibleSubAgents: getImportAgents, cycleAgentId: cycleImport } = await import("./leadAssignmentService");
@@ -4553,8 +4595,10 @@ ${metaTags}
           const metaNotes: string[] = [];
           if (lead.assignedAgent) {
             hasExcelAgent = true;
-            const aLow = lead.assignedAgent.toLowerCase().trim();
-            const matched = importUserList.find(u => u.name === aLow || u.name.includes(aLow) || aLow.includes(u.name));
+            const aSlug = slugifyAgent(lead.assignedAgent);
+            const matched = importUserList.find(u =>
+              u.slug === aSlug || u.slug.includes(aSlug) || aSlug.includes(u.slug)
+            );
             if (matched) {
               assignedToId = matched.id;
             } else {

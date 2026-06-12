@@ -60,6 +60,9 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   interested:            { label: "Interested",   color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
   not_qualified:         { label: "Not Qualified", color: "bg-gray-100 text-gray-500 border border-gray-300" },
   re_sale:               { label: "Re-Sale",       color: "bg-[#3bcac4]/20 text-[#005476] border border-[#3bcac4]/50" },
+  after_3_no_answer_whatsapp_contacted: { label: "After 3 No Answer (WhatsApp Contacted)", color: "bg-slate-200 text-slate-700 border border-slate-400" },
+  not_interested_maybe_later:           { label: "Not Interested for Now - Maybe Later",   color: "bg-gray-100 text-gray-500 border border-gray-300" },
+  sold_by_kinglike_luxury:              { label: "Sold by Kinglike Luxury",                color: "bg-[#005476] text-white border border-[#005476]" },
 };
 
 const SCORE_CONFIG: Record<string, { label: string; Icon: any; color: string; bg: string }> = {
@@ -83,6 +86,7 @@ const STATUSES = [
   "hot_buyer","entering_lead","deposited","reserved","purchased",
   "broker","second_hand","junk_lead","no_answer_converted","lost_competition",
   "not_qualified","re_sale",
+  "after_3_no_answer_whatsapp_contacted","not_interested_maybe_later","sold_by_kinglike_luxury",
 ];
 const SOURCES = ["meta","website","whatsapp","excel","manual"];
 const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates"];
