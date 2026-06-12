@@ -18,6 +18,15 @@ import {
   ensureAmbassadoriCompany,
   AMBASSADORI_COMPANY_ID,
 } from "./ambassadoriSubmissionAdapter";
+import {
+  submitLeadViaBrowser,
+  fixAmbassadoriUnverifiedSuccesses,
+} from "./ambassadoriBrowserService";
+import {
+  ensureAmbassadoriSessionTable,
+  saveSessionData,
+  getSessionStatus,
+} from "./ambassadoriSessionStore";
 
 // ── Schema migration — idempotent, runs once at startup ───────────────────────
 
@@ -51,6 +60,8 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
   ensureSilkAttemptColumns().catch(() => {});
   ensureAmbassadoriAttemptColumns().catch(() => {});
   ensureAmbassadoriCompany().catch(() => {});
+  ensureAmbassadoriSessionTable().catch(() => {});
+  fixAmbassadoriUnverifiedSuccesses().catch(() => {});
 
   // ── Overview dashboard ────────────────────────────────────────────────────
 
@@ -652,6 +663,128 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
       res.json(result);
     } catch (err: any) {
       console.error("[Ambassadori] submit error:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Submit to Ambassadori via Browser (Phase 3 — Playwright headless) ────
+
+  app.post("/api/admin/developer-registration/:recordId/submit-to-ambassadori-browser", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const recordId = parseInt(req.params.recordId, 10);
+      const adminId  = (req as any).session?.userId ?? null;
+      if (!recordId) return res.status(400).json({ message: "Invalid record id" });
+
+      const client = await pool.connect();
+      try {
+        const chk = await client.query(
+          `SELECT developer_company_id, status FROM developer_registration_records WHERE id=$1`,
+          [recordId]
+        );
+        if (chk.rows.length === 0) return res.status(404).json({ message: "Record not found" });
+        const devCompanyId = chk.rows[0].developer_company_id;
+        if (devCompanyId !== AMBASSADORI_COMPANY_ID) {
+          return res.status(400).json({ message: "Record is not for Ambassadori" });
+        }
+        if (chk.rows[0].status === "stopped")    return res.status(400).json({ message: "Cannot submit a stopped record" });
+        if (chk.rows[0].status === "submitting") return res.status(409).json({ message: "Submission already in progress" });
+      } finally { client.release(); }
+
+      console.log(`[Ambassadori][Browser] Starting browser submission recordId=${recordId}`);
+      const result = await submitLeadViaBrowser(recordId, adminId);
+      console.log(`[Ambassadori][Browser] Done recordId=${recordId} outcome=${result.outcome}`);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Ambassadori][Browser] Error:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Mark Ambassadori record as manually confirmed ─────────────────────────
+
+  app.post("/api/admin/developer-registration/:recordId/mark-manually-confirmed", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const recordId = parseInt(req.params.recordId, 10);
+      const adminId  = (req as any).session?.userId ?? null;
+      const { dealId, notes } = req.body ?? {};
+      if (!recordId) return res.status(400).json({ message: "Invalid record id" });
+
+      const client = await pool.connect();
+      try {
+        const chk = await client.query(
+          `SELECT developer_company_id, crm_lead_id FROM developer_registration_records WHERE id=$1`,
+          [recordId]
+        );
+        if (chk.rows.length === 0) return res.status(404).json({ message: "Record not found" });
+        if (chk.rows[0].developer_company_id !== AMBASSADORI_COMPANY_ID) {
+          return res.status(400).json({ message: "Only Ambassadori records can be manually confirmed here" });
+        }
+        const crmLeadId = chk.rows[0].crm_lead_id;
+
+        await client.query(`
+          UPDATE developer_registration_records
+             SET status               = 'success',
+                 last_error           = NULL,
+                 last_registered_at   = NOW(),
+                 next_registration_at = NOW() + INTERVAL '30 days',
+                 updated_at           = NOW()
+           WHERE id = $1
+        `, [recordId]);
+
+        const payload = { dealId: dealId ?? null, notes: notes ?? "Manually confirmed by admin", confirmedBy: adminId };
+        await client.query(`
+          INSERT INTO developer_registration_attempts
+            (registration_record_id, crm_lead_id, developer_company_id,
+             attempt_type, status, payload_json, result_message, created_by, created_at)
+          VALUES ($1, $2, $3, 'manual_confirm', 'success', $4, $5, $6, NOW())
+        `, [
+          recordId, crmLeadId, AMBASSADORI_COMPANY_ID,
+          JSON.stringify(payload),
+          `Manually confirmed by admin${dealId ? ` — deal ID: ${dealId}` : ""}`,
+          adminId,
+        ]);
+
+      } finally { client.release(); }
+
+      res.json({ success: true, message: "Record marked as manually confirmed — status set to success" });
+    } catch (err: any) {
+      console.error("[Ambassadori] mark-manually-confirmed error:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Ambassadori session status ────────────────────────────────────────────
+
+  app.get("/api/admin/developer-registration/ambassadori/session-status", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const status = await getSessionStatus();
+      res.json(status);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Save Ambassadori browser session cookies ──────────────────────────────
+  // Admin pastes cookies (from DevTools → Application → Cookies) as JSON array.
+
+  app.post("/api/admin/developer-registration/ambassadori/save-session", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const { cookies, localStorage: ls, userAgent } = req.body ?? {};
+      if (!Array.isArray(cookies)) {
+        return res.status(400).json({ message: "cookies must be a JSON array" });
+      }
+      await saveSessionData({
+        cookies,
+        localStorage: ls ?? {},
+        userAgent:    userAgent ?? undefined,
+        savedAt:      new Date().toISOString(),
+      });
+      res.json({ success: true, message: `Session saved — ${cookies.length} cookie(s) stored` });
+    } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });

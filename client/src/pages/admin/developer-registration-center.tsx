@@ -35,6 +35,7 @@ const STATUS_CONFIG: Record<string, { label: string; desc: string; color: string
   failed:                  { label: "Failed",              desc: "Not accepted — check audit log",                  color: "bg-red-50 text-red-600 border border-red-200" },
   duplicate:               { label: "Duplicate",           desc: "Already registered",                              color: "bg-gray-100 text-gray-500 border border-gray-200" },
   needs_review:            { label: "Needs Review",        desc: "Flagged for manual review",                       color: "bg-amber-50 text-amber-700 border border-amber-200" },
+  login_required:          { label: "⚠ Login Required",   desc: "Ambassadori session expired — re-login needed",   color: "bg-red-50 text-red-700 border border-red-300" },
   stopped:                 { label: "Stopped",             desc: "Protection stopped",                              color: "bg-slate-200 text-slate-600 border border-slate-300" },
   pending_re_registration: { label: "Re-Reg Due",          desc: "Re-registration interval has passed",             color: "bg-purple-50 text-purple-700 border border-purple-200" },
 };
@@ -713,6 +714,14 @@ export default function DeveloperRegistrationCenterPage() {
     enabled: !!user?.isAdmin,
   });
 
+  const { data: ambSession, refetch: refetchAmbSession } = useQuery<any>({
+    queryKey: ["/api/admin/developer-registration/ambassadori/session-status"],
+    queryFn: () =>
+      apiRequest("GET", "/api/admin/developer-registration/ambassadori/session-status").then(r => r.json()),
+    enabled: !!user?.isAdmin,
+    refetchInterval: 60000,
+  });
+
   // ── Mutations ───────────────────────────────────────────────────────────────
 
   const submitToSilkMutation = useMutation({
@@ -761,6 +770,52 @@ export default function DeveloperRegistrationCenterPage() {
     },
     onError: (e: any) =>
       toast({ title: "Ambassadori Error", description: e.message, variant: "destructive" }),
+  });
+
+  const submitToAmbassadoriBrowserMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("POST", `/api/admin/developer-registration/${id}/submit-to-ambassadori-browser`, {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data.outcome === "success") {
+        toast({
+          title: "✅ Browser deal created",
+          description: `Ambassadori registration confirmed${data.dealId ? ` — deal ID: ${data.dealId}` : " (no ID returned)"}`,
+        });
+      } else if (data.outcome === "protected") {
+        toast({ title: "🛡️ Already registered", description: "Lead is a duplicate in the portal." });
+      } else if (data.outcome === "login_required") {
+        toast({
+          title: "🔐 Login Required",
+          description: "Ambassadori session expired — please re-login and save session cookies.",
+          variant: "destructive",
+        });
+      } else if (data.outcome === "needs_review") {
+        toast({
+          title: "⚠ Needs Review",
+          description: data.errorMessage ?? "Form submitted but confirmation not detected.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "❌ Browser submission failed",
+          description: data.errorMessage ?? "Check the audit log for details.",
+          variant: "destructive",
+        });
+      }
+      refetchQueue(); refetchOverview(); refetchAmbSession();
+    },
+    onError: (e: any) =>
+      toast({ title: "Browser Error", description: e.message, variant: "destructive" }),
+  });
+
+  const markManuallyConfirmedMutation = useMutation({
+    mutationFn: ({ id, dealId }: { id: number; dealId?: string }) =>
+      apiRequest("POST", `/api/admin/developer-registration/${id}/mark-manually-confirmed`, { dealId: dealId ?? "" }).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: "✅ Marked as confirmed", description: "Record status set to success." });
+      refetchQueue(); refetchOverview();
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const markSubmittedMutation = useMutation({
@@ -858,9 +913,22 @@ export default function DeveloperRegistrationCenterPage() {
           <Badge className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
             Silk Active
           </Badge>
-          <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30">
-            Ambassadori Active
-          </Badge>
+          {ambSession?.isLikelyExpired ? (
+            <Badge className="text-[10px] bg-red-50 text-red-700 border border-red-300 flex items-center gap-1 cursor-pointer"
+              title={`Session saved ${ambSession?.ageHours ?? "?"}h ago — likely expired. Open the portal and re-login.`}>
+              <AlertTriangle className="h-3 w-3" /> Amb Session Expired
+            </Badge>
+          ) : ambSession?.hasSession ? (
+            <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30 flex items-center gap-1"
+              title={`Session active — saved ${ambSession?.ageHours ?? "?"}h ago (${ambSession?.cookieCount ?? 0} cookies)`}>
+              Ambassadori Active ✓
+            </Badge>
+          ) : (
+            <Badge className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1"
+              title="No saved browser session — token seed from env will be used on first attempt">
+              <AlertTriangle className="h-3 w-3" /> Amb: No Session
+            </Badge>
+          )}
           <Button
             size="sm"
             className="gap-1.5 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white"
@@ -1148,17 +1216,52 @@ export default function DeveloperRegistrationCenterPage() {
                                       Submit to Silk
                                     </Button>
                                   )}
+                                  {isAmb && (
+                                    <a href="https://broker.islandambassadori.com/deals/create"
+                                      target="_blank" rel="noopener noreferrer">
+                                      <Button size="sm" variant="outline"
+                                        className="h-6 px-2 text-[10px] gap-1 text-purple-700 border-purple-200">
+                                        <ExternalLink className="h-3 w-3" /> Portal
+                                      </Button>
+                                    </a>
+                                  )}
                                   {isAmb && canSubmitAmb && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        className="h-6 px-2 text-[10px] gap-1 bg-purple-600 hover:bg-purple-700 text-white"
+                                        disabled={submitToAmbassadoriMutation.isPending}
+                                        onClick={() => submitToAmbassadoriMutation.mutate(rec.id)}
+                                        title="API submission (token-based)"
+                                      >
+                                        {submitToAmbassadoriMutation.isPending
+                                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                                          : <Send className="h-3 w-3" />}
+                                        API
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        className="h-6 px-2 text-[10px] gap-1 bg-gradient-to-r from-purple-600 to-purple-800 hover:opacity-90 text-white"
+                                        disabled={submitToAmbassadoriBrowserMutation.isPending}
+                                        onClick={() => submitToAmbassadoriBrowserMutation.mutate(rec.id)}
+                                        title="Browser automation — fills form exactly as a human would"
+                                      >
+                                        {submitToAmbassadoriBrowserMutation.isPending
+                                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                                          : <Play className="h-3 w-3" />}
+                                        Browser
+                                      </Button>
+                                    </>
+                                  )}
+                                  {isAmb && rec.status !== "success" && (
                                     <Button
-                                      size="sm"
-                                      className="h-6 px-2 text-[10px] gap-1 bg-purple-600 hover:bg-purple-700 text-white"
-                                      disabled={submitToAmbassadoriMutation.isPending}
-                                      onClick={() => submitToAmbassadoriMutation.mutate(rec.id)}
+                                      size="sm" variant="outline"
+                                      className="h-6 px-2 text-[10px] gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                      disabled={markManuallyConfirmedMutation.isPending}
+                                      onClick={() => markManuallyConfirmedMutation.mutate({ id: rec.id })}
+                                      title="Admin manually confirms this lead was registered in the portal"
                                     >
-                                      {submitToAmbassadoriMutation.isPending
-                                        ? <Loader2 className="h-3 w-3 animate-spin" />
-                                        : <Send className="h-3 w-3" />}
-                                      Submit to Amb
+                                      <CheckCircle2 className="h-3 w-3" /> Confirm ✓
                                     </Button>
                                   )}
                                   {!isSilk && !isAmb && rec.form_url && (
