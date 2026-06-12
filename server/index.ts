@@ -113,13 +113,16 @@ app.use(
           "'self'",
           "https://challenges.cloudflare.com",
         ],
+        frameAncestors: process.env.NODE_ENV === "production"
+          ? ["'self'"]
+          : ["'self'", "https://*.replit.dev", "https://*.picard.replit.dev"],
         objectSrc: ["'none'"],
         upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
       },
     },
     crossOriginEmbedderPolicy: false,
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-    xFrameOptions: { action: "sameorigin" },
+    xFrameOptions: process.env.NODE_ENV === "production" ? { action: "sameorigin" } : false,
     strictTransportSecurity: process.env.NODE_ENV === "production"
       ? { maxAge: 31536000, includeSubDomains: true }
       : false,
