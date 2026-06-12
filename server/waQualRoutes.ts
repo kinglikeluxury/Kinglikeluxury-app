@@ -82,8 +82,27 @@ export function registerWaQualRoutes(app: Express): void {
     if (isNaN(leadId)) return res.status(400).json({ message: "Invalid leadId" });
 
     try {
-      await restartQualification(leadId);
-      res.json({ ok: true });
+      const result = await restartQualification(leadId);
+
+      // Active session blocking restart
+      if (result.alreadyActive) {
+        return res.status(409).json({ message: result.error });
+      }
+
+      // Template send failed (Meta API error)
+      if (!result.success) {
+        return res.status(422).json({
+          message: result.error ?? "Failed to send WhatsApp template",
+          sessionId: result.sessionId,
+        });
+      }
+
+      // Success — return wamid so UI can display it
+      return res.json({
+        ok:        true,
+        wamid:     result.wamid,
+        sessionId: result.sessionId,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

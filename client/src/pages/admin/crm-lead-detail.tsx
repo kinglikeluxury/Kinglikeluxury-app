@@ -491,9 +491,28 @@ export default function CrmLeadDetailPage() {
   });
 
   const restartQualMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/admin/wa-qual/lead/${leadId}/restart`, {}),
-    onSuccess: () => { qualRefetch(); toast({ title: "Qualification flow restarted" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    mutationFn: async () => {
+      const r = await apiRequest("POST", `/api/admin/wa-qual/lead/${leadId}/restart`, {});
+      return r.json() as Promise<{ ok?: boolean; wamid?: string; sessionId?: number; message?: string }>;
+    },
+    onSuccess: (data) => {
+      qualRefetch();
+      toast({
+        title: "✅ WhatsApp template sent",
+        description: data.wamid
+          ? `Message delivered · WAMID: ${data.wamid.slice(0, 52)}…`
+          : "Template accepted by Meta",
+      });
+    },
+    onError: (e: any) => {
+      const msg: string = e.message ?? "Unknown error";
+      const isActive = msg.toLowerCase().includes("active");
+      toast({
+        title: isActive ? "Session already active" : "Re-qualify failed",
+        description: msg,
+        variant: "destructive",
+      });
+    },
   });
 
   const overrideQualScoreMutation = useMutation({

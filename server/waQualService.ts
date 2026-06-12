@@ -1044,39 +1044,164 @@ export async function getQualSessionForLead(leadId: number): Promise<any> {
   }
 }
 
-export async function restartQualification(leadId: number): Promise<void> {
-  const client = await pool.connect();
-  try {
-    // Mark old session failed
-    await client.query(`
-      UPDATE wa_qual_sessions
-      SET status = 'failed', completed_at = NOW()
-      WHERE lead_id = $1 AND status NOT IN ('completed')
-    `, [leadId]);
+// Statuses where an active flow is in progress — restart is blocked
+const ACTIVE_STATUSES = new Set([
+  "idle", "template_sent", "greeting_sent",
+  "q1_sent", "q2_sent", "q3_sent", "q4_sent", "q4b_sent",
+  "q5_sent", "q6_sent", "q7_sent",
+]);
 
-    // Get lead info
-    const lr = await client.query(
-      `SELECT phone, first_name FROM crm_leads WHERE id = $1`,
+export interface RestartResult {
+  success:       boolean;
+  wamid?:        string;
+  error?:        string;
+  sessionId?:    number;
+  alreadyActive?: boolean;
+}
+
+/**
+ * Admin-triggered re-qualification.
+ *
+ * — Blocks if an active (in-progress) session already exists.
+ * — Resets any terminal session (timed_out / failed / opt_out / completed /
+ *   already_qualified / postponed / expired / stopped / cancelled) in-place
+ *   (clearing old answers + summaries) so the unique lead_id constraint is
+ *   not violated.
+ * — Sends `kinglike_qual_opener` template and returns the Meta API result
+ *   (success, wamid, or exact error) to the caller.
+ */
+export async function restartQualification(leadId: number): Promise<RestartResult> {
+  // ── 1. Fetch lead phone + any existing session ────────────────────────────
+  const c1 = await pool.connect();
+  let phone: string | null = null;
+  let existingId: number | null = null;
+  let existingStatus: string | null = null;
+  try {
+    const lr = await c1.query(
+      `SELECT phone FROM crm_leads WHERE id = $1`,
       [leadId]
     );
-    const lead = lr.rows[0];
-    if (!lead?.phone) return;
+    if (!lr.rows[0]) return { success: false, error: "Lead not found" };
+    phone = lr.rows[0].phone ?? null;
 
-    await client.query(`
-      UPDATE crm_leads SET qualification_status = 'in_progress' WHERE id = $1
-    `, [leadId]);
+    const sr = await c1.query(
+      `SELECT id, status FROM wa_qual_sessions WHERE lead_id = $1 LIMIT 1`,
+      [leadId]
+    );
+    if (sr.rows[0]) {
+      existingId     = sr.rows[0].id;
+      existingStatus = sr.rows[0].status;
+    }
   } finally {
-    client.release();
+    c1.release();
   }
 
-  const lr2 = await pool.connect();
+  if (!phone) return { success: false, error: "Lead has no phone number" };
+  const digits = phone.replace(/[^0-9]/g, "");
+  if (!digits) return { success: false, error: "Invalid phone number" };
+
+  // ── 2. Block if an active session is running ──────────────────────────────
+  if (existingId !== null && existingStatus !== null && ACTIVE_STATUSES.has(existingStatus)) {
+    console.log(
+      `[WaQual][RESTART] Blocked — leadId=${leadId} sessionId=${existingId} ` +
+      `status=${existingStatus} is active`
+    );
+    return {
+      success: false,
+      alreadyActive: true,
+      error: "Active WhatsApp qualification session already exists",
+    };
+  }
+
+  // ── 3. Reset or create session ────────────────────────────────────────────
+  const c2 = await pool.connect();
+  let sessionId: number;
   try {
-    const r = await lr2.query(`SELECT phone, first_name FROM crm_leads WHERE id = $1`, [leadId]);
-    const lead = r.rows[0];
-    if (lead) await checkAndTrigger(leadId, lead.phone, lead.first_name);
+    if (existingId !== null) {
+      // Clear old answers and summaries so history is clean
+      await c2.query(`DELETE FROM wa_qual_answers  WHERE session_id = $1`, [existingId]);
+      await c2.query(`DELETE FROM wa_qual_summaries WHERE session_id = $1`, [existingId]);
+
+      // Reset session row in-place (preserves unique lead_id constraint)
+      const resetR = await c2.query(`
+        UPDATE wa_qual_sessions SET
+          status               = 'idle',
+          current_question     = NULL,
+          last_message_at      = NOW(),
+          last_outbound_wamid  = NULL,
+          retry_count          = 0,
+          invalid_input_count  = 0,
+          completed_at         = NULL,
+          created_at           = NOW()
+        WHERE id = $1
+        RETURNING id
+      `, [existingId]);
+      sessionId = resetR.rows[0].id;
+      console.log(
+        `[WaQual][RESTART] Reset session ${sessionId} from ${existingStatus} → idle leadId=${leadId}`
+      );
+    } else {
+      // No session yet — create fresh
+      const insertR = await c2.query(`
+        INSERT INTO wa_qual_sessions
+          (lead_id, phone, status, created_at, last_message_at)
+        VALUES ($1, $2, 'idle', NOW(), NOW())
+        RETURNING id
+      `, [leadId, digits]);
+      sessionId = insertR.rows[0].id;
+      console.log(`[WaQual][RESTART] New session ${sessionId} created leadId=${leadId}`);
+    }
+
+    await c2.query(
+      `UPDATE crm_leads SET qualification_status = 'in_progress' WHERE id = $1`,
+      [leadId]
+    );
   } finally {
-    lr2.release();
+    c2.release();
   }
+
+  // ── 4. Send opener template — capture Meta API result ─────────────────────
+  console.log(
+    `[WaQual][RESTART] Sending kinglike_qual_opener to phone=${digits} ` +
+    `sessionId=${sessionId} leadId=${leadId}`
+  );
+  const sendResult = await sendQualOpenerTemplate(digits);
+
+  // Update session to reflect outcome
+  await updateSession(sessionId, {
+    status:              sendResult.success ? "template_sent" : "failed",
+    current_question:    sendResult.success ? "opener_template" : null,
+    last_message_at:     new Date(),
+    last_outbound_wamid: sendResult.wamid ?? null,
+    invalid_input_count: 0,
+  });
+
+  if (sendResult.success) {
+    console.log(
+      `[WaQual][RESTART] ✓ Template sent leadId=${leadId} sessionId=${sessionId} ` +
+      `wamid=${sendResult.wamid}`
+    );
+  } else {
+    console.error(
+      `[WaQual][RESTART] ✗ Template failed leadId=${leadId} sessionId=${sessionId} ` +
+      `error="${sendResult.error}"`
+    );
+    // Mark lead as failed so agents know
+    const c3 = await pool.connect();
+    try {
+      await c3.query(
+        `UPDATE crm_leads SET qualification_status = 'failed' WHERE id = $1`,
+        [leadId]
+      );
+    } finally { c3.release(); }
+  }
+
+  return {
+    success:   sendResult.success,
+    wamid:     sendResult.wamid,
+    error:     sendResult.error,
+    sessionId,
+  };
 }
 
 // ── Text mapping helpers ──────────────────────────────────────────────────────
