@@ -115,7 +115,12 @@ app.use(
         ],
         frameAncestors: process.env.NODE_ENV === "production"
           ? ["'self'"]
-          : ["'self'", "https://*.replit.dev", "https://*.picard.replit.dev"],
+          : [
+              "'self'",
+              "https://*.replit.dev",
+              "https://*.picard.replit.dev",
+              "https://replit.com",
+            ],
         objectSrc: ["'none'"],
         upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
       },
@@ -129,16 +134,30 @@ app.use(
   })
 );
 
-app.use(
-  cors({
-    origin: [
-      "https://kinglikeluxury.app",
-      "https://www.kinglikeluxury.app",
-      "https://real-estate-hub-kinglikeluxury.replit.app",
-    ],
-    credentials: true,
-  })
-);
+const PRODUCTION_ORIGINS = [
+  "https://kinglikeluxury.app",
+  "https://www.kinglikeluxury.app",
+  "https://real-estate-hub-kinglikeluxury.replit.app",
+];
+
+const corsOriginFn: cors.CorsOptionsDelegate = (req, callback) => {
+  const origin = (req as Request).headers.origin || "";
+  const isProd = process.env.NODE_ENV === "production";
+  if (isProd) {
+    callback(null, { origin: PRODUCTION_ORIGINS.includes(origin), credentials: true });
+  } else {
+    // Development: allow production domains + any Replit dev/preview domain
+    const allowed =
+      PRODUCTION_ORIGINS.includes(origin) ||
+      /^https?:\/\/(localhost|\d+\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin) ||
+      origin.endsWith(".replit.dev") ||
+      origin.endsWith(".picard.replit.dev") ||
+      origin === "";
+    callback(null, { origin: allowed, credentials: true });
+  }
+};
+
+app.use(cors(corsOriginFn));
 
 app.use(express.json({
   limit: "50mb",
