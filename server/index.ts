@@ -5,6 +5,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
 import cors from "cors";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
@@ -58,6 +59,68 @@ app.get("/robots.txt", (_req, res) => {
   );
 });
 // ─────────────────────────────────────────────────────────────────────────────
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://challenges.cloudflare.com",
+          "https://www.googletagmanager.com",
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.gstatic.com",
+          "data:",
+        ],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://res.cloudinary.com",
+          "https://lh3.googleusercontent.com",
+          "https://graph.facebook.com",
+          "https://*.tile.openstreetmap.org",
+        ],
+        mediaSrc: [
+          "'self'",
+          "blob:",
+          "https://res.cloudinary.com",
+        ],
+        connectSrc: [
+          "'self'",
+          "https://api.cloudinary.com",
+          "https://challenges.cloudflare.com",
+          "https://api.ip-api.com",
+          "http://ip-api.com",
+          "wss:",
+          "ws:",
+        ],
+        frameSrc: [
+          "'self'",
+          "https://challenges.cloudflare.com",
+        ],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    xFrameOptions: { action: "sameorigin" },
+    strictTransportSecurity: process.env.NODE_ENV === "production"
+      ? { maxAge: 31536000, includeSubDomains: true }
+      : false,
+  })
+);
 
 app.use(
   cors({

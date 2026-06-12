@@ -21,7 +21,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByPhone(phoneNumber: string): Promise<User | undefined>;
-  getAllUsers(): Promise<User[]>;
+  getAllUsers(): Promise<Omit<User, 'password'>[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(id: number, newPassword: string): Promise<User | undefined>;
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
@@ -212,6 +212,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(
       (user) => user.phoneNumber === phoneNumber
     );
+  }
+
+  async getAllUsers(): Promise<Omit<User, 'password'>[]> {
+    return Array.from(this.users.values()).map(({ password: _omit, ...safe }) => safe);
   }
 
   async updateUserPassword(id: number, newPassword: string): Promise<User | undefined> {

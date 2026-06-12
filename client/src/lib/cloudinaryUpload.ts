@@ -3,6 +3,64 @@ const UPLOAD_PRESET = "kinglike_unsigned";
 
 export type CloudinaryResourceType = "image" | "video" | "auto";
 
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+]);
+
+const ALLOWED_VIDEO_TYPES = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-msvideo",
+  "video/mpeg",
+]);
+
+const ALLOWED_AUDIO_TYPES = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+  "audio/mp4",
+]);
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;  // 20 MB
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024;  // 50 MB
+
+function validateUploadFile(file: File, resourceType: CloudinaryResourceType): void {
+  const type = file.type.toLowerCase();
+
+  if (resourceType === "image" || (resourceType === "auto" && !type.startsWith("video/") && !type.startsWith("audio/"))) {
+    if (!ALLOWED_IMAGE_TYPES.has(type)) {
+      throw new Error(`File type "${type}" is not allowed. Allowed image types: JPEG, PNG, WebP, GIF, HEIC.`);
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      throw new Error(`Image file is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed: 20 MB.`);
+    }
+  } else if (resourceType === "video" || (resourceType === "auto" && type.startsWith("video/"))) {
+    if (!ALLOWED_VIDEO_TYPES.has(type)) {
+      throw new Error(`File type "${type}" is not allowed. Allowed video types: MP4, WebM, MOV, AVI, MPEG.`);
+    }
+    if (file.size > MAX_VIDEO_BYTES) {
+      throw new Error(`Video file is too large (${(file.size / 1024 / 1024).toFixed(0)} MB). Maximum allowed: 200 MB.`);
+    }
+  } else if (type.startsWith("audio/")) {
+    if (!ALLOWED_AUDIO_TYPES.has(type)) {
+      throw new Error(`File type "${type}" is not allowed for audio upload.`);
+    }
+    if (file.size > MAX_AUDIO_BYTES) {
+      throw new Error(`Audio file is too large (${(file.size / 1024 / 1024).toFixed(0)} MB). Maximum allowed: 50 MB.`);
+    }
+  }
+}
+
 export interface CloudinaryUploadResult {
   secure_url: string;
   url: string;
@@ -199,6 +257,8 @@ export async function uploadToCloudinary(
   resourceType: CloudinaryResourceType = "auto",
   onProgress?: (pct: number) => void
 ): Promise<CloudinaryUploadResult> {
+  validateUploadFile(file, resourceType);
+
   const effectiveType: CloudinaryResourceType =
     resourceType === "auto"
       ? file.type.startsWith("video/") ? "video" : "image"

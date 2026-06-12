@@ -431,7 +431,26 @@ ${metaTags}
       store: storage.sessionStore,
       resave: false,
       saveUninitialized: false,
-      secret: process.env.SESSION_SECRET || "realestatepro-secret",
+      secret: (() => {
+        const secret = process.env.SESSION_SECRET;
+        if (!secret) {
+          if (process.env.NODE_ENV === "production") {
+            console.error(
+              "[SECURITY] SESSION_SECRET environment variable is NOT set. " +
+              "This is required in production to prevent session forgery. " +
+              "Set SESSION_SECRET in Replit Secrets immediately."
+            );
+          } else {
+            console.warn(
+              "[SECURITY] SESSION_SECRET not set — using insecure dev fallback. " +
+              "Set SESSION_SECRET before deploying to production."
+            );
+          }
+        }
+        return secret || (process.env.NODE_ENV === "production"
+          ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
+          : "dev-only-insecure-fallback-do-not-use-in-production");
+      })(),
     })
   );
 
@@ -479,20 +498,12 @@ ${metaTags}
     }
   });
 
-  // Temporary Twilio diagnostic endpoint
-  app.get("/api/twilio-test", async (req, res) => {
-    const sid = process.env.TWILIO_ACCOUNT_SID || "";
-    const token = process.env.TWILIO_AUTH_TOKEN || "";
-    const phone = process.env.TWILIO_PHONE_NUMBER || "";
-    try {
-      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}.json`, {
-        headers: { Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64") }
-      });
-      const data = await resp.json() as any;
-      res.json({ status: resp.status, accountSidPrefix: sid.slice(0, 8), phoneNumber: phone, twilioStatus: data.status || data.message || "unknown" });
-    } catch (e: any) {
-      res.json({ error: e.message });
-    }
+  // Twilio configuration check — admin only, no credential values returned
+  app.get("/api/admin/twilio-status", isAuthenticated, isAdmin, async (_req, res) => {
+    res.json({
+      ok: true,
+      twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
+    });
   });
 
   // Twilio client
@@ -2418,7 +2429,7 @@ ${metaTags}
   });
 
   // ─── Admin: Migrate all blog slugs to English-only ──────────────────────
-  app.post("/api/admin/migrate-blog-slugs", async (req, res) => {
+  app.post("/api/admin/migrate-blog-slugs", isAuthenticated, isAdmin, async (req, res) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
       const user = await storage.getUser(req.session.userId);
@@ -2454,7 +2465,7 @@ ${metaTags}
   });
 
   // ─── Admin: Re-translate all blog posts for missing languages ────────────
-  app.post("/api/admin/retranslate-blogs", async (req, res) => {
+  app.post("/api/admin/retranslate-blogs", isAuthenticated, isAdmin, async (req, res) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
       const user = await storage.getUser(req.session.userId);
@@ -2507,7 +2518,7 @@ ${metaTags}
   // Generates metaDescription, keywords, ogTitle, ogDescription, twitterTitle,
   // twitterDescription for every translation that doesn't already have them.
   // Does NOT re-translate content. Does NOT modify URLs or existing content.
-  app.post("/api/admin/backfill-blog-seo", async (req, res) => {
+  app.post("/api/admin/backfill-blog-seo", isAuthenticated, isAdmin, async (req, res) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
       const user = await storage.getUser(req.session.userId);
@@ -2545,7 +2556,7 @@ ${metaTags}
   });
 
   // ─── Admin: Get SEO status for a single blog post ────────────────────────
-  app.get("/api/admin/blog/:id/seo-status", async (req, res) => {
+  app.get("/api/admin/blog/:id/seo-status", isAuthenticated, isAdmin, async (req, res) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
       const user = await storage.getUser(req.session.userId);
@@ -2764,8 +2775,7 @@ ${metaTags}
   // ── Notification Template Routes (Admin) ──────────────────────────────────
 
   // GET all templates (create defaults if missing)
-  app.get("/api/admin/notification-templates", async (req, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+  app.get("/api/admin/notification-templates", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const triggers = ["welcome", "weekly_update", "inactive_reminder"];
       const types = ["email", "whatsapp"];
@@ -2782,7 +2792,7 @@ ${metaTags}
   });
 
   // PUT update a template
-  app.put("/api/admin/notification-templates/:id", async (req, res) => {
+  app.put("/api/admin/notification-templates/:id", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const id = parseInt(req.params.id);
@@ -2799,7 +2809,7 @@ ${metaTags}
   });
 
   // POST manual send (bulk or test)
-  app.post("/api/admin/notifications/send", async (req, res) => {
+  app.post("/api/admin/notifications/send", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const { trigger, channel } = req.body as { trigger: string; channel: string };
@@ -2817,7 +2827,7 @@ ${metaTags}
   });
 
   // GET notification logs
-  app.get("/api/admin/notification-logs", async (req, res) => {
+  app.get("/api/admin/notification-logs", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const logs = await db
@@ -2832,7 +2842,7 @@ ${metaTags}
   });
 
   // POST email campaign — send custom emails to a list of recipients
-  app.post("/api/admin/email-campaign", async (req, res) => {
+  app.post("/api/admin/email-campaign", isAuthenticated, isAdmin, async (req, res) => {
     try {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     const { recipients, subject, bodyText, imageUrl, appLink } = req.body;
@@ -2927,7 +2937,7 @@ ${metaTags}
   });
 
   // GET notification system status
-  app.get("/api/admin/notification-status", async (req, res) => {
+  app.get("/api/admin/notification-status", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     res.json({
       emailConfigured: await isEmailConfigured(),
@@ -2990,7 +3000,7 @@ ${metaTags}
   });
 
   // GET all slots (admin)
-  app.get("/api/admin/consultation/slots", async (req, res) => {
+  app.get("/api/admin/consultation/slots", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const slots = await storage.getConsultationTimeSlots();
@@ -3001,7 +3011,7 @@ ${metaTags}
   });
 
   // POST create slot (admin)
-  app.post("/api/admin/consultation/slots", async (req, res) => {
+  app.post("/api/admin/consultation/slots", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const { date, startTime, endTime } = req.body;
@@ -3016,7 +3026,7 @@ ${metaTags}
   });
 
   // POST auto-generate 30-min slots for a date in Georgia time (12:00–20:00)
-  app.post("/api/admin/consultation/slots/generate", async (req, res) => {
+  app.post("/api/admin/consultation/slots/generate", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const { date } = req.body;
@@ -3046,7 +3056,7 @@ ${metaTags}
   });
 
   // PATCH toggle slot availability (admin)
-  app.patch("/api/admin/consultation/slots/:id/toggle", async (req, res) => {
+  app.patch("/api/admin/consultation/slots/:id/toggle", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const id = parseInt(req.params.id);
@@ -3063,7 +3073,7 @@ ${metaTags}
   });
 
   // DELETE slot (admin)
-  app.delete("/api/admin/consultation/slots/:id", async (req, res) => {
+  app.delete("/api/admin/consultation/slots/:id", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const id = parseInt(req.params.id);
@@ -3179,7 +3189,7 @@ ${metaTags}
   });
 
   // GET all bookings (admin)
-  app.get("/api/admin/consultation/bookings", async (req, res) => {
+  app.get("/api/admin/consultation/bookings", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const { status, country, method } = req.query;
@@ -3195,7 +3205,7 @@ ${metaTags}
   });
 
   // PATCH update booking (admin) — with full notification delivery status
-  app.patch("/api/admin/consultation/bookings/:id", async (req, res) => {
+  app.patch("/api/admin/consultation/bookings/:id", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const id = parseInt(req.params.id);
@@ -3457,7 +3467,7 @@ ${metaTags}
 
   // ── Admin: Test Notifications ───────────────────────────────────────────────
 
-  app.post("/api/admin/test-notifications", async (req, res) => {
+  app.post("/api/admin/test-notifications", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     const { email, userId, channels } = req.body;
     const results: Record<string, any> = {};
@@ -3821,7 +3831,7 @@ ${metaTags}
   });
 
   // GET /api/admin/ai-leads — admin view all investor profiles
-  app.get("/api/admin/ai-leads", async (req, res) => {
+  app.get("/api/admin/ai-leads", isAuthenticated, isAdmin, async (req, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
       const profiles = await storage.getAllInvestorProfiles();
@@ -3869,7 +3879,7 @@ ${metaTags}
   });
 
   // ── Admin: Projects list for camera assignment ──────────────────────────
-  app.get("/api/admin/projects-for-cameras", async (req: any, res) => {
+  app.get("/api/admin/projects-for-cameras", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
@@ -3909,7 +3919,7 @@ ${metaTags}
   });
 
   // ── Live Cameras Admin ──────────────────────────────────────────────────
-  app.get("/api/admin/live-cameras", async (req: any, res) => {
+  app.get("/api/admin/live-cameras", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
@@ -3921,7 +3931,7 @@ ${metaTags}
     }
   });
 
-  app.post("/api/admin/live-cameras", async (req: any, res) => {
+  app.post("/api/admin/live-cameras", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
@@ -3935,7 +3945,7 @@ ${metaTags}
     }
   });
 
-  app.patch("/api/admin/live-cameras/:id", async (req: any, res) => {
+  app.patch("/api/admin/live-cameras/:id", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
@@ -3948,7 +3958,7 @@ ${metaTags}
     }
   });
 
-  app.delete("/api/admin/live-cameras/:id", async (req: any, res) => {
+  app.delete("/api/admin/live-cameras/:id", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
@@ -5226,7 +5236,7 @@ ${metaTags}
   // ── OTP Security Admin Endpoints ──────────────────────────────────────────
 
   /** GET /api/admin/otp-logs — returns recent OTP log entries + blocked IP list */
-  app.get("/api/admin/otp-logs", async (req: any, res) => {
+  app.get("/api/admin/otp-logs", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
@@ -5237,7 +5247,7 @@ ${metaTags}
   });
 
   /** POST /api/admin/otp-block — manually block an IP address */
-  app.post("/api/admin/otp-block", async (req: any, res) => {
+  app.post("/api/admin/otp-block", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });
@@ -5249,7 +5259,7 @@ ${metaTags}
   });
 
   /** DELETE /api/admin/otp-block/:ip — unblock an IP address */
-  app.delete("/api/admin/otp-block/:ip", async (req: any, res) => {
+  app.delete("/api/admin/otp-block/:ip", isAuthenticated, isAdmin, async (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(req.session.userId);
     if (!user?.isAdmin) return res.status(403).json({ message: "Forbidden" });

@@ -103,9 +103,21 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAllUsers(): Promise<User[]> {
+  async getAllUsers(): Promise<Omit<User, 'password'>[]> {
     return await withRetry(async () => {
-      return await db.select().from(users).orderBy(desc(users.createdAt));
+      return await db.select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        phoneNumber: users.phoneNumber,
+        whatsappNumber: users.whatsappNumber,
+        facebookId: users.facebookId,
+        authMethod: users.authMethod,
+        isVerified: users.isVerified,
+        isAdmin: users.isAdmin,
+        role: users.role,
+        createdAt: users.createdAt,
+      }).from(users).orderBy(desc(users.createdAt));
     });
   }
 
