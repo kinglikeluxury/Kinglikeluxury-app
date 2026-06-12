@@ -90,6 +90,10 @@ app.use(
           "https://lh3.googleusercontent.com",
           "https://graph.facebook.com",
           "https://*.tile.openstreetmap.org",
+          "https://flagcdn.com",
+          "https://images.unsplash.com",
+          "https://cdnjs.cloudflare.com",
+          "https://*.cartocdn.com",
         ],
         mediaSrc: [
           "'self'",
