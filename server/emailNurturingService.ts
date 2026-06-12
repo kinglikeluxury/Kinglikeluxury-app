@@ -18,7 +18,7 @@ const WHATSAPP_BTN = "تواصل معنا مباشرة عبر واتساب";
 const STOP_STATUSES = new Set([
   "purchased", "sold_by_kinglike_luxury", "lost_competition",
   "not_interested", "junk_lead", "invalid_number", "duplicate", "blacklisted",
-  "second_hand",
+  "second_hand", "not_qualified",
 ]);
 
 // ─── Email HTML wrapper ────────────────────────────────────────────────────────

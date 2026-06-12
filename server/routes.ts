@@ -4035,8 +4035,9 @@ ${metaTags}
               COUNT(*) FILTER(WHERE status = 'qualified')                                      AS qualified,
               COUNT(*) FILTER(WHERE qualification_score IN ('HOT','VIP') OR lead_score = 'hot') AS hot_buyers,
               COUNT(*) FILTER(WHERE qualification_score = 'VIP')                               AS vip_buyers,
-              COUNT(*) FILTER(WHERE status IN ('converted','sold_by_kinglike_luxury'))         AS sold,
-              COUNT(*) FILTER(WHERE status IN ('lost_competition','not_interested','junk_lead')) AS lost
+              COUNT(*) FILTER(WHERE status IN ('converted','sold_by_kinglike_luxury'))                                  AS sold,
+              COUNT(*) FILTER(WHERE status IN ('lost_competition','not_interested','junk_lead','not_qualified'))       AS lost,
+              COUNT(*) FILTER(WHERE status = 're_sale')                                                               AS re_sale
             FROM crm_leads
           `),
           c.query(`
@@ -4083,6 +4084,7 @@ ${metaTags}
             vipBuyers:   Number(s.vip_buyers),
             sold:        Number(s.sold),
             lost:        Number(s.lost),
+            reSale:      Number(s.re_sale),
           },
           agentsBreakdown: agentRows.rows,
           activityToday: {

@@ -50,8 +50,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   qualified:             { label: "Qualified",  color: "bg-[#3bcac4]/25 text-[#005476] border border-[#3bcac4]/60" },
   converted:             { label: "Converted",  color: "bg-[#005476] text-white border border-[#005476]" },
   lost:                  { label: "Lost",       color: "bg-gray-100 text-gray-500 border border-gray-300" },
-  no_answer:             { label: "No Answer",  color: "bg-slate-100 text-slate-500 border border-slate-300" },
-  interested:            { label: "Interested", color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
+  no_answer:             { label: "No Answer",    color: "bg-slate-100 text-slate-500 border border-slate-300" },
+  interested:            { label: "Interested",   color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
+  not_qualified:         { label: "Not Qualified", color: "bg-gray-100 text-gray-500 border border-gray-300" },
+  re_sale:               { label: "Re-Sale",       color: "bg-[#3bcac4]/20 text-[#005476] border border-[#3bcac4]/50" },
 };
 
 const SCORE_CONFIG: Record<string, { label: string; Icon: any; color: string }> = {
@@ -69,6 +71,7 @@ const STATUSES = [
   "new","no_answer_1","no_answer_2","no_answer_3","will_think","follow_up",
   "hot_buyer","entering_lead","deposited","reserved","purchased",
   "broker","second_hand","junk_lead","no_answer_converted","lost_competition",
+  "not_qualified","re_sale",
 ];
 const SOURCES = ["meta","website","whatsapp","excel","manual"];
 

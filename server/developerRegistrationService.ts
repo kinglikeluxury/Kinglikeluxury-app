@@ -18,6 +18,7 @@ export const STOP_STATUSES = new Set([
   "invalid_number",
   "duplicate",
   "sold_by_kinglike_luxury",
+  "not_qualified",
 ]);
 
 const SOLD_STATUSES = new Set(["purchased", "sold_by_kinglike_luxury"]);
