@@ -370,6 +370,16 @@ export default function CrmLeadsPage() {
     }
   }, [authLoading, isCrmAuthorized, navigate]);
 
+  // ── Lock body scroll while import modal is open ────────────────────────
+  useEffect(() => {
+    if (importWizardOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [importWizardOpen]);
+
   if (authLoading || !isCrmAuthorized) return null;
 
   function handlePhoneChange(phone: string) {
@@ -1465,8 +1475,8 @@ export default function CrmLeadsPage() {
           }
         }}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0 border-b">
             <DialogTitle className="text-[#005476] flex items-center gap-2">
               {importStep === "upload"  && <><FileText className="h-5 w-5 text-[#3bcac4]" /> Import Leads</>}
               {importStep === "preview" && <><Upload className="h-5 w-5 text-[#3bcac4]" /> Column Mapping &amp; Preview</>}
@@ -1474,9 +1484,12 @@ export default function CrmLeadsPage() {
             </DialogTitle>
           </DialogHeader>
 
+          {/* ── Scrollable content area ── */}
+          <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
+
           {/* ── Step 1: Upload ── */}
           {importStep === "upload" && (
-            <div className="space-y-4 mt-2">
+            <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Upload an Excel (.xlsx, .xls) or CSV file. The system will auto-detect column names in English or Arabic.
               </p>
@@ -1507,7 +1520,7 @@ export default function CrmLeadsPage() {
 
           {/* ── Step 2: Preview + Mapping ── */}
           {importStep === "preview" && importPreview && (
-            <div className="space-y-4 mt-2">
+            <div className="space-y-4">
               {/* Stats row */}
               <div className="grid grid-cols-5 gap-2">
                 {[
@@ -1640,33 +1653,12 @@ export default function CrmLeadsPage() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  disabled={importLoading}
-                  onClick={() => { setImportStep("upload"); setImportPreview(null); setImportFile(null); }}
-                >
-                  ← Back
-                </Button>
-                <Button
-                  className="flex-1 bg-gradient-to-r from-[#3bcac4] to-[#005476]"
-                  disabled={importLoading}
-                  onClick={handleImportConfirm}
-                >
-                  {importLoading
-                    ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Importing…</>
-                    : <>Import {Math.max(0, importPreview.stats.total - importPreview.stats.withNeither - importPreview.stats.estimatedDuplicates)} Lead{importPreview.stats.total !== 1 ? "s" : ""} →</>
-                  }
-                </Button>
-              </div>
             </div>
           )}
 
           {/* ── Step 3: Result ── */}
           {importStep === "done" && importResult && (
-            <div className="space-y-4 mt-2">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border p-3 bg-gray-50">
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Rows</p>
@@ -1706,6 +1698,36 @@ export default function CrmLeadsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          </div>{/* ── end scrollable content ── */}
+
+          {/* ── Fixed footer — always visible ── */}
+          <div className="flex-shrink-0 px-6 py-4 border-t bg-background">
+            {importStep === "preview" && importPreview && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={importLoading}
+                  onClick={() => { setImportStep("upload"); setImportPreview(null); setImportFile(null); }}
+                >
+                  ← Back
+                </Button>
+                <Button
+                  className="flex-1 bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                  disabled={importLoading}
+                  onClick={handleImportConfirm}
+                >
+                  {importLoading
+                    ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Importing…</>
+                    : <>Import {Math.max(0, importPreview.stats.total - importPreview.stats.withNeither - importPreview.stats.estimatedDuplicates)} Lead{importPreview.stats.total !== 1 ? "s" : ""} →</>
+                  }
+                </Button>
+              </div>
+            )}
+            {importStep === "done" && (
               <Button
                 className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476]"
                 onClick={() => {
@@ -1721,8 +1743,8 @@ export default function CrmLeadsPage() {
               >
                 Done
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
