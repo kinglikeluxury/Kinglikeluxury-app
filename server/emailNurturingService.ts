@@ -702,7 +702,7 @@ async function sendOneEmail(
   try {
     const settings = await getSettings(client);
     const from = `${settings.senderName} <${settings.senderEmail}>`;
-    const firstName = leadData.firstName || leadData.fullName?.split(" ")[0] || "عزيزي";
+    const firstName = leadData.firstName?.trim() || leadData.fullName?.split(" ")[0]?.trim() || "عزيزنا";
     const unsub = unsubscribeUrl(leadId);
     const vars = { firstName, unsubscribeUrl: unsub, heroImageUrl: settings.heroImageUrl };
     const subject   = fillTemplate(template.subject,   vars);
@@ -1040,5 +1040,62 @@ export async function updateNurturingSettings(settings: Record<string, string>):
         ON CONFLICT(key) DO UPDATE SET value=$2, updated_at=NOW()
       `, [key, value]);
     }
+  } finally { client.release(); }
+}
+
+// ─── Test-send (admin only, bypasses ENABLED flag, does not touch real queue) ──
+export async function sendTestNurturingEmail(to: string, sortOrder: number = 1, firstName: string = "عزيزنا"): Promise<{
+  ok: boolean;
+  resendId?: string;
+  subject?: string;
+  unsubscribeUrl?: string;
+  heroImageUrl?: string;
+  from?: string;
+  error?: string;
+}> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { ok: false, error: "RESEND_API_KEY not configured" };
+
+  const client = await pool.connect();
+  try {
+    const settings = await getSettings(client);
+
+    const tmplRes = await client.query(`
+      SELECT t.* FROM email_nurturing_templates t
+      JOIN email_nurturing_sequences s ON s.id = t.sequence_id
+      WHERE t.sort_order = $1 AND s.is_active = true AND t.is_active = true
+      ORDER BY t.id LIMIT 1
+    `, [sortOrder]);
+    if (!tmplRes.rows.length) return { ok: false, error: `Template sort_order=${sortOrder} not found` };
+
+    const template = tmplRes.rows[0];
+    const TEST_LEAD_ID = 9999;
+    const unsub = unsubscribeUrl(TEST_LEAD_ID);
+    const from = `${settings.senderName} <${settings.senderEmail}>`;
+
+    const vars = { firstName, unsubscribeUrl: unsub, heroImageUrl: settings.heroImageUrl };
+    const subject  = fillTemplate(template.subject,   vars);
+    const bodyHtml = fillTemplate(template.body_html,  vars);
+    const bodyText = fillTemplate(template.body_text || "", vars);
+
+    const { Resend } = await import("resend");
+    const resend = new Resend(key);
+    const result = await resend.emails.send({
+      from,
+      to: [to],
+      subject,
+      html: bodyHtml,
+      text: bodyText,
+      replyTo: settings.replyTo,
+      headers: { "List-Unsubscribe": `<${unsub}>` },
+    });
+
+    if (result.error) {
+      console.error(`[EmailNurturing] Test send failed: ${result.error.message}`);
+      return { ok: false, error: result.error.message };
+    }
+
+    console.log(`[EmailNurturing] Test email sent to=${to} resendId=${result.data?.id}`);
+    return { ok: true, resendId: result.data?.id, subject, unsubscribeUrl: unsub, heroImageUrl: settings.heroImageUrl, from };
   } finally { client.release(); }
 }

@@ -8,7 +8,7 @@ import {
   getNurturingOverview, getEmailHistoryPage, getLeadNurturingStatus, getLeadEmailEvents,
   getSequences, getSequenceTemplates, getNurturingSettings, updateNurturingSettings,
   pauseNurturingForLead, resumeNurturingForLead, stopNurturingForLead, initNurturingForLead,
-  handleUnsubscribe,
+  handleUnsubscribe, sendTestNurturingEmail,
 } from "./emailNurturingService";
 import { pool } from "./db";
 
@@ -222,6 +222,18 @@ export function registerEmailNurturingRoutes(app: Express): void {
     try {
       await stopNurturingForLead(parseInt(req.params.leadId), req.body.reason || "manual_admin_stop");
       res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Test send (sends real email, does NOT touch queue or lead records) ────────
+  app.post("/api/admin/email-nurturing/send-test", async (req: any, res) => {
+    if (!adminOnly(req, res)) return;
+    const { to, sort_order, first_name } = req.body;
+    if (!to || !to.includes("@")) return res.status(400).json({ message: "Valid 'to' email required" });
+    try {
+      const result = await sendTestNurturingEmail(to, sort_order ?? 1, first_name || "عزيزنا");
+      if (!result.ok) return res.status(500).json({ message: result.error });
+      res.json(result);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
