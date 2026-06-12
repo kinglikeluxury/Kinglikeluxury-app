@@ -4376,7 +4376,8 @@ ${metaTags}
       }
 
       // Agent name matching — load users once for preview warnings
-      const allUsers = await db.select({ id: users.id, username: users.username }).from(users);
+      const { users: usersTable } = await import("@shared/schema");
+      const allUsers = await db.select({ id: usersTable.id, username: usersTable.username }).from(usersTable);
       const userNames = allUsers.map(u => u.username.toLowerCase().trim());
       let unmatchedAgentCount = 0;
       const agentHeader = headers.find(h => detectedMapping[h] === "assignedAgent");
@@ -4401,6 +4402,7 @@ ${metaTags}
 
       res.json({ headers, detectedMapping, sampleRows, stats: { total: rawRows.length, withPhone, withEmail, withNeither, estimatedDuplicates }, warnings });
     } catch (err: any) {
+      console.error("CRM Import Analysis Error", err);
       res.status(500).json({ message: err.message });
     }
   });
@@ -4426,7 +4428,8 @@ ${metaTags}
       const skipNurturing = req.body.skipNurturing === "true" || req.body.skipNurturing === true;
 
       // Pre-load users once for agent name resolution
-      const importUsers = await db.select({ id: users.id, username: users.username }).from(users);
+      const { users: usersTable2 } = await import("@shared/schema");
+      const importUsers = await db.select({ id: usersTable2.id, username: usersTable2.username }).from(usersTable2);
       const importUserList = importUsers.map(u => ({ id: u.id, name: u.username.toLowerCase().trim() }));
 
       // Round-robin sub-agent assignment — fetch once before the import loop
@@ -4554,6 +4557,7 @@ ${metaTags}
 
       res.json({ total: rawRows.length, imported: importedCount, duplicates, failed, failedRows });
     } catch (err: any) {
+      console.error("CRM Import Error", err);
       res.status(500).json({ message: err.message });
     }
   });
