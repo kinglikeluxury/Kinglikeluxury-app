@@ -43,7 +43,7 @@ Russian-language labels. Selectors tried in order:
 
 ## False-success fix
 
-`fixAmbassadoriUnverifiedSuccesses()` — converts Ambassadori `status=success` records where NO audit attempt has a non-empty `deal_id` in `payload_json` → `needs_review` + `next_registration_at=NULL`. Idempotent; runs at startup. Fixed "ola" (+972545265332) on first run.
+`fixAmbassadoriUnverifiedSuccesses()` — converts Ambassadori `status=success` records where NO audit attempt has a non-empty `deal_id` in `payload_json` → `needs_review` + `next_registration_at=NULL`. Idempotent; runs at startup automatically on every server start.
 
 ## Outcomes
 
