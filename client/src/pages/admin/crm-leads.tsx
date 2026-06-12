@@ -203,10 +203,18 @@ export default function CrmLeadsPage() {
   const [subAgentForm, setSubAgentForm] = useState({ username: "", email: "", password: "" });
 
   // ── Import / Export state ──────────────────────────────────────────────────
+  interface ImportPreviewRow {
+    originalPhone: string; normalizedPhone: string;
+    excelAgent: string; matchedAgent: string;
+    excelStatus: string; mappedStatus: string;
+    rawBudget: string; parsedBudget: string;
+    projectInterest: string; expectedPurchaseMonth: string;
+  }
   interface ImportPreviewData {
     headers: string[];
     detectedMapping: Record<string, string>;
     sampleRows: Record<string, string>[];
+    previewRows: ImportPreviewRow[];
     stats: { total: number; withPhone: number; withEmail: number; withNeither: number; estimatedDuplicates: number };
     warnings: string[];
   }
@@ -224,6 +232,7 @@ export default function CrmLeadsPage() {
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
   const [importMapping, setImportMapping] = useState<Record<string, string>>({});
   const [importSkipNurturing, setImportSkipNurturing] = useState(false);
+  const [importAutoDistribute, setImportAutoDistribute] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   // ── Bulk selection state ───────────────────────────────────────────────────
@@ -505,7 +514,8 @@ export default function CrmLeadsPage() {
     const fd = new FormData();
     fd.append("file", importFile);
     fd.append("columnMapping", JSON.stringify(importMapping));
-    if (importSkipNurturing) fd.append("skipNurturing", "true");
+    if (importSkipNurturing)  fd.append("skipNurturing",  "true");
+    if (importAutoDistribute) fd.append("autoDistribute", "true");
     try {
       const r = await fetch("/api/admin/crm/leads/import", { method: "POST", body: fd });
       const data = await r.json();
@@ -1451,6 +1461,7 @@ export default function CrmLeadsPage() {
             setImportResult(null);
             setImportMapping({});
             setImportSkipNurturing(false);
+            setImportAutoDistribute(false);
           }
         }}
       >
@@ -1555,18 +1566,78 @@ export default function CrmLeadsPage() {
                 </div>
               </div>
 
-              {/* Nurturing toggle — ON by default */}
-              <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[#3bcac4]/5 border border-[#3bcac4]/20">
-                <input
-                  type="checkbox"
-                  id="skipNurturing"
-                  className="h-4 w-4 accent-[#3bcac4]"
-                  checked={importSkipNurturing}
-                  onChange={e => setImportSkipNurturing(e.target.checked)}
-                />
-                <label htmlFor="skipNurturing" className="text-sm text-gray-700 cursor-pointer select-none">
-                  Do not start Email Nurturing for imported leads
-                </label>
+              {/* Enriched preview rows */}
+              {importPreview.previewRows && importPreview.previewRows.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-[#005476] mb-2">Data Preview (first {importPreview.previewRows.length} rows)</p>
+                  <div className="border rounded-lg overflow-x-auto">
+                    <table className="w-full text-xs min-w-[640px]">
+                      <thead className="bg-[#005476]/5 border-b">
+                        <tr>
+                          {["Phone → Normalized","Lead Owner → Agent","Status → Mapped","Budget → Parsed","Project","Purchase Month"].map(h => (
+                            <th key={h} className="px-2 py-1.5 text-left font-semibold text-[#005476] whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {importPreview.previewRows.map((pr, i) => (
+                          <tr key={i} className="hover:bg-gray-50/60">
+                            <td className="px-2 py-1.5 font-mono">
+                              {pr.originalPhone && pr.normalizedPhone !== pr.originalPhone
+                                ? <span>{pr.originalPhone} <span className="text-[#3bcac4] font-bold">→</span> {pr.normalizedPhone}</span>
+                                : <span>{pr.normalizedPhone || <span className="text-gray-400">—</span>}</span>}
+                            </td>
+                            <td className="px-2 py-1.5">
+                              {pr.excelAgent
+                                ? <span>{pr.excelAgent} <span className="text-[#3bcac4] font-bold">→</span> <span className={pr.matchedAgent.startsWith("⚠") ? "text-amber-600" : "text-[#005476] font-medium"}>{pr.matchedAgent}</span></span>
+                                : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="px-2 py-1.5">
+                              {pr.excelStatus
+                                ? <span>{pr.excelStatus} <span className="text-[#3bcac4] font-bold">→</span> <span className="text-[#005476] font-medium">{pr.mappedStatus}</span></span>
+                                : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="px-2 py-1.5">
+                              {pr.rawBudget
+                                ? <span>{pr.rawBudget} <span className="text-[#3bcac4] font-bold">→</span> <span className="text-[#005476] font-medium">{pr.parsedBudget || pr.rawBudget}</span></span>
+                                : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="px-2 py-1.5 text-[#005476]">{pr.projectInterest || <span className="text-gray-400">—</span>}</td>
+                            <td className="px-2 py-1.5 text-[#005476]">{pr.expectedPurchaseMonth || <span className="text-gray-400">—</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Options */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[#3bcac4]/5 border border-[#3bcac4]/20">
+                  <input
+                    type="checkbox"
+                    id="autoDistribute"
+                    className="h-4 w-4 accent-[#3bcac4]"
+                    checked={importAutoDistribute}
+                    onChange={e => setImportAutoDistribute(e.target.checked)}
+                  />
+                  <label htmlFor="autoDistribute" className="text-sm text-gray-700 cursor-pointer select-none">
+                    Auto-distribute leads when no Lead Owner is set (round-robin)
+                  </label>
+                </div>
+                <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[#3bcac4]/5 border border-[#3bcac4]/20">
+                  <input
+                    type="checkbox"
+                    id="skipNurturing"
+                    className="h-4 w-4 accent-[#3bcac4]"
+                    checked={importSkipNurturing}
+                    onChange={e => setImportSkipNurturing(e.target.checked)}
+                  />
+                  <label htmlFor="skipNurturing" className="text-sm text-gray-700 cursor-pointer select-none">
+                    Do not start Email Nurturing for imported leads
+                  </label>
+                </div>
               </div>
 
               {/* Actions */}
@@ -1645,6 +1716,7 @@ export default function CrmLeadsPage() {
                   setImportFile(null);
                   setImportMapping({});
                   setImportSkipNurturing(false);
+                  setImportAutoDistribute(false);
                 }}
               >
                 Done

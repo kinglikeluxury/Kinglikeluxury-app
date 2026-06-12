@@ -4273,7 +4273,7 @@ ${metaTags}
     country:              ["origincountry","country","البلد","الدولة","بلدالأصل"],
     city:                 ["city","المدينة","مدينة"],
     budget:               ["budget","totalbudget","الميزانية","ميزانية"],
-    projectInterest:      ["projectinteresteding","projectinteresting","projectinterest","project","interestedproject","المشروع","مشروع"],
+    projectInterest:      ["projectinterested","projectinterestedin","projectinteresteding","projectinteresting","projectinterest","project","interestedproject","المشروع","مشروع"],
     notes:                ["comment","comments","notes","description","note","ملاحظات","تعليق","ملاحظة","وصف"],
     status:               ["leadstatus","status","الحالة","حالة"],
     leadSource:           ["leadsource","source","المصدر","مصدر"],
@@ -4285,9 +4285,60 @@ ${metaTags}
   const normalizePhone = (raw: string): string => {
     const t = String(raw ?? "").trim();
     if (!t) return "";
-    const hasPlus = t.startsWith("+");
     const digits = t.replace(/[^\d]/g, "");
-    return digits ? (hasPlus ? "+" : "") + digits : "";
+    return digits ? "+" + digits : "";  // always ensure + prefix
+  };
+
+  /** Normalise Excel status labels → CRM DB keys */
+  const normalizeImportStatus = (raw: string): string => {
+    const s = raw.toLowerCase().trim().replace(/[\s\-_]+/g, " ");
+    const map: Record<string, string> = {
+      "new":                  "new",
+      "follow up":            "follow_up",
+      "followup":             "follow_up",
+      "no answer":            "no_answer_1",
+      "no answer 1":          "no_answer_1",
+      "no answer 2":          "no_answer_2",
+      "no answer 3":          "no_answer_3",
+      "will think":           "will_think",
+      "hot buyer":            "hot_buyer",
+      "hot":                  "hot_buyer",
+      "entering lead":        "entering_lead",
+      "deposited":            "deposited",
+      "reserved":             "reserved",
+      "purchased":            "purchased",
+      "broker":               "broker",
+      "second hand":          "second_hand",
+      "junk lead":            "junk_lead",
+      "junk":                 "junk_lead",
+      "not qualified":        "not_qualified",
+      "re sale":              "re_sale",
+      "resale":               "re_sale",
+      "lost competition":     "lost_competition",
+      "interested":           "interested",
+      "qualified":            "qualified",
+      "converted":            "converted",
+      "lost":                 "lost",
+      "agency":               "agency",
+    };
+    return map[s] ?? raw;  // fall back to raw if no match (DB accepts any text)
+  };
+
+  /** Parse budget strings like "80k", "50k-80k", "$50,000 - $80,000" → highest numeric value */
+  const parseBudgetToNumber = (raw: string): number | null => {
+    if (!raw) return null;
+    const s = raw.toLowerCase().replace(/[$,\u202f\u00a0]/g, "");
+    const re = /(\d+(?:\.\d+)?)\s*([km]?)/g;
+    const nums: number[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s)) !== null) {
+      let n = parseFloat(m[1]);
+      if (m[2] === "k") n *= 1_000;
+      else if (m[2] === "m") n *= 1_000_000;
+      if (n >= 1_000) nums.push(n);   // ignore small stray numbers (e.g. "3" from "Within 3 Months")
+    }
+    if (!nums.length) return null;
+    return Math.max(...nums);
   };
 
   /** Auto-detect column header → CRM field mapping */
@@ -4397,10 +4448,39 @@ ${metaTags}
         warnings.push(`${skipped.length} column(s) could not be auto-mapped and are set to "Skip": ${skipped.slice(0, 4).join(", ")}${skipped.length > 4 ? "…" : ""}`);
       }
       if (unmatchedAgentCount > 0) {
-        warnings.push(`${unmatchedAgentCount} agent name(s) in "Lead Owner" column did not match an existing user — will be preserved in lead notes`);
+        warnings.push(`${unmatchedAgentCount} agent name(s) in "Lead Owner" column did not match an existing user — will be left unassigned`);
       }
 
-      res.json({ headers, detectedMapping, sampleRows, stats: { total: rawRows.length, withPhone, withEmail, withNeither, estimatedDuplicates }, warnings });
+      // Build enriched preview rows (first 5) showing parsed/resolved values
+      const previewRows = rawRows.slice(0, 5).map(row => {
+        const lead = mapImportRow(row, detectedMapping);
+        const rawPhone = String(row[headers.find(h => detectedMapping[h] === "phone") ?? ""] ?? "").trim();
+        const normalizedPhone = normalizePhone(rawPhone);
+        const parsedBudgetNum = parseBudgetToNumber(lead.budget ?? "");
+        let matchedAgent = "";
+        if (lead.assignedAgent) {
+          const aLow = lead.assignedAgent.toLowerCase().trim();
+          const found = allUsers.find((u: any) => {
+            const uLow = u.username.toLowerCase().trim();
+            return uLow === aLow || uLow.includes(aLow) || aLow.includes(uLow);
+          });
+          matchedAgent = found ? found.username : `⚠ No match`;
+        }
+        return {
+          originalPhone:         rawPhone,
+          normalizedPhone,
+          excelAgent:            lead.assignedAgent            ?? "",
+          matchedAgent,
+          excelStatus:           lead.status                   ?? "",
+          mappedStatus:          lead.status ? normalizeImportStatus(lead.status) : "",
+          rawBudget:             lead.budget                   ?? "",
+          parsedBudget:          parsedBudgetNum !== null ? String(parsedBudgetNum) : "",
+          projectInterest:       lead.projectInterest          ?? "",
+          expectedPurchaseMonth: lead.expectedPurchaseMonth    ?? "",
+        };
+      });
+
+      res.json({ headers, detectedMapping, sampleRows, previewRows, stats: { total: rawRows.length, withPhone, withEmail, withNeither, estimatedDuplicates }, warnings });
     } catch (err: any) {
       console.error("CRM Import Analysis Error", err);
       res.status(500).json({ message: err.message });
@@ -4425,16 +4505,17 @@ ${metaTags}
       if (!Object.keys(columnMapping).length && rawRows.length) {
         columnMapping = autoMapColumns(Object.keys(rawRows[0]));
       }
-      const skipNurturing = req.body.skipNurturing === "true" || req.body.skipNurturing === true;
+      const skipNurturing   = req.body.skipNurturing   === "true" || req.body.skipNurturing   === true;
+      const autoDistribute  = req.body.autoDistribute  === "true" || req.body.autoDistribute  === true;
 
       // Pre-load users once for agent name resolution
       const { users: usersTable2 } = await import("@shared/schema");
       const importUsers = await db.select({ id: usersTable2.id, username: usersTable2.username }).from(usersTable2);
       const importUserList = importUsers.map(u => ({ id: u.id, name: u.username.toLowerCase().trim() }));
 
-      // Round-robin sub-agent assignment — fetch once before the import loop
+      // Round-robin sub-agent assignment — fetched once, only used when autoDistribute is on
       const { getEligibleSubAgents: getImportAgents, cycleAgentId: cycleImport } = await import("./leadAssignmentService");
-      const importAgents = await getImportAgents();
+      const importAgents = autoDistribute ? await getImportAgents() : [];
       let importOffset = 0;
 
       let importedCount = 0, duplicates = 0, failed = 0;
@@ -4465,16 +4546,20 @@ ${metaTags}
           }
           if (isDuplicate) { duplicates++; continue; }
 
-          // Resolve assignedAgent → assignedTo (user id) or notes
+          // Resolve assignedAgent → assignedTo (user id)
+          // hasExcelAgent = Lead Owner column had a value (even if it didn't match any CRM user)
           let assignedToId: number | null = null;
+          let hasExcelAgent = false;
           const metaNotes: string[] = [];
           if (lead.assignedAgent) {
+            hasExcelAgent = true;
             const aLow = lead.assignedAgent.toLowerCase().trim();
             const matched = importUserList.find(u => u.name === aLow || u.name.includes(aLow) || aLow.includes(u.name));
             if (matched) {
               assignedToId = matched.id;
             } else {
-              metaNotes.push(`Agent: ${lead.assignedAgent}`);
+              // Unmatched agent — preserve in notes, do NOT fall back to round-robin
+              metaNotes.push(`Lead Owner: ${lead.assignedAgent}`);
             }
           }
 
@@ -4492,6 +4577,12 @@ ${metaTags}
           // Build final notes — original + any unresolved metadata
           const finalNotes = [lead.notes, ...metaNotes].filter(Boolean).join(" | ") || null;
 
+          // Parse budget → store the highest parsed numeric value as text
+          const parsedBudget = parseBudgetToNumber(lead.budget ?? "");
+
+          // Round-robin ONLY when: no agent in Excel AND autoDistribute is enabled
+          const shouldRoundRobin = !hasExcelAgent && autoDistribute && importAgents.length > 0;
+
           const importedLead = await storage.createCrmLead({
             fullName:              lead.fullName              || null,
             firstName:             lead.firstName             || null,
@@ -4501,15 +4592,17 @@ ${metaTags}
             country:               lead.country               || null,
             city:                  lead.city                  || null,
             interestedCountry:     null,
-            budget:                lead.budget                || null,
+            budget:                parsedBudget !== null ? String(parsedBudget) : (lead.budget || null),
             projectInterest:       lead.projectInterest       || null,
             expectedPurchaseMonth: lead.expectedPurchaseMonth || null,
             description:           null,
             notes:                 finalNotes,
             leadSource:            lead.leadSource            || "excel_import",
             leadScore:             "cold",
-            status:                lead.status                || "new",
-            assignedTo:            assignedToId !== null ? assignedToId : cycleImport(importAgents, importOffset++),
+            status:                lead.status ? normalizeImportStatus(lead.status) : "new",
+            assignedTo:            assignedToId !== null ? assignedToId
+                                   : shouldRoundRobin      ? cycleImport(importAgents, importOffset++)
+                                   : null,
             lastContactAt:         lastContactAtDate,
           });
 
