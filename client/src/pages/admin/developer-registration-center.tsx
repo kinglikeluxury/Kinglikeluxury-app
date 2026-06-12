@@ -417,6 +417,209 @@ function CompanyModal({
   );
 }
 
+// ── Register With Developer modal ─────────────────────────────────────────────
+
+function RegisterWithDeveloperModal({
+  leadId, leadName, leadPhone, companies, onClose, onRegistered,
+}: {
+  leadId: number; leadName: string; leadPhone: string;
+  companies: any[]; onClose: () => void; onRegistered: () => void;
+}) {
+  const { toast }   = useToast();
+  const queryClient = useQueryClient();
+  const activeCompanies = (companies ?? []).filter(c => c.is_active);
+
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const { data: leadRecords, isLoading: recordsLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/developer-registration/lead", leadId],
+    queryFn: () =>
+      apiRequest("GET", `/api/admin/developer-registration/lead/${leadId}`).then(r => r.json()),
+    enabled: !!leadId,
+  });
+
+  const existingByDevId: Record<number, any> = {};
+  for (const r of (leadRecords ?? [])) existingByDevId[r.developer_company_id] = r;
+
+  const newCompanies = activeCompanies.filter(c => !existingByDevId[c.id]);
+
+  function toggle(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function quickSelect(ids: number[]) {
+    setSelectedIds(new Set(ids.filter(id => !existingByDevId[id])));
+  }
+
+  const registerMutation = useMutation({
+    mutationFn: (ids: number[]) =>
+      apiRequest("POST", `/api/admin/developer-registration/lead/${leadId}/register-with`, {
+        developer_company_ids: ids,
+      }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      const created  = data.created?.length  ?? 0;
+      const existing = data.existing?.length ?? 0;
+      const errors   = data.errors?.length   ?? 0;
+      if (created > 0) {
+        toast({
+          title: `✅ Registered with ${created} developer${created > 1 ? "s" : ""}`,
+          description: [
+            existing > 0 ? `${existing} already existed.` : "",
+            errors   > 0 ? `${errors} error(s).`          : "",
+          ].filter(Boolean).join(" ") || undefined,
+        });
+      } else if (existing > 0) {
+        toast({ title: "All selected developers already have records for this lead." });
+      } else {
+        toast({ title: "No records created", variant: "destructive" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/developer-registration/queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/developer-registration/overview"] });
+      onRegistered();
+      onClose();
+    },
+    onError: (e: any) =>
+      toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const SILK_ID = 1;
+  const AMB_ID  = 2;
+
+  return (
+    <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="text-[#005476] flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-[#3bcac4]" />
+          Register With Developer
+        </DialogTitle>
+      </DialogHeader>
+
+      <div className="-mt-2 mb-1">
+        <p className="text-sm font-semibold text-[#005476]">{leadName}</p>
+        {leadPhone && <p className="text-[11px] text-muted-foreground">{leadPhone}</p>}
+      </div>
+
+      {/* Quick action buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm" variant="outline"
+          className="text-xs h-7 gap-1 border-[#3bcac4]/40 text-[#005476]"
+          disabled={!!existingByDevId[SILK_ID]}
+          onClick={() => quickSelect([SILK_ID])}>
+          <Plus className="h-3 w-3" /> Silk Only
+          {existingByDevId[SILK_ID] && <span className="text-[9px] opacity-60 ml-0.5">(exists)</span>}
+        </Button>
+        <Button
+          size="sm" variant="outline"
+          className="text-xs h-7 gap-1 border-purple-200 text-purple-700"
+          disabled={!!existingByDevId[AMB_ID]}
+          onClick={() => quickSelect([AMB_ID])}>
+          <Plus className="h-3 w-3" /> Ambassadori Only
+          {existingByDevId[AMB_ID] && <span className="text-[9px] opacity-60 ml-0.5">(exists)</span>}
+        </Button>
+        {newCompanies.length > 0 && (
+          <Button
+            size="sm"
+            className="text-xs h-7 gap-1 bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white"
+            onClick={() => quickSelect(newCompanies.map(c => c.id))}>
+            <Plus className="h-3 w-3" /> All Developers ({newCompanies.length} new)
+          </Button>
+        )}
+        {newCompanies.length === 0 && !recordsLoading && (
+          <span className="text-[11px] text-muted-foreground self-center">
+            All active developers already have records for this lead.
+          </span>
+        )}
+      </div>
+
+      <Separator />
+
+      {recordsLoading && (
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-5 w-5 animate-spin text-[#3bcac4]" />
+        </div>
+      )}
+
+      {!recordsLoading && (
+        <div className="space-y-2">
+          {activeCompanies.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">No active developers configured.</p>
+          )}
+          {activeCompanies.map(company => {
+            const existing   = existingByDevId[company.id];
+            const isSelected = selectedIds.has(company.id);
+            const isSilk     = company.id === SILK_ID;
+            const isAmb      = company.id === AMB_ID || (company.name ?? "").toLowerCase().includes("ambassadori");
+
+            return (
+              <div
+                key={company.id}
+                className={`rounded-lg border p-3 flex items-center justify-between gap-3 transition-colors
+                  ${existing
+                    ? "bg-gray-50 border-gray-200 cursor-not-allowed"
+                    : isSelected
+                      ? "bg-[#3bcac4]/8 border-[#3bcac4]/50 cursor-pointer"
+                      : "bg-white border-gray-200 hover:border-[#3bcac4]/30 cursor-pointer"
+                  }`}
+                onClick={() => { if (!existing) toggle(company.id); }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-bold
+                    ${isSilk ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]" : isAmb ? "bg-purple-600" : "bg-slate-500"}`}>
+                    {company.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[#005476] truncate">{company.name}</p>
+                    {existing ? (
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <StatusBadge status={existing.status} map={STATUS_CONFIG} />
+                        <StatusBadge status={existing.protection_status} map={PROT_CONFIG} />
+                        <span className="text-[10px] text-muted-foreground">Record #{existing.id}</span>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">No record — click to select</p>
+                    )}
+                  </div>
+                </div>
+                {existing ? (
+                  <span className="text-[10px] text-emerald-600 font-medium shrink-0 flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Exists
+                  </span>
+                ) : (
+                  <div className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors
+                    ${isSelected ? "bg-[#3bcac4] border-[#3bcac4]" : "border-gray-300"}`}>
+                    {isSelected && <CheckCircle2 className="h-3 w-3 text-white" />}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <DialogFooter className="gap-2">
+        <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+        <Button
+          size="sm"
+          className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white gap-1.5"
+          disabled={selectedIds.size === 0 || registerMutation.isPending}
+          onClick={() => registerMutation.mutate(Array.from(selectedIds))}>
+          {registerMutation.isPending
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Building2 className="h-3.5 w-3.5" />}
+          Register with {selectedIds.size > 0
+            ? `${selectedIds.size} Developer${selectedIds.size > 1 ? "s" : ""}`
+            : "Developer"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 // ── Per-developer stats table ─────────────────────────────────────────────────
 
 function PerDeveloperTable({ rows }: { rows: any[] }) {
@@ -476,6 +679,9 @@ export default function DeveloperRegistrationCenterPage() {
   const [sourceFilter,    setSourceFilter]    = useState("");
   const [failReason,      setFailReason]      = useState("");
   const [failRecordId,    setFailRecordId]    = useState<number | null>(null);
+  const [registerLeadId,  setRegisterLeadId]  = useState<number | null>(null);
+  const [registerLeadName, setRegisterLeadName] = useState("");
+  const [registerLeadPhone, setRegisterLeadPhone] = useState("");
 
   const { data: overview, refetch: refetchOverview } = useQuery<any>({
     queryKey: ["/api/admin/developer-registration/overview"],
@@ -918,6 +1124,17 @@ export default function DeveloperRegistrationCenterPage() {
                                   >
                                     <History className="h-3 w-3" /> Audit
                                   </Button>
+                                  <Button
+                                    size="sm" variant="outline"
+                                    className="h-6 px-2 text-[10px] gap-1 text-[#3bcac4] border-[#3bcac4]/50 hover:bg-[#3bcac4]/5"
+                                    onClick={() => {
+                                      setRegisterLeadId(rec.crm_lead_id);
+                                      setRegisterLeadName(rec.lead_full_name || rec.lead_first_name || "Lead");
+                                      setRegisterLeadPhone(rec.lead_phone ?? "");
+                                    }}
+                                  >
+                                    <Plus className="h-3 w-3" /> Developers
+                                  </Button>
                                   {isSilk && canSubmitSilk && (
                                     <Button
                                       size="sm"
@@ -1329,6 +1546,20 @@ export default function DeveloperRegistrationCenterPage() {
       <Dialog open={editCompany !== null} onOpenChange={open => { if (!open) setEditCompany(null); }}>
         {editCompany && (
           <CompanyModal company={editCompany} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); refetchCompanies(); }} />
+        )}
+      </Dialog>
+
+      {/* Register With Developer dialog */}
+      <Dialog open={registerLeadId !== null} onOpenChange={open => { if (!open) setRegisterLeadId(null); }}>
+        {registerLeadId !== null && (
+          <RegisterWithDeveloperModal
+            leadId={registerLeadId}
+            leadName={registerLeadName}
+            leadPhone={registerLeadPhone}
+            companies={companies ?? []}
+            onClose={() => setRegisterLeadId(null)}
+            onRegistered={() => { refetchQueue(); refetchOverview(); }}
+          />
         )}
       </Dialog>
 

@@ -176,7 +176,7 @@ export async function initDeveloperRegistrationsForLead(
           INSERT INTO developer_registration_attempts
             (registration_record_id, crm_lead_id, developer_company_id, attempt_type, status,
              payload_json, result_message, created_by, created_at)
-          SELECT drr.id, $1, $2, 'initial', $3, $4, $5, 0, NOW()
+          SELECT drr.id, $1, $2, 'initial', $3, $4, $5, NULL, NOW()
             FROM developer_registration_records drr
            WHERE drr.crm_lead_id=$1 AND drr.developer_company_id=$2
            ORDER BY drr.created_at DESC LIMIT 1

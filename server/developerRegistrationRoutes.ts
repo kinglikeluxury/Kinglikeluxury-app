@@ -723,6 +723,127 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
     }
   });
 
+  // ── Manual per-lead registration with chosen developers ──────────────────
+  // Creates a new registration record for each requested developer that does
+  // NOT yet have one.  If a record already exists, it is returned as-is with
+  // its current status so the admin knows what's there.
+
+  app.post("/api/admin/developer-registration/lead/:leadId/register-with", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const leadId = parseInt(req.params.leadId, 10);
+      const { developer_company_ids } = req.body;
+      if (!Array.isArray(developer_company_ids) || developer_company_ids.length === 0) {
+        return res.status(400).json({ message: "developer_company_ids must be a non-empty array" });
+      }
+
+      const adminId = (req as any).session?.userId ?? 0;
+      const client  = await pool.connect();
+      try {
+        const leadResult = await client.query(`
+          SELECT id, full_name, first_name, last_name, phone, country, city, budget, project_interest
+            FROM crm_leads WHERE id = $1
+        `, [leadId]);
+        if (leadResult.rows.length === 0) return res.status(404).json({ message: "Lead not found" });
+        const lead = leadResult.rows[0];
+
+        const created: any[]  = [];
+        const existing: any[] = [];
+        const errors: any[]   = [];
+
+        for (const rawId of developer_company_ids) {
+          const devCompanyId = parseInt(String(rawId), 10);
+          if (!devCompanyId) continue;
+
+          try {
+            // Check for existing record — no duplicate
+            const existingRec = await client.query(
+              `SELECT id, status, protection_status FROM developer_registration_records
+                WHERE crm_lead_id=$1 AND developer_company_id=$2 LIMIT 1`,
+              [leadId, devCompanyId]
+            );
+            if (existingRec.rows.length > 0) {
+              existing.push({
+                developer_company_id: devCompanyId,
+                record_id:  existingRec.rows[0].id,
+                status:     existingRec.rows[0].status,
+                protection_status: existingRec.rows[0].protection_status,
+              });
+              continue;
+            }
+
+            // Fetch developer + config
+            const companyResult = await client.query(`
+              SELECT dc.id, dc.name, dc.form_url, dc.registration_interval_days, dc.registration_mode,
+                     dc.is_active, dfc.config_json
+                FROM developer_companies dc
+                LEFT JOIN developer_form_configs dfc
+                       ON dfc.developer_company_id = dc.id AND dfc.is_active = true
+               WHERE dc.id = $1
+            `, [devCompanyId]);
+            if (companyResult.rows.length === 0) {
+              errors.push({ developer_company_id: devCompanyId, error: "Developer not found" });
+              continue;
+            }
+
+            const company = companyResult.rows[0];
+            const configJson: Record<string, any> =
+              typeof company.config_json === "string"
+                ? JSON.parse(company.config_json)
+                : company.config_json ?? {};
+
+            const leadData = {
+              id: lead.id,
+              fullName: lead.full_name,
+              firstName: lead.first_name,
+              lastName: lead.last_name,
+              phone: lead.phone,
+              country: lead.country,
+              city: lead.city,
+              budget: lead.budget,
+              projectInterest: lead.project_interest,
+            };
+
+            const { payload, needsReview, reviewReason } = prepareRegistrationPayload(leadData, configJson);
+            const status = needsReview ? "needs_review" : "prepared";
+
+            await client.query(`
+              INSERT INTO developer_registration_records
+                (crm_lead_id, developer_company_id, status, registration_payload_json,
+                 last_error, protection_status, created_at, updated_at)
+              VALUES ($1, $2, $3, $4, $5, 'protected', NOW(), NOW())
+            `, [leadId, devCompanyId, status, JSON.stringify(payload), reviewReason || null]);
+
+            // Audit log
+            await client.query(`
+              INSERT INTO developer_registration_attempts
+                (registration_record_id, crm_lead_id, developer_company_id, attempt_type, status,
+                 payload_json, result_message, created_by, created_at)
+              SELECT drr.id, $1, $2, 'manual', $3, $4, $5, $6, NOW()
+                FROM developer_registration_records drr
+               WHERE drr.crm_lead_id=$1 AND drr.developer_company_id=$2
+               ORDER BY drr.created_at DESC LIMIT 1
+            `, [
+              leadId, devCompanyId, status, JSON.stringify(payload),
+              `Manually registered with ${company.name} by admin` +
+                (reviewReason ? `: ${reviewReason}` : ""),
+              adminId || null,
+            ]);
+
+            created.push({ developer_company_id: devCompanyId, developer_name: company.name, status });
+            console.log(`[DeveloperRegistration] Manual register leadId=${leadId} developer="${company.name}" status=${status}`);
+          } catch (err: any) {
+            errors.push({ developer_company_id: devCompanyId, error: err.message });
+          }
+        }
+
+        res.json({ created, existing, errors });
+      } finally { client.release(); }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Compatibility check placeholder ───────────────────────────────────────
 
   app.post("/api/admin/developer-registration/companies/:id/compatibility-check", async (req: Request, res: Response) => {
