@@ -19,6 +19,7 @@ import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
+import { ensureAiConciergeColumns } from "./waAiConcierge";
 import { ensureEmailNurturingTables, startNurturingScheduler } from "./emailNurturingService";
 import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
@@ -325,6 +326,7 @@ app.use((req, res, next) => {
     .catch(err => console.error("[DB] ensureWhatsAppApiTables failed:", err));
 
   ensureWaQualTables()
+    .then(() => ensureAiConciergeColumns())
     .then(() => startWaQualScheduler())
     .then(() => import("./waQualService").then(({ migrateLegacySessionsToAiConcierge }) => migrateLegacySessionsToAiConcierge()))
     .catch(err => console.error("[DB] ensureWaQualTables failed:", err));

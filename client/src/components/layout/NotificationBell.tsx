@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Bell, Check, CheckCheck, Calendar, X } from "lucide-react";
-import { Link } from "wouter";
+import { Bell, Check, CheckCheck, Calendar, X, Flame } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { UserNotification } from "@shared/schema";
 import { useTranslation } from "react-i18next";
@@ -23,10 +23,34 @@ function getNotifContent(n: UserNotification, t: TFunction) {
   return { title, message };
 }
 
+function isHotLeadEscalation(n: UserNotification): boolean {
+  return n.type === "hot_lead_escalation";
+}
+
+function getLeadIdFromNotif(n: UserNotification): number | null {
+  const data = (n.data as any) || {};
+  return data.leadId ? Number(data.leadId) : null;
+}
+
+function getEscalationTypeLabel(n: UserNotification): string | null {
+  const data = (n.data as any) || {};
+  if (!data.escalationType) return null;
+  const labels: Record<string, string> = {
+    site_visit:        "Site Visit",
+    reservation:       "Reservation",
+    payment_plan:      "Payment Plan",
+    unit_availability: "Unit Availability",
+    contract_question: "Contract Question",
+    purchase_intent:   "Purchase Intent",
+  };
+  return labels[data.escalationType] ?? data.escalationType;
+}
+
 export default function NotificationBell() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [, navigate] = useLocation();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,7 +64,7 @@ export default function NotificationBell() {
   const { data: notifications = [] } = useQuery<UserNotification[]>({
     queryKey: ["/api/notifications"],
     enabled: !!user,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   });
 
   const unread = notifications.filter(n => !n.isRead).length;
@@ -54,6 +78,17 @@ export default function NotificationBell() {
     mutationFn: () => apiRequest("PATCH", "/api/notifications/read-all"),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
   });
+
+  function handleNotifClick(n: UserNotification) {
+    if (!n.isRead) markReadMutation.mutate(n.id);
+    if (isHotLeadEscalation(n)) {
+      const leadId = getLeadIdFromNotif(n);
+      if (leadId) {
+        setOpen(false);
+        navigate(`/admin/crm/${leadId}`);
+      }
+    }
+  }
 
   if (!user) return null;
 
@@ -112,32 +147,64 @@ export default function NotificationBell() {
             ) : (
               recent.map(n => {
                 const { title, message } = getNotifContent(n, t);
+                const isHot = isHotLeadEscalation(n);
+                const escalationLabel = isHot ? getEscalationTypeLabel(n) : null;
+                const isClickable = isHot && !!getLeadIdFromNotif(n);
+
                 return (
                   <div
                     key={n.id}
-                    className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.isRead ? "bg-[#f0fdfc]" : ""}`}
+                    onClick={() => handleNotifClick(n)}
+                    className={`px-4 py-3 border-b border-gray-50 transition-colors
+                      ${!n.isRead ? (isHot ? "bg-red-50/60" : "bg-[#f0fdfc]") : ""}
+                      ${isClickable ? "cursor-pointer hover:bg-red-50" : "hover:bg-gray-50"}
+                    `}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        !n.isRead ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]" : "bg-gray-100"
+                        isHot
+                          ? (!n.isRead ? "bg-gradient-to-br from-red-400 to-orange-500" : "bg-red-100")
+                          : (!n.isRead ? "bg-gradient-to-br from-[#3bcac4] to-[#005476]" : "bg-gray-100")
                       }`}>
-                        <Calendar className={`w-3.5 h-3.5 ${!n.isRead ? "text-white" : "text-gray-400"}`} />
+                        {isHot
+                          ? <Flame className={`w-3.5 h-3.5 ${!n.isRead ? "text-white" : "text-red-400"}`} />
+                          : <Calendar className={`w-3.5 h-3.5 ${!n.isRead ? "text-white" : "text-gray-400"}`} />
+                        }
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-semibold ${!n.isRead ? "text-[#005476]" : "text-gray-700"}`}>
-                          {title}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className={`text-xs font-semibold ${!n.isRead ? (isHot ? "text-red-700" : "text-[#005476]") : "text-gray-700"}`}>
+                            {title}
+                          </p>
+                          {isHot && !n.isRead && (
+                            <span className="text-[9px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                              🔥 Hot Lead
+                            </span>
+                          )}
+                        </div>
+                        {escalationLabel && (
+                          <p className="text-[10px] font-semibold text-red-600 mt-0.5">
+                            Intent: {escalationLabel}
+                          </p>
+                        )}
                         <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed line-clamp-2">
                           {message}
                         </p>
-                        <p className="text-[10px] text-gray-400 mt-1">
-                          {new Date(n.createdAt).toLocaleString()}
-                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-[10px] text-gray-400">
+                            {new Date(n.createdAt).toLocaleString()}
+                          </p>
+                          {isClickable && (
+                            <span className="text-[10px] text-red-500 font-medium">
+                              View lead →
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {!n.isRead && (
                         <button
-                          onClick={() => markReadMutation.mutate(n.id)}
-                          className="text-[#3bcac4] hover:text-[#005476] flex-shrink-0 mt-0.5"
+                          onClick={(e) => { e.stopPropagation(); markReadMutation.mutate(n.id); }}
+                          className={`flex-shrink-0 mt-0.5 ${isHot ? "text-red-400 hover:text-red-600" : "text-[#3bcac4] hover:text-[#005476]"}`}
                           title={t("notifications.markRead", "Mark as read")}
                         >
                           <Check className="w-3.5 h-3.5" />

@@ -60,6 +60,47 @@ export function registerWaQualRoutes(app: Express): void {
         answer_label,
       }));
       const sessionRow = data.session ?? null;
+
+      // Parse conversation_history (stored as JSONB array of {role, content} objects)
+      let conversationHistory: { role: string; content: string }[] = [];
+      if (sessionRow?.conversation_history) {
+        try {
+          const raw = sessionRow.conversation_history;
+          conversationHistory = Array.isArray(raw) ? raw : [];
+        } catch { conversationHistory = []; }
+      }
+
+      // Fetch latest hot-lead escalation notification for this lead
+      let latestEscalation: { escalationType: string; escalationLabel: string; createdAt: string } | null = null;
+      {
+        const client2 = await pool.connect();
+        try {
+          const nr = await client2.query(
+            `SELECT data, created_at FROM user_notifications
+             WHERE type = 'hot_lead_escalation' AND (data->>'leadId')::int = $1
+             ORDER BY created_at DESC LIMIT 1`,
+            [leadId]
+          );
+          if (nr.rows[0]) {
+            const data = nr.rows[0].data as any;
+            const typeLabels: Record<string, string> = {
+              site_visit:        "Site Visit",
+              reservation:       "Reservation",
+              payment_plan:      "Payment Plan",
+              unit_availability: "Unit Availability",
+              contract_question: "Contract Question",
+              purchase_intent:   "Purchase Intent",
+            };
+            const et = data.escalationType ?? "";
+            latestEscalation = {
+              escalationType: et,
+              escalationLabel: typeLabels[et] ?? et,
+              createdAt: nr.rows[0].created_at,
+            };
+          }
+        } catch { /* non-critical */ } finally { client2.release(); }
+      }
+
       return res.json({
         session: sessionRow ? {
           id: sessionRow.id,
@@ -71,6 +112,8 @@ export function registerWaQualRoutes(app: Express): void {
         } : null,
         answers: answersArr,
         summary: sessionRow?.summary_text ?? null,
+        conversationHistory,
+        latestEscalation,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
