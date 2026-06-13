@@ -270,6 +270,24 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       console.error(`[EmailNurturing] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
     );
 
+    // ── Admin + client welcome emails ─────────────────────────────────────────
+    import("./crmLeadEmailService").then(({ sendNewLeadNotifications }) =>
+      sendNewLeadNotifications({
+        id:              crmLead.id,
+        fullName:        crmLead.fullName,
+        firstName:       crmLead.firstName,
+        lastName:        crmLead.lastName,
+        phone:           crmLead.phone,
+        email:           crmLead.email,
+        leadSource:      crmLead.leadSource,
+        country:         crmLead.country,
+        interestedCountry: (crmLead as any).interestedCountry ?? null,
+        projectInterest: crmLead.projectInterest,
+        budget:          crmLead.budget,
+        assignedTo:      crmLead.assignedTo,
+      })
+    ).catch(() => {});
+
     // ── Step D: mark queue entry completed ─────────────────────────────────
     await db.update(leadImportQueue).set({
       status:       "completed",

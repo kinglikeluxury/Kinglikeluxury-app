@@ -2215,7 +2215,7 @@ export default function CrmLeadDetailPage() {
                                    ev.event_type === "email_bounced"          ? "Email Bounced" :
                                    ev.event_type === "email_unsubscribed"     ? "Unsubscribed" :
                                    ev.event_type === "sequence_started"       ? "Sequence Started" :
-                                   ev.event_type === "email_skipped_disabled" ? "Simulated (sending off)" :
+                                   ev.event_type === "email_skipped_disabled" ? "Skipped (disabled)" :
                                    ev.event_type}
                                 </span>
                                 {ev.subject && <span className="text-slate-400 ml-1 truncate">· {ev.subject}</span>}

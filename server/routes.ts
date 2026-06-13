@@ -4575,11 +4575,17 @@ ${metaTags}
           })
         ).catch(() => {});
       }
-      // Trigger welcome email if lead has an email address (fire-and-forget)
-      if (lead.email?.trim()) {
-        const { sendCrmWelcomeEmail } = await import("./emailService");
-        sendCrmWelcomeEmail({ fullName: lead.fullName, firstName: lead.firstName, email: lead.email }).catch(() => {});
-      }
+      // Admin + client welcome emails for every new lead (fire-and-forget)
+      import("./crmLeadEmailService").then(({ sendNewLeadNotifications }) =>
+        sendNewLeadNotifications({
+          id: lead.id, fullName: lead.fullName, firstName: lead.firstName,
+          lastName: lead.lastName, phone: lead.phone, email: lead.email,
+          leadSource: lead.leadSource, country: lead.country,
+          interestedCountry: lead.interestedCountry,
+          projectInterest: lead.projectInterest, budget: lead.budget,
+          assignedTo: lead.assignedTo,
+        })
+      ).catch(() => {});
       // Developer Registration: prepare records for all active developer companies (fire-and-forget)
       import("./developerRegistrationService").then(({ initDeveloperRegistrationsForLead }) =>
         initDeveloperRegistrationsForLead(lead.id, {
@@ -5099,6 +5105,18 @@ ${metaTags}
           import("./waQualService").then(({ checkAndTrigger }) =>
             checkAndTrigger(importedLead.id, importedLead.phone, importedLead.firstName)
           ).catch(err => console.error(`[WaQual] Trigger failed leadId=${importedLead.id}: ${err.message}`));
+          // Admin + client welcome emails for every imported lead (fire-and-forget)
+          import("./crmLeadEmailService").then(({ sendNewLeadNotifications }) =>
+            sendNewLeadNotifications({
+              id: importedLead.id, fullName: importedLead.fullName,
+              firstName: importedLead.firstName, lastName: importedLead.lastName,
+              phone: importedLead.phone, email: importedLead.email,
+              leadSource: importedLead.leadSource, country: importedLead.country,
+              interestedCountry: (importedLead as any).interestedCountry ?? null,
+              projectInterest: importedLead.projectInterest, budget: importedLead.budget,
+              assignedTo: importedLead.assignedTo,
+            })
+          ).catch(() => {});
 
           importedCount++;
           // Track assignment for post-import bulk notification

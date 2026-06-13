@@ -51,7 +51,7 @@ export default function EmailHistoryPage() {
     if (ev.clicked)  return <Badge className="text-xs bg-purple-100 text-purple-700 border border-purple-200">Clicked</Badge>;
     if (ev.opened)   return <Badge className="text-xs bg-green-100 text-green-700 border border-green-200">Opened</Badge>;
     if (ev.event_type === "email_failed") return <Badge className="text-xs bg-red-100 text-red-600 border border-red-200">Failed</Badge>;
-    if (ev.event_type === "email_skipped_disabled") return <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-200">Simulated</Badge>;
+    if (ev.event_type === "email_skipped_disabled") return <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-200">Skipped (disabled)</Badge>;
     return <Badge className="text-xs bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30">Sent</Badge>;
   }
 
