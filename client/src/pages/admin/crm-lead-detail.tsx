@@ -285,6 +285,9 @@ export default function CrmLeadDetailPage() {
   const [newNote, setNewNote] = useState("");
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(EMPTY_TASK);
+  const [editTaskOpen, setEditTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<CrmTask | null>(null);
+  const [editTaskForm, setEditTaskForm] = useState(EMPTY_TASK);
   const [statusDialog, setStatusDialog] = useState<{ newStatus: string; note: string } | null>(null);
   const [pendingFieldSave, setPendingFieldSave] = useState<{
     fieldKey: string; label: string; oldRaw: string; patch: Record<string, any>; draft: string;
@@ -378,6 +381,31 @@ export default function CrmLeadDetailPage() {
     onSuccess: () => { invalidateLead(); toast({ title: "Task removed" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: number; data: typeof EMPTY_TASK }) =>
+      apiRequest("PATCH", `/api/admin/crm/leads/${leadId}/tasks/${taskId}`, data),
+    onSuccess: () => {
+      invalidateLead();
+      toast({ title: "Task updated" });
+      setEditTaskOpen(false);
+      setEditingTask(null);
+      setEditTaskForm(EMPTY_TASK);
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  function openEditTask(task: CrmTask) {
+    setEditingTask(task);
+    setEditTaskForm({
+      title:       task.title       ?? "",
+      description: task.description ?? "",
+      dueDate:     task.dueDate     ?? "",
+      dueTime:     task.dueTime     ?? "",
+      priority:    task.priority    ?? "medium",
+    });
+    setEditTaskOpen(true);
+  }
 
   const reassignMutation = useMutation({
     mutationFn: (data: { targetId: number | null; comment: string }) =>
@@ -619,9 +647,14 @@ export default function CrmLeadDetailPage() {
     }
 
     if (isSubAgent) {
-      // Name fields don't require a comment from sub-agents — save directly
-      const NAME_FIELDS = ["fullName", "firstName", "lastName"];
-      if (NAME_FIELDS.includes(fieldKey)) {
+      // These fields save directly — no reason/comment required from sub-agents
+      const NO_REASON_FIELDS = [
+        "fullName", "firstName", "lastName",
+        "phone", "email", "country", "interestedCountry", "city",
+        "projectInterest", "budget", "expectedPurchaseMonth",
+        "leadSource", "description", "notes",
+      ];
+      if (NO_REASON_FIELDS.includes(fieldKey)) {
         updateMutation.mutate(patch as Partial<CrmLead>, {
           onSuccess: () => {
             if (draft !== oldRaw) {
@@ -634,7 +667,7 @@ export default function CrmLeadDetailPage() {
         });
         return;
       }
-      // All other fields: require a comment/reason
+      // All other fields (not in the list above): require a comment/reason
       setPendingFieldSave({ fieldKey, label, oldRaw, patch, draft });
       return;
     }
@@ -1113,6 +1146,11 @@ export default function CrmLeadDetailPage() {
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-[#3bcac4] hover:text-[#005476]"
+                            onClick={() => openEditTask(task)}
+                            title="Edit task">
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </Button>
                           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
                             onClick={() => { if (confirm("Delete this task?")) deleteTaskMutation.mutate(task.id); }}
                             disabled={deleteTaskMutation.isPending}>
@@ -2169,6 +2207,76 @@ export default function CrmLeadDetailPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editTaskOpen} onOpenChange={open => { if (!open) { setEditTaskOpen(false); setEditingTask(null); setEditTaskForm(EMPTY_TASK); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[#005476] flex items-center gap-2">
+              <Edit3 className="h-4 w-4" /> Edit Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label>Title <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="Call back, send brochure..."
+                value={editTaskForm.title}
+                onChange={e => setEditTaskForm(f => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                rows={2}
+                placeholder="Optional details..."
+                value={editTaskForm.description}
+                onChange={e => setEditTaskForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={editTaskForm.dueDate}
+                  onChange={e => setEditTaskForm(f => ({ ...f, dueDate: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Due Time</Label>
+                <Input
+                  type="time"
+                  value={editTaskForm.dueTime}
+                  onChange={e => setEditTaskForm(f => ({ ...f, dueTime: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select value={editTaskForm.priority} onValueChange={v => setEditTaskForm(f => ({ ...f, priority: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => { setEditTaskOpen(false); setEditingTask(null); setEditTaskForm(EMPTY_TASK); }}>Cancel</Button>
+              <Button
+                className="bg-gradient-to-r from-[#3bcac4] to-[#005476]"
+                disabled={!editTaskForm.title.trim() || updateTaskMutation.isPending}
+                onClick={() => editingTask && updateTaskMutation.mutate({ taskId: editingTask.id, data: editTaskForm })}
+              >
+                {updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New Task Dialog */}
       <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
