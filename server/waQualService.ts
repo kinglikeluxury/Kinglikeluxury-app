@@ -131,7 +131,7 @@ async function updateWaStage(leadId: number, stage: string): Promise<void> {
 
 // ── Session helpers ───────────────────────────────────────────────────────────
 
-interface Session {
+export interface Session {
   id:                   number;
   lead_id:              number;
   phone:                string;
@@ -189,7 +189,7 @@ async function getSessionByLeadId(leadId: number): Promise<Session | null> {
   }
 }
 
-async function updateSession(
+export async function updateSession(
   id: number,
   patch: Partial<Omit<Session, "id" | "created_at" | "lead_id" | "phone">>,
 ): Promise<void> {
@@ -214,7 +214,7 @@ async function updateSession(
   }
 }
 
-async function saveAnswer(
+export async function saveAnswer(
   sessionId: number,
   questionKey: string,
   rawInput: string,
@@ -239,7 +239,7 @@ async function saveAnswer(
   }
 }
 
-async function getAnswers(sessionId: number): Promise<Record<string, string>> {
+export async function getAnswers(sessionId: number): Promise<Record<string, string>> {
   const client = await pool.connect();
   try {
     const r = await client.query(
@@ -649,7 +649,7 @@ async function sendInvalidInput(session: Session): Promise<void> {
 
 // ── Finish qualification ──────────────────────────────────────────────────────
 
-async function finishQualification(session: Session): Promise<void> {
+export async function finishQualification(session: Session): Promise<void> {
   const answers   = await getAnswers(session.id);
   const { score, reason } = computeScore(answers);
 
@@ -836,6 +836,13 @@ export async function handleInboundMessage(opts: {
 
   // ── Dispatch by current state ─────────────────────────────────────────────
 
+  // ── ai_concierge_active: hand off to AI concierge ────────────────────────
+  if (state === "ai_concierge_active") {
+    const { handleConciergeMessage } = await import("./waAiConcierge");
+    await handleConciergeMessage(session, opts);
+    return;
+  }
+
   // ── template_sent: button-gated opener ──────────────────────────────────
   if (state === "template_sent") {
     // Log exact payload received from Meta for every reply to this template
@@ -867,24 +874,29 @@ export async function handleInboundMessage(opts: {
       return;
     }
 
-    // QUAL_YES button OR any free-text reply → window open, start Q1
+    // QUAL_YES button OR any free-text reply → window open, start AI concierge
     console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} payload=${answerId ?? "free-text"}`);
-    console.log(`[WaQual][QUALIFICATION_STARTED] sessionId=${session.id} phone=${digits}`);
+    console.log(`[WaQual][CONCIERGE_STARTED] sessionId=${session.id} phone=${digits}`);
 
     // Mark lead as Interested in CRM
     await updateWaStage(session.lead_id, 'interested');
 
-    // Send warm welcome before Q1
-    await sendQualTextMessage(
-      session.phone,
-      `يسعدنا استقبالك! 🌟\n\n` +
-      `سنطرح عليك بضعة أسئلة سريعة لمعرفة احتياجاتك، ` +
-      `وتقديم أفضل الخيارات العقارية الفاخرة المناسبة لك.\n\n` +
-      `_Kinglike Luxury — الفخامة في كل تفصيلة_`
-    );
+    // Fetch first name for personalised greeting
+    const leadNameClient = await pool.connect();
+    let conciergeFirstName: string | null = null;
+    try {
+      const nr = await leadNameClient.query(
+        `SELECT first_name FROM crm_leads WHERE id = $1`,
+        [session.lead_id]
+      );
+      conciergeFirstName = nr.rows[0]?.first_name ?? null;
+    } finally {
+      leadNameClient.release();
+    }
 
-    await sendQ1Budget(session);
-    console.log(`[WaQual][QUESTION_SENT] sessionId=${session.id} question=Q1_budget phone=${digits}`);
+    // Hand off to AI concierge
+    const { startConciergeConversation } = await import("./waAiConcierge");
+    await startConciergeConversation(session, conciergeFirstName);
     return;
   }
 
@@ -1041,7 +1053,7 @@ export async function handleNudge(
 ): Promise<void> {
   const session = await getSession(sessionId);
   if (!session) return;
-  if (!["greeting_sent","q1_sent","q2_sent","q3_sent","q4_sent","q4b_sent","q5_sent","q6_sent","q7_sent"].includes(session.status)) return;
+  if (!["greeting_sent","q1_sent","q2_sent","q3_sent","q4_sent","q4b_sent","q5_sent","q6_sent","q7_sent","ai_concierge_active"].includes(session.status)) return;
 
   await updateSession(sessionId, { retry_count: currentRetryCount + 1 });
 
@@ -1078,6 +1090,7 @@ const ACTIVE_STATUSES = new Set([
   "idle", "template_sent", "greeting_sent",
   "q1_sent", "q2_sent", "q3_sent", "q4_sent", "q4b_sent",
   "q5_sent", "q6_sent", "q7_sent",
+  "ai_concierge_active",
 ]);
 
 export interface RestartResult {
