@@ -608,7 +608,7 @@ async function sendCompletion(
     `تم حفظ بياناتك ومتطلباتك بنجاح ✅\n\n` +
     `سيتواصل معك أحد مستشارينا المتخصصين في العقارات الفاخرة قريباً، ` +
     `لمساعدتك في إيجاد العقار المثالي الذي يلائم تطلعاتك.\n\n` +
-    `🏢 *Kinglike Luxury — الفخامة في كل تفصيلة.*`;
+    `🏢 *Kinglike Luxury — استثمر بثقة.*`;
 
   const result = await sendQualTextMessage(session.phone, text);
   await updateSession(session.id, {
