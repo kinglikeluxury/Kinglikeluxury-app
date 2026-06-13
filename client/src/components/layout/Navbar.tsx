@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Crown } from "lucide-react";
+import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Crown, LayoutDashboard } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
@@ -209,6 +209,12 @@ const Navbar = () => {
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel className="text-xs text-gray-400 font-semibold uppercase">Sales CRM</DropdownMenuLabel>
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin/employee-dashboard" className="flex items-center gap-2">
+                              <LayoutDashboard className="w-3.5 h-3.5" style={{ color: "#3bcac4" }} />
+                              Dashboard
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/admin/crm" className="flex items-center gap-2">
                               <Crown className="w-3.5 h-3.5" style={{ color: "#3bcac4" }} />

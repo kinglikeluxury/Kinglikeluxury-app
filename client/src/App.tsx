@@ -56,6 +56,7 @@ import EmailHistoryPage from "@/pages/admin/email-history";
 import WhatsappApiChatHistoryPage from "@/pages/admin/whatsapp-api-chat-history";
 import CrmHealthPage from "@/pages/admin/crm-health";
 import WhatsappConciergeDashboard from "@/pages/admin/whatsapp-concierge-dashboard";
+import EmployeeDashboardPage from "@/pages/admin/employee-dashboard";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -97,6 +98,7 @@ function Router() {
           <Route path="/admin/users" component={AdminUsersPage} />
           <Route path="/admin/live-cameras" component={AdminLiveCameras} />
           <Route path="/admin/otp-logs" component={OtpLogsPage} />
+          <Route path="/admin/employee-dashboard" component={EmployeeDashboardPage} />
           <Route path="/admin/crm/:id" component={CrmLeadDetailPage} />
           <Route path="/admin/crm" component={CrmLeadsPage} />
           <Route path="/admin/meta-leads" component={MetaLeadsPage} />

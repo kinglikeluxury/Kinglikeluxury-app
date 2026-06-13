@@ -4278,6 +4278,225 @@ ${metaTags}
     }
   });
 
+  /** GET /api/admin/crm/employee-dashboard — employee stats dashboard */
+  app.get("/api/admin/crm/employee-dashboard", isAuthenticated, async (req: any, res) => {
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { pool: pgPool } = await import("./db");
+      const { users: usersTable } = await import("../shared/schema");
+      const { eq: eqOp } = await import("drizzle-orm");
+
+      // Determine which agent's data to show
+      let agentId: number;
+      if (req.session.isAdmin && req.query.agentId) {
+        agentId = Number(req.query.agentId);
+      } else if (req.session.role === "sub_agent") {
+        agentId = req.session.userId;
+      } else if (req.session.isAdmin) {
+        // Admin with no agentId: show global totals (agentId = 0 = all)
+        agentId = 0;
+      } else {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Resolve agent name
+      let agentName = "All Employees";
+      if (agentId > 0) {
+        const [u] = await db.select({ username: usersTable.username }).from(usersTable).where(eqOp(usersTable.id, agentId));
+        agentName = u?.username ?? "Unknown";
+      }
+
+      const c = await pgPool.connect();
+      try {
+        const assignFilter = agentId > 0 ? `AND assigned_to = ${agentId}` : "";
+
+        // ── Lead counts by status ─────────────────────────────────────────────
+        const statusRows = await c.query(`
+          SELECT status, COUNT(*)::int AS cnt
+          FROM crm_leads
+          WHERE 1=1 ${assignFilter}
+          GROUP BY status
+        `);
+        const statusMap: Record<string, number> = {};
+        for (const r of statusRows.rows) statusMap[r.status] = r.cnt;
+
+        const total       = statusRows.rows.reduce((s: number, r: any) => s + r.cnt, 0);
+        const newLeads    = statusMap["new"] ?? 0;
+        const qualified   = statusMap["qualified"] ?? 0;
+        const hotBuyer    = statusMap["hot_buyer"] ?? 0;
+        const followUp    = statusMap["follow_up"] ?? 0;
+        const noAnswer    = (statusMap["no_answer"] ?? 0) + (statusMap["no_answer_1"] ?? 0) +
+                            (statusMap["no_answer_2"] ?? 0) + (statusMap["no_answer_3"] ?? 0) +
+                            (statusMap["no_answer_4"] ?? 0);
+        const deposited   = statusMap["deposited"] ?? 0;
+        const reserved    = statusMap["reserved"] ?? 0;
+        const purchased   = statusMap["purchased"] ?? 0;
+
+        // Lead score "hot" from lead_score field
+        const scoreRows = await c.query(`
+          SELECT lead_score, COUNT(*)::int AS cnt
+          FROM crm_leads WHERE 1=1 ${assignFilter}
+          GROUP BY lead_score
+        `);
+        const scoreMap: Record<string, number> = {};
+        for (const r of scoreRows.rows) scoreMap[r.lead_score ?? ""] = r.cnt;
+        const hotScore = scoreMap["hot"] ?? 0;
+
+        // ── Lead sources ───────────────────────────────────────────────────────
+        const sourceRows = await c.query(`
+          SELECT lead_source, COUNT(*)::int AS cnt
+          FROM crm_leads WHERE 1=1 ${assignFilter}
+          GROUP BY lead_source ORDER BY cnt DESC
+        `);
+        const sources = sourceRows.rows.map((r: any) => ({ source: r.lead_source as string, count: r.cnt as number }));
+
+        // ── Country breakdown from phones ─────────────────────────────────────
+        const phoneRows = await c.query(`
+          SELECT phone FROM crm_leads
+          WHERE phone IS NOT NULL AND phone != '' ${assignFilter}
+        `);
+
+        type CountryDef = { prefix: string; name: string; flag: string };
+        const PFXS: CountryDef[] = [
+          { prefix: "972", name: "Israel",          flag: "🇮🇱" },
+          { prefix: "966", name: "Saudi Arabia",    flag: "🇸🇦" },
+          { prefix: "971", name: "UAE",             flag: "🇦🇪" },
+          { prefix: "965", name: "Kuwait",          flag: "🇰🇼" },
+          { prefix: "974", name: "Qatar",           flag: "🇶🇦" },
+          { prefix: "973", name: "Bahrain",         flag: "🇧🇭" },
+          { prefix: "968", name: "Oman",            flag: "🇴🇲" },
+          { prefix: "970", name: "Palestine",       flag: "🇵🇸" },
+          { prefix: "963", name: "Syria",           flag: "🇸🇾" },
+          { prefix: "961", name: "Lebanon",         flag: "🇱🇧" },
+          { prefix: "962", name: "Jordan",          flag: "🇯🇴" },
+          { prefix: "964", name: "Iraq",            flag: "🇮🇶" },
+          { prefix: "967", name: "Yemen",           flag: "🇾🇪" },
+          { prefix: "995", name: "Georgia",         flag: "🇬🇪" },
+          { prefix: "994", name: "Azerbaijan",      flag: "🇦🇿" },
+          { prefix: "998", name: "Uzbekistan",      flag: "🇺🇿" },
+          { prefix: "380", name: "Ukraine",         flag: "🇺🇦" },
+          { prefix: "375", name: "Belarus",         flag: "🇧🇾" },
+          { prefix: "374", name: "Armenia",         flag: "🇦🇲" },
+          { prefix: "212", name: "Morocco",         flag: "🇲🇦" },
+          { prefix: "213", name: "Algeria",         flag: "🇩🇿" },
+          { prefix: "216", name: "Tunisia",         flag: "🇹🇳" },
+          { prefix: "218", name: "Libya",           flag: "🇱🇾" },
+          { prefix: "249", name: "Sudan",           flag: "🇸🇩" },
+          { prefix: "234", name: "Nigeria",         flag: "🇳🇬" },
+          { prefix: "880", name: "Bangladesh",      flag: "🇧🇩" },
+          { prefix: "886", name: "Taiwan",          flag: "🇹🇼" },
+          { prefix: "90",  name: "Turkey",          flag: "🇹🇷" },
+          { prefix: "44",  name: "UK",              flag: "🇬🇧" },
+          { prefix: "33",  name: "France",          flag: "🇫🇷" },
+          { prefix: "49",  name: "Germany",         flag: "🇩🇪" },
+          { prefix: "48",  name: "Poland",          flag: "🇵🇱" },
+          { prefix: "86",  name: "China",           flag: "🇨🇳" },
+          { prefix: "91",  name: "India",           flag: "🇮🇳" },
+          { prefix: "92",  name: "Pakistan",        flag: "🇵🇰" },
+          { prefix: "20",  name: "Egypt",           flag: "🇪🇬" },
+          { prefix: "34",  name: "Spain",           flag: "🇪🇸" },
+          { prefix: "39",  name: "Italy",           flag: "🇮🇹" },
+          { prefix: "55",  name: "Brazil",          flag: "🇧🇷" },
+          { prefix: "60",  name: "Malaysia",        flag: "🇲🇾" },
+          { prefix: "62",  name: "Indonesia",       flag: "🇮🇩" },
+          { prefix: "65",  name: "Singapore",       flag: "🇸🇬" },
+          { prefix: "66",  name: "Thailand",        flag: "🇹🇭" },
+          { prefix: "61",  name: "Australia",       flag: "🇦🇺" },
+          { prefix: "1",   name: "USA/Canada",      flag: "🇺🇸" },
+          { prefix: "7",   name: "Russia/Kazakhstan", flag: "🇷🇺" },
+        ].sort((a, b) => b.prefix.length - a.prefix.length);
+
+        function detectPfx(raw: string): CountryDef | null {
+          if (!raw) return null;
+          const t = raw.trim();
+          let d = t.startsWith("+") ? t.slice(1).replace(/\D/g, "") :
+                  t.startsWith("00") ? t.slice(2).replace(/\D/g, "") :
+                  t.replace(/\D/g, "");
+          if (!d || d.length < 7) return null;
+          for (const c of PFXS) if (d.startsWith(c.prefix)) return c;
+          return null;
+        }
+
+        const cmap = new Map<string, { name: string; flag: string; count: number }>();
+        for (const row of phoneRows.rows) {
+          const cd = detectPfx(row.phone as string);
+          if (!cd) continue;
+          const ex = cmap.get(cd.name);
+          if (ex) ex.count++;
+          else cmap.set(cd.name, { name: cd.name, flag: cd.flag, count: 1 });
+        }
+        const countries = [...cmap.values()].sort((a, b) => b.count - a.count);
+
+        // ── Tasks ─────────────────────────────────────────────────────────────
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const taskRows = await c.query(`
+          SELECT t.id, t.title, t.description, t.due_date, t.due_time, t.priority,
+                 l.id AS lead_id, l.full_name AS lead_name, l.phone AS lead_phone
+          FROM crm_tasks t
+          JOIN crm_leads l ON l.id = t.lead_id
+          WHERE t.completed_at IS NULL ${agentId > 0 ? `AND l.assigned_to = ${agentId}` : ""}
+          ORDER BY t.due_date ASC NULLS LAST, t.created_at ASC
+          LIMIT 200
+        `);
+
+        const todayTasks: any[] = [];
+        const overdueTasks: any[] = [];
+        const upcomingTasks: any[] = [];
+        for (const t of taskRows.rows) {
+          const row = { id: t.id, title: t.title, description: t.description, dueDate: t.due_date, dueTime: t.due_time, priority: t.priority, leadId: t.lead_id, leadName: t.lead_name, leadPhone: t.lead_phone };
+          if (!t.due_date) { upcomingTasks.push(row); continue; }
+          if (t.due_date === today) todayTasks.push(row);
+          else if (t.due_date < today) overdueTasks.push(row);
+          else upcomingTasks.push(row);
+        }
+
+        // ── Top hot leads ─────────────────────────────────────────────────────
+        const hotRows = await c.query(`
+          SELECT id, full_name, phone, status, lead_score, created_at, updated_at
+          FROM crm_leads
+          WHERE (lead_score = 'hot' OR status = 'hot_buyer') ${assignFilter}
+          ORDER BY updated_at DESC LIMIT 10
+        `);
+        const topHotLeads = hotRows.rows.map((r: any) => ({
+          id: r.id, name: r.full_name, phone: r.phone,
+          status: r.status, leadScore: r.lead_score, updatedAt: r.updated_at,
+        }));
+
+        // ── Recently assigned leads ───────────────────────────────────────────
+        const recentRows = await c.query(`
+          SELECT id, full_name, phone, status, lead_score, created_at
+          FROM crm_leads WHERE 1=1 ${assignFilter}
+          ORDER BY created_at DESC LIMIT 10
+        `);
+        const recentLeads = recentRows.rows.map((r: any) => ({
+          id: r.id, name: r.full_name, phone: r.phone,
+          status: r.status, leadScore: r.lead_score, createdAt: r.created_at,
+        }));
+
+        const conversionRate = total > 0 ? ((purchased / total) * 100).toFixed(1) : "0.0";
+
+        return res.json({
+          agentId, agentName,
+          stats: {
+            total, new: newLeads, qualified, hot: hotBuyer, hotScore, followUp,
+            noAnswer, deposited, reserved, purchased,
+            pendingTasks: taskRows.rows.length,
+            overdueTasks: overdueTasks.length,
+            todayTasks: todayTasks.length,
+          },
+          performance: { total, qualified, hot: hotBuyer, deposited, purchased, conversionRate },
+          countries,
+          sources,
+          tasks: { today: todayTasks, upcoming: upcomingTasks.slice(0, 20), overdue: overdueTasks },
+          topHotLeads,
+          recentLeads,
+        });
+      } finally { c.release(); }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   /** GET /api/admin/crm/leads — paginated list with optional filters */
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });

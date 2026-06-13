@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv, Crown,
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv, Crown, LayoutDashboard,
 } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
@@ -311,6 +311,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 Sales CRM
               </p>
               <div className="bg-white">
+                {renderItem({ label: "Dashboard", path: "/admin/employee-dashboard", icon: LayoutDashboard, highlight: true })}
                 {renderItem({ label: "Kinglike CRM", path: "/admin/crm", icon: Crown, highlight: true })}
               </div>
             </div>
