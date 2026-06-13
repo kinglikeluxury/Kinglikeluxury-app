@@ -572,7 +572,7 @@ export async function startConciergeConversation(
     `يسعدني أن أكون مرجعكم في رحلة البحث عن الفرصة العقارية المناسبة.\n\n` +
     `ما الذي يشغل فكركم في هذه المرحلة — الاستثمار، السكن، أم شيء آخر؟`;
 
-  await sendMessageParts(session.phone, [part1, part2]);
+  const openResult = await sendMessageParts(session.phone, [part1, part2]);
 
   const openingText = `${part1}\n\n${part2}`;
 
@@ -580,16 +580,18 @@ export async function startConciergeConversation(
   try {
     await client.query(`
       UPDATE wa_qual_sessions
-      SET conversation_history = $1::jsonb,
-          turn_count            = 0,
-          status                = 'ai_concierge_active',
-          current_question      = 'ai_concierge',
-          last_message_at       = NOW(),
-          invalid_input_count   = 0
+      SET conversation_history  = $1::jsonb,
+          turn_count             = 0,
+          status                 = 'ai_concierge_active',
+          current_question       = 'ai_concierge',
+          last_message_at        = NOW(),
+          last_outbound_wamid    = $3,
+          invalid_input_count    = 0
       WHERE id = $2
     `, [
       JSON.stringify([{ role: "assistant", content: openingText }]),
       session.id,
+      openResult.wamid ?? null,
     ]);
   } finally {
     client.release();

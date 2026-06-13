@@ -86,23 +86,12 @@ async function runOnce(): Promise<void> {
       }
     }
 
-    // ── 3. Nudge 1 — silence > 2 h, retry_count = 0 ──────────────────────────
     const { handleNudge } = await import("./waQualService");
 
-    const nudge1Rows = await client.query(`
-      SELECT id, lead_id, phone, status, retry_count
-      FROM wa_qual_sessions
-      WHERE status NOT IN ('completed','timed_out','failed','opt_out','already_qualified','idle','template_sent','postponed')
-        AND last_message_at < NOW() - INTERVAL '2 hours'
-        AND retry_count = 0
-    `);
-    for (const row of nudge1Rows.rows) {
-      await handleNudge(row.id, row.phone, 0, row.status).catch(err =>
-        console.error(`[WaQualScheduler] Nudge1 failed sessionId=${row.id}:`, err.message)
-      );
-    }
-
-    // ── 4. Nudge 2 — silence > 24 h, retry_count = 1 ─────────────────────────
+    // ── 3. Nudge 2 FIRST — silence > 24 h, retry_count = 1 ───────────────────
+    //   Must run before Nudge 1 to prevent same-run double-nudge:
+    //   Nudge 1 increments retry_count 0→1; if Nudge 2 ran afterwards it would
+    //   immediately re-match those same sessions within the same tick.
     const nudge2Rows = await client.query(`
       SELECT id, lead_id, phone, status, retry_count
       FROM wa_qual_sessions
@@ -113,6 +102,22 @@ async function runOnce(): Promise<void> {
     for (const row of nudge2Rows.rows) {
       await handleNudge(row.id, row.phone, 1, row.status).catch(err =>
         console.error(`[WaQualScheduler] Nudge2 failed sessionId=${row.id}:`, err.message)
+      );
+    }
+
+    // ── 4. Nudge 1 SECOND — silence > 2 h, retry_count = 0 ──────────────────
+    //   These sessions have retry_count=0 so they cannot be matched by the
+    //   Nudge 2 query above (which requires retry_count=1).
+    const nudge1Rows = await client.query(`
+      SELECT id, lead_id, phone, status, retry_count
+      FROM wa_qual_sessions
+      WHERE status NOT IN ('completed','timed_out','failed','opt_out','already_qualified','idle','template_sent','postponed')
+        AND last_message_at < NOW() - INTERVAL '2 hours'
+        AND retry_count = 0
+    `);
+    for (const row of nudge1Rows.rows) {
+      await handleNudge(row.id, row.phone, 0, row.status).catch(err =>
+        console.error(`[WaQualScheduler] Nudge1 failed sessionId=${row.id}:`, err.message)
       );
     }
 
