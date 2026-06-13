@@ -49,6 +49,17 @@ export function registerWaQualRoutes(app: Express): void {
     const leadId = parseInt(req.params.leadId);
     if (isNaN(leadId)) return res.status(400).json({ message: "Invalid leadId" });
 
+    // Ownership check — sub_agents may only access leads assigned to them
+    if (!req.session?.isAdmin) {
+      const cl = await pool.connect();
+      try {
+        const lr = await cl.query(`SELECT assigned_to FROM crm_leads WHERE id = $1`, [leadId]);
+        if (!lr.rows[0] || lr.rows[0].assigned_to !== req.session.userId) {
+          return res.status(403).json({ message: "Access denied — lead not assigned to you" });
+        }
+      } finally { cl.release(); }
+    }
+
     try {
       const data = await getQualSessionForLead(leadId);
       if (!data) {

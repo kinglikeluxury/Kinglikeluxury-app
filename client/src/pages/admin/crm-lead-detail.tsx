@@ -1474,7 +1474,7 @@ export default function CrmLeadDetailPage() {
       {/* ── WhatsApp AI Qualification Section ─────────────────────────────── */}
       {aiData !== undefined && (
         <div className="mt-6">
-          {/* No conversation yet — show init card */}
+          {/* No conversation yet — admin: init card | sub_agent: read-only notice */}
           {!aiData.conversation && user?.isAdmin && (
             <Card className="border-0 shadow-sm border border-dashed border-[#3bcac4]/40">
               <CardContent className="py-6 flex flex-col items-center gap-3 text-center">
@@ -1496,6 +1496,19 @@ export default function CrmLeadDetailPage() {
                     : <Bot className="h-3.5 w-3.5" />}
                   Initialize AI Conversation
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No conversation yet — sub_agent read-only notice */}
+          {!aiData.conversation && isSubAgent && (
+            <Card className="border-0 shadow-sm border border-dashed border-[#3bcac4]/40">
+              <CardContent className="py-6 flex flex-col items-center gap-2 text-center">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#3bcac4]/20 to-[#005476]/20 flex items-center justify-center">
+                  <Bot className="h-5 w-5 text-[#005476]" />
+                </div>
+                <p className="text-sm font-medium text-[#005476]">WhatsApp AI Qualification</p>
+                <p className="text-xs text-muted-foreground">No WhatsApp AI conversation found for this lead.</p>
               </CardContent>
             </Card>
           )}
@@ -2035,57 +2048,140 @@ export default function CrmLeadDetailPage() {
         </div>
       )}
 
-      {/* ── AI Concierge Transcript for Advisors (sub-agents) ─────────────── */}
-      {isSubAgent && (qualData?.conversationHistory?.length ?? 0) > 0 && (
+      {/* ── WhatsApp AI Summary + Transcript for Advisors (sub-agents) ──────── */}
+      {isSubAgent && (
         <div className="mt-6">
           <Card className="border-0 shadow-sm overflow-hidden">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#3bcac4]/20 to-[#005476]/20 flex items-center justify-center">
-                    <MessageSquare className="h-4 w-4 text-[#005476]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-[#005476]">AI Concierge Conversation</p>
-                    <p className="text-xs text-muted-foreground">
-                      {qualData!.conversationHistory.length} messages — read-only
-                    </p>
-                  </div>
+              {/* Header */}
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#3bcac4]/20 to-[#005476]/20 flex items-center justify-center">
+                  <SiWhatsapp className="h-4 w-4 text-[#005476]" />
                 </div>
-                <Button
-                  size="sm" variant="outline"
-                  className="gap-1.5 text-xs h-7 border-[#3bcac4]/50 text-[#005476] hover:bg-[#3bcac4]/10"
-                  onClick={() => setQualConvOpen(v => !v)}
-                >
-                  {qualConvOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  {qualConvOpen ? "Hide" : "Show"}
-                </Button>
+                <div>
+                  <p className="text-sm font-semibold text-[#005476]">WhatsApp AI Summary</p>
+                  <p className="text-xs text-muted-foreground">Read-only · Assigned lead qualification data</p>
+                </div>
               </div>
-              {qualConvOpen && (
-                <div className="px-5 py-4">
-                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                    {qualData!.conversationHistory.map((msg, i) => {
-                      const isAssistant = msg.role === "assistant";
-                      return (
-                        <div key={i} className={`flex ${isAssistant ? "justify-start" : "justify-end"}`}>
-                          <div className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs whitespace-pre-wrap break-words leading-relaxed ${
-                            isAssistant
-                              ? "bg-gradient-to-br from-[#005476]/8 to-[#3bcac4]/8 text-[#005476] border border-[#3bcac4]/20"
-                              : "bg-[#005476] text-white"
-                          }`}>
-                            <div className="flex items-center gap-1.5 mb-0.5 opacity-60">
-                              {isAssistant
-                                ? <><Bot className="h-2.5 w-2.5" /><span className="text-[9px] font-medium">Maha (AI)</span></>
-                                : <span className="text-[9px] font-medium">Lead</span>
-                              }
-                            </div>
-                            {msg.content}
-                          </div>
-                        </div>
-                      );
-                    })}
+
+              <div className="px-5 py-4 space-y-4">
+                {qualLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#3bcac4]" />
                   </div>
-                </div>
+                ) : !qualData?.session ? (
+                  <div className="text-center text-slate-400 text-sm py-4">
+                    <SiWhatsapp className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p>No WhatsApp AI conversation found for this lead.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Score / State row */}
+                    <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">Status</span>
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
+                          qualData.session.state === "completed"        ? "bg-green-100 text-green-700" :
+                          qualData.session.state === "in_progress" || qualData.session.state.includes("_sent") ? "bg-[#3bcac4]/10 text-[#005476]" :
+                          qualData.session.state === "timed_out"        ? "bg-amber-100 text-amber-700" :
+                          qualData.session.state === "opt_out"          ? "bg-gray-100 text-gray-500" :
+                                                                          "bg-slate-100 text-slate-500"
+                        }`}>
+                          {qualData.session.state.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      {qualData.session.qualified_score && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-muted-foreground">Score</span>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                            qualData.session.qualified_score === "vip"  ? "bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white" :
+                            qualData.session.qualified_score === "hot"  ? "bg-red-100 text-red-700" :
+                            qualData.session.qualified_score === "warm" ? "bg-amber-100 text-amber-700" :
+                                                                          "bg-sky-100 text-sky-700"
+                          }`}>
+                            <Crown className="h-3 w-3" />
+                            {qualData.session.qualified_score.toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      {qualData.session.opt_out && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                          <UserX className="h-3 w-3" /> Opted out
+                        </span>
+                      )}
+                    </div>
+
+                    {/* AI Summary text */}
+                    {qualData.summary && (
+                      <div className="rounded-lg bg-[#005476]/5 border border-[#3bcac4]/20 px-4 py-3">
+                        <p className="text-xs font-semibold text-[#005476] mb-1.5">AI Summary</p>
+                        <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{qualData.summary}</p>
+                      </div>
+                    )}
+
+                    {/* Qualification answers grid (Budget, Goal, Timeline, etc.) */}
+                    {qualData.answers.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {qualData.answers.map((a) => (
+                          <div key={a.question_key} className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground capitalize">{a.question_key.replace(/_/g, " ")}</p>
+                            <p className="text-xs font-medium text-[#005476] mt-0.5">{a.answer_label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Conversation transcript */}
+              {(qualData?.conversationHistory?.length ?? 0) > 0 && (
+                <>
+                  <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                        <SiWhatsapp className="h-2.5 w-2.5" /> WhatsApp
+                      </span>
+                      <p className="text-xs font-medium text-[#005476]">
+                        Conversation Transcript ({qualData!.conversationHistory.length} messages)
+                      </p>
+                    </div>
+                    <Button
+                      size="sm" variant="outline"
+                      className="gap-1.5 text-xs h-7 border-[#3bcac4]/50 text-[#005476] hover:bg-[#3bcac4]/10"
+                      onClick={() => setQualConvOpen(v => !v)}
+                    >
+                      {qualConvOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {qualConvOpen ? "Hide" : "Show"}
+                    </Button>
+                  </div>
+                  {qualConvOpen && (
+                    <div className="px-5 pb-4">
+                      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        {qualData!.conversationHistory.map((msg, i) => {
+                          const isAssistant = msg.role === "assistant";
+                          return (
+                            <div key={i} className={`flex ${isAssistant ? "justify-start" : "justify-end"}`}>
+                              <div className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs whitespace-pre-wrap break-words leading-relaxed ${
+                                isAssistant
+                                  ? "bg-gradient-to-br from-[#005476]/8 to-[#3bcac4]/8 text-[#005476] border border-[#3bcac4]/20"
+                                  : "bg-[#005476] text-white"
+                              }`}>
+                                <div className="flex items-center gap-1.5 mb-0.5 opacity-60">
+                                  {isAssistant
+                                    ? <><Bot className="h-2.5 w-2.5" /><span className="text-[9px] font-medium">Maha (AI)</span></>
+                                    : <span className="text-[9px] font-medium">Lead</span>
+                                  }
+                                </div>
+                                {msg.content}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
