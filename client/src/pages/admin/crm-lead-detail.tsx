@@ -597,9 +597,12 @@ export default function CrmLeadDetailPage() {
 
   function openStatusDialog(newStatus: string) {
     if (!lead || newStatus === lead.status) return;
-    // No Answer statuses save immediately — no popup, no mandatory reason
-    const NO_ANSWER_STATUSES = ["no_answer_1", "no_answer_2", "no_answer_3", "no_answer"];
-    if (NO_ANSWER_STATUSES.includes(newStatus)) {
+    // Only these critical statuses require a written reason — all others save instantly
+    const REQUIRES_REASON = [
+      "purchased", "reserved", "deposited",
+      "junk_lead", "lost_competition", "not_qualified", "re_sale",
+    ];
+    if (!REQUIRES_REASON.includes(newStatus)) {
       const oldLabel = STATUS_CONFIG[lead.status]?.label ?? lead.status;
       const newLabel = STATUS_CONFIG[newStatus]?.label ?? newStatus;
       updateMutation.mutate({ status: newStatus } as any, {
