@@ -1050,17 +1050,37 @@ export async function handleNudge(
   sessionId: number,
   phone: string,
   currentRetryCount: number,
+  sessionStatus?: string,
 ): Promise<void> {
   const session = await getSession(sessionId);
   if (!session) return;
-  if (!["greeting_sent","q1_sent","q2_sent","q3_sent","q4_sent","q4b_sent","q5_sent","q6_sent","q7_sent","ai_concierge_active"].includes(session.status)) return;
+  const ELIGIBLE = [
+    "greeting_sent","q1_sent","q2_sent","q3_sent","q4_sent",
+    "q4b_sent","q5_sent","q6_sent","q7_sent","ai_concierge_active",
+  ];
+  if (!ELIGIBLE.includes(session.status)) return;
 
   await updateSession(sessionId, { retry_count: currentRetryCount + 1 });
 
-  await sendQualTextMessage(
-    phone,
-    "مرحباً! 👋\n\nنودّ متابعة اهتمامك بالعقارات الفاخرة مع *Kinglike Luxury*.\nهل أنت متاح للإجابة على بعض الأسئلة؟"
-  );
+  const isAiSession = (sessionStatus ?? session.status) === "ai_concierge_active";
+
+  if (currentRetryCount === 0) {
+    // Nudge 1 — 2 h silence — same for both AI and legacy
+    await sendQualTextMessage(
+      phone,
+      isAiSession
+        ? "مرحباً! 👋\n\nهل ما زلتم مهتمين بالحصول على خيارات تناسب احتياجاتكم؟\nأنا هنا إذا أردتم مواصلة الحوار. 🌟"
+        : "مرحباً! 👋\n\nنودّ متابعة اهتمامكم بالعقارات الفاخرة مع *Kinglike Luxury*.\nهل أنتم متاحون؟"
+    );
+  } else {
+    // Nudge 2 — 24 h silence
+    await sendQualTextMessage(
+      phone,
+      isAiSession
+        ? "مرحباً مجدداً 👋\n\nوجدنا بعض الفرص الجديدة التي قد تناسب ما تحدثنا عنه سابقاً.\nهل يمكننا إكمال الحوار؟ 🌟"
+        : "مرحباً! 👋\n\nلا تزال لدينا فرص عقارية فاخرة قد تناسبكم.\nهل تودّون المتابعة مع *Kinglike Luxury*؟"
+    );
+  }
 }
 
 // ── Public: admin API helpers ─────────────────────────────────────────────────

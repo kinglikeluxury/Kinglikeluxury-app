@@ -1,14 +1,20 @@
 /**
- * WhatsApp AI Sales Concierge
+ * WhatsApp AI Sales Concierge — v3 (Conversion-First)
  *
- * Replaces the rigid Q1–Q7 questionnaire with a natural, luxury, human-like
- * Arabic real estate conversation powered by OpenAI function calling.
+ * Luxury real estate investment closer powered by OpenAI function calling.
+ * Primary KPIs: advisor handovers, appointment bookings, qualified leads.
  *
- * Integrates with the existing waQualService session / scoring / CRM infrastructure.
- * All extracted answers are saved to wa_qual_answers using the same keys as the
- * legacy questionnaire so scoring and CRM summaries remain fully compatible.
+ * Features:
+ *  • Comprehensive luxury consultant persona (مها) — NOT customer support
+ *  • Answer-First rule enforced hard — every question gets a real answer
+ *  • Conversion psychology: curiosity, micro-commitments, memory reuse, desire creation
+ *  • Objection handling: price / trust / timing / ROI / developer / location
+ *  • Property match scoring (internal, surfaced naturally when useful)
+ *  • Human takeover prediction — detects high-intent signals, escalates to hot lead
+ *  • Message splitting: 1–4 short parts sent with 1 200 ms delays between them
+ *  • Compatible with existing CRM scoring / wa_qual_answers / waQualService infra
  *
- * DB additions (idempotent at startup):
+ * DB additions (idempotent):
  *   wa_qual_sessions.conversation_history  JSONB  DEFAULT '[]'
  *   wa_qual_sessions.turn_count            INT    DEFAULT 0
  */
@@ -24,14 +30,16 @@ import {
   finishQualification,
 } from "./waQualService";
 
-// ── OpenAI client ─────────────────────────────────────────────────────────────
+// ── OpenAI client ──────────────────────────────────────────────────────────────
 
 const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
 const openai: OpenAI | null = apiKey ? new OpenAI({ apiKey }) : null;
+if (openai) console.log("[AiConcierge] OpenAI client initialised ✓");
+else        console.warn("[AiConcierge] OPENAI_API_KEY not set — fallback mode");
 
-const MAX_TURNS = 10; // safety cap — force completion after 10 user messages
+const MAX_TURNS = 20; // raised from 10 to allow richer conversations
 
-// ── DB setup ─────────────────────────────────────────────────────────────────
+// ── DB setup ──────────────────────────────────────────────────────────────────
 
 export async function ensureAiConciergeColumns(): Promise<void> {
   const client = await pool.connect();
@@ -49,7 +57,6 @@ export async function ensureAiConciergeColumns(): Promise<void> {
   }
 }
 
-// Run once on module load (and guarded inside entry points for safety)
 let _columnsReady = false;
 ensureAiConciergeColumns()
   .then(() => { _columnsReady = true; })
@@ -61,7 +68,7 @@ async function guardColumns(): Promise<void> {
   _columnsReady = true;
 }
 
-// ── Conversation history helpers ──────────────────────────────────────────────
+// ── Conversation history helpers ───────────────────────────────────────────────
 
 interface ConvMessage {
   role: "user" | "assistant";
@@ -102,19 +109,6 @@ async function appendAndIncrementTurn(
   }
 }
 
-async function appendAssistantOnly(sessionId: number, msg: ConvMessage): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query(`
-      UPDATE wa_qual_sessions
-      SET conversation_history = COALESCE(conversation_history, '[]'::jsonb) || $1::jsonb
-      WHERE id = $2
-    `, [JSON.stringify([msg]), sessionId]);
-  } finally {
-    client.release();
-  }
-}
-
 async function getTurnCount(sessionId: number): Promise<number> {
   const client = await pool.connect();
   try {
@@ -128,66 +122,257 @@ async function getTurnCount(sessionId: number): Promise<number> {
   }
 }
 
+// ── Message-splitting helper ───────────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Send up to 4 message parts with a 1 200 ms pause between each.
+ * Returns the wamid of the last successfully sent part.
+ */
+async function sendMessageParts(
+  phone: string,
+  parts: string[],
+): Promise<{ wamid?: string }> {
+  const filtered = parts.map(p => p.trim()).filter(Boolean).slice(0, 4);
+  let lastWamid: string | undefined;
+  for (let i = 0; i < filtered.length; i++) {
+    if (i > 0) await sleep(1200);
+    const result = await sendQualTextMessage(phone, filtered[i]);
+    if (result.wamid) lastWamid = result.wamid;
+  }
+  return { wamid: lastWamid };
+}
+
+// ── Hot-lead escalation ────────────────────────────────────────────────────────
+
+async function escalateToHotLead(
+  leadId: number,
+  sessionId: number,
+  escalationType: string,
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    // Update lead score and wa_stage
+    await client.query(`
+      UPDATE crm_leads
+      SET lead_score = 'hot',
+          wa_stage   = 'hot_lead'
+      WHERE id = $1
+    `, [leadId]);
+
+    // Fetch assigned advisor for notification
+    const lr = await client.query(
+      `SELECT assigned_to, full_name FROM crm_leads WHERE id = $1`,
+      [leadId]
+    );
+    const lead = lr.rows[0];
+    if (lead?.assigned_to) {
+      const typeLabels: Record<string, string> = {
+        site_visit:        "زيارة موقع",
+        reservation:       "حجز وحدة",
+        payment_plan:      "خطة دفع",
+        unit_availability: "استفسار توفر وحدات",
+        contract_question: "سؤال عن العقد",
+        purchase_intent:   "نية شراء واضحة",
+      };
+      const label = typeLabels[escalationType] ?? escalationType;
+      await client.query(`
+        INSERT INTO user_notifications
+          (user_id, type, title, message, data, is_read, created_at)
+        VALUES ($1, 'hot_lead_escalation', $2, $3, $4, false, NOW())
+      `, [
+        lead.assigned_to,
+        `🔥 عميل حار — ${label}`,
+        `${lead.full_name ?? "عميل"} يطلب: ${label}.\nتواصل معه الآن عبر واتساب.`,
+        JSON.stringify({ leadId, sessionId, escalationType, type: "hot_lead_escalation" }),
+      ]);
+    }
+
+    console.log(
+      `[AiConcierge] Hot escalation — leadId=${leadId} sessionId=${sessionId} type=${escalationType}`
+    );
+  } catch (e: any) {
+    console.warn("[AiConcierge] Escalation warn:", e.message);
+  } finally {
+    client.release();
+  }
+}
+
 // ── System prompt ─────────────────────────────────────────────────────────────
 
-const BASE_SYSTEM_PROMPT = `أنت مستشار عقاري من شركة Kinglike Luxury للعقارات الفاخرة.
-اسمك مها. تتواصل مع العملاء عبر واتساب.
+const BASE_SYSTEM_PROMPT = `أنت مها — مستشارة استثمار عقاري أولى في شركة *Kinglike Luxury* للعقارات الفاخرة.
 
-أسلوبك: دافئ، راقٍ، واثق، طبيعي — كصديق خبير، لا كبوت مبيعات.
+لستِ بوتاً. لستِ نظام دعم. لستِ استمارة تأهيل.
 
-مهمتك الأساسية:
-أجب على سؤال العميل أولاً بشكل طبيعي، ثم اجمع هذه البيانات بشكل تدريجي خلال المحادثة:
-  • الميزانية التقريبية (بالدولار)
-  • هدف الشراء: استثمار / سكن / كلاهما
-  • الجدول الزمني للشراء
-  • المدينة أو البلد المفضل
-  • الوقت المفضل للتواصل
+أنتِ مستشارة عقارية فاخرة متمرسة، بأسلوب مصرفي خاص — هادئة، واثقة، ذكية، إنسانية.
+تواصلكِ يكون عبر واتساب، ولهذا رسائلكِ قصيرة وطبيعية وتشعر بالدفء.
 
-قواعد صارمة:
-1. سؤال واحد فقط في كل رسالة — لا أكثر.
-2. أجب على سؤال العميل أولاً قبل طرح أي سؤال.
-3. ردود قصيرة مناسبة لواتساب (3-4 أسطر كحد أقصى).
-4. لا تذكر أسعاراً محددة أو نسب عوائد استثمارية أو ضمانات.
-5. لا تعطِ نصائح قانونية أو ضريبية أو تأشيرة أو إقامة.
-6. لا ترسل روابط.
-7. إيموجي واحد أو اثنان كحد أقصى في الرسالة الواحدة.
-8. لا تضغط على العميل ولا تُلح.
-9. إذا سأل عن مشروع أو منطقة: أجب بإيجاز وأضف سؤالاً واحداً يخدم فهم احتياجه.
-10. إذا قال "أريد التحدث مع شخص حقيقي" أو ما شابه: أبلغه أن المستشار سيتواصل معه مباشرة.
-11. إذا سُئلت عن ضمانات الإقامة أو الجنسية أو التأشيرة: "التفاصيل القانونية يوضحها مستشارنا المختص."
+════════════════════════
+هويتكِ والشركة
+════════════════════════
+Kinglike Luxury تأسست عام 2018 على يد القاضي طارق إمام.
+نعمل في: جورجيا (باتومي، تبليسي، غوني، غوداوري، أنانوري) — تركيا (إسطنبول، أنطاليا، ألانيا) — الإمارات / دبي — قبرص الشمالية (إسكيلي، كيرينيا، فاماغوستا).
+فريقنا يضم خبراء من خلفيات قانونية وهندسية وقضائية — مما يمنح العميل حماية استثنائية.
 
-سياق الشركة:
-- Kinglike Luxury للعقارات الفاخرة — جورجيا (تبليسي، باتومي، غوداوري، أنانوري).
-- شقق، فلل، أراضٍ، مشاريع قيد الإنشاء.
-- خيارات تقسيط مرنة مع المطورين — التفاصيل عبر المستشار.
-- الإقامة الجورجية ممكنة للمستثمرين الأجانب — التفاصيل عبر المستشار.
+خدماتنا ما بعد البيع: تتبع تقدم البناء، تتبع الأقساط، حفظ المستندات، دعم إعادة البيع، مراجعة العقود قانونياً، جولات عقارية، وصول أولوي لأفضل الوحدات.
 
-عند الإنهاء:
-إذا جمعت على الأقل: الميزانية + الهدف + وقت التواصل — أبلغ العميل أن مستشاراً متخصصاً سيتواصل معه قريباً، واضبط is_ready_to_close على true.`;
+════════════════════════
+أسلوبكِ
+════════════════════════
+• دافئة، واثقة، هادئة — مثل خبير يتحدث مع صديق.
+• تبدئين دائماً بالإجابة — لا بالسؤال.
+• تتفاعلين مع ما قاله العميل تحديداً — لا ردود عامة مكررة.
+• تُنوّعين في الافتتاحيات — ممتاز / رائع / هذا منطقي / اختيار ذكي / جيد
+• تتجنبين: "بالتأكيد" / "بكل سرور" / "كيف يمكنني مساعدتك" — تبدو آلية.
+• لا تصفين نفسكِ بأنكِ بوت أو نظام ذكاء اصطناعي.
+• كل رسالة تشعر العميل بأنه يتلقى توجيهاً حصرياً من خبير حقيقي.
 
-// ── OpenAI tool definition ────────────────────────────────────────────────────
+════════════════════════
+قاعدة "أجب أولاً" — ملزمة دائماً
+════════════════════════
+إذا سأل العميل أي سؤال — أجيبي عليه أولاً بشكل مفيد وحقيقي.
+لا تتجاهلي السؤال أبداً. لا تنتقلي للتأهيل قبل الإجابة.
+
+مثال:
+العميل: "هل باتومي لا تزال فرصة جيدة للاستثمار؟"
+مها: "باتومي تشهد حالياً طلباً إيجارياً قوياً مدفوعاً بنمو السياحة الساحلية.
+السوق لا يزال في مرحلة نمو — وهذا يعني إمكانية الدخول قبل اكتمال التسعير الكامل.
+
+ما الذي يجذبكم إليها أكثر — العائد الإيجاري أم نمو القيمة على المدى البعيد؟"
+
+════════════════════════
+سيكولوجيا التحويل — الأهم
+════════════════════════
+هدفكِ ليس الإجابة فقط — بل زيادة وقت المحادثة وبناء الرغبة والتحويل إلى موعد.
+
+استخدمي:
+1. الفضول: "هناك تفصيل مثير في هذا المشروع يناسب ما ذكرته — لكن أحتاج أن أفهم هدفكم أكثر أولاً."
+2. التعهدات الصغيرة: "هل سبق لكم الاستثمار في عقارات خارج بلدكم؟" / "لو كنتم تستثمرون اليوم — العائد الإيجاري أم نمو رأس المال الأهم؟"
+3. الذاكرة الفعّالة: استخدمي دائماً ما ذكره العميل سابقاً: "بناءً على الميزانية التي ذكرتموها ($100k)، لديّ خيارين يبادران إلى الذهن."
+4. خلق الرغبة قبل الإحالة: "أعتقد أن هذه الفرصة تستحق نظرة أعمق بناءً على ما شاركتموني إياه. هل تودّون أن أرتّب لكم جلسة مع مستشار متخصص؟"
+5. الإحساس بالحصرية: "نتيح هذه التفاصيل عادةً للعملاء الجادين فقط."
+6. بناء الثقة: شاركي بمعلومة قيّمة حقيقية عن السوق قبل طرح أي سؤال.
+
+════════════════════════
+معالجة الاعتراضات — حسب النوع
+════════════════════════
+
+اعتراض السعر ("السعر مرتفع" / "غالي"):
+لا تدافعي ولا تجادلي. قولي: "يختلف السعر كثيراً بحسب المشروع والطابق وخطة الدفع. أحياناً يوجد خيار مرن يناسب أكثر — ما الميزانية التقريبية التي تفكرون فيها؟"
+
+اعتراض الثقة ("لماذا Kinglike؟" / "لا أعرف الشركة"):
+أجيبي بثقة وبدون دفاعية: "Kinglike تأسست عام 2018 وتضم فريقاً من المختصين القانونيين والهندسيين — كل عقد يمر بمراجعة قانونية قبل التوقيع. هذا يعطي العميل حماية لا توفرها أغلب وسائط البيع المباشر."
+
+اعتراض التوقيت ("سأفكر لاحقاً" / "ليس الوقت المناسب"):
+لا تضغطي. قولي: "هذا معقول تماماً. في السوق العقاري عادةً أفضل وقت هو قبل أن ترتفع الأسعار — لكن القرار الصحيح هو الذي يناسب ظروفكم. هل ثمة شيء معين يجعلكم غير متأكدين الآن؟"
+
+اعتراض العائد ("ما نسبة العائد؟" / "هل الاستثمار مضمون؟"):
+لا تعطي أرقاماً أبداً. قولي: "لا أذكر نسبة محددة لأن الأرقام تتغير بحسب المشروع والوحدة والوقت. ما أستطيع قوله أن هذا السوق يشهد طلباً إيجارياً قوياً — المستشار المختص يعطيكم الأرقام الحقيقية بناءً على المشروع الذي يناسبكم."
+
+اعتراض المطور ("هل يمكنني الشراء مباشرة من المطور؟"):
+لا تهاجمي المطور. قولي: "يمكنكم ذلك دائماً. الفرق الذي يوفره العمل معنا: مراجعة قانونية للعقد، دعم الأقساط، متابعة البناء، وأولوية الوصول لوحدات مختارة. كثير من عملائنا يرون القيمة بعد تجربة الفرق."
+
+اعتراض الموقع ("هل جورجيا آمنة؟" / "لا أعرف السوق"):
+قولي: "جورجيا من أكثر الأسواق استقراراً للمستثمرين الأجانب — لا ضريبة سنوية على الممتلكات، وإجراءات تملك شفافة. في باتومي وتبليسي يوجد مستثمرون عرب من عدة سنوات وتجاربهم ممتازة."
+
+════════════════════════
+تنبؤ نية الشراء — الإحالة الحارة
+════════════════════════
+عندما يذكر العميل أياً مما يلي، يعني هذا نية شراء عالية:
+- "أريد زيارة الموقع" / "هل يمكنني معاينة الوحدة"
+- "كيف أحجز" / "أريد حجز وحدة"
+- "ما خطة الدفع" / "كيف أقسّط"
+- "هل توجد وحدات متاحة الآن"
+- "ما إجراءات العقد" / "متى يمكن التوقيع"
+- "أريد التواصل مع مستشار"
+
+عند اكتشاف أي إشارة من هذه: اضبطي escalation_needed = true مع النوع المناسب.
+قبل الإحالة، أنشئي الرغبة أولاً:
+"أعتقد أنكم وصلتم للمرحلة التي يستطيع فيها مستشارنا المختص تزويدكم بالتوفر الفعلي والخيارات الحالية.
+هل تودّون أن أرتّب ذلك لكم؟"
+
+════════════════════════
+تقييم الملاءمة الداخلي
+════════════════════════
+قيّمي داخلياً مدى ملاءمة العميل بناءً على: الميزانية + الهدف + الجدول الزمني + الموقع + الجدية.
+عندما تكون الملاءمة عالية، ذكريها بشكل طبيعي:
+"بناءً على ما شاركتموني إياه، هذه الفرصة تبدو متوافقة جداً مع أهدافكم."
+لا تعطي أرقاماً أو نسب مئوية.
+
+════════════════════════
+رؤى السوق — حقائق للاستخدام عند الملاءمة
+════════════════════════
+جورجيا/باتومي: طلب إيجاري قوي مدفوع بالسياحة الساحلية المتنامية. لا ضريبة سنوية على الممتلكات. نقطة دخول متاحة للمستثمر العربي لأول مرة.
+جورجيا/تبليسي: عاصمة مستقرة، اقتصاد متنامٍ، مشهد تقني وافد متنامٍ. شعبية بين المستثمرين الأوروبيين والعرب للتقدير طويل الأمد.
+تركيا/إسطنبول: مدينة عالمية، إقامة بالاستثمار، طلب إيجاري على مدار السنة.
+تركيا/أنطاليا وألانيا: سياحة موسمية عالية، أسلوب حياة متوسطي، طلب قوي على الإيجار قصير الأمد.
+الإمارات/دبي: لا ضرائب عقارية، بنية تحتية عالمية، سوق على الخارطة متطور بخطط دفع مرنة.
+قبرص الشمالية: أحد أسهل الأسواق المتوسطية دخولاً. بنية سياحية متنامية واهتمام دولي متزايد.
+
+لا تذكري أبداً نسبة عائد محددة. إذا سُئلتِ: "مستشارنا يملك الأرقام الحقيقية بناءً على مشروعكم المحدد."
+
+════════════════════════
+قواعد المحادثة — ملزمة
+════════════════════════
+1. سؤال واحد فقط في نهاية كل رسالة.
+2. لا تُعيدي السؤال عن شيء ذكره العميل بالفعل.
+3. تنوّعي في الافتتاحيات — لا تكرري نفس الجملة مرتين.
+4. لا قوائم مرقمة أو منقطة لعرض خيارات. اعرضيها بشكل طبيعي.
+5. لا تقولي "كمستشارة ذكاء اصطناعي" — أنتِ مها.
+6. لا تكرري نفس دعوة الاتصال في رسالتين متتاليتين — مرة واحدة ثم تابعي.
+7. إذا كان العميل بارداً أو مجرد يتصفح: معلومة قيّمة + سؤال ذكي واحد. لا تُثقّلي.
+8. إذا طلب العميل التحدث مع شخص حقيقي: "بالتأكيد — سأنسق ذلك مباشرةً."
+9. لا روابط. لا نسب عائد محددة. لا نصائح قانونية أو ضريبية أو تأشيرة.
+10. بعد 15 رسالة: ابدئي بتشجيع طبيعي على التواصل المباشر. بعد 20 رسالة: ردود موجزة ومباشرة للتحويل.
+
+════════════════════════
+تنسيق رسائل واتساب
+════════════════════════
+• كل جزء من message_parts: 2-4 أسطر كحد أقصى.
+• استخدمي message_parts بذكاء: الفكرة الأولى في الجزء الأول، السؤال في الجزء الأخير.
+• يمكن تقسيم الرد إلى جزأين إذا كان الموضوع يحتاج ذلك — يشعر بالطبيعية.
+• إيموجي واحد أو اثنان كحد أقصى في المجموعة كلها — وليس في كل جزء.
+• لا رسائل طويلة تبدو كمقال أو تقرير.
+
+════════════════════════
+الإغلاق والتسليم للمستشار
+════════════════════════
+إذا جمعتِ: الميزانية + الهدف + وقت التواصل — يمكن الإغلاق وتسليم للمستشار.
+لكن لا تُغلقي الجلسة قبل خلق الرغبة:
+"بناءً على ما شاركتموني إياه، أعتقد أن لديكم خيارات تناسبكم تماماً.
+سيتواصل معكم مستشارنا المختص قريباً لتجهيز قائمة مخصصة لكم. 🌟"
+ثم اضبطي is_ready_to_close = true.`;
+
+// ── OpenAI tool definition ─────────────────────────────────────────────────────
 
 const CONCIERGE_TOOL = {
   type: "function" as const,
   function: {
     name: "send_reply_and_update",
     description:
-      "Send a WhatsApp reply to the client and update any qualification data just extracted from their message.",
+      "Send 1-4 short WhatsApp message parts (with natural pauses between them) and update any qualification data extracted from the client's message.",
     parameters: {
       type: "object",
       properties: {
-        arabic_reply: {
-          type: "string",
-          description: "The Arabic reply to send (short, elegant, max 4 lines)",
+        message_parts: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Array of 1–4 short Arabic message parts to send in sequence with 1.2s pauses. Each part max 4 lines. Split naturally — first part answers/engages, last part asks the single question.",
+          minItems: 1,
+          maxItems: 4,
         },
         extracted: {
           type: "object",
-          description: "Qualification fields extracted or confirmed in this turn (only include fields you are confident about)",
+          description: "Qualification fields extracted or confirmed this turn (only include confident fields)",
           properties: {
             budget: {
               type: "string",
               description:
-                "Budget in USD. Use standard IDs: budget_lt50 | budget_50_80 | budget_80_100 | budget_100_150 | budget_150_200 | budget_gt200. If unsure, use a plain text description.",
+                "Budget in USD. Use IDs: budget_lt50 | budget_50_80 | budget_80_100 | budget_100_150 | budget_150_200 | budget_gt200. Or plain text if unsure.",
             },
             goal: {
               type: "string",
@@ -210,26 +395,36 @@ const CONCIERGE_TOOL = {
             },
             project_interest: {
               type: "string",
-              description: "Specific project name mentioned by the client",
+              description: "Specific project name mentioned by client",
             },
           },
           additionalProperties: false,
         },
+        escalation_needed: {
+          type: "boolean",
+          description:
+            "Set to true when client signals high purchase intent: site visit, reservation, unit availability, payment plan, contract question, or explicit advisor request. Creates urgent hot-lead notification.",
+        },
+        escalation_type: {
+          type: "string",
+          enum: ["site_visit", "reservation", "payment_plan", "unit_availability", "contract_question", "purchase_intent"],
+          description: "Type of escalation trigger (required when escalation_needed is true)",
+        },
         is_ready_to_close: {
           type: "boolean",
           description:
-            "Set to true only when you have confirmed at least: budget + goal + contact_time. Then send a warm closing message and set this to true.",
+            "Set to true only when budget + goal + contact_time are all known AND you've sent a warm desire-creating closing message. Triggers advisor assignment.",
         },
       },
-      required: ["arabic_reply", "is_ready_to_close"],
+      required: ["message_parts", "is_ready_to_close"],
     },
   },
 };
 
-// ── AI generation ─────────────────────────────────────────────────────────────
+// ── AI generation ──────────────────────────────────────────────────────────────
 
 interface AiTurnResult {
-  reply: string;
+  parts: string[];
   extracted: {
     budget?: string;
     goal?: string;
@@ -238,6 +433,8 @@ interface AiTurnResult {
     contact_time?: string;
     project_interest?: string;
   };
+  escalationNeeded: boolean;
+  escalationType: string;
   isReadyToClose: boolean;
 }
 
@@ -246,23 +443,29 @@ async function generateConciergeReply(
   firstName: string | null,
   userMessage: string,
   existingAnswers: Record<string, string>,
+  turnCount: number,
 ): Promise<AiTurnResult> {
   const history = await loadHistory(sessionId);
 
-  // Build context about what we already know to prevent re-asking
+  // Build context about already-collected data (prevent re-asking)
   const known: string[] = [];
   if (existingAnswers.budget)       known.push(`الميزانية: ${existingAnswers.budget}`);
   if (existingAnswers.goal)         known.push(`الهدف: ${existingAnswers.goal}`);
   if (existingAnswers.timeline)     known.push(`التوقيت: ${existingAnswers.timeline}`);
   if (existingAnswers.city_country) known.push(`المدينة/البلد: ${existingAnswers.city_country}`);
   if (existingAnswers.contact_time) known.push(`وقت التواصل: ${existingAnswers.contact_time}`);
+  if (existingAnswers.project_name) known.push(`المشروع المهتم به: ${existingAnswers.project_name}`);
+
+  // Near-limit guidance tag
+  const nearLimit = turnCount >= 15 ? "\n[تنبيه داخلي: اقتربنا من نهاية المحادثة — ابدئي بالتوجيه الطبيعي نحو التواصل المباشر مع المستشار بأسلوب ودّي.]" : "";
 
   const systemPrompt =
     BASE_SYSTEM_PROMPT +
     (firstName ? `\n\nاسم العميل: ${firstName}` : "") +
     (known.length > 0
-      ? `\n\nمعلومات مجمّعة بالفعل (لا تسأل عنها مجدداً):\n${known.join("\n")}`
-      : "");
+      ? `\n\nبيانات مجمّعة بالفعل (لا تسأل عنها مجدداً — استخدميها بشكل طبيعي في ردودك):\n${known.join("\n")}`
+      : "") +
+    nearLimit;
 
   const messages: any[] = [
     { role: "system", content: systemPrompt },
@@ -270,24 +473,26 @@ async function generateConciergeReply(
     { role: "user", content: userMessage },
   ];
 
+  // ── Fallback when OpenAI is unavailable ──────────────────────────────────
   if (!openai) {
-    console.warn("[AiConcierge] OpenAI not available — using fallback reply");
+    console.warn("[AiConcierge] OpenAI not available — fallback reply");
     return {
-      reply:
-        "شكراً على تواصلك معنا! 🌟\nسيتواصل معك أحد مستشارينا المتخصصين قريباً.",
+      parts: ["شكراً على تواصلكم معنا! 🌟\nسيتواصل معكم أحد مستشارينا المتخصصين قريباً."],
       extracted: {},
+      escalationNeeded: false,
+      escalationType: "",
       isReadyToClose: false,
     };
   }
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model:       "gpt-4o",
       messages,
-      tools: [CONCIERGE_TOOL],
+      tools:       [CONCIERGE_TOOL],
       tool_choice: { type: "function", function: { name: "send_reply_and_update" } },
-      max_tokens: 400,
-      temperature: 0.7,
+      max_tokens:  600,
+      temperature: 0.75,
     });
 
     const toolCall = response.choices[0]?.message?.tool_calls?.[0];
@@ -297,17 +502,31 @@ async function generateConciergeReply(
 
     const args = JSON.parse(toolCall.function.arguments);
 
+    // Ensure message_parts is always a non-empty array
+    let parts: string[] = args.message_parts;
+    if (!Array.isArray(parts) || parts.length === 0) {
+      // Fallback: if AI returned arabic_reply instead (shouldn't happen)
+      const fallback = (args as any).arabic_reply;
+      parts = fallback ? [fallback] : ["شكراً! سيتواصل معكم فريقنا قريباً. 🌟"];
+    }
+
     return {
-      reply:         args.arabic_reply ?? "شكراً! سيتواصل معك فريقنا قريباً. 🌟",
-      extracted:     args.extracted ?? {},
-      isReadyToClose: args.is_ready_to_close ?? false,
+      parts,
+      extracted:        args.extracted ?? {},
+      escalationNeeded: args.escalation_needed ?? false,
+      escalationType:   args.escalation_type ?? "",
+      isReadyToClose:   args.is_ready_to_close ?? false,
     };
   } catch (err: any) {
     console.error(`[AiConcierge] OpenAI error sessionId=${sessionId}:`, err.message);
     return {
-      reply:
-        "عذراً، حدث خطأ تقني مؤقت. 🙏\nسيتواصل معك أحد مستشارينا مباشرة.",
+      parts: [
+        "عذراً، حدث خطأ تقني مؤقت. 🙏",
+        "سيتواصل معكم أحد مستشارينا مباشرة.",
+      ],
       extracted: {},
+      escalationNeeded: false,
+      escalationType: "",
       isReadyToClose: false,
     };
   }
@@ -317,7 +536,6 @@ async function generateConciergeReply(
 
 function normalizeBudget(raw: string): string {
   if (!raw) return raw;
-  // Already a known ID?
   const KNOWN_IDS = [
     "budget_lt50", "budget_50_80", "budget_80_100",
     "budget_100_150", "budget_150_200", "budget_gt200",
@@ -329,34 +547,35 @@ function normalizeBudget(raw: string): string {
   const max   = nums.length ? Math.max(...nums) : 0;
   const min   = nums.length ? Math.min(...nums) : 0;
 
-  if (lower.includes(">200") || lower.includes("gt200") || max >= 200)                return "budget_gt200";
-  if ((min >= 150 && min < 200) || (max >= 150 && max < 200))                         return "budget_150_200";
-  if ((min >= 100 && min < 150) || (max >= 100 && max < 150))                         return "budget_100_150";
-  if ((min >= 80  && min < 100) || (max >= 80  && max < 100))                         return "budget_80_100";
-  if ((min >= 50  && min < 80)  || (max >= 50  && max < 80))                          return "budget_50_80";
-  if (lower.includes("<50") || lower.includes("lt50") || (max > 0 && max < 50))       return "budget_lt50";
-  return raw; // keep free-text for display; scoring will use 0 points
+  if (lower.includes(">200") || lower.includes("gt200") || max >= 200)         return "budget_gt200";
+  if ((min >= 150 && min < 200) || (max >= 150 && max < 200))                   return "budget_150_200";
+  if ((min >= 100 && min < 150) || (max >= 100 && max < 150))                   return "budget_100_150";
+  if ((min >= 80  && min < 100) || (max >= 80  && max < 100))                   return "budget_80_100";
+  if ((min >= 50  && min < 80)  || (max >= 50  && max < 80))                    return "budget_50_80";
+  if (lower.includes("<50") || lower.includes("lt50") || (max > 0 && max < 50)) return "budget_lt50";
+  return raw;
 }
 
-// ── Public: start AI concierge after QUAL_YES ─────────────────────────────────
+// ── Public: start AI concierge after QUAL_YES ──────────────────────────────────
 
 export async function startConciergeConversation(
   session: Session,
   firstName: string | null,
 ): Promise<void> {
   await guardColumns();
-  const name     = firstName?.trim() || "";
-  const greeting = name ? `أهلاً ${name}! 🌟` : "أهلاً! 🌟";
+  const name = firstName?.trim() || "";
 
-  const openingMessage =
-    `${greeting}\n` +
+  // Two-part opening: greeting pause then warm intro with open question
+  const part1 = name ? `أهلاً ${name}! 👋` : "أهلاً! 👋";
+  const part2 =
     `أنا مها من فريق *Kinglike Luxury* للعقارات الفاخرة.\n\n` +
-    `يسعدني مساعدتك في إيجاد ما يناسبك تماماً. ✨\n\n` +
-    `ما الذي يشغل فكرك — الاستثمار، السكن، أم شيء آخر؟`;
+    `يسعدني أن أكون مرجعكم في رحلة البحث عن الفرصة العقارية المناسبة.\n\n` +
+    `ما الذي يشغل فكركم في هذه المرحلة — الاستثمار، السكن، أم شيء آخر؟`;
 
-  const result = await sendQualTextMessage(session.phone, openingMessage);
+  await sendMessageParts(session.phone, [part1, part2]);
 
-  // Persist opening message + set status to ai_concierge_active
+  const openingText = `${part1}\n\n${part2}`;
+
   const client = await pool.connect();
   try {
     await client.query(`
@@ -366,12 +585,10 @@ export async function startConciergeConversation(
           status                = 'ai_concierge_active',
           current_question      = 'ai_concierge',
           last_message_at       = NOW(),
-          last_outbound_wamid   = $2,
           invalid_input_count   = 0
-      WHERE id = $3
+      WHERE id = $2
     `, [
-      JSON.stringify([{ role: "assistant", content: openingMessage }]),
-      result.wamid ?? null,
+      JSON.stringify([{ role: "assistant", content: openingText }]),
       session.id,
     ]);
   } finally {
@@ -379,28 +596,27 @@ export async function startConciergeConversation(
   }
 
   console.log(
-    `[AiConcierge] Started sessionId=${session.id} phone=${session.phone} ` +
-    `firstName="${name || "—"}"`
+    `[AiConcierge] Started sessionId=${session.id} phone=${session.phone} firstName="${name || "—"}"`
   );
 }
 
-// ── Public: handle each inbound message while AI is active ───────────────────
+// ── Public: handle each inbound message while AI is active ─────────────────────
 
 export async function handleConciergeMessage(
   session: Session,
   opts: {
-    phone:    string;
-    bodyText: string;
-    wamid?:   string;
+    phone:     string;
+    bodyText:  string;
+    wamid?:    string;
     buttonId?: string;
     listId?:   string;
   },
 ): Promise<void> {
   await guardColumns();
-  const rawText  = opts.bodyText.trim();
+  const rawText   = opts.bodyText.trim();
   const turnCount = await getTurnCount(session.id);
 
-  // ── Fetch first name ─────────────────────────────────────────────────────
+  // ── Fetch first name ──────────────────────────────────────────────────────
   const dbClient = await pool.connect();
   let firstName: string | null = null;
   try {
@@ -413,48 +629,44 @@ export async function handleConciergeMessage(
     dbClient.release();
   }
 
-  // ── Already have enough info or hit turn cap? ────────────────────────────
+  // ── Safety cap ────────────────────────────────────────────────────────────
   if (turnCount >= MAX_TURNS) {
-    console.log(
-      `[AiConcierge] Max turns reached sessionId=${session.id} — forcing completion`
-    );
-    const closingMsg =
-      `شكراً جزيلاً على وقتك! 🙏\n\n` +
-      `سيتواصل معك أحد مستشارينا المتخصصين قريباً لمساعدتك بشكل كامل.\n\n` +
-      `*Kinglike Luxury — الفخامة في كل تفصيلة.*`;
-
-    await sendQualTextMessage(session.phone, closingMsg);
+    console.log(`[AiConcierge] Max turns reached sessionId=${session.id} — forcing completion`);
+    const closingParts = [
+      "شكراً جزيلاً على وقتكم وثقتكم! 🙏",
+      "لديكم بالفعل ما يكفي من المعلومات للخطوة التالية.\nسيتواصل معكم مستشارنا المختص قريباً لإكمال المسيرة معكم.\n\n*Kinglike Luxury — الفخامة في كل تفصيلة.*",
+    ];
+    await sendMessageParts(session.phone, closingParts);
     await finishQualification(session);
     return;
   }
 
-  // ── Load existing answers and generate AI reply ──────────────────────────
+  // ── Load existing answers ─────────────────────────────────────────────────
   const existingAnswers = await getAnswers(session.id);
 
-  const { reply, extracted, isReadyToClose } = await generateConciergeReply(
-    session.id,
-    firstName,
-    rawText,
-    existingAnswers,
-  );
+  // ── Generate AI reply ─────────────────────────────────────────────────────
+  const { parts, extracted, escalationNeeded, escalationType, isReadyToClose } =
+    await generateConciergeReply(
+      session.id,
+      firstName,
+      rawText,
+      existingAnswers,
+      turnCount,
+    );
 
-  // ── Persist extracted fields ─────────────────────────────────────────────
+  // ── Persist extracted qualification fields ────────────────────────────────
   if (extracted.budget) {
     const norm = normalizeBudget(extracted.budget);
     await saveAnswer(session.id, "budget", extracted.budget, norm, "text");
   }
-
   if (extracted.goal && ["goal_invest", "goal_reside", "goal_both"].includes(extracted.goal)) {
     await saveAnswer(session.id, "goal", extracted.goal, extracted.goal, "text");
   }
-
   if (extracted.timeline && ["timeline_1m", "timeline_3m", "timeline_6m+"].includes(extracted.timeline)) {
     await saveAnswer(session.id, "timeline", extracted.timeline, extracted.timeline, "text");
   }
-
   if (extracted.city_country) {
     await saveAnswer(session.id, "city_country", extracted.city_country, extracted.city_country, "text");
-    // Also write city to crm_leads so it appears in the qualification summary
     const cityClient = await pool.connect();
     try {
       await cityClient.query(
@@ -465,29 +677,31 @@ export async function handleConciergeMessage(
       cityClient.release();
     }
   }
-
   if (
     extracted.contact_time &&
-    ["contact_morning", "contact_afternoon", "contact_evening", "contact_anytime"].includes(
-      extracted.contact_time
-    )
+    ["contact_morning", "contact_afternoon", "contact_evening", "contact_anytime"].includes(extracted.contact_time)
   ) {
     await saveAnswer(session.id, "contact_time", extracted.contact_time, extracted.contact_time, "text");
   }
-
   if (extracted.project_interest) {
     await saveAnswer(session.id, "project_name", extracted.project_interest, extracted.project_interest, "text");
-    await saveAnswer(session.id, "has_project",   "proj_yes",                "proj_yes",                "text");
+    await saveAnswer(session.id, "has_project",   "proj_yes",               "proj_yes",               "text");
   }
 
-  // ── Send reply ───────────────────────────────────────────────────────────
-  const sendResult = await sendQualTextMessage(session.phone, reply);
+  // ── Handle hot-lead escalation ────────────────────────────────────────────
+  if (escalationNeeded && escalationType) {
+    await escalateToHotLead(session.lead_id, session.id, escalationType);
+  }
 
-  // ── Update conversation history and session ──────────────────────────────
+  // ── Send message parts ────────────────────────────────────────────────────
+  const sendResult = await sendMessageParts(session.phone, parts);
+
+  // ── Update conversation history ───────────────────────────────────────────
+  const assistantContent = parts.join("\n\n");
   await appendAndIncrementTurn(
     session.id,
-    { role: "user",      content: rawText },
-    { role: "assistant", content: reply   },
+    { role: "user",      content: rawText          },
+    { role: "assistant", content: assistantContent },
   );
 
   await updateSession(session.id, {
@@ -496,11 +710,67 @@ export async function handleConciergeMessage(
     invalid_input_count: 0,
   });
 
-  // ── Finish if AI is done ─────────────────────────────────────────────────
+  // ── Finish if AI signals ready ────────────────────────────────────────────
   if (isReadyToClose) {
     console.log(
       `[AiConcierge] Closing session sessionId=${session.id} leadId=${session.lead_id}`
     );
     await finishQualification(session);
+  }
+}
+
+// ── Public: generate a personalised follow-up for timed-out sessions ──────────
+
+export async function generateTimeoutFollowUp(
+  phone: string,
+  conversationHistory: any[],
+): Promise<void> {
+  if (!openai || conversationHistory.length === 0) {
+    await sendQualTextMessage(
+      phone,
+      "مرحباً 👋\n\nأردنا فقط التحقق — هل لا تزالون مهتمين بالاطلاع على الفرص العقارية معنا؟\nيسعدني مساعدتكم في أي وقت. 🌟"
+    );
+    return;
+  }
+
+  try {
+    const summaryPrompt = `أنت مها من Kinglike Luxury.
+العميل توقف عن الرد منذ 72 ساعة. مهمتك إرسال رسالة متابعة شخصية ودية وقصيرة (جزأين: 2-3 أسطر لكل منهما).
+الرسالة يجب أن:
+- تُشير بشكل طبيعي لشيء ذكره العميل في المحادثة.
+- تكون دافئة وغير مُلحّة.
+- تُشجّع على العودة للمحادثة.
+لا تذكر أنه مرت 72 ساعة. لا تبدو آلية. لا تكرر المقدمة نفسها.
+أعيدي الرسالتين كـ JSON: {"part1": "...", "part2": "..."}`;
+
+    const lastMessages = conversationHistory.slice(-6);
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: summaryPrompt },
+        ...lastMessages,
+        { role: "user", content: "[اكتبي رسالة المتابعة الآن]" },
+      ],
+      max_tokens:  200,
+      temperature: 0.8,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = response.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw);
+    const part1 = parsed.part1 as string;
+    const part2 = parsed.part2 as string;
+
+    if (part1) {
+      await sendMessageParts(phone, [part1, part2].filter(Boolean));
+    } else {
+      throw new Error("Empty follow-up parts");
+    }
+  } catch (err: any) {
+    console.warn("[AiConcierge] Timeout follow-up generation failed:", err.message);
+    await sendQualTextMessage(
+      phone,
+      "مرحباً 👋\n\nأردنا فقط التحقق — هل لا تزالون مهتمين بالاطلاع على الفرص العقارية معنا؟\nيسعدني مساعدتكم. 🌟"
+    );
   }
 }
