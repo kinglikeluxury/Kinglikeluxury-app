@@ -631,9 +631,10 @@ export const crmTasks = pgTable("crm_tasks", {
   priority: text("priority").default("medium"),
   createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
   completedAt: timestamp("completed_at"),
+  reminderSentAt: timestamp("reminder_sent_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
-export const insertCrmTaskSchema = createInsertSchema(crmTasks).omit({ id: true, createdAt: true });
+export const insertCrmTaskSchema = createInsertSchema(crmTasks).omit({ id: true, createdAt: true, reminderSentAt: true });
 export type CrmTask = typeof crmTasks.$inferSelect;
 export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;
 

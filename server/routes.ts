@@ -5001,7 +5001,12 @@ ${metaTags}
     if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied" });
     try {
-      const task = await storage.updateCrmTask(Number(req.params.taskId), req.body);
+      // If due date or time is being changed, reset reminder so it re-fires at the new time
+      const updateData = { ...req.body };
+      if ("dueDate" in req.body || "dueTime" in req.body) {
+        updateData.reminderSentAt = null;
+      }
+      const task = await storage.updateCrmTask(Number(req.params.taskId), updateData);
       if (!task) return res.status(404).json({ message: "Task not found" });
       res.json(task);
       // Notify admin when a sub-admin / employee updates a task

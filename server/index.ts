@@ -10,6 +10,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
+import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
 import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables } from "./db";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { registerWhatsappAiRoutes } from "./whatsappAiRoutes";
@@ -287,6 +288,7 @@ app.use((req, res, next) => {
 
   startScheduler();
   startDailyBackup();
+  startCrmTaskReminderScheduler();
   validateMetaWhatsAppConfig();
 
   // Log active database status after server is up
