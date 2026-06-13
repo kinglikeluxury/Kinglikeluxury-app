@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Activity, Users, UserCheck, TrendingUp, Star, CheckCircle2,
   XCircle, MessageCircle, Mail, Megaphone, RefreshCw, PhoneOff,
-  Flame, Crown, Clock, UserX, ThumbsUp,
+  Flame, Crown, Clock, UserX, ThumbsUp, Globe, HelpCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -19,6 +19,18 @@ interface CrmHealthData {
   };
   agentsBreakdown: { agent: string; cnt: number }[];
   activityToday: { metaLeads: number; whatsappConvs: number; emailSends: number };
+  generatedAt: string;
+}
+
+interface CountryRow {
+  name: string; flag: string; code: string;
+  total: number; qualified: number; hot: number; sold: number;
+}
+
+interface CountryInsightsData {
+  countries: CountryRow[];
+  unknown: { total: number; qualified: number; hot: number; sold: number };
+  grandTotal: number;
   generatedAt: string;
 }
 
@@ -73,6 +85,11 @@ function pct(v: number, total: number) {
   return Math.round((v / total) * 100);
 }
 
+function pctStr(v: number, total: number) {
+  if (!total) return "0%";
+  return `${((v / total) * 100).toFixed(1)}%`;
+}
+
 export default function CrmHealthPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
@@ -84,6 +101,16 @@ export default function CrmHealthPage() {
     },
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
+  });
+
+  const { data: countryData, isLoading: countryLoading } = useQuery<CountryInsightsData>({
+    queryKey: ["/api/admin/crm/country-insights"],
+    queryFn: async () => {
+      const r = await apiRequest("GET", "/api/admin/crm/country-insights");
+      return r.json();
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
   });
 
   useEffect(() => {
@@ -410,6 +437,215 @@ export default function CrmHealthPage() {
                   </table>
                 </CardContent>
               </Card>
+            </section>
+
+            {/* ── Country Insights ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Globe className="h-4 w-4 text-[#3bcac4]" />
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Country Insights</h2>
+                <span className="text-xs text-slate-400 ml-1">— detected from phone country codes · read-only</span>
+              </div>
+
+              {countryLoading && (
+                <Card className="shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="space-y-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="h-4 w-32 bg-slate-200 rounded animate-pulse" />
+                          <div className="flex-1 h-3 bg-slate-100 rounded animate-pulse" />
+                          <div className="h-4 w-10 bg-slate-200 rounded animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {countryData && (
+                <>
+                  {/* Summary KPIs */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                    <Card className="shadow-sm border border-[#b0d8ef]">
+                      <CardContent className="p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Countries Detected</p>
+                        <p className="text-2xl font-extrabold text-[#005476]">{countryData.countries.length}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm border border-[#a7ece9]">
+                      <CardContent className="p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Leads with Phone</p>
+                        <p className="text-2xl font-extrabold text-[#3bcac4]">{n(countryData.grandTotal)}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm border border-slate-200">
+                      <CardContent className="p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Unknown / Invalid</p>
+                        <p className="text-2xl font-extrabold text-slate-400">{n(countryData.unknown.total)}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm border border-slate-200">
+                      <CardContent className="p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Detection Rate</p>
+                        <p className="text-2xl font-extrabold text-emerald-600">
+                          {pctStr(countryData.grandTotal - countryData.unknown.total, countryData.grandTotal)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Main country table */}
+                  <Card className="shadow-sm">
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-100 bg-slate-50">
+                              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
+                              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Country</th>
+                              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Code</th>
+                              <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
+                              <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Share</th>
+                              <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Qualified</th>
+                              <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Hot</th>
+                              <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Sold</th>
+                              <th className="px-5 py-3 hidden lg:table-cell w-36"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {countryData.countries.map((row, i) => (
+                              <tr key={row.name} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                                <td className="px-5 py-3 text-xs text-slate-400 font-medium">{i + 1}</td>
+                                <td className="px-5 py-3 font-medium text-slate-700">
+                                  <span className="text-lg mr-2">{row.flag}</span>
+                                  {row.name}
+                                </td>
+                                <td className="px-5 py-3 text-xs text-slate-400 hidden sm:table-cell">
+                                  <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">{row.code}</code>
+                                </td>
+                                <td className="px-5 py-3 text-right font-bold text-[#005476]">{n(row.total)}</td>
+                                <td className="px-5 py-3 text-right">
+                                  <Badge
+                                    className="text-xs font-medium"
+                                    style={{ background: "#e8faf9", color: "#005476", border: "1px solid #a7ece9" }}
+                                  >
+                                    {pctStr(row.total, countryData.grandTotal)}
+                                  </Badge>
+                                </td>
+                                <td className="px-5 py-3 text-right hidden md:table-cell">
+                                  {row.qualified > 0 ? (
+                                    <span className="text-purple-700 font-semibold">{n(row.qualified)}</span>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3 text-right hidden md:table-cell">
+                                  {row.hot > 0 ? (
+                                    <span className="text-orange-600 font-semibold">{n(row.hot)}</span>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3 text-right hidden md:table-cell">
+                                  {row.sold > 0 ? (
+                                    <span className="text-emerald-700 font-semibold">{n(row.sold)}</span>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3 hidden lg:table-cell">
+                                  <div className="w-full bg-slate-100 rounded-full h-1.5">
+                                    <div
+                                      className="h-1.5 rounded-full"
+                                      style={{
+                                        width: `${Math.max(pct(row.total, countryData.grandTotal - countryData.unknown.total), row.total > 0 ? 2 : 0)}%`,
+                                        background: "linear-gradient(90deg, #3bcac4, #005476)",
+                                      }}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+
+                            {/* Unknown row */}
+                            {countryData.unknown.total > 0 && (
+                              <tr className="border-t-2 border-slate-200 bg-slate-50/50">
+                                <td className="px-5 py-3 text-xs text-slate-300">—</td>
+                                <td className="px-5 py-3 text-slate-400 italic flex items-center gap-2">
+                                  <HelpCircle className="h-4 w-4 text-slate-300 shrink-0" />
+                                  Unknown / Invalid
+                                </td>
+                                <td className="px-5 py-3 hidden sm:table-cell">
+                                  <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] text-slate-400">—</code>
+                                </td>
+                                <td className="px-5 py-3 text-right font-bold text-slate-400">{n(countryData.unknown.total)}</td>
+                                <td className="px-5 py-3 text-right">
+                                  <Badge className="text-xs bg-slate-100 text-slate-400 border border-slate-200">
+                                    {pctStr(countryData.unknown.total, countryData.grandTotal)}
+                                  </Badge>
+                                </td>
+                                <td className="px-5 py-3 text-right hidden md:table-cell">
+                                  {countryData.unknown.qualified > 0 ? (
+                                    <span className="text-purple-400 font-semibold">{n(countryData.unknown.qualified)}</span>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3 text-right hidden md:table-cell">
+                                  {countryData.unknown.hot > 0 ? (
+                                    <span className="text-orange-400 font-semibold">{n(countryData.unknown.hot)}</span>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3 text-right hidden md:table-cell">
+                                  {countryData.unknown.sold > 0 ? (
+                                    <span className="text-emerald-400 font-semibold">{n(countryData.unknown.sold)}</span>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3 hidden lg:table-cell">
+                                  <div className="w-full bg-slate-100 rounded-full h-1.5">
+                                    <div
+                                      className="h-1.5 bg-slate-300 rounded-full"
+                                      style={{
+                                        width: `${Math.max(pct(countryData.unknown.total, countryData.grandTotal), countryData.unknown.total > 0 ? 2 : 0)}%`,
+                                      }}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-50 border-t border-slate-200">
+                              <td className="px-5 py-3" colSpan={2}>
+                                <span className="text-xs font-bold text-slate-500 uppercase">Total</span>
+                              </td>
+                              <td className="hidden sm:table-cell" />
+                              <td className="px-5 py-3 text-right font-extrabold text-[#005476]">{n(countryData.grandTotal)}</td>
+                              <td className="px-5 py-3 text-right">
+                                <Badge className="text-xs bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30">100%</Badge>
+                              </td>
+                              <td className="hidden md:table-cell" />
+                              <td className="hidden md:table-cell" />
+                              <td className="hidden md:table-cell" />
+                              <td className="hidden lg:table-cell" />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <p className="text-xs text-slate-400 mt-2">
+                    Country detected from phone number prefix · Read-only analytics · No lead data modified ·{" "}
+                    {new Date(countryData.generatedAt).toLocaleString()}
+                  </p>
+                </>
+              )}
             </section>
 
             {/* ── Generated at ── */}

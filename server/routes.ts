@@ -4102,6 +4102,182 @@ ${metaTags}
     }
   });
 
+  /** GET /api/admin/crm/country-insights — phone-code country analytics (admin only) */
+  app.get("/api/admin/crm/country-insights", isAuthenticated, async (req: any, res) => {
+    if (!req.session?.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const { pool: pgPool } = await import("./db");
+      const c = await pgPool.connect();
+      try {
+        const rows = await c.query(`
+          SELECT phone, lead_score, qualification_score, status
+          FROM crm_leads
+          WHERE phone IS NOT NULL AND phone != ''
+        `);
+
+        // ── Phone-prefix → country map (longest-prefix first) ──────────────────
+        type CountryDef = { prefix: string; name: string; flag: string; code: string };
+        const PREFIXES: CountryDef[] = [
+          // 3-digit prefixes
+          { prefix: "972", name: "Israel",           flag: "🇮🇱", code: "+972" },
+          { prefix: "966", name: "Saudi Arabia",     flag: "🇸🇦", code: "+966" },
+          { prefix: "971", name: "UAE",              flag: "🇦🇪", code: "+971" },
+          { prefix: "965", name: "Kuwait",           flag: "🇰🇼", code: "+965" },
+          { prefix: "974", name: "Qatar",            flag: "🇶🇦", code: "+974" },
+          { prefix: "973", name: "Bahrain",          flag: "🇧🇭", code: "+973" },
+          { prefix: "968", name: "Oman",             flag: "🇴🇲", code: "+968" },
+          { prefix: "970", name: "Palestine",        flag: "🇵🇸", code: "+970" },
+          { prefix: "963", name: "Syria",            flag: "🇸🇾", code: "+963" },
+          { prefix: "961", name: "Lebanon",          flag: "🇱🇧", code: "+961" },
+          { prefix: "962", name: "Jordan",           flag: "🇯🇴", code: "+962" },
+          { prefix: "964", name: "Iraq",             flag: "🇮🇶", code: "+964" },
+          { prefix: "967", name: "Yemen",            flag: "🇾🇪", code: "+967" },
+          { prefix: "995", name: "Georgia",          flag: "🇬🇪", code: "+995" },
+          { prefix: "994", name: "Azerbaijan",       flag: "🇦🇿", code: "+994" },
+          { prefix: "993", name: "Turkmenistan",     flag: "🇹🇲", code: "+993" },
+          { prefix: "992", name: "Tajikistan",       flag: "🇹🇯", code: "+992" },
+          { prefix: "998", name: "Uzbekistan",       flag: "🇺🇿", code: "+998" },
+          { prefix: "996", name: "Kyrgyzstan",       flag: "🇰🇬", code: "+996" },
+          { prefix: "380", name: "Ukraine",          flag: "🇺🇦", code: "+380" },
+          { prefix: "375", name: "Belarus",          flag: "🇧🇾", code: "+375" },
+          { prefix: "374", name: "Armenia",          flag: "🇦🇲", code: "+374" },
+          { prefix: "373", name: "Moldova",          flag: "🇲🇩", code: "+373" },
+          { prefix: "370", name: "Lithuania",        flag: "🇱🇹", code: "+370" },
+          { prefix: "371", name: "Latvia",           flag: "🇱🇻", code: "+371" },
+          { prefix: "372", name: "Estonia",          flag: "🇪🇪", code: "+372" },
+          { prefix: "358", name: "Finland",          flag: "🇫🇮", code: "+358" },
+          { prefix: "420", name: "Czech Republic",   flag: "🇨🇿", code: "+420" },
+          { prefix: "421", name: "Slovakia",         flag: "🇸🇰", code: "+421" },
+          { prefix: "359", name: "Bulgaria",         flag: "🇧🇬", code: "+359" },
+          { prefix: "351", name: "Portugal",         flag: "🇵🇹", code: "+351" },
+          { prefix: "212", name: "Morocco",          flag: "🇲🇦", code: "+212" },
+          { prefix: "213", name: "Algeria",          flag: "🇩🇿", code: "+213" },
+          { prefix: "216", name: "Tunisia",          flag: "🇹🇳", code: "+216" },
+          { prefix: "218", name: "Libya",            flag: "🇱🇾", code: "+218" },
+          { prefix: "249", name: "Sudan",            flag: "🇸🇩", code: "+249" },
+          { prefix: "234", name: "Nigeria",          flag: "🇳🇬", code: "+234" },
+          { prefix: "254", name: "Kenya",            flag: "🇰🇪", code: "+254" },
+          { prefix: "880", name: "Bangladesh",       flag: "🇧🇩", code: "+880" },
+          { prefix: "852", name: "Hong Kong",        flag: "🇭🇰", code: "+852" },
+          { prefix: "855", name: "Cambodia",         flag: "🇰🇭", code: "+855" },
+          { prefix: "856", name: "Laos",             flag: "🇱🇦", code: "+856" },
+          { prefix: "853", name: "Macau",            flag: "🇲🇴", code: "+853" },
+          { prefix: "886", name: "Taiwan",           flag: "🇹🇼", code: "+886" },
+          { prefix: "960", name: "Maldives",         flag: "🇲🇻", code: "+960" },
+          // 2-digit prefixes
+          { prefix: "90", name: "Turkey",            flag: "🇹🇷", code: "+90" },
+          { prefix: "44", name: "UK",                flag: "🇬🇧", code: "+44" },
+          { prefix: "46", name: "Sweden",            flag: "🇸🇪", code: "+46" },
+          { prefix: "33", name: "France",            flag: "🇫🇷", code: "+33" },
+          { prefix: "49", name: "Germany",           flag: "🇩🇪", code: "+49" },
+          { prefix: "48", name: "Poland",            flag: "🇵🇱", code: "+48" },
+          { prefix: "86", name: "China",             flag: "🇨🇳", code: "+86" },
+          { prefix: "81", name: "Japan",             flag: "🇯🇵", code: "+81" },
+          { prefix: "82", name: "South Korea",       flag: "🇰🇷", code: "+82" },
+          { prefix: "91", name: "India",             flag: "🇮🇳", code: "+91" },
+          { prefix: "92", name: "Pakistan",          flag: "🇵🇰", code: "+92" },
+          { prefix: "93", name: "Afghanistan",       flag: "🇦🇫", code: "+93" },
+          { prefix: "98", name: "Iran",              flag: "🇮🇷", code: "+98" },
+          { prefix: "20", name: "Egypt",             flag: "🇪🇬", code: "+20" },
+          { prefix: "34", name: "Spain",             flag: "🇪🇸", code: "+34" },
+          { prefix: "39", name: "Italy",             flag: "🇮🇹", code: "+39" },
+          { prefix: "31", name: "Netherlands",       flag: "🇳🇱", code: "+31" },
+          { prefix: "32", name: "Belgium",           flag: "🇧🇪", code: "+32" },
+          { prefix: "41", name: "Switzerland",       flag: "🇨🇭", code: "+41" },
+          { prefix: "43", name: "Austria",           flag: "🇦🇹", code: "+43" },
+          { prefix: "45", name: "Denmark",           flag: "🇩🇰", code: "+45" },
+          { prefix: "47", name: "Norway",            flag: "🇳🇴", code: "+47" },
+          { prefix: "36", name: "Hungary",           flag: "🇭🇺", code: "+36" },
+          { prefix: "40", name: "Romania",           flag: "🇷🇴", code: "+40" },
+          { prefix: "30", name: "Greece",            flag: "🇬🇷", code: "+30" },
+          { prefix: "55", name: "Brazil",            flag: "🇧🇷", code: "+55" },
+          { prefix: "52", name: "Mexico",            flag: "🇲🇽", code: "+52" },
+          { prefix: "54", name: "Argentina",         flag: "🇦🇷", code: "+54" },
+          { prefix: "57", name: "Colombia",          flag: "🇨🇴", code: "+57" },
+          { prefix: "56", name: "Chile",             flag: "🇨🇱", code: "+56" },
+          { prefix: "51", name: "Peru",              flag: "🇵🇪", code: "+51" },
+          { prefix: "27", name: "South Africa",      flag: "🇿🇦", code: "+27" },
+          { prefix: "60", name: "Malaysia",          flag: "🇲🇾", code: "+60" },
+          { prefix: "62", name: "Indonesia",         flag: "🇮🇩", code: "+62" },
+          { prefix: "65", name: "Singapore",         flag: "🇸🇬", code: "+65" },
+          { prefix: "66", name: "Thailand",          flag: "🇹🇭", code: "+66" },
+          { prefix: "84", name: "Vietnam",           flag: "🇻🇳", code: "+84" },
+          { prefix: "63", name: "Philippines",       flag: "🇵🇭", code: "+63" },
+          { prefix: "61", name: "Australia",         flag: "🇦🇺", code: "+61" },
+          { prefix: "64", name: "New Zealand",       flag: "🇳🇿", code: "+64" },
+          // 1-digit prefixes (last resort)
+          { prefix: "1", name: "USA/Canada",         flag: "🇺🇸", code: "+1"  },
+          { prefix: "7", name: "Russia/Kazakhstan",  flag: "🇷🇺", code: "+7"  },
+        ].sort((a, b) => b.prefix.length - a.prefix.length);
+
+        function detectCountry(raw: string): CountryDef | null {
+          if (!raw) return null;
+          const trimmed = raw.trim();
+          // Normalise to digit string
+          let digits: string;
+          if (trimmed.startsWith("+")) {
+            digits = trimmed.slice(1).replace(/\D/g, "");
+          } else if (trimmed.startsWith("00")) {
+            digits = trimmed.slice(2).replace(/\D/g, "");
+          } else {
+            digits = trimmed.replace(/\D/g, "");
+          }
+          if (!digits || digits.length < 7) return null;
+          for (const c of PREFIXES) {
+            if (digits.startsWith(c.prefix)) return c;
+          }
+          return null;
+        }
+
+        // ── Aggregate ──────────────────────────────────────────────────────────
+        type CountryAgg = {
+          name: string; flag: string; code: string;
+          total: number; qualified: number; hot: number; sold: number;
+        };
+        const map = new Map<string, CountryAgg>();
+        let unknownTotal = 0, unknownQualified = 0, unknownHot = 0, unknownSold = 0;
+
+        for (const row of rows.rows) {
+          const isQualified = row.status === "qualified";
+          const isHot = row.qualification_score === "HOT" || row.qualification_score === "VIP" || row.lead_score === "hot";
+          const isSold = row.status === "converted" || row.status === "sold_by_kinglike_luxury";
+
+          const country = detectCountry(row.phone as string);
+          if (!country) {
+            unknownTotal++;
+            if (isQualified) unknownQualified++;
+            if (isHot) unknownHot++;
+            if (isSold) unknownSold++;
+            continue;
+          }
+
+          let agg = map.get(country.name);
+          if (!agg) {
+            agg = { name: country.name, flag: country.flag, code: country.code, total: 0, qualified: 0, hot: 0, sold: 0 };
+            map.set(country.name, agg);
+          }
+          agg.total++;
+          if (isQualified) agg.qualified++;
+          if (isHot) agg.hot++;
+          if (isSold) agg.sold++;
+        }
+
+        // Sort by total DESC
+        const countries = [...map.values()].sort((a, b) => b.total - a.total);
+        const grandTotal = rows.rows.length;
+
+        res.json({
+          countries,
+          unknown: { total: unknownTotal, qualified: unknownQualified, hot: unknownHot, sold: unknownSold },
+          grandTotal,
+          generatedAt: new Date().toISOString(),
+        });
+      } finally { c.release(); }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   /** GET /api/admin/crm/leads — paginated list with optional filters */
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
