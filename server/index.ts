@@ -13,6 +13,7 @@ import { startDailyBackup } from "./dailyBackup";
 import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
 import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables } from "./db";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
+import { ensureAssignmentCursor } from "./leadAssignmentService";
 import { registerWhatsappAiRoutes } from "./whatsappAiRoutes";
 import { registerDeveloperRegistrationRoutes } from "./developerRegistrationRoutes";
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
@@ -299,6 +300,11 @@ app.use((req, res, next) => {
   // Ensure CRM performance indexes exist (idempotent — IF NOT EXISTS)
   ensureCrmIndexes().catch(err =>
     console.error("[DB] ensureCrmIndexes failed:", err)
+  );
+
+  // Ensure the lead assignment cursor table exists (idempotent)
+  ensureAssignmentCursor().catch(err =>
+    console.error("[LeadAssignment] ensureAssignmentCursor failed:", err)
   );
 
   ensureMetaLeadsTables()

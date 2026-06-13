@@ -4554,7 +4554,7 @@ ${metaTags}
       }
 
       const { pickNextSubAgentId: pickAgent } = await import("./leadAssignmentService");
-      const autoAssignedTo = await pickAgent();
+      const autoAssignedTo = await pickAgent("Manual CRM");
 
       const lead = await storage.createCrmLead({
         fullName, firstName, lastName, phone, email, country, city,
@@ -4979,10 +4979,8 @@ ${metaTags}
         importUserList.find(u => u.slug === "kinglikeadmin") ??
         importUserList.find(u => u.isAdmin) ?? null;
 
-      // Round-robin sub-agent assignment — fetched once, only used when autoDistribute is on
-      const { getEligibleSubAgents: getImportAgents, cycleAgentId: cycleImport } = await import("./leadAssignmentService");
-      const importAgents = autoDistribute ? await getImportAgents() : [];
-      let importOffset = 0;
+      // Global cursor assignment — each lead advances the shared alternating counter
+      const { pickNextSubAgentId: pickImportAgent } = await import("./leadAssignmentService");
 
       let importedCount = 0, duplicates = 0, failed = 0;
       const failedRows: { row: number; reason: string }[] = [];
@@ -5055,8 +5053,8 @@ ${metaTags}
           // Parse budget → store the highest parsed numeric value as text
           const parsedBudget = parseBudgetToNumber(lead.budget ?? "");
 
-          // Round-robin ONLY when: no agent in Excel AND autoDistribute is enabled
-          const shouldRoundRobin = !hasExcelAgent && autoDistribute && importAgents.length > 0;
+          // Alternating round-robin ONLY when: no agent in Excel AND autoDistribute is enabled
+          const shouldRoundRobin = !hasExcelAgent && autoDistribute;
 
           const importedLead = await storage.createCrmLead({
             fullName:              lead.fullName              || null,
@@ -5076,7 +5074,7 @@ ${metaTags}
             leadScore:             "cold",
             status:                lead.status ? normalizeImportStatus(lead.status) : "new",
             assignedTo:            assignedToId !== null ? assignedToId
-                                   : shouldRoundRobin      ? cycleImport(importAgents, importOffset++)
+                                   : shouldRoundRobin      ? await pickImportAgent("Excel Import")
                                    : null,
             lastContactAt:         lastContactAtDate,
           });
@@ -5440,6 +5438,50 @@ ${metaTags}
           });
         }).catch(() => {});
       }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** GET /api/admin/crm/assignment-audit — cursor state + agent roster */
+  app.get("/api/admin/crm/assignment-audit", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const { getAssignmentCursorState } = await import("./leadAssignmentService");
+      const state = await getAssignmentCursorState();
+      res.json({ ok: true, ...state });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/assignment-validate — dry-run N assignments (no DB writes to leads) */
+  app.post("/api/admin/crm/assignment-validate", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const count = Math.max(1, Math.min(20, Number(req.body?.count ?? 6)));
+      const { getEligibleSubAgents, getAssignmentCursorState } = await import("./leadAssignmentService");
+      const [agents, state] = await Promise.all([getEligibleSubAgents(), getAssignmentCursorState()]);
+
+      if (!agents.length) {
+        return res.json({ ok: false, message: "No eligible sub-agents", simulation: [] });
+      }
+
+      const simulation: Array<{ slot: number; agent: string; userId: number }> = [];
+      let cursor = state.counter;
+      for (let i = 0; i < count; i++) {
+        const idx = cursor % agents.length;
+        simulation.push({ slot: i + 1, agent: agents[idx].username, userId: agents[idx].id });
+        cursor++;
+      }
+
+      res.json({
+        ok: true,
+        currentCounter: state.counter,
+        lastAgentId: state.lastAgentId,
+        agentOrder: agents.map(a => a.username),
+        simulation,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

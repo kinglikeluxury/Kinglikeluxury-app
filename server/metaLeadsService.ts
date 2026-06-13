@@ -5,7 +5,7 @@ import https from "https";
 import { initConversationForLead } from "./whatsappAiService";
 import { checkAndTrigger as waQualCheckAndTrigger } from "./waQualService";
 import { initDeveloperRegistrationsForLead } from "./developerRegistrationService";
-import { getEligibleSubAgents, pickNextSubAgentId, cycleAgentId } from "./leadAssignmentService";
+import { pickNextSubAgentId } from "./leadAssignmentService";
 
 export interface PullSyncResult {
   formsChecked: number;
@@ -176,7 +176,7 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       null;
 
     // ── Step C: insert into CRM leads ──────────────────────────────────────
-    const webhookAssignedTo = await pickNextSubAgentId();
+    const webhookAssignedTo = await pickNextSubAgentId("Meta Webhook");
 
     const crmPayload = {
       leadSource:      "meta_ads" as const,
@@ -477,9 +477,7 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
   const forms: any[] = formsData.data || [];
   result.formsChecked = forms.length;
 
-  // Round-robin sub-agent assignment — fetch agents once before the batch loop
-  const pullSyncAgents = await getEligibleSubAgents();
-  let pullSyncOffset = 0;
+  // Global cursor assignment — each lead advances the shared counter
 
   // Step 2: for each form, fetch and import leads
   for (const form of forms) {
@@ -532,8 +530,8 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             fields["full_name"] || fields["name"] ||
             [firstName, lastName].filter(Boolean).join(" ") || null;
 
-          // Insert CRM lead
-          const pullSyncAssignedTo = cycleAgentId(pullSyncAgents, pullSyncOffset++);
+          // Insert CRM lead — use global cursor so pull-sync and webhook share one counter
+          const pullSyncAssignedTo = await pickNextSubAgentId("Meta Pull Sync");
           const [crmLead] = await db.insert(crmLeads).values({
             leadSource:      "meta_ads" as const,
             externalLeadId:  leadId,
