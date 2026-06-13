@@ -843,7 +843,7 @@ export async function handleInboundMessage(opts: {
     return;
   }
 
-  // ── template_sent: button-gated opener ──────────────────────────────────
+  // ── template_sent: button-gated opener ───────────────────────────────────
   if (state === "template_sent") {
     // Log exact payload received from Meta for every reply to this template
     console.log(
@@ -899,6 +899,46 @@ export async function handleInboundMessage(opts: {
     await startConciergeConversation(session, conciergeFirstName);
     return;
   }
+
+  // ── Legacy Q-flow states → upgrade to AI concierge immediately ───────────
+  //
+  // All sessions that are still in the old button-driven qualification states
+  // are transparently upgraded to ai_concierge_active on first contact so the
+  // client receives a natural AI advisor reply instead of "عذراً، لم أفهم ردك".
+  //
+  // This covers:
+  //   greeting_sent, q1_sent, q2_sent, q3_sent, q4_sent, q4b_sent,
+  //   q5_sent, q6_sent, q7_sent, postponed
+  //
+  // The legacy handlers below are kept only as emergency dead code — they are
+  // never reached under normal operation.
+  //
+  const LEGACY_UPGRADE_STATES = new Set([
+    "greeting_sent", "q1_sent", "q2_sent", "q3_sent", "q4_sent",
+    "q4b_sent", "q5_sent", "q6_sent", "q7_sent", "postponed",
+  ]);
+
+  if (LEGACY_UPGRADE_STATES.has(state)) {
+    console.log(
+      `[WaQual][LEGACY_UPGRADE] sessionId=${session.id} phone=${digits} ` +
+      `state=${state} → ai_concierge_active`
+    );
+    // Upgrade session status in DB before passing to AI
+    await updateSession(session.id, {
+      status:           "ai_concierge_active",
+      current_question: "ai_concierge",
+      last_message_at:  new Date(),
+    });
+    // Route current message to AI concierge with the upgraded session
+    const { handleConciergeMessage } = await import("./waAiConcierge");
+    await handleConciergeMessage({ ...session, status: "ai_concierge_active" }, opts);
+    return;
+  }
+
+  // ── EMERGENCY FALLBACK ONLY — never reached under normal operation ────────
+  // The blocks below are preserved for situations where the AI concierge is
+  // explicitly disabled or OpenAI is unavailable.  In normal operation every
+  // session is either ai_concierge_active or template_sent.
 
   if (state === "greeting_sent") {
     if (answerId === "greet_yes" || rawText.match(/^(نعم|yes|اه|ايه|أيوا|يلا|هيا|ابدأ|اوك|ok|sure)/i)) {
@@ -1080,6 +1120,41 @@ export async function handleNudge(
         ? "مرحباً مجدداً 👋\n\nوجدنا بعض الفرص الجديدة التي قد تناسب ما تحدثنا عنه سابقاً.\nهل يمكننا إكمال الحوار؟ 🌟"
         : "مرحباً! 👋\n\nلا تزال لدينا فرص عقارية فاخرة قد تناسبكم.\nهل تودّون المتابعة مع *Kinglike Luxury*؟"
     );
+  }
+}
+
+// ── Public: one-time migration — legacy sessions → ai_concierge_active ────────
+//
+// Runs on startup (idempotent).  Any session stuck in an old Q-flow state is
+// upgraded so the next inbound message is handled by the AI concierge instead
+// of the legacy button-driven handlers.
+//
+// Safe: does NOT touch leads, CRM data, answers, conversations, or messages.
+//
+export async function migrateLegacySessionsToAiConcierge(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`
+      UPDATE wa_qual_sessions
+      SET status            = 'ai_concierge_active',
+          current_question  = 'ai_concierge',
+          conversation_history = COALESCE(conversation_history, '[]'::jsonb)
+      WHERE status IN (
+        'greeting_sent','q1_sent','q2_sent','q3_sent','q4_sent',
+        'q4b_sent','q5_sent','q6_sent','q7_sent','postponed'
+      )
+      RETURNING id
+    `);
+    const n = result.rowCount ?? 0;
+    if (n > 0) {
+      console.log(`[WaQual][MIGRATION] Upgraded ${n} legacy session(s) → ai_concierge_active`);
+    } else {
+      console.log("[WaQual][MIGRATION] No legacy sessions to migrate ✓");
+    }
+  } catch (err: any) {
+    console.warn("[WaQual][MIGRATION] Migration warn:", err.message);
+  } finally {
+    client.release();
   }
 }
 

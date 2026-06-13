@@ -326,6 +326,7 @@ app.use((req, res, next) => {
 
   ensureWaQualTables()
     .then(() => startWaQualScheduler())
+    .then(() => import("./waQualService").then(({ migrateLegacySessionsToAiConcierge }) => migrateLegacySessionsToAiConcierge()))
     .catch(err => console.error("[DB] ensureWaQualTables failed:", err));
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
