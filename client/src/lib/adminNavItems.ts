@@ -20,6 +20,7 @@ import {
   History,
   MessageCircle,
   Activity,
+  BotMessageSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -186,6 +187,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "CRM Health Dashboard",
     path: "/admin/crm-health",
     Icon: Activity,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.whatsappConcierge",
+    labelFallback: "WhatsApp AI Performance",
+    path: "/admin/whatsapp-concierge",
+    Icon: BotMessageSquare,
     iconColorHex: "#3bcac4",
     highlight: true,
   },

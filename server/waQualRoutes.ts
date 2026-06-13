@@ -232,6 +232,152 @@ export function registerWaQualRoutes(app: Express): void {
     }
   });
 
+  // ── GET /api/admin/wa-concierge-stats ─────────────────────────────────────
+  // Live AI concierge performance KPIs for the admin dashboard.
+  app.get("/api/admin/wa-concierge-stats", async (req: any, res: any) => {
+    if (!(await requireAdmin(req, res))) return;
+
+    const client = await pool.connect();
+    try {
+      // ── Session counts ─────────────────────────────────────────────────────
+      const sessionStats = await client.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '1 day')                             AS today_total,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')                            AS week_total,
+          COUNT(*) FILTER (
+            WHERE created_at >= NOW() - INTERVAL '1 day'
+              AND status NOT IN ('completed','timed_out','failed','opt_out','already_qualified','idle','postponed')
+          )                                                                                           AS today_active,
+          COUNT(*) FILTER (
+            WHERE created_at >= NOW() - INTERVAL '7 days'
+              AND status NOT IN ('completed','timed_out','failed','opt_out','already_qualified','idle','postponed')
+          )                                                                                           AS week_active,
+          COUNT(*) FILTER (WHERE status = 'completed')                                               AS all_completed,
+          COUNT(*) FILTER (WHERE status = 'timed_out')                                               AS all_timed_out,
+          COUNT(*) FILTER (WHERE status = 'opt_out')                                                 AS all_opt_out,
+          COUNT(*)                                                                                    AS all_total,
+          ROUND(AVG(COALESCE(turn_count, 0))::numeric, 1)                                            AS avg_turn_count,
+          ROUND(AVG(COALESCE(turn_count, 0)) FILTER (WHERE status = 'completed')::numeric, 1)        AS avg_turn_completed
+        FROM wa_qual_sessions
+      `);
+
+      // ── Hot-lead escalations ────────────────────────────────────────────────
+      const escalationTotal = await client.query(`
+        SELECT COUNT(*) AS total
+        FROM user_notifications
+        WHERE type = 'hot_lead_escalation'
+      `);
+
+      const escalationBreakdown = await client.query(`
+        SELECT
+          data->>'escalationType' AS escalation_type,
+          COUNT(*)                AS cnt
+        FROM user_notifications
+        WHERE type = 'hot_lead_escalation'
+          AND data->>'escalationType' IS NOT NULL
+          AND data->>'escalationType' != ''
+        GROUP BY escalation_type
+        ORDER BY cnt DESC
+        LIMIT 10
+      `);
+
+      // ── Top cities extracted by AI ──────────────────────────────────────────
+      const topCities = await client.query(`
+        SELECT normalised_value AS city, COUNT(*) AS cnt
+        FROM wa_qual_answers
+        WHERE question_key = 'city_country'
+          AND normalised_value IS NOT NULL
+          AND normalised_value != ''
+        GROUP BY city
+        ORDER BY cnt DESC
+        LIMIT 8
+      `);
+
+      // ── Top goals extracted ─────────────────────────────────────────────────
+      const topGoals = await client.query(`
+        SELECT normalised_value AS goal, COUNT(*) AS cnt
+        FROM wa_qual_answers
+        WHERE question_key = 'goal'
+          AND normalised_value IS NOT NULL
+          AND normalised_value != ''
+        GROUP BY goal
+        ORDER BY cnt DESC
+        LIMIT 6
+      `);
+
+      // ── Score distribution ──────────────────────────────────────────────────
+      const scoreDistrib = await client.query(`
+        SELECT qual_score AS score, COUNT(*) AS cnt
+        FROM wa_qual_summaries
+        WHERE qual_score IS NOT NULL
+        GROUP BY qual_score
+        ORDER BY cnt DESC
+      `);
+
+      // ── Recent escalations (last 10) ────────────────────────────────────────
+      const recentEscalations = await client.query(`
+        SELECT
+          n.created_at,
+          n.data->>'escalationType'  AS escalation_type,
+          n.data->>'leadId'          AS lead_id,
+          l.full_name                AS lead_name,
+          l.phone                    AS lead_phone
+        FROM user_notifications n
+        LEFT JOIN crm_leads l ON l.id = (n.data->>'leadId')::int
+        WHERE n.type = 'hot_lead_escalation'
+        ORDER BY n.created_at DESC
+        LIMIT 10
+      `);
+
+      const s = sessionStats.rows[0];
+      res.json({
+        sessions: {
+          todayTotal:      Number(s.today_total),
+          weekTotal:       Number(s.week_total),
+          todayActive:     Number(s.today_active),
+          weekActive:      Number(s.week_active),
+          allCompleted:    Number(s.all_completed),
+          allTimedOut:     Number(s.all_timed_out),
+          allOptOut:       Number(s.all_opt_out),
+          allTotal:        Number(s.all_total),
+          avgTurnCount:    Number(s.avg_turn_count ?? 0),
+          avgTurnCompleted: Number(s.avg_turn_completed ?? 0),
+        },
+        escalations: {
+          total:     Number(escalationTotal.rows[0]?.total ?? 0),
+          breakdown: escalationBreakdown.rows.map(r => ({
+            type:  r.escalation_type as string,
+            count: Number(r.cnt),
+          })),
+          recent: recentEscalations.rows.map(r => ({
+            createdAt:     r.created_at as string,
+            escalationType: r.escalation_type as string,
+            leadId:        r.lead_id ? Number(r.lead_id) : null,
+            leadName:      r.lead_name as string | null,
+            leadPhone:     r.lead_phone as string | null,
+          })),
+        },
+        topCities: topCities.rows.map(r => ({
+          city:  r.city  as string,
+          count: Number(r.cnt),
+        })),
+        topGoals: topGoals.rows.map(r => ({
+          goal:  r.goal  as string,
+          count: Number(r.cnt),
+        })),
+        scoreDistribution: scoreDistrib.rows.map(r => ({
+          score: r.score as string,
+          count: Number(r.cnt),
+        })),
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    } finally {
+      client.release();
+    }
+  });
+
   // ── POST /api/admin/whatsapp-test-send ────────────────────────────────────
   // AUDIT endpoint — sends the template directly and returns the full Meta
   // API response including WAMID, WABA ID, Phone Number ID.
