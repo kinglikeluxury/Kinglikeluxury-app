@@ -6984,5 +6984,197 @@ ${metaTags}
     }
   });
 
+  // GET /api/admin/ai-marketing/strategy-insights — pattern analysis from historical data
+  // Read-only. Admin only. No Meta writes. Railway compatible.
+  app.get("/api/admin/ai-marketing/strategy-insights", isAdmin, async (_req, res) => {
+    try {
+      const NA = `('no_answer_1','no_answer_2','no_answer_3','no_answer_4',
+                   'after_3_no_answer_whatsapp_contacted','new_fresh_after_3_no_answer','no_answer_converted')`;
+
+      const [byCamp, byAdset, history, t7, t30, t90] = await Promise.all([
+        pool.query(`
+          SELECT campaign_name AS name, COUNT(*) AS total,
+            COUNT(*) FILTER(WHERE lead_score='hot')        AS hot,
+            COUNT(*) FILTER(WHERE lead_score='warm')       AS warm,
+            COUNT(*) FILTER(WHERE lead_score='cold')       AS cold,
+            COUNT(*) FILTER(WHERE status IN ${NA})         AS no_answer
+          FROM crm_leads
+          WHERE campaign_name IS NOT NULL AND campaign_name <> ''
+          GROUP BY campaign_name ORDER BY total DESC LIMIT 30
+        `),
+        pool.query(`
+          SELECT adset_name AS name, COUNT(*) AS total,
+            COUNT(*) FILTER(WHERE lead_score='hot')        AS hot,
+            COUNT(*) FILTER(WHERE lead_score='warm')       AS warm,
+            COUNT(*) FILTER(WHERE lead_score='cold')       AS cold
+          FROM crm_leads
+          WHERE adset_name IS NOT NULL AND adset_name <> ''
+          GROUP BY adset_name ORDER BY total DESC LIMIT 30
+        `),
+        pool.query(`
+          SELECT entity_type, entity_name, leads_count, hot_count, warm_count, cold_count,
+                 no_answer_count, spend, quality_score, cpl, cost_per_hot_lead
+          FROM ai_marketing_learning_history WHERE leads_count > 0
+          ORDER BY updated_at DESC LIMIT 100
+        `),
+        pool.query(`
+          SELECT COUNT(*) AS total, COUNT(*) FILTER(WHERE lead_score='hot') AS hot
+          FROM crm_leads
+          WHERE created_at >= NOW() - INTERVAL '7 days'
+            AND campaign_name IS NOT NULL AND campaign_name <> ''
+        `),
+        pool.query(`
+          SELECT COUNT(*) AS total, COUNT(*) FILTER(WHERE lead_score='hot') AS hot
+          FROM crm_leads
+          WHERE created_at >= NOW() - INTERVAL '30 days'
+            AND campaign_name IS NOT NULL AND campaign_name <> ''
+        `),
+        pool.query(`
+          SELECT COUNT(*) AS total, COUNT(*) FILTER(WHERE lead_score='hot') AS hot
+          FROM crm_leads
+          WHERE created_at >= NOW() - INTERVAL '90 days'
+            AND campaign_name IS NOT NULL AND campaign_name <> ''
+        `),
+      ]);
+
+      // ── Helpers ───────────────────────────────────────────────────────────────
+      const conf = (n: number) => n < 5 ? "low" : n < 20 ? "medium" : "high";
+
+      type Trend = "improving" | "declining" | "stable";
+      const trendDir = (recent: number, baseline: number): Trend => {
+        if (baseline === 0) return "stable";
+        const diff = recent - baseline;
+        if (diff >  0.05) return "improving";
+        if (diff < -0.05) return "declining";
+        return "stable";
+      };
+
+      // ── Trend rates ───────────────────────────────────────────────────────────
+      const mk = (row: any) => ({ total: Number(row?.total ?? 0), hot: Number(row?.hot ?? 0) });
+      const r7 = mk(t7.rows[0]),  r30 = mk(t30.rows[0]), r90 = mk(t90.rows[0]);
+      const rate7  = r7.total  > 0 ? r7.hot  / r7.total  : 0;
+      const rate30 = r30.total > 0 ? r30.hot / r30.total : 0;
+      const rate90 = r90.total > 0 ? r90.hot / r90.total : 0;
+
+      // ── Build insight cards ───────────────────────────────────────────────────
+      type Insight = { type: string; title: string; description: string; evidence: string; confidence: string; dataPoints: number };
+      const insights: Insight[] = [];
+
+      const campRows = byCamp.rows
+        .map((r: any) => ({ name: r.name as string, total: Number(r.total), hot: Number(r.hot), warm: Number(r.warm), cold: Number(r.cold), noAns: Number(r.no_answer) }))
+        .filter(r => r.total >= 3);
+
+      if (campRows.length > 0) {
+        const byHotRate = [...campRows].sort((a, b) => (b.hot/b.total) - (a.hot/a.total));
+        const best = byHotRate[0], worst = byHotRate[byHotRate.length - 1];
+
+        insights.push({
+          type: "best_campaign",
+          title: "Best Performing Campaign",
+          description: `"${best.name}" leads with the highest HOT lead rate among all campaigns.`,
+          evidence: `${best.total} total leads · ${best.hot} HOT (${Math.round((best.hot/best.total)*100)}%) · ${best.warm} WARM · ${best.cold} COLD.`,
+          confidence: conf(best.total), dataPoints: best.total,
+        });
+
+        if (worst.name !== best.name) {
+          insights.push({
+            type: "worst_campaign",
+            title: "Lowest Performing Campaign",
+            description: `"${worst.name}" has the lowest HOT rate. Consider reviewing creative and audience.`,
+            evidence: `${worst.total} total leads · only ${worst.hot} HOT (${Math.round((worst.hot/worst.total)*100)}%) · ${worst.noAns} no-answer.`,
+            confidence: conf(worst.total), dataPoints: worst.total,
+          });
+        }
+
+        const highNoAns = [...campRows].filter(r => r.noAns > 0).sort((a, b) => (b.noAns/b.total) - (a.noAns/a.total))[0];
+        if (highNoAns && highNoAns.noAns / highNoAns.total > 0.3) {
+          insights.push({
+            type: "highest_no_answer",
+            title: "Highest No-Answer Source",
+            description: `"${highNoAns.name}" has an unusually high no-answer rate — contacts may not be reachable.`,
+            evidence: `${highNoAns.noAns} of ${highNoAns.total} leads (${Math.round((highNoAns.noAns/highNoAns.total)*100)}%) are not answering.`,
+            confidence: conf(highNoAns.total), dataPoints: highNoAns.total,
+          });
+        }
+      }
+
+      const adsetRows = byAdset.rows
+        .map((r: any) => ({ name: r.name as string, total: Number(r.total), hot: Number(r.hot), warm: Number(r.warm) }))
+        .filter(r => r.total >= 3);
+
+      if (adsetRows.length > 0) {
+        const bestAdset = [...adsetRows].sort((a, b) => (b.hot/b.total) - (a.hot/a.total))[0];
+        insights.push({
+          type: "best_audience",
+          title: "Best Performing Audience",
+          description: `Ad set "${bestAdset.name}" produces the highest HOT lead rate — this audience shows strong intent.`,
+          evidence: `${bestAdset.total} leads · ${bestAdset.hot} HOT (${Math.round((bestAdset.hot/bestAdset.total)*100)}%) · ${bestAdset.warm} WARM.`,
+          confidence: conf(bestAdset.total), dataPoints: bestAdset.total,
+        });
+      }
+
+      const histRows = history.rows
+        .map((r: any) => ({
+          type: r.entity_type as string, name: r.entity_name as string,
+          leads: Number(r.leads_count), hot: Number(r.hot_count), warm: Number(r.warm_count),
+          cold: Number(r.cold_count), noAns: Number(r.no_answer_count),
+          spend: Number(r.spend), qs: Number(r.quality_score),
+          cpl: Number(r.cpl), cphl: Number(r.cost_per_hot_lead),
+        }))
+        .filter(r => r.leads >= 3);
+
+      const projects = histRows.filter(r => r.type === "project");
+      if (projects.length > 0) {
+        const bestProj = [...projects].sort((a, b) => (b.hot/b.leads) - (a.hot/a.leads))[0];
+        insights.push({
+          type: "best_project",
+          title: "Best Performing Project",
+          description: `Project "${bestProj.name}" generates the highest HOT lead rate among tracked projects.`,
+          evidence: `${bestProj.leads} leads · ${bestProj.hot} HOT (${Math.round((bestProj.hot/bestProj.leads)*100)}%) · Quality Score: ${bestProj.qs > 0 ? bestProj.qs.toFixed(1) : "N/A"}.`,
+          confidence: conf(bestProj.leads), dataPoints: bestProj.leads,
+        });
+      }
+
+      const withCphl = histRows.filter(r => r.cphl > 0 && r.hot > 0);
+      if (withCphl.length > 0) {
+        const bestCost = [...withCphl].sort((a, b) => a.cphl - b.cphl)[0];
+        insights.push({
+          type: "best_cost_efficiency",
+          title: "Best Cost Efficiency",
+          description: `"${bestCost.name}" (${bestCost.type}) achieves the lowest cost per HOT lead.`,
+          evidence: `Cost per HOT Lead: $${bestCost.cphl.toFixed(2)} · CPL: ${bestCost.cpl > 0 ? `$${bestCost.cpl.toFixed(2)}` : "N/A"} · ${bestCost.hot} HOT leads from ${bestCost.leads} total.`,
+          confidence: conf(bestCost.leads), dataPoints: bestCost.leads,
+        });
+      }
+
+      const withQs = histRows.filter(r => r.qs > 0);
+      if (withQs.length > 0) {
+        const bestQs = [...withQs].sort((a, b) => b.qs - a.qs)[0];
+        insights.push({
+          type: "best_quality_score",
+          title: "Highest Lead Quality Score",
+          description: `"${bestQs.name}" (${bestQs.type}) has the best overall lead quality score.`,
+          evidence: `Quality Score: ${bestQs.qs.toFixed(1)} · ${bestQs.hot} HOT · ${bestQs.warm} WARM · ${bestQs.cold} COLD · from ${bestQs.leads} leads.`,
+          confidence: conf(bestQs.leads), dataPoints: bestQs.leads,
+        });
+      }
+
+      if (insights.length === 0) return res.json({ insufficient: true, insights: [], trends: null });
+
+      res.json({
+        insufficient: false,
+        insights,
+        trends: {
+          last7d:  { hotRate: rate7,  leadsCount: r7.total,  trend: trendDir(rate7, rate30)  },
+          last30d: { hotRate: rate30, leadsCount: r30.total, trend: trendDir(rate30, rate90) },
+          last90d: { hotRate: rate90, leadsCount: r90.total, trend: "stable" as Trend },
+        },
+      });
+    } catch (err: any) {
+      console.error("[StrategyInsights] error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return httpServer;
 }

@@ -69,6 +69,15 @@ interface CostIntelligence {
   bestCphl: CostRow | null; worstCphl: CostRow | null; bestCpl: CostRow | null;
   highestNoAnswerCost: CostRow | null; bestQuality: CostRow | null; worstQuality: CostRow | null;
 }
+interface StrategyInsight {
+  type: string; title: string; description: string; evidence: string;
+  confidence: "low" | "medium" | "high"; dataPoints: number;
+}
+interface StrategyTrend { hotRate: number; leadsCount: number; trend: "improving" | "declining" | "stable"; }
+interface StrategyData {
+  insufficient: boolean; insights: StrategyInsight[];
+  trends: { last7d: StrategyTrend; last30d: StrategyTrend; last90d: StrategyTrend } | null;
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -80,6 +89,7 @@ const SUB_TABS = [
   { key: "learning",    label: "Learning History",     Icon: BookOpen },
   { key: "recrules",    label: "AI Recommendations",   Icon: Lightbulb },
   { key: "costintel",   label: "Cost Intelligence",    Icon: Target },
+  { key: "strategy",    label: "AI Strategy",          Icon: TrendingUp },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -273,6 +283,12 @@ export default function RevenueIntelligence() {
   const { data: costIntel, isLoading: costLoading } = useQuery<CostIntelligence>({
     queryKey: ["/api/admin/ai-marketing/cost-intelligence"],
     enabled: sub === "costintel",
+  });
+
+  // ── AI Strategy ──────────────────────────────────────────────────────────────
+  const { data: strategy, isLoading: stratLoading } = useQuery<StrategyData>({
+    queryKey: ["/api/admin/ai-marketing/strategy-insights"],
+    enabled: sub === "strategy",
   });
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1083,6 +1099,108 @@ export default function RevenueIntelligence() {
               <div className="mt-3 p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] flex-shrink-0" />
                 <span>Read-only calculations. No CRM records, Meta ads, or budget values are modified. All figures are computed from Learning History data you entered.</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── AI Strategy ─────────────────────────────────────────────────────────── */}
+      {sub === "strategy" && (
+        <div>
+          <div className="mb-4">
+            <h3 className="font-bold text-slate-800 text-base">AI Strategy Engine</h3>
+            <p className="text-sm text-slate-500">Pattern analysis from historical data. Read-only — no actions are taken automatically.</p>
+          </div>
+
+          {stratLoading ? (
+            <div className="text-center py-12 text-slate-400">Analyzing historical data…</div>
+          ) : !strategy || strategy.insufficient ? (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center text-slate-400">
+                <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">Not enough historical data.</p>
+                <p className="text-sm mt-1">Strategy insights appear once campaign attribution data with at least 3 leads per campaign is available.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* ── Trend cards ─────────────────────────────────────────────── */}
+              {strategy.trends && (
+                <div className="mb-6">
+                  <h4 className="font-semibold text-slate-700 text-sm mb-2">HOT Lead Rate Trend</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {([
+                      { label: "Last 7 Days",  t: strategy.trends.last7d  },
+                      { label: "Last 30 Days", t: strategy.trends.last30d },
+                      { label: "Last 90 Days", t: strategy.trends.last90d },
+                    ] as const).map(({ label, t }) => {
+                      const trendCls = t.trend === "improving" ? "text-green-700 bg-green-50 border-green-200"
+                                     : t.trend === "declining" ? "text-red-700 bg-red-50 border-red-200"
+                                     : "text-slate-600 bg-slate-50 border-slate-200";
+                      const TIcon = t.trend === "improving" ? TrendingUp : t.trend === "declining" ? TrendingDown : Activity;
+                      const trendLabel = t.trend === "improving" ? "Improving ↑" : t.trend === "declining" ? "Declining ↓" : "Stable →";
+                      return (
+                        <Card key={label} className={`border ${trendCls}`}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-2 mb-1">
+                              <TIcon className={`h-4 w-4 ${trendCls.split(" ")[0]}`} />
+                              <span className="text-xs font-semibold text-slate-600">{label}</span>
+                            </div>
+                            {t.leadsCount > 0 ? (
+                              <>
+                                <p className={`text-xl font-extrabold ${trendCls.split(" ")[0]}`}>{Math.round(t.hotRate * 100)}%</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">{t.leadsCount} attributed leads</p>
+                                <p className={`text-xs font-medium mt-1 ${trendCls.split(" ")[0]}`}>{trendLabel}</p>
+                              </>
+                            ) : (
+                              <p className="text-sm text-slate-400 mt-1">No data</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5">Trend direction: 7d vs 30d baseline · 30d vs 90d baseline. ±5% threshold for Improving/Declining.</p>
+                </div>
+              )}
+
+              {/* ── Insight cards ────────────────────────────────────────────── */}
+              <h4 className="font-semibold text-slate-700 text-sm mb-3">Strategic Insights</h4>
+              <div className="space-y-3">
+                {strategy.insights.map((ins, i) => {
+                  const confCls = ins.confidence === "high"   ? "bg-green-100 text-green-800"
+                                : ins.confidence === "medium" ? "bg-yellow-100 text-yellow-800"
+                                : "bg-slate-100 text-slate-600";
+                  const confLabel = ins.confidence === "high" ? "High Confidence"
+                                  : ins.confidence === "medium" ? "Medium Confidence" : "Low Confidence";
+                  return (
+                    <Card key={i} className="border border-[#3bcac4]/20 bg-gradient-to-r from-white to-[#3bcac4]/5">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2">
+                            <Target className="h-4 w-4 text-[#005476] flex-shrink-0" />
+                            <p className="font-semibold text-slate-800">{ins.title}</p>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${confCls}`}>
+                            {confLabel}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-700 mb-1.5">{ins.description}</p>
+                        <div className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                          <p className="text-xs text-slate-500 font-medium mb-0.5">Evidence</p>
+                          <p className="text-xs text-slate-700">{ins.evidence}</p>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1.5">{ins.dataPoints} data points · No actions taken automatically</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] flex-shrink-0" />
+                <span>Strategy intelligence only. No Meta campaigns, budgets, creatives, or audiences are modified. All insights are based on existing historical data.</span>
               </div>
             </>
           )}
