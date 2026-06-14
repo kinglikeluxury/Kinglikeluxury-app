@@ -5,9 +5,10 @@ import {
   Rocket, Target, Palette, Users, BarChart3, Lightbulb, ShieldCheck,
   Plus, Pencil, Trash2, X, CheckCircle2, AlertTriangle, Info,
   DollarSign, Globe, Languages, Calendar, FileText, ChevronDown,
-  TrendingUp, Flame, Thermometer, Snowflake, PhoneOff, UserCheck,
+  TrendingUp, Flame, Thermometer, Snowflake, PhoneOff, UserCheck, Wifi,
 } from "lucide-react";
 import RevenueIntelligence from "./ai-marketing-revenue";
+import MetaConnection from "./ai-marketing-meta";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,7 @@ const TABS = [
   { key: "recommendations",label: "AI Recommendations",      Icon: Lightbulb },
   { key: "safety",         label: "Safety Settings",         Icon: ShieldCheck },
   { key: "revenue",        label: "Revenue Intelligence",    Icon: TrendingUp },
+  { key: "meta",           label: "Meta Connection",         Icon: Wifi },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -897,6 +899,17 @@ export default function AiMarketingCenter() {
               <p className="text-sm text-slate-500">Phase 2 — Attribution, sales tracking, and AI-powered revenue insights.</p>
             </div>
             <RevenueIntelligence />
+          </div>
+        )}
+
+        {/* ── Meta Connection ────────────────────────────────────────────── */}
+        {tab === "meta" && (
+          <div>
+            <div className="mb-5">
+              <h2 className="text-lg font-bold text-slate-800">Meta Marketing API Connection</h2>
+              <p className="text-sm text-slate-500">Phase 3 — Read-only verification of campaigns, ad sets, ads and insights. No write actions.</p>
+            </div>
+            <MetaConnection />
           </div>
         )}
       </div>

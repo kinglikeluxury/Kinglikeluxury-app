@@ -6545,5 +6545,66 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // ── Meta Marketing Read-Only routes ──────────────────────────────────────
+
+  // Diagnostic: verifies all four reads, never exposes credentials
+  app.get("/api/admin/ai-marketing/meta-read-test", isAdmin, async (_req, res) => {
+    try {
+      const { runMetaReadTest } = await import("./metaMarketingService");
+      const result = await runMetaReadTest();
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Config status — booleans only, never token values
+  app.get("/api/admin/ai-marketing/meta-config", isAdmin, async (_req, res) => {
+    try {
+      const { getMetaMarketingConfig } = await import("./metaMarketingService");
+      res.json(getMetaMarketingConfig());
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Campaigns — read-only GET
+  app.get("/api/admin/ai-marketing/meta-campaigns", isAdmin, async (req, res) => {
+    try {
+      const { getCampaigns } = await import("./metaMarketingService");
+      const limit = Math.min(50, parseInt((req.query.limit as string) || "25"));
+      const result = await getCampaigns(limit);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Ad Sets — read-only GET
+  app.get("/api/admin/ai-marketing/meta-adsets", isAdmin, async (req, res) => {
+    try {
+      const { getAdSets } = await import("./metaMarketingService");
+      const limit = Math.min(50, parseInt((req.query.limit as string) || "25"));
+      const result = await getAdSets(limit);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Ads — read-only GET
+  app.get("/api/admin/ai-marketing/meta-ads", isAdmin, async (req, res) => {
+    try {
+      const { getAds } = await import("./metaMarketingService");
+      const limit = Math.min(50, parseInt((req.query.limit as string) || "25"));
+      const result = await getAds(limit);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Insights — read-only GET
+  app.get("/api/admin/ai-marketing/meta-insights", isAdmin, async (req, res) => {
+    try {
+      const { getInsights } = await import("./metaMarketingService");
+      const datePreset = (req.query.date_preset as string) || "last_30d";
+      const level      = (req.query.level      as string) || "campaign";
+      const limit      = Math.min(50, parseInt((req.query.limit as string) || "25"));
+      const result     = await getInsights({ datePreset, level, limit });
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   return httpServer;
 }
