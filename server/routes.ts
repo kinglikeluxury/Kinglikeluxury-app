@@ -6987,29 +6987,31 @@ ${metaTags}
   // GET /api/admin/ai-marketing/creative-attribution — creative dashboard (read-only, admin only)
   app.get("/api/admin/ai-marketing/creative-attribution", isAdmin, async (_req, res) => {
     try {
-      const [creatives, summary] = await Promise.all([
+      const [creatives, summary, attrCount] = await Promise.all([
         pool.query(`
           SELECT
             ca.id, ca.creative_id, ca.creative_name, ca.ad_id, ca.ad_name,
             ca.adset_id, ca.adset_name, ca.campaign_id, ca.campaign_name,
             ca.thumbnail_url, ca.status, ca.last_synced_at,
-            COUNT(cl.id)                                        AS total_leads,
-            COUNT(cl.id) FILTER(WHERE cl.lead_score = 'hot')   AS hot_leads,
-            COUNT(cl.id) FILTER(WHERE cl.lead_score = 'warm')  AS warm_leads,
-            COUNT(cl.id) FILTER(WHERE cl.lead_score = 'cold')  AS cold_leads
+            COUNT(DISTINCT cl.id)                                            AS total_leads,
+            COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score = 'hot')        AS hot_leads,
+            COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score = 'warm')       AS warm_leads,
+            COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score = 'cold')       AS cold_leads
           FROM ai_creative_attribution ca
-          LEFT JOIN crm_leads cl ON cl.ad_id = ca.ad_id
+          LEFT JOIN ai_campaign_attribution aca ON aca.ad_id = ca.ad_id
+          LEFT JOIN crm_leads cl              ON cl.id       = aca.crm_lead_id
           GROUP BY ca.id
           ORDER BY total_leads DESC, ca.ad_name
           LIMIT 100
         `),
         pool.query(`
           SELECT
-            COUNT(*)                                                       AS total_ads,
-            COUNT(DISTINCT creative_id) FILTER(WHERE creative_id IS NOT NULL) AS unique_creatives,
-            COUNT(DISTINCT campaign_id) FILTER(WHERE campaign_id IS NOT NULL) AS campaigns
+            COUNT(*)                                                              AS total_ads,
+            COUNT(DISTINCT creative_id) FILTER(WHERE creative_id IS NOT NULL)    AS unique_creatives,
+            COUNT(DISTINCT campaign_id) FILTER(WHERE campaign_id IS NOT NULL)    AS campaigns
           FROM ai_creative_attribution
         `),
+        pool.query(`SELECT COUNT(*) AS attribution_count FROM ai_campaign_attribution`),
       ]);
 
       res.json({
@@ -7024,9 +7026,10 @@ ${metaTags}
           warmLeads: Number(r.warm_leads), coldLeads: Number(r.cold_leads),
         })),
         summary: {
-          totalAds:        Number(summary.rows[0]?.total_ads        ?? 0),
-          uniqueCreatives: Number(summary.rows[0]?.unique_creatives  ?? 0),
-          campaigns:       Number(summary.rows[0]?.campaigns         ?? 0),
+          totalAds:          Number(summary.rows[0]?.total_ads         ?? 0),
+          uniqueCreatives:   Number(summary.rows[0]?.unique_creatives   ?? 0),
+          campaigns:         Number(summary.rows[0]?.campaigns          ?? 0),
+          attributionCount:  Number(attrCount.rows[0]?.attribution_count ?? 0),
         },
       });
     } catch (err: any) {
@@ -7081,6 +7084,61 @@ ${metaTags}
     } catch (err: any) {
       console.error("[CreativeAttribution] sync error:", err.message);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/attribution-backfill — safe backfill from lead_import_queue (admin only)
+  // Reads: lead_import_queue (read-only), crm_leads (read-only)
+  // Writes: ai_campaign_attribution (insert missing records only)
+  // Idempotent — safe to run multiple times. No Meta calls. No CRM changes.
+  app.get("/api/admin/ai-marketing/attribution-backfill", isAdmin, async (_req, res) => {
+    try {
+      // Fetch all queue rows that have crm_lead_id + ad_id + campaign_id
+      const candidates = await pool.query(`
+        SELECT liq.crm_lead_id, liq.ad_id, liq.campaign_id,
+               COALESCE(liq.processed_at::timestamptz, liq.created_at::timestamptz, NOW()) AS attributed_at,
+               cl.campaign_name, cl.adset_name, cl.ad_name, cl.lead_source
+        FROM lead_import_queue liq
+        JOIN crm_leads cl ON cl.id = liq.crm_lead_id
+        WHERE liq.crm_lead_id IS NOT NULL
+          AND liq.ad_id IS NOT NULL AND liq.ad_id <> ''
+          AND liq.campaign_id IS NOT NULL AND liq.campaign_id <> ''
+      `);
+
+      let scanned = 0, inserted = 0, skipped = 0;
+
+      for (const row of candidates.rows) {
+        scanned++;
+        // Check if this crm_lead_id + ad_id combination already exists
+        const exists = await pool.query(
+          `SELECT 1 FROM ai_campaign_attribution WHERE crm_lead_id = $1 AND ad_id = $2 LIMIT 1`,
+          [row.crm_lead_id, row.ad_id]
+        );
+        if (exists.rows.length > 0) { skipped++; continue; }
+
+        await pool.query(`
+          INSERT INTO ai_campaign_attribution
+            (crm_lead_id, campaign_id, campaign_name, adset_id, adset_name, ad_id, ad_name, lead_source, attributed_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        `, [
+          row.crm_lead_id,
+          row.campaign_id,
+          row.campaign_name ?? null,
+          null,               // adset_id — not available in queue
+          row.adset_name ?? null,
+          row.ad_id,
+          row.ad_name ?? null,
+          row.lead_source ?? null,
+          row.attributed_at,
+        ]);
+        inserted++;
+      }
+
+      console.log(`[AttributionBackfill] scanned=${scanned} inserted=${inserted} skipped=${skipped}`);
+      res.json({ ok: true, scanned, inserted, skipped });
+    } catch (err: any) {
+      console.error("[AttributionBackfill] error:", err.message);
+      res.status(500).json({ ok: false, error: err.message, scanned: 0, inserted: 0, skipped: 0 });
     }
   });
 

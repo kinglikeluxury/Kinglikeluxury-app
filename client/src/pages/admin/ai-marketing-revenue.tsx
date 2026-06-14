@@ -88,7 +88,10 @@ interface CreativeRow {
 }
 interface CreativeData {
   rows: CreativeRow[];
-  summary: { totalAds: number; uniqueCreatives: number; campaigns: number };
+  summary: { totalAds: number; uniqueCreatives: number; campaigns: number; attributionCount: number };
+}
+interface BackfillResult {
+  ok: boolean; scanned: number; inserted: number; skipped: number; error?: string;
 }
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
@@ -312,6 +315,9 @@ export default function RevenueIntelligence() {
   });
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+
   async function runCreativeSync() {
     setSyncing(true); setSyncStatus(null);
     try {
@@ -327,6 +333,24 @@ export default function RevenueIntelligence() {
       setSyncStatus(`Sync error: ${e.message}`);
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function runAttributionBackfill() {
+    setBackfilling(true); setBackfillStatus(null);
+    try {
+      const r = await fetch("/api/admin/ai-marketing/attribution-backfill", { credentials: "include" });
+      const d: BackfillResult = await r.json();
+      if (d.ok) {
+        setBackfillStatus(`Backfill complete — ${d.scanned} scanned, ${d.inserted} inserted, ${d.skipped} skipped.`);
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/creative-attribution"] });
+      } else {
+        setBackfillStatus(`Backfill failed: ${d.error ?? "Unknown error"}`);
+      }
+    } catch (e: any) {
+      setBackfillStatus(`Backfill error: ${e.message}`);
+    } finally {
+      setBackfilling(false);
     }
   }
 
@@ -1254,27 +1278,42 @@ export default function RevenueIntelligence() {
               <h3 className="font-bold text-slate-800 text-base">Creative Attribution</h3>
               <p className="text-sm text-slate-500">Maps Meta ad creatives to campaigns and lead outcomes. Read-only — no Meta actions.</p>
             </div>
-            <div className="flex flex-col items-end gap-1">
-              <Button size="sm" variant="outline" onClick={runCreativeSync} disabled={syncing}
-                className="flex items-center gap-1.5 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4]/10">
-                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Syncing…" : "Sync from Meta"}
-              </Button>
-              {syncStatus && (
-                <p className={`text-xs ${syncStatus.startsWith("Sync complete") ? "text-green-700" : "text-red-600"}`}>
-                  {syncStatus}
-                </p>
-              )}
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex flex-col items-end gap-0.5">
+                <Button size="sm" variant="outline" onClick={runAttributionBackfill} disabled={backfilling}
+                  className="flex items-center gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-50">
+                  <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? "animate-spin" : ""}`} />
+                  {backfilling ? "Backfilling…" : "Run Attribution Backfill"}
+                </Button>
+                {backfillStatus && (
+                  <p className={`text-xs ${backfillStatus.startsWith("Backfill complete") ? "text-green-700" : "text-red-600"}`}>
+                    {backfillStatus}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-0.5">
+                <Button size="sm" variant="outline" onClick={runCreativeSync} disabled={syncing}
+                  className="flex items-center gap-1.5 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4]/10">
+                  <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Syncing…" : "Sync from Meta"}
+                </Button>
+                {syncStatus && (
+                  <p className={`text-xs ${syncStatus.startsWith("Sync complete") ? "text-green-700" : "text-red-600"}`}>
+                    {syncStatus}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Summary KPI cards */}
           {creativeData && (
-            <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-4 gap-3 mb-5">
               {[
-                { label: "Ads Tracked",         value: creativeData.summary.totalAds,        icon: Layers, color: "text-[#005476]" },
-                { label: "Unique Creatives",     value: creativeData.summary.uniqueCreatives, icon: Globe,  color: "text-[#3bcac4]" },
-                { label: "Campaigns Covered",    value: creativeData.summary.campaigns,       icon: Megaphone, color: "text-slate-600" },
+                { label: "Ads Tracked",          value: creativeData.summary.totalAds,           icon: Layers,    color: "text-[#005476]" },
+                { label: "Unique Creatives",      value: creativeData.summary.uniqueCreatives,    icon: Globe,     color: "text-[#3bcac4]" },
+                { label: "Campaigns Covered",     value: creativeData.summary.campaigns,          icon: Megaphone, color: "text-slate-600" },
+                { label: "Attribution Records",   value: creativeData.summary.attributionCount,   icon: Link2,     color: creativeData.summary.attributionCount > 0 ? "text-green-700" : "text-slate-400" },
               ].map(({ label, value, icon: Icon, color }) => (
                 <Card key={label}>
                   <CardContent className="p-4">
@@ -1289,15 +1328,26 @@ export default function RevenueIntelligence() {
             </div>
           )}
 
+          {/* Attribution pipeline status notice */}
+          {creativeData && creativeData.summary.attributionCount === 0 && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-800">
+                <p className="font-semibold">Campaign attribution is not populated yet.</p>
+                <p className="mt-0.5">Click <strong>Run Attribution Backfill</strong> to import attribution data from the lead import queue into the attribution chain. This connects creatives → ads → campaigns → leads.</p>
+              </div>
+            </div>
+          )}
+
           {creativeLoading ? (
             <div className="text-center py-12 text-slate-400">Loading creative data…</div>
           ) : !creativeData || creativeData.rows.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center text-slate-400">
                 <Layers className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No creative data yet.</p>
-                <p className="text-sm mt-1">Click "Sync from Meta" to pull ad creative information from your Meta account.</p>
-                <p className="text-xs mt-2 text-slate-400">Requires META_ACCESS_TOKEN and META_AD_ACCOUNT_ID to be configured.</p>
+                <p className="font-medium">No creative attribution data yet. Run Creative Sync after Meta read-only connection is active.</p>
+                <p className="text-sm mt-2 text-slate-500">Also run <strong>Attribution Backfill</strong> to connect leads already in the queue to the attribution chain.</p>
+                <p className="text-xs mt-2 text-slate-400">Requires META_ACCESS_TOKEN and META_AD_ACCOUNT_ID to be configured for creative sync.</p>
               </CardContent>
             </Card>
           ) : (
