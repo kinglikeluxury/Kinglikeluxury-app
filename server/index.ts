@@ -107,6 +107,7 @@ app.use(
         connectSrc: [
           "'self'",
           "https://api.cloudinary.com",
+          "https://res.cloudinary.com",
           "https://challenges.cloudflare.com",
           "https://api.ip-api.com",
           "http://ip-api.com",

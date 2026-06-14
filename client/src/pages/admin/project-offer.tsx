@@ -569,6 +569,12 @@ export default function ProjectOfferPage() {
   const generatePDF = async () => {
     if (!selectedProject) return;
     setGenerating(true);
+    console.log("[PDF] generatePDF started", {
+      projectId: selectedProject.id,
+      projectTitle: selectedProject.title,
+      selectedLanguage: pdfLang,
+      imageUrls: selectedProject.images?.slice(0, 2),
+    });
     try {
       // 1. Load Arabic fonts into this document before capture
       if (!document.getElementById("arabic-fonts-pdf")) {
@@ -582,6 +588,7 @@ export default function ProjectOfferPage() {
 
       // 2. Pre-load all images as base64 (required for html-to-image cross-origin)
       const rawUrls: string[] = selectedProject.images?.slice(0, 2) ?? [];
+      console.log("[PDF] raw image URLs to convert:", rawUrls);
       const isSilk        = /silk/i.test(selectedProject.title ?? "")         || /سيلك/i.test(selectedProject.title ?? "");
       const isPetra       = /petra\s*sea/i.test(selectedProject.title ?? "")  || /بترا\s*سي/i.test(selectedProject.title ?? "");
       const isAmbassadori = /ambassadori/i.test(selectedProject.title ?? "")  || /أمباسادوري/i.test(selectedProject.title ?? "");
@@ -617,6 +624,7 @@ export default function ProjectOfferPage() {
       await new Promise((r) => setTimeout(r, 800));
 
       // 4. Capture via html-to-image (SVG foreignObject → proper Arabic shaping)
+      console.log("[PDF] starting toPng capture...");
       const dataUrl = await toPng(el, {
         pixelRatio: 3,
         backgroundColor: "#ffffff",
@@ -626,6 +634,7 @@ export default function ProjectOfferPage() {
           @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap');
         `,
       });
+      console.log("[PDF] toPng captured, dataUrl length:", dataUrl?.length, "prefix:", dataUrl?.slice(0, 30));
       el.style.display = "none";
 
       // 5. Build filename: ProjectName - Block(optional) - Floor - AptNumber - Area - Price
@@ -653,7 +662,9 @@ export default function ProjectOfferPage() {
       const totalMm = Math.round((img.naturalHeight / img.naturalWidth) * pw);
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pw, totalMm] });
       pdf.addImage(dataUrl, "PNG", 0, 0, pw, totalMm, undefined, "FAST");
+      console.log("[PDF] saving file:", filename, "| dims:", pw, "×", totalMm, "mm");
       pdf.save(filename);
+      console.log("[PDF] download triggered successfully");
     } finally {
       setGenerating(false);
       setB64Images([]);
