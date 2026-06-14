@@ -1,6 +1,29 @@
 import dotenv from "dotenv";
 dotenv.config();
 console.log("[Startup] RESEND_API_KEY:", process.env.RESEND_API_KEY ? `SET (len=${process.env.RESEND_API_KEY.length})` : "NOT SET");
+
+// ── Neon WebSocket crash guard ────────────────────────────────────────────────
+// @neondatabase/serverless has a known bug where it tries to set ErrorEvent.message
+// (read-only getter in the ws library) when a WebSocket connection drops.
+// This throws an uncaught TypeError that kills the Node process.
+// We catch ONLY that specific error and log it — all other uncaught exceptions
+// are re-thrown so genuine application bugs still surface and crash as expected.
+process.on("uncaughtException", (err: Error) => {
+  const isNeonWsReadOnlyError =
+    err instanceof TypeError &&
+    err.message.includes("Cannot set property message of") &&
+    err.stack?.includes("@neondatabase/serverless");
+
+  if (isNeonWsReadOnlyError) {
+    console.warn("[NeonWS] Suppressed known Neon WebSocket ErrorEvent.message bug — server continues running.", err.message);
+    return;
+  }
+
+  // Re-throw everything else so the process exits on real errors
+  console.error("[Process] Uncaught exception:", err);
+  process.exit(1);
+});
+// ─────────────────────────────────────────────────────────────────────────────
 import express, { type Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
