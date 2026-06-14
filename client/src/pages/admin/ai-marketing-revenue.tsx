@@ -57,6 +57,18 @@ interface CampaignAttribution {
   byCampaign: CampaignRow[]; byAdset: CampaignRow[]; byAd: CampaignRow[];
   revenueEnabled: boolean;
 }
+interface CostRow {
+  entityType: string; entityName: string;
+  leadsCount: number; hotCount: number; warmCount: number; coldCount: number; noAnswerCount: number;
+  spend: number;
+  cpl: number | null; costPerHotLead: number | null; costPerWarmLead: number | null;
+  costPerColdLead: number | null; costPerNoAnswer: number | null; qualityScore: number | null;
+}
+interface CostIntelligence {
+  insufficient: boolean; allRows: CostRow[];
+  bestCphl: CostRow | null; worstCphl: CostRow | null; bestCpl: CostRow | null;
+  highestNoAnswerCost: CostRow | null; bestQuality: CostRow | null; worstQuality: CostRow | null;
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -67,6 +79,7 @@ const SUB_TABS = [
   { key: "sales",       label: "Sales Outcomes",       Icon: ShoppingCart },
   { key: "learning",    label: "Learning History",     Icon: BookOpen },
   { key: "recrules",    label: "AI Recommendations",   Icon: Lightbulb },
+  { key: "costintel",   label: "Cost Intelligence",    Icon: Target },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -254,6 +267,12 @@ export default function RevenueIntelligence() {
   const { data: revRecs = [], isLoading: recsLoading } = useQuery<RevRec[]>({
     queryKey: ["/api/admin/ai-marketing/revenue-recommendations"],
     enabled: sub === "recrules",
+  });
+
+  // ── Cost Intelligence ────────────────────────────────────────────────────────
+  const { data: costIntel, isLoading: costLoading } = useQuery<CostIntelligence>({
+    queryKey: ["/api/admin/ai-marketing/cost-intelligence"],
+    enabled: sub === "costintel",
   });
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -915,6 +934,157 @@ export default function RevenueIntelligence() {
                 <span>These are suggestions only. No campaign changes are made automatically. All Meta actions require manual approval.</span>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Cost Intelligence ────────────────────────────────────────────────── */}
+      {sub === "costintel" && (
+        <div>
+          <div className="mb-4">
+            <h3 className="font-bold text-slate-800 text-base">Cost Intelligence</h3>
+            <p className="text-sm text-slate-500">Read-only cost rankings from your Learning History. No data is modified.</p>
+          </div>
+
+          {costLoading ? (
+            <div className="text-center py-12 text-slate-400">Loading…</div>
+          ) : !costIntel || costIntel.insufficient ? (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center text-slate-400">
+                <Target className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">Insufficient data.</p>
+                <p className="text-sm mt-1">Add Learning History records with spend data to unlock Cost Intelligence rankings.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* ── 5 KPI spotlight cards ───────────────────────────────────── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+                {[
+                  {
+                    label: "Best: Cheapest HOT Lead",
+                    row: costIntel.bestCphl,
+                    metric: (r: CostRow) => r.costPerHotLead,
+                    prefix: "$", suffix: " / HOT",
+                    cls: "text-green-700", bg: "bg-green-50 border-green-200",
+                    Icon: Flame, tip: "Lowest Cost per HOT Lead",
+                  },
+                  {
+                    label: "Worst: Most Expensive HOT Lead",
+                    row: costIntel.worstCphl,
+                    metric: (r: CostRow) => r.costPerHotLead,
+                    prefix: "$", suffix: " / HOT",
+                    cls: "text-red-700", bg: "bg-red-50 border-red-200",
+                    Icon: TrendingDown, tip: "Highest Cost per HOT Lead — budget may be wasted",
+                  },
+                  {
+                    label: "Cheapest Cost Per Lead",
+                    row: costIntel.bestCpl,
+                    metric: (r: CostRow) => r.cpl,
+                    prefix: "$", suffix: " / lead",
+                    cls: "text-[#005476]", bg: "bg-[#005476]/5 border-[#005476]/20",
+                    Icon: DollarSign, tip: "Lowest CPL overall",
+                  },
+                  {
+                    label: "Highest No-Answer Cost",
+                    row: costIntel.highestNoAnswerCost,
+                    metric: (r: CostRow) => r.costPerNoAnswer,
+                    prefix: "$", suffix: " / no-answer",
+                    cls: "text-yellow-700", bg: "bg-yellow-50 border-yellow-200",
+                    Icon: PhoneOff, tip: "Most budget wasted on no-answer leads",
+                  },
+                  {
+                    label: "Best Quality Score",
+                    row: costIntel.bestQuality,
+                    metric: (r: CostRow) => r.qualityScore,
+                    prefix: "", suffix: " pts",
+                    cls: "text-[#3bcac4]", bg: "bg-[#3bcac4]/10 border-[#3bcac4]/30",
+                    Icon: CheckCircle2, tip: "Highest quality score",
+                  },
+                  {
+                    label: "Lowest Quality Score",
+                    row: costIntel.worstQuality,
+                    metric: (r: CostRow) => r.qualityScore,
+                    prefix: "", suffix: " pts",
+                    cls: "text-slate-500", bg: "bg-slate-50 border-slate-200",
+                    Icon: Activity, tip: "Needs improvement",
+                  },
+                ].map(({ label, row, metric, prefix, suffix, cls, bg, Icon: I, tip }) => (
+                  <Card key={label} className={`border ${bg}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <I className={`h-4 w-4 ${cls}`} />
+                        <span className="text-xs font-semibold text-slate-600">{label}</span>
+                      </div>
+                      {row ? (
+                        <>
+                          <p className={`text-lg font-extrabold ${cls}`}>
+                            {metric(row) != null ? `${prefix}${Number(metric(row)!).toFixed(2)}${suffix}` : "Insufficient data"}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1 truncate">{row.entityType}: {row.entityName}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{row.leadsCount} leads · {row.hotCount} HOT · Spent ${row.spend.toFixed(2)}</p>
+                          <p className="text-[10px] text-slate-400 italic mt-0.5">{tip}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-slate-400">Insufficient data</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* ── Full cost breakdown table ─────────────────────────────── */}
+              <div className="mb-3">
+                <h4 className="font-semibold text-slate-700 text-sm">All Entities — Full Cost Breakdown</h4>
+                <p className="text-xs text-slate-400">Formula: CPL = Spend ÷ Leads · CPHL = Spend ÷ HOT Leads · Quality Score from Learning History</p>
+              </div>
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                    <tr>
+                      {["Entity","Type","Leads","HOT","Spend","CPL","Cost/HOT","Cost/WARM","Cost/COLD","Cost/No-Ans","Quality"].map(h => (
+                        <th key={h} className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {costIntel.allRows.map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[180px] truncate">{r.entityName}</td>
+                        <td className="px-3 py-2.5 text-xs text-slate-500">{r.entityType}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{r.leadsCount}</td>
+                        <td className="px-3 py-2.5">
+                          <span className={`font-semibold ${r.hotCount > 0 ? "text-red-600" : "text-slate-300"}`}>{r.hotCount}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-700">{r.spend > 0 ? `$${r.spend.toFixed(2)}` : "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{r.cpl != null ? `$${r.cpl.toFixed(2)}` : "—"}</td>
+                        <td className="px-3 py-2.5">
+                          {r.costPerHotLead != null ? (
+                            <span className={`font-semibold ${r.costPerHotLead < 30 ? "text-green-700" : r.costPerHotLead < 80 ? "text-yellow-700" : "text-red-700"}`}>
+                              ${r.costPerHotLead.toFixed(2)}
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-500">{r.costPerWarmLead != null ? `$${r.costPerWarmLead.toFixed(2)}` : "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{r.costPerColdLead != null ? `$${r.costPerColdLead.toFixed(2)}` : "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{r.costPerNoAnswer != null ? `$${r.costPerNoAnswer.toFixed(2)}` : "—"}</td>
+                        <td className="px-3 py-2.5">
+                          {r.qualityScore != null ? (
+                            <span className={`font-semibold ${r.qualityScore >= 7 ? "text-green-700" : r.qualityScore >= 4 ? "text-yellow-700" : "text-red-700"}`}>
+                              {r.qualityScore.toFixed(1)}
+                            </span>
+                          ) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] flex-shrink-0" />
+                <span>Read-only calculations. No CRM records, Meta ads, or budget values are modified. All figures are computed from Learning History data you entered.</span>
+              </div>
+            </>
           )}
         </div>
       )}

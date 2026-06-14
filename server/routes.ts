@@ -6509,7 +6509,7 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // Revenue Recommendations — rule-based from learning_history
+  // Revenue Recommendations — rule-based from learning_history (with cost evidence)
   app.get("/api/admin/ai-marketing/revenue-recommendations", isAdmin, async (_req, res) => {
     try {
       const { rows } = await pool.query(
@@ -6517,32 +6517,111 @@ ${metaTags}
       );
       const recs: { type: string; title: string; message: string; severity: string; entity: string }[] = [];
       for (const r of rows) {
-        const leads = Number(r.leads_count), hot = Number(r.hot_count),
-              noAns = Number(r.no_answer_count), sales = Number(r.sales_count),
-              revenue = Number(r.revenue_total), spend = Number(r.spend),
-              cphl = Number(r.cost_per_hot_lead), warm = Number(r.warm_count);
+        const leads = Number(r.leads_count), hot   = Number(r.hot_count),
+              warm  = Number(r.warm_count),  cold  = Number(r.cold_count),
+              noAns = Number(r.no_answer_count),
+              sales = Number(r.sales_count), revenue = Number(r.revenue_total),
+              spend = Number(r.spend),       cphl  = Number(r.cost_per_hot_lead),
+              qs    = Number(r.quality_score);
         const entity = `${r.entity_type}: ${r.entity_name}`;
+
+        // ── Cost evidence helpers ─────────────────────────────────────────────
+        const $s  = (v: number) => `$${v.toFixed(2)}`;
+        const spendLine = spend > 0 ? ` Spent ${$s(spend)}.` : "";
+        const cplLine   = spend > 0 && leads > 0 ? ` CPL = ${$s(spend/leads)}.` : "";
+        const cphlLine  = spend > 0 && hot  > 0 ? ` Cost per HOT Lead = ${$s(spend/hot)}.`
+                        : spend > 0 && hot === 0 ? " Cost per HOT Lead = ∞ (no HOT leads)." : "";
+        const cpwLine   = spend > 0 && warm > 0 ? ` Cost per WARM Lead = ${$s(spend/warm)}.` : "";
+        const cpcLine   = spend > 0 && cold > 0 ? ` Cost per COLD Lead = ${$s(spend/cold)}.` : "";
+        const cpnaLine  = spend > 0 && noAns> 0 ? ` Cost per No Answer = ${$s(spend/noAns)}.` : "";
+        const qsLine    = qs   > 0              ? ` Quality Score: ${qs.toFixed(1)}.`         : "";
+
         if (leads > 5 && noAns > leads * 0.5)
           recs.push({ type:"high_no_answer", title:"📋 High No-Answer Rate", severity:"warning",
-            message:`${entity} has ${Math.round((noAns/leads)*100)}% no-answer rate. Consider changing lead form questions.`, entity });
+            message:`${entity} has ${noAns}/${leads} leads (${Math.round((noAns/leads)*100)}%) not answering.${spendLine}${cpnaLine} Consider changing lead form questions or contact strategy.`, entity });
+
         if (hot > 0 && leads > 0 && (hot/leads) > 0.3)
           recs.push({ type:"scale", title:"🔥 Strong HOT Lead Ratio", severity:"info",
-            message:`${entity} has ${Math.round((hot/leads)*100)}% HOT leads — consider increasing budget.`, entity });
+            message:`${entity} has ${hot}/${leads} HOT leads (${Math.round((hot/leads)*100)}%).${spendLine}${cphlLine} Consider increasing budget manually.`, entity });
+
         if (leads > 10 && sales === 0)
           recs.push({ type:"review_quality", title:"⚠️ High Leads, Zero Sales", severity:"warning",
-            message:`${entity} generated ${leads} leads but no sales. Review audience quality.`, entity });
+            message:`${entity} generated ${leads} leads but no sales.${spendLine}${cplLine} Review audience quality.`, entity });
+
         if (revenue > 0 && spend > 0 && (revenue/spend) > 5)
           recs.push({ type:"strong_roas", title:"💰 Strong ROAS", severity:"info",
-            message:`${entity} shows ${(revenue/spend).toFixed(1)}x ROAS. Scale this campaign.`, entity });
+            message:`${entity} shows ${(revenue/spend).toFixed(1)}x ROAS.${spendLine}${cphlLine} Scale this campaign manually.`, entity });
+
         if (warm > hot * 2 && leads > 5)
           recs.push({ type:"conversion", title:"🟡 Many WARM Leads Unconverted", severity:"warning",
-            message:`${entity} has ${warm} WARM vs ${hot} HOT — improve follow-up to convert warm leads.`, entity });
+            message:`${entity} has ${warm} WARM vs ${hot} HOT leads.${spendLine}${cpwLine} Improve follow-up to convert warm leads.`, entity });
+
         if (cphl > 0 && cphl < 15 && hot > 0)
           recs.push({ type:"low_cphl", title:"✅ Low Cost per HOT Lead", severity:"info",
-            message:`${entity} costs $${cphl} per HOT lead — excellent efficiency. Increase budget.`, entity });
+            message:`${entity} costs ${$s(cphl)} per HOT lead.${cplLine}${qsLine} Excellent efficiency — consider increasing budget manually.`, entity });
+
+        if (spend > 0 && hot === 0 && leads > 3)
+          recs.push({ type:"zero_hot_spend", title:"🚫 Budget Spent with No HOT Leads", severity:"critical",
+            message:`${entity} spent ${$s(spend)} generating ${leads} leads but zero HOT leads.${cplLine}${cpcLine} Review this campaign's creative and audience urgently.`, entity });
       }
       res.json(recs.slice(0, 20));
     } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // GET /api/admin/ai-marketing/cost-intelligence — ranked cost metrics from learning_history
+  // Read-only. Admin only. No Meta writes. Railway compatible.
+  app.get("/api/admin/ai-marketing/cost-intelligence", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(`
+        SELECT entity_type, entity_name, leads_count, hot_count, warm_count, cold_count,
+               no_answer_count, spend, cpl, cost_per_hot_lead, cost_per_appointment,
+               cost_per_sale, quality_score
+        FROM ai_marketing_learning_history
+        WHERE leads_count > 0
+        ORDER BY updated_at DESC LIMIT 100
+      `);
+
+      if (rows.length === 0) return res.json({ insufficient: true, allRows: [], bestCphl: null, worstCphl: null, bestCpl: null, highestNoAnswerCost: null, bestQuality: null, worstQuality: null });
+
+      const enriched = rows.map((r: any) => {
+        const leads = Number(r.leads_count), hot = Number(r.hot_count),
+              warm  = Number(r.warm_count),  cold = Number(r.cold_count),
+              noAns = Number(r.no_answer_count), spend = Number(r.spend),
+              cphlStored = Number(r.cost_per_hot_lead), qs = Number(r.quality_score);
+        return {
+          entityType:       r.entity_type,
+          entityName:       r.entity_name,
+          leadsCount:       leads, hotCount: hot, warmCount: warm, coldCount: cold, noAnswerCount: noAns,
+          spend,
+          cpl:              spend > 0 && leads > 0 ? spend / leads           : null,
+          costPerHotLead:   cphlStored > 0          ? cphlStored             : spend > 0 && hot  > 0 ? spend / hot  : null,
+          costPerWarmLead:  spend > 0 && warm > 0   ? spend / warm           : null,
+          costPerColdLead:  spend > 0 && cold > 0   ? spend / cold           : null,
+          costPerNoAnswer:  spend > 0 && noAns > 0  ? spend / noAns          : null,
+          qualityScore:     qs > 0                  ? qs                     : null,
+        };
+      });
+
+      const withSpend = enriched.filter((r: any) => r.spend > 0);
+      const withCphl  = withSpend.filter((r: any) => r.costPerHotLead !== null);
+      const withQs    = enriched.filter((r: any) => r.qualityScore    !== null);
+      const withCpl   = withSpend.filter((r: any) => r.cpl            !== null);
+      const withNa    = withSpend.filter((r: any) => r.costPerNoAnswer !== null);
+
+      res.json({
+        insufficient:       withSpend.length === 0,
+        allRows:            enriched,
+        bestCphl:           withCphl.length > 0 ? [...withCphl].sort((a: any, b: any) => a.costPerHotLead - b.costPerHotLead)[0] : null,
+        worstCphl:          withCphl.length > 0 ? [...withCphl].sort((a: any, b: any) => b.costPerHotLead - a.costPerHotLead)[0] : null,
+        bestCpl:            withCpl.length  > 0 ? [...withCpl ].sort((a: any, b: any) => a.cpl            - b.cpl)[0]            : null,
+        highestNoAnswerCost: withNa.length  > 0 ? [...withNa  ].sort((a: any, b: any) => b.costPerNoAnswer - a.costPerNoAnswer)[0] : null,
+        bestQuality:        withQs.length   > 0 ? [...withQs  ].sort((a: any, b: any) => b.qualityScore   - a.qualityScore)[0]    : null,
+        worstQuality:       withQs.length   > 0 ? [...withQs  ].sort((a: any, b: any) => a.qualityScore   - b.qualityScore)[0]    : null,
+      });
+    } catch (err: any) {
+      console.error("[CostIntelligence] error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // ── Meta Marketing Read-Only routes ──────────────────────────────────────
