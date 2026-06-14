@@ -5547,12 +5547,21 @@ ${metaTags}
         }
       }
 
-      // Sub-agents must provide a comment — except for name edits and No Answer status changes
+      // Sub-agents must provide a comment — except for routine field edits and non-critical status changes
       const _bodyKeys = Object.keys(req.body);
-      const _isNameOnlyChange = _bodyKeys.length > 0 && _bodyKeys.every((k: string) => ["fullName","firstName","lastName"].includes(k));
-      const _noAnswerStatuses = ["no_answer_1","no_answer_2","no_answer_3","no_answer"];
-      const _isNoAnswerChange = _bodyKeys.length === 1 && _bodyKeys[0] === "status" && _noAnswerStatuses.includes(req.body.status);
-      if (!req.session.isAdmin && req.session.role === "sub_agent" && !_comment && !_isNameOnlyChange && !_isNoAnswerChange) {
+      // Fields that sub-agents may save without a comment (mirrors frontend NO_REASON_FIELDS)
+      const SUB_AGENT_NO_REASON_FIELDS = [
+        "fullName","firstName","lastName","phone","email","country",
+        "interestedCountry","city","projectInterest","budget",
+        "expectedPurchaseMonth","leadSource","description","notes",
+      ];
+      // Statuses that require a written reason (mirrors frontend REQUIRES_REASON)
+      const REQUIRES_REASON_STATUSES = [
+        "purchased","reserved","deposited","junk_lead","lost_competition","not_qualified","re_sale",
+      ];
+      const _isNoReasonFieldChange = _bodyKeys.length > 0 && _bodyKeys.every((k: string) => SUB_AGENT_NO_REASON_FIELDS.includes(k));
+      const _isRoutineStatusChange  = _bodyKeys.length === 1 && _bodyKeys[0] === "status" && !REQUIRES_REASON_STATUSES.includes(req.body.status);
+      if (!req.session.isAdmin && req.session.role === "sub_agent" && !_comment && !_isNoReasonFieldChange && !_isRoutineStatusChange) {
         return res.status(400).json({ message: "A comment/reason is required for all changes" });
       }
 

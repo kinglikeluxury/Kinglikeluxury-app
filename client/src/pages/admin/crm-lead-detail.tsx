@@ -502,6 +502,7 @@ export default function CrmLeadDetailPage() {
   // ── WA Qualification hooks ───────────────────────────────────────────────
   const [qualOpen, setQualOpen] = useState(false);
   const [qualConvOpen, setQualConvOpen] = useState(false);
+  const [aiConvOpen, setAiConvOpen] = useState(false);
   const [qualScoreOverride, setQualScoreOverride] = useState("");
 
   const { data: qualData, isLoading: qualLoading, refetch: qualRefetch } = useQuery<{
@@ -2065,76 +2066,139 @@ export default function CrmLeadDetailPage() {
               </div>
 
               <div className="px-5 py-4 space-y-4">
-                {qualLoading ? (
+                {(qualLoading || aiLoading) ? (
                   <div className="flex items-center justify-center py-6">
                     <Loader2 className="h-5 w-5 animate-spin text-[#3bcac4]" />
                   </div>
-                ) : !qualData?.session ? (
+                ) : !qualData?.session && !aiData?.conversation ? (
                   <div className="text-center text-slate-400 text-sm py-4">
                     <SiWhatsapp className="h-8 w-8 mx-auto mb-2 opacity-20" />
                     <p>No WhatsApp AI conversation found for this lead.</p>
                   </div>
                 ) : (
                   <>
-                    {/* Score / State row */}
-                    <div className="flex flex-wrap gap-3">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">Status</span>
-                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
-                          qualData.session.state === "completed"        ? "bg-green-100 text-green-700" :
-                          qualData.session.state === "in_progress" || qualData.session.state.includes("_sent") ? "bg-[#3bcac4]/10 text-[#005476]" :
-                          qualData.session.state === "timed_out"        ? "bg-amber-100 text-amber-700" :
-                          qualData.session.state === "opt_out"          ? "bg-gray-100 text-gray-500" :
-                                                                          "bg-slate-100 text-slate-500"
-                        }`}>
-                          {qualData.session.state.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      {qualData.session.qualified_score && (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-muted-foreground">Score</span>
-                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                            qualData.session.qualified_score === "vip"  ? "bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white" :
-                            qualData.session.qualified_score === "hot"  ? "bg-red-100 text-red-700" :
-                            qualData.session.qualified_score === "warm" ? "bg-amber-100 text-amber-700" :
-                                                                          "bg-sky-100 text-sky-700"
-                          }`}>
-                            <Crown className="h-3 w-3" />
-                            {qualData.session.qualified_score.toUpperCase()}
-                          </span>
+                    {/* ── System A: WA Qualification (wa_qual_sessions) ───────── */}
+                    {qualData?.session && (
+                      <div className="space-y-3">
+                        {/* Score / State row */}
+                        <div className="flex flex-wrap gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs text-muted-foreground">Status</span>
+                            <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
+                              qualData.session.state === "completed"        ? "bg-green-100 text-green-700" :
+                              qualData.session.state === "in_progress" || qualData.session.state.includes("_sent") ? "bg-[#3bcac4]/10 text-[#005476]" :
+                              qualData.session.state === "timed_out"        ? "bg-amber-100 text-amber-700" :
+                              qualData.session.state === "opt_out"          ? "bg-gray-100 text-gray-500" :
+                                                                              "bg-slate-100 text-slate-500"
+                            }`}>
+                              {qualData.session.state.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                          {qualData.session.qualified_score && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs text-muted-foreground">Score</span>
+                              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                                qualData.session.qualified_score === "vip"  ? "bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white" :
+                                qualData.session.qualified_score === "hot"  ? "bg-red-100 text-red-700" :
+                                qualData.session.qualified_score === "warm" ? "bg-amber-100 text-amber-700" :
+                                                                              "bg-sky-100 text-sky-700"
+                              }`}>
+                                <Crown className="h-3 w-3" />
+                                {qualData.session.qualified_score.toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                          {qualData.session.opt_out && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                              <UserX className="h-3 w-3" /> Opted out
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {qualData.session.opt_out && (
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                          <UserX className="h-3 w-3" /> Opted out
-                        </span>
-                      )}
-                    </div>
-
-                    {/* AI Summary text */}
-                    {qualData.summary && (
-                      <div className="rounded-lg bg-[#005476]/5 border border-[#3bcac4]/20 px-4 py-3">
-                        <p className="text-xs font-semibold text-[#005476] mb-1.5">AI Summary</p>
-                        <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{qualData.summary}</p>
+                        {/* AI Summary */}
+                        {qualData.summary && (
+                          <div className="rounded-lg bg-[#005476]/5 border border-[#3bcac4]/20 px-4 py-3">
+                            <p className="text-xs font-semibold text-[#005476] mb-1.5">AI Summary</p>
+                            <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{qualData.summary}</p>
+                          </div>
+                        )}
+                        {/* Qualification answers grid */}
+                        {qualData.answers.length > 0 && (
+                          <div className="grid grid-cols-2 gap-2">
+                            {qualData.answers.map((a) => (
+                              <div key={a.question_key} className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                                <p className="text-[10px] text-muted-foreground capitalize">{a.question_key.replace(/_/g, " ")}</p>
+                                <p className="text-xs font-medium text-[#005476] mt-0.5">{a.answer_label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Qualification answers grid (Budget, Goal, Timeline, etc.) */}
-                    {qualData.answers.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {qualData.answers.map((a) => (
-                          <div key={a.question_key} className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
-                            <p className="text-[10px] text-muted-foreground capitalize">{a.question_key.replace(/_/g, " ")}</p>
-                            <p className="text-xs font-medium text-[#005476] mt-0.5">{a.answer_label}</p>
+                    {/* ── System B: WhatsApp AI Conversation (whatsapp_ai_conversations) ── */}
+                    {aiData?.conversation && (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs text-muted-foreground">AI Status</span>
+                            <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
+                              aiData.conversation.status === "completed"   ? "bg-green-100 text-green-700"    :
+                              aiData.conversation.status === "active"      ? "bg-[#3bcac4]/10 text-[#005476]" :
+                              aiData.conversation.status === "needs_human" ? "bg-amber-100 text-amber-700"    :
+                              aiData.conversation.status === "stopped"     ? "bg-gray-100 text-gray-500"      :
+                                                                             "bg-slate-100 text-slate-500"
+                            }`}>
+                              {aiData.conversation.status.replace(/_/g, " ")}
+                            </span>
                           </div>
-                        ))}
+                          {aiData.report?.priorityScore && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs text-muted-foreground">Priority</span>
+                              <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
+                                aiData.report.priorityScore === "high"   ? "bg-red-100 text-red-700"     :
+                                aiData.report.priorityScore === "medium" ? "bg-amber-100 text-amber-700" :
+                                                                           "bg-sky-100 text-sky-700"
+                              }`}>
+                                {aiData.report.priorityScore.toUpperCase()} PRIORITY
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {aiData.report?.summaryText && (
+                          <div className="rounded-lg bg-[#005476]/5 border border-[#3bcac4]/20 px-4 py-3">
+                            <p className="text-xs font-semibold text-[#005476] mb-1.5">AI Summary</p>
+                            <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{aiData.report.summaryText}</p>
+                          </div>
+                        )}
+                        {aiData.report && (() => {
+                          const fields = [
+                            { label: "Country",          value: aiData.report!.country },
+                            { label: "City",             value: aiData.report!.city },
+                            { label: "Budget",           value: aiData.report!.budget },
+                            { label: "Investment Goal",  value: aiData.report!.investmentGoal },
+                            { label: "Buying Timeframe", value: aiData.report!.buyingTimeframe },
+                            { label: "Best Call Time",   value: aiData.report!.bestCallTime },
+                            { label: "Property Type",    value: aiData.report!.propertyType },
+                            { label: "Client Interest",  value: aiData.report!.clientInterest },
+                          ].filter(f => f.value);
+                          return fields.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              {fields.map(f => (
+                                <div key={f.label} className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                                  <p className="text-[10px] text-muted-foreground">{f.label}</p>
+                                  <p className="text-xs font-medium text-[#005476] mt-0.5">{f.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     )}
                   </>
                 )}
               </div>
 
-              {/* Conversation transcript */}
+              {/* System A — WA Qual Conversation Transcript */}
               {(qualData?.conversationHistory?.length ?? 0) > 0 && (
                 <>
                   <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between">
@@ -2159,6 +2223,56 @@ export default function CrmLeadDetailPage() {
                     <div className="px-5 pb-4">
                       <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                         {qualData!.conversationHistory.map((msg, i) => {
+                          const isAssistant = msg.role === "assistant";
+                          return (
+                            <div key={i} className={`flex ${isAssistant ? "justify-start" : "justify-end"}`}>
+                              <div className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs whitespace-pre-wrap break-words leading-relaxed ${
+                                isAssistant
+                                  ? "bg-gradient-to-br from-[#005476]/8 to-[#3bcac4]/8 text-[#005476] border border-[#3bcac4]/20"
+                                  : "bg-[#005476] text-white"
+                              }`}>
+                                <div className="flex items-center gap-1.5 mb-0.5 opacity-60">
+                                  {isAssistant
+                                    ? <><Bot className="h-2.5 w-2.5" /><span className="text-[9px] font-medium">Maha (AI)</span></>
+                                    : <span className="text-[9px] font-medium">Lead</span>
+                                  }
+                                </div>
+                                {msg.content}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* System B — WhatsApp AI Conversation Transcript */}
+              {(aiData?.messages?.length ?? 0) > 0 && (
+                <>
+                  <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#005476] bg-[#3bcac4]/10 border border-[#3bcac4]/30 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                        <Bot className="h-2.5 w-2.5" /> AI Chat
+                      </span>
+                      <p className="text-xs font-medium text-[#005476]">
+                        AI Conversation Transcript ({aiData!.messages.length} messages)
+                      </p>
+                    </div>
+                    <Button
+                      size="sm" variant="outline"
+                      className="gap-1.5 text-xs h-7 border-[#3bcac4]/50 text-[#005476] hover:bg-[#3bcac4]/10"
+                      onClick={() => setAiConvOpen(v => !v)}
+                    >
+                      {aiConvOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {aiConvOpen ? "Hide" : "Show"}
+                    </Button>
+                  </div>
+                  {aiConvOpen && (
+                    <div className="px-5 pb-4">
+                      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        {aiData!.messages.map((msg, i) => {
                           const isAssistant = msg.role === "assistant";
                           return (
                             <div key={i} className={`flex ${isAssistant ? "justify-start" : "justify-end"}`}>
