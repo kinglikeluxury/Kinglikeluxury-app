@@ -5,7 +5,7 @@ import {
   TrendingUp, Link2, ShoppingCart, BookOpen, Lightbulb, Plus, Trash2,
   Pencil, DollarSign, Flame, Thermometer, Snowflake, PhoneOff,
   UserCheck, Calendar, Globe, Info, AlertTriangle, CheckCircle2,
-  BarChart3, Target, Activity, Building2,
+  BarChart3, Target, Activity, Building2, Megaphone, TrendingDown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,15 +48,25 @@ interface RevDashboard {
 interface RevRec {
   type: string; title: string; message: string; severity: string; entity: string;
 }
+interface CampaignRow {
+  name: string; entityId: string | null;
+  leadsCount: number; hotLeads: number; warmLeads: number; coldLeads: number;
+  noAnswerCount: number; appointmentsCount: number; salesCount: number; revenueTotal: number;
+}
+interface CampaignAttribution {
+  byCampaign: CampaignRow[]; byAdset: CampaignRow[]; byAd: CampaignRow[];
+  revenueEnabled: boolean;
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
 const SUB_TABS = [
-  { key: "dashboard",   label: "Dashboard",          Icon: BarChart3 },
-  { key: "attribution", label: "Lead Attribution",    Icon: Link2 },
-  { key: "sales",       label: "Sales Outcomes",      Icon: ShoppingCart },
-  { key: "learning",    label: "Learning History",    Icon: BookOpen },
-  { key: "recrules",    label: "AI Recommendations",  Icon: Lightbulb },
+  { key: "dashboard",   label: "Dashboard",           Icon: BarChart3 },
+  { key: "campaign",    label: "Campaign Attribution", Icon: Megaphone },
+  { key: "attribution", label: "Lead Attribution",     Icon: Link2 },
+  { key: "sales",       label: "Sales Outcomes",       Icon: ShoppingCart },
+  { key: "learning",    label: "Learning History",     Icon: BookOpen },
+  { key: "recrules",    label: "AI Recommendations",   Icon: Lightbulb },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -88,6 +98,13 @@ export default function RevenueIntelligence() {
   const { data: dash, isLoading: dashLoading } = useQuery<RevDashboard>({
     queryKey: ["/api/admin/ai-marketing/revenue-dashboard"],
     enabled: sub === "dashboard",
+  });
+
+  // ── Campaign Attribution ─────────────────────────────────────────────────
+  const [campView, setCampView] = useState<"campaign" | "adset" | "ad">("campaign");
+  const { data: campAttrib, isLoading: campLoading } = useQuery<CampaignAttribution>({
+    queryKey: ["/api/admin/ai-marketing/campaign-attribution"],
+    enabled: sub === "campaign",
   });
 
   // ── Attribution ─────────────────────────────────────────────────────────────
@@ -346,6 +363,198 @@ export default function RevenueIntelligence() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Campaign Attribution ───────────────────────────────────────────── */}
+      {sub === "campaign" && (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <h3 className="font-bold text-slate-800 text-base">Campaign Attribution</h3>
+              <p className="text-sm text-slate-500">
+                Which campaigns generate HOT leads, appointments, and sales — sourced directly from CRM data. Read-only.
+              </p>
+            </div>
+          </div>
+
+          {/* Safety badges */}
+          <div className="flex flex-wrap gap-2 mb-4 mt-2">
+            {["📊 Read-Only", "🚫 No Meta Writes", "🔒 CRM Data Only", "✅ Live Counts"].map(b => (
+              <span key={b} className="text-xs bg-slate-100 text-slate-600 font-medium px-3 py-1 rounded-full border border-slate-200">{b}</span>
+            ))}
+          </div>
+
+          {/* View switcher */}
+          <div className="flex gap-1 mb-4 bg-slate-100 p-1 rounded-lg w-fit">
+            {(["campaign", "adset", "ad"] as const).map(v => (
+              <button key={v} onClick={() => setCampView(v)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all capitalize ${
+                  campView === v ? "bg-white text-[#005476] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}>
+                {v === "campaign" ? "By Campaign" : v === "adset" ? "By Ad Set" : "By Ad"}
+              </button>
+            ))}
+          </div>
+
+          {campLoading ? (
+            <div className="text-center py-12 text-slate-400">Loading attribution data…</div>
+          ) : (() => {
+            const rows: CampaignRow[] =
+              campView === "campaign" ? (campAttrib?.byCampaign ?? [])
+              : campView === "adset"  ? (campAttrib?.byAdset   ?? [])
+              :                         (campAttrib?.byAd       ?? []);
+
+            const totalLeads  = rows.reduce((s, r) => s + r.leadsCount, 0);
+            const totalHot    = rows.reduce((s, r) => s + r.hotLeads, 0);
+            const totalSales  = rows.reduce((s, r) => s + r.salesCount, 0);
+            const totalAppts  = rows.reduce((s, r) => s + r.appointmentsCount, 0);
+
+            return (
+              <>
+                {/* KPI row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  {[
+                    { label: "Total Leads",   value: totalLeads, Icon: Target,      color: "text-[#005476]",  bg: "bg-[#005476]/10" },
+                    { label: "HOT Leads",     value: totalHot,   Icon: Flame,       color: "text-red-500",    bg: "bg-red-50" },
+                    { label: "Appointments",  value: totalAppts, Icon: Calendar,    color: "text-blue-600",   bg: "bg-blue-50" },
+                    { label: "Sales",         value: totalSales, Icon: CheckCircle2,color: "text-green-600",  bg: "bg-green-50" },
+                  ].map(({ label, value, Icon: I, color, bg }) => (
+                    <Card key={label} className="shadow-sm">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${bg}`}><I className={`h-5 w-5 ${color}`} /></div>
+                        <div>
+                          <p className={`text-xl font-extrabold ${color}`}>{value.toLocaleString()}</p>
+                          <p className="text-xs text-slate-500">{label}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {rows.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="py-12 text-center text-slate-400">
+                      <Megaphone className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                      <p className="font-medium">No campaign data found</p>
+                      <p className="text-sm mt-1">
+                        {campView === "campaign"
+                          ? "No CRM leads have a campaign name set yet. Leads from Meta ads will populate this automatically."
+                          : campView === "adset"
+                          ? "No CRM leads have an ad set name set yet."
+                          : "No CRM leads have an ad name set yet."}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                        <tr>
+                          <th className="px-3 py-2.5 text-left font-semibold">
+                            {campView === "campaign" ? "Campaign" : campView === "adset" ? "Ad Set" : "Ad"}
+                          </th>
+                          <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Leads</th>
+                          <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">
+                            <span className="text-red-500">HOT</span>
+                          </th>
+                          <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">
+                            <span className="text-amber-500">WARM</span>
+                          </th>
+                          <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">
+                            <span className="text-blue-400">COLD</span>
+                          </th>
+                          <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">No Ans</th>
+                          <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Appts</th>
+                          <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Sales</th>
+                          {campAttrib?.revenueEnabled && (
+                            <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Revenue</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {rows.map((r, i) => {
+                          const hotPct = r.leadsCount > 0 ? Math.round((r.hotLeads / r.leadsCount) * 100) : 0;
+                          return (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[200px]">
+                                <div className="truncate">{r.name}</div>
+                                {hotPct >= 20 && (
+                                  <Badge className="mt-0.5 text-[10px] bg-red-50 text-red-600 border-red-200">
+                                    {hotPct}% HOT
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-slate-700 font-semibold">{r.leadsCount}</td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={r.hotLeads > 0 ? "text-red-500 font-semibold" : "text-slate-300"}>
+                                  {r.hotLeads || "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={r.warmLeads > 0 ? "text-amber-500" : "text-slate-300"}>
+                                  {r.warmLeads || "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={r.coldLeads > 0 ? "text-blue-400" : "text-slate-300"}>
+                                  {r.coldLeads || "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-slate-400">{r.noAnswerCount || "—"}</td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={r.appointmentsCount > 0 ? "text-blue-600 font-medium" : "text-slate-300"}>
+                                  {r.appointmentsCount || "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={r.salesCount > 0 ? "text-green-600 font-semibold" : "text-slate-300"}>
+                                  {r.salesCount || "—"}
+                                </span>
+                              </td>
+                              {campAttrib?.revenueEnabled && (
+                                <td className="px-3 py-2.5 text-right text-green-700 font-semibold">
+                                  {r.revenueTotal > 0 ? `$${Number(r.revenueTotal).toLocaleString()}` : "—"}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Revenue disabled notice */}
+                {!campAttrib?.revenueEnabled && (
+                  <Card className="mt-4 border-slate-200 bg-slate-50">
+                    <CardContent className="p-4 flex items-start gap-3">
+                      <TrendingDown className="h-5 w-5 text-slate-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-600">Revenue tracking not yet active</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          No closed sales with a sale amount have been recorded in Sales Outcomes. Revenue by campaign will appear here once sales data is entered.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Status mapping legend */}
+                <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 mb-2">HOW THESE COUNTS ARE CALCULATED</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-xs text-slate-500">
+                    <span><span className="font-medium text-red-500">HOT</span> = lead_score is 'hot'</span>
+                    <span><span className="font-medium text-amber-500">WARM</span> = lead_score is 'warm'</span>
+                    <span><span className="font-medium text-blue-400">COLD</span> = lead_score is 'cold'</span>
+                    <span><span className="font-medium text-slate-600">No Answer</span> = no_answer_1–4 or after_3_no_answer statuses</span>
+                    <span><span className="font-medium text-blue-600">Appts</span> = status is 'qualified'</span>
+                    <span><span className="font-medium text-green-600">Sales</span> = purchased / deposited / reserved</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

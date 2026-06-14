@@ -729,6 +729,88 @@ export async function ensureAiMarketingRevenueTables(): Promise<void> {
   }
 }
 
+export async function ensureAiCampaignAttributionTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    // Table 1 — per-lead attribution snapshot (campaign data captured from CRM leads)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_campaign_attribution (
+        id              SERIAL PRIMARY KEY,
+        crm_lead_id     INTEGER REFERENCES crm_leads(id) ON DELETE CASCADE,
+        campaign_id     TEXT,
+        campaign_name   TEXT,
+        adset_id        TEXT,
+        adset_name      TEXT,
+        ad_id           TEXT,
+        ad_name         TEXT,
+        form_name       TEXT,
+        lead_source     TEXT DEFAULT 'meta_lead',
+        attributed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS ai_camp_attr_crm_lead_id_idx
+        ON ai_campaign_attribution(crm_lead_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS ai_camp_attr_campaign_name_idx
+        ON ai_campaign_attribution(campaign_name)
+    `);
+
+    // Table 2 — cached aggregated performance per campaign entity
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_campaign_performance (
+        id                  SERIAL PRIMARY KEY,
+        entity_type         TEXT NOT NULL DEFAULT 'campaign',
+        entity_name         TEXT NOT NULL,
+        entity_id           TEXT,
+        leads_count         INTEGER DEFAULT 0,
+        hot_leads           INTEGER DEFAULT 0,
+        warm_leads          INTEGER DEFAULT 0,
+        cold_leads          INTEGER DEFAULT 0,
+        no_answer_count     INTEGER DEFAULT 0,
+        appointments_count  INTEGER DEFAULT 0,
+        sales_count         INTEGER DEFAULT 0,
+        revenue_total       NUMERIC DEFAULT 0,
+        last_computed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS ai_camp_perf_entity_type_idx
+        ON ai_campaign_performance(entity_type)
+    `);
+
+    // Table 3 — per-lead outcome snapshot for attribution analysis
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_campaign_outcomes (
+        id              SERIAL PRIMARY KEY,
+        attribution_id  INTEGER REFERENCES ai_campaign_attribution(id) ON DELETE CASCADE,
+        crm_lead_id     INTEGER REFERENCES crm_leads(id) ON DELETE CASCADE,
+        outcome_status  TEXT,
+        outcome_score   TEXT,
+        is_hot          BOOLEAN DEFAULT FALSE,
+        is_appointment  BOOLEAN DEFAULT FALSE,
+        is_sale         BOOLEAN DEFAULT FALSE,
+        sale_value      NUMERIC DEFAULT 0,
+        recorded_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS ai_camp_outcomes_crm_lead_id_idx
+        ON ai_campaign_outcomes(crm_lead_id)
+    `);
+
+    console.log("[DB] ensureAiCampaignAttributionTables ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureAiCampaignAttributionTables error:", err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

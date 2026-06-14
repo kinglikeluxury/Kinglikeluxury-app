@@ -6606,5 +6606,153 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // ── Phase 4: Campaign Attribution Engine — READ-ONLY ─────────────────────
+  // Aggregates existing CRM lead data (campaign_name, adset_name, ad_name,
+  // lead_score, status) into performance summaries per campaign entity.
+  // No writes. No Meta API calls. Uses only crm_leads + ai_marketing_sales_outcomes.
+
+  // Discovered CRM statuses (exact values — do not rename):
+  //   HOT         = lead_score = 'hot'
+  //   WARM        = lead_score = 'warm'
+  //   COLD        = lead_score = 'cold'
+  //   No Answer   = status IN ('no_answer_1','no_answer_2','no_answer_3','no_answer_4',
+  //                            'after_3_no_answer_whatsapp_contacted',
+  //                            'new_fresh_after_3_no_answer','no_answer_converted')
+  //   Appointment = status = 'qualified'
+  //   Sale        = status IN ('purchased','sold_by_kinglike_luxury','deposited','reserved')
+
+  const NO_ANSWER_STATUSES = `('no_answer_1','no_answer_2','no_answer_3','no_answer_4',
+    'after_3_no_answer_whatsapp_contacted','new_fresh_after_3_no_answer','no_answer_converted')`;
+  const SALE_STATUSES = `('purchased','sold_by_kinglike_luxury','deposited','reserved')`;
+
+  // GET /api/admin/ai-marketing/campaign-attribution — full attribution overview
+  app.get("/api/admin/ai-marketing/campaign-attribution", isAdmin, async (_req, res) => {
+    try {
+      const [byCampaign, byAdset, byAd, revenueCheck] = await Promise.all([
+        // ── By Campaign ──────────────────────────────────────────────────────
+        pool.query(`
+          SELECT
+            cl.campaign_name                                                           AS name,
+            liq.campaign_id                                                            AS entity_id,
+            COUNT(*)                                                                   AS leads_count,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'hot')                              AS hot_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'warm')                             AS warm_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'cold')                             AS cold_leads,
+            COUNT(*) FILTER(WHERE cl.status IN ${NO_ANSWER_STATUSES})                 AS no_answer_count,
+            COUNT(*) FILTER(WHERE cl.status = 'qualified')                            AS appointments_count,
+            COUNT(*) FILTER(WHERE cl.status IN ${SALE_STATUSES})                      AS sales_count,
+            COALESCE(SUM(so.sale_amount) FILTER(WHERE so.sale_closed = TRUE), 0)      AS revenue_total
+          FROM crm_leads cl
+          LEFT JOIN lead_import_queue liq ON liq.crm_lead_id = cl.id
+          LEFT JOIN ai_marketing_sales_outcomes so ON so.lead_id = cl.id
+          WHERE cl.campaign_name IS NOT NULL AND cl.campaign_name <> ''
+          GROUP BY cl.campaign_name, liq.campaign_id
+          ORDER BY leads_count DESC
+          LIMIT 50
+        `),
+        // ── By Ad Set ────────────────────────────────────────────────────────
+        pool.query(`
+          SELECT
+            cl.adset_name                                                              AS name,
+            liq.adgroup_id                                                             AS entity_id,
+            COUNT(*)                                                                   AS leads_count,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'hot')                              AS hot_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'warm')                             AS warm_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'cold')                             AS cold_leads,
+            COUNT(*) FILTER(WHERE cl.status IN ${NO_ANSWER_STATUSES})                 AS no_answer_count,
+            COUNT(*) FILTER(WHERE cl.status = 'qualified')                            AS appointments_count,
+            COUNT(*) FILTER(WHERE cl.status IN ${SALE_STATUSES})                      AS sales_count,
+            COALESCE(SUM(so.sale_amount) FILTER(WHERE so.sale_closed = TRUE), 0)      AS revenue_total
+          FROM crm_leads cl
+          LEFT JOIN lead_import_queue liq ON liq.crm_lead_id = cl.id
+          LEFT JOIN ai_marketing_sales_outcomes so ON so.lead_id = cl.id
+          WHERE cl.adset_name IS NOT NULL AND cl.adset_name <> ''
+          GROUP BY cl.adset_name, liq.adgroup_id
+          ORDER BY leads_count DESC
+          LIMIT 50
+        `),
+        // ── By Ad ────────────────────────────────────────────────────────────
+        pool.query(`
+          SELECT
+            cl.ad_name                                                                 AS name,
+            liq.ad_id                                                                  AS entity_id,
+            COUNT(*)                                                                   AS leads_count,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'hot')                              AS hot_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'warm')                             AS warm_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'cold')                             AS cold_leads,
+            COUNT(*) FILTER(WHERE cl.status IN ${NO_ANSWER_STATUSES})                 AS no_answer_count,
+            COUNT(*) FILTER(WHERE cl.status = 'qualified')                            AS appointments_count,
+            COUNT(*) FILTER(WHERE cl.status IN ${SALE_STATUSES})                      AS sales_count,
+            COALESCE(SUM(so.sale_amount) FILTER(WHERE so.sale_closed = TRUE), 0)      AS revenue_total
+          FROM crm_leads cl
+          LEFT JOIN lead_import_queue liq ON liq.crm_lead_id = cl.id
+          LEFT JOIN ai_marketing_sales_outcomes so ON so.lead_id = cl.id
+          WHERE cl.ad_name IS NOT NULL AND cl.ad_name <> ''
+          GROUP BY cl.ad_name, liq.ad_id
+          ORDER BY leads_count DESC
+          LIMIT 50
+        `),
+        // ── Revenue check — is any sale_amount > 0? ──────────────────────────
+        pool.query(`
+          SELECT COUNT(*) AS cnt
+          FROM ai_marketing_sales_outcomes
+          WHERE sale_closed = TRUE AND sale_amount > 0
+        `),
+      ]);
+
+      const revenueEnabled = Number(revenueCheck.rows[0]?.cnt ?? 0) > 0;
+
+      res.json({
+        byCampaign:     byCampaign.rows.map(r => ({
+          name:               r.name,
+          entityId:           r.entity_id || null,
+          leadsCount:         Number(r.leads_count),
+          hotLeads:           Number(r.hot_leads),
+          warmLeads:          Number(r.warm_leads),
+          coldLeads:          Number(r.cold_leads),
+          noAnswerCount:      Number(r.no_answer_count),
+          appointmentsCount:  Number(r.appointments_count),
+          salesCount:         Number(r.sales_count),
+          revenueTotal:       Number(r.revenue_total),
+        })),
+        byAdset: byAdset.rows.map(r => ({
+          name:               r.name,
+          entityId:           r.entity_id || null,
+          leadsCount:         Number(r.leads_count),
+          hotLeads:           Number(r.hot_leads),
+          warmLeads:          Number(r.warm_leads),
+          coldLeads:          Number(r.cold_leads),
+          noAnswerCount:      Number(r.no_answer_count),
+          appointmentsCount:  Number(r.appointments_count),
+          salesCount:         Number(r.sales_count),
+          revenueTotal:       Number(r.revenue_total),
+        })),
+        byAd: byAd.rows.map(r => ({
+          name:               r.name,
+          entityId:           r.entity_id || null,
+          leadsCount:         Number(r.leads_count),
+          hotLeads:           Number(r.hot_leads),
+          warmLeads:          Number(r.warm_leads),
+          coldLeads:          Number(r.cold_leads),
+          noAnswerCount:      Number(r.no_answer_count),
+          appointmentsCount:  Number(r.appointments_count),
+          salesCount:         Number(r.sales_count),
+          revenueTotal:       Number(r.revenue_total),
+        })),
+        revenueEnabled,
+        statusMapping: {
+          hot:         "lead_score = 'hot'",
+          warm:        "lead_score = 'warm'",
+          cold:        "lead_score = 'cold'",
+          noAnswer:    "status IN (no_answer_1..4, after_3_no_answer_whatsapp_contacted, new_fresh_after_3_no_answer, no_answer_converted)",
+          appointment: "status = 'qualified'",
+          sale:        "status IN (purchased, sold_by_kinglike_luxury, deposited, reserved)",
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return httpServer;
 }
