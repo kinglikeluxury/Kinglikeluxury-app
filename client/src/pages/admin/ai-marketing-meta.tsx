@@ -109,7 +109,10 @@ export default function MetaConnection() {
 
   // Diagnostic test (run on demand)
   const testMutation = useMutation({
-    mutationFn: () => apiRequest("GET", "/api/admin/ai-marketing/meta-read-test"),
+    mutationFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/ai-marketing/meta-read-test");
+      return res.json() as Promise<MetaReadTestResult>;
+    },
     onSuccess: (data: any) => {
       qc.setQueryData(["/api/admin/ai-marketing/meta-read-test-result"], data);
       if (data.success) {
