@@ -2,7 +2,7 @@
  * CRM Lead Email Notification Service
  *
  * Sends two emails when a new CRM lead is created:
- *   A) Admin notification  → kinglikeluxury@gmail.com
+ *   A) Admin notification  → info@kinglikeluxury.app
  *   C) Client welcome      → lead email (if present)
  *
  * Employee notification (B) is handled separately by leadAssignmentNotificationService
@@ -15,7 +15,7 @@
 import { pool } from "./db";
 import { Resend } from "resend";
 
-const ADMIN_EMAIL = "kinglikeluxury@gmail.com";
+const ADMIN_EMAIL = "info@kinglikeluxury.app";
 const FROM        = "Kinglike Luxury <info@kinglikeluxury.app>";
 const APP_URL     = process.env.APP_URL || "https://www.kinglikeluxury.app";
 
