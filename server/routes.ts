@@ -6266,5 +6266,284 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // ── AI Marketing Revenue Intelligence routes ─────────────────────────────
+
+  // Lead Attribution
+  app.get("/api/admin/ai-marketing/attribution", isAdmin, async (req, res) => {
+    try {
+      const leadId = req.query.lead_id;
+      const q = leadId
+        ? await pool.query("SELECT * FROM ai_marketing_lead_attribution WHERE lead_id=$1 ORDER BY created_at DESC", [leadId])
+        : await pool.query("SELECT * FROM ai_marketing_lead_attribution ORDER BY created_at DESC LIMIT 200");
+      res.json(q.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/attribution", isAdmin, async (req, res) => {
+    try {
+      const f = req.body;
+      if (!f.lead_id) return res.status(400).json({ error: "lead_id required" });
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_lead_attribution
+          (lead_id, source_type, meta_campaign_id, meta_campaign_name, meta_adset_id,
+           meta_adset_name, meta_ad_id, meta_ad_name, creative_name, audience_name,
+           language, country, city, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+        [f.lead_id, f.source_type||"meta_lead", f.meta_campaign_id||null,
+         f.meta_campaign_name||null, f.meta_adset_id||null, f.meta_adset_name||null,
+         f.meta_ad_id||null, f.meta_ad_name||null, f.creative_name||null,
+         f.audience_name||null, f.language||null, f.country||null, f.city||null, f.notes||null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.patch("/api/admin/ai-marketing/attribution/:id", isAdmin, async (req, res) => {
+    try {
+      const f = req.body;
+      const { rows } = await pool.query(
+        `UPDATE ai_marketing_lead_attribution SET
+          source_type=$1, meta_campaign_id=$2, meta_campaign_name=$3, meta_adset_id=$4,
+          meta_adset_name=$5, meta_ad_id=$6, meta_ad_name=$7, creative_name=$8,
+          audience_name=$9, language=$10, country=$11, city=$12, notes=$13, updated_at=NOW()
+         WHERE id=$14 RETURNING *`,
+        [f.source_type||"meta_lead", f.meta_campaign_id||null, f.meta_campaign_name||null,
+         f.meta_adset_id||null, f.meta_adset_name||null, f.meta_ad_id||null, f.meta_ad_name||null,
+         f.creative_name||null, f.audience_name||null, f.language||null,
+         f.country||null, f.city||null, f.notes||null, Number(req.params.id)]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "Not found" });
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/ai-marketing/attribution/:id", isAdmin, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM ai_marketing_lead_attribution WHERE id=$1", [Number(req.params.id)]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Sales Outcomes (upsert per lead_id)
+  app.get("/api/admin/ai-marketing/sales-outcomes", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM ai_marketing_sales_outcomes ORDER BY updated_at DESC LIMIT 200"
+      );
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/sales-outcomes", isAdmin, async (req, res) => {
+    try {
+      const f = req.body;
+      if (!f.lead_id) return res.status(400).json({ error: "lead_id required" });
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_sales_outcomes
+          (lead_id, appointment_scheduled, appointment_date, site_visit_completed,
+           sale_closed, sale_amount, sale_currency, sale_date, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (lead_id) DO UPDATE SET
+          appointment_scheduled=$2, appointment_date=$3, site_visit_completed=$4,
+          sale_closed=$5, sale_amount=$6, sale_currency=$7, sale_date=$8,
+          notes=$9, updated_at=NOW()
+         RETURNING *`,
+        [f.lead_id, f.appointment_scheduled??false, f.appointment_date||null,
+         f.site_visit_completed??false, f.sale_closed??false,
+         f.sale_amount||0, f.sale_currency||"USD", f.sale_date||null, f.notes||null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/ai-marketing/sales-outcomes/:id", isAdmin, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM ai_marketing_sales_outcomes WHERE id=$1", [Number(req.params.id)]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Journey Events
+  app.get("/api/admin/ai-marketing/journey-events", isAdmin, async (req, res) => {
+    try {
+      const leadId = req.query.lead_id;
+      const q = leadId
+        ? await pool.query("SELECT * FROM ai_marketing_lead_journey_events WHERE lead_id=$1 ORDER BY event_time DESC", [leadId])
+        : await pool.query("SELECT * FROM ai_marketing_lead_journey_events ORDER BY created_at DESC LIMIT 100");
+      res.json(q.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/journey-events", isAdmin, async (req, res) => {
+    try {
+      const { lead_id, event_type, event_time, old_value, new_value, created_by, notes } = req.body;
+      if (!lead_id || !event_type) return res.status(400).json({ error: "lead_id and event_type required" });
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_lead_journey_events
+          (lead_id, event_type, event_time, old_value, new_value, created_by, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [lead_id, event_type, event_time||new Date(), old_value||null,
+         new_value||null, created_by||null, notes||null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Quality Snapshots
+  app.get("/api/admin/ai-marketing/quality-snapshots", isAdmin, async (req, res) => {
+    try {
+      const leadId = req.query.lead_id;
+      const q = leadId
+        ? await pool.query("SELECT * FROM ai_marketing_quality_snapshots WHERE lead_id=$1 ORDER BY snapshot_time DESC", [leadId])
+        : await pool.query("SELECT * FROM ai_marketing_quality_snapshots ORDER BY created_at DESC LIMIT 100");
+      res.json(q.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/quality-snapshots", isAdmin, async (req, res) => {
+    try {
+      const { lead_id, lead_score, lead_temperature, lead_status, no_answer_count,
+              qualification_completed, whatsapp_started, whatsapp_completed, snapshot_time } = req.body;
+      if (!lead_id) return res.status(400).json({ error: "lead_id required" });
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_quality_snapshots
+          (lead_id, lead_score, lead_temperature, lead_status, no_answer_count,
+           qualification_completed, whatsapp_started, whatsapp_completed, snapshot_time)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [lead_id, lead_score||null, lead_temperature||null, lead_status||null,
+         no_answer_count||0, qualification_completed??false,
+         whatsapp_started??false, whatsapp_completed??false, snapshot_time||new Date()]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Learning History
+  app.get("/api/admin/ai-marketing/learning-history", isAdmin, async (req, res) => {
+    try {
+      const entityType = req.query.entity_type as string | undefined;
+      const q = entityType
+        ? await pool.query("SELECT * FROM ai_marketing_learning_history WHERE entity_type=$1 ORDER BY updated_at DESC", [entityType])
+        : await pool.query("SELECT * FROM ai_marketing_learning_history ORDER BY updated_at DESC LIMIT 200");
+      res.json(q.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/learning-history", isAdmin, async (req, res) => {
+    try {
+      const f = req.body;
+      if (!f.entity_type || !f.entity_name) return res.status(400).json({ error: "entity_type and entity_name required" });
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_learning_history
+          (entity_type, entity_name, entity_id, leads_count, hot_count, warm_count, cold_count,
+           no_answer_count, appointments_count, sales_count, revenue_total, spend, cpl,
+           cost_per_hot_lead, cost_per_appointment, cost_per_sale, quality_score,
+           period_start, period_end)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         RETURNING *`,
+        [f.entity_type, f.entity_name, f.entity_id||null,
+         f.leads_count||0, f.hot_count||0, f.warm_count||0, f.cold_count||0,
+         f.no_answer_count||0, f.appointments_count||0, f.sales_count||0,
+         f.revenue_total||0, f.spend||0, f.cpl||0,
+         f.cost_per_hot_lead||0, f.cost_per_appointment||0, f.cost_per_sale||0,
+         f.quality_score||0, f.period_start||null, f.period_end||null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.patch("/api/admin/ai-marketing/learning-history/:id", isAdmin, async (req, res) => {
+    try {
+      const f = req.body;
+      const { rows } = await pool.query(
+        `UPDATE ai_marketing_learning_history SET
+          entity_type=$1, entity_name=$2, entity_id=$3,
+          leads_count=$4, hot_count=$5, warm_count=$6, cold_count=$7,
+          no_answer_count=$8, appointments_count=$9, sales_count=$10,
+          revenue_total=$11, spend=$12, cpl=$13, cost_per_hot_lead=$14,
+          cost_per_appointment=$15, cost_per_sale=$16, quality_score=$17,
+          period_start=$18, period_end=$19, updated_at=NOW()
+         WHERE id=$20 RETURNING *`,
+        [f.entity_type, f.entity_name, f.entity_id||null,
+         f.leads_count||0, f.hot_count||0, f.warm_count||0, f.cold_count||0,
+         f.no_answer_count||0, f.appointments_count||0, f.sales_count||0,
+         f.revenue_total||0, f.spend||0, f.cpl||0,
+         f.cost_per_hot_lead||0, f.cost_per_appointment||0, f.cost_per_sale||0,
+         f.quality_score||0, f.period_start||null, f.period_end||null, Number(req.params.id)]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "Not found" });
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/ai-marketing/learning-history/:id", isAdmin, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM ai_marketing_learning_history WHERE id=$1", [Number(req.params.id)]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Revenue Dashboard — aggregate summary
+  app.get("/api/admin/ai-marketing/revenue-dashboard", isAdmin, async (_req, res) => {
+    try {
+      const [attrib, sales, learning] = await Promise.all([
+        pool.query("SELECT COUNT(*) AS total_attributed, source_type, COUNT(*) AS cnt FROM ai_marketing_lead_attribution GROUP BY source_type ORDER BY cnt DESC"),
+        pool.query(`SELECT COUNT(*) AS total, SUM(CASE WHEN appointment_scheduled THEN 1 ELSE 0 END) AS appts,
+          SUM(CASE WHEN site_visit_completed THEN 1 ELSE 0 END) AS visits,
+          SUM(CASE WHEN sale_closed THEN 1 ELSE 0 END) AS sales,
+          SUM(sale_amount) AS revenue FROM ai_marketing_sales_outcomes`),
+        pool.query("SELECT entity_type, entity_name, leads_count, hot_count, warm_count, cold_count, no_answer_count, appointments_count, sales_count, revenue_total, spend, cost_per_hot_lead, cost_per_sale FROM ai_marketing_learning_history ORDER BY hot_count DESC LIMIT 50"),
+      ]);
+      const s = sales.rows[0];
+      res.json({
+        attribution_by_source: attrib.rows,
+        totals: {
+          total_leads_attributed: Number(s?.total || 0),
+          appointments: Number(s?.appts || 0),
+          site_visits: Number(s?.visits || 0),
+          sales: Number(s?.sales || 0),
+          revenue: Number(s?.revenue || 0),
+        },
+        learning_history: learning.rows,
+      });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Revenue Recommendations — rule-based from learning_history
+  app.get("/api/admin/ai-marketing/revenue-recommendations", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM ai_marketing_learning_history ORDER BY updated_at DESC LIMIT 100"
+      );
+      const recs: { type: string; title: string; message: string; severity: string; entity: string }[] = [];
+      for (const r of rows) {
+        const leads = Number(r.leads_count), hot = Number(r.hot_count),
+              noAns = Number(r.no_answer_count), sales = Number(r.sales_count),
+              revenue = Number(r.revenue_total), spend = Number(r.spend),
+              cphl = Number(r.cost_per_hot_lead), warm = Number(r.warm_count);
+        const entity = `${r.entity_type}: ${r.entity_name}`;
+        if (leads > 5 && noAns > leads * 0.5)
+          recs.push({ type:"high_no_answer", title:"📋 High No-Answer Rate", severity:"warning",
+            message:`${entity} has ${Math.round((noAns/leads)*100)}% no-answer rate. Consider changing lead form questions.`, entity });
+        if (hot > 0 && leads > 0 && (hot/leads) > 0.3)
+          recs.push({ type:"scale", title:"🔥 Strong HOT Lead Ratio", severity:"info",
+            message:`${entity} has ${Math.round((hot/leads)*100)}% HOT leads — consider increasing budget.`, entity });
+        if (leads > 10 && sales === 0)
+          recs.push({ type:"review_quality", title:"⚠️ High Leads, Zero Sales", severity:"warning",
+            message:`${entity} generated ${leads} leads but no sales. Review audience quality.`, entity });
+        if (revenue > 0 && spend > 0 && (revenue/spend) > 5)
+          recs.push({ type:"strong_roas", title:"💰 Strong ROAS", severity:"info",
+            message:`${entity} shows ${(revenue/spend).toFixed(1)}x ROAS. Scale this campaign.`, entity });
+        if (warm > hot * 2 && leads > 5)
+          recs.push({ type:"conversion", title:"🟡 Many WARM Leads Unconverted", severity:"warning",
+            message:`${entity} has ${warm} WARM vs ${hot} HOT — improve follow-up to convert warm leads.`, entity });
+        if (cphl > 0 && cphl < 15 && hot > 0)
+          recs.push({ type:"low_cphl", title:"✅ Low Cost per HOT Lead", severity:"info",
+            message:`${entity} costs $${cphl} per HOT lead — excellent efficiency. Increase budget.`, entity });
+      }
+      res.json(recs.slice(0, 20));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   return httpServer;
 }

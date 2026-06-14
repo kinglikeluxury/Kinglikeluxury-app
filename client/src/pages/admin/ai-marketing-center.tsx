@@ -7,6 +7,7 @@ import {
   DollarSign, Globe, Languages, Calendar, FileText, ChevronDown,
   TrendingUp, Flame, Thermometer, Snowflake, PhoneOff, UserCheck,
 } from "lucide-react";
+import RevenueIntelligence from "./ai-marketing-revenue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +61,7 @@ const TABS = [
   { key: "performance",    label: "Performance Intelligence", Icon: BarChart3 },
   { key: "recommendations",label: "AI Recommendations",      Icon: Lightbulb },
   { key: "safety",         label: "Safety Settings",         Icon: ShieldCheck },
+  { key: "revenue",        label: "Revenue Intelligence",    Icon: TrendingUp },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -884,6 +886,17 @@ export default function AiMarketingCenter() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Revenue Intelligence ───────────────────────────────────────── */}
+        {tab === "revenue" && (
+          <div>
+            <div className="mb-5">
+              <h2 className="text-lg font-bold text-slate-800">Revenue Intelligence Engine</h2>
+              <p className="text-sm text-slate-500">Phase 2 — Attribution, sales tracking, and AI-powered revenue insights.</p>
+            </div>
+            <RevenueIntelligence />
           </div>
         )}
       </div>

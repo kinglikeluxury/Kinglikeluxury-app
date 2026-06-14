@@ -626,6 +626,109 @@ export async function ensureAiMarketingTables(): Promise<void> {
   }
 }
 
+export async function ensureAiMarketingRevenueTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_lead_attribution (
+        id                  SERIAL PRIMARY KEY,
+        lead_id             INTEGER NOT NULL,
+        source_type         TEXT DEFAULT 'meta_lead',
+        meta_campaign_id    TEXT,
+        meta_campaign_name  TEXT,
+        meta_adset_id       TEXT,
+        meta_adset_name     TEXT,
+        meta_ad_id          TEXT,
+        meta_ad_name        TEXT,
+        creative_name       TEXT,
+        audience_name       TEXT,
+        language            TEXT,
+        country             TEXT,
+        city                TEXT,
+        notes               TEXT,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_lead_journey_events (
+        id          SERIAL PRIMARY KEY,
+        lead_id     INTEGER NOT NULL,
+        event_type  TEXT NOT NULL,
+        event_time  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        old_value   TEXT,
+        new_value   TEXT,
+        created_by  TEXT,
+        notes       TEXT,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_sales_outcomes (
+        id                    SERIAL PRIMARY KEY,
+        lead_id               INTEGER NOT NULL UNIQUE,
+        appointment_scheduled BOOLEAN DEFAULT FALSE,
+        appointment_date      DATE,
+        site_visit_completed  BOOLEAN DEFAULT FALSE,
+        sale_closed           BOOLEAN DEFAULT FALSE,
+        sale_amount           NUMERIC DEFAULT 0,
+        sale_currency         TEXT DEFAULT 'USD',
+        sale_date             DATE,
+        notes                 TEXT,
+        created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_quality_snapshots (
+        id                       SERIAL PRIMARY KEY,
+        lead_id                  INTEGER NOT NULL,
+        lead_score               TEXT,
+        lead_temperature         TEXT,
+        lead_status              TEXT,
+        no_answer_count          INTEGER DEFAULT 0,
+        qualification_completed  BOOLEAN DEFAULT FALSE,
+        whatsapp_started         BOOLEAN DEFAULT FALSE,
+        whatsapp_completed       BOOLEAN DEFAULT FALSE,
+        snapshot_time            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_learning_history (
+        id                   SERIAL PRIMARY KEY,
+        entity_type          TEXT NOT NULL,
+        entity_name          TEXT NOT NULL,
+        entity_id            TEXT,
+        leads_count          INTEGER DEFAULT 0,
+        hot_count            INTEGER DEFAULT 0,
+        warm_count           INTEGER DEFAULT 0,
+        cold_count           INTEGER DEFAULT 0,
+        no_answer_count      INTEGER DEFAULT 0,
+        appointments_count   INTEGER DEFAULT 0,
+        sales_count          INTEGER DEFAULT 0,
+        revenue_total        NUMERIC DEFAULT 0,
+        spend                NUMERIC DEFAULT 0,
+        cpl                  NUMERIC DEFAULT 0,
+        cost_per_hot_lead    NUMERIC DEFAULT 0,
+        cost_per_appointment NUMERIC DEFAULT 0,
+        cost_per_sale        NUMERIC DEFAULT 0,
+        quality_score        NUMERIC DEFAULT 0,
+        period_start         DATE,
+        period_end           DATE,
+        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("[DB] ensureAiMarketingRevenueTables ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureAiMarketingRevenueTables error:", err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 
