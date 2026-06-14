@@ -6754,5 +6754,156 @@ ${metaTags}
     }
   });
 
+  // GET /api/admin/ai-marketing/revenue-recommendations — rule-based campaign recommendations
+  // Read-only. No Meta write actions. Admin only. Railway compatible.
+  app.get("/api/admin/ai-marketing/revenue-recommendations", isAdmin, async (_req, res) => {
+    try {
+      const NA = `('no_answer_1','no_answer_2','no_answer_3','no_answer_4',
+                   'after_3_no_answer_whatsapp_contacted','new_fresh_after_3_no_answer','no_answer_converted')`;
+
+      const [byCamp, byAdset, byAd] = await Promise.all([
+        pool.query(`
+          SELECT
+            cl.campaign_name                                              AS name,
+            COUNT(*)                                                       AS leads_count,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'hot')                  AS hot_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'warm')                 AS warm_leads,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'cold')                 AS cold_leads,
+            COUNT(*) FILTER(WHERE cl.status IN ${NA})                     AS no_answer_count
+          FROM crm_leads cl
+          WHERE cl.campaign_name IS NOT NULL AND cl.campaign_name <> ''
+          GROUP BY cl.campaign_name
+          ORDER BY leads_count DESC LIMIT 50
+        `),
+        pool.query(`
+          SELECT
+            cl.adset_name                                                  AS name,
+            COUNT(*)                                                       AS leads_count,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'hot')                  AS hot_leads,
+            COUNT(*) FILTER(WHERE cl.status IN ${NA})                     AS no_answer_count
+          FROM crm_leads cl
+          WHERE cl.adset_name IS NOT NULL AND cl.adset_name <> ''
+          GROUP BY cl.adset_name
+          ORDER BY leads_count DESC LIMIT 50
+        `),
+        pool.query(`
+          SELECT
+            cl.ad_name                                                     AS name,
+            COUNT(*)                                                       AS leads_count,
+            COUNT(*) FILTER(WHERE cl.lead_score = 'cold')                 AS cold_leads
+          FROM crm_leads cl
+          WHERE cl.ad_name IS NOT NULL AND cl.ad_name <> ''
+          GROUP BY cl.ad_name
+          ORDER BY leads_count DESC LIMIT 50
+        `),
+      ]);
+
+      type Rec = { type: string; title: string; message: string; severity: string; entity: string };
+      const recs: Rec[] = [];
+
+      // ── Campaign-level rules ──────────────────────────────────────────────────
+      for (const r of byCamp.rows) {
+        const n       = Number(r.leads_count);
+        const hot     = Number(r.hot_leads);
+        const cold    = Number(r.cold_leads);
+        const noAns   = Number(r.no_answer_count);
+        const hotRate = n > 0 ? hot / n : 0;
+        const noRate  = n > 0 ? noAns / n : 0;
+        const name    = r.name as string;
+
+        if (n >= 10 && hotRate >= 0.5) {
+          recs.push({
+            type: "strong_campaign", severity: "positive",
+            title: "Strong Campaign",
+            message: `${Math.round(hotRate * 100)}% of leads are HOT — excellent performance from "${name}".`,
+            entity: `Campaign: ${name} · ${n} total leads · ${hot} HOT · Suggested action: Keep monitoring and consider increasing budget manually.`,
+          });
+        } else if (n >= 15 && hotRate < 0.15) {
+          recs.push({
+            type: "many_low_quality", severity: "critical",
+            title: "Many Leads but Low Quality",
+            message: `"${name}" has ${n} leads but only ${Math.round(hotRate * 100)}% are HOT.`,
+            entity: `Campaign: ${name} · ${n} leads · ${hot} HOT · Suggested action: Review urgently — consider reducing budget manually or testing a new creative.`,
+          });
+        } else if (n >= 10 && hotRate < 0.2 && noRate < 0.5) {
+          recs.push({
+            type: "weak_campaign", severity: "warning",
+            title: "Weak Campaign",
+            message: `"${name}" has many leads but fewer than 20% are HOT.`,
+            entity: `Campaign: ${name} · ${n} leads · ${hot} HOT · Suggested action: Review this campaign — consider testing a new audience or creative.`,
+          });
+        }
+
+        if (n >= 5 && noRate >= 0.5) {
+          recs.push({
+            type: "high_no_answer", severity: "warning",
+            title: "High No Answer Rate",
+            message: `${Math.round(noRate * 100)}% of leads from "${name}" are not answering.`,
+            entity: `Campaign: ${name} · ${noAns} of ${n} leads no-answer · Suggested action: Review follow-up timing or contact strategy.`,
+          });
+        }
+
+        if (n >= 2 && n <= 5 && hotRate >= 0.75) {
+          recs.push({
+            type: "low_leads_high_quality", severity: "positive",
+            title: "Low Leads but High Quality",
+            message: `"${name}" has few leads but ${Math.round(hotRate * 100)}% are HOT — strong signal.`,
+            entity: `Campaign: ${name} · ${n} leads · ${hot} HOT · Suggested action: Increase attention to this campaign — it shows strong early signals.`,
+          });
+        }
+
+        if (n >= 3 && n <= 8 && hotRate < 0.5 && noRate < 0.5) {
+          recs.push({
+            type: "keep_monitoring", severity: "info",
+            title: "Keep Monitoring",
+            message: `"${name}" does not yet have enough data for a definitive conclusion.`,
+            entity: `Campaign: ${name} · ${n} leads so far · Suggested action: Keep monitoring this campaign.`,
+          });
+        }
+      }
+
+      // ── Ad Set-level rules ────────────────────────────────────────────────────
+      for (const r of byAdset.rows) {
+        const n      = Number(r.leads_count);
+        const noAns  = Number(r.no_answer_count);
+        const noRate = n > 0 ? noAns / n : 0;
+        const name   = r.name as string;
+        if (n >= 5 && noRate >= 0.6) {
+          recs.push({
+            type: "review_audience", severity: "warning",
+            title: "Review Audience",
+            message: `Ad set "${name}" has a ${Math.round(noRate * 100)}% no-answer rate.`,
+            entity: `Ad Set: ${name} · ${noAns} of ${n} leads no-answer · Suggested action: Consider testing a new audience.`,
+          });
+        }
+      }
+
+      // ── Ad-level rules ────────────────────────────────────────────────────────
+      for (const r of byAd.rows) {
+        const n        = Number(r.leads_count);
+        const cold     = Number(r.cold_leads);
+        const coldRate = n > 0 ? cold / n : 0;
+        const name     = r.name as string;
+        if (n >= 5 && coldRate >= 0.6) {
+          recs.push({
+            type: "review_creative", severity: "warning",
+            title: "Review Creative",
+            message: `Ad "${name}" generates ${Math.round(coldRate * 100)}% COLD leads.`,
+            entity: `Ad: ${name} · ${cold} of ${n} leads are COLD · Suggested action: Consider changing the creative.`,
+          });
+        }
+      }
+
+      // ── Sort by severity priority and cap at 25 ───────────────────────────────
+      const SEV_ORDER: Record<string, number> = { critical: 0, warning: 1, positive: 2, info: 3 };
+      recs.sort((a, b) => (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9));
+
+      res.json(recs.slice(0, 25));
+    } catch (err: any) {
+      console.error("[AI Recommendations] error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return httpServer;
 }

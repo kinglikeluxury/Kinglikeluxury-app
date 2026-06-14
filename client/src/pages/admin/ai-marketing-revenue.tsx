@@ -76,12 +76,16 @@ function fmt(v: number | null | undefined, prefix = "", suffix = "") {
 }
 
 const SEV_CLS: Record<string, string> = {
+  positive: "border-green-300 bg-green-50",
   info:     "border-teal-200 bg-teal-50",
   warning:  "border-yellow-300 bg-yellow-50",
   critical: "border-red-300 bg-red-50",
 };
 const SEV_ICON: Record<string, typeof Info> = {
-  info: Info, warning: AlertTriangle, critical: AlertTriangle,
+  positive: CheckCircle2, info: Info, warning: AlertTriangle, critical: AlertTriangle,
+};
+const SEV_ICON_CLS: Record<string, string> = {
+  positive: "text-green-600", info: "text-[#3bcac4]", warning: "text-yellow-600", critical: "text-red-500",
 };
 
 const ENTITY_TYPES = ["campaign", "adset", "ad", "creative", "audience", "country", "language", "project"];
@@ -884,18 +888,19 @@ export default function RevenueIntelligence() {
             <Card className="border-dashed">
               <CardContent className="py-12 text-center text-slate-400">
                 <Lightbulb className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No recommendations yet</p>
-                <p className="text-sm mt-1">Add learning history records to generate AI insights</p>
+                <p className="font-medium">Not enough attribution data yet.</p>
+                <p className="text-sm mt-1">Recommendations will appear once leads with campaign attribution data are recorded.</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-3">
               {revRecs.map((r, i) => {
                 const SIcon = SEV_ICON[r.severity] ?? Info;
+                const iconCls = SEV_ICON_CLS[r.severity] ?? "text-[#3bcac4]";
                 return (
                   <div key={i} className={`rounded-xl border-2 p-4 ${SEV_CLS[r.severity] || SEV_CLS.info}`}>
                     <div className="flex items-start gap-3">
-                      <SIcon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${r.severity === "warning" ? "text-yellow-600" : "text-[#3bcac4]"}`} />
+                      <SIcon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${iconCls}`} />
                       <div>
                         <p className="font-semibold text-slate-800">{r.title}</p>
                         <p className="text-sm text-slate-600 mt-0.5">{r.message}</p>
