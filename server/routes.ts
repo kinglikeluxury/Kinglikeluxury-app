@@ -5989,5 +5989,282 @@ ${metaTags}
     }
   });
 
+  // ── AI Marketing Center routes ────────────────────────────────────────────
+
+  // Campaign Plans
+  app.get("/api/admin/ai-marketing/campaign-plans", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM ai_marketing_campaign_plans ORDER BY created_at DESC"
+      );
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/campaign-plans", isAdmin, async (req, res) => {
+    try {
+      const { name, related_project_id, related_property_id, target_country,
+              language, daily_budget, objective, status, notes } = req.body;
+      if (!name) return res.status(400).json({ error: "name is required" });
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_campaign_plans
+          (name, related_project_id, related_property_id, target_country, language,
+           daily_budget, objective, status, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [name, related_project_id||null, related_property_id||null,
+         target_country||null, language||null, daily_budget||null,
+         objective||"Lead Form", status||"draft", notes||null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.patch("/api/admin/ai-marketing/campaign-plans/:id", isAdmin, async (req, res) => {
+    try {
+      const { name, related_project_id, related_property_id, target_country,
+              language, daily_budget, objective, status, notes } = req.body;
+      const { rows } = await pool.query(
+        `UPDATE ai_marketing_campaign_plans SET
+          name=$1, related_project_id=$2, related_property_id=$3,
+          target_country=$4, language=$5, daily_budget=$6,
+          objective=$7, status=$8, notes=$9, updated_at=NOW()
+         WHERE id=$10 RETURNING *`,
+        [name, related_project_id||null, related_property_id||null,
+         target_country||null, language||null, daily_budget||null,
+         objective||"Lead Form", status||"draft", notes||null, Number(req.params.id)]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "Not found" });
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/ai-marketing/campaign-plans/:id", isAdmin, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM ai_marketing_campaign_plans WHERE id=$1", [Number(req.params.id)]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Creatives
+  app.get("/api/admin/ai-marketing/creatives", isAdmin, async (req, res) => {
+    try {
+      const cpId = req.query.campaign_plan_id;
+      const q = cpId
+        ? await pool.query("SELECT * FROM ai_marketing_creatives WHERE campaign_plan_id=$1 ORDER BY created_at DESC", [cpId])
+        : await pool.query("SELECT * FROM ai_marketing_creatives ORDER BY created_at DESC");
+      res.json(q.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/creatives", isAdmin, async (req, res) => {
+    try {
+      const { campaign_plan_id, primary_text, headline, description, image_notes, video_notes } = req.body;
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_creatives
+          (campaign_plan_id, primary_text, headline, description, image_notes, video_notes)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [campaign_plan_id||null, primary_text||null, headline||null,
+         description||null, image_notes||null, video_notes||null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.patch("/api/admin/ai-marketing/creatives/:id", isAdmin, async (req, res) => {
+    try {
+      const { campaign_plan_id, primary_text, headline, description, image_notes, video_notes } = req.body;
+      const { rows } = await pool.query(
+        `UPDATE ai_marketing_creatives SET
+          campaign_plan_id=$1, primary_text=$2, headline=$3,
+          description=$4, image_notes=$5, video_notes=$6, updated_at=NOW()
+         WHERE id=$7 RETURNING *`,
+        [campaign_plan_id||null, primary_text||null, headline||null,
+         description||null, image_notes||null, video_notes||null, Number(req.params.id)]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "Not found" });
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/ai-marketing/creatives/:id", isAdmin, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM ai_marketing_creatives WHERE id=$1", [Number(req.params.id)]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Audiences
+  app.get("/api/admin/ai-marketing/audiences", isAdmin, async (req, res) => {
+    try {
+      const cpId = req.query.campaign_plan_id;
+      const q = cpId
+        ? await pool.query("SELECT * FROM ai_marketing_audiences WHERE campaign_plan_id=$1 ORDER BY created_at DESC", [cpId])
+        : await pool.query("SELECT * FROM ai_marketing_audiences ORDER BY created_at DESC");
+      res.json(q.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/audiences", isAdmin, async (req, res) => {
+    try {
+      const { campaign_plan_id, country, city_region, language, age_min, age_max,
+              interests, exclusions, notes } = req.body;
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_audiences
+          (campaign_plan_id, country, city_region, language, age_min, age_max, interests, exclusions, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [campaign_plan_id||null, country||null, city_region||null,
+         language||null, age_min||18, age_max||65,
+         interests||null, exclusions||null, notes||null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.patch("/api/admin/ai-marketing/audiences/:id", isAdmin, async (req, res) => {
+    try {
+      const { campaign_plan_id, country, city_region, language, age_min, age_max,
+              interests, exclusions, notes } = req.body;
+      const { rows } = await pool.query(
+        `UPDATE ai_marketing_audiences SET
+          campaign_plan_id=$1, country=$2, city_region=$3, language=$4,
+          age_min=$5, age_max=$6, interests=$7, exclusions=$8, notes=$9, updated_at=NOW()
+         WHERE id=$10 RETURNING *`,
+        [campaign_plan_id||null, country||null, city_region||null,
+         language||null, age_min||18, age_max||65,
+         interests||null, exclusions||null, notes||null, Number(req.params.id)]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "Not found" });
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/ai-marketing/audiences/:id", isAdmin, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM ai_marketing_audiences WHERE id=$1", [Number(req.params.id)]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Performance Snapshots
+  app.get("/api/admin/ai-marketing/performance", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM ai_marketing_performance_snapshots ORDER BY created_at DESC"
+      );
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/ai-marketing/performance", isAdmin, async (req, res) => {
+    try {
+      const f = req.body;
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_performance_snapshots
+          (campaign_plan_id, meta_campaign_id, meta_ad_set_id, meta_ad_id,
+           campaign_name, ad_set_name, ad_name, spend, leads_count, cpl, ctr, cpc,
+           hot_leads, warm_leads, cold_leads, no_answer_count, appointments_count,
+           sales_count, cost_per_hot_lead, cost_per_appointment, cost_per_sale, snapshot_date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+         RETURNING *`,
+        [f.campaign_plan_id||null, f.meta_campaign_id||null, f.meta_ad_set_id||null,
+         f.meta_ad_id||null, f.campaign_name||null, f.ad_set_name||null, f.ad_name||null,
+         f.spend||0, f.leads_count||0, f.cpl||0, f.ctr||0, f.cpc||0,
+         f.hot_leads||0, f.warm_leads||0, f.cold_leads||0, f.no_answer_count||0,
+         f.appointments_count||0, f.sales_count||0,
+         f.cost_per_hot_lead||0, f.cost_per_appointment||0, f.cost_per_sale||0,
+         f.snapshot_date||null]
+      );
+      const snap = rows[0];
+      // Auto-generate rule-based recommendations
+      const recs: {type:string; title:string; message:string; severity:string}[] = [];
+      const spend = Number(snap.spend), hot = Number(snap.hot_leads),
+            leads = Number(snap.leads_count), ctr = Number(snap.ctr),
+            noAns = Number(snap.no_answer_count), cphl = Number(snap.cost_per_hot_lead);
+      if (spend > 30 && hot === 0)
+        recs.push({ type:"pause_ad", title:"⚠️ Stop Weak Ad",
+          message:`Spent $${spend} with zero HOT leads — consider pausing this ad.`, severity:"critical" });
+      if (cphl > 0 && cphl < 20)
+        recs.push({ type:"increase_budget", title:"💰 Increase Budget",
+          message:`Cost per HOT lead is only $${cphl} — great ROI, consider increasing daily budget.`, severity:"info" });
+      if (leads > 5 && noAns > leads * 0.5)
+        recs.push({ type:"lead_form", title:"📋 High No-Answer Rate",
+          message:"Over 50% of leads are not answering — consider improving lead form questions.", severity:"warning" });
+      if (spend > 10 && ctr < 1)
+        recs.push({ type:"new_creative", title:"🎨 Low CTR — New Creative Needed",
+          message:`CTR is ${ctr}% — try a new creative variation to improve click-through.`, severity:"warning" });
+      if (hot > 0 && leads > 0 && (hot/leads) > 0.3)
+        recs.push({ type:"scale", title:"🔥 Great HOT Lead Ratio",
+          message:`${Math.round((hot/leads)*100)}% HOT leads — this audience is performing well, consider scaling.`, severity:"info" });
+      for (const r of recs) {
+        await pool.query(
+          `INSERT INTO ai_marketing_recommendations
+            (performance_snapshot_id, type, title, message, severity)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [snap.id, r.type, r.title, r.message, r.severity]
+        );
+      }
+      res.json(snap);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/ai-marketing/performance/:id", isAdmin, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM ai_marketing_performance_snapshots WHERE id=$1", [Number(req.params.id)]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Recommendations
+  app.get("/api/admin/ai-marketing/recommendations", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM ai_marketing_recommendations WHERE is_dismissed=FALSE ORDER BY created_at DESC"
+      );
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.patch("/api/admin/ai-marketing/recommendations/:id/dismiss", isAdmin, async (req, res) => {
+    try {
+      await pool.query(
+        "UPDATE ai_marketing_recommendations SET is_dismissed=TRUE WHERE id=$1",
+        [Number(req.params.id)]
+      );
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Safety Settings (singleton row id=1)
+  app.get("/api/admin/ai-marketing/safety-settings", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query("SELECT * FROM ai_marketing_safety_settings WHERE id=1");
+      res.json(rows[0] || {
+        manual_approval_required: true, auto_launch: false, auto_pause: false,
+        auto_budget_increase: false, max_daily_budget_limit: 100, require_admin_confirmation: true
+      });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.patch("/api/admin/ai-marketing/safety-settings", isAdmin, async (req, res) => {
+    try {
+      const { manual_approval_required, auto_launch, auto_pause, auto_budget_increase,
+              max_daily_budget_limit, require_admin_confirmation } = req.body;
+      const { rows } = await pool.query(
+        `INSERT INTO ai_marketing_safety_settings
+          (id, manual_approval_required, auto_launch, auto_pause,
+           auto_budget_increase, max_daily_budget_limit, require_admin_confirmation, updated_at)
+         VALUES (1,$1,$2,$3,$4,$5,$6,NOW())
+         ON CONFLICT (id) DO UPDATE SET
+          manual_approval_required=$1, auto_launch=$2, auto_pause=$3,
+          auto_budget_increase=$4, max_daily_budget_limit=$5,
+          require_admin_confirmation=$6, updated_at=NOW()
+         RETURNING *`,
+        [manual_approval_required??true, auto_launch??false, auto_pause??false,
+         auto_budget_increase??false, max_daily_budget_limit??100, require_admin_confirmation??true]
+      );
+      res.json(rows[0]);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   return httpServer;
 }

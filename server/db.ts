@@ -512,6 +512,120 @@ export async function ensureWaQualTables(): Promise<void> {
   }
 }
 
+export async function ensureAiMarketingTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_campaign_plans (
+        id                  SERIAL PRIMARY KEY,
+        name                TEXT NOT NULL,
+        related_project_id  INTEGER,
+        related_property_id INTEGER,
+        target_country      TEXT,
+        language            TEXT,
+        daily_budget        NUMERIC,
+        objective           TEXT DEFAULT 'Lead Form',
+        status              TEXT DEFAULT 'draft',
+        notes               TEXT,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_creatives (
+        id                SERIAL PRIMARY KEY,
+        campaign_plan_id  INTEGER REFERENCES ai_marketing_campaign_plans(id) ON DELETE SET NULL,
+        primary_text      TEXT,
+        headline          TEXT,
+        description       TEXT,
+        image_notes       TEXT,
+        video_notes       TEXT,
+        created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_audiences (
+        id                SERIAL PRIMARY KEY,
+        campaign_plan_id  INTEGER REFERENCES ai_marketing_campaign_plans(id) ON DELETE SET NULL,
+        country           TEXT,
+        city_region       TEXT,
+        language          TEXT,
+        age_min           INTEGER DEFAULT 18,
+        age_max           INTEGER DEFAULT 65,
+        interests         TEXT,
+        exclusions        TEXT,
+        notes             TEXT,
+        created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_performance_snapshots (
+        id                    SERIAL PRIMARY KEY,
+        campaign_plan_id      INTEGER REFERENCES ai_marketing_campaign_plans(id) ON DELETE SET NULL,
+        meta_campaign_id      TEXT,
+        meta_ad_set_id        TEXT,
+        meta_ad_id            TEXT,
+        campaign_name         TEXT,
+        ad_set_name           TEXT,
+        ad_name               TEXT,
+        spend                 NUMERIC DEFAULT 0,
+        leads_count           INTEGER DEFAULT 0,
+        cpl                   NUMERIC DEFAULT 0,
+        ctr                   NUMERIC DEFAULT 0,
+        cpc                   NUMERIC DEFAULT 0,
+        hot_leads             INTEGER DEFAULT 0,
+        warm_leads            INTEGER DEFAULT 0,
+        cold_leads            INTEGER DEFAULT 0,
+        no_answer_count       INTEGER DEFAULT 0,
+        appointments_count    INTEGER DEFAULT 0,
+        sales_count           INTEGER DEFAULT 0,
+        cost_per_hot_lead     NUMERIC DEFAULT 0,
+        cost_per_appointment  NUMERIC DEFAULT 0,
+        cost_per_sale         NUMERIC DEFAULT 0,
+        snapshot_date         DATE DEFAULT CURRENT_DATE,
+        created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_recommendations (
+        id                      SERIAL PRIMARY KEY,
+        performance_snapshot_id INTEGER REFERENCES ai_marketing_performance_snapshots(id) ON DELETE SET NULL,
+        type                    TEXT NOT NULL,
+        title                   TEXT NOT NULL,
+        message                 TEXT NOT NULL,
+        severity                TEXT DEFAULT 'info',
+        is_dismissed            BOOLEAN DEFAULT FALSE,
+        created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_marketing_safety_settings (
+        id                        SERIAL PRIMARY KEY,
+        manual_approval_required  BOOLEAN NOT NULL DEFAULT TRUE,
+        auto_launch               BOOLEAN NOT NULL DEFAULT FALSE,
+        auto_pause                BOOLEAN NOT NULL DEFAULT FALSE,
+        auto_budget_increase      BOOLEAN NOT NULL DEFAULT FALSE,
+        max_daily_budget_limit    NUMERIC DEFAULT 100,
+        require_admin_confirmation BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      INSERT INTO ai_marketing_safety_settings (id)
+      VALUES (1)
+      ON CONFLICT (id) DO NOTHING
+    `);
+    console.log("[DB] ensureAiMarketingTables ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureAiMarketingTables error:", err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 
