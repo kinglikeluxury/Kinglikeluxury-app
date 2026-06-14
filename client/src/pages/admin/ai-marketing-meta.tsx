@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Wifi, WifiOff, CheckCircle2, XCircle, AlertTriangle,
   RefreshCw, BarChart3, Target, Layers, Image, TrendingUp,
-  DollarSign, Eye, MousePointer, Info, Lock,
+  DollarSign, Eye, MousePointer, Info, Lock, Settings,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,33 @@ export default function MetaConnection() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  // ── TRY Display Exchange Rate ──────────────────────────────────────────────
+  // Conversion is display-only. Raw Meta values are never overwritten.
+  const [tryRate, setTryRate] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem("meta_try_rate");
+      return stored && Number(stored) > 0 ? Number(stored) : 39.5;
+    } catch { return 39.5; }
+  });
+  const [rateInput, setRateInput] = useState<string>(String(tryRate));
+  const [showRateEditor, setShowRateEditor] = useState(false);
+
+  function toTRY(usd: number): number {
+    return usd * tryRate;
+  }
+  function fmtTRY(usd: number): string {
+    return Math.round(toTRY(usd)).toLocaleString();
+  }
+  function saveTryRate() {
+    const r = parseFloat(rateInput);
+    if (r > 0 && isFinite(r)) {
+      setTryRate(r);
+      try { localStorage.setItem("meta_try_rate", String(r)); } catch {}
+      setShowRateEditor(false);
+      toast({ title: "Exchange rate saved", description: `1 USD = ${r} TRY` });
+    }
+  }
+
   // Config (booleans only — no token values ever sent to frontend)
   const { data: cfg } = useQuery<MetaConfig>({
     queryKey: ["/api/admin/ai-marketing/meta-config"],
@@ -155,10 +182,47 @@ export default function MetaConnection() {
   return (
     <div>
       {/* Safety banner */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-3">
         {["📡 Read-Only", "🔒 No Write Actions", "🚫 No Campaign Changes", "💳 No Ad Spend", "🌐 Railway Compatible"].map(b => (
           <span key={b} className="text-xs bg-slate-100 text-slate-600 font-medium px-3 py-1 rounded-full border border-slate-200">{b}</span>
         ))}
+      </div>
+
+      {/* Meta Display Exchange Rate — admin setting, display-only, never overwrites raw Meta data */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+        <span className="text-xs font-semibold text-amber-700">Display Currency: TRY</span>
+        <span className="text-xs text-amber-600">1 USD = {tryRate} TRY</span>
+        <button
+          onClick={() => { setRateInput(String(tryRate)); setShowRateEditor(v => !v); }}
+          className="flex items-center gap-1 text-xs text-amber-600 hover:text-[#005476] transition-colors ml-1"
+          title="Configure exchange rate"
+        >
+          <Settings className="h-3.5 w-3.5" />
+          {showRateEditor ? "Cancel" : "Edit Rate"}
+        </button>
+        {showRateEditor && (
+          <div className="flex items-center gap-2 ml-1">
+            <span className="text-xs text-amber-700">1 USD =</span>
+            <input
+              type="number"
+              value={rateInput}
+              onChange={e => setRateInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && saveTryRate()}
+              className="w-24 text-xs border border-amber-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#3bcac4]"
+              step="0.1"
+              min="1"
+              placeholder="39.5"
+            />
+            <span className="text-xs text-amber-700">TRY</span>
+            <button
+              onClick={saveTryRate}
+              className="text-xs bg-[#3bcac4] hover:bg-[#005476] text-white px-3 py-1 rounded transition-colors font-medium"
+            >
+              Save
+            </button>
+          </div>
+        )}
+        <span className="text-[10px] text-amber-500 ml-auto">Conversion applied to display only — raw Meta values unchanged</span>
       </div>
 
       {/* Sub-tab bar */}
@@ -319,7 +383,14 @@ export default function MetaConnection() {
                       <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[220px] truncate">{c.name}</td>
                       <td className="px-3 py-2.5"><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor(c.status)}`}>{c.status ?? "—"}</span></td>
                       <td className="px-3 py-2.5 text-slate-500 text-xs">{c.objective ?? "—"}</td>
-                      <td className="px-3 py-2.5 text-slate-600">{c.daily_budget ? `$${(Number(c.daily_budget)/100).toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2.5">
+                        {c.daily_budget ? (
+                          <div>
+                            <div className="font-semibold text-slate-700">{fmtTRY(Number(c.daily_budget)/100)} TRY</div>
+                            <div className="text-[11px] text-slate-400">(${(Number(c.daily_budget)/100).toFixed(2)} USD)</div>
+                          </div>
+                        ) : "—"}
+                      </td>
                       <td className="px-3 py-2.5 text-slate-400 text-xs">{c.start_time ? new Date(c.start_time).toLocaleDateString() : "—"}</td>
                       <td className="px-3 py-2.5 font-mono text-[10px] text-slate-400">{c.id}</td>
                     </tr>
@@ -363,7 +434,14 @@ export default function MetaConnection() {
                       <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[200px] truncate">{s.name}</td>
                       <td className="px-3 py-2.5"><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor(s.status)}`}>{s.status ?? "—"}</span></td>
                       <td className="px-3 py-2.5 font-mono text-[10px] text-slate-400">{s.campaign_id ?? "—"}</td>
-                      <td className="px-3 py-2.5 text-slate-600">{s.daily_budget ? `$${(Number(s.daily_budget)/100).toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2.5">
+                        {s.daily_budget ? (
+                          <div>
+                            <div className="font-semibold text-slate-700">{fmtTRY(Number(s.daily_budget)/100)} TRY</div>
+                            <div className="text-[11px] text-slate-400">(${(Number(s.daily_budget)/100).toFixed(2)} USD)</div>
+                          </div>
+                        ) : "—"}
+                      </td>
                       <td className="px-3 py-2.5 text-slate-500 text-xs">{s.billing_event ?? "—"}</td>
                       <td className="px-3 py-2.5 font-mono text-[10px] text-slate-400">{s.id}</td>
                     </tr>
@@ -473,13 +551,18 @@ export default function MetaConnection() {
                       { label: "Impressions", v: totals.impressions, Icon: Eye,          cls: "text-[#005476]", bg: "bg-[#005476]/10" },
                       { label: "Reach",       v: totals.reach,       Icon: TrendingUp,   cls: "text-[#3bcac4]", bg: "bg-[#3bcac4]/10" },
                       { label: "Clicks",      v: totals.clicks,      Icon: MousePointer, cls: "text-purple-600", bg: "bg-purple-50" },
-                      { label: "Spend",       v: `$${totals.spend.toFixed(2)}`, Icon: DollarSign, cls: "text-green-600", bg: "bg-green-50", raw: true },
-                    ].map(({ label, v, Icon: I, cls, bg, raw }) => (
+                      { label: "Spend (TRY)", v: totals.spend, Icon: DollarSign, cls: "text-green-600", bg: "bg-green-50", isTRY: true },
+                    ].map(({ label, v, Icon: I, cls, bg, isTRY }) => (
                       <Card key={label} className="shadow-sm">
                         <CardContent className="p-3 flex items-center gap-2">
                           <div className={`p-2 rounded-xl ${bg}`}><I className={`h-4 w-4 ${cls}`} /></div>
                           <div>
-                            <p className={`text-base font-extrabold ${cls}`}>{raw ? v : Number(v).toLocaleString()}</p>
+                            <p className={`text-base font-extrabold ${cls}`}>
+                              {isTRY ? `${fmtTRY(Number(v))} TRY` : Number(v).toLocaleString()}
+                            </p>
+                            {isTRY && (
+                              <p className="text-[10px] text-slate-400">(${Number(v).toFixed(2)} USD)</p>
+                            )}
                             <p className="text-[10px] text-slate-500">{label}</p>
                           </div>
                         </CardContent>
@@ -503,7 +586,14 @@ export default function MetaConnection() {
                           <td className="px-3 py-2.5 text-slate-600">{fmt(r.impressions)}</td>
                           <td className="px-3 py-2.5 text-slate-600">{fmt(r.reach)}</td>
                           <td className="px-3 py-2.5 text-slate-600">{fmt(r.clicks)}</td>
-                          <td className="px-3 py-2.5 font-semibold text-green-700">{r.spend ? `$${Number(r.spend).toFixed(2)}` : "—"}</td>
+                          <td className="px-3 py-2.5">
+                            {r.spend ? (
+                              <div>
+                                <div className="font-semibold text-green-700">{fmtTRY(Number(r.spend))} TRY</div>
+                                <div className="text-[10px] text-slate-400">(${Number(r.spend).toFixed(2)} USD)</div>
+                              </div>
+                            ) : "—"}
+                          </td>
                           <td className="px-3 py-2.5 text-slate-500">{r.cpc ? `$${Number(r.cpc).toFixed(2)}` : "—"}</td>
                           <td className="px-3 py-2.5 text-slate-500">{r.cpm ? `$${Number(r.cpm).toFixed(2)}` : "—"}</td>
                           <td className="px-3 py-2.5 text-slate-500">{r.ctr ? `${Number(r.ctr).toFixed(2)}%` : "—"}</td>
