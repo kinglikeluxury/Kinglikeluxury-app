@@ -811,6 +811,38 @@ export async function ensureAiCampaignAttributionTables(): Promise<void> {
   }
 }
 
+export async function ensureAiCreativeAttributionTable(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_creative_attribution (
+        id              SERIAL PRIMARY KEY,
+        creative_id     TEXT,
+        creative_name   TEXT,
+        ad_id           TEXT NOT NULL,
+        ad_name         TEXT,
+        adset_id        TEXT,
+        adset_name      TEXT,
+        campaign_id     TEXT,
+        campaign_name   TEXT,
+        thumbnail_url   TEXT,
+        status          TEXT,
+        last_synced_at  TIMESTAMPTZ DEFAULT NOW(),
+        created_at      TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT ai_creative_attribution_ad_id_uq UNIQUE (ad_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS ai_creative_attr_campaign_id_idx ON ai_creative_attribution(campaign_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS ai_creative_attr_creative_id_idx ON ai_creative_attribution(creative_id)`);
+    console.log("[DB] ensureAiCreativeAttributionTable ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureAiCreativeAttributionTable error:", err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

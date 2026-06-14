@@ -180,6 +180,23 @@ export interface MetaReadTestResult {
   };
 }
 
+/** GET ads with creative details — read-only, up to `limit` ads. No Meta writes. */
+export async function getAdsWithCreatives(limit = 50): Promise<MetaReadResult> {
+  const acct = resolveAdAccountId();
+  if (!acct) return { ok: false, data: [], error: "META_AD_ACCOUNT_ID not configured", httpStatus: 0 };
+  if (!process.env.META_ACCESS_TOKEN) return { ok: false, data: [], error: "META_ACCESS_TOKEN not configured", httpStatus: 0 };
+
+  const fields = "id,name,status,adset_id,adset_name,campaign_id,campaign{id,name},creative{id,name,thumbnail_url}";
+  const url = buildUrl(`/${acct}/ads`, { fields, limit: String(limit) });
+
+  const { status, data } = await graphGet(url);
+  if (data?.error) {
+    console.warn(`[MetaMarketing] getAdsWithCreatives error — code=${data.error?.code}`);
+    return { ok: false, data: [], error: data.error.message, httpStatus: status };
+  }
+  return { ok: true, data: Array.isArray(data?.data) ? data.data : [], error: null, httpStatus: status };
+}
+
 export async function runMetaReadTest(): Promise<MetaReadTestResult> {
   const cfg = getMetaMarketingConfig();
 

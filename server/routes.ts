@@ -6984,6 +6984,106 @@ ${metaTags}
     }
   });
 
+  // GET /api/admin/ai-marketing/creative-attribution — creative dashboard (read-only, admin only)
+  app.get("/api/admin/ai-marketing/creative-attribution", isAdmin, async (_req, res) => {
+    try {
+      const [creatives, summary] = await Promise.all([
+        pool.query(`
+          SELECT
+            ca.id, ca.creative_id, ca.creative_name, ca.ad_id, ca.ad_name,
+            ca.adset_id, ca.adset_name, ca.campaign_id, ca.campaign_name,
+            ca.thumbnail_url, ca.status, ca.last_synced_at,
+            COUNT(cl.id)                                        AS total_leads,
+            COUNT(cl.id) FILTER(WHERE cl.lead_score = 'hot')   AS hot_leads,
+            COUNT(cl.id) FILTER(WHERE cl.lead_score = 'warm')  AS warm_leads,
+            COUNT(cl.id) FILTER(WHERE cl.lead_score = 'cold')  AS cold_leads
+          FROM ai_creative_attribution ca
+          LEFT JOIN crm_leads cl ON cl.ad_id = ca.ad_id
+          GROUP BY ca.id
+          ORDER BY total_leads DESC, ca.ad_name
+          LIMIT 100
+        `),
+        pool.query(`
+          SELECT
+            COUNT(*)                                                       AS total_ads,
+            COUNT(DISTINCT creative_id) FILTER(WHERE creative_id IS NOT NULL) AS unique_creatives,
+            COUNT(DISTINCT campaign_id) FILTER(WHERE campaign_id IS NOT NULL) AS campaigns
+          FROM ai_creative_attribution
+        `),
+      ]);
+
+      res.json({
+        rows: creatives.rows.map((r: any) => ({
+          id: r.id, creativeId: r.creative_id, creativeName: r.creative_name,
+          adId: r.ad_id, adName: r.ad_name,
+          adsetId: r.adset_id, adsetName: r.adset_name,
+          campaignId: r.campaign_id, campaignName: r.campaign_name,
+          thumbnailUrl: r.thumbnail_url, status: r.status,
+          lastSyncedAt: r.last_synced_at,
+          totalLeads: Number(r.total_leads), hotLeads: Number(r.hot_leads),
+          warmLeads: Number(r.warm_leads), coldLeads: Number(r.cold_leads),
+        })),
+        summary: {
+          totalAds:        Number(summary.rows[0]?.total_ads        ?? 0),
+          uniqueCreatives: Number(summary.rows[0]?.unique_creatives  ?? 0),
+          campaigns:       Number(summary.rows[0]?.campaigns         ?? 0),
+        },
+      });
+    } catch (err: any) {
+      console.error("[CreativeAttribution] dashboard error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/creative-attribution/sync — pull from Meta, upsert table (read-only Meta)
+  app.get("/api/admin/ai-marketing/creative-attribution/sync", isAdmin, async (_req, res) => {
+    try {
+      const { getAdsWithCreatives } = await import("./metaMarketingService");
+      const result = await getAdsWithCreatives(50);
+      if (!result.ok) return res.json({ ok: false, error: result.error, inserted: 0, updated: 0, skipped: 0 });
+
+      let inserted = 0, updated = 0, skipped = 0;
+      for (const ad of result.data) {
+        const adId       = ad.id       as string;
+        const adName     = (ad.name    as string | null) ?? null;
+        const adsetId    = (ad.adset_id   as string | null) ?? null;
+        const adsetName  = (ad.adset_name as string | null) ?? null;
+        const campaignId = (ad.campaign?.id   as string | null) ?? null;
+        const campName   = (ad.campaign?.name as string | null) ?? null;
+        const creativeId   = (ad.creative?.id           as string | null) ?? null;
+        const creativeName = (ad.creative?.name         as string | null) ?? null;
+        const thumbUrl     = (ad.creative?.thumbnail_url as string | null) ?? null;
+        const adStatus     = (ad.status as string | null) ?? null;
+
+        if (!adId) { skipped++; continue; }
+
+        const ex = await pool.query(`SELECT id FROM ai_creative_attribution WHERE ad_id = $1`, [adId]);
+        if (ex.rows.length > 0) {
+          await pool.query(`
+            UPDATE ai_creative_attribution
+            SET creative_id=$1, creative_name=$2, ad_name=$3, adset_id=$4, adset_name=$5,
+                campaign_id=$6, campaign_name=$7, thumbnail_url=$8, status=$9, last_synced_at=NOW()
+            WHERE ad_id=$10
+          `, [creativeId, creativeName, adName, adsetId, adsetName, campaignId, campName, thumbUrl, adStatus, adId]);
+          updated++;
+        } else {
+          await pool.query(`
+            INSERT INTO ai_creative_attribution
+              (creative_id, creative_name, ad_id, ad_name, adset_id, adset_name, campaign_id, campaign_name, thumbnail_url, status)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          `, [creativeId, creativeName, adId, adName, adsetId, adsetName, campaignId, campName, thumbUrl, adStatus]);
+          inserted++;
+        }
+      }
+
+      console.log(`[CreativeAttribution] sync — inserted=${inserted} updated=${updated} skipped=${skipped}`);
+      res.json({ ok: true, adsFound: result.data.length, inserted, updated, skipped });
+    } catch (err: any) {
+      console.error("[CreativeAttribution] sync error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/admin/ai-marketing/strategy-insights — pattern analysis from historical data
   // Read-only. Admin only. No Meta writes. Railway compatible.
   app.get("/api/admin/ai-marketing/strategy-insights", isAdmin, async (_req, res) => {

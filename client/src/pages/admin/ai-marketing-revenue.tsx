@@ -5,7 +5,7 @@ import {
   TrendingUp, Link2, ShoppingCart, BookOpen, Lightbulb, Plus, Trash2,
   Pencil, DollarSign, Flame, Thermometer, Snowflake, PhoneOff,
   UserCheck, Calendar, Globe, Info, AlertTriangle, CheckCircle2,
-  BarChart3, Target, Activity, Building2, Megaphone, TrendingDown,
+  BarChart3, Target, Activity, Building2, Megaphone, TrendingDown, Layers, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,18 @@ interface StrategyData {
   insufficient: boolean; insights: StrategyInsight[];
   trends: { last7d: StrategyTrend; last30d: StrategyTrend; last90d: StrategyTrend } | null;
 }
+interface CreativeRow {
+  id: number; creativeId: string | null; creativeName: string | null;
+  adId: string; adName: string | null;
+  adsetId: string | null; adsetName: string | null;
+  campaignId: string | null; campaignName: string | null;
+  thumbnailUrl: string | null; status: string | null; lastSyncedAt: string | null;
+  totalLeads: number; hotLeads: number; warmLeads: number; coldLeads: number;
+}
+interface CreativeData {
+  rows: CreativeRow[];
+  summary: { totalAds: number; uniqueCreatives: number; campaigns: number };
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -90,6 +102,7 @@ const SUB_TABS = [
   { key: "recrules",    label: "AI Recommendations",   Icon: Lightbulb },
   { key: "costintel",   label: "Cost Intelligence",    Icon: Target },
   { key: "strategy",    label: "AI Strategy",          Icon: TrendingUp },
+  { key: "creative",    label: "Creative Attribution",  Icon: Layers },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -290,6 +303,32 @@ export default function RevenueIntelligence() {
     queryKey: ["/api/admin/ai-marketing/strategy-insights"],
     enabled: sub === "strategy",
   });
+
+  // ── Creative Attribution ──────────────────────────────────────────────────────
+  const queryClient = useQueryClient();
+  const { data: creativeData, isLoading: creativeLoading } = useQuery<CreativeData>({
+    queryKey: ["/api/admin/ai-marketing/creative-attribution"],
+    enabled: sub === "creative",
+  });
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  async function runCreativeSync() {
+    setSyncing(true); setSyncStatus(null);
+    try {
+      const r = await fetch("/api/admin/ai-marketing/creative-attribution/sync", { credentials: "include" });
+      const d = await r.json();
+      if (d.ok) {
+        setSyncStatus(`Sync complete — ${d.adsFound} ads found, ${d.inserted} new, ${d.updated} updated.`);
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/creative-attribution"] });
+      } else {
+        setSyncStatus(`Sync failed: ${d.error ?? "Unknown error"}`);
+      }
+    } catch (e: any) {
+      setSyncStatus(`Sync error: ${e.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1201,6 +1240,116 @@ export default function RevenueIntelligence() {
               <div className="mt-4 p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] flex-shrink-0" />
                 <span>Strategy intelligence only. No Meta campaigns, budgets, creatives, or audiences are modified. All insights are based on existing historical data.</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Creative Attribution ─────────────────────────────────────────────────── */}
+      {sub === "creative" && (
+        <div>
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 className="font-bold text-slate-800 text-base">Creative Attribution</h3>
+              <p className="text-sm text-slate-500">Maps Meta ad creatives to campaigns and lead outcomes. Read-only — no Meta actions.</p>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <Button size="sm" variant="outline" onClick={runCreativeSync} disabled={syncing}
+                className="flex items-center gap-1.5 border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4]/10">
+                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing…" : "Sync from Meta"}
+              </Button>
+              {syncStatus && (
+                <p className={`text-xs ${syncStatus.startsWith("Sync complete") ? "text-green-700" : "text-red-600"}`}>
+                  {syncStatus}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Summary KPI cards */}
+          {creativeData && (
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[
+                { label: "Ads Tracked",         value: creativeData.summary.totalAds,        icon: Layers, color: "text-[#005476]" },
+                { label: "Unique Creatives",     value: creativeData.summary.uniqueCreatives, icon: Globe,  color: "text-[#3bcac4]" },
+                { label: "Campaigns Covered",    value: creativeData.summary.campaigns,       icon: Megaphone, color: "text-slate-600" },
+              ].map(({ label, value, icon: Icon, color }) => (
+                <Card key={label}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon className={`h-4 w-4 ${color}`} />
+                      <span className="text-xs font-medium text-slate-500">{label}</span>
+                    </div>
+                    <p className={`text-2xl font-extrabold ${color}`}>{value > 0 ? value : "—"}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {creativeLoading ? (
+            <div className="text-center py-12 text-slate-400">Loading creative data…</div>
+          ) : !creativeData || creativeData.rows.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center text-slate-400">
+                <Layers className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No creative data yet.</p>
+                <p className="text-sm mt-1">Click "Sync from Meta" to pull ad creative information from your Meta account.</p>
+                <p className="text-xs mt-2 text-slate-400">Requires META_ACCESS_TOKEN and META_AD_ACCOUNT_ID to be configured.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white">
+                      <th className="px-3 py-2 text-left font-semibold">Ad Name</th>
+                      <th className="px-3 py-2 text-left font-semibold">Creative</th>
+                      <th className="px-3 py-2 text-left font-semibold">Ad Set</th>
+                      <th className="px-3 py-2 text-left font-semibold">Campaign</th>
+                      <th className="px-3 py-2 text-center font-semibold">Status</th>
+                      <th className="px-3 py-2 text-center font-semibold">Total</th>
+                      <th className="px-3 py-2 text-center font-semibold text-orange-200">HOT</th>
+                      <th className="px-3 py-2 text-center font-semibold text-yellow-200">WARM</th>
+                      <th className="px-3 py-2 text-center font-semibold text-blue-200">COLD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {creativeData.rows.map((row, i) => (
+                      <tr key={row.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                        <td className="px-3 py-2 font-medium text-slate-800 max-w-[160px] truncate">
+                          {row.thumbnailUrl
+                            ? <a href={row.thumbnailUrl} target="_blank" rel="noopener noreferrer" className="underline text-[#005476]">{row.adName ?? row.adId}</a>
+                            : (row.adName ?? row.adId)
+                          }
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 max-w-[140px] truncate">
+                          {row.creativeName ?? (row.creativeId ? `ID: ${row.creativeId.slice(0,10)}…` : "—")}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 max-w-[140px] truncate">{row.adsetName ?? "—"}</td>
+                        <td className="px-3 py-2 text-slate-600 max-w-[140px] truncate">{row.campaignName ?? "—"}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                            row.status === "ACTIVE" ? "bg-green-100 text-green-800"
+                            : row.status === "PAUSED" ? "bg-yellow-100 text-yellow-800"
+                            : "bg-slate-100 text-slate-600"
+                          }`}>{row.status ?? "—"}</span>
+                        </td>
+                        <td className="px-3 py-2 text-center font-semibold text-slate-700">{row.totalLeads > 0 ? row.totalLeads : "—"}</td>
+                        <td className="px-3 py-2 text-center font-bold text-orange-600">{row.hotLeads > 0 ? row.hotLeads : "—"}</td>
+                        <td className="px-3 py-2 text-center font-bold text-yellow-600">{row.warmLeads > 0 ? row.warmLeads : "—"}</td>
+                        <td className="px-3 py-2 text-center font-bold text-blue-600">{row.coldLeads > 0 ? row.coldLeads : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] flex-shrink-0" />
+                <span>Read-only. No Meta creatives, campaigns, or budgets are modified. Lead counts are matched via ad_id from CRM data. Sync fetches up to 50 ads per request.</span>
               </div>
             </>
           )}
