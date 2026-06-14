@@ -43,7 +43,7 @@ import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./w
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
-import { eq, and, desc, inArray, count as sqlCount } from "drizzle-orm";
+import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
 
 // Configure multer for file uploads - memory storage for Cloudinary
 const upload = multer({ 
@@ -4000,15 +4000,18 @@ ${metaTags}
         return Number(row?.n ?? 0);
       }
 
-      const [total, newLeads, hotLeads, qualified, converted] = await Promise.all([
+      const [total, newLeads, hotLeads, qualified, converted, aiHot, aiWarm, aiCold] = await Promise.all([
         cnt(),
         cnt(eq(crmLeads.status, "new")),
         cnt(eq(crmLeads.leadScore, "hot")),
         cnt(eq(crmLeads.status, "qualified")),
         cnt(eq(crmLeads.status, "converted")),
+        cnt(drizzleSql`ai_score_category = 'HOT'`),
+        cnt(drizzleSql`ai_score_category = 'WARM'`),
+        cnt(drizzleSql`ai_score_category = 'COLD'`),
       ]);
 
-      res.json({ total, new: newLeads, hot: hotLeads, qualified, converted });
+      res.json({ total, new: newLeads, hot: hotLeads, qualified, converted, aiHot, aiWarm, aiCold });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4501,7 +4504,7 @@ ${metaTags}
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try {
-      const { search, status, source, assignedTo, expectedMonth, contactDate, sortOrder, page, limit, qualScore } = req.query as Record<string, string>;
+      const { search, status, source, assignedTo, expectedMonth, contactDate, sortOrder, page, limit, qualScore, aiScore } = req.query as Record<string, string>;
       const pageNum  = Math.max(1, parseInt(page  ?? "1",  10) || 1);
       const limitNum = Math.min(50, Math.max(1, parseInt(limit ?? "50", 10) || 50));
       const offset   = (pageNum - 1) * limitNum;
@@ -4522,6 +4525,7 @@ ${metaTags}
       if (contactDate && contactDate !== "all") filters.contactDate = contactDate;
       if (sortOrder === "oldest") filters.sortOrder = "oldest";
       if (qualScore && qualScore !== "all") filters.qualScore = qualScore;
+      if (aiScore  && aiScore  !== "all") filters.aiScore  = aiScore;
       const { leads, total } = await storage.getCrmLeads(filters);
       res.json({ leads, total, page: pageNum, limit: limitNum });
     } catch (err: any) {
@@ -4608,6 +4612,12 @@ ${metaTags}
       import("./waQualService").then(({ checkAndTrigger }) =>
         checkAndTrigger(lead.id, lead.phone, lead.firstName)
       ).catch(err => console.error(`[WaQual] Trigger failed leadId=${lead.id}: ${err.message}`));
+      // AI Lead Scoring — score new lead in background (fire-and-forget)
+      setTimeout(() => {
+        import("./aiLeadScoringService").then(({ scoreAndSaveLead }) =>
+          scoreAndSaveLead(lead.id)
+        ).catch(() => {});
+      }, 500);
       res.status(201).json(lead);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -5585,6 +5595,10 @@ ${metaTags}
       const updated = await storage.updateCrmLead(Number(req.params.id), req.body);
       if (!updated) return res.status(404).json({ message: "Lead not found" });
       res.json(updated);
+      // AI Lead Scoring — re-score on field updates (fire-and-forget)
+      import("./aiLeadScoringService").then(({ scoreAndSaveLead }) =>
+        scoreAndSaveLead(Number(req.params.id))
+      ).catch(() => {});
       // Notify agent when admin assigns/reassigns lead via PATCH
       if (req.session.isAdmin && req.body.assignedTo != null) {
         import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
@@ -5661,6 +5675,26 @@ ${metaTags}
           }).catch(() => {});
         }
       }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /** POST /api/admin/crm/leads/:id/rescore — manually trigger AI re-scoring (admin only) */
+  app.post("/api/admin/crm/leads/:id/rescore", isAuthenticated, async (req: any, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ message: "Admin only" });
+    try {
+      const leadId = Number(req.params.id);
+      const { scoreAndSaveLead } = await import("./aiLeadScoringService");
+      await scoreAndSaveLead(leadId);
+      const updated = await storage.getCrmLead(leadId);
+      if (!updated) return res.status(404).json({ message: "Lead not found" });
+      res.json({
+        success: true,
+        aiScore:         (updated as any).ai_score,
+        aiScoreCategory: (updated as any).ai_score_category,
+        aiScoreReason:   (updated as any).ai_score_reason,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

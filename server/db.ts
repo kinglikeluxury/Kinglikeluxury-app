@@ -497,6 +497,11 @@ export async function ensureWaQualTables(): Promise<void> {
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS preferred_contact_time  TEXT`);
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS qualified_at          TIMESTAMPTZ`);
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS opt_out_wa            BOOLEAN NOT NULL DEFAULT FALSE`);
+    // AI Lead Scoring columns (safe — idempotent)
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ai_score            INTEGER`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ai_score_category   TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ai_score_reason     TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ai_score_updated_at TIMESTAMPTZ`);
 
     console.log("[DB] ensureWaQualTables ✓");
   } catch (err: any) {

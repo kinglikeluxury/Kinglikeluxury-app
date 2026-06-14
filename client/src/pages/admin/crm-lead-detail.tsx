@@ -547,6 +547,13 @@ export default function CrmLeadDetailPage() {
     },
   });
 
+  const rescoreMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/admin/crm/leads/${lead?.id}/rescore`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads", lead?.id] });
+    },
+  });
+
   const overrideQualScoreMutation = useMutation({
     mutationFn: (score: string) => apiRequest("PATCH", `/api/admin/wa-qual/lead/${leadId}/score`, { score }),
     onSuccess: () => {
@@ -1324,6 +1331,79 @@ export default function CrmLeadDetailPage() {
               })}
             </CardContent>
           </Card>
+
+          {/* AI Score */}
+          {(() => {
+            const aiCat     = (lead as any).ai_score_category  as string | null;
+            const aiVal     = (lead as any).ai_score           as number | null;
+            const aiReason  = (lead as any).ai_score_reason    as string | null;
+            const aiUpdated = (lead as any).ai_score_updated_at as string | null;
+            const catCfg: Record<string, { emoji: string; textCls: string; barCls: string }> = {
+              HOT:  { emoji: "🔥", textCls: "text-orange-500", barCls: "bg-orange-400" },
+              WARM: { emoji: "🟡", textCls: "text-amber-500",  barCls: "bg-amber-400"  },
+              COLD: { emoji: "❄️", textCls: "text-sky-400",    barCls: "bg-sky-400"    },
+            };
+            const c = catCfg[aiCat ?? ""] ?? null;
+            return (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-[#005476] flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Bot className="h-4 w-4" /> AI Score
+                    </span>
+                    {user?.isAdmin && (
+                      <button
+                        className="flex items-center gap-1 text-[10px] text-[#005476] hover:text-[#3bcac4] transition-colors disabled:opacity-50"
+                        onClick={() => rescoreMutation.mutate()}
+                        disabled={rescoreMutation.isPending}
+                      >
+                        <RefreshCw className={`h-3 w-3 ${rescoreMutation.isPending ? "animate-spin" : ""}`} />
+                        Re-score
+                      </button>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-2">
+                  {c && aiVal != null ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-3xl font-bold ${c.textCls}`}>{aiVal}</span>
+                        <span className="text-xs text-muted-foreground self-end pb-1">/100</span>
+                        <span className={`ml-auto text-sm font-bold ${c.textCls}`}>{c.emoji} {aiCat}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${c.barCls}`} style={{ width: `${aiVal}%` }} />
+                      </div>
+                      {aiReason && (
+                        <pre className="text-[10px] text-muted-foreground bg-gray-50 rounded-lg p-2 whitespace-pre-wrap leading-relaxed border max-h-36 overflow-y-auto">
+                          {aiReason}
+                        </pre>
+                      )}
+                      {aiUpdated && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Scored {new Date(aiUpdated).toLocaleDateString()}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-3">
+                      <p className="text-xs text-muted-foreground mb-2">Not scored yet</p>
+                      {user?.isAdmin && (
+                        <button
+                          className="text-xs px-3 py-1.5 rounded-lg border border-[#3bcac4] text-[#005476] hover:bg-[#3bcac4]/10 transition-colors disabled:opacity-50 flex items-center gap-1 mx-auto"
+                          onClick={() => rescoreMutation.mutate()}
+                          disabled={rescoreMutation.isPending}
+                        >
+                          <Bot className="h-3 w-3" />
+                          {rescoreMutation.isPending ? "Scoring…" : "Score this Lead"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Assignment — admin: select + reassign via /reassign endpoint */}
           {user?.isAdmin && (

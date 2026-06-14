@@ -7,3 +7,4 @@
 - [package-lock.json Replit firewall URLs](package-lock-firewall.md) — package-lock.json may contain Replit-internal URLs that block external deployment; sed-replace to fix.
 - [canvas native module — lazy import pattern](canvas-lazy-import.md) — wrap canvas require in try-catch so server starts when native binary is missing.
 - [Ambassadori browser automation](ambassadori-browser-automation.md) — Playwright + Nix Chromium for headless form-fill; session cookies in DB; false-success fix at startup.
+- [AI Lead Scoring columns](ai-lead-scoring.md) — 4 raw-SQL columns on crm_leads (ai_score, ai_score_category, ai_score_reason, ai_score_updated_at); scores cached in DB, generated fire-and-forget on create/update.
