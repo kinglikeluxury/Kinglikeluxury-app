@@ -8068,6 +8068,124 @@ Rules:
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Phase 13 — AI Market Intelligence
+  // Admin-only. Recommendation layer only. Zero Meta write actions.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // POST /api/admin/ai-marketing/marketing-knowledge/generate-intelligence
+  // Generates AI marketing suggestions (investor types, buyer types, angles, markets, exclusions, lead form questions).
+  // Read-only output. No Meta publishing. No campaign creation. No automation.
+  app.post("/api/admin/ai-marketing/marketing-knowledge/generate-intelligence", isAdmin, async (req, res) => {
+    try {
+      const { project_name = "", project_type = "", location = "", luxury_level = "" } = req.body as Record<string, string>;
+      const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
+
+      const fallback = {
+        investor_types: [
+          { text: "Arab 48 Investors",        confidence: "high",   reason: "Strong real estate investment activity in Georgia and Turkey" },
+          { text: "High Net Worth Investors",  confidence: "high",   reason: "Luxury level matches HNWI investment appetite" },
+          { text: "Passive Income Investors",  confidence: "medium", reason: "Properties with rental management attract passive income seekers" },
+          { text: "Capital Growth Investors",  confidence: "medium", reason: "Emerging markets show strong appreciation potential" },
+          { text: "Diaspora Investors",        confidence: "medium", reason: "Arab diaspora communities invest in homeland-proximate markets" },
+        ],
+        buyer_types: [
+          { text: "Families",              confidence: "high",   reason: "Family buyers prioritise space, amenities, and school proximity" },
+          { text: "Second Home Buyers",    confidence: "high",   reason: "Luxury buyers often purchase second homes in resort or coastal markets" },
+          { text: "Retirement Buyers",     confidence: "medium", reason: "Retirees seek comfortable living with manageable upkeep" },
+          { text: "Holiday Home Buyers",   confidence: "medium", reason: "Tourism-driven markets attract seasonal buyers" },
+          { text: "Young Professionals",   confidence: "low",    reason: "Premium locations attract high-earning young professionals" },
+        ],
+        marketing_angles: [
+          { text: "Luxury Lifestyle",     confidence: "high",   reason: "Core appeal for premium buyers" },
+          { text: "Investment Opportunity", confidence: "high", reason: "ROI-focused messaging resonates with investor audiences" },
+          { text: "Branded Residence",    confidence: "medium", reason: "Hotel-branded residences command premium positioning" },
+          { text: "Family Living",        confidence: "medium", reason: "Family-focused messaging broadens the buyer pool" },
+          { text: "Limited Inventory",    confidence: "medium", reason: "Scarcity creates urgency" },
+          { text: "Sea View / Waterfront", confidence: "low",   reason: "View-based angle if applicable to the location" },
+        ],
+        target_markets: [
+          { text: "Arab 48",      confidence: "high",   reason: "High property investment activity from Arab 48 communities" },
+          { text: "UAE",          confidence: "high",   reason: "Strong buying power and overseas real estate appetite" },
+          { text: "Saudi Arabia", confidence: "high",   reason: "Large investor pool with capital for luxury overseas properties" },
+          { text: "Kuwait",       confidence: "medium", reason: "Active real estate investment market" },
+          { text: "Qatar",        confidence: "medium", reason: "Growing overseas property investment appetite" },
+          { text: "Europe",       confidence: "low",    reason: "European diaspora and lifestyle buyers" },
+        ],
+        audience_exclusions: [
+          { text: "Students",              confidence: "high",   reason: "Not target demographic for luxury real estate", meta_note: "Requires Meta audience validation before use" },
+          { text: "Job Seekers",           confidence: "high",   reason: "Low purchase intent and budget", meta_note: "Requires Meta audience validation before use" },
+          { text: "Rental Seekers",        confidence: "medium", reason: "Different intent from buyers", meta_note: "Requires Meta audience validation before use" },
+          { text: "Low Budget Segments",   confidence: "medium", reason: "Price mismatch with luxury offering", meta_note: "Requires Meta audience validation before use" },
+        ],
+        lead_form_questions: [
+          { text: "What is your approximate budget?",              type: "multiple_choice", reason: "Qualifies financial capacity immediately" },
+          { text: "When are you planning to purchase?",            type: "multiple_choice", reason: "Identifies purchase timeline and urgency" },
+          { text: "What is your primary investment goal?",         type: "multiple_choice", reason: "Segments lifestyle vs investment buyers" },
+          { text: "Which unit type interests you most?",           type: "multiple_choice", reason: "Helps sales team prepare relevant materials" },
+          { text: "How would you prefer to be contacted?",         type: "multiple_choice", reason: "Respects communication preferences, improves contact rate" },
+        ],
+      };
+
+      if (!apiKey) {
+        return res.json({ ok: true, suggestions: fallback, ai_used: false });
+      }
+
+      const { default: OpenAI } = await import("openai");
+      const openaiClient = new OpenAI({ apiKey });
+
+      const systemPrompt = `You are a luxury real estate marketing strategist for Kinglike Luxury Real Estate.
+Generate data-driven marketing intelligence based on project details.
+IMPORTANT: Do NOT invent fake Meta advertising interest names. These are strategic suggestions only, not Meta Ads Manager configurations.
+Return ONLY valid JSON. No markdown. No explanation.`;
+
+      const userPrompt = `Generate comprehensive marketing intelligence for this luxury real estate project.
+
+Project Name: ${project_name || 'Luxury Real Estate Project'}
+Project Type: ${project_type || 'Residential'}
+Location: ${location || 'Not specified'}
+Luxury Level: ${luxury_level || 'Luxury'}
+
+Return this exact JSON:
+{
+  "investor_types": [{ "text":"...", "confidence":"high|medium|low", "reason":"1-sentence reason" }],
+  "buyer_types":    [{ "text":"...", "confidence":"high|medium|low", "reason":"1-sentence reason" }],
+  "marketing_angles":[{ "text":"...", "confidence":"high|medium|low", "reason":"1-sentence reason" }],
+  "target_markets": [{ "text":"...", "confidence":"high|medium|low", "reason":"1-sentence reason" }],
+  "audience_exclusions":[{ "text":"...", "confidence":"high|medium|low", "reason":"1-sentence reason", "meta_note":"Requires Meta audience validation before use" }],
+  "lead_form_questions":[{ "text":"Full question?", "type":"multiple_choice|short_answer", "reason":"1-sentence reason" }]
+}
+
+Rules:
+- investor_types: 5-7 realistic investor profiles for this project type and location
+- buyer_types: 5-7 specific buyer personas
+- marketing_angles: 6-8 distinct USPs relevant to this property type and location
+- target_markets: 5-7 geographic or demographic markets
+- audience_exclusions: 4-6 audience segments to exclude (no fake Meta interest names)
+- lead_form_questions: 5-6 practical lead qualification questions`;
+
+      let parsed: any = fallback;
+      try {
+        const completion = await openaiClient.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          max_tokens: 2500,
+          temperature: 0.7,
+          response_format: { type: "json_object" },
+        });
+        parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      } catch {
+        parsed = fallback;
+      }
+
+      console.log(`[MarketIntelligence] Generated for "${project_name}" ${project_type} ${location}`);
+      res.json({ ok: true, suggestions: parsed, ai_used: true });
+    } catch (err: any) {
+      console.error("[MarketIntelligence] error:", err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Phase 12 — Project Marketing Knowledge Base CRUD
   // Admin-only. Read-only AI integration. Zero Meta write actions.
   // ─────────────────────────────────────────────────────────────────────────────

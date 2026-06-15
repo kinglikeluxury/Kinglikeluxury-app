@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -184,6 +184,13 @@ interface ForbiddenClaim { id: number; profile_id: number; claim_text: string; }
 interface ProfileDetail {
   ok: boolean; profile: MarketingProfile;
   angles: MarketingAngle[]; markets: TargetMarket[]; claims: ForbiddenClaim[];
+}
+interface IntelSuggestion { text: string; confidence: "high" | "medium" | "low"; reason: string; meta_note?: string; }
+interface IntelQuestion { text: string; type: string; reason: string; }
+interface IntelligenceResult {
+  investor_types: IntelSuggestion[]; buyer_types: IntelSuggestion[];
+  marketing_angles: IntelSuggestion[]; target_markets: IntelSuggestion[];
+  audience_exclusions: IntelSuggestion[]; lead_form_questions: IntelQuestion[];
 }
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
@@ -651,6 +658,43 @@ export default function RevenueIntelligence() {
       apiRequest("DELETE", `/api/admin/ai-marketing/marketing-knowledge/${profileId}/claims/${claimId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] }),
   });
+
+  // ── Phase 13 — AI Market Intelligence state ───────────────────────────────
+  const [showIntelPanel, setShowIntelPanel] = useState(false);
+  const [intelInputs, setIntelInputs] = useState({ project_name: "", project_type: "", location: "", luxury_level: "" });
+  const [intelResults, setIntelResults] = useState<IntelligenceResult | null>(null);
+  const [generatingIntel, setGeneratingIntel] = useState(false);
+  const [acceptedIntel, setAcceptedIntel] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (kbDetailData?.profile) {
+      const p = kbDetailData.profile;
+      setIntelInputs({
+        project_name: p.marketing_alias || p.internal_project_name || "",
+        project_type: p.project_type || "",
+        location: p.location || "",
+        luxury_level: p.luxury_level || "",
+      });
+      setShowIntelPanel(true);
+    }
+  }, [kbDetailData?.profile?.id]);
+
+  async function generateIntelligence() {
+    setGeneratingIntel(true); setIntelResults(null); setAcceptedIntel({});
+    try {
+      const r = await fetch("/api/admin/ai-marketing/marketing-knowledge/generate-intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(intelInputs),
+      });
+      const d = await r.json();
+      if (d.ok) { setIntelResults(d.suggestions); }
+      else toast({ title: "Generation failed", description: d.error ?? "Unknown error", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally { setGeneratingIntel(false); }
+  }
 
   async function generateCampaignDraft() {
     setGeneratingCampaign(true); setGeneratedCampaign(null); setCampaignSafetyChecks(null);
@@ -2893,6 +2937,179 @@ export default function RevenueIntelligence() {
               )}
             </>
           )}
+
+          {/* ── AI Market Intelligence Panel ─────────────────────────── */}
+          <div className="border rounded-xl overflow-hidden">
+            <button
+              onClick={() => setShowIntelPanel(p => !p)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5 hover:from-[#005476]/8 hover:to-[#3bcac4]/8 transition-all text-left">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-[#3bcac4]" />
+                <span className="text-sm font-semibold text-[#005476]">AI Market Intelligence</span>
+                <span className="text-[10px] bg-[#3bcac4]/20 text-[#005476] px-1.5 py-0.5 rounded-full font-medium">Recommendation Only</span>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showIntelPanel ? "rotate-180" : ""}`} />
+            </button>
+
+            {showIntelPanel && (
+              <div className="p-4 space-y-4 border-t bg-white">
+                <p className="text-xs text-slate-500">AI generates suggested investor types, buyer types, marketing angles, target markets, audience exclusions, and lead form questions. No Meta publishing. No campaign creation.</p>
+
+                {/* Inputs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Project Name</Label>
+                    <Input placeholder="e.g. Panorama Batumi" value={intelInputs.project_name}
+                      onChange={e => setIntelInputs(p => ({ ...p, project_name: e.target.value }))} className="text-xs h-8" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Project Type</Label>
+                    <Select value={intelInputs.project_type} onValueChange={v => setIntelInputs(p => ({ ...p, project_type: v }))}>
+                      <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Type…" /></SelectTrigger>
+                      <SelectContent>
+                        {["Apartment Complex","Villa","Hotel Residence","Branded Residence","Land","Mixed Use","Commercial","Resort"].map(t =>
+                          <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Location</Label>
+                    <Input placeholder="e.g. Batumi, Georgia" value={intelInputs.location}
+                      onChange={e => setIntelInputs(p => ({ ...p, location: e.target.value }))} className="text-xs h-8" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Luxury Level</Label>
+                    <Select value={intelInputs.luxury_level} onValueChange={v => setIntelInputs(p => ({ ...p, luxury_level: v }))}>
+                      <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Level…" /></SelectTrigger>
+                      <SelectContent>
+                        {["Ultra Luxury","Luxury","Premium","Upper Mid"].map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button size="sm"
+                  onClick={generateIntelligence}
+                  disabled={generatingIntel || !intelInputs.project_name}
+                  className="text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90 gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {generatingIntel ? "Generating…" : "Generate Intelligence"}
+                </Button>
+
+                {/* Results */}
+                {intelResults && (() => {
+                  const categories: Array<{
+                    key: keyof Omit<IntelligenceResult, "lead_form_questions">;
+                    label: string; icon: any;
+                    saveType: "angle" | "market" | "investor" | "buyer" | null;
+                  }> = [
+                    { key: "investor_types",      label: "Investor Types",      icon: Users,    saveType: "investor" },
+                    { key: "buyer_types",         label: "Buyer Types",         icon: UserCheck, saveType: "buyer" },
+                    { key: "marketing_angles",    label: "Marketing Angles",    icon: Layers,   saveType: "angle" },
+                    { key: "target_markets",      label: "Target Markets",      icon: Globe,    saveType: "market" },
+                    { key: "audience_exclusions", label: "Audience Exclusions", icon: Shield,   saveType: null },
+                  ];
+                  return (
+                    <div className="space-y-4 pt-2 border-t">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                        {categories.map(({ key, label, icon: Icon, saveType }) => {
+                          const items = intelResults[key] as IntelSuggestion[];
+                          return (
+                            <Card key={key} className="border">
+                              <CardHeader className="pb-1 pt-3 px-3">
+                                <CardTitle className="text-xs flex items-center gap-1.5 text-[#005476]">
+                                  <Icon className="h-3 w-3 text-[#3bcac4]" />{label}
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-1.5 px-3 pb-3">
+                                {items?.map((item, i) => {
+                                  const itemKey = `${key}-${i}`;
+                                  const isAccepted = !!acceptedIntel[itemKey];
+                                  return (
+                                    <div key={i}
+                                      className={`border rounded-lg p-2 transition-all ${isAccepted ? "bg-teal-50 border-teal-200" : "bg-slate-50 border-transparent"}`}>
+                                      <div className="flex items-start gap-1 mb-0.5">
+                                        <span className="text-[11px] font-medium text-slate-800 leading-snug flex-1">{item.text}</span>
+                                        <span className={`text-[9px] px-1 py-0.5 rounded-full font-semibold shrink-0 ${
+                                          item.confidence === "high"   ? "bg-green-100 text-green-700" :
+                                          item.confidence === "medium" ? "bg-yellow-100 text-yellow-700" :
+                                          "bg-slate-200 text-slate-600"}`}>
+                                          {item.confidence}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-slate-400 mb-1 leading-relaxed">{item.reason}</p>
+                                      {item.meta_note && (
+                                        <p className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded mb-1">⚠ {item.meta_note}</p>
+                                      )}
+                                      {isAccepted ? (
+                                        <span className="text-[10px] text-teal-600 flex items-center gap-0.5 font-medium">
+                                          <CheckCircle2 className="h-2.5 w-2.5" />Saved
+                                        </span>
+                                      ) : saveType && activeKbId ? (
+                                        <button
+                                          onClick={() => {
+                                            if (saveType === "angle")
+                                              addAngleMutation.mutate({ id: activeKbId!, body: { angle_name: item.text } });
+                                            else if (saveType === "market")
+                                              addMarketMutation.mutate({ id: activeKbId!, body: { market_name: item.text } });
+                                            else if (saveType === "investor") {
+                                              setKbForm(f => ({ ...f, target_investor_type: item.text }));
+                                              toast({ title: "Added to profile", description: "Click Save Changes to persist" });
+                                            } else if (saveType === "buyer") {
+                                              setKbForm(f => ({ ...f, target_buyer_type: item.text }));
+                                              toast({ title: "Added to profile", description: "Click Save Changes to persist" });
+                                            }
+                                            setAcceptedIntel(a => ({ ...a, [itemKey]: true }));
+                                          }}
+                                          className="text-[10px] text-[#3bcac4] hover:text-[#005476] font-medium flex items-center gap-0.5 transition-colors">
+                                          <Plus className="h-2.5 w-2.5" />
+                                          {saveType === "angle" ? "Add Angle" : saveType === "market" ? "Add Market" : "Use This"}
+                                        </button>
+                                      ) : saveType && !activeKbId ? (
+                                        <p className="text-[9px] text-slate-400 italic">Open a profile to save</p>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+
+                      {/* Lead Form Questions */}
+                      <Card className="border">
+                        <CardHeader className="pb-1 pt-3 px-3">
+                          <CardTitle className="text-xs flex items-center gap-1.5 text-[#005476]">
+                            <ClipboardList className="h-3 w-3 text-[#3bcac4]" />Suggested Lead Form Questions
+                            <span className="text-[10px] font-normal text-slate-400 ml-auto">Use in Campaign Draft Builder</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {intelResults.lead_form_questions?.map((q, i) => (
+                              <div key={i} className="bg-slate-50 rounded-lg p-2.5 border">
+                                <p className="text-[11px] font-medium text-slate-800 mb-1 leading-snug">{q.text}</p>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded">{q.type?.replace(/_/g, " ")}</span>
+                                  <p className="text-[10px] text-slate-500 flex-1 text-right leading-tight">{q.reason}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 text-amber-400" />
+                        These are strategic recommendations only. Audience exclusions require Meta validation before use. No Meta write actions performed.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
 
           <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
             <Library className="h-4 w-4 mt-0.5 text-[#3bcac4] shrink-0" />
