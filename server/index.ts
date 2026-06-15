@@ -312,9 +312,14 @@ app.use((req, res, next) => {
   server.keepAliveTimeout = 620000;
   server.headersTimeout = 630000;
 
-  startScheduler();
-  startDailyBackup();
-  startCrmTaskReminderScheduler();
+  const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
+  if (schedulersEnabled) {
+    startScheduler();
+    startDailyBackup();
+    startCrmTaskReminderScheduler();
+  } else {
+    console.log("[Schedulers] Disabled by ENABLE_BACKGROUND_SCHEDULERS — set to 'true' to enable background processing");
+  }
   validateMetaWhatsAppConfig();
 
   // Log active database status after server is up
@@ -339,11 +344,13 @@ app.use((req, res, next) => {
 
   ensureMetaLeadsTables()
     .then(() => {
-      startMetaLeadsProcessor();
-      if (process.env.META_LEAD_PULL_SYNC_ENABLED === "true") {
-        startPullSyncScheduler();
-      } else {
-        console.log("[MetaLeads][PullSync] Scheduler disabled — set META_LEAD_PULL_SYNC_ENABLED=true to enable");
+      if (schedulersEnabled) {
+        startMetaLeadsProcessor();
+        if (process.env.META_LEAD_PULL_SYNC_ENABLED === "true") {
+          startPullSyncScheduler();
+        } else {
+          console.log("[MetaLeads][PullSync] Scheduler disabled — set META_LEAD_PULL_SYNC_ENABLED=true to enable");
+        }
       }
     })
     .catch(err => console.error("[DB] ensureMetaLeadsTables failed:", err));
@@ -357,7 +364,7 @@ app.use((req, res, next) => {
     .catch(err => console.error("[DB] ensureDeveloperRegistrationTables failed:", err));
 
   ensureEmailNurturingTables()
-    .then(() => startNurturingScheduler())
+    .then(() => { if (schedulersEnabled) startNurturingScheduler(); })
     .catch(err => console.error("[DB] ensureEmailNurturingTables failed:", err));
 
   ensureWhatsAppApiTables()
@@ -384,7 +391,7 @@ app.use((req, res, next) => {
 
   ensureWaQualTables()
     .then(() => ensureAiConciergeColumns())
-    .then(() => startWaQualScheduler())
+    .then(() => { if (schedulersEnabled) startWaQualScheduler(); })
     .then(() => import("./waQualService").then(({ migrateLegacySessionsToAiConcierge }) => migrateLegacySessionsToAiConcierge()))
     .catch(err => console.error("[DB] ensureWaQualTables failed:", err));
 
