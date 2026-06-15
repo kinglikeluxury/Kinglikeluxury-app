@@ -8068,6 +8068,270 @@ Rules:
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Phase 14 — Performance Learning Engine
+  // Admin-only. Read-only analysis of real historical data. Zero Meta write actions.
+  // Sources: crm_leads, ai_campaign_performance, ai_marketing_learning_history
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // POST /api/admin/ai-marketing/learning/compute
+  // Runs SQL analysis on real historical data, discovers patterns, stores snapshot.
+  // No fabrication — "Insufficient historical data" returned when sample < 3.
+  app.post("/api/admin/ai-marketing/learning/compute", isAdmin, async (_req, res) => {
+    try {
+      // Helper: confidence by sample size
+      const conf = (n: number) => n >= 100 ? "high" : n >= 20 ? "medium" : "low";
+      const rate = (hot: number, total: number) => total > 0 ? parseFloat((hot / total * 100).toFixed(1)) : 0;
+      const toInt = (v: any) => parseInt(v) || 0;
+
+      // 1 — CRM overview (all leads)
+      const ovRes = await pool.query(`
+        SELECT
+          COUNT(*)                                                 AS total_leads,
+          COUNT(CASE WHEN lead_score = 'hot'     THEN 1 END)      AS hot_count,
+          COUNT(CASE WHEN lead_score = 'warm'    THEN 1 END)      AS warm_count,
+          COUNT(CASE WHEN lead_score = 'cold'    THEN 1 END)      AS cold_count,
+          COUNT(CASE WHEN status    = 'no_answer' THEN 1 END)     AS no_answer_count
+        FROM crm_leads
+      `);
+      const ov = ovRes.rows[0];
+      const totalLeads = toInt(ov.total_leads);
+      const hotCount   = toInt(ov.hot_count);
+
+      // 2 — Helper query builder for segment analysis
+      const segQuery = (groupCol: string, whereClause = "") => pool.query(`
+        SELECT
+          COALESCE(NULLIF(TRIM(${groupCol}), ''), 'Unknown') AS segment,
+          COUNT(*)                                            AS total,
+          COUNT(CASE WHEN lead_score = 'hot'      THEN 1 END) AS hot,
+          COUNT(CASE WHEN lead_score = 'warm'     THEN 1 END) AS warm,
+          COUNT(CASE WHEN lead_score = 'cold'     THEN 1 END) AS cold,
+          COUNT(CASE WHEN status    = 'no_answer' THEN 1 END) AS no_ans
+        FROM crm_leads
+        ${whereClause}
+        GROUP BY 1
+        HAVING COUNT(*) >= 3
+        ORDER BY COUNT(CASE WHEN lead_score='hot' THEN 1 END) DESC NULLS LAST,
+                 COUNT(*) DESC
+        LIMIT 20
+      `);
+
+      const toPerf = (rows: any[]) => rows.map(r => ({
+        segment:    r.segment,
+        total:      toInt(r.total),
+        hot:        toInt(r.hot),
+        warm:       toInt(r.warm),
+        cold:       toInt(r.cold),
+        no_ans:     toInt(r.no_ans),
+        hot_rate:   rate(toInt(r.hot), toInt(r.total)),
+        confidence: conf(toInt(r.total)),
+      }));
+
+      const [marketRes, campaignRes, sourceRes, projectRes] = await Promise.all([
+        segQuery("country"),
+        segQuery("campaign_name"),
+        segQuery("lead_source"),
+        segQuery("project_interest", "WHERE project_interest IS NOT NULL AND TRIM(project_interest) != ''"),
+      ]);
+
+      const marketData   = toPerf(marketRes.rows);
+      const campaignData = toPerf(campaignRes.rows);
+      const sourceData   = toPerf(sourceRes.rows);
+      const projectData  = toPerf(projectRes.rows);
+
+      // 3 — Cross-dimension patterns (country × campaign_name, minimum 5 leads)
+      const patRes = await pool.query(`
+        SELECT
+          COALESCE(NULLIF(TRIM(country),''),'Unknown') || ' × ' ||
+          COALESCE(NULLIF(TRIM(campaign_name),''),'Unknown') AS pattern,
+          'market_campaign'                                   AS pattern_type,
+          COUNT(*)                                            AS sample_size,
+          COUNT(CASE WHEN lead_score='hot' THEN 1 END)        AS hot_count
+        FROM crm_leads
+        WHERE country IS NOT NULL AND TRIM(country) != ''
+          AND campaign_name IS NOT NULL AND TRIM(campaign_name) != ''
+        GROUP BY country, campaign_name
+        HAVING COUNT(*) >= 5
+        ORDER BY COUNT(CASE WHEN lead_score='hot' THEN 1 END)::float /
+                 NULLIF(COUNT(*), 0) DESC NULLS LAST
+        LIMIT 15
+      `);
+
+      const patterns = patRes.rows.map((r: any) => {
+        const sz   = toInt(r.sample_size);
+        const hot  = toInt(r.hot_count);
+        const hr   = rate(hot, sz);
+        return {
+          pattern:        r.pattern,
+          type:           r.pattern_type,
+          sample_size:    sz,
+          hot_count:      hot,
+          hot_rate:       hr,
+          confidence:     conf(sz),
+          recommendation: hr >= 15
+            ? `Prioritize ${r.pattern} — HOT rate ${hr}% from ${sz} leads`
+            : hr < 5
+            ? `Review ${r.pattern} spend — HOT rate only ${hr}% from ${sz} leads`
+            : `Monitor ${r.pattern} — HOT rate ${hr}% from ${sz} leads`,
+        };
+      });
+
+      // 4 — Also merge ai_campaign_performance (pre-aggregated) for richer data
+      const cpRes = await pool.query(
+        `SELECT entity_type, entity_name, leads_count, hot_leads, warm_leads, cold_leads, no_answer_count
+         FROM ai_campaign_performance WHERE leads_count >= 3
+         ORDER BY hot_leads DESC NULLS LAST LIMIT 20`
+      ).catch(() => ({ rows: [] as any[] }));
+
+      // 5 — Pull ai_marketing_learning_history for manually logged data
+      const histRes = await pool.query(
+        `SELECT entity_type, entity_name, leads_count, hot_count, warm_count, cold_count, no_answer_count
+         FROM ai_marketing_learning_history WHERE leads_count >= 5
+         ORDER BY hot_count DESC NULLS LAST LIMIT 30`
+      ).catch(() => ({ rows: [] as any[] }));
+
+      // 6 — Build evidence-backed recommendations (only when data supports)
+      const recs: any[] = [];
+
+      const addRec = (
+        type: string, seg: string, hr: number, hot: number, total: number, c: string, prefix = ""
+      ) => {
+        if (total >= 10 && hr >= 15) {
+          recs.push({
+            type,
+            recommendation: `${prefix}${seg} — HOT rate ${hr}% (${hot}/${total} leads)`,
+            reason:         `${seg} shows above-average lead quality based on ${total} real leads`,
+            confidence: c, hot_rate: hr, sample_size: total,
+          });
+        } else if (total >= 10 && hr < 5) {
+          recs.push({
+            type: type + "_warning",
+            recommendation: `Review ${seg} spend — HOT rate ${hr}% from ${total} leads`,
+            reason:         `Below-average quality — consider reallocating budget`,
+            confidence: c, hot_rate: hr, sample_size: total,
+          });
+        }
+      };
+
+      marketData.slice(0, 5).forEach(m   => addRec("market",   m.segment,  m.hot_rate, m.hot, m.total, m.confidence, "Prioritize "));
+      campaignData.slice(0, 5).forEach(c => addRec("campaign", c.segment, c.hot_rate, c.hot, c.total, c.confidence, "Scale "));
+      sourceData.slice(0, 3).forEach(s   => addRec("source",   s.segment,  s.hot_rate, s.hot, s.total, s.confidence));
+
+      histRes.rows.forEach((h: any) => {
+        const t  = toInt(h.leads_count);
+        const ht = toInt(h.hot_count);
+        if (t >= 20 && ht > 0) {
+          const hr = rate(ht, t);
+          if (hr >= 15) recs.push({
+            type: "historical",
+            recommendation: `${h.entity_name} (${h.entity_type}) — HOT rate ${hr}% from ${t} leads`,
+            reason: "From manual learning history data",
+            confidence: conf(t), hot_rate: hr, sample_size: t,
+          });
+        }
+      });
+
+      // 7 — Store snapshot
+      const snapRes = await pool.query(
+        `INSERT INTO ai_learning_snapshots
+           (total_leads, hot_count, market_data, campaign_data, source_data, project_data, pattern_data, recommendations)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         RETURNING id, computed_at`,
+        [
+          totalLeads, hotCount,
+          JSON.stringify(marketData), JSON.stringify(campaignData),
+          JSON.stringify(sourceData),  JSON.stringify(projectData),
+          JSON.stringify(patterns),    JSON.stringify(recs),
+        ]
+      );
+      const snapId = snapRes.rows[0].id;
+
+      // 8 — Store individual patterns
+      for (const p of patterns) {
+        await pool.query(
+          `INSERT INTO ai_learning_patterns
+             (snapshot_id, pattern_type, pattern_name, sample_size, hot_count, hot_rate, confidence, recommendation)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [snapId, p.type, p.pattern, p.sample_size, p.hot_count, p.hot_rate, p.confidence, p.recommendation]
+        );
+      }
+
+      console.log(`[LearningEngine] Snapshot #${snapId} — ${totalLeads} leads | ${patterns.length} patterns | ${recs.length} recs`);
+      res.json({
+        ok: true, snapshot_id: snapId,
+        computed_at: snapRes.rows[0].computed_at,
+        total_leads: totalLeads, patterns_found: patterns.length, recs_found: recs.length,
+      });
+    } catch (err: any) {
+      console.error("[LearningEngine] compute error:", err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/learning/engine — latest snapshot + patterns
+  app.get("/api/admin/ai-marketing/learning/engine", isAdmin, async (_req, res) => {
+    try {
+      const snapRes = await pool.query(
+        `SELECT * FROM ai_learning_snapshots ORDER BY computed_at DESC LIMIT 1`
+      ).catch(() => ({ rows: [] as any[] }));
+
+      if (!snapRes.rows.length) {
+        return res.json({ ok: true, has_data: false, snapshot: null, patterns: [] });
+      }
+      const s = snapRes.rows[0];
+      const patRes = await pool.query(
+        `SELECT * FROM ai_learning_patterns WHERE snapshot_id=$1 ORDER BY hot_rate DESC`,
+        [s.id]
+      ).catch(() => ({ rows: [] as any[] }));
+
+      res.json({
+        ok: true, has_data: true,
+        snapshot: {
+          id: s.id, computed_at: s.computed_at,
+          total_leads:     s.total_leads,
+          hot_count:       s.hot_count,
+          market_data:     s.market_data     || [],
+          campaign_data:   s.campaign_data   || [],
+          source_data:     s.source_data     || [],
+          project_data:    s.project_data    || [],
+          pattern_data:    s.pattern_data    || [],
+          recommendations: s.recommendations || [],
+        },
+        patterns: patRes.rows,
+      });
+    } catch (err: any) {
+      console.error("[LearningEngine] get error:", err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/learning/engine/export — JSON download
+  app.get("/api/admin/ai-marketing/learning/engine/export", isAdmin, async (_req, res) => {
+    try {
+      const snapRes = await pool.query(
+        `SELECT * FROM ai_learning_snapshots ORDER BY computed_at DESC LIMIT 1`
+      );
+      if (!snapRes.rows.length) return res.status(404).json({ ok: false, error: "No learning data yet" });
+      const s = snapRes.rows[0];
+      res.setHeader("Content-Disposition", "attachment; filename=kinglike-learning-report.json");
+      res.setHeader("Content-Type", "application/json");
+      res.json({
+        report:              "Kinglike Luxury Performance Learning Report",
+        computed_at:         s.computed_at,
+        total_leads:         s.total_leads,
+        hot_count:           s.hot_count,
+        market_performance:  s.market_data,
+        campaign_performance:s.campaign_data,
+        lead_source_performance: s.source_data,
+        project_performance: s.project_data,
+        patterns:            s.pattern_data,
+        recommendations:     s.recommendations,
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Phase 13 — AI Market Intelligence
   // Admin-only. Recommendation layer only. Zero Meta write actions.
   // ─────────────────────────────────────────────────────────────────────────────

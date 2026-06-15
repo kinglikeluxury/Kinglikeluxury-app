@@ -1031,6 +1031,45 @@ export async function ensureProjectMarketingTables(): Promise<void> {
   }
 }
 
+export async function ensureLearningEngineTables(): Promise<void> {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_learning_snapshots (
+        id               SERIAL PRIMARY KEY,
+        computed_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        total_leads      INTEGER NOT NULL DEFAULT 0,
+        hot_count        INTEGER NOT NULL DEFAULT 0,
+        market_data      JSONB,
+        campaign_data    JSONB,
+        source_data      JSONB,
+        project_data     JSONB,
+        pattern_data     JSONB,
+        recommendations  JSONB
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_learning_patterns (
+        id              SERIAL PRIMARY KEY,
+        snapshot_id     INTEGER REFERENCES ai_learning_snapshots(id) ON DELETE CASCADE,
+        pattern_type    TEXT,
+        pattern_name    TEXT,
+        sample_size     INTEGER DEFAULT 0,
+        hot_count       INTEGER DEFAULT 0,
+        hot_rate        NUMERIC(5,2) DEFAULT 0,
+        confidence      TEXT,
+        recommendation  TEXT,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_learn_snap_computed_at_idx ON ai_learning_snapshots(computed_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_learn_pat_snapshot_id_idx ON ai_learning_patterns(snapshot_id)`);
+    console.log("[DB] ensureLearningEngineTables ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureLearningEngineTables error:", err.message);
+    throw err;
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

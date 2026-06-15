@@ -192,6 +192,16 @@ interface IntelligenceResult {
   marketing_angles: IntelSuggestion[]; target_markets: IntelSuggestion[];
   audience_exclusions: IntelSuggestion[]; lead_form_questions: IntelQuestion[];
 }
+interface LearnSegment { segment: string; total: number; hot: number; warm: number; cold: number; no_ans: number; hot_rate: number; confidence: string; }
+interface LearnPattern { pattern: string; type: string; sample_size: number; hot_count: number; hot_rate: number; confidence: string; recommendation: string; }
+interface LearnRec { type: string; recommendation: string; reason: string; confidence: string; hot_rate: number; sample_size: number; }
+interface LearningEngineSnapshot {
+  id: number; computed_at: string; total_leads: number; hot_count: number;
+  market_data: LearnSegment[]; campaign_data: LearnSegment[];
+  source_data: LearnSegment[]; project_data: LearnSegment[];
+  pattern_data: LearnPattern[]; recommendations: LearnRec[];
+}
+interface LearningEngineData { ok: boolean; has_data: boolean; snapshot: LearningEngineSnapshot | null; patterns: any[]; }
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -367,6 +377,24 @@ export default function RevenueIntelligence() {
   const deleteLearningMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/ai-marketing/learning-history/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/learning-history"] }),
+  });
+
+  // ── Phase 14 — Performance Learning Engine ────────────────────────────────
+  const [engineTab, setEngineTab] = useState<"markets"|"campaigns"|"sources"|"projects"|"patterns"|"recs">("markets");
+
+  const { data: engineData, isLoading: engineLoading, refetch: refetchEngine } = useQuery<LearningEngineData>({
+    queryKey: ["/api/admin/ai-marketing/learning/engine"],
+    queryFn: () => fetch("/api/admin/ai-marketing/learning/engine", { credentials: "include" }).then(r => r.json()),
+    enabled: sub === "learning",
+  });
+
+  const computeMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/ai-marketing/learning/compute"),
+    onSuccess: () => {
+      refetchEngine();
+      toast({ title: "Learning computed", description: "Patterns and recommendations updated from real data" });
+    },
+    onError: (e: any) => toast({ title: "Compute failed", description: e.message, variant: "destructive" }),
   });
 
   function openNewLearning() {
@@ -1246,6 +1274,182 @@ export default function RevenueIntelligence() {
       {/* ── Learning History ───────────────────────────────────────────────── */}
       {sub === "learning" && (
         <div>
+
+          {/* ── Phase 14 — Performance Learning Engine ──────────────────── */}
+          <div className="mb-6 border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-[#3bcac4]" />
+                <span className="text-sm font-semibold text-[#005476]">Performance Learning Engine</span>
+                <span className="text-[10px] bg-[#3bcac4]/20 text-[#005476] px-1.5 py-0.5 rounded-full font-medium">Real Data Only</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {engineData?.snapshot && (
+                  <span className="text-[10px] text-slate-400">Last: {new Date(engineData.snapshot.computed_at).toLocaleString()}</span>
+                )}
+                {engineData?.has_data && (
+                  <Button size="sm" variant="outline" className="text-xs h-7 gap-1"
+                    onClick={() => window.open("/api/admin/ai-marketing/learning/engine/export", "_blank")}>
+                    <FileText className="h-3 w-3" />Export
+                  </Button>
+                )}
+                <Button size="sm"
+                  className="text-xs h-7 bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white gap-1"
+                  onClick={() => computeMutation.mutate()} disabled={computeMutation.isPending}>
+                  <RefreshCw className={`h-3 w-3 ${computeMutation.isPending ? "animate-spin" : ""}`} />
+                  {computeMutation.isPending ? "Computing…" : "Refresh Learning"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-4">
+              {engineLoading ? (
+                <div className="text-center py-8 text-slate-400 text-sm">Loading…</div>
+              ) : !engineData?.has_data ? (
+                <div className="text-center py-8">
+                  <BarChart3 className="h-10 w-10 mx-auto mb-3 text-slate-200" />
+                  <p className="text-slate-500 text-sm font-medium">No learning data yet</p>
+                  <p className="text-slate-400 text-xs mt-1">Click "Refresh Learning" to analyze CRM and campaign history — no fabrication, real data only</p>
+                </div>
+              ) : engineData.snapshot && (
+                <div className="space-y-4">
+                  {/* Summary row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: "Total Leads", val: engineData.snapshot.total_leads, icon: Target, cls: "text-slate-600" },
+                      { label: "Overall HOT Rate", val: engineData.snapshot.total_leads > 0 ? `${((engineData.snapshot.hot_count / engineData.snapshot.total_leads) * 100).toFixed(1)}%` : "—", icon: Flame, cls: "text-red-500" },
+                      { label: "Segments Analyzed", val: (engineData.snapshot.market_data?.length || 0) + (engineData.snapshot.campaign_data?.length || 0) + (engineData.snapshot.source_data?.length || 0), icon: Layers, cls: "text-[#3bcac4]" },
+                      { label: "Patterns Found", val: engineData.snapshot.pattern_data?.length || 0, icon: Sparkles, cls: "text-[#005476]" },
+                    ].map(({ label, val, icon: Icon, cls }) => (
+                      <div key={label} className="bg-slate-50 rounded-lg p-3 text-center">
+                        <Icon className={`h-4 w-4 mx-auto mb-1 ${cls}`} />
+                        <div className={`text-lg font-bold ${cls}`}>{val}</div>
+                        <div className="text-[10px] text-slate-400">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tab pills */}
+                  <div className="flex flex-wrap gap-1">
+                    {([ ["markets","Markets"], ["campaigns","Campaigns"], ["sources","Lead Sources"], ["projects","Projects"], ["patterns","Patterns"], ["recs","Recommendations"] ] as const).map(([tab, label]) => (
+                      <button key={tab} onClick={() => setEngineTab(tab)}
+                        className={`text-xs px-3 py-1.5 rounded-full transition-colors ${engineTab === tab ? "bg-[#3bcac4] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                        {label}
+                        {tab !== "patterns" && tab !== "recs" && (
+                          <span className="ml-1 opacity-60">
+                            ({tab === "markets" ? engineData.snapshot.market_data?.length : tab === "campaigns" ? engineData.snapshot.campaign_data?.length : tab === "sources" ? engineData.snapshot.source_data?.length : engineData.snapshot.project_data?.length || 0})
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Segment views: markets / campaigns / sources / projects */}
+                  {(engineTab === "markets" || engineTab === "campaigns" || engineTab === "sources" || engineTab === "projects") && (() => {
+                    const data = engineTab === "markets" ? engineData.snapshot.market_data
+                      : engineTab === "campaigns" ? engineData.snapshot.campaign_data
+                      : engineTab === "sources"   ? engineData.snapshot.source_data
+                      : engineData.snapshot.project_data;
+                    if (!data?.length) return (
+                      <div className="text-center py-6 text-slate-400 text-sm">
+                        Insufficient historical data. Minimum 3 leads per segment required.
+                      </div>
+                    );
+                    return (
+                      <div className="space-y-2">
+                        {data.slice(0, 15).map((item, i) => {
+                          const hp = item.total > 0 ? item.hot  / item.total * 100 : 0;
+                          const wp = item.total > 0 ? item.warm / item.total * 100 : 0;
+                          const cp = item.total > 0 ? item.cold / item.total * 100 : 0;
+                          const np = item.total > 0 ? item.no_ans / item.total * 100 : 0;
+                          return (
+                            <div key={i} className="border rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-slate-800 truncate mr-2">{item.segment}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-xs text-slate-400">{item.total} leads</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${item.confidence === "high" ? "bg-green-100 text-green-700" : item.confidence === "medium" ? "bg-yellow-100 text-yellow-700" : "bg-slate-100 text-slate-500"}`}>{item.confidence}</span>
+                                </div>
+                              </div>
+                              <div className="h-2 rounded-full overflow-hidden flex mb-1.5 bg-slate-100">
+                                <div style={{ width: `${hp}%` }} className="bg-red-400" title={`HOT ${hp.toFixed(1)}%`} />
+                                <div style={{ width: `${wp}%` }} className="bg-amber-400" title={`WARM ${wp.toFixed(1)}%`} />
+                                <div style={{ width: `${cp}%` }} className="bg-blue-300" title={`COLD ${cp.toFixed(1)}%`} />
+                                <div style={{ width: `${np}%` }} className="bg-slate-300" title={`No Ans ${np.toFixed(1)}%`} />
+                              </div>
+                              <div className="flex gap-3 text-[10px] text-slate-500">
+                                <span className="text-red-500 font-medium">🔥 {item.hot} ({hp.toFixed(0)}%)</span>
+                                <span className="text-amber-500">Warm {item.warm}</span>
+                                <span className="text-blue-400">Cold {item.cold}</span>
+                                <span>No Ans {item.no_ans}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Patterns */}
+                  {engineTab === "patterns" && (() => {
+                    const pts = engineData.snapshot.pattern_data || [];
+                    if (!pts.length) return (
+                      <div className="text-center py-6 text-slate-400 text-sm">
+                        Insufficient cross-dimension data. Minimum 5 leads per pattern combination required.
+                      </div>
+                    );
+                    return (
+                      <div className="space-y-2">
+                        {pts.map((p, i) => (
+                          <div key={i} className="border rounded-lg p-3">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className="text-sm font-semibold text-slate-800">{p.pattern}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${p.confidence === "high" ? "bg-green-100 text-green-700" : p.confidence === "medium" ? "bg-yellow-100 text-yellow-700" : "bg-slate-100 text-slate-500"}`}>{p.confidence}</span>
+                            </div>
+                            <div className="flex gap-3 text-xs text-slate-500 mb-1.5">
+                              <span>{p.sample_size} leads</span>
+                              <span className="text-red-500 font-medium">🔥 {p.hot_count} HOT ({p.hot_rate}%)</span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 leading-relaxed">{p.recommendation}</p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Recommendations */}
+                  {engineTab === "recs" && (() => {
+                    const recs = engineData.snapshot.recommendations || [];
+                    if (!recs.length) return (
+                      <div className="text-center py-6 text-slate-400 text-sm">
+                        Insufficient data for recommendations. Minimum 10 leads per segment required.
+                      </div>
+                    );
+                    return (
+                      <div className="space-y-2">
+                        {recs.map((r, i) => (
+                          <div key={i} className={`border rounded-lg p-3 ${r.type?.includes("warning") ? "border-amber-200 bg-amber-50/40" : "border-teal-100 bg-teal-50/20"}`}>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="text-sm font-medium text-slate-800 flex-1">{r.recommendation}</p>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${r.confidence === "high" ? "bg-green-100 text-green-700" : r.confidence === "medium" ? "bg-yellow-100 text-yellow-700" : "bg-slate-100 text-slate-500"}`}>{r.confidence}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mb-1">{r.reason}</p>
+                            <div className="flex gap-3 text-[10px] text-slate-400">
+                              <span>🔥 HOT Rate: {r.hot_rate}%</span>
+                              <span>Sample: {r.sample_size} leads</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                </div>
+              )}
+            </div>
+          </div>
+          {/* ── End Learning Engine ────────────────────────────────────── */}
+
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="font-bold text-slate-800 text-base">Learning History</h3>
