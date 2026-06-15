@@ -7,6 +7,7 @@ import {
   UserCheck, Calendar, Globe, Info, AlertTriangle, CheckCircle2,
   BarChart3, Target, Activity, Building2, Megaphone, TrendingDown, Layers, RefreshCw,
   Sparkles, ArrowUpRight, ArrowDownRight, Minus, Wand2, FileText, Save, X,
+  LayoutTemplate, Shield, Users, ClipboardList, ChevronDown, ChevronRight, BadgeCheck, XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,32 @@ interface SavedDraft {
   quality_reason: string | null; goal: string | null; confidence_level: string;
   status: string; created_by: string; created_at: string; updated_at: string;
 }
+interface CampaignDraftInput {
+  project_name: string; target_market: string; language: string; goal: string;
+  daily_budget_amount: string; daily_budget_currency: string;
+  country: string; city_region: string; age_min: string; age_max: string; audience_notes: string;
+}
+interface GeneratedCampaignDraft {
+  campaign_name: string; strategy_reason: string; confidence_level: string;
+  safety_warnings: string[];
+  adset: { adset_name: string; interests: string[]; exclusions: string[]; placement_notes: string; budget_notes: string };
+  audience: { audience_name: string; age_range: string; interests: string[]; exclusions: string[]; quality_reason: string };
+  lead_form: { form_name: string; intro_text: string; questions: { text: string; type: string }[]; privacy_note: string; qualification_goal: string };
+  project_name: string; target_market: string; language: string; goal: string;
+  daily_budget_amount: string; daily_budget_currency: string;
+  country: string; city_region: string; age_min: string; age_max: string;
+}
+interface SafetyChecks {
+  no_roi_promise: boolean; no_guaranteed_return: boolean; no_fake_price: boolean;
+  no_discriminatory: boolean; no_sensitive_data: boolean; draft_only: boolean;
+}
+interface SavedCampaignDraft {
+  id: number; campaign_name: string; project_name: string | null; target_market: string | null;
+  language: string | null; objective: string; daily_budget_amount: string | null;
+  daily_budget_currency: string | null; goal: string | null; status: string;
+  strategy_reason: string | null; confidence_level: string; created_by: string;
+  created_at: string; updated_at: string;
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -148,7 +175,8 @@ const SUB_TABS = [
   { key: "strategy",    label: "AI Strategy",          Icon: TrendingUp },
   { key: "creative",    label: "Creative Attribution",  Icon: Layers },
   { key: "creativeint",  label: "Creative Intelligence", Icon: Sparkles },
-  { key: "creativedraft", label: "AI Draft Generator",   Icon: Wand2    },
+  { key: "creativedraft",  label: "AI Draft Generator",    Icon: Wand2          },
+  { key: "campaigndraft", label: "Campaign Draft Builder", Icon: LayoutTemplate },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -466,6 +494,97 @@ export default function RevenueIntelligence() {
         ? prev.draft_types.filter(x => x !== t)
         : [...prev.draft_types, t],
     }));
+  }
+
+  // ── Campaign Draft Builder ────────────────────────────────────────────────
+  const [campInput, setCampInput] = useState<CampaignDraftInput>({
+    project_name: "", target_market: "", language: "Arabic", goal: "more_hot_leads",
+    daily_budget_amount: "", daily_budget_currency: "USD",
+    country: "", city_region: "", age_min: "25", age_max: "55", audience_notes: "",
+  });
+  const [generatedCampaign, setGeneratedCampaign] = useState<GeneratedCampaignDraft | null>(null);
+  const [campaignSafetyChecks, setCampaignSafetyChecks] = useState<SafetyChecks | null>(null);
+  const [generatingCampaign, setGeneratingCampaign] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    campaign: true, adset: true, audience: true, lead_form: true, safety: true,
+  });
+
+  const { data: savedCampaignDraftsData, isLoading: savedCampaignDraftsLoading } = useQuery<{ ok: boolean; drafts: SavedCampaignDraft[] }>({
+    queryKey: ["/api/admin/ai-marketing/campaign-drafts"],
+    enabled: sub === "campaigndraft",
+  });
+
+  const saveCampaignDraftMutation = useMutation({
+    mutationFn: (body: object) => apiRequest("POST", "/api/admin/ai-marketing/campaign-drafts", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/campaign-drafts"] });
+      toast({ title: "Campaign draft saved" });
+      setGeneratedCampaign(null);
+      setCampaignSafetyChecks(null);
+    },
+    onError: (e: any) => toast({ title: "Save failed", description: e.message, variant: "destructive" }),
+  });
+
+  const updateCampaignDraftStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PATCH", `/api/admin/ai-marketing/campaign-drafts/${id}`, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/campaign-drafts"] }),
+    onError: (e: any) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteCampaignDraftMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/ai-marketing/campaign-drafts/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/campaign-drafts"] }),
+  });
+
+  async function generateCampaignDraft() {
+    setGeneratingCampaign(true); setGeneratedCampaign(null); setCampaignSafetyChecks(null);
+    try {
+      const r = await fetch("/api/admin/ai-marketing/campaign-drafts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(campInput),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setGeneratedCampaign(d.result);
+        setCampaignSafetyChecks(d.safety_checks);
+        setExpandedSections({ campaign: true, adset: true, audience: true, lead_form: true, safety: true });
+      } else {
+        toast({ title: "Generation failed", description: d.error ?? "Unknown error", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setGeneratingCampaign(false);
+    }
+  }
+
+  function saveCampaignDraft() {
+    if (!generatedCampaign) return;
+    saveCampaignDraftMutation.mutate({
+      campaign: {
+        campaign_name: generatedCampaign.campaign_name,
+        project_name: generatedCampaign.project_name,
+        target_market: generatedCampaign.target_market,
+        language: generatedCampaign.language,
+        goal: generatedCampaign.goal,
+        daily_budget_amount: generatedCampaign.daily_budget_amount,
+        daily_budget_currency: generatedCampaign.daily_budget_currency,
+        strategy_reason: generatedCampaign.strategy_reason,
+        confidence_level: generatedCampaign.confidence_level,
+        safety_warnings: generatedCampaign.safety_warnings,
+      },
+      adset: { ...generatedCampaign.adset, country: generatedCampaign.country, city_region: generatedCampaign.city_region, language: generatedCampaign.language, age_min: generatedCampaign.age_min, age_max: generatedCampaign.age_max },
+      audience: { ...generatedCampaign.audience, market: generatedCampaign.target_market, country: generatedCampaign.country, language: generatedCampaign.language },
+      lead_form: generatedCampaign.lead_form,
+      creatives: [],
+    });
+  }
+
+  function toggleSection(key: string) {
+    setExpandedSections(p => ({ ...p, [key]: !p[key] }));
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1948,6 +2067,385 @@ export default function RevenueIntelligence() {
           <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] shrink-0" />
             <span>Internal draft tool only. Approved Internally does not mean published to Meta. No campaign creation. No ad spend. No Meta write actions. Drafts are for internal review and planning only.</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Campaign Draft Builder ──────────────────────────────────────────── */}
+      {sub === "campaigndraft" && (
+        <div className="space-y-6">
+
+          {/* Safety banner */}
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+            <span><strong>Internal Drafts Only.</strong> This builder creates internal campaign planning documents. No Meta publishing. No real campaign creation. No ad spend. No budget changes. Admin review required before any use.</span>
+          </div>
+
+          {/* ── Input form ── */}
+          {!generatedCampaign && (
+            <Card className="border-[#3bcac4]/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2 text-[#005476]">
+                  <LayoutTemplate className="h-4 w-4 text-[#3bcac4]" />
+                  Campaign Draft Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Project / Property Name</Label>
+                    <Input placeholder="e.g. Panorama Batumi, Alanya Villa…" value={campInput.project_name}
+                      onChange={e => setCampInput(p => ({ ...p, project_name: e.target.value }))} className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Target Market</Label>
+                    <Input placeholder="e.g. Arab 48, Gulf investors…" value={campInput.target_market}
+                      onChange={e => setCampInput(p => ({ ...p, target_market: e.target.value }))} className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Language</Label>
+                    <Select value={campInput.language} onValueChange={v => setCampInput(p => ({ ...p, language: v }))}>
+                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Arabic">Arabic (عربي)</SelectItem>
+                        <SelectItem value="Hebrew">Hebrew (עברית)</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Turkish">Turkish (Türkçe)</SelectItem>
+                        <SelectItem value="Russian">Russian (Русский)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Campaign Goal</Label>
+                    <Select value={campInput.goal} onValueChange={v => setCampInput(p => ({ ...p, goal: v }))}>
+                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="more_hot_leads">More HOT Leads</SelectItem>
+                        <SelectItem value="lower_no_answer">Lower No Answer Rate</SelectItem>
+                        <SelectItem value="more_appointments">More Appointments</SelectItem>
+                        <SelectItem value="test_new_angle">Test New Creative Angle</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Daily Budget</Label>
+                    <div className="flex gap-1">
+                      <Input placeholder="e.g. 150" value={campInput.daily_budget_amount}
+                        onChange={e => setCampInput(p => ({ ...p, daily_budget_amount: e.target.value }))} className="text-sm" />
+                      <Select value={campInput.daily_budget_currency} onValueChange={v => setCampInput(p => ({ ...p, daily_budget_currency: v }))}>
+                        <SelectTrigger className="text-sm w-20"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="ILS">ILS</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="AED">AED</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Target Country</Label>
+                    <Input placeholder="e.g. Israel, UAE, Egypt…" value={campInput.country}
+                      onChange={e => setCampInput(p => ({ ...p, country: e.target.value }))} className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">City / Region</Label>
+                    <Input placeholder="e.g. Tel Aviv, Dubai, Cairo…" value={campInput.city_region}
+                      onChange={e => setCampInput(p => ({ ...p, city_region: e.target.value }))} className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Age Range</Label>
+                    <div className="flex gap-1 items-center">
+                      <Input placeholder="25" value={campInput.age_min}
+                        onChange={e => setCampInput(p => ({ ...p, age_min: e.target.value }))} className="text-sm w-20" />
+                      <span className="text-xs text-slate-400">–</span>
+                      <Input placeholder="55" value={campInput.age_max}
+                        onChange={e => setCampInput(p => ({ ...p, age_max: e.target.value }))} className="text-sm w-20" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600 mb-1 block">Audience Notes <span className="text-slate-400">(optional)</span></Label>
+                    <Input placeholder="e.g. interested in investment properties…" value={campInput.audience_notes}
+                      onChange={e => setCampInput(p => ({ ...p, audience_notes: e.target.value }))} className="text-sm" />
+                  </div>
+                </div>
+                <Button onClick={generateCampaignDraft} disabled={generatingCampaign}
+                  className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90">
+                  {generatingCampaign
+                    ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Generating Campaign Draft…</>
+                    : <><LayoutTemplate className="h-4 w-4 mr-2" />Generate Campaign Draft</>}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Generated campaign draft preview ── */}
+          {generatedCampaign && (() => {
+            const g = generatedCampaign;
+            const confCls = g.confidence_level === "high" ? "bg-green-100 text-green-700"
+              : g.confidence_level === "medium" ? "bg-yellow-100 text-yellow-700"
+              : "bg-slate-100 text-slate-500";
+
+            const SectionHeader = ({ icon: Icon, title, skey }: { icon: any; title: string; skey: string }) => (
+              <button onClick={() => toggleSection(skey)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50 transition-colors">
+                <span className="flex items-center gap-2 text-sm font-semibold text-[#005476]">
+                  <Icon className="h-4 w-4 text-[#3bcac4]" />{title}
+                </span>
+                {expandedSections[skey] ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+              </button>
+            );
+
+            return (
+              <div className="space-y-3">
+                {/* Action bar */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-[#3bcac4]" />Generated Campaign Draft
+                  </h4>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="text-xs"
+                      onClick={() => { setGeneratedCampaign(null); setCampaignSafetyChecks(null); }}>
+                      <X className="h-3.5 w-3.5 mr-1.5" />Discard
+                    </Button>
+                    <Button size="sm" onClick={saveCampaignDraft} disabled={saveCampaignDraftMutation.isPending}
+                      className="text-xs bg-[#005476] text-white hover:bg-[#005476]/90">
+                      <Save className="h-3.5 w-3.5 mr-1.5" />Save Campaign Draft
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Campaign overview */}
+                <Card className="border overflow-hidden">
+                  <SectionHeader icon={LayoutTemplate} title="Campaign Overview" skey="campaign" />
+                  {expandedSections.campaign && (
+                    <CardContent className="pt-0 pb-4 px-4 space-y-2">
+                      <div className="flex items-start justify-between flex-wrap gap-2">
+                        <div>
+                          <p className="text-base font-semibold text-slate-800">{g.campaign_name}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{g.project_name} · {g.target_market} · {g.language}</p>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${confCls}`}>{g.confidence_level} confidence</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="bg-slate-50 rounded p-2"><span className="text-slate-400 block">Goal</span><span className="font-medium text-slate-700">{g.goal.replace(/_/g," ")}</span></div>
+                        <div className="bg-slate-50 rounded p-2"><span className="text-slate-400 block">Daily Budget</span><span className="font-medium text-slate-700">{g.daily_budget_amount || "TBD"} {g.daily_budget_currency}</span></div>
+                        <div className="bg-slate-50 rounded p-2"><span className="text-slate-400 block">Country</span><span className="font-medium text-slate-700">{g.country || "—"}</span></div>
+                        <div className="bg-slate-50 rounded p-2"><span className="text-slate-400 block">Objective</span><span className="font-medium text-slate-700">Lead Form</span></div>
+                      </div>
+                      <p className="text-xs text-slate-600 italic border-t pt-2">{g.strategy_reason}</p>
+                      {g.safety_warnings?.length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded p-2 space-y-0.5">
+                          {g.safety_warnings.map((w, i) => (
+                            <p key={i} className="text-[10px] text-yellow-800 flex items-start gap-1"><AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />{w}</p>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  )}
+                </Card>
+
+                {/* Ad Set draft */}
+                <Card className="border overflow-hidden">
+                  <SectionHeader icon={Target} title="Ad Set Draft" skey="adset" />
+                  {expandedSections.adset && g.adset && (
+                    <CardContent className="pt-0 pb-4 px-4 space-y-2 text-xs">
+                      <p className="font-semibold text-slate-700">{g.adset.adset_name}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div><span className="text-slate-400 block mb-1">Interests</span>
+                          <div className="flex flex-wrap gap-1">{(g.adset.interests||[]).map((x,i) => <span key={i} className="bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded text-[10px]">{x}</span>)}</div>
+                        </div>
+                        <div><span className="text-slate-400 block mb-1">Exclusions</span>
+                          <div className="flex flex-wrap gap-1">{(g.adset.exclusions||[]).map((x,i) => <span key={i} className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[10px]">{x}</span>)}</div>
+                        </div>
+                      </div>
+                      {g.adset.placement_notes && <p className="text-slate-600"><span className="text-slate-400">Placements: </span>{g.adset.placement_notes}</p>}
+                      {g.adset.budget_notes && <p className="text-slate-600"><span className="text-slate-400">Budget: </span>{g.adset.budget_notes}</p>}
+                    </CardContent>
+                  )}
+                </Card>
+
+                {/* Audience draft */}
+                <Card className="border overflow-hidden">
+                  <SectionHeader icon={Users} title="Audience Draft" skey="audience" />
+                  {expandedSections.audience && g.audience && (
+                    <CardContent className="pt-0 pb-4 px-4 space-y-2 text-xs">
+                      <p className="font-semibold text-slate-700">{g.audience.audience_name}</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-slate-50 rounded p-2"><span className="text-slate-400 block">Age Range</span><span className="font-medium text-slate-700">{g.audience.age_range}</span></div>
+                        <div className="bg-slate-50 rounded p-2 col-span-2"><span className="text-slate-400 block">Quality Reason</span><span className="font-medium text-slate-700">{g.audience.quality_reason}</span></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div><span className="text-slate-400 block mb-1">Interests</span>
+                          <div className="flex flex-wrap gap-1">{(g.audience.interests||[]).map((x,i) => <span key={i} className="bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded text-[10px]">{x}</span>)}</div>
+                        </div>
+                        <div><span className="text-slate-400 block mb-1">Exclusions</span>
+                          <div className="flex flex-wrap gap-1">{(g.audience.exclusions||[]).map((x,i) => <span key={i} className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[10px]">{x}</span>)}</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+
+                {/* Lead Form draft */}
+                <Card className="border overflow-hidden">
+                  <SectionHeader icon={ClipboardList} title="Lead Form Draft" skey="lead_form" />
+                  {expandedSections.lead_form && g.lead_form && (
+                    <CardContent className="pt-0 pb-4 px-4 space-y-3 text-xs">
+                      <p className="font-semibold text-slate-700">{g.lead_form.form_name}</p>
+                      {g.lead_form.intro_text && (
+                        <div className="bg-[#005476]/5 border border-[#005476]/15 rounded p-2">
+                          <p className="text-[10px] text-slate-400 mb-0.5">Intro Text</p>
+                          <p className="text-slate-700">{g.lead_form.intro_text}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-slate-400 mb-1.5">Questions ({g.lead_form.questions?.length || 0})</p>
+                        <div className="space-y-1.5">
+                          {(g.lead_form.questions||[]).map((q, i) => (
+                            <div key={i} className="flex items-start gap-2 bg-slate-50 rounded px-2 py-1.5">
+                              <span className="text-[10px] font-bold text-[#3bcac4] mt-0.5 shrink-0">Q{i+1}</span>
+                              <span className="text-slate-700 flex-1">{q.text}</span>
+                              <span className="text-[10px] text-slate-400 shrink-0">{q.type}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {g.lead_form.privacy_note && (
+                        <p className="text-slate-500 italic border-t pt-2">{g.lead_form.privacy_note}</p>
+                      )}
+                      {g.lead_form.qualification_goal && (
+                        <p className="text-slate-500"><span className="text-slate-400">Qualification goal: </span>{g.lead_form.qualification_goal}</p>
+                      )}
+                    </CardContent>
+                  )}
+                </Card>
+
+                {/* Safety Review */}
+                <Card className="border overflow-hidden">
+                  <SectionHeader icon={Shield} title="Safety Review" skey="safety" />
+                  {expandedSections.safety && campaignSafetyChecks && (
+                    <CardContent className="pt-0 pb-4 px-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {([
+                          ["no_roi_promise",       "No ROI Promise"],
+                          ["no_guaranteed_return", "No Guaranteed Return Claim"],
+                          ["no_fake_price",        "No Fake Price Claim"],
+                          ["no_discriminatory",    "No Discriminatory Targeting"],
+                          ["no_sensitive_data",    "No Sensitive Personal Data"],
+                          ["draft_only",           "Draft Only — Not Published"],
+                        ] as [keyof SafetyChecks, string][]).map(([key, label]) => {
+                          const passed = campaignSafetyChecks[key];
+                          return (
+                            <div key={key} className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                              {passed
+                                ? <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
+                                : <XCircle className="h-3.5 w-3.5 shrink-0" />}
+                              {label}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+
+                {/* Bottom save */}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" className="text-xs"
+                    onClick={() => { setGeneratedCampaign(null); setCampaignSafetyChecks(null); }}>
+                    <X className="h-3.5 w-3.5 mr-1.5" />Discard & Start Over
+                  </Button>
+                  <Button size="sm" onClick={saveCampaignDraft} disabled={saveCampaignDraftMutation.isPending}
+                    className="text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90">
+                    <Save className="h-3.5 w-3.5 mr-1.5" />Save Full Campaign Draft
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Saved campaign drafts ── */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-[#3bcac4]" />
+              Saved Campaign Drafts
+            </h4>
+            {savedCampaignDraftsLoading ? (
+              <p className="text-xs text-slate-400 py-4 text-center">Loading drafts…</p>
+            ) : !savedCampaignDraftsData?.drafts?.length ? (
+              <div className="p-8 text-center border border-dashed rounded-lg">
+                <LayoutTemplate className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                <p className="text-sm text-slate-400">No saved campaign drafts yet. Generate and save a draft above.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-left text-slate-500 border-b">
+                      <th className="px-3 py-2 font-medium">Campaign Name</th>
+                      <th className="px-3 py-2 font-medium">Project</th>
+                      <th className="px-3 py-2 font-medium">Market / Language</th>
+                      <th className="px-3 py-2 font-medium">Budget</th>
+                      <th className="px-3 py-2 font-medium">Confidence</th>
+                      <th className="px-3 py-2 font-medium">Status</th>
+                      <th className="px-3 py-2 font-medium">Date</th>
+                      <th className="px-3 py-2 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {savedCampaignDraftsData.drafts.map(d => {
+                      const statusCls: Record<string, string> = {
+                        draft:               "bg-slate-100 text-slate-600",
+                        reviewed:            "bg-blue-100 text-blue-700",
+                        approved_internally: "bg-green-100 text-green-700",
+                        archived:            "bg-red-50 text-red-400",
+                      };
+                      return (
+                        <tr key={d.id} className="hover:bg-slate-50/50">
+                          <td className="px-3 py-2 font-medium text-slate-800 max-w-[180px] truncate">{d.campaign_name}</td>
+                          <td className="px-3 py-2 text-slate-500 max-w-[120px] truncate">{d.project_name || "—"}</td>
+                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{d.target_market || "—"} · {d.language || "—"}</td>
+                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{d.daily_budget_amount ? `${d.daily_budget_amount} ${d.daily_budget_currency}` : "—"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                              d.confidence_level === "high" ? "bg-green-100 text-green-700"
+                              : d.confidence_level === "medium" ? "bg-yellow-100 text-yellow-700"
+                              : "bg-slate-100 text-slate-500"}`}>{d.confidence_level}</span>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <Select value={d.status}
+                              onValueChange={v => updateCampaignDraftStatusMutation.mutate({ id: d.id, status: v })}>
+                              <SelectTrigger className={`h-6 text-[10px] w-32 border-0 px-1.5 rounded-full font-medium ${statusCls[d.status] || "bg-slate-100 text-slate-600"}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="draft">Draft</SelectItem>
+                                <SelectItem value="reviewed">Reviewed</SelectItem>
+                                <SelectItem value="approved_internally">Approved Internally</SelectItem>
+                                <SelectItem value="archived">Archived</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-slate-400">{new Date(d.created_at).toLocaleDateString()}</td>
+                          <td className="px-3 py-2">
+                            <button onClick={() => deleteCampaignDraftMutation.mutate(d.id)}
+                              className="text-slate-300 hover:text-red-500 transition-colors" title="Delete draft">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] shrink-0" />
+            <span>Internal campaign draft builder only. Approved Internally does NOT mean published to Meta. No real campaign creation. No ad spend. No Meta write actions of any kind. All drafts require human review before use.</span>
           </div>
         </div>
       )}

@@ -877,6 +877,97 @@ export async function ensureAiCreativeDraftsTable(): Promise<void> {
   }
 }
 
+export async function ensureAiCampaignDraftTables(): Promise<void> {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_campaign_drafts (
+        id                    SERIAL PRIMARY KEY,
+        campaign_name         TEXT NOT NULL,
+        project_name          TEXT,
+        target_market         TEXT,
+        language              TEXT,
+        objective             TEXT DEFAULT 'lead_form',
+        daily_budget_amount   TEXT,
+        daily_budget_currency TEXT DEFAULT 'USD',
+        goal                  TEXT,
+        strategy_reason       TEXT,
+        confidence_level      TEXT DEFAULT 'low',
+        safety_warnings       TEXT,
+        status                TEXT NOT NULL DEFAULT 'draft',
+        created_by            TEXT DEFAULT 'admin',
+        created_at            TIMESTAMPTZ DEFAULT NOW(),
+        updated_at            TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_adset_drafts (
+        id                    SERIAL PRIMARY KEY,
+        campaign_draft_id     INTEGER REFERENCES ai_campaign_drafts(id) ON DELETE CASCADE,
+        adset_name            TEXT,
+        country               TEXT,
+        city_region           TEXT,
+        language              TEXT,
+        age_min               INTEGER DEFAULT 18,
+        age_max               INTEGER DEFAULT 65,
+        interests             TEXT,
+        exclusions            TEXT,
+        placement_notes       TEXT,
+        budget_notes          TEXT,
+        status                TEXT NOT NULL DEFAULT 'draft',
+        created_at            TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_audience_drafts (
+        id                    SERIAL PRIMARY KEY,
+        campaign_draft_id     INTEGER REFERENCES ai_campaign_drafts(id) ON DELETE CASCADE,
+        audience_name         TEXT,
+        market                TEXT,
+        country               TEXT,
+        language              TEXT,
+        age_range             TEXT,
+        interests             TEXT,
+        exclusions            TEXT,
+        quality_reason        TEXT,
+        confidence_level      TEXT DEFAULT 'low',
+        created_at            TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_lead_form_drafts (
+        id                    SERIAL PRIMARY KEY,
+        campaign_draft_id     INTEGER REFERENCES ai_campaign_drafts(id) ON DELETE CASCADE,
+        form_name             TEXT,
+        intro_text            TEXT,
+        questions_json        TEXT,
+        privacy_note          TEXT,
+        qualification_goal    TEXT,
+        status                TEXT NOT NULL DEFAULT 'draft',
+        created_at            TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_campaign_draft_creatives (
+        id                    SERIAL PRIMARY KEY,
+        campaign_draft_id     INTEGER REFERENCES ai_campaign_drafts(id) ON DELETE CASCADE,
+        creative_draft_id     INTEGER,
+        draft_type            TEXT,
+        draft_text            TEXT,
+        reason_selected       TEXT,
+        created_at            TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_campaign_drafts_status_idx ON ai_campaign_drafts(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_adset_drafts_campaign_id_idx ON ai_adset_drafts(campaign_draft_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_audience_drafts_campaign_id_idx ON ai_audience_drafts(campaign_draft_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_lead_form_drafts_campaign_id_idx ON ai_lead_form_drafts(campaign_draft_id)`);
+    console.log("[DB] ensureAiCampaignDraftTables ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureAiCampaignDraftTables error:", err.message);
+    throw err;
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 

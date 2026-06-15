@@ -7684,5 +7684,337 @@ Return JSON: { "drafts": [ { "draft_type": "...", "draft_text": "...", "inspirat
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Phase 11 — Campaign Draft Builder
+  // Admin-only. Internal drafts only. Zero Meta write actions. Railway compatible.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // POST /api/admin/ai-marketing/campaign-drafts/generate
+  // Generates a full campaign draft using AI. Nothing is saved to DB until admin saves.
+  app.post("/api/admin/ai-marketing/campaign-drafts/generate", isAdmin, async (req, res) => {
+    try {
+      const {
+        project_name = "", target_market = "", language = "Arabic",
+        goal = "more_hot_leads", daily_budget_amount = "", daily_budget_currency = "USD",
+        country = "", city_region = "", age_min = "25", age_max = "55", audience_notes = "",
+      } = req.body as Record<string, string>;
+
+      const NA = `('no_answer_1','no_answer_2','no_answer_3','no_answer_4','after_3_no_answer_whatsapp_contacted','new_fresh_after_3_no_answer','no_answer_converted')`;
+
+      // Pull creative intelligence for context
+      const topCreatives = await pool.query(`
+        SELECT ca.ad_name, ca.campaign_name,
+          COUNT(DISTINCT cl.id) AS total_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot')  AS hot_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.status IN ${NA})   AS no_answer_leads,
+          (COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot')*3
+           + COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='warm')
+           - COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='cold')
+           - COUNT(DISTINCT cl.id) FILTER(WHERE cl.status IN ${NA})*2) AS quality_score
+        FROM ai_creative_attribution ca
+        LEFT JOIN ai_campaign_attribution aca ON aca.ad_id = ca.ad_id
+        LEFT JOIN crm_leads cl ON cl.id = aca.crm_lead_id
+        GROUP BY ca.id, ca.ad_name, ca.campaign_name
+        HAVING COUNT(DISTINCT cl.id) > 0
+        ORDER BY quality_score DESC LIMIT 3
+      `);
+
+      const leadsStats = await pool.query(`
+        SELECT COUNT(*) AS total,
+          COUNT(*) FILTER(WHERE lead_score='hot') AS hot,
+          COUNT(*) FILTER(WHERE status IN ${NA})  AS no_answer
+        FROM crm_leads WHERE created_at >= NOW() - INTERVAL '90 days'
+      `);
+      const stats = leadsStats.rows[0];
+      const hotRate = Number(stats.total) > 0 ? Math.round((Number(stats.hot) / Number(stats.total)) * 100) : 0;
+      const hasIntelligence = topCreatives.rows.length > 0;
+
+      const goalLabel: Record<string, string> = {
+        more_hot_leads:    "increase HOT lead conversion rate",
+        lower_no_answer:   "reduce No Answer rate",
+        more_appointments: "drive appointment bookings",
+        test_new_angle:    "test a fresh creative angle",
+      };
+
+      const intelligenceCtx = hasIntelligence
+        ? `Historical 90d data: Overall HOT rate ${hotRate}% from ${stats.total} leads.\nTop creatives: ${
+            topCreatives.rows.map((r: any, i: number) =>
+              `${i+1}. "${r.ad_name || 'Unknown'}" | ${r.hot_leads} HOT / ${r.no_answer_leads} No Answer`
+            ).join('; ')
+          }`
+        : "No historical campaign data available — generate conservative generic draft.";
+
+      const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
+      let result: any = null;
+
+      if (!apiKey) {
+        // Fallback: structured generic draft without AI
+        result = {
+          campaign_name:     `${project_name || 'Kinglike'} — ${language} Lead Campaign`,
+          strategy_reason:   "Low confidence — AI service not configured. Generic draft template.",
+          confidence_level:  "low",
+          safety_warnings:   ["Low confidence — limited data. Review all copy before use."],
+          adset: {
+            adset_name:       `${target_market || 'Audience'} — ${country || 'General'} ${age_min}-${age_max}`,
+            interests:        ["Real estate", "Property investment", "Luxury homes"],
+            exclusions:       ["Existing customers"],
+            placement_notes:  "Facebook and Instagram feeds recommended.",
+            budget_notes:     `Daily budget: ${daily_budget_amount || 'TBD'} ${daily_budget_currency}.`,
+          },
+          audience: {
+            audience_name:  `${target_market || 'Target Audience'}`,
+            age_range:      `${age_min}–${age_max}`,
+            interests:      ["Real estate", "Investment", "Luxury living"],
+            exclusions:     [],
+            quality_reason: "Generic audience — refine based on historical data.",
+          },
+          lead_form: {
+            form_name:          `${project_name || 'Property'} Interest Form`,
+            intro_text:         language === "Arabic" ? "أخبرنا عن اهتمامك بالاستثمار العقاري" : "Tell us about your property investment interest",
+            questions:          [
+              { text: language === "Arabic" ? "ما هي ميزانيتك التقريبية؟" : "What is your approximate budget?", type: "multiple_choice" },
+              { text: language === "Arabic" ? "متى تخطط للشراء؟" : "When are you planning to purchase?", type: "multiple_choice" },
+              { text: language === "Arabic" ? "ما هو هدفك من الاستثمار؟" : "What is your investment goal?", type: "multiple_choice" },
+              { text: language === "Arabic" ? "ما هي المدينة المفضلة لديك؟" : "Which city do you prefer?", type: "multiple_choice" },
+              { text: language === "Arabic" ? "كيف تفضل أن نتواصل معك؟" : "How do you prefer to be contacted?", type: "multiple_choice" },
+            ],
+            privacy_note:       language === "Arabic" ? "بياناتك محمية ولن تُشارك مع أطراف ثالثة." : "Your data is protected and will not be shared with third parties.",
+            qualification_goal: goalLabel[goal] || goal,
+          },
+        };
+      } else {
+        const { default: OpenAI } = await import("openai");
+        const openaiClient = new OpenAI({ apiKey });
+
+        const systemPrompt = `You are an expert Meta advertising strategist for luxury real estate. You generate internal campaign planning drafts (not for publishing).
+Brand: Kinglike Luxury Real Estate — properties in Georgia, Turkey, UAE, North Cyprus.
+Return ONLY valid JSON. No markdown. No explanation.`;
+
+        const userPrompt = `Generate a complete Meta Lead Form campaign draft for internal planning.
+
+Project: ${project_name || 'Luxury Real Estate'}
+Target Market: ${target_market || 'Arab investors'}
+Language: ${language}
+Goal: ${goalLabel[goal] || goal}
+Daily Budget: ${daily_budget_amount || 'TBD'} ${daily_budget_currency}
+Country: ${country || 'General'}
+City/Region: ${city_region || 'General'}
+Age Range: ${age_min}–${age_max}
+Audience Notes: ${audience_notes || 'None'}
+
+${intelligenceCtx}
+
+Return this exact JSON structure:
+{
+  "campaign_name": "descriptive campaign name",
+  "strategy_reason": "why this strategy makes sense based on available data",
+  "confidence_level": "low|medium|high",
+  "safety_warnings": ["warning if any — empty array if none"],
+  "adset": {
+    "adset_name": "...",
+    "interests": ["interest1", "interest2"],
+    "exclusions": ["exclusion1"],
+    "placement_notes": "placement recommendation",
+    "budget_notes": "budget allocation notes"
+  },
+  "audience": {
+    "audience_name": "...",
+    "age_range": "${age_min}–${age_max}",
+    "interests": ["interest1", "interest2"],
+    "exclusions": ["exclusion1"],
+    "quality_reason": "why this audience targets quality leads"
+  },
+  "lead_form": {
+    "form_name": "...",
+    "intro_text": "compelling intro in ${language}",
+    "questions": [
+      {"text": "question in ${language}", "type": "multiple_choice|short_answer|number"}
+    ],
+    "privacy_note": "privacy reassurance in ${language}",
+    "qualification_goal": "what this form is designed to qualify"
+  }
+}
+
+Rules:
+- NEVER promise ROI or guaranteed returns
+- NEVER include misleading investment claims
+- Lead form questions must NOT ask for sensitive personal data (no ID numbers, no income proof, no bank details)
+- Lead form questions must NOT be discriminatory
+- Max 5 lead form questions
+- All user-facing text (intro, questions, privacy note) must be in ${language}
+- campaign_name, strategy_reason, adset/audience notes can be in English`;
+
+        const completion = await openaiClient.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          max_tokens: 2500,
+          temperature: 0.7,
+          response_format: { type: "json_object" },
+        });
+
+        try {
+          result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        } catch {
+          result = null;
+        }
+      }
+
+      if (!result) return res.status(500).json({ ok: false, error: "Failed to parse AI response", result: null });
+
+      // Auto safety checks
+      const allText = JSON.stringify(result).toLowerCase();
+      const safetyChecks = {
+        no_roi_promise:      !/(guaranteed?\s+return|100%\s+profit|roi\s+guarantee|assured\s+profit)/.test(allText),
+        no_guaranteed_return:!/(guaranteed?\s+return|sure\s+profit|certain\s+gain)/.test(allText),
+        no_fake_price:       true,
+        no_discriminatory:   !/(race|religion|ethnic|gender\s+discrimination|national\s+origin)/.test(allText),
+        no_sensitive_data:   !/(passport\s+number|national\s+id|ssn|income\s+proof|bank\s+statement|tax\s+return)/.test(allText),
+        draft_only:          true,
+      };
+
+      console.log(`[CampaignDraftGen] Generated — "${result.campaign_name}" ${language} confidence=${result.confidence_level} intelligence=${hasIntelligence}`);
+      res.json({
+        ok: true,
+        result: { ...result, project_name, target_market, language, goal, daily_budget_amount, daily_budget_currency, country, city_region, age_min, age_max },
+        safety_checks: safetyChecks,
+        intelligence_used: hasIntelligence,
+      });
+    } catch (err: any) {
+      console.error("[CampaignDraftGen] error:", err.message);
+      res.status(500).json({ ok: false, error: err.message, result: null });
+    }
+  });
+
+  // POST /api/admin/ai-marketing/campaign-drafts — save full campaign draft (transactional)
+  app.post("/api/admin/ai-marketing/campaign-drafts", isAdmin, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { campaign, adset, audience, lead_form, creatives = [] } = req.body as {
+        campaign: any; adset: any; audience: any; lead_form: any; creatives?: any[];
+      };
+      if (!campaign?.campaign_name) return res.status(400).json({ error: "campaign_name is required" });
+
+      await client.query("BEGIN");
+
+      const cRow = await client.query(`
+        INSERT INTO ai_campaign_drafts
+          (campaign_name, project_name, target_market, language, objective, daily_budget_amount,
+           daily_budget_currency, goal, strategy_reason, confidence_level, safety_warnings, status, created_by)
+        VALUES ($1,$2,$3,$4,'lead_form',$5,$6,$7,$8,$9,$10,'draft','admin') RETURNING id
+      `, [campaign.campaign_name, campaign.project_name||null, campaign.target_market||null,
+          campaign.language||null, campaign.daily_budget_amount||null, campaign.daily_budget_currency||'USD',
+          campaign.goal||null, campaign.strategy_reason||null, campaign.confidence_level||'low',
+          JSON.stringify(campaign.safety_warnings||[])]);
+      const campId = cRow.rows[0].id;
+
+      if (adset) await client.query(`
+        INSERT INTO ai_adset_drafts (campaign_draft_id,adset_name,country,city_region,language,age_min,age_max,interests,exclusions,placement_notes,budget_notes)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `, [campId, adset.adset_name||null, adset.country||null, adset.city_region||null, adset.language||null,
+          parseInt(adset.age_min)||18, parseInt(adset.age_max)||65,
+          JSON.stringify(adset.interests||[]), JSON.stringify(adset.exclusions||[]),
+          adset.placement_notes||null, adset.budget_notes||null]);
+
+      if (audience) await client.query(`
+        INSERT INTO ai_audience_drafts (campaign_draft_id,audience_name,market,country,language,age_range,interests,exclusions,quality_reason,confidence_level)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      `, [campId, audience.audience_name||null, audience.market||null, audience.country||null,
+          audience.language||null, audience.age_range||null,
+          JSON.stringify(audience.interests||[]), JSON.stringify(audience.exclusions||[]),
+          audience.quality_reason||null, audience.confidence_level||'low']);
+
+      if (lead_form) await client.query(`
+        INSERT INTO ai_lead_form_drafts (campaign_draft_id,form_name,intro_text,questions_json,privacy_note,qualification_goal)
+        VALUES ($1,$2,$3,$4,$5,$6)
+      `, [campId, lead_form.form_name||null, lead_form.intro_text||null,
+          JSON.stringify(lead_form.questions||[]), lead_form.privacy_note||null, lead_form.qualification_goal||null]);
+
+      for (const c of (creatives as any[])) {
+        await client.query(`
+          INSERT INTO ai_campaign_draft_creatives (campaign_draft_id,creative_draft_id,draft_type,draft_text,reason_selected)
+          VALUES ($1,$2,$3,$4,$5)
+        `, [campId, c.creative_draft_id||null, c.draft_type||null, c.draft_text||null, c.reason_selected||null]);
+      }
+
+      await client.query("COMMIT");
+      console.log(`[CampaignDrafts] Saved campaign draft id=${campId} "${campaign.campaign_name}"`);
+      res.json({ ok: true, campaign_draft_id: campId });
+    } catch (err: any) {
+      await client.query("ROLLBACK");
+      console.error("[CampaignDrafts] save error:", err.message);
+      res.status(500).json({ error: err.message });
+    } finally {
+      client.release();
+    }
+  });
+
+  // GET /api/admin/ai-marketing/campaign-drafts — list all drafts
+  app.get("/api/admin/ai-marketing/campaign-drafts", isAdmin, async (_req, res) => {
+    try {
+      const r = await pool.query(`SELECT * FROM ai_campaign_drafts ORDER BY created_at DESC LIMIT 100`);
+      res.json({ ok: true, drafts: r.rows });
+    } catch (err: any) {
+      console.error("[CampaignDrafts] list error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/campaign-drafts/:id — get one draft with all sub-records
+  app.get("/api/admin/ai-marketing/campaign-drafts/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [camp, adsets, audiences, forms, creatives] = await Promise.all([
+        pool.query(`SELECT * FROM ai_campaign_drafts WHERE id=$1`, [id]),
+        pool.query(`SELECT * FROM ai_adset_drafts WHERE campaign_draft_id=$1`, [id]),
+        pool.query(`SELECT * FROM ai_audience_drafts WHERE campaign_draft_id=$1`, [id]),
+        pool.query(`SELECT * FROM ai_lead_form_drafts WHERE campaign_draft_id=$1`, [id]),
+        pool.query(`SELECT * FROM ai_campaign_draft_creatives WHERE campaign_draft_id=$1`, [id]),
+      ]);
+      if (camp.rowCount === 0) return res.status(404).json({ error: "Draft not found" });
+      res.json({
+        ok: true,
+        campaign: camp.rows[0],
+        adset: adsets.rows[0] || null,
+        audience: audiences.rows[0] || null,
+        lead_form: forms.rows[0] || null,
+        creatives: creatives.rows,
+      });
+    } catch (err: any) {
+      console.error("[CampaignDrafts] get error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/admin/ai-marketing/campaign-drafts/:id — update status
+  app.patch("/api/admin/ai-marketing/campaign-drafts/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      const allowed = ["draft", "reviewed", "approved_internally", "archived"];
+      if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status" });
+      const r = await pool.query(
+        `UPDATE ai_campaign_drafts SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
+        [status, id]
+      );
+      if (r.rowCount === 0) return res.status(404).json({ error: "Draft not found" });
+      res.json({ ok: true, draft: r.rows[0] });
+    } catch (err: any) {
+      console.error("[CampaignDrafts] patch error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/admin/ai-marketing/campaign-drafts/:id — cascades to all sub-records
+  app.delete("/api/admin/ai-marketing/campaign-drafts/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await pool.query(`DELETE FROM ai_campaign_drafts WHERE id=$1`, [id]);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[CampaignDrafts] delete error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return httpServer;
 }
