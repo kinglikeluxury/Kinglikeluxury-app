@@ -8,6 +8,7 @@ import {
   BarChart3, Target, Activity, Building2, Megaphone, TrendingDown, Layers, RefreshCw,
   Sparkles, ArrowUpRight, ArrowDownRight, Minus, Wand2, FileText, Save, X,
   LayoutTemplate, Shield, Users, ClipboardList, ChevronDown, ChevronRight, BadgeCheck, XCircle,
+  Library, Tag, Ban, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -161,6 +162,29 @@ interface SavedCampaignDraft {
   strategy_reason: string | null; confidence_level: string; created_by: string;
   created_at: string; updated_at: string;
 }
+interface MarketingProfile {
+  id: number; project_id: number | null; internal_project_name: string;
+  marketing_alias: string | null; use_real_project_name: boolean;
+  project_type: string | null; location: string | null;
+  short_marketing_description: string | null; long_marketing_description: string | null;
+  luxury_level: string | null; target_investor_type: string | null;
+  target_buyer_type: string | null; confidence_notes: string | null;
+  status: string; created_at: string; updated_at: string;
+  angles_count?: number; markets_count?: number; claims_count?: number;
+}
+interface MarketingAngle {
+  id: number; profile_id: number; angle_name: string;
+  angle_description: string | null; priority: number; enabled: boolean;
+}
+interface TargetMarket {
+  id: number; profile_id: number; market_name: string;
+  language: string | null; notes: string | null;
+}
+interface ForbiddenClaim { id: number; profile_id: number; claim_text: string; }
+interface ProfileDetail {
+  ok: boolean; profile: MarketingProfile;
+  angles: MarketingAngle[]; markets: TargetMarket[]; claims: ForbiddenClaim[];
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -176,7 +200,8 @@ const SUB_TABS = [
   { key: "creative",    label: "Creative Attribution",  Icon: Layers },
   { key: "creativeint",  label: "Creative Intelligence", Icon: Sparkles },
   { key: "creativedraft",  label: "AI Draft Generator",    Icon: Wand2          },
-  { key: "campaigndraft", label: "Campaign Draft Builder", Icon: LayoutTemplate },
+  { key: "campaigndraft",  label: "Campaign Draft Builder",   Icon: LayoutTemplate },
+  { key: "knowledgebase",  label: "Marketing Knowledge",      Icon: Library        },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -535,6 +560,96 @@ export default function RevenueIntelligence() {
   const deleteCampaignDraftMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/ai-marketing/campaign-drafts/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/campaign-drafts"] }),
+  });
+
+  // ── Phase 12 — Marketing Knowledge Base state & queries ──────────────────────
+  const [kbView, setKbView] = useState<"list" | "create" | "detail">("list");
+  const [activeKbId, setActiveKbId] = useState<number | null>(null);
+  const [kbForm, setKbForm] = useState<Partial<MarketingProfile>>({ use_real_project_name: false, status: "active" });
+  const [kbAngleInput, setKbAngleInput] = useState({ angle_name: "", angle_description: "" });
+  const [kbMarketInput, setKbMarketInput] = useState({ market_name: "", language: "" });
+  const [kbClaimInput, setKbClaimInput] = useState("");
+
+  const { data: kbProfilesData, isLoading: kbProfilesLoading } = useQuery<{ ok: boolean; profiles: MarketingProfile[] }>({
+    queryKey: ["/api/admin/ai-marketing/marketing-knowledge"],
+    enabled: sub === "knowledgebase",
+  });
+  const { data: kbDetailData } = useQuery<ProfileDetail>({
+    queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId],
+    enabled: !!activeKbId && sub === "knowledgebase",
+  });
+
+  const createProfileMutation = useMutation({
+    mutationFn: (body: object) => apiRequest("POST", "/api/admin/ai-marketing/marketing-knowledge", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge"] });
+      toast({ title: "Profile created" });
+      setKbView("list");
+      setKbForm({ use_real_project_name: false, status: "active" });
+    },
+    onError: (e: any) => toast({ title: "Create failed", description: e.message, variant: "destructive" }),
+  });
+  const updateProfileMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      apiRequest("PUT", `/api/admin/ai-marketing/marketing-knowledge/${id}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] });
+      toast({ title: "Profile updated" });
+    },
+    onError: (e: any) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+  const deleteProfileMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/ai-marketing/marketing-knowledge/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge"] });
+      setActiveKbId(null); setKbView("list");
+      toast({ title: "Profile deleted" });
+    },
+  });
+  const addAngleMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      apiRequest("POST", `/api/admin/ai-marketing/marketing-knowledge/${id}/angles`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] });
+      setKbAngleInput({ angle_name: "", angle_description: "" });
+    },
+  });
+  const toggleAngleMutation = useMutation({
+    mutationFn: ({ profileId, angleId, enabled }: { profileId: number; angleId: number; enabled: boolean }) =>
+      apiRequest("PATCH", `/api/admin/ai-marketing/marketing-knowledge/${profileId}/angles/${angleId}`, { enabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] }),
+  });
+  const deleteAngleMutation = useMutation({
+    mutationFn: ({ profileId, angleId }: { profileId: number; angleId: number }) =>
+      apiRequest("DELETE", `/api/admin/ai-marketing/marketing-knowledge/${profileId}/angles/${angleId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] }),
+  });
+  const addMarketMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      apiRequest("POST", `/api/admin/ai-marketing/marketing-knowledge/${id}/markets`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] });
+      setKbMarketInput({ market_name: "", language: "" });
+    },
+  });
+  const deleteMarketMutation = useMutation({
+    mutationFn: ({ profileId, marketId }: { profileId: number; marketId: number }) =>
+      apiRequest("DELETE", `/api/admin/ai-marketing/marketing-knowledge/${profileId}/markets/${marketId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] }),
+  });
+  const addClaimMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      apiRequest("POST", `/api/admin/ai-marketing/marketing-knowledge/${id}/claims`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] });
+      setKbClaimInput("");
+    },
+  });
+  const deleteClaimMutation = useMutation({
+    mutationFn: ({ profileId, claimId }: { profileId: number; claimId: number }) =>
+      apiRequest("DELETE", `/api/admin/ai-marketing/marketing-knowledge/${profileId}/claims/${claimId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/marketing-knowledge", activeKbId] }),
   });
 
   async function generateCampaignDraft() {
@@ -2446,6 +2561,342 @@ export default function RevenueIntelligence() {
           <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] shrink-0" />
             <span>Internal campaign draft builder only. Approved Internally does NOT mean published to Meta. No real campaign creation. No ad spend. No Meta write actions of any kind. All drafts require human review before use.</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Marketing Knowledge Base ──────────────────────────────────────────── */}
+      {sub === "knowledgebase" && (
+        <div className="space-y-5">
+
+          {/* List view */}
+          {kbView === "list" && (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-[#005476] flex items-center gap-2">
+                    <Library className="h-4 w-4 text-[#3bcac4]" />Marketing Knowledge Base
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Teach AI about each project — alias, angles, markets, and forbidden claims</p>
+                </div>
+                <Button size="sm"
+                  onClick={() => { setKbForm({ use_real_project_name: false, status: "active" }); setKbView("create"); }}
+                  className="text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90">
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />New Profile
+                </Button>
+              </div>
+
+              {kbProfilesLoading ? (
+                <p className="text-xs text-slate-400 py-8 text-center">Loading profiles…</p>
+              ) : !kbProfilesData?.profiles?.length ? (
+                <div className="p-10 text-center border border-dashed rounded-xl">
+                  <Library className="h-10 w-10 mx-auto mb-3 text-slate-200" />
+                  <p className="text-sm font-medium text-slate-400">No marketing profiles yet</p>
+                  <p className="text-xs text-slate-300 mt-1">Create a profile to give AI project-specific context for draft generation</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {kbProfilesData.profiles.map(p => (
+                    <div key={p.id}
+                      className="border rounded-xl p-4 bg-white hover:border-[#3bcac4]/50 hover:shadow-sm transition-all cursor-pointer"
+                      onClick={() => { setActiveKbId(p.id); setKbView("detail"); setKbForm({ ...p }); }}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 truncate">
+                            {p.marketing_alias || p.internal_project_name}
+                          </p>
+                          {p.marketing_alias && (
+                            <p className="text-[10px] text-slate-400 truncate">internal: {p.internal_project_name}</p>
+                          )}
+                        </div>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
+                          p.status === "active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                          {p.status}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-xs text-slate-500">
+                        {p.project_type && <p className="flex items-center gap-1"><Building2 className="h-3 w-3" />{p.project_type}</p>}
+                        {p.location    && <p className="flex items-center gap-1"><Globe    className="h-3 w-3" />{p.location}</p>}
+                      </div>
+                      <div className="flex items-center flex-wrap gap-1.5 mt-3 pt-2 border-t border-slate-50">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 ${p.use_real_project_name ? "bg-blue-50 text-blue-600" : "bg-[#3bcac4]/10 text-[#005476]"}`}>
+                          <Tag className="h-2.5 w-2.5" />{p.use_real_project_name ? "Real Name" : "Alias Only"}
+                        </span>
+                        {Number(p.angles_count)  > 0 && <span className="text-[10px] bg-teal-50  text-teal-700 px-1.5 py-0.5 rounded">{p.angles_count} angles</span>}
+                        {Number(p.markets_count) > 0 && <span className="text-[10px] bg-blue-50  text-blue-700 px-1.5 py-0.5 rounded">{p.markets_count} markets</span>}
+                        {Number(p.claims_count)  > 0 && <span className="text-[10px] bg-red-50   text-red-600  px-1.5 py-0.5 rounded">{p.claims_count} forbidden</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Create / Detail view */}
+          {(kbView === "create" || kbView === "detail") && (
+            <>
+              <div className="flex items-center gap-3">
+                <button onClick={() => { setKbView("list"); setActiveKbId(null); }}
+                  className="text-xs text-[#3bcac4] hover:underline flex items-center gap-1">
+                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />Back to list
+                </button>
+                <span className="text-slate-300">|</span>
+                <h3 className="text-sm font-semibold text-[#005476]">
+                  {kbView === "create" ? "New Marketing Profile" : (kbForm.marketing_alias || kbForm.internal_project_name || "Edit Profile")}
+                </h3>
+              </div>
+
+              {/* Profile form */}
+              <Card className="border-[#3bcac4]/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2 text-[#005476]">
+                    <Building2 className="h-3.5 w-3.5 text-[#3bcac4]" />Project Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Internal Project Name <span className="text-red-400">*</span></Label>
+                      <Input placeholder="e.g. Panorama Batumi Phase 2" value={kbForm.internal_project_name || ""}
+                        onChange={e => setKbForm(p => ({ ...p, internal_project_name: e.target.value }))} className="text-sm" />
+                      <p className="text-[10px] text-slate-400 mt-0.5">Used for lookup only — hidden from AI if alias is set</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Marketing Alias</Label>
+                      <Input placeholder="e.g. Swiss Alps Residences Batumi" value={kbForm.marketing_alias || ""}
+                        onChange={e => setKbForm(p => ({ ...p, marketing_alias: e.target.value }))} className="text-sm" />
+                      <p className="text-[10px] text-slate-400 mt-0.5">AI will use this name by default</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2 cursor-pointer"
+                        onClick={() => setKbForm(p => ({ ...p, use_real_project_name: !p.use_real_project_name }))}>
+                        {kbForm.use_real_project_name
+                          ? <ToggleRight className="h-5 w-5 text-[#3bcac4]" />
+                          : <ToggleLeft  className="h-5 w-5 text-slate-400" />}
+                        <span className={`text-xs font-medium ${kbForm.use_real_project_name ? "text-[#005476]" : "text-slate-500"}`}>
+                          {kbForm.use_real_project_name ? "AI uses the real project name" : "AI uses marketing alias only (recommended)"}
+                        </span>
+                        {!kbForm.use_real_project_name && kbForm.marketing_alias && (
+                          <span className="text-[10px] text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full ml-auto">
+                            AI sees: "{kbForm.marketing_alias}"
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Project Type</Label>
+                      <Select value={kbForm.project_type || ""} onValueChange={v => setKbForm(p => ({ ...p, project_type: v || null }))}>
+                        <SelectTrigger className="text-sm"><SelectValue placeholder="Select type…" /></SelectTrigger>
+                        <SelectContent>
+                          {["Apartment Complex","Villa","Hotel Residence","Branded Residence","Land","Mixed Use","Commercial","Resort"].map(t =>
+                            <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Location</Label>
+                      <Input placeholder="e.g. Batumi, Georgia" value={kbForm.location || ""}
+                        onChange={e => setKbForm(p => ({ ...p, location: e.target.value }))} className="text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Luxury Level</Label>
+                      <Select value={kbForm.luxury_level || ""} onValueChange={v => setKbForm(p => ({ ...p, luxury_level: v || null }))}>
+                        <SelectTrigger className="text-sm"><SelectValue placeholder="Select level…" /></SelectTrigger>
+                        <SelectContent>
+                          {["Ultra Luxury","Luxury","Premium","Upper Mid"].map(l =>
+                            <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Status</Label>
+                      <Select value={kbForm.status || "active"} onValueChange={v => setKbForm(p => ({ ...p, status: v }))}>
+                        <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="archived">Archived</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Target Investor Type</Label>
+                      <Input placeholder="e.g. Arab high-net-worth investors" value={kbForm.target_investor_type || ""}
+                        onChange={e => setKbForm(p => ({ ...p, target_investor_type: e.target.value }))} className="text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1 block">Target Buyer Type</Label>
+                      <Input placeholder="e.g. Families, retirees, investors" value={kbForm.target_buyer_type || ""}
+                        onChange={e => setKbForm(p => ({ ...p, target_buyer_type: e.target.value }))} className="text-sm" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs text-slate-600 mb-1 block">Short Marketing Description</Label>
+                      <Input placeholder="1–2 sentence description AI uses as project context" value={kbForm.short_marketing_description || ""}
+                        onChange={e => setKbForm(p => ({ ...p, short_marketing_description: e.target.value }))} className="text-sm" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs text-slate-600 mb-1 block">Internal Notes</Label>
+                      <Input placeholder="Team notes — not sent to AI" value={kbForm.confidence_notes || ""}
+                        onChange={e => setKbForm(p => ({ ...p, confidence_notes: e.target.value }))} className="text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    {kbView === "create" ? (
+                      <Button size="sm"
+                        onClick={() => createProfileMutation.mutate(kbForm)}
+                        disabled={!kbForm.internal_project_name || createProfileMutation.isPending}
+                        className="text-xs bg-[#005476] text-white hover:bg-[#005476]/90">
+                        <Save className="h-3.5 w-3.5 mr-1.5" />
+                        {createProfileMutation.isPending ? "Creating…" : "Create Profile"}
+                      </Button>
+                    ) : (
+                      <>
+                        <Button size="sm"
+                          onClick={() => updateProfileMutation.mutate({ id: activeKbId!, body: kbForm })}
+                          disabled={!kbForm.internal_project_name || updateProfileMutation.isPending}
+                          className="text-xs bg-[#005476] text-white hover:bg-[#005476]/90">
+                          <Save className="h-3.5 w-3.5 mr-1.5" />
+                          {updateProfileMutation.isPending ? "Saving…" : "Save Changes"}
+                        </Button>
+                        <Button variant="outline" size="sm"
+                          onClick={() => { if (confirm("Delete this profile and all its angles, markets and claims?")) deleteProfileMutation.mutate(activeKbId!); }}
+                          className="text-xs text-red-500 border-red-200 hover:border-red-400 hover:bg-red-50">
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />Delete
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Sub-records — only in detail mode */}
+              {kbView === "detail" && kbDetailData && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                  {/* Marketing Angles */}
+                  <Card className="border">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2 text-[#005476]">
+                        <Layers className="h-3.5 w-3.5 text-[#3bcac4]" />Marketing Angles
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {kbDetailData.angles.length === 0 && (
+                        <p className="text-xs text-slate-300 text-center py-2">No angles yet</p>
+                      )}
+                      {kbDetailData.angles.map(a => (
+                        <div key={a.id}
+                          className={`flex items-center justify-between px-2 py-1.5 rounded text-xs ${a.enabled ? "bg-teal-50" : "bg-slate-50 opacity-60"}`}>
+                          <span className={`font-medium ${a.enabled ? "text-teal-700" : "text-slate-400"}`}>{a.angle_name}</span>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => toggleAngleMutation.mutate({ profileId: activeKbId!, angleId: a.id, enabled: !a.enabled })}
+                              title={a.enabled ? "Disable" : "Enable"}>
+                              {a.enabled
+                                ? <ToggleRight className="h-4 w-4 text-[#3bcac4]" />
+                                : <ToggleLeft  className="h-4 w-4 text-slate-400" />}
+                            </button>
+                            <button onClick={() => deleteAngleMutation.mutate({ profileId: activeKbId!, angleId: a.id })}
+                              className="text-slate-300 hover:text-red-400"><X className="h-3 w-3" /></button>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="pt-1 border-t flex gap-1">
+                        <Input placeholder="New angle (e.g. Sea View)" value={kbAngleInput.angle_name}
+                          onChange={e => setKbAngleInput(p => ({ ...p, angle_name: e.target.value }))}
+                          onKeyDown={e => e.key === "Enter" && kbAngleInput.angle_name && addAngleMutation.mutate({ id: activeKbId!, body: kbAngleInput })}
+                          className="text-xs h-7" />
+                        <Button size="sm" className="h-7 text-xs px-2 bg-[#3bcac4] text-white hover:bg-[#3bcac4]/90"
+                          onClick={() => kbAngleInput.angle_name && addAngleMutation.mutate({ id: activeKbId!, body: kbAngleInput })}
+                          disabled={!kbAngleInput.angle_name || addAngleMutation.isPending}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-slate-400">e.g. Branded Residence, Sea View, Investment, Family Living</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Target Markets */}
+                  <Card className="border">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2 text-[#005476]">
+                        <Globe className="h-3.5 w-3.5 text-[#3bcac4]" />Target Markets
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {kbDetailData.markets.length === 0 && (
+                        <p className="text-xs text-slate-300 text-center py-2">No markets yet</p>
+                      )}
+                      {kbDetailData.markets.map(m => (
+                        <div key={m.id}
+                          className="flex items-center justify-between bg-blue-50 px-2 py-1.5 rounded text-xs">
+                          <div>
+                            <span className="font-medium text-blue-700">{m.market_name}</span>
+                            {m.language && <span className="text-blue-400 ml-1">· {m.language}</span>}
+                          </div>
+                          <button onClick={() => deleteMarketMutation.mutate({ profileId: activeKbId!, marketId: m.id })}
+                            className="text-slate-300 hover:text-red-400"><X className="h-3 w-3" /></button>
+                        </div>
+                      ))}
+                      <div className="pt-1 border-t space-y-1">
+                        <Input placeholder="Market name (e.g. Arab 48)" value={kbMarketInput.market_name}
+                          onChange={e => setKbMarketInput(p => ({ ...p, market_name: e.target.value }))}
+                          className="text-xs h-7" />
+                        <div className="flex gap-1">
+                          <Input placeholder="Language (e.g. Arabic)" value={kbMarketInput.language}
+                            onChange={e => setKbMarketInput(p => ({ ...p, language: e.target.value }))}
+                            className="text-xs h-7 flex-1" />
+                          <Button size="sm" className="h-7 text-xs px-2 bg-[#3bcac4] text-white hover:bg-[#3bcac4]/90"
+                            onClick={() => kbMarketInput.market_name && addMarketMutation.mutate({ id: activeKbId!, body: kbMarketInput })}
+                            disabled={!kbMarketInput.market_name || addMarketMutation.isPending}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Forbidden Claims */}
+                  <Card className="border">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2 text-[#005476]">
+                        <Ban className="h-3.5 w-3.5 text-red-400" />Forbidden Claims
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {kbDetailData.claims.length === 0 && (
+                        <p className="text-xs text-slate-300 text-center py-2">No restrictions yet</p>
+                      )}
+                      {kbDetailData.claims.map(c => (
+                        <div key={c.id}
+                          className="flex items-start justify-between bg-red-50 px-2 py-1.5 rounded text-xs">
+                          <span className="text-red-700 flex-1 mr-2 leading-snug">• {c.claim_text}</span>
+                          <button onClick={() => deleteClaimMutation.mutate({ profileId: activeKbId!, claimId: c.id })}
+                            className="text-slate-300 hover:text-red-400 mt-0.5 shrink-0"><X className="h-3 w-3" /></button>
+                        </div>
+                      ))}
+                      <div className="pt-1 border-t flex gap-1">
+                        <Input placeholder="e.g. No guaranteed ROI" value={kbClaimInput}
+                          onChange={e => setKbClaimInput(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && kbClaimInput && addClaimMutation.mutate({ id: activeKbId!, body: { claim_text: kbClaimInput } })}
+                          className="text-xs h-7 flex-1" />
+                        <Button size="sm" className="h-7 text-xs px-2 bg-red-400 text-white hover:bg-red-500"
+                          onClick={() => kbClaimInput && addClaimMutation.mutate({ id: activeKbId!, body: { claim_text: kbClaimInput } })}
+                          disabled={!kbClaimInput || addClaimMutation.isPending}>
+                          <Ban className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Injected as hard rules into every AI generation</p>
+                    </CardContent>
+                  </Card>
+
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
+            <Library className="h-4 w-4 mt-0.5 text-[#3bcac4] shrink-0" />
+            <span>Knowledge Base is read-only for AI. No Meta publishing. No campaign creation. No automation. Used only to improve AI draft quality with project-specific context and alias rules.</span>
           </div>
         </div>
       )}

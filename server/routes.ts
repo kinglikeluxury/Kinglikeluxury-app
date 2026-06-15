@@ -7460,6 +7460,55 @@ ${metaTags}
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Phase 12 — Project Marketing Knowledge Base helper (read-only, no side effects)
+  // Called by both Creative Draft and Campaign Draft generators.
+  // Returns "" on any error — never breaks draft generation.
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function getProjectKnowledge(projectName: string): Promise<string> {
+    if (!projectName) return "";
+    try {
+      const profileRes = await pool.query(
+        `SELECT * FROM project_marketing_profiles
+         WHERE status = 'active'
+           AND (LOWER(internal_project_name) = LOWER($1) OR LOWER(marketing_alias) = LOWER($1))
+         LIMIT 1`,
+        [projectName]
+      );
+      if (!profileRes.rows[0]) return "";
+      const p = profileRes.rows[0];
+      const [angles, markets, claims] = await Promise.all([
+        pool.query(`SELECT angle_name FROM project_marketing_angles WHERE profile_id=$1 AND enabled=true ORDER BY priority DESC, id ASC`, [p.id]),
+        pool.query(`SELECT market_name, language FROM project_target_markets WHERE profile_id=$1 ORDER BY id ASC`, [p.id]),
+        pool.query(`SELECT claim_text FROM project_forbidden_claims WHERE profile_id=$1 ORDER BY id ASC`, [p.id]),
+      ]);
+      const displayName = p.use_real_project_name
+        ? p.internal_project_name
+        : (p.marketing_alias || p.internal_project_name);
+      let ctx = `\n--- Project Knowledge: ${displayName} ---\n`;
+      if (p.project_type)                ctx += `Type: ${p.project_type}\n`;
+      if (p.location)                    ctx += `Location: ${p.location}\n`;
+      if (p.luxury_level)                ctx += `Luxury Level: ${p.luxury_level}\n`;
+      if (p.short_marketing_description) ctx += `Description: ${p.short_marketing_description}\n`;
+      if (p.target_investor_type)        ctx += `Target Investor: ${p.target_investor_type}\n`;
+      if (p.target_buyer_type)           ctx += `Target Buyer: ${p.target_buyer_type}\n`;
+      if (angles.rows.length > 0)
+        ctx += `Approved Angles: ${angles.rows.map((r: any) => r.angle_name).join(', ')}\n`;
+      if (markets.rows.length > 0)
+        ctx += `Target Markets: ${markets.rows.map((r: any) => `${r.market_name}${r.language ? ` (${r.language})` : ''}`).join(', ')}\n`;
+      if (claims.rows.length > 0) {
+        ctx += `FORBIDDEN — never use:\n`;
+        claims.rows.forEach((r: any) => { ctx += `  • ${r.claim_text}\n`; });
+      }
+      if (!p.use_real_project_name && p.marketing_alias)
+        ctx += `NAME RULE: Use "${p.marketing_alias}" as the project name. NEVER expose "${p.internal_project_name}".\n`;
+      ctx += `--- End Knowledge ---\n`;
+      return ctx;
+    } catch {
+      return "";
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Phase 10 — AI Creative Draft Generator
   // Admin-only. Internal drafts only. Zero Meta write actions. Railway compatible.
   // ─────────────────────────────────────────────────────────────────────────────
@@ -7520,6 +7569,7 @@ ${metaTags}
       };
 
       const types = (draft_types as string[]).length > 0 ? (draft_types as string[]) : ["headline", "primary_text", "cta", "hook"];
+      const knowledgeCtx = await getProjectKnowledge(project_name);
       const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
 
       let drafts: any[] = [];
@@ -7574,7 +7624,7 @@ ${topCreativesContext}
 Use this to inspire tone. Do NOT quote specific numbers in ad copy.`
   : `No historical data — generate conservative generic drafts.`}
 
-Rules:
+${knowledgeCtx}Rules:
 - Never promise ROI or guaranteed returns
 - No misleading investment claims
 - For image_concept / video_concept: describe the visual direction in ${language}
@@ -7744,6 +7794,7 @@ Return JSON: { "drafts": [ { "draft_type": "...", "draft_text": "...", "inspirat
           }`
         : "No historical campaign data available — generate conservative generic draft.";
 
+      const knowledgeCtx = await getProjectKnowledge(project_name);
       const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
       let result: any = null;
 
@@ -7803,7 +7854,7 @@ Age Range: ${age_min}–${age_max}
 Audience Notes: ${audience_notes || 'None'}
 
 ${intelligenceCtx}
-
+${knowledgeCtx}
 Return this exact JSON structure:
 {
   "campaign_name": "descriptive campaign name",
@@ -8012,6 +8063,214 @@ Rules:
       res.json({ ok: true });
     } catch (err: any) {
       console.error("[CampaignDrafts] delete error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Phase 12 — Project Marketing Knowledge Base CRUD
+  // Admin-only. Read-only AI integration. Zero Meta write actions.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/admin/ai-marketing/marketing-knowledge — list all profiles with counts
+  app.get("/api/admin/ai-marketing/marketing-knowledge", isAdmin, async (_req, res) => {
+    try {
+      const r = await pool.query(`
+        SELECT p.*,
+          (SELECT COUNT(*) FROM project_marketing_angles  WHERE profile_id=p.id AND enabled=true) AS angles_count,
+          (SELECT COUNT(*) FROM project_target_markets    WHERE profile_id=p.id)                  AS markets_count,
+          (SELECT COUNT(*) FROM project_forbidden_claims  WHERE profile_id=p.id)                  AS claims_count
+        FROM project_marketing_profiles p
+        ORDER BY p.created_at DESC
+      `);
+      res.json({ ok: true, profiles: r.rows });
+    } catch (err: any) {
+      console.error("[KnowledgeBase] list error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/marketing-knowledge/:id — profile + all sub-records
+  app.get("/api/admin/ai-marketing/marketing-knowledge/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [profile, angles, markets, claims] = await Promise.all([
+        pool.query(`SELECT * FROM project_marketing_profiles WHERE id=$1`, [id]),
+        pool.query(`SELECT * FROM project_marketing_angles WHERE profile_id=$1 ORDER BY priority DESC, id ASC`, [id]),
+        pool.query(`SELECT * FROM project_target_markets WHERE profile_id=$1 ORDER BY id ASC`, [id]),
+        pool.query(`SELECT * FROM project_forbidden_claims WHERE profile_id=$1 ORDER BY id ASC`, [id]),
+      ]);
+      if (!profile.rows[0]) return res.status(404).json({ error: "Profile not found" });
+      res.json({ ok: true, profile: profile.rows[0], angles: angles.rows, markets: markets.rows, claims: claims.rows });
+    } catch (err: any) {
+      console.error("[KnowledgeBase] get error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/ai-marketing/marketing-knowledge — create profile
+  app.post("/api/admin/ai-marketing/marketing-knowledge", isAdmin, async (req, res) => {
+    try {
+      const {
+        project_id, internal_project_name, marketing_alias, use_real_project_name = false,
+        project_type, location, short_marketing_description, long_marketing_description,
+        luxury_level, target_investor_type, target_buyer_type, confidence_notes,
+      } = req.body;
+      if (!internal_project_name) return res.status(400).json({ error: "internal_project_name is required" });
+      const r = await pool.query(`
+        INSERT INTO project_marketing_profiles
+          (project_id, internal_project_name, marketing_alias, use_real_project_name,
+           project_type, location, short_marketing_description, long_marketing_description,
+           luxury_level, target_investor_type, target_buyer_type, confidence_notes, status)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'active') RETURNING *
+      `, [project_id||null, internal_project_name, marketing_alias||null, !!use_real_project_name,
+          project_type||null, location||null, short_marketing_description||null,
+          long_marketing_description||null, luxury_level||null,
+          target_investor_type||null, target_buyer_type||null, confidence_notes||null]);
+      console.log(`[KnowledgeBase] Created profile id=${r.rows[0].id} "${internal_project_name}"`);
+      res.json({ ok: true, profile: r.rows[0] });
+    } catch (err: any) {
+      console.error("[KnowledgeBase] create error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/admin/ai-marketing/marketing-knowledge/:id — update profile
+  app.put("/api/admin/ai-marketing/marketing-knowledge/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const {
+        internal_project_name, marketing_alias, use_real_project_name,
+        project_type, location, short_marketing_description, long_marketing_description,
+        luxury_level, target_investor_type, target_buyer_type, confidence_notes, status,
+      } = req.body;
+      if (!internal_project_name) return res.status(400).json({ error: "internal_project_name is required" });
+      const r = await pool.query(`
+        UPDATE project_marketing_profiles SET
+          internal_project_name=$1, marketing_alias=$2, use_real_project_name=$3,
+          project_type=$4, location=$5, short_marketing_description=$6,
+          long_marketing_description=$7, luxury_level=$8, target_investor_type=$9,
+          target_buyer_type=$10, confidence_notes=$11, status=$12, updated_at=NOW()
+        WHERE id=$13 RETURNING *
+      `, [internal_project_name, marketing_alias||null, !!use_real_project_name,
+          project_type||null, location||null, short_marketing_description||null,
+          long_marketing_description||null, luxury_level||null,
+          target_investor_type||null, target_buyer_type||null,
+          confidence_notes||null, status||'active', id]);
+      if (!r.rows[0]) return res.status(404).json({ error: "Profile not found" });
+      res.json({ ok: true, profile: r.rows[0] });
+    } catch (err: any) {
+      console.error("[KnowledgeBase] update error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/admin/ai-marketing/marketing-knowledge/:id — delete (cascade)
+  app.delete("/api/admin/ai-marketing/marketing-knowledge/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await pool.query(`DELETE FROM project_marketing_profiles WHERE id=$1`, [id]);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[KnowledgeBase] delete error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/ai-marketing/marketing-knowledge/:id/angles
+  app.post("/api/admin/ai-marketing/marketing-knowledge/:id/angles", isAdmin, async (req, res) => {
+    try {
+      const profileId = parseInt(req.params.id);
+      const { angle_name, angle_description, priority = 0 } = req.body;
+      if (!angle_name) return res.status(400).json({ error: "angle_name required" });
+      const r = await pool.query(
+        `INSERT INTO project_marketing_angles (profile_id,angle_name,angle_description,priority,enabled)
+         VALUES ($1,$2,$3,$4,true) RETURNING *`,
+        [profileId, angle_name, angle_description||null, parseInt(priority)||0]
+      );
+      res.json({ ok: true, angle: r.rows[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/admin/ai-marketing/marketing-knowledge/:id/angles/:angleId — toggle enabled
+  app.patch("/api/admin/ai-marketing/marketing-knowledge/:id/angles/:angleId", isAdmin, async (req, res) => {
+    try {
+      const angleId = parseInt(req.params.angleId);
+      const { enabled } = req.body;
+      const r = await pool.query(
+        `UPDATE project_marketing_angles SET enabled=$1 WHERE id=$2 RETURNING *`,
+        [!!enabled, angleId]
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Angle not found" });
+      res.json({ ok: true, angle: r.rows[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/admin/ai-marketing/marketing-knowledge/:id/angles/:angleId
+  app.delete("/api/admin/ai-marketing/marketing-knowledge/:id/angles/:angleId", isAdmin, async (req, res) => {
+    try {
+      const angleId = parseInt(req.params.angleId);
+      await pool.query(`DELETE FROM project_marketing_angles WHERE id=$1`, [angleId]);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/ai-marketing/marketing-knowledge/:id/markets
+  app.post("/api/admin/ai-marketing/marketing-knowledge/:id/markets", isAdmin, async (req, res) => {
+    try {
+      const profileId = parseInt(req.params.id);
+      const { market_name, language, notes } = req.body;
+      if (!market_name) return res.status(400).json({ error: "market_name required" });
+      const r = await pool.query(
+        `INSERT INTO project_target_markets (profile_id,market_name,language,notes) VALUES ($1,$2,$3,$4) RETURNING *`,
+        [profileId, market_name, language||null, notes||null]
+      );
+      res.json({ ok: true, market: r.rows[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/admin/ai-marketing/marketing-knowledge/:id/markets/:marketId
+  app.delete("/api/admin/ai-marketing/marketing-knowledge/:id/markets/:marketId", isAdmin, async (req, res) => {
+    try {
+      const marketId = parseInt(req.params.marketId);
+      await pool.query(`DELETE FROM project_target_markets WHERE id=$1`, [marketId]);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/ai-marketing/marketing-knowledge/:id/claims
+  app.post("/api/admin/ai-marketing/marketing-knowledge/:id/claims", isAdmin, async (req, res) => {
+    try {
+      const profileId = parseInt(req.params.id);
+      const { claim_text } = req.body;
+      if (!claim_text) return res.status(400).json({ error: "claim_text required" });
+      const r = await pool.query(
+        `INSERT INTO project_forbidden_claims (profile_id,claim_text) VALUES ($1,$2) RETURNING *`,
+        [profileId, claim_text]
+      );
+      res.json({ ok: true, claim: r.rows[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/admin/ai-marketing/marketing-knowledge/:id/claims/:claimId
+  app.delete("/api/admin/ai-marketing/marketing-knowledge/:id/claims/:claimId", isAdmin, async (req, res) => {
+    try {
+      const claimId = parseInt(req.params.claimId);
+      await pool.query(`DELETE FROM project_forbidden_claims WHERE id=$1`, [claimId]);
+      res.json({ ok: true });
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });

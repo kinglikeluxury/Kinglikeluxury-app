@@ -968,6 +968,69 @@ export async function ensureAiCampaignDraftTables(): Promise<void> {
   }
 }
 
+export async function ensureProjectMarketingTables(): Promise<void> {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS project_marketing_profiles (
+        id                          SERIAL PRIMARY KEY,
+        project_id                  INTEGER,
+        internal_project_name       TEXT NOT NULL,
+        marketing_alias             TEXT,
+        use_real_project_name       BOOLEAN NOT NULL DEFAULT FALSE,
+        project_type                TEXT,
+        location                    TEXT,
+        short_marketing_description TEXT,
+        long_marketing_description  TEXT,
+        luxury_level                TEXT,
+        target_investor_type        TEXT,
+        target_buyer_type           TEXT,
+        confidence_notes            TEXT,
+        status                      TEXT NOT NULL DEFAULT 'active',
+        created_at                  TIMESTAMPTZ DEFAULT NOW(),
+        updated_at                  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS project_marketing_angles (
+        id                SERIAL PRIMARY KEY,
+        profile_id        INTEGER REFERENCES project_marketing_profiles(id) ON DELETE CASCADE,
+        angle_name        TEXT NOT NULL,
+        angle_description TEXT,
+        priority          INTEGER DEFAULT 0,
+        enabled           BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at        TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS project_target_markets (
+        id          SERIAL PRIMARY KEY,
+        profile_id  INTEGER REFERENCES project_marketing_profiles(id) ON DELETE CASCADE,
+        market_name TEXT NOT NULL,
+        language    TEXT,
+        notes       TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS project_forbidden_claims (
+        id          SERIAL PRIMARY KEY,
+        profile_id  INTEGER REFERENCES project_marketing_profiles(id) ON DELETE CASCADE,
+        claim_text  TEXT NOT NULL,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS pmp_project_id_idx ON project_marketing_profiles(project_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS pmp_status_idx ON project_marketing_profiles(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS pma_profile_id_idx ON project_marketing_angles(profile_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ptm_profile_id_idx ON project_target_markets(profile_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS pfc_profile_id_idx ON project_forbidden_claims(profile_id)`);
+    console.log("[DB] ensureProjectMarketingTables ✓");
+  } catch (err: any) {
+    console.error("[DB] ensureProjectMarketingTables error:", err.message);
+    throw err;
+  }
+}
+
 export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error;
 
