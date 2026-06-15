@@ -202,6 +202,13 @@ interface LearningEngineSnapshot {
   pattern_data: LearnPattern[]; recommendations: LearnRec[];
 }
 interface LearningEngineData { ok: boolean; has_data: boolean; snapshot: LearningEngineSnapshot | null; patterns: any[]; }
+interface DQField { field: string; total: number; populated: number; missing: number; coverage: number; }
+interface DQCampaignAttr { total: number; with_campaign_id: number; with_adset_id: number; with_ad_id: number; campaign_id_pct: number; adset_id_pct: number; ad_id_pct: number; }
+interface DQCreativeAttr { total: number; linked: number; unlinked: number; coverage: number; }
+interface DQBlocker { severity: string; message: string; evidence: string; }
+interface DQRec { priority: string; action: string; reason: string; }
+interface DQHealth { overall: number; overall_label: string; crm_data_health: number; crm_label: string; attribution_health: number; attribution_label: string; learning_readiness: number; learning_label: string; campaign_intelligence: number; campaign_label: string; }
+interface DataQualityReport { ok: boolean; generated_at: string; total_leads: number; crm_fields: DQField[]; campaign_attribution: DQCampaignAttr; creative_attribution: DQCreativeAttr; blockers: DQBlocker[]; health: DQHealth; recommendations: DQRec[]; }
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -380,7 +387,13 @@ export default function RevenueIntelligence() {
   });
 
   // ── Phase 14 — Performance Learning Engine ────────────────────────────────
-  const [engineTab, setEngineTab] = useState<"markets"|"campaigns"|"sources"|"projects"|"patterns"|"recs">("markets");
+  const [engineTab, setEngineTab] = useState<"markets"|"campaigns"|"sources"|"projects"|"patterns"|"recs"|"quality">("markets");
+
+  const { data: dataQuality, isLoading: dqLoading, refetch: refetchDQ } = useQuery<DataQualityReport>({
+    queryKey: ["/api/admin/ai-marketing/learning/data-quality"],
+    queryFn: () => fetch("/api/admin/ai-marketing/learning/data-quality", { credentials: "include" }).then(r => r.json()),
+    enabled: sub === "learning" && engineTab === "quality",
+  });
 
   const { data: engineData, isLoading: engineLoading, refetch: refetchEngine } = useQuery<LearningEngineData>({
     queryKey: ["/api/admin/ai-marketing/learning/engine"],
@@ -1342,6 +1355,10 @@ export default function RevenueIntelligence() {
                         )}
                       </button>
                     ))}
+                    <button onClick={() => setEngineTab("quality")}
+                      className={`text-xs px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 ${engineTab === "quality" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}>
+                      🔍 Data Quality
+                    </button>
                   </div>
 
                   {/* Segment views: markets / campaigns / sources / projects */}
@@ -1446,6 +1463,169 @@ export default function RevenueIntelligence() {
 
                 </div>
               )}
+
+              {/* ── Data Quality Audit Panel ────────────────────────────── */}
+              {engineTab === "quality" && (
+                <div className="space-y-4">
+                  {/* Header with export */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-700">Data Quality Audit</p>
+                      <p className="text-[11px] text-slate-400">Read-only diagnostics — no data is modified</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => refetchDQ()}>
+                        <RefreshCw className="h-3 w-3" />Refresh
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs h-7 gap-1"
+                        onClick={() => window.open("/api/admin/ai-marketing/learning/data-quality/export","_blank")}>
+                        <FileText className="h-3 w-3" />Export Audit
+                      </Button>
+                    </div>
+                  </div>
+
+                  {dqLoading && <div className="text-center py-8 text-slate-400 text-sm">Running audit…</div>}
+
+                  {dataQuality?.ok && (() => {
+                    const dq = dataQuality;
+
+                    // Health score colour
+                    const scoreColour = (s: number) => s >= 90 ? "text-green-600" : s >= 75 ? "text-[#3bcac4]" : s >= 50 ? "text-amber-500" : "text-red-500";
+                    const scoreBg     = (s: number) => s >= 90 ? "bg-green-50 border-green-200" : s >= 75 ? "bg-teal-50 border-teal-200" : s >= 50 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200";
+                    const coverBg     = (c: number) => c >= 80 ? "bg-green-400" : c >= 50 ? "bg-amber-400" : c >= 20 ? "bg-orange-400" : "bg-red-400";
+                    const sevBadge    = (s: string) => s === "critical" ? "bg-red-100 text-red-700" : s === "high" ? "bg-orange-100 text-orange-700" : s === "medium" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
+                    const priColour   = (p: string) => p === "critical" ? "border-red-200" : p === "high" ? "border-orange-200" : "border-slate-200";
+
+                    return (
+                      <>
+                        {/* Overall Health Score */}
+                        <div className={`border rounded-xl p-4 ${scoreBg(dq.health.overall)}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-semibold text-slate-700">Overall Data Health Score</span>
+                            <span className={`text-2xl font-bold ${scoreColour(dq.health.overall)}`}>{dq.health.overall}%</span>
+                          </div>
+                          <div className={`text-center text-sm font-semibold mb-3 ${scoreColour(dq.health.overall)}`}>{dq.health.overall_label}</div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {[
+                              { label: "CRM Data",       score: dq.health.crm_data_health,       labelText: dq.health.crm_label },
+                              { label: "Attribution",    score: dq.health.attribution_health,    labelText: dq.health.attribution_label },
+                              { label: "Learning Ready", score: dq.health.learning_readiness,   labelText: dq.health.learning_label },
+                              { label: "Campaign Intel", score: dq.health.campaign_intelligence, labelText: dq.health.campaign_label },
+                            ].map(({ label, score, labelText }) => (
+                              <div key={label} className="bg-white/70 rounded-lg p-2 text-center border border-white/80">
+                                <div className={`text-lg font-bold ${scoreColour(score)}`}>{score}%</div>
+                                <div className="text-[10px] text-slate-500">{label}</div>
+                                <div className={`text-[10px] font-medium ${scoreColour(score)}`}>{labelText}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Learning Blockers */}
+                        {dq.blockers.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-slate-600">Learning Blockers ({dq.blockers.length})</p>
+                            {dq.blockers.map((b, i) => (
+                              <div key={i} className={`border rounded-lg p-3 ${b.severity === "critical" ? "border-red-200 bg-red-50/40" : b.severity === "high" ? "border-orange-200 bg-orange-50/30" : b.severity === "medium" ? "border-amber-200 bg-amber-50/30" : "border-slate-200"}`}>
+                                <div className="flex items-start gap-2">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${sevBadge(b.severity)}`}>{b.severity}</span>
+                                  <div>
+                                    <p className="text-xs font-medium text-slate-800 mb-0.5">{b.message}</p>
+                                    <p className="text-[11px] text-slate-500">{b.evidence}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {dq.blockers.length === 0 && (
+                          <div className="text-center py-4 text-green-600 text-sm font-medium">✓ No critical learning blockers detected</div>
+                        )}
+
+                        {/* CRM Field Coverage */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-slate-600">CRM Field Coverage — {dq.total_leads} total leads</p>
+                          <div className="space-y-1.5">
+                            {dq.crm_fields.map((f) => (
+                              <div key={f.field} className="flex items-center gap-2">
+                                <span className="text-[11px] text-slate-600 w-36 shrink-0">{f.field}</span>
+                                <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                                  <div style={{ width: `${f.coverage}%` }} className={`h-full rounded-full transition-all ${coverBg(f.coverage)}`} />
+                                </div>
+                                <span className={`text-[11px] font-medium w-10 text-right ${f.coverage >= 80 ? "text-green-600" : f.coverage >= 50 ? "text-amber-500" : "text-red-500"}`}>{f.coverage}%</span>
+                                <span className="text-[10px] text-slate-400 w-24 text-right">{f.populated}/{f.total} ({f.missing} missing)</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Attribution Coverage */}
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          <div className="border rounded-lg p-3">
+                            <p className="text-xs font-semibold text-slate-600 mb-2">Campaign Attribution ({dq.campaign_attribution.total} records)</p>
+                            {dq.campaign_attribution.total === 0 ? (
+                              <p className="text-xs text-slate-400">No attribution records found</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {[
+                                  { label: "campaign_id", val: dq.campaign_attribution.campaign_id_pct },
+                                  { label: "adset_id",    val: dq.campaign_attribution.adset_id_pct },
+                                  { label: "ad_id",       val: dq.campaign_attribution.ad_id_pct },
+                                ].map(({ label, val }) => (
+                                  <div key={label} className="flex items-center gap-2">
+                                    <span className="text-[11px] text-slate-500 w-24 shrink-0">{label}</span>
+                                    <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                      <div style={{ width: `${val}%` }} className={`h-full rounded-full ${coverBg(val)}`} />
+                                    </div>
+                                    <span className={`text-[11px] font-medium w-8 text-right ${val >= 80 ? "text-green-600" : val >= 50 ? "text-amber-500" : "text-red-500"}`}>{val}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="border rounded-lg p-3">
+                            <p className="text-xs font-semibold text-slate-600 mb-2">Creative Attribution ({dq.creative_attribution.total} records)</p>
+                            {dq.creative_attribution.total === 0 ? (
+                              <p className="text-xs text-slate-400">No creative attribution records found</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] text-slate-500 w-24 shrink-0">Linked</span>
+                                  <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                    <div style={{ width: `${dq.creative_attribution.coverage}%` }} className={`h-full rounded-full ${coverBg(dq.creative_attribution.coverage)}`} />
+                                  </div>
+                                  <span className={`text-[11px] font-medium w-8 text-right ${dq.creative_attribution.coverage >= 80 ? "text-green-600" : dq.creative_attribution.coverage >= 50 ? "text-amber-500" : "text-red-500"}`}>{dq.creative_attribution.coverage}%</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400">{dq.creative_attribution.linked} linked · {dq.creative_attribution.unlinked} unlinked</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Repair Recommendations */}
+                        {dq.recommendations.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-slate-600">Repair Recommendations ({dq.recommendations.length}) — Audit-evidence based only</p>
+                            {dq.recommendations.map((r, i) => (
+                              <div key={i} className={`border rounded-lg p-3 ${priColour(r.priority)}`}>
+                                <div className="flex items-start gap-2 mb-1">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${sevBadge(r.priority)}`}>{r.priority}</span>
+                                  <p className="text-xs font-medium text-slate-800">{r.action}</p>
+                                </div>
+                                <p className="text-[11px] text-slate-500 pl-10">{r.reason}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-slate-400 text-center">Generated: {new Date(dq.generated_at).toLocaleString()} · Read-only · No data was modified</p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+              {/* ── End Data Quality ─────────────────────────────────────── */}
+
             </div>
           </div>
           {/* ── End Learning Engine ────────────────────────────────────── */}

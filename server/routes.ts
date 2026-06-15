@@ -8332,6 +8332,249 @@ Rules:
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Phase 14.5 — Data Quality Audit Engine (STRICT READ-ONLY)
+  // Admin-only. Zero writes. Zero modifications. Aggregate stats only.
+  // Sources read: crm_leads, ai_campaign_attribution, ai_creative_attribution
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/admin/ai-marketing/learning/data-quality
+  // Read-only audit of coverage across CRM fields and attribution tables.
+  app.get("/api/admin/ai-marketing/learning/data-quality", isAdmin, async (_req, res) => {
+    try {
+      const toInt = (v: any) => parseInt(v) || 0;
+      const pct   = (have: number, total: number) => total > 0 ? parseFloat((have / total * 100).toFixed(1)) : 0;
+
+      // ── 1. CRM field coverage (crm_leads) ──────────────────────────────────
+      const crmRes = await pool.query(`
+        SELECT
+          COUNT(*)                                                                    AS total,
+          COUNT(NULLIF(TRIM(COALESCE(campaign_name,'')),  ''))                       AS has_campaign_name,
+          COUNT(NULLIF(TRIM(COALESCE(campaign_id::text,'')), ''))                    AS has_campaign_id,
+          COUNT(NULLIF(TRIM(COALESCE(adset_name,'')),     ''))                       AS has_adset_name,
+          COUNT(NULLIF(TRIM(COALESCE(adset_id::text,'')), ''))                       AS has_adset_id,
+          COUNT(NULLIF(TRIM(COALESCE(ad_name,'')),        ''))                       AS has_ad_name,
+          COUNT(NULLIF(TRIM(COALESCE(ad_id::text,'')),    ''))                       AS has_ad_id,
+          COUNT(NULLIF(TRIM(COALESCE(country,'')),        ''))                       AS has_country,
+          COUNT(NULLIF(TRIM(COALESCE(project_interest,'')), ''))                     AS has_project_interest,
+          COUNT(NULLIF(TRIM(COALESCE(lead_source,'')),    ''))                       AS has_lead_source,
+          COUNT(NULLIF(TRIM(COALESCE(status,'')),         ''))                       AS has_status,
+          COUNT(assigned_to)                                                          AS has_assigned_user,
+          COUNT(created_at)                                                           AS has_created_at
+        FROM crm_leads
+      `);
+      const cr = crmRes.rows[0];
+      const total = toInt(cr.total);
+
+      const crmFields = [
+        { field: "campaign_name",    populated: toInt(cr.has_campaign_name),    total },
+        { field: "campaign_id",      populated: toInt(cr.has_campaign_id),      total },
+        { field: "adset_name",       populated: toInt(cr.has_adset_name),       total },
+        { field: "adset_id",         populated: toInt(cr.has_adset_id),         total },
+        { field: "ad_name",          populated: toInt(cr.has_ad_name),          total },
+        { field: "ad_id",            populated: toInt(cr.has_ad_id),            total },
+        { field: "country",          populated: toInt(cr.has_country),          total },
+        { field: "project_interest", populated: toInt(cr.has_project_interest), total },
+        { field: "lead_source",      populated: toInt(cr.has_lead_source),      total },
+        { field: "status",           populated: toInt(cr.has_status),           total },
+        { field: "assigned_user",    populated: toInt(cr.has_assigned_user),    total },
+        { field: "created_at",       populated: toInt(cr.has_created_at),       total },
+      ].map(f => ({
+        ...f,
+        missing:  f.total - f.populated,
+        coverage: pct(f.populated, f.total),
+      }));
+
+      // ── 2. Attribution coverage (ai_campaign_attribution) ──────────────────
+      const attrCampRes = await pool.query(`
+        SELECT
+          COUNT(*)                                                   AS total,
+          COUNT(NULLIF(TRIM(COALESCE(campaign_id::text,'')), ''))    AS has_campaign_id,
+          COUNT(NULLIF(TRIM(COALESCE(adset_id::text,'')),   ''))     AS has_adset_id,
+          COUNT(NULLIF(TRIM(COALESCE(ad_id::text,'')),      ''))     AS has_ad_id
+        FROM ai_campaign_attribution
+      `).catch(() => ({ rows: [{ total: 0, has_campaign_id: 0, has_adset_id: 0, has_ad_id: 0 }] }));
+      const ac = attrCampRes.rows[0];
+      const attrTotal = toInt(ac.total);
+      const campaignAttr = {
+        total: attrTotal,
+        with_campaign_id: toInt(ac.has_campaign_id),
+        with_adset_id:    toInt(ac.has_adset_id),
+        with_ad_id:       toInt(ac.has_ad_id),
+        campaign_id_pct:  pct(toInt(ac.has_campaign_id), attrTotal),
+        adset_id_pct:     pct(toInt(ac.has_adset_id),    attrTotal),
+        ad_id_pct:        pct(toInt(ac.has_ad_id),        attrTotal),
+      };
+
+      // ── 3. Creative attribution coverage (ai_creative_attribution) ──────────
+      const attrCreRes = await pool.query(`
+        SELECT
+          COUNT(*)                                                     AS total,
+          COUNT(NULLIF(TRIM(COALESCE(lead_id::text,'')), ''))          AS linked
+        FROM ai_creative_attribution
+      `).catch(() => ({ rows: [{ total: 0, linked: 0 }] }));
+      const ae = attrCreRes.rows[0];
+      const creativeAttrTotal  = toInt(ae.total);
+      const creativeAttrLinked = toInt(ae.linked);
+      const creativeAttr = {
+        total:    creativeAttrTotal,
+        linked:   creativeAttrLinked,
+        unlinked: creativeAttrTotal - creativeAttrLinked,
+        coverage: pct(creativeAttrLinked, creativeAttrTotal),
+      };
+
+      // ── 4. Learning blockers (evidence-based only) ─────────────────────────
+      const blockers: { severity: string; message: string; evidence: string }[] = [];
+
+      const findCov = (f: string) => crmFields.find(x => x.field === f)?.coverage ?? 0;
+      const findPop = (f: string) => crmFields.find(x => x.field === f)?.populated ?? 0;
+
+      const campaignNameCov = findCov("campaign_name");
+      const campaignIdCov   = findCov("campaign_id");
+      const adsetNameCov    = findCov("adset_name");
+      const adsetIdCov      = findCov("adset_id");
+      const adNameCov       = findCov("ad_name");
+      const adIdCov         = findCov("ad_id");
+      const countryCov      = findCov("country");
+      const projIntCov      = findCov("project_interest");
+      const leadSrcCov      = findCov("lead_source");
+      const statusCov       = findCov("status");
+      const assignedCov     = findCov("assigned_user");
+
+      if (campaignNameCov < 50)
+        blockers.push({ severity: "critical", message: `Patterns cannot be generated because campaign_name coverage is only ${campaignNameCov}%.`, evidence: `${findPop("campaign_name")} of ${total} leads have campaign_name populated.` });
+      if (campaignIdCov < 50)
+        blockers.push({ severity: "critical", message: `Campaign-level performance learning is blocked — campaign_id coverage is only ${campaignIdCov}%.`, evidence: `${findPop("campaign_id")} of ${total} leads have campaign_id populated.` });
+      if (adsetNameCov < 30)
+        blockers.push({ severity: "high", message: `Ad set analysis unavailable — adset_name coverage is ${adsetNameCov}%.`, evidence: `${findPop("adset_name")} of ${total} leads have adset_name.` });
+      if (adsetIdCov < 30)
+        blockers.push({ severity: "high", message: `Ad set attribution blocked — adset_id coverage is ${adsetIdCov}%.`, evidence: `${findPop("adset_id")} of ${total} leads have adset_id.` });
+      if (adNameCov < 30)
+        blockers.push({ severity: "high", message: `Ad-level creative performance analysis unavailable — ad_name coverage is ${adNameCov}%.`, evidence: `${findPop("ad_name")} of ${total} leads have ad_name.` });
+      if (adIdCov < 30)
+        blockers.push({ severity: "high", message: `Ad attribution blocked — ad_id coverage is ${adIdCov}%.`, evidence: `${findPop("ad_id")} of ${total} leads have ad_id.` });
+      if (countryCov < 50)
+        blockers.push({ severity: "high", message: `Market performance analysis limited — country coverage is only ${countryCov}%.`, evidence: `${findPop("country")} of ${total} leads have country set.` });
+      if (projIntCov < 30)
+        blockers.push({ severity: "medium", message: `Project learning unavailable — project_interest is missing on ${(100 - projIntCov).toFixed(1)}% of leads.`, evidence: `Only ${findPop("project_interest")} of ${total} leads have project_interest.` });
+      if (leadSrcCov < 30)
+        blockers.push({ severity: "medium", message: `Lead source analysis limited — lead_source coverage is ${leadSrcCov}%.`, evidence: `${findPop("lead_source")} of ${total} leads have lead_source.` });
+      if (statusCov < 70)
+        blockers.push({ severity: "medium", message: `Status-based filtering unreliable — status coverage is ${statusCov}%.`, evidence: `${findPop("status")} of ${total} leads have status set.` });
+      if (assignedCov < 50)
+        blockers.push({ severity: "low", message: `Lead assignment tracking incomplete — assigned_user coverage is ${assignedCov}%.`, evidence: `${findPop("assigned_user")} of ${total} leads have assigned_user.` });
+      if (creativeAttr.coverage < 30)
+        blockers.push({ severity: "high", message: `Creative learning limited — creative attribution coverage is only ${creativeAttr.coverage}%.`, evidence: `${creativeAttr.linked} of ${creativeAttr.total} creative records are linked to leads.` });
+      if (campaignAttr.campaign_id_pct < 50)
+        blockers.push({ severity: "high", message: `Attribution intelligence limited — campaign_id coverage in attribution table is ${campaignAttr.campaign_id_pct}%.`, evidence: `${campaignAttr.with_campaign_id} of ${campaignAttr.total} attribution records have campaign_id.` });
+
+      // ── 5. Data Health Score ────────────────────────────────────────────────
+      const crmScore = parseFloat((
+        (campaignNameCov + countryCov + leadSrcCov + statusCov + projIntCov) / 5
+      ).toFixed(1));
+      const attrScore = parseFloat((
+        (campaignAttr.campaign_id_pct + campaignAttr.adset_id_pct + campaignAttr.ad_id_pct) / 3
+      ).toFixed(1));
+      const learnScore = parseFloat((
+        (Math.min(campaignNameCov, 100) + Math.min(countryCov, 100) + Math.min(leadSrcCov, 100)) / 3
+      ).toFixed(1));
+      const campaignIntelScore = parseFloat((
+        (campaignNameCov + campaignIdCov + adsetNameCov + adIdCov) / 4
+      ).toFixed(1));
+      const overallScore = parseFloat(((crmScore + attrScore + learnScore + campaignIntelScore) / 4).toFixed(1));
+
+      const healthLabel = (s: number) => s >= 90 ? "Excellent" : s >= 75 ? "Good" : s >= 50 ? "Fair" : "Poor";
+
+      // ── 6. Repair recommendations (reference audit findings only) ───────────
+      const recommendations: { priority: string; action: string; reason: string }[] = [];
+
+      if (campaignNameCov < 80) recommendations.push({ priority: "critical", action: "Populate campaign_name during lead ingestion from Meta webhook payload.", reason: `campaign_name is missing on ${total - findPop("campaign_name")} leads — this is the primary blocker for pattern generation.` });
+      if (campaignIdCov < 80)   recommendations.push({ priority: "critical", action: "Store campaign_id from Meta lead webhook (field: campaign_id).", reason: `campaign_id missing on ${total - findPop("campaign_id")} leads — required for attribution matching.` });
+      if (adsetNameCov < 50)    recommendations.push({ priority: "high",     action: "Store adset_name from Meta webhook payload during lead capture.", reason: `adset_name missing on ${total - findPop("adset_name")} leads.` });
+      if (adsetIdCov < 50)      recommendations.push({ priority: "high",     action: "Store adset_id from Meta webhook payload.", reason: `adset_id missing on ${total - findPop("adset_id")} leads.` });
+      if (adNameCov < 50)       recommendations.push({ priority: "high",     action: "Store ad_name from Meta webhook payload.", reason: `ad_name missing on ${total - findPop("ad_name")} leads.` });
+      if (adIdCov < 50)         recommendations.push({ priority: "high",     action: "Store ad_id from Meta webhook payload.", reason: `ad_id missing on ${total - findPop("ad_id")} leads.` });
+      if (projIntCov < 50)      recommendations.push({ priority: "medium",   action: "Increase project_interest coverage by requiring it in lead intake forms.", reason: `project_interest missing on ${total - findPop("project_interest")} leads — blocks project-level learning.` });
+      if (leadSrcCov < 60)      recommendations.push({ priority: "medium",   action: "Tag lead_source consistently during lead creation (webhook, manual, import).", reason: `lead_source missing on ${total - findPop("lead_source")} leads.` });
+      if (statusCov < 80)       recommendations.push({ priority: "medium",   action: "Ensure lead status is always set on create and updated after each agent interaction.", reason: `status missing on ${total - findPop("status")} leads — affects no_answer filtering.` });
+      if (countryCov < 70)      recommendations.push({ priority: "medium",   action: "Extract country from Meta lead form data or phone number prefix.", reason: `country missing on ${total - findPop("country")} leads — limits geographic learning.` });
+
+      res.json({
+        ok: true,
+        generated_at:   new Date().toISOString(),
+        total_leads:    total,
+        crm_fields:     crmFields,
+        campaign_attribution:  campaignAttr,
+        creative_attribution:  creativeAttr,
+        blockers,
+        health: {
+          overall:               overallScore,
+          overall_label:         healthLabel(overallScore),
+          crm_data_health:       crmScore,
+          crm_label:             healthLabel(crmScore),
+          attribution_health:    attrScore,
+          attribution_label:     healthLabel(attrScore),
+          learning_readiness:    learnScore,
+          learning_label:        healthLabel(learnScore),
+          campaign_intelligence: campaignIntelScore,
+          campaign_label:        healthLabel(campaignIntelScore),
+        },
+        recommendations,
+      });
+    } catch (err: any) {
+      console.error("[DataQuality] audit error:", err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/learning/data-quality/export — JSON download
+  app.get("/api/admin/ai-marketing/learning/data-quality/export", isAdmin, async (_req, res) => {
+    try {
+      // Re-run same audit logic inline for export
+      const toInt = (v: any) => parseInt(v) || 0;
+      const pct   = (have: number, total: number) => total > 0 ? parseFloat((have / total * 100).toFixed(1)) : 0;
+
+      const crmRes = await pool.query(`
+        SELECT COUNT(*) AS total,
+          COUNT(NULLIF(TRIM(COALESCE(campaign_name,'')),   '')) AS has_campaign_name,
+          COUNT(NULLIF(TRIM(COALESCE(campaign_id::text,'')),  '')) AS has_campaign_id,
+          COUNT(NULLIF(TRIM(COALESCE(adset_name,'')),      '')) AS has_adset_name,
+          COUNT(NULLIF(TRIM(COALESCE(adset_id::text,'')),  '')) AS has_adset_id,
+          COUNT(NULLIF(TRIM(COALESCE(ad_name,'')),         '')) AS has_ad_name,
+          COUNT(NULLIF(TRIM(COALESCE(ad_id::text,'')),     '')) AS has_ad_id,
+          COUNT(NULLIF(TRIM(COALESCE(country,'')),         '')) AS has_country,
+          COUNT(NULLIF(TRIM(COALESCE(project_interest,'')), '')) AS has_project_interest,
+          COUNT(NULLIF(TRIM(COALESCE(lead_source,'')),     '')) AS has_lead_source,
+          COUNT(NULLIF(TRIM(COALESCE(status,'')),          '')) AS has_status,
+          COUNT(assigned_to) AS has_assigned_user,
+          COUNT(created_at)  AS has_created_at
+        FROM crm_leads
+      `);
+      const cr    = crmRes.rows[0];
+      const total = toInt(cr.total);
+
+      const fields = ["campaign_name","campaign_id","adset_name","adset_id","ad_name","ad_id","country","project_interest","lead_source","status","assigned_user","created_at"];
+      const hasKeys = ["has_campaign_name","has_campaign_id","has_adset_name","has_adset_id","has_ad_name","has_ad_id","has_country","has_project_interest","has_lead_source","has_status","has_assigned_user","has_created_at"];
+
+      const crmFields = fields.map((f, i) => {
+        const pop = toInt(cr[hasKeys[i]]);
+        return { field: f, total, populated: pop, missing: total - pop, coverage: pct(pop, total) };
+      });
+
+      res.setHeader("Content-Disposition", "attachment; filename=kinglike-data-quality-audit.json");
+      res.setHeader("Content-Type", "application/json");
+      res.json({
+        report:       "Kinglike Luxury Data Quality Audit Report",
+        generated_at: new Date().toISOString(),
+        note:         "Read-only audit. No data was modified. No repairs were performed.",
+        total_leads:  total,
+        crm_fields:   crmFields,
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Phase 13 — AI Market Intelligence
   // Admin-only. Recommendation layer only. Zero Meta write actions.
   // ─────────────────────────────────────────────────────────────────────────────
