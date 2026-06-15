@@ -34,7 +34,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
 import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
-import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable } from "./db";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { ensureAssignmentCursor } from "./leadAssignmentService";
 import { ensureCrmLeadEmailLogTable } from "./crmLeadEmailService";
@@ -367,6 +367,7 @@ app.use((req, res, next) => {
     .then(() => ensureAiMarketingRevenueTables())
     .then(() => ensureAiCampaignAttributionTables())
     .then(() => ensureAiCreativeAttributionTable())
+    .then(() => ensureAiCreativeDraftsTable())
     .catch(err => console.error("[DB] ensureAiMarketingTables failed:", err));
 
   ensureWaQualTables()

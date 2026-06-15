@@ -6,7 +6,7 @@ import {
   Pencil, DollarSign, Flame, Thermometer, Snowflake, PhoneOff,
   UserCheck, Calendar, Globe, Info, AlertTriangle, CheckCircle2,
   BarChart3, Target, Activity, Building2, Megaphone, TrendingDown, Layers, RefreshCw,
-  Sparkles, ArrowUpRight, ArrowDownRight, Minus,
+  Sparkles, ArrowUpRight, ArrowDownRight, Minus, Wand2, FileText, Save, X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,6 +120,20 @@ interface CreativeIntelData {
   formula: { hot: number; warm: number; cold: number; noAnswer: number; description: string; normalized: string; confidence: string };
   headline: null; copy: null; cta: null;
 }
+interface DraftInput {
+  project_name: string; target_market: string; language: string; goal: string; draft_types: string[];
+}
+interface GeneratedDraft {
+  draft_type: string; draft_text: string; inspiration_source: string;
+  quality_reason: string; confidence_level: string;
+  project_name: string; target_market: string; language: string; goal: string;
+}
+interface SavedDraft {
+  id: number; draft_type: string; project_name: string | null; target_market: string | null;
+  language: string | null; draft_text: string; inspiration_source: string | null;
+  quality_reason: string | null; goal: string | null; confidence_level: string;
+  status: string; created_by: string; created_at: string; updated_at: string;
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -133,7 +147,8 @@ const SUB_TABS = [
   { key: "costintel",   label: "Cost Intelligence",    Icon: Target },
   { key: "strategy",    label: "AI Strategy",          Icon: TrendingUp },
   { key: "creative",    label: "Creative Attribution",  Icon: Layers },
-  { key: "creativeint", label: "Creative Intelligence", Icon: Sparkles },
+  { key: "creativeint",  label: "Creative Intelligence", Icon: Sparkles },
+  { key: "creativedraft", label: "AI Draft Generator",   Icon: Wand2    },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -386,6 +401,72 @@ export default function RevenueIntelligence() {
     queryKey: ["/api/admin/ai-marketing/creative-intelligence"],
     enabled: sub === "creativeint",
   });
+
+  // ── AI Creative Draft Generator ───────────────────────────────────────────
+  const [draftInput, setDraftInput] = useState<DraftInput>({
+    project_name: "", target_market: "", language: "Arabic", goal: "more_hot_leads", draft_types: [],
+  });
+  const [generatedDrafts, setGeneratedDrafts] = useState<GeneratedDraft[]>([]);
+  const [generating, setGenerating] = useState(false);
+
+  const { data: savedDraftsData, isLoading: savedDraftsLoading } = useQuery<{ ok: boolean; drafts: SavedDraft[] }>({
+    queryKey: ["/api/admin/ai-marketing/creative-drafts"],
+    enabled: sub === "creativedraft",
+  });
+
+  const saveDraftMutation = useMutation({
+    mutationFn: (draft: GeneratedDraft) => apiRequest("POST", "/api/admin/ai-marketing/creative-drafts", draft),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/creative-drafts"] });
+      toast({ title: "Draft saved to library" });
+    },
+    onError: (e: any) => toast({ title: "Save failed", description: e.message, variant: "destructive" }),
+  });
+
+  const updateDraftStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PATCH", `/api/admin/ai-marketing/creative-drafts/${id}`, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/creative-drafts"] }),
+    onError: (e: any) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteDraftMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/ai-marketing/creative-drafts/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/creative-drafts"] }),
+  });
+
+  async function generateDrafts() {
+    setGenerating(true); setGeneratedDrafts([]);
+    try {
+      const r = await fetch("/api/admin/ai-marketing/creative-drafts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(draftInput),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setGeneratedDrafts(d.drafts || []);
+        if ((d.drafts || []).length === 0)
+          toast({ title: "No drafts generated", description: "Try adjusting your inputs." });
+      } else {
+        toast({ title: "Generation failed", description: d.error ?? "Unknown error", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function toggleDraftType(t: string) {
+    setDraftInput(prev => ({
+      ...prev,
+      draft_types: prev.draft_types.includes(t)
+        ? prev.draft_types.filter(x => x !== t)
+        : [...prev.draft_types, t],
+    }));
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1615,6 +1696,259 @@ export default function RevenueIntelligence() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── AI Creative Draft Generator ──────────────────────────────────── */}
+      {sub === "creativedraft" && (
+        <div className="space-y-6">
+
+          {/* Safety banner */}
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+            <span><strong>Internal Drafts Only.</strong> Generated content is saved as internal drafts. No publishing to Meta. No campaign creation. No ad spend. Admin review required before any use.</span>
+          </div>
+
+          {/* Generator form */}
+          <Card className="border-[#3bcac4]/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-[#005476]">
+                <Wand2 className="h-4 w-4 text-[#3bcac4]" />
+                Generate Creative Drafts
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-slate-600 mb-1 block">Project / Property Name</Label>
+                  <Input
+                    placeholder="e.g. Panorama Batumi, Alanya Villa..."
+                    value={draftInput.project_name}
+                    onChange={e => setDraftInput(p => ({ ...p, project_name: e.target.value }))}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 mb-1 block">Target Market</Label>
+                  <Input
+                    placeholder="e.g. Arab 48, Gulf investors, Israeli buyers..."
+                    value={draftInput.target_market}
+                    onChange={e => setDraftInput(p => ({ ...p, target_market: e.target.value }))}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 mb-1 block">Language</Label>
+                  <Select value={draftInput.language} onValueChange={v => setDraftInput(p => ({ ...p, language: v }))}>
+                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Arabic">Arabic (عربي)</SelectItem>
+                      <SelectItem value="Hebrew">Hebrew (עברית)</SelectItem>
+                      <SelectItem value="English">English</SelectItem>
+                      <SelectItem value="Turkish">Turkish (Türkçe)</SelectItem>
+                      <SelectItem value="Russian">Russian (Русский)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 mb-1 block">Goal</Label>
+                  <Select value={draftInput.goal} onValueChange={v => setDraftInput(p => ({ ...p, goal: v }))}>
+                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="more_hot_leads">More HOT Leads</SelectItem>
+                      <SelectItem value="lower_no_answer">Lower No Answer Rate</SelectItem>
+                      <SelectItem value="more_appointments">More Appointments</SelectItem>
+                      <SelectItem value="test_new_angle">Test New Creative Angle</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-slate-600 mb-2 block">Draft Types to Generate <span className="text-slate-400">(leave empty for all)</span></Label>
+                <div className="flex flex-wrap gap-2">
+                  {["headline","primary_text","cta","hook","image_concept","video_concept"].map(t => {
+                    const active = draftInput.draft_types.includes(t);
+                    return (
+                      <button key={t} onClick={() => toggleDraftType(t)}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${
+                          active
+                            ? "bg-[#005476] text-white border-[#005476]"
+                            : "border-slate-300 text-slate-600 hover:border-[#3bcac4] hover:text-[#005476]"
+                        }`}>
+                        {t.replace(/_/g, " ")}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <Button
+                onClick={generateDrafts}
+                disabled={generating}
+                className="w-full sm:w-auto bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90"
+              >
+                {generating
+                  ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Generating…</>
+                  : <><Wand2 className="h-4 w-4 mr-2" />Generate Drafts</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Generated draft cards */}
+          {generatedDrafts.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#3bcac4]" />
+                  Generated Drafts <span className="text-slate-400 font-normal">({generatedDrafts.length})</span>
+                </h4>
+                <Button variant="outline" size="sm" className="text-xs"
+                  onClick={() => generatedDrafts.forEach(d => saveDraftMutation.mutate(d))}>
+                  <Save className="h-3.5 w-3.5 mr-1.5" />Save All
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {generatedDrafts.map((d, i) => {
+                  const confCls = d.confidence_level === "high"
+                    ? "bg-green-100 text-green-700"
+                    : d.confidence_level === "medium"
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-slate-100 text-slate-500";
+                  const typeCls: Record<string, string> = {
+                    headline: "bg-[#005476]/10 text-[#005476]",
+                    primary_text: "bg-teal-50 text-teal-700",
+                    cta: "bg-indigo-50 text-indigo-700",
+                    hook: "bg-purple-50 text-purple-700",
+                    image_concept: "bg-orange-50 text-orange-700",
+                    video_concept: "bg-pink-50 text-pink-700",
+                  };
+                  return (
+                    <Card key={i} className="border flex flex-col">
+                      <CardContent className="p-4 flex flex-col gap-2 flex-1">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${typeCls[d.draft_type] || "bg-slate-100 text-slate-600"}`}>
+                            {d.draft_type.replace(/_/g," ")}
+                          </span>
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${confCls}`}>
+                            {d.confidence_level} confidence
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-800 leading-relaxed flex-1">{d.draft_text}</p>
+                        {d.quality_reason && (
+                          <p className="text-[10px] text-slate-400 italic border-t pt-1.5">{d.quality_reason}</p>
+                        )}
+                        {d.inspiration_source && (
+                          <p className="text-[10px] text-slate-400">Source: {d.inspiration_source}</p>
+                        )}
+                        <Button size="sm" variant="outline"
+                          className="mt-1 text-xs text-[#005476] border-[#3bcac4]/50 hover:bg-[#3bcac4]/10"
+                          onClick={() => saveDraftMutation.mutate(d)}
+                          disabled={saveDraftMutation.isPending}>
+                          <Save className="h-3 w-3 mr-1.5" />Save Draft
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Saved drafts library */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-[#3bcac4]" />
+              Saved Draft Library
+            </h4>
+            {savedDraftsLoading ? (
+              <p className="text-xs text-slate-400 py-4 text-center">Loading drafts…</p>
+            ) : !savedDraftsData?.drafts?.length ? (
+              <div className="p-8 text-center border border-dashed rounded-lg">
+                <Wand2 className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                <p className="text-sm text-slate-400">No saved drafts yet. Generate and save drafts above.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-left text-slate-500 border-b">
+                      <th className="px-3 py-2 font-medium">Type</th>
+                      <th className="px-3 py-2 font-medium">Draft Text</th>
+                      <th className="px-3 py-2 font-medium">Language</th>
+                      <th className="px-3 py-2 font-medium">Target Market</th>
+                      <th className="px-3 py-2 font-medium">Confidence</th>
+                      <th className="px-3 py-2 font-medium">Status</th>
+                      <th className="px-3 py-2 font-medium">Date</th>
+                      <th className="px-3 py-2 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {savedDraftsData.drafts.map(d => {
+                      const statusCls: Record<string, string> = {
+                        draft:               "bg-slate-100 text-slate-600",
+                        reviewed:            "bg-blue-100 text-blue-700",
+                        approved_internally: "bg-green-100 text-green-700",
+                        archived:            "bg-red-50 text-red-400",
+                      };
+                      return (
+                        <tr key={d.id} className="hover:bg-slate-50/50">
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className="bg-[#005476]/10 text-[#005476] px-1.5 py-0.5 rounded text-[10px] font-medium">
+                              {d.draft_type.replace(/_/g," ")}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 max-w-[220px]">
+                            <p className="line-clamp-2 text-slate-700">{d.draft_text}</p>
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{d.language || "—"}</td>
+                          <td className="px-3 py-2 text-slate-500 max-w-[120px] truncate">{d.target_market || "—"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                              d.confidence_level === "high" ? "bg-green-100 text-green-700"
+                              : d.confidence_level === "medium" ? "bg-yellow-100 text-yellow-700"
+                              : "bg-slate-100 text-slate-500"
+                            }`}>{d.confidence_level}</span>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <Select
+                              value={d.status}
+                              onValueChange={v => updateDraftStatusMutation.mutate({ id: d.id, status: v })}>
+                              <SelectTrigger className={`h-6 text-[10px] w-32 border-0 px-1.5 rounded-full font-medium ${statusCls[d.status] || "bg-slate-100 text-slate-600"}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="draft">Draft</SelectItem>
+                                <SelectItem value="reviewed">Reviewed</SelectItem>
+                                <SelectItem value="approved_internally">Approved Internally</SelectItem>
+                                <SelectItem value="archived">Archived</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-slate-400">
+                            {new Date(d.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              onClick={() => deleteDraftMutation.mutate(d.id)}
+                              className="text-slate-300 hover:text-red-500 transition-colors"
+                              title="Delete draft">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] shrink-0" />
+            <span>Internal draft tool only. Approved Internally does not mean published to Meta. No campaign creation. No ad spend. No Meta write actions. Drafts are for internal review and planning only.</span>
+          </div>
         </div>
       )}
 

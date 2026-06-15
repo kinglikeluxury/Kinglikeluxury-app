@@ -7459,5 +7459,230 @@ ${metaTags}
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Phase 10 — AI Creative Draft Generator
+  // Admin-only. Internal drafts only. Zero Meta write actions. Railway compatible.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // POST /api/admin/ai-marketing/creative-drafts/generate
+  // Generates AI creative drafts from historical intelligence. Nothing is saved until admin saves.
+  app.post("/api/admin/ai-marketing/creative-drafts/generate", isAdmin, async (req, res) => {
+    try {
+      const {
+        project_name = "", target_market = "", language = "Arabic",
+        goal = "more_hot_leads", draft_types = [] as string[],
+      } = req.body as { project_name?: string; target_market?: string; language?: string; goal?: string; draft_types?: string[] };
+
+      const NA = `('no_answer_1','no_answer_2','no_answer_3','no_answer_4','after_3_no_answer_whatsapp_contacted','new_fresh_after_3_no_answer','no_answer_converted')`;
+
+      const topCreatives = await pool.query(`
+        SELECT ca.ad_name, ca.campaign_name,
+          COUNT(DISTINCT cl.id) AS total_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot')  AS hot_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='warm') AS warm_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='cold') AS cold_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.status IN ${NA})   AS no_answer_leads,
+          (COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot')*3
+           + COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='warm')
+           - COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='cold')
+           - COUNT(DISTINCT cl.id) FILTER(WHERE cl.status IN ${NA})*2) AS quality_score
+        FROM ai_creative_attribution ca
+        LEFT JOIN ai_campaign_attribution aca ON aca.ad_id = ca.ad_id
+        LEFT JOIN crm_leads cl ON cl.id = aca.crm_lead_id
+        GROUP BY ca.id, ca.ad_name, ca.campaign_name
+        HAVING COUNT(DISTINCT cl.id) > 0
+        ORDER BY quality_score DESC
+        LIMIT 5
+      `);
+
+      const leadsStats = await pool.query(`
+        SELECT COUNT(*) AS total,
+          COUNT(*) FILTER(WHERE lead_score='hot')     AS hot,
+          COUNT(*) FILTER(WHERE lead_score='warm')    AS warm,
+          COUNT(*) FILTER(WHERE status IN ${NA})      AS no_answer
+        FROM crm_leads
+        WHERE created_at >= NOW() - INTERVAL '90 days'
+      `);
+      const stats = leadsStats.rows[0];
+      const hotRate = Number(stats.total) > 0 ? Math.round((Number(stats.hot) / Number(stats.total)) * 100) : 0;
+      const hasIntelligence = topCreatives.rows.length > 0;
+      const confidenceLabel = hasIntelligence ? (Number(topCreatives.rows[0]?.total_leads) >= 20 ? "high" : "medium") : "low";
+
+      const topCreativesContext = topCreatives.rows.map((r: any, i: number) =>
+        `${i+1}. Ad: "${r.ad_name || 'Unknown'}" | Campaign: "${r.campaign_name || 'Unknown'}" | ${r.hot_leads} HOT / ${r.warm_leads} WARM / ${r.no_answer_leads} No Answer | Quality Score: ${r.quality_score}`
+      ).join('\n');
+
+      const goalLabel: Record<string, string> = {
+        more_hot_leads:   "increase HOT lead conversion rate",
+        lower_no_answer:  "reduce No Answer rate and improve engagement",
+        more_appointments:"drive appointment bookings",
+        test_new_angle:   "test a fresh creative angle to reach new audiences",
+      };
+
+      const types = (draft_types as string[]).length > 0 ? (draft_types as string[]) : ["headline", "primary_text", "cta", "hook"];
+      const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
+
+      let drafts: any[] = [];
+
+      if (!apiKey) {
+        drafts = types.flatMap((t: string) => [
+          {
+            draft_type: t,
+            draft_text: language === "Arabic"
+              ? `[${t}] مسودة عامة — بيانات محدودة`
+              : language === "Hebrew" ? `[${t}] טיוטה כללית — נתונים מוגבלים`
+              : language === "Turkish" ? `[${t}] Genel taslak — sınırlı veri`
+              : `[${t}] Generic draft — limited data`,
+            inspiration_source: "AI not available — fallback draft",
+            quality_reason: "Low confidence — AI service not configured.",
+            confidence_level: "low",
+          },
+          {
+            draft_type: t,
+            draft_text: language === "Arabic"
+              ? `[${t}] استثمر في عقارات فاخرة مع Kinglike`
+              : language === "Hebrew" ? `[${t}] השקיעו בנדל"ן יוקרתי עם Kinglike`
+              : language === "Turkish" ? `[${t}] Kinglike ile lüks gayrimenkule yatırım yapın`
+              : `[${t}] Invest in luxury real estate with Kinglike`,
+            inspiration_source: "Generic brand template",
+            quality_reason: "Low confidence — generic template, no AI context.",
+            confidence_level: "low",
+          },
+        ]);
+      } else {
+        const { default: OpenAI } = await import("openai");
+        const openaiClient = new OpenAI({ apiKey });
+
+        const systemPrompt = `You are an expert luxury real estate advertising copywriter for Meta (Facebook/Instagram) campaigns.
+You write for Kinglike Luxury Real Estate — a premium brand with properties in Georgia, Turkey, UAE, and North Cyprus.
+Brand tone: Premium, trustworthy, investment-focused. NOT pushy. NOT salesy.
+Arabic drafts use modern Gulf-standard Arabic (فصحى معاصرة). Never translated English.
+Return ONLY a valid JSON object with a "drafts" array. No markdown. No explanation.`;
+
+        const userPrompt = `Generate ad creative drafts for a Meta campaign.
+Project: ${project_name || 'Luxury Real Estate'}
+Target Market: ${target_market || 'Arab investors'}
+Language: ${language}
+Goal: ${goalLabel[goal] || goal}
+Draft types needed: ${types.join(', ')} (2 variations each)
+
+${hasIntelligence
+  ? `Historical Performance (last 90 days):
+Overall HOT rate: ${hotRate}% from ${stats.total} leads
+Top Performing Ads:
+${topCreativesContext}
+Use this to inspire tone. Do NOT quote specific numbers in ad copy.`
+  : `No historical data — generate conservative generic drafts.`}
+
+Rules:
+- Never promise ROI or guaranteed returns
+- No misleading investment claims
+- For image_concept / video_concept: describe the visual direction in ${language}
+- All text in ${language}
+
+Return JSON: { "drafts": [ { "draft_type": "...", "draft_text": "...", "inspiration_source": "...", "quality_reason": "...", "confidence_level": "low|medium|high" } ] }`;
+
+        const completion = await openaiClient.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user",   content: userPrompt   },
+          ],
+          max_tokens: 3000,
+          temperature: 0.75,
+          response_format: { type: "json_object" },
+        });
+
+        try {
+          const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+          drafts = Array.isArray(parsed) ? parsed : (parsed.drafts || parsed.items || parsed.data || []);
+        } catch {
+          drafts = [];
+        }
+      }
+
+      const safe = drafts.map((d: any) => ({
+        draft_type:         String(d.draft_type || "headline"),
+        draft_text:         String(d.draft_text || ""),
+        inspiration_source: String(d.inspiration_source || "AI generated"),
+        quality_reason:     String(d.quality_reason || ""),
+        confidence_level:   ["low","medium","high"].includes(d.confidence_level) ? d.confidence_level : "low",
+        project_name, target_market, language, goal,
+      }));
+
+      console.log(`[CreativeDraftGen] Generated ${safe.length} drafts — "${project_name}" ${language} ${goal} intelligence=${hasIntelligence}`);
+      res.json({ ok: true, drafts: safe, intelligence_used: hasIntelligence, confidence: confidenceLabel });
+    } catch (err: any) {
+      console.error("[CreativeDraftGen] error:", err.message);
+      res.status(500).json({ ok: false, error: err.message, drafts: [] });
+    }
+  });
+
+  // POST /api/admin/ai-marketing/creative-drafts — save a single draft to DB
+  app.post("/api/admin/ai-marketing/creative-drafts", isAdmin, async (req, res) => {
+    try {
+      const { draft_type, project_name, target_market, language, draft_text,
+              inspiration_source, related_campaign_id, related_creative_id,
+              quality_reason, goal, confidence_level } = req.body;
+      if (!draft_text) return res.status(400).json({ error: "draft_text is required" });
+      const r = await pool.query(`
+        INSERT INTO ai_creative_drafts
+          (draft_type, project_name, target_market, language, draft_text, inspiration_source,
+           related_campaign_id, related_creative_id, quality_reason, goal, confidence_level,
+           status, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'draft','admin')
+        RETURNING *
+      `, [draft_type||'headline', project_name||null, target_market||null, language||null,
+          draft_text, inspiration_source||null, related_campaign_id||null, related_creative_id||null,
+          quality_reason||null, goal||null, confidence_level||'low']);
+      res.json({ ok: true, draft: r.rows[0] });
+    } catch (err: any) {
+      console.error("[CreativeDrafts] save error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/ai-marketing/creative-drafts — list all saved drafts
+  app.get("/api/admin/ai-marketing/creative-drafts", isAdmin, async (_req, res) => {
+    try {
+      const r = await pool.query(`SELECT * FROM ai_creative_drafts ORDER BY created_at DESC LIMIT 200`);
+      res.json({ ok: true, drafts: r.rows });
+    } catch (err: any) {
+      console.error("[CreativeDrafts] list error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/admin/ai-marketing/creative-drafts/:id — update status
+  app.patch("/api/admin/ai-marketing/creative-drafts/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      const allowed = ["draft", "reviewed", "approved_internally", "archived"];
+      if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status" });
+      const r = await pool.query(
+        `UPDATE ai_creative_drafts SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
+        [status, id]
+      );
+      if (r.rowCount === 0) return res.status(404).json({ error: "Draft not found" });
+      res.json({ ok: true, draft: r.rows[0] });
+    } catch (err: any) {
+      console.error("[CreativeDrafts] patch error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/admin/ai-marketing/creative-drafts/:id
+  app.delete("/api/admin/ai-marketing/creative-drafts/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await pool.query(`DELETE FROM ai_creative_drafts WHERE id=$1`, [id]);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[CreativeDrafts] delete error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return httpServer;
 }
