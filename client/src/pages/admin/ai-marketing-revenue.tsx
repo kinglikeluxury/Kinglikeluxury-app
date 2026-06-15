@@ -6,6 +6,7 @@ import {
   Pencil, DollarSign, Flame, Thermometer, Snowflake, PhoneOff,
   UserCheck, Calendar, Globe, Info, AlertTriangle, CheckCircle2,
   BarChart3, Target, Activity, Building2, Megaphone, TrendingDown, Layers, RefreshCw,
+  Sparkles, ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,32 @@ interface CreativeData {
 interface BackfillResult {
   ok: boolean; scanned: number; inserted: number; skipped: number; error?: string;
 }
+interface CreativeIntelRow {
+  id: number; creativeId: string | null; creativeName: string | null;
+  adId: string; adName: string | null; adsetName: string | null; campaignName: string | null;
+  thumbnailUrl: string | null; status: string | null;
+  totalLeads: number; hotLeads: number; warmLeads: number; coldLeads: number; noAnswerLeads: number;
+  qualityScore: number; qualityScoreNorm: number; hotRate: number; noAnswerRate: number;
+  confidence: "low" | "medium" | "high";
+  leads7d: number; hot7d: number; leads30d: number; hot30d: number; leads90d: number; hot90d: number;
+  trend7d: "improving" | "declining" | "stable";
+  trend30d: "improving" | "declining" | "stable";
+  trend90d: "improving" | "declining" | "stable";
+}
+interface CreativeInsight {
+  type: string; title: string; metricLabel: string; metricValue: string;
+  creativeName: string; campaignName: string;
+  totalLeads: number; hotLeads: number; warmLeads: number; coldLeads: number; noAnswerLeads: number;
+  qualityScore: number; qualityScoreNorm: number; hotRate: number; noAnswerRate: number;
+  confidence: "low" | "medium" | "high"; evidence: string;
+}
+interface CreativeIntelData {
+  insufficient: boolean;
+  creatives: CreativeIntelRow[];
+  insights: CreativeInsight[];
+  formula: { hot: number; warm: number; cold: number; noAnswer: number; description: string; normalized: string; confidence: string };
+  headline: null; copy: null; cta: null;
+}
 
 // ── Inner sub-tabs ─────────────────────────────────────────────────────────────
 
@@ -106,6 +133,7 @@ const SUB_TABS = [
   { key: "costintel",   label: "Cost Intelligence",    Icon: Target },
   { key: "strategy",    label: "AI Strategy",          Icon: TrendingUp },
   { key: "creative",    label: "Creative Attribution",  Icon: Layers },
+  { key: "creativeint", label: "Creative Intelligence", Icon: Sparkles },
 ] as const;
 type SubTabKey = typeof SUB_TABS[number]["key"];
 
@@ -353,6 +381,11 @@ export default function RevenueIntelligence() {
       setBackfilling(false);
     }
   }
+
+  const { data: creativeIntData, isLoading: creativeIntLoading } = useQuery<CreativeIntelData>({
+    queryKey: ["/api/admin/ai-marketing/creative-intelligence"],
+    enabled: sub === "creativeint",
+  });
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1405,6 +1438,186 @@ export default function RevenueIntelligence() {
           )}
         </div>
       )}
+      {/* ── Creative Intelligence ─────────────────────────────────────────────── */}
+      {sub === "creativeint" && (
+        <div>
+          <div className="mb-4">
+            <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#3bcac4]" />
+              Creative Intelligence Engine
+            </h3>
+            <p className="text-sm text-slate-500 mt-0.5">Read-only quality analysis of creative performance. No Meta actions. No automation. No fabricated data.</p>
+          </div>
+
+          {/* Transparent Formula Card */}
+          <Card className="mb-5 border-[#3bcac4]/40 bg-gradient-to-r from-[#005476]/5 to-[#3bcac4]/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-4 w-4 text-[#3bcac4]" />
+                <span className="font-semibold text-[#005476] text-sm">Quality Score Formula</span>
+                <Badge variant="outline" className="text-[10px] ml-1">Transparent</Badge>
+              </div>
+              <p className="text-sm font-mono text-slate-700 mb-2">
+                {creativeIntData?.formula.description ?? "Quality Score = (HOT × 3) + (WARM × 1) + (COLD × −1) + (No Answer × −2)"}
+              </p>
+              <p className="text-xs text-slate-500 mb-1">{creativeIntData?.formula.normalized ?? "Normalized Score = Raw Score ÷ Total Leads"}</p>
+              <p className="text-xs text-slate-500 mb-3">{creativeIntData?.formula.confidence ?? "Low: < 5 leads | Medium: 5–20 leads | High: 20+ leads"}</p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {([
+                  { label: "HOT Lead",  weight: "+3", cls: "bg-orange-100 text-orange-800" },
+                  { label: "WARM Lead", weight: "+1", cls: "bg-yellow-100 text-yellow-800" },
+                  { label: "COLD Lead", weight: "−1", cls: "bg-blue-100   text-blue-800"   },
+                  { label: "No Answer", weight: "−2", cls: "bg-red-100    text-red-800"    },
+                ] as const).map(({ label, weight, cls }) => (
+                  <span key={label} className={`px-2 py-1 rounded-full font-semibold ${cls}`}>{label}: {weight}</span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {creativeIntLoading ? (
+            <div className="text-center py-12 text-slate-400">Analyzing creatives…</div>
+          ) : !creativeIntData || creativeIntData.insufficient ? (
+            <Card className="border-dashed mb-4">
+              <CardContent className="py-10 text-center text-slate-400">
+                <Sparkles className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No creative data to analyze yet.</p>
+                <p className="text-sm mt-1">Run <strong>Creative Sync</strong> and <strong>Attribution Backfill</strong> first (Creative Attribution tab), then return here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Insight cards */}
+              {creativeIntData.insights.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+                  {creativeIntData.insights.map((ins) => {
+                    const isBest  = ["best_quality","highest_hot_rate","most_consistent"].includes(ins.type);
+                    const isWorst = ["worst_quality","lowest_hot_rate","highest_no_answer"].includes(ins.type);
+                    const borderCls = isBest  ? "border-green-200 bg-green-50"
+                                    : isWorst ? "border-red-200   bg-red-50"
+                                    : "border-slate-200 bg-white";
+                    const confBadge = ins.confidence === "high"   ? "bg-green-100  text-green-800"
+                                    : ins.confidence === "medium" ? "bg-blue-100   text-blue-800"
+                                    : "bg-yellow-100 text-yellow-800";
+                    const valCls = isBest  ? "text-green-700"
+                                 : isWorst ? "text-red-700"
+                                 : "text-[#005476]";
+                    return (
+                      <Card key={ins.type} className={`border ${borderCls}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className={`text-[11px] font-bold uppercase tracking-wide ${isBest ? "text-green-700" : isWorst ? "text-red-700" : "text-slate-600"}`}>{ins.title}</p>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${confBadge}`}>{ins.confidence}</span>
+                          </div>
+                          <p className="text-sm font-semibold text-slate-800 truncate mb-0.5">{ins.creativeName}</p>
+                          <p className="text-xs text-slate-500 truncate mb-3">{ins.campaignName}</p>
+                          <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                            <span className="text-xs text-slate-500">{ins.metricLabel}</span>
+                            <span className={`text-base font-extrabold ${valCls}`}>{ins.metricValue}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-2">{ins.evidence}</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Ranked creative table */}
+              <div className="mb-5">
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">All Creatives — Ranked by Quality Score</h4>
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white">
+                        <th className="px-2 py-2 text-left font-semibold">#</th>
+                        <th className="px-3 py-2 text-left font-semibold">Creative / Ad</th>
+                        <th className="px-3 py-2 text-center font-semibold">Score/Lead</th>
+                        <th className="px-3 py-2 text-center font-semibold">Raw</th>
+                        <th className="px-3 py-2 text-center font-semibold text-orange-200">HOT%</th>
+                        <th className="px-3 py-2 text-center font-semibold">Total</th>
+                        <th className="px-3 py-2 text-center font-semibold text-orange-200">HOT</th>
+                        <th className="px-3 py-2 text-center font-semibold text-yellow-200">WARM</th>
+                        <th className="px-3 py-2 text-center font-semibold text-blue-200">COLD</th>
+                        <th className="px-3 py-2 text-center font-semibold">No Ans.</th>
+                        <th className="px-3 py-2 text-center font-semibold">Conf.</th>
+                        <th className="px-3 py-2 text-center font-semibold">7d</th>
+                        <th className="px-3 py-2 text-center font-semibold">30d</th>
+                        <th className="px-3 py-2 text-center font-semibold">90d</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...creativeIntData.creatives]
+                        .sort((a, b) => b.qualityScoreNorm - a.qualityScoreNorm)
+                        .map((row, i) => {
+                          const scoreColor = row.qualityScoreNorm >= 1.5 ? "text-green-700 font-extrabold"
+                            : row.qualityScoreNorm >= 0.5  ? "text-[#3bcac4] font-bold"
+                            : row.qualityScoreNorm >= -0.5 ? "text-yellow-600 font-semibold"
+                            : "text-red-600 font-bold";
+                          const TI = ({ t }: { t: "improving" | "declining" | "stable" }) =>
+                            t === "improving" ? <ArrowUpRight   className="h-3.5 w-3.5 text-green-600 mx-auto" />
+                            : t === "declining" ? <ArrowDownRight className="h-3.5 w-3.5 text-red-500   mx-auto" />
+                            : <Minus className="h-3.5 w-3.5 text-slate-300 mx-auto" />;
+                          const confCls = row.confidence === "high"   ? "text-green-700 font-bold capitalize"
+                            : row.confidence === "medium" ? "text-blue-600 capitalize"
+                            : "text-yellow-600 capitalize";
+                          return (
+                            <tr key={row.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                              <td className="px-2 py-2 text-slate-400 font-medium">{i + 1}</td>
+                              <td className="px-3 py-2 max-w-[180px]">
+                                <p className="font-medium text-slate-800 truncate">{row.creativeName ?? row.adName ?? row.adId}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{row.campaignName ?? "—"}</p>
+                              </td>
+                              <td className={`px-3 py-2 text-center text-sm ${scoreColor}`}>{row.qualityScoreNorm}</td>
+                              <td className="px-3 py-2 text-center text-slate-500">({row.qualityScore})</td>
+                              <td className="px-3 py-2 text-center font-semibold text-orange-600">{row.hotRate > 0 ? `${row.hotRate}%` : "—"}</td>
+                              <td className="px-3 py-2 text-center text-slate-700">{row.totalLeads > 0 ? row.totalLeads : "—"}</td>
+                              <td className="px-3 py-2 text-center font-bold text-orange-600">{row.hotLeads > 0 ? row.hotLeads : "—"}</td>
+                              <td className="px-3 py-2 text-center text-yellow-600">{row.warmLeads > 0 ? row.warmLeads : "—"}</td>
+                              <td className="px-3 py-2 text-center text-blue-600">{row.coldLeads > 0 ? row.coldLeads : "—"}</td>
+                              <td className="px-3 py-2 text-center text-slate-500">{row.noAnswerLeads > 0 ? row.noAnswerLeads : "—"}</td>
+                              <td className={`px-3 py-2 text-center text-[11px] ${confCls}`}>{row.confidence}</td>
+                              <td className="px-3 py-2"><TI t={row.trend7d}  /></td>
+                              <td className="px-3 py-2"><TI t={row.trend30d} /></td>
+                              <td className="px-3 py-2"><TI t={row.trend90d} /></td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1.5 pl-1">Trend arrows: <ArrowUpRight className="inline h-3 w-3 text-green-600" /> Improving &nbsp; <Minus className="inline h-3 w-3 text-slate-400" /> Stable &nbsp; <ArrowDownRight className="inline h-3 w-3 text-red-500" /> Declining &nbsp;— based on hot-lead rate shift between comparison periods.</p>
+              </div>
+
+              {/* Headline / Copy / CTA Intelligence */}
+              <div className="mb-5">
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">Headline / Copy / CTA Intelligence</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { title: "Headline Intelligence",  msg: "Headline data unavailable."  },
+                    { title: "Copy Intelligence",       msg: "Copy data unavailable."       },
+                    { title: "CTA Intelligence",        msg: "CTA data unavailable."        },
+                  ].map(({ title, msg }) => (
+                    <Card key={title} className="border-dashed">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-xs font-semibold text-slate-600 mb-1.5">{title}</p>
+                        <p className="text-xs text-slate-400">{msg}</p>
+                        <p className="text-[10px] text-slate-300 mt-1">Not included in Meta creative API response.</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#3bcac4] flex-shrink-0" />
+                <span>Read-only intelligence engine. No Meta write actions. No automation. All scores computed from real attribution data only. No fabricated conclusions.</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

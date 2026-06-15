@@ -7142,6 +7142,131 @@ ${metaTags}
     }
   });
 
+  // GET /api/admin/ai-marketing/creative-intelligence — quality scoring, ranking, trends (read-only, admin only)
+  // Reads: ai_creative_attribution → ai_campaign_attribution → crm_leads
+  // Writes: nothing — intelligence only, zero Meta calls, Railway compatible
+  app.get("/api/admin/ai-marketing/creative-intelligence", isAdmin, async (_req, res) => {
+    try {
+      const NA = `('no_answer_1','no_answer_2','no_answer_3','no_answer_4',
+                   'after_3_no_answer_whatsapp_contacted','new_fresh_after_3_no_answer','no_answer_converted')`;
+
+      const result = await pool.query(`
+        SELECT
+          ca.id, ca.creative_id, ca.creative_name, ca.ad_id, ca.ad_name,
+          ca.adset_id, ca.adset_name, ca.campaign_id, ca.campaign_name,
+          ca.thumbnail_url, ca.status,
+          COUNT(DISTINCT cl.id)                                                                                            AS total_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score = 'hot')                                                       AS hot_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score = 'warm')                                                      AS warm_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score = 'cold')                                                      AS cold_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.status IN ${NA})                                                          AS no_answer_leads,
+          COUNT(DISTINCT cl.id) FILTER(WHERE aca.attributed_at >= NOW()-INTERVAL '7 days')                                AS leads_7d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot' AND aca.attributed_at >= NOW()-INTERVAL '7 days')        AS hot_7d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE aca.attributed_at BETWEEN NOW()-INTERVAL '14 days' AND NOW()-INTERVAL '7 days') AS leads_prev7d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot' AND aca.attributed_at BETWEEN NOW()-INTERVAL '14 days' AND NOW()-INTERVAL '7 days') AS hot_prev7d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE aca.attributed_at >= NOW()-INTERVAL '30 days')                               AS leads_30d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot' AND aca.attributed_at >= NOW()-INTERVAL '30 days')       AS hot_30d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE aca.attributed_at BETWEEN NOW()-INTERVAL '60 days' AND NOW()-INTERVAL '30 days') AS leads_prev30d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot' AND aca.attributed_at BETWEEN NOW()-INTERVAL '60 days' AND NOW()-INTERVAL '30 days') AS hot_prev30d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE aca.attributed_at >= NOW()-INTERVAL '90 days')                               AS leads_90d,
+          COUNT(DISTINCT cl.id) FILTER(WHERE cl.lead_score='hot' AND aca.attributed_at >= NOW()-INTERVAL '90 days')       AS hot_90d
+        FROM ai_creative_attribution ca
+        LEFT JOIN ai_campaign_attribution aca ON aca.ad_id = ca.ad_id
+        LEFT JOIN crm_leads cl              ON cl.id = aca.crm_lead_id
+        GROUP BY ca.id
+        ORDER BY total_leads DESC, ca.ad_name
+        LIMIT 100
+      `);
+
+      const computeTrend = (cL: number, cH: number, pL: number, pH: number): "improving" | "declining" | "stable" => {
+        if (cL < 2) return "stable";
+        const curr = cL > 0 ? cH / cL : 0;
+        const prev = pL > 1 ? pH / pL : null;
+        if (prev === null) return "stable";
+        const d = curr - prev;
+        return d > 0.05 ? "improving" : d < -0.05 ? "declining" : "stable";
+      };
+
+      const creatives = result.rows.map((r: any) => {
+        const total = Number(r.total_leads), hot = Number(r.hot_leads),
+              warm  = Number(r.warm_leads),  cold = Number(r.cold_leads),
+              na    = Number(r.no_answer_leads);
+        const raw    = (hot * 3) + (warm * 1) + (cold * -1) + (na * -2);
+        const norm   = total > 0 ? Math.round((raw / total) * 100) / 100 : 0;
+        const hotPct = total > 0 ? Math.round((hot / total) * 1000) / 10 : 0;
+        const naPct  = total > 0 ? Math.round((na  / total) * 1000) / 10 : 0;
+        const conf: "low" | "medium" | "high" = total < 5 ? "low" : total < 20 ? "medium" : "high";
+        const l7 = Number(r.leads_7d), h7 = Number(r.hot_7d),
+              p7 = Number(r.leads_prev7d), ph7 = Number(r.hot_prev7d);
+        const l30 = Number(r.leads_30d), h30 = Number(r.hot_30d),
+              p30 = Number(r.leads_prev30d), ph30 = Number(r.hot_prev30d);
+        const l90 = Number(r.leads_90d), h90 = Number(r.hot_90d);
+        return {
+          id: r.id, creativeId: r.creative_id, creativeName: r.creative_name,
+          adId: r.ad_id, adName: r.ad_name, adsetName: r.adset_name,
+          campaignName: r.campaign_name, thumbnailUrl: r.thumbnail_url, status: r.status,
+          totalLeads: total, hotLeads: hot, warmLeads: warm, coldLeads: cold, noAnswerLeads: na,
+          qualityScore: raw, qualityScoreNorm: norm, hotRate: hotPct, noAnswerRate: naPct, confidence: conf,
+          leads7d: l7, hot7d: h7, leads30d: l30, hot30d: h30, leads90d: l90, hot90d: h90,
+          trend7d:  computeTrend(l7,  h7,  p7,  ph7),
+          trend30d: computeTrend(l30, h30, p30, ph30),
+          trend90d: computeTrend(l90, h90, 0,   0),
+        };
+      });
+
+      const withData = creatives.filter((c: any) => c.totalLeads >= 3);
+      const mkI = (type: string, title: string, c: any, mLabel: string, mVal: string) => ({
+        type, title, metricLabel: mLabel, metricValue: mVal,
+        creativeName: c.creativeName ?? c.adName ?? c.adId,
+        campaignName: c.campaignName ?? "—",
+        totalLeads: c.totalLeads, hotLeads: c.hotLeads, warmLeads: c.warmLeads,
+        coldLeads: c.coldLeads, noAnswerLeads: c.noAnswerLeads,
+        qualityScore: c.qualityScore, qualityScoreNorm: c.qualityScoreNorm,
+        hotRate: c.hotRate, noAnswerRate: c.noAnswerRate, confidence: c.confidence,
+        evidence: `${c.totalLeads} leads — HOT: ${c.hotLeads}, WARM: ${c.warmLeads}, COLD: ${c.coldLeads}, No Answer: ${c.noAnswerLeads}`,
+      });
+
+      const insights: any[] = [];
+      const byScore = [...withData].sort((a: any, b: any) => b.qualityScoreNorm - a.qualityScoreNorm);
+      const byHot   = [...withData].sort((a: any, b: any) => b.hotRate - a.hotRate);
+      const byNA    = [...withData].sort((a: any, b: any) => b.noAnswerRate - a.noAnswerRate);
+
+      if (byScore.length > 0) insights.push(mkI("best_quality",     "Best Quality Score",     byScore[0],                  "Score / Lead", `${byScore[0].qualityScoreNorm}`));
+      if (byScore.length > 1) insights.push(mkI("worst_quality",    "Worst Quality Score",    byScore[byScore.length - 1], "Score / Lead", `${byScore[byScore.length-1].qualityScoreNorm}`));
+      if (byHot.length   > 0) insights.push(mkI("highest_hot_rate", "Highest HOT Lead Rate",  byHot[0],                    "HOT Rate",     `${byHot[0].hotRate}%`));
+      if (byHot.length   > 1) insights.push(mkI("lowest_hot_rate",  "Lowest HOT Lead Rate",   byHot[byHot.length - 1],     "HOT Rate",     `${byHot[byHot.length-1].hotRate}%`));
+      if (byNA.length    > 0) insights.push(mkI("highest_no_answer","Highest No Answer Rate", byNA[0],                     "No Ans. Rate", `${byNA[0].noAnswerRate}%`));
+
+      const multiPeriod = creatives.filter((c: any) => c.leads7d > 0 && c.leads30d > 0 && c.leads90d > 0);
+      if (multiPeriod.length > 0) {
+        const ranked = multiPeriod.map((c: any) => {
+          const rates = [
+            c.leads7d  > 0 ? c.hot7d  / c.leads7d  : 0,
+            c.leads30d > 0 ? c.hot30d / c.leads30d : 0,
+            c.leads90d > 0 ? c.hot90d / c.leads90d : 0,
+          ];
+          return { ...c, rateRange: Math.max(...rates) - Math.min(...rates) };
+        }).sort((a: any, b: any) => a.rateRange - b.rateRange);
+        insights.push(mkI("most_consistent", "Most Consistent Creative", ranked[0], "Rate Range", `${(ranked[0].rateRange * 100).toFixed(1)}%`));
+      }
+
+      res.json({
+        insufficient: creatives.length === 0,
+        creatives, insights,
+        formula: {
+          hot: 3, warm: 1, cold: -1, noAnswer: -2,
+          description: "Quality Score = (HOT × 3) + (WARM × 1) + (COLD × −1) + (No Answer × −2)",
+          normalized:  "Normalized Score = Raw Score ÷ Total Leads",
+          confidence:  "Low: < 5 leads | Medium: 5–20 leads | High: 20+ leads",
+        },
+        headline: null, copy: null, cta: null,
+      });
+    } catch (err: any) {
+      console.error("[CreativeIntelligence] error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/admin/ai-marketing/strategy-insights — pattern analysis from historical data
   // Read-only. Admin only. No Meta writes. Railway compatible.
   app.get("/api/admin/ai-marketing/strategy-insights", isAdmin, async (_req, res) => {
