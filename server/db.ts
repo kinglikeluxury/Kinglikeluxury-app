@@ -502,6 +502,11 @@ export async function ensureWaQualTables(): Promise<void> {
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ai_score_category   TEXT`);
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ai_score_reason     TEXT`);
     await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ai_score_updated_at TIMESTAMPTZ`);
+    // Meta campaign attribution IDs (safe — idempotent, future leads only)
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS meta_campaign_id TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS meta_ad_id       TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS meta_adset_id    TEXT`);
+    await client.query(`ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS meta_form_id     TEXT`);
 
     console.log("[DB] ensureWaQualTables ✓");
   } catch (err: any) {

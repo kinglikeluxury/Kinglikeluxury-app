@@ -199,6 +199,10 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       status:    "new"  as const,
       leadScore: "cold" as const,
       assignedTo: webhookAssignedTo,
+      metaCampaignId: entry.campaignId  || null,
+      metaAdId:       entry.adId        || null,
+      metaAdsetId:    entry.adgroupId   || null,
+      metaFormId:     entry.formId      || null,
     };
 
     console.log(
