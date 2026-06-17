@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -176,6 +176,27 @@ export default function MetaConnection() {
         .then(r => r.json()),
     enabled: sub === "insights",
   });
+
+  // Campaign-level insights fetched alongside campaigns tab — used for Spent column
+  const { data: campaignInsights } = useQuery<MetaReadResult>({
+    queryKey: ["/api/admin/ai-marketing/meta-insights", "last_30d", "campaign"],
+    queryFn: () =>
+      fetch("/api/admin/ai-marketing/meta-insights?date_preset=last_30d&level=campaign", { credentials: "include" })
+        .then(r => r.json()),
+    enabled: sub === "campaigns" && !!cfg?.tokenPresent && !!cfg?.adAccountPresent,
+  });
+
+  const campaignSpendMap = useMemo(() => {
+    const m = new Map<string, string>();
+    if (campaignInsights?.ok) {
+      for (const row of campaignInsights.data) {
+        if (row.campaign_id != null && row.spend != null) {
+          m.set(String(row.campaign_id), row.spend);
+        }
+      }
+    }
+    return m;
+  }, [campaignInsights]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -375,7 +396,7 @@ export default function MetaConnection() {
             <div className="overflow-x-auto rounded-xl border">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-                  <tr>{["Campaign Name","Status","Objective","Daily Budget","Start","ID"].map(h => <th key={h} className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">{h}</th>)}</tr>
+                  <tr>{["Campaign Name","Status","Objective","Daily Budget (TRY)","Spent (TRY, 30d)","Start","ID"].map(h => <th key={h} className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">{h}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {campaigns.data.map((c: any) => (
@@ -384,12 +405,17 @@ export default function MetaConnection() {
                       <td className="px-3 py-2.5"><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor(c.status)}`}>{c.status ?? "—"}</span></td>
                       <td className="px-3 py-2.5 text-slate-500 text-xs">{c.objective ?? "—"}</td>
                       <td className="px-3 py-2.5">
-                        {c.daily_budget ? (
-                          <div>
-                            <div className="font-semibold text-slate-700">{fmtTRY(Number(c.daily_budget)/100)} TRY</div>
-                            <div className="text-[11px] text-slate-400">(${(Number(c.daily_budget)/100).toFixed(2)} USD)</div>
-                          </div>
-                        ) : "—"}
+                        {c.daily_budget
+                          ? <span className="font-semibold text-slate-700">{Math.round(Number(c.daily_budget) / 100).toLocaleString()} TRY</span>
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {(() => {
+                          const sp = campaignSpendMap.get(String(c.id));
+                          return sp != null
+                            ? <span className="font-semibold text-green-700">{Math.round(Number(sp)).toLocaleString()} TRY</span>
+                            : <span className="text-slate-300 text-xs">—</span>;
+                        })()}
                       </td>
                       <td className="px-3 py-2.5 text-slate-400 text-xs">{c.start_time ? new Date(c.start_time).toLocaleDateString() : "—"}</td>
                       <td className="px-3 py-2.5 font-mono text-[10px] text-slate-400">{c.id}</td>
@@ -435,12 +461,9 @@ export default function MetaConnection() {
                       <td className="px-3 py-2.5"><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor(s.status)}`}>{s.status ?? "—"}</span></td>
                       <td className="px-3 py-2.5 font-mono text-[10px] text-slate-400">{s.campaign_id ?? "—"}</td>
                       <td className="px-3 py-2.5">
-                        {s.daily_budget ? (
-                          <div>
-                            <div className="font-semibold text-slate-700">{fmtTRY(Number(s.daily_budget)/100)} TRY</div>
-                            <div className="text-[11px] text-slate-400">(${(Number(s.daily_budget)/100).toFixed(2)} USD)</div>
-                          </div>
-                        ) : "—"}
+                        {s.daily_budget
+                          ? <span className="font-semibold text-slate-700">{Math.round(Number(s.daily_budget) / 100).toLocaleString()} TRY</span>
+                          : "—"}
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 text-xs">{s.billing_event ?? "—"}</td>
                       <td className="px-3 py-2.5 font-mono text-[10px] text-slate-400">{s.id}</td>
@@ -558,11 +581,8 @@ export default function MetaConnection() {
                           <div className={`p-2 rounded-xl ${bg}`}><I className={`h-4 w-4 ${cls}`} /></div>
                           <div>
                             <p className={`text-base font-extrabold ${cls}`}>
-                              {isTRY ? `${fmtTRY(Number(v))} TRY` : Number(v).toLocaleString()}
+                              {isTRY ? `${Math.round(Number(v)).toLocaleString()} TRY` : Number(v).toLocaleString()}
                             </p>
-                            {isTRY && (
-                              <p className="text-[10px] text-slate-400">(${Number(v).toFixed(2)} USD)</p>
-                            )}
                             <p className="text-[10px] text-slate-500">{label}</p>
                           </div>
                         </CardContent>
@@ -587,12 +607,9 @@ export default function MetaConnection() {
                           <td className="px-3 py-2.5 text-slate-600">{fmt(r.reach)}</td>
                           <td className="px-3 py-2.5 text-slate-600">{fmt(r.clicks)}</td>
                           <td className="px-3 py-2.5">
-                            {r.spend ? (
-                              <div>
-                                <div className="font-semibold text-green-700">{fmtTRY(Number(r.spend))} TRY</div>
-                                <div className="text-[10px] text-slate-400">(${Number(r.spend).toFixed(2)} USD)</div>
-                              </div>
-                            ) : "—"}
+                            {r.spend
+                              ? <span className="font-semibold text-green-700">{Math.round(Number(r.spend)).toLocaleString()} TRY</span>
+                              : "—"}
                           </td>
                           <td className="px-3 py-2.5 text-slate-500">{r.cpc ? `$${Number(r.cpc).toFixed(2)}` : "—"}</td>
                           <td className="px-3 py-2.5 text-slate-500">{r.cpm ? `$${Number(r.cpm).toFixed(2)}` : "—"}</td>
