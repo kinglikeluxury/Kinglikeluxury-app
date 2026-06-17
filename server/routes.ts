@@ -4557,20 +4557,23 @@ ${metaTags}
         }
       }
 
-      const { pickNextSubAgentId: pickAgent } = await import("./leadAssignmentService");
-      const autoAssignedTo = await pickAgent("Manual CRM");
-
-      const lead = await storage.createCrmLead({
-        fullName, firstName, lastName, phone, email, country, city,
-        interestedCountry, projectInterest, budget, expectedPurchaseMonth, description,
-        campaignName, adsetName, adName, formName, externalLeadId, notes,
-        leadSource: leadSource || "manual",
-        leadScore:  leadScore  || "cold",
-        status:     status     || "new",
-        assignedTo: autoAssignedTo,
+      const { pickNextSubAgentIdForTx: pickAgentTx } = await import("./leadAssignmentService");
+      const { lead, autoAssignedTo } = await db.transaction(async (tx) => {
+        const agentId = await pickAgentTx(tx, "Manual CRM");
+        const [newLead] = await tx.insert(crmLeads).values({
+          fullName, firstName, lastName, phone, email, country, city,
+          interestedCountry, projectInterest, budget, expectedPurchaseMonth, description,
+          campaignName, adsetName, adName, formName, externalLeadId, notes,
+          leadSource: leadSource || "manual",
+          leadScore:  leadScore  || "cold",
+          status:     status     || "new",
+          assignedTo: agentId,
+          updatedAt: new Date(),
+        }).returning();
+        return { lead: newLead, autoAssignedTo: agentId };
       });
       if (autoAssignedTo) {
-        console.log(`[LeadAssignment] Assigned leadId=${lead.id} to userId=${autoAssignedTo}`);
+        console.log(`[LeadAssignment] Lead #${lead.id} committed — assigned to userId=${autoAssignedTo}`);
         import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
           notifyAgentOfLeadAssignment({
             leadId: lead.id, leadName: lead.fullName, leadPhone: lead.phone,
@@ -4996,7 +4999,10 @@ ${metaTags}
         importUserList.find(u => u.isAdmin) ?? null;
 
       // Global cursor assignment — each lead advances the shared alternating counter
-      const { pickNextSubAgentId: pickImportAgent } = await import("./leadAssignmentService");
+      const {
+        pickNextSubAgentId: pickImportAgent,
+        pickNextSubAgentIdForTx: pickImportAgentTx,
+      } = await import("./leadAssignmentService");
 
       let importedCount = 0, duplicates = 0, failed = 0;
       const failedRows: { row: number; reason: string }[] = [];
@@ -5072,7 +5078,8 @@ ${metaTags}
           // Alternating round-robin ONLY when: no agent in Excel AND autoDistribute is enabled
           const shouldRoundRobin = !hasExcelAgent && autoDistribute;
 
-          const importedLead = await storage.createCrmLead({
+          // Shared field data for both paths
+          const importLeadBase = {
             fullName:              lead.fullName              || null,
             firstName:             lead.firstName             || null,
             lastName:              lead.lastName              || null,
@@ -5080,20 +5087,37 @@ ${metaTags}
             email:                 email                      || null,
             country:               lead.country               || null,
             city:                  lead.city                  || null,
-            interestedCountry:     null,
+            interestedCountry:     null as null,
             budget:                parsedBudget !== null ? String(parsedBudget) : (lead.budget || null),
             projectInterest:       lead.projectInterest       || null,
             expectedPurchaseMonth: lead.expectedPurchaseMonth || null,
-            description:           null,
+            description:           null as null,
             notes:                 finalNotes,
             leadSource:            lead.leadSource            || "excel_import",
             leadScore:             "cold",
-            status:                lead.status ? normalizeImportStatus(lead.status) : "new",
-            assignedTo:            assignedToId !== null ? assignedToId
-                                   : shouldRoundRobin      ? await pickImportAgent("Excel Import")
-                                   : null,
+            status:                (lead.status ? normalizeImportStatus(lead.status) : "new") as string,
             lastContactAt:         lastContactAtDate,
-          });
+          };
+
+          // When round-robin is active: wrap cursor + insert in ONE transaction so a failed
+          // insert never wastes a counter slot and strict Fadi↔Samer alternation is preserved.
+          let importedLead;
+          if (shouldRoundRobin) {
+            importedLead = await db.transaction(async (tx) => {
+              const agentId = await pickImportAgentTx(tx, "Excel Import");
+              const [row] = await tx.insert(crmLeads).values({
+                ...importLeadBase,
+                assignedTo: agentId,
+                updatedAt: new Date(),
+              }).returning();
+              return row;
+            });
+          } else {
+            importedLead = await storage.createCrmLead({
+              ...importLeadBase,
+              assignedTo: assignedToId,
+            });
+          }
 
           import("./developerRegistrationService").then(({ initDeveloperRegistrationsForLead }) =>
             initDeveloperRegistrationsForLead(importedLead.id, {

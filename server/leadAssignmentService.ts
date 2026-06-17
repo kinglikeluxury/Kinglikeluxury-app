@@ -15,11 +15,23 @@
  *  - If only one agent exists, all leads go to that agent.
  *  - If no agents exist, returns null (lead saved unassigned).
  *
- * Logging:
- *  - Every assignment emits: [LeadAssignment] Assigned leadId=X → AgentName (userId=Y) | source=Z | counter=N
+ * Atomicity:
+ *  - `pickNextSubAgentId` commits the cursor BEFORE the lead is inserted.
+ *    Use `pickNextSubAgentIdForTx` + `db.transaction()` when you need the
+ *    cursor update and lead INSERT to be fully atomic (prevents a wasted slot
+ *    if the INSERT fails after the cursor has already advanced).
+ *
+ * Logging (every assignment emits):
+ *  [LeadAssignment] Lead #123
+ *    Assigned:          Fadi al-Mofti (userId=24)
+ *    Previous Assignee: Samer
+ *    Method:            RoundRobin
+ *    Source:            Manual CRM
+ *    Counter:           18 → 19 | slot 0/1
  */
 
 import { pool } from "./db";
+import { sql } from "drizzle-orm";
 
 export interface SubAgent {
   id: number;
@@ -79,11 +91,13 @@ export async function getEligibleSubAgents(): Promise<SubAgent[]> {
 /**
  * Atomically picks the next sub-agent using the global alternating cursor.
  *
+ * NOTE: The cursor is committed BEFORE the lead INSERT.
+ * If the lead INSERT subsequently fails, the counter slot is lost and the
+ * next lead will get the same agent again.
+ * Use `pickNextSubAgentIdForTx` + `db.transaction()` to avoid this.
+ *
  * @param source  Human-readable label for the lead source (used in logs).
  * @param leadId  Optional — lead id to include in the log line once created.
- *
- * Uses SELECT FOR UPDATE to prevent race conditions when multiple
- * webhook calls or import rows are processed concurrently.
  */
 export async function pickNextSubAgentId(
   source: string = "unknown",
@@ -97,13 +111,14 @@ export async function pickNextSubAgentId(
     await client.query("BEGIN");
 
     // Lock the single cursor row — concurrent callers queue here
-    const cursorRes = await client.query<{ counter: string }>(
-      "SELECT counter FROM crm_assignment_cursor WHERE id = 1 FOR UPDATE"
+    const cursorRes = await client.query<{ counter: string; last_agent_id: number | null }>(
+      "SELECT counter, last_agent_id FROM crm_assignment_cursor WHERE id = 1 FOR UPDATE"
     );
 
-    const counter    = BigInt(cursorRes.rows[0]?.counter ?? "0");
-    const idx        = Number(counter % BigInt(agents.length));
-    const picked     = agents[idx];
+    const counter     = BigInt(cursorRes.rows[0]?.counter ?? "0");
+    const lastAgId    = cursorRes.rows[0]?.last_agent_id ?? null;
+    const idx         = Number(counter % BigInt(agents.length));
+    const picked      = agents[idx];
     const nextCounter = counter + 1n;
 
     await client.query(
@@ -115,10 +130,15 @@ export async function pickNextSubAgentId(
 
     await client.query("COMMIT");
 
-    const leadPart = leadId != null ? `leadId=${leadId}` : "(pending insert)";
+    const leadPart  = leadId != null ? `Lead #${leadId}` : "Lead #(pending)";
+    const prevAgent = lastAgId ? agents.find(a => a.id === Number(lastAgId)) : null;
     console.log(
-      `[LeadAssignment] Assigned ${leadPart} → ${picked.username} (userId=${picked.id}) ` +
-      `| source=${source} | counter=${counter} | idx=${idx}/${agents.length - 1}`
+      `[LeadAssignment] ${leadPart}\n` +
+      `  Assigned:          ${picked.username} (userId=${picked.id})\n` +
+      `  Previous Assignee: ${prevAgent?.username ?? "none"}\n` +
+      `  Method:            RoundRobin\n` +
+      `  Source:            ${source}\n` +
+      `  Counter:           ${counter} → ${nextCounter} | slot ${idx}/${agents.length - 1}`
     );
 
     return picked.id;
@@ -129,6 +149,74 @@ export async function pickNextSubAgentId(
   } finally {
     client.release();
   }
+}
+
+// ── Transaction-aware pick (atomic cursor + insert) ───────────────────────────
+
+/**
+ * Picks the next sub-agent inside an existing Drizzle transaction.
+ *
+ * Use this when you want the cursor increment and the lead INSERT to be
+ * fully atomic — if the INSERT fails the transaction rolls back, the
+ * cursor is NOT advanced, and strict alternation is preserved.
+ *
+ * Example usage:
+ *   const { lead, agentId } = await db.transaction(async (tx) => {
+ *     const agentId = await pickNextSubAgentIdForTx(tx, "Manual CRM");
+ *     const [lead] = await tx.insert(crmLeads).values({ ...data, assignedTo: agentId }).returning();
+ *     return { lead, agentId };
+ *   });
+ *
+ * @param tx      A Drizzle transaction object from db.transaction().
+ * @param source  Human-readable label for the lead source.
+ * @param leadId  Optional lead ID for logging.
+ */
+export async function pickNextSubAgentIdForTx(
+  tx: any,
+  source: string = "unknown",
+  leadId?: number
+): Promise<number | null> {
+  // Read agents within the transaction for consistency
+  const agentRes = await tx.execute(
+    sql`SELECT id, username FROM users WHERE role = 'sub_agent' ORDER BY id ASC`
+  );
+  const agents = (agentRes.rows ?? agentRes) as Array<{ id: number; username: string }>;
+
+  if (!agents.length) {
+    console.warn("[LeadAssignment] pickNextSubAgentIdForTx — No eligible sub-agents, lead will be unassigned");
+    return null;
+  }
+
+  // Lock cursor row — any other transaction trying to pick must wait until this one commits
+  const cursorRes = await tx.execute(
+    sql`SELECT counter, last_agent_id FROM crm_assignment_cursor WHERE id = 1 FOR UPDATE`
+  );
+  const cursorRow  = (cursorRes.rows ?? cursorRes)[0] as { counter: string; last_agent_id: number | null };
+  const counter    = BigInt(cursorRow?.counter ?? "0");
+  const lastAgId   = cursorRow?.last_agent_id ?? null;
+  const idx        = Number(counter % BigInt(agents.length));
+  const picked     = agents[idx];
+  const nextCounter = counter + 1n;
+
+  // Advance the cursor (this rolls back automatically if the outer tx rolls back)
+  await tx.execute(
+    sql`UPDATE crm_assignment_cursor
+        SET counter = ${String(nextCounter)}, last_agent_id = ${picked.id}, updated_at = NOW()
+        WHERE id = 1`
+  );
+
+  const prevAgent = lastAgId ? agents.find(a => a.id === Number(lastAgId)) : null;
+  const leadPart  = leadId != null ? `Lead #${leadId}` : "Lead #(pending)";
+  console.log(
+    `[LeadAssignment] ${leadPart}\n` +
+    `  Assigned:          ${picked.username} (userId=${picked.id})\n` +
+    `  Previous Assignee: ${prevAgent?.username ?? "none"}\n` +
+    `  Method:            RoundRobin\n` +
+    `  Source:            ${source}\n` +
+    `  Counter:           ${counter} → ${nextCounter} | slot ${idx}/${agents.length - 1}`
+  );
+
+  return picked.id;
 }
 
 // ── Cycle helper (kept for backward-compat; now delegates to DB cursor) ──────
