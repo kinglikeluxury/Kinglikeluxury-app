@@ -1,19 +1,35 @@
 /**
  * CRM Task Reminder Service
- * Sends WhatsApp notifications to assigned employees when a task's due time arrives.
+ * Sends WhatsApp + Email notifications to assigned employees when a task's due time arrives.
  * Runs every 60 seconds. Protects against duplicates via reminder_sent_at column.
  * Read-only on leads — only updates crm_tasks.reminder_sent_at.
  */
 
 import { pool } from "./db";
 import { sendQualTextMessage } from "./interactiveMessageHelper";
+import { Resend } from "resend";
 
-// ── Employee WhatsApp phone map ────────────────────────────────────────────────
+// ── Employee contact maps (fallback when DB user.email / phone is unavailable) ─
 
 const EMPLOYEE_PHONES: Record<string, string> = {
   samer: "+995511746491",
   fadi:  "+995591888863",
 };
+
+const EMPLOYEE_EMAILS: Record<string, string> = {
+  samer: "kinglikeluxury.sales.ge@gmail.com",
+  fadi:  "kinglikeluxury.fadi@gmail.com",
+};
+
+// ── Resend client (lazy singleton) ─────────────────────────────────────────────
+
+let _resend: Resend | null = null;
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  if (!_resend) _resend = new Resend(key);
+  return _resend;
+}
 
 // ── Additive DB migration ──────────────────────────────────────────────────────
 
@@ -34,10 +50,6 @@ export async function ensureCrmTaskReminderColumn(): Promise<void> {
 
 // ── Time parsing ───────────────────────────────────────────────────────────────
 
-/**
- * Combine a YYYY-MM-DD date string with an HH:MM (24h) or H:MM AM/PM time string
- * into a UTC Date. Returns null if either field is missing or unparseable.
- */
 function parseDueAt(dueDate: string, dueTime: string): Date | null {
   if (!dueDate?.trim() || !dueTime?.trim()) return null;
 
@@ -59,14 +71,12 @@ function parseDueAt(dueDate: string, dueTime: string): Date | null {
       if (isPM && hours !== 12) hours += 12;
       if (!isPM && hours === 12) hours = 0;
     } else {
-      // Natural-language AI time (e.g. "at noon", "evening") — skip
       return null;
     }
   }
 
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
 
-  // Parse date as UTC midnight then set the stored hours/minutes as UTC
   const d = new Date(`${dueDate}T00:00:00Z`);
   if (isNaN(d.getTime())) return null;
   d.setUTCHours(hours, minutes, 0, 0);
@@ -83,13 +93,88 @@ function resolveEmployeePhone(assigneeName: string): string | null {
   return null;
 }
 
+function resolveEmployeeEmailFallback(assigneeName: string): string | null {
+  const lower = assigneeName.toLowerCase();
+  for (const [key, email] of Object.entries(EMPLOYEE_EMAILS)) {
+    if (lower.includes(key)) return email;
+  }
+  return null;
+}
+
+// ── Email reminder sender ──────────────────────────────────────────────────────
+
+async function sendReminderEmail(opts: {
+  to: string;
+  taskId: number;
+  leadId: number;
+  leadName: string;
+  leadPhone: string | null;
+  taskTitle: string;
+  taskDescription: string | null;
+  dueLabel: string;
+  assigneeName: string;
+}): Promise<boolean> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn(`[CrmReminder] email skipped taskId=${opts.taskId} — RESEND_API_KEY not set`);
+    return false;
+  }
+
+  const crmUrl = `https://kinglikeluxury.app/admin/crm/${opts.leadId}`;
+  const descRow = opts.taskDescription?.trim()
+    ? `<tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px;width:36%">Description</td><td style="padding:7px 0;color:#374151;font-size:14px">${opts.taskDescription.trim()}</td></tr>`
+    : "";
+
+  const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;background:#f0f9f9;padding:32px 16px">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,84,118,0.10)">
+    <div style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:28px 32px">
+      <h1 style="color:#fff;margin:0;font-size:20px;font-weight:800">🔔 Task Reminder</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px">Kinglike Luxury CRM — Action Required</p>
+    </div>
+    <div style="padding:28px 32px">
+      <p style="color:#374151;font-size:15px;margin:0 0 20px">Hi <strong>${opts.assigneeName}</strong>, a task assigned to you is now due:</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:22px">
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px;width:36%">Lead</td><td style="padding:7px 0;font-weight:700;color:#005476;font-size:15px">${opts.leadName}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Phone</td><td style="padding:7px 0;color:#111827;font-size:14px">${opts.leadPhone ?? "—"}</td></tr>
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Task</td><td style="padding:7px 0;font-weight:700;color:#111827;font-size:14px">${opts.taskTitle}</td></tr>
+        ${descRow}
+        <tr><td style="padding:7px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Due</td><td style="padding:7px 0;color:#dc2626;font-weight:700;font-size:14px">${opts.dueLabel}</td></tr>
+      </table>
+      <div style="text-align:center;margin-top:24px">
+        <a href="${crmUrl}" style="display:inline-block;background:linear-gradient(135deg,#3bcac4,#005476);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px">Open Lead in CRM →</a>
+      </div>
+    </div>
+    <div style="background:#005476;padding:14px 32px;text-align:center">
+      <p style="color:rgba(255,255,255,0.65);margin:0;font-size:12px">Kinglike Luxury CRM · info@kinglikeluxury.app</p>
+    </div>
+  </div>
+</div>`;
+
+  try {
+    const result = await resend.emails.send({
+      from:    "Kinglike Luxury CRM <info@kinglikeluxury.app>",
+      to:      opts.to,
+      subject: `🔔 Task Reminder — ${opts.leadName} | ${opts.taskTitle}`,
+      html,
+    });
+    if (result.error) {
+      console.error(`[CrmReminder] email ✗ taskId=${opts.taskId} to=${opts.to}:`, result.error.message);
+      return false;
+    }
+    console.log(`[CrmReminder] email ✓ taskId=${opts.taskId} → ${opts.to} | id=${result.data?.id ?? "—"}`);
+    return true;
+  } catch (e: any) {
+    console.error(`[CrmReminder] email ✗ taskId=${opts.taskId} exception:`, e.message);
+    return false;
+  }
+}
+
 // ── Core reminder runner ───────────────────────────────────────────────────────
 
 async function runTaskReminders(): Promise<void> {
   const client = await pool.connect();
   try {
-    // Fetch all pending, un-reminded tasks that have a due date/time.
-    // Join lead + assigned user for name, phone, and assignee resolution.
     const { rows } = await client.query<{
       id: number;
       lead_id: number;
@@ -100,6 +185,7 @@ async function runTaskReminders(): Promise<void> {
       lead_name: string;
       lead_phone: string | null;
       lead_assignee_name: string | null;
+      lead_assignee_email: string | null;
     }>(`
       SELECT
         ct.id,
@@ -114,7 +200,8 @@ async function runTaskReminders(): Promise<void> {
           'عميل'
         ) AS lead_name,
         cl.phone                    AS lead_phone,
-        lu.username                 AS lead_assignee_name
+        lu.username                 AS lead_assignee_name,
+        lu.email                    AS lead_assignee_email
       FROM crm_tasks ct
       LEFT JOIN crm_leads cl ON cl.id = ct.lead_id
       LEFT JOIN users      lu ON lu.id = cl.assigned_to
@@ -127,69 +214,92 @@ async function runTaskReminders(): Promise<void> {
     if (rows.length === 0) return;
 
     const now         = new Date();
-    // Catch-up window: fire for tasks that became due within the last 12 hours
-    // (covers server restarts / brief outages)
     const windowStart = new Date(now.getTime() - 12 * 60 * 60 * 1000);
 
     for (const row of rows) {
       const dueAt = parseDueAt(row.due_date, row.due_time);
-      if (!dueAt) {
-        // Unparseable time (AI natural language) — skip silently
-        continue;
-      }
-      if (dueAt > now) continue;         // Not yet due
-      if (dueAt < windowStart) continue; // Too old — skip to avoid flooding on first boot
+      if (!dueAt) continue;
+      if (dueAt > now) continue;
+      if (dueAt < windowStart) continue;
 
-      // ── Resolve employee ────────────────────────────────────────────────────
+      // ── Resolve employee ──────────────────────────────────────────────────────
       if (!row.lead_assignee_name) {
-        console.warn(
-          `[CrmReminder] taskId=${row.id} leadId=${row.lead_id} — no assignee on lead, skipping`
-        );
+        console.warn(`[CrmReminder] taskId=${row.id} leadId=${row.lead_id} — no assignee on lead, skipping`);
         continue;
       }
+
       const employeePhone = resolveEmployeePhone(row.lead_assignee_name);
       if (!employeePhone) {
-        console.warn(
-          `[CrmReminder] taskId=${row.id} — no WA phone mapped for "${row.lead_assignee_name}", skipping`
-        );
+        console.warn(`[CrmReminder] taskId=${row.id} — no WA phone mapped for "${row.lead_assignee_name}", skipping`);
         continue;
       }
 
-      // ── Build message ───────────────────────────────────────────────────────
+      // Prefer DB email; fall back to hardcoded map
+      const employeeEmail: string | null =
+        row.lead_assignee_email?.trim() ||
+        resolveEmployeeEmailFallback(row.lead_assignee_name);
+
+      // ── Build shared content ──────────────────────────────────────────────────
       const dueLabel  = `${row.due_date} — ${row.due_time}`;
       const descBlock = row.description?.trim()
         ? `\nالوصف:\n${row.description.trim()}\n`
         : "";
 
-      const message =
+      const waMessage =
         `🔔 تذكير مهمة CRM\n\n` +
         `العميل: ${row.lead_name}\n` +
         `الهاتف: ${row.lead_phone ?? "—"}\n\n` +
         `المهمة:\n${row.title}\n` +
         descBlock +
         `\nوقت التواصل:\n${dueLabel}\n\n` +
+        `رابط العميل:\nhttps://kinglikeluxury.app/admin/crm/${row.lead_id}\n\n` +
         `يرجى التواصل مع العميل الآن.`;
 
-      // ── Send & mark ─────────────────────────────────────────────────────────
+      // ── Send via both channels ─────────────────────────────────────────────────
+      let waSent    = false;
+      let emailSent = false;
+
       try {
-        const result = await sendQualTextMessage(employeePhone, message);
-        if (result.success) {
-          await client.query(
-            `UPDATE crm_tasks SET reminder_sent_at = NOW() WHERE id = $1`,
-            [row.id]
-          );
-          console.log(
-            `[CrmReminder] ✓ taskId=${row.id} → ${row.lead_assignee_name}` +
-            ` (${employeePhone}) | wamid=${result.wamid ?? "—"}`
-          );
+        const waResult = await sendQualTextMessage(employeePhone, waMessage);
+        waSent = waResult.success;
+        if (!waSent) {
+          console.error(`[CrmReminder] WA ✗ taskId=${row.id}: ${waResult.error}`);
         } else {
-          console.error(
-            `[CrmReminder] ✗ taskId=${row.id} send failed: ${result.error}`
-          );
-          // Do NOT set reminder_sent_at — will retry next minute
+          console.log(`[CrmReminder] WA ✓ taskId=${row.id} → ${row.lead_assignee_name} (${employeePhone}) | wamid=${waResult.wamid ?? "—"}`);
         }
       } catch (e: any) {
-        console.error(`[CrmReminder] ✗ taskId=${row.id} exception:`, e.message);
+        console.error(`[CrmReminder] WA ✗ taskId=${row.id} exception:`, e.message);
+      }
+
+      if (employeeEmail) {
+        emailSent = await sendReminderEmail({
+          to:              employeeEmail,
+          taskId:          row.id,
+          leadId:          row.lead_id,
+          leadName:        row.lead_name,
+          leadPhone:       row.lead_phone,
+          taskTitle:       row.title,
+          taskDescription: row.description,
+          dueLabel,
+          assigneeName:    row.lead_assignee_name,
+        });
+      } else {
+        console.warn(`[CrmReminder] email skipped taskId=${row.id} — no email for "${row.lead_assignee_name}"`);
+      }
+
+      // ── Mark sent if at least one channel delivered ───────────────────────────
+      if (waSent || emailSent) {
+        await client.query(
+          `UPDATE crm_tasks SET reminder_sent_at = NOW() WHERE id = $1`,
+          [row.id]
+        );
+        console.log(
+          `[CrmReminder] ✓ taskId=${row.id} marked sent | WA=${waSent} email=${emailSent}`
+        );
+      } else {
+        console.error(
+          `[CrmReminder] ✗ taskId=${row.id} — both channels failed, will retry next tick`
+        );
       }
     }
   } catch (e: any) {
@@ -204,14 +314,12 @@ async function runTaskReminders(): Promise<void> {
 let _running = false;
 
 export function startCrmTaskReminderScheduler(): void {
-  // Run once immediately after ensuring column
   ensureCrmTaskReminderColumn()
     .then(() => runTaskReminders())
     .catch(() => {});
 
-  // Then every 60 seconds
   setInterval(() => {
-    if (_running) return; // Skip if previous tick is still in progress
+    if (_running) return;
     _running = true;
     runTaskReminders()
       .catch(e => console.error("[CrmReminder] Scheduler tick error:", e.message))
