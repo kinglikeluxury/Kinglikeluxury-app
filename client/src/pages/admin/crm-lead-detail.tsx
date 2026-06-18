@@ -295,6 +295,8 @@ export default function CrmLeadDetailPage() {
   const [subAgentComment, setSubAgentComment] = useState("");
   const [transferTargetId, setTransferTargetId] = useState<string>("");
   const [transferComment, setTransferComment] = useState<string>("");
+  const [projectMultiOpen, setProjectMultiOpen] = useState(false);
+  const [projectMultiPicked, setProjectMultiPicked] = useState<string[]>([]);
 
   // Non-hook computations (safe before hooks)
   const isSubAgent = user?.role === "sub_agent";
@@ -962,20 +964,114 @@ export default function CrmLeadDetailPage() {
                 );
               })()}
 
-              {/* Project Interest */}
-              <InlineEditField
-                {...sharedFieldProps}
-                fieldKey="projectInterest"
-                label="Project Interest"
-                icon={Building2}
-                displayValue={lead.projectInterest}
-                editValue={lead.projectInterest ?? ""}
-                type="select"
-                options={projects.filter(p => p.isActive).map(p => ({ value: p.name, label: p.name }))}
-                noneLabel="— None —"
-                onStart={() => openField("projectInterest", lead.projectInterest ?? "")}
-                onSave={() => saveField("projectInterest", "Project Interest", lead.projectInterest ?? "")}
-              />
+              {/* Project Interest — multi-select */}
+              {(() => {
+                const currentProjects = (lead.projectInterest ?? "")
+                  .split(";")
+                  .map(v => v.trim())
+                  .filter(Boolean);
+
+                if (!projectMultiOpen) {
+                  return (
+                    <div
+                      className="group flex items-start gap-3 py-2.5 border-b last:border-0 cursor-pointer hover:bg-[#3bcac4]/5 rounded px-1 -mx-1 transition-colors"
+                      onClick={() => {
+                        setProjectMultiPicked(currentProjects);
+                        setProjectMultiOpen(true);
+                      }}
+                    >
+                      <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Project Interest</p>
+                        {currentProjects.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {currentProjects.map(p => (
+                              <span
+                                key={p}
+                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40"
+                              >
+                                {p}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="italic text-muted-foreground/40 text-xs font-normal">Click to add...</span>
+                        )}
+                      </div>
+                      <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />
+                    </div>
+                  );
+                }
+
+                const activeProjectNames = projects.filter(p => p.isActive).map(p => p.name);
+
+                return (
+                  <div className="py-2.5 border-b last:border-0 bg-[#3bcac4]/5 rounded-md px-2 -mx-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Building2 className="h-4 w-4 text-[#3bcac4] shrink-0" />
+                      <span className="text-xs font-semibold text-[#005476]">Project Interest</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {activeProjectNames.map(name => {
+                        const selected = projectMultiPicked.includes(name);
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() =>
+                              setProjectMultiPicked(prev =>
+                                selected ? prev.filter(v => v !== name) : [...prev, name]
+                              )
+                            }
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                              selected
+                                ? "bg-[#3bcac4] text-white border-[#3bcac4]"
+                                : "bg-white text-[#005476] border-[#005476]/30 hover:border-[#3bcac4]"
+                            }`}
+                          >
+                            {selected && <X className="h-2.5 w-2.5" />}
+                            {name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="h-6 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] px-3 gap-1"
+                        onClick={() => {
+                          const oldRaw = lead.projectInterest ?? "";
+                          const newValue = projectMultiPicked.join(";");
+                          updateMutation.mutate({ projectInterest: newValue || null } as any, {
+                            onSuccess: () => {
+                              if (oldRaw !== newValue) {
+                                addNoteMutation.mutate(
+                                  `[Updated] Project Interest: "${oldRaw || "—"}" → "${newValue || "—"}"`
+                                );
+                              }
+                              setProjectMultiOpen(false);
+                            },
+                          });
+                        }}
+                        disabled={updateMutation.isPending}
+                      >
+                        {updateMutation.isPending
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <Save className="h-3 w-3" />}
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-xs gap-1"
+                        onClick={() => setProjectMultiOpen(false)}
+                      >
+                        <X className="h-3 w-3" /> Cancel
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Budget */}
               <InlineEditField
