@@ -23,7 +23,7 @@ import {
   Calendar, Globe, FileText, Plus, CheckSquare, ListTodo,
   DollarSign, CalendarDays, Bot, RefreshCw, UserX, StopCircle,
   AlertCircle, ChevronDown, ChevronUp, Send, MailOpen, Pause, Play,
-  TrendingUp, MousePointerClick, Eye,
+  TrendingUp, MousePointerClick, Eye, Hash,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import type { CrmLead, CrmNote, CrmTask, CrmProject, WhatsappAiConversation, WhatsappAiMessage, WhatsappAiAgentReport } from "@shared/schema";
@@ -1171,6 +1171,42 @@ export default function CrmLeadDetailPage() {
                   onStart={() => {}}
                   onSave={() => {}}
                 />
+              )}
+
+              {/* Meta Attribution IDs — read-only, shown only when at least one ID exists */}
+              {(lead.metaCampaignId || lead.metaAdId || lead.metaAdsetId || lead.metaFormId) && (
+                <div className="py-2.5 border-b last:border-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Hash className="h-4 w-4 text-[#3bcac4] shrink-0" />
+                    <span className="text-xs font-semibold text-[#005476]">Meta Attribution</span>
+                  </div>
+                  <div className="space-y-1.5 ml-6">
+                    {lead.metaCampaignId && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-muted-foreground w-24 shrink-0 pt-0.5">Campaign ID</span>
+                        <span className="text-xs font-mono text-[#005476] break-all">{lead.metaCampaignId}</span>
+                      </div>
+                    )}
+                    {lead.metaAdId && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-muted-foreground w-24 shrink-0 pt-0.5">Ad ID</span>
+                        <span className="text-xs font-mono text-[#005476] break-all">{lead.metaAdId}</span>
+                      </div>
+                    )}
+                    {lead.metaAdsetId && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-muted-foreground w-24 shrink-0 pt-0.5">Adset ID</span>
+                        <span className="text-xs font-mono text-[#005476] break-all">{lead.metaAdsetId}</span>
+                      </div>
+                    )}
+                    {lead.metaFormId && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-muted-foreground w-24 shrink-0 pt-0.5">Form ID</span>
+                        <span className="text-xs font-mono text-[#005476] break-all">{lead.metaFormId}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Description */}

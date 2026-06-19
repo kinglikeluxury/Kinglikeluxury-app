@@ -570,7 +570,11 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             budget:    fields["budget"] || null,
             status:    "new"  as const,
             leadScore: "cold" as const,
-            assignedTo: pullSyncAssignedTo,
+            assignedTo:     pullSyncAssignedTo,
+            metaCampaignId: (lead.campaign_id as string) || null,
+            metaAdId:       (lead.ad_id       as string) || null,
+            metaAdsetId:    null,
+            metaFormId:     (lead.form_id     as string) || null,
           }).returning();
 
           if (!crmLead) throw new Error("CRM insert returned no row");
