@@ -307,9 +307,6 @@ export default function CrmLeadDetailPage() {
   // Non-hook computations (safe before hooks)
   const isSubAgent = user?.role === "sub_agent";
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
-  // Samer (id=29) and Fadi (id=24) may only edit the Notes field
-  const isNotesOnlyUser = user?.id === 24 || user?.id === 29;
-
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: lead, isLoading, error: leadError } = useQuery<LeadDetail>({
     queryKey: ["/api/admin/crm/leads", leadId],
@@ -585,7 +582,6 @@ export default function CrmLeadDetailPage() {
   if (authLoading || !isCrmAuthorized) return null;
 
   function openField(key: string, rawValue: string) {
-    if (isNotesOnlyUser && key !== "notes") return;
     setActiveField(key);
     setFieldDraft(rawValue ?? "");
     setFieldError(null);
@@ -876,10 +872,8 @@ export default function CrmLeadDetailPage() {
 
             <CardContent className="pt-0">
               <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
-                {isNotesOnlyUser ? <FileText className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
-                {isNotesOnlyUser
-                  ? "Limited access — you can edit Notes, Activity Timeline, and Lead Status only."
-                  : "Click any field to edit it"}
+                <Edit3 className="h-3 w-3" />
+                Click any field to edit it
               </p>
 
               {/* Phone */}
@@ -895,7 +889,6 @@ export default function CrmLeadDetailPage() {
                 extraInfo={detectedCountry ? `Detected country: ${detectedCountry}` : undefined}
                 onStart={() => openField("phone", lead.phone ?? "")}
                 onSave={() => saveField("phone", "Phone", lead.phone ?? "")}
-                disabled={isNotesOnlyUser}
               />
 
               {/* WhatsApp quick-contact — shown only when phone is present and field is not in edit mode */}
@@ -924,7 +917,6 @@ export default function CrmLeadDetailPage() {
                 placeholder="email@example.com"
                 onStart={() => openField("email", lead.email ?? "")}
                 onSave={() => saveField("email", "Email", lead.email ?? "")}
-                disabled={isNotesOnlyUser}
               />
 
               {/* Origin Country — auto-detected from phone, also manually editable */}
@@ -939,7 +931,6 @@ export default function CrmLeadDetailPage() {
                 placeholder="e.g. Georgia"
                 onStart={() => openField("country", lead.country ?? "")}
                 onSave={() => saveField("country", "Origin Country", lead.country ?? "")}
-                disabled={isNotesOnlyUser}
               />
 
               {/* Interested Country — multi-select */}
@@ -949,9 +940,8 @@ export default function CrmLeadDetailPage() {
                 if (!countryMultiOpen) {
                   return (
                     <div
-                      className={`group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors ${isNotesOnlyUser ? "opacity-60 cursor-default" : "cursor-pointer hover:bg-[#3bcac4]/5"}`}
+                      className="group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors cursor-pointer hover:bg-[#3bcac4]/5"
                       onClick={() => {
-                        if (isNotesOnlyUser) return;
                         setCountryMultiPicked(currentCountries);
                         setCountryMultiOpen(true);
                       }}
@@ -969,7 +959,7 @@ export default function CrmLeadDetailPage() {
                           <span className="italic text-muted-foreground/40 text-xs font-normal">Click to add...</span>
                         )}
                       </div>
-                      {!isNotesOnlyUser && <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />}
+                      <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />
                     </div>
                   );
                 }
@@ -1047,9 +1037,8 @@ export default function CrmLeadDetailPage() {
                 if (!cityMultiOpen) {
                   return (
                     <div
-                      className={`group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors ${isNotesOnlyUser ? "opacity-60 cursor-default" : "cursor-pointer hover:bg-[#3bcac4]/5"}`}
+                      className="group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors cursor-pointer hover:bg-[#3bcac4]/5"
                       onClick={() => {
-                        if (isNotesOnlyUser) return;
                         setCityMultiPicked(currentCities);
                         setCityMultiOpen(true);
                       }}
@@ -1067,7 +1056,7 @@ export default function CrmLeadDetailPage() {
                           <span className="italic text-muted-foreground/40 text-xs font-normal">Click to add...</span>
                         )}
                       </div>
-                      {!isNotesOnlyUser && <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />}
+                      <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />
                     </div>
                   );
                 }
@@ -1156,9 +1145,8 @@ export default function CrmLeadDetailPage() {
                 if (!projectMultiOpen) {
                   return (
                     <div
-                      className={`group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors ${isNotesOnlyUser ? "opacity-60 cursor-default" : "cursor-pointer hover:bg-[#3bcac4]/5"}`}
+                      className="group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors cursor-pointer hover:bg-[#3bcac4]/5"
                       onClick={() => {
-                        if (isNotesOnlyUser) return;
                         setProjectMultiPicked(currentProjects);
                         setProjectMultiOpen(true);
                       }}
@@ -1269,7 +1257,6 @@ export default function CrmLeadDetailPage() {
                 noneLabel="— Not specified —"
                 onStart={() => openField("budget", lead.budget ?? "")}
                 onSave={() => saveField("budget", "Budget", lead.budget ?? "")}
-                disabled={isNotesOnlyUser}
               />
 
               {/* Expected Purchase Month */}
@@ -1285,7 +1272,6 @@ export default function CrmLeadDetailPage() {
                 noneLabel="— Not specified —"
                 onStart={() => openField("expectedPurchaseMonth", lead.expectedPurchaseMonth ?? "")}
                 onSave={() => saveField("expectedPurchaseMonth", "Expected Purchase Month", lead.expectedPurchaseMonth ?? "")}
-                disabled={isNotesOnlyUser}
               />
 
               {/* Lead Source */}
@@ -1301,7 +1287,6 @@ export default function CrmLeadDetailPage() {
                 noneLabel="— Select source —"
                 onStart={() => openField("leadSource", lead.leadSource)}
                 onSave={() => saveField("leadSource", "Lead Source", lead.leadSource)}
-                disabled={isNotesOnlyUser}
               />
 
               {/* Meta fields — read-only display */}
@@ -1313,7 +1298,7 @@ export default function CrmLeadDetailPage() {
                   icon={Globe}
                   displayValue={lead.campaignName}
                   editValue={lead.campaignName ?? ""}
-                  type="text"
+                  type={user?.isAdmin ? "text" : "readonly"}
                   placeholder="Campaign name"
                   onStart={() => openField("campaignName", lead.campaignName ?? "")}
                   onSave={() => saveField("campaignName", "Campaign", lead.campaignName ?? "")}
@@ -1407,7 +1392,6 @@ export default function CrmLeadDetailPage() {
                 placeholder="Lead description..."
                 onStart={() => openField("description", lead.description ?? "")}
                 onSave={() => saveField("description", "Description", lead.description ?? "")}
-                disabled={isNotesOnlyUser}
               />
 
               {/* Internal Notes */}
@@ -1630,9 +1614,7 @@ export default function CrmLeadDetailPage() {
                 return (
                   <button
                     key={score}
-                    disabled={isNotesOnlyUser}
                     onClick={() => {
-                      if (isNotesOnlyUser) return;
                       updateMutation.mutate({ leadScore: score } as Partial<CrmLead>, {
                         onSuccess: () => {
                           if (score !== lead.leadScore) {
@@ -1644,9 +1626,7 @@ export default function CrmLeadDetailPage() {
                     className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 transition-all ${
                       active
                         ? `border-current ${cfg.bg} ${cfg.color}`
-                        : isNotesOnlyUser
-                          ? "border-transparent text-gray-300 cursor-default"
-                          : "border-transparent hover:border-gray-200 text-gray-500"
+                        : "border-transparent hover:border-gray-200 text-gray-500"
                     }`}
                   >
                     <cfg.Icon className="h-5 w-5" />

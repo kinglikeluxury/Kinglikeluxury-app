@@ -5565,14 +5565,10 @@ ${metaTags}
     const _notesOnlyPatchIds = [24, 29];
     if (!req.session.isAdmin && !_notesOnlyPatchIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
-    // Samer (userId=29) and Fadi (userId=24) may only patch notes or status
-    const NOTES_ONLY_USER_IDS = [24, 29];
-    if (NOTES_ONLY_USER_IDS.includes(req.session.userId)) {
-      const ALLOWED_KEYS = ["notes", "status"];
-      const patchKeys = Object.keys(req.body).filter(k => k !== "_comment");
-      if (!patchKeys.every(k => ALLOWED_KEYS.includes(k))) {
-        return res.status(403).json({ message: "You may only edit Notes or Lead Status" });
-      }
+    // Meta Attribution fields are protected — non-admins cannot modify them
+    if (!req.session.isAdmin) {
+      const META_ATTRIBUTION_KEYS = ["campaignName", "adsetName", "adName", "formName", "metaCampaignId", "metaAdId", "metaAdsetId", "metaFormId"];
+      META_ATTRIBUTION_KEYS.forEach(k => delete req.body[k]);
     }
     try {
       // Extract sub-agent comment (required for all sub-agent changes)
