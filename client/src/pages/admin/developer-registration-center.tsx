@@ -808,6 +808,34 @@ export default function DeveloperRegistrationCenterPage() {
       toast({ title: "Browser Error", description: e.message, variant: "destructive" }),
   });
 
+  const submitToPertraMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("POST", `/api/admin/developer-registration/${id}/submit-to-petra`, {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data.outcome === "success") {
+        toast({
+          title: "✅ Petra form submitted",
+          description: "Lead registered on Petra Bitrix24 — next re-registration in 45 days.",
+        });
+      } else if (data.outcome === "needs_review") {
+        toast({
+          title: "⚠ Needs Review",
+          description: data.errorMessage ?? "Form submitted but no confirmation detected. Verify manually.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "❌ Petra submission failed",
+          description: data.errorMessage ?? "Check the audit log for details.",
+          variant: "destructive",
+        });
+      }
+      refetchQueue(); refetchOverview();
+    },
+    onError: (e: any) =>
+      toast({ title: "Petra Error", description: e.message, variant: "destructive" }),
+  });
+
   const markManuallyConfirmedMutation = useMutation({
     mutationFn: ({ id, dealId }: { id: number; dealId?: string }) =>
       apiRequest("POST", `/api/admin/developer-registration/${id}/mark-manually-confirmed`, { dealId: dealId ?? "" }).then(r => r.json()),
@@ -1266,24 +1294,25 @@ export default function DeveloperRegistrationCenterPage() {
                                       <CheckCircle2 className="h-3 w-3" /> Confirm ✓
                                     </Button>
                                   )}
+                                  {isPetra && rec.status !== "stopped" && rec.status !== "success" && (
+                                    <Button size="sm"
+                                      className="h-6 px-2 text-[10px] gap-1 bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90"
+                                      disabled={submitToPertraMutation.isPending}
+                                      title="Auto-fill and submit Petra Bitrix24 form via browser automation"
+                                      onClick={() => submitToPertraMutation.mutate(rec.id)}>
+                                      {submitToPertraMutation.isPending
+                                        ? <><RefreshCw className="h-3 w-3 animate-spin" /> Submitting…</>
+                                        : <><ExternalLink className="h-3 w-3" /> Submit to Petra</>}
+                                    </Button>
+                                  )}
                                   {isPetra && rec.status !== "stopped" && (
                                     <a href="https://petragroup.bitrix24.site/crm_form_9zewt/"
-                                      target="_blank" rel="noopener noreferrer">
-                                      <Button size="sm"
-                                        className="h-6 px-2 text-[10px] gap-1 bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90"
-                                        title="Open Petra Group Bitrix24 form — fill manually then mark as submitted">
-                                        <ExternalLink className="h-3 w-3" /> Petra Form
+                                      target="_blank" rel="noopener noreferrer"
+                                      title="Open Petra form manually (fallback)">
+                                      <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] gap-1 text-[#005476] border-[#3bcac4]/40">
+                                        <ExternalLink className="h-3 w-3" /> Manual
                                       </Button>
                                     </a>
-                                  )}
-                                  {isPetra && rec.status !== "submitted" && rec.status !== "stopped" && rec.status !== "success" && (
-                                    <Button size="sm"
-                                      className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                      disabled={markSubmittedMutation.isPending}
-                                      title="Mark as manually submitted after filling the Petra form"
-                                      onClick={() => markSubmittedMutation.mutate(rec.id)}>
-                                      <CheckCircle2 className="h-3 w-3" /> Submitted
-                                    </Button>
                                   )}
                                   {!isSilk && !isAmb && !isPetra && rec.form_url && (
                                     <a href={rec.form_url} target="_blank" rel="noopener noreferrer">

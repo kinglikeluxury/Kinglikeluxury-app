@@ -386,7 +386,7 @@ export async function ensureDeveloperRegistrationTables(): Promise<void> {
     if (petraExists.rows.length === 0) {
       const petraResult = await client.query(`
         INSERT INTO developer_companies (name, form_url, is_active, registration_interval_days, registration_mode, created_at, updated_at)
-        VALUES ('Petra Group', 'https://petragroup.bitrix24.site/crm_form_9zewt/', true, 30, 'manual', NOW(), NOW())
+        VALUES ('Petra Group', 'https://petragroup.bitrix24.site/crm_form_9zewt/', true, 45, 'auto', NOW(), NOW())
         RETURNING id
       `);
       const petraId = petraResult.rows[0].id;
