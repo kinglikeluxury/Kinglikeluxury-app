@@ -396,6 +396,168 @@ export async function ensureAutoRegColumn(): Promise<void> {
   } catch { /* column may already exist */ } finally { client.release(); }
 }
 
+// ── Petra backfill for existing leads ─────────────────────────────────────────
+
+export interface PetraBackfillResult {
+  totalLeads:      number;
+  alreadyHavePetra: number;
+  toCreate:        number;
+  created:         number;
+  skipped:         number;
+  failed:          number;
+  silkUntouched:   true;
+  ambassadoriUntouched: true;
+}
+
+export async function backfillPetraRecordsForExistingLeads(): Promise<PetraBackfillResult> {
+  const result: PetraBackfillResult = {
+    totalLeads: 0,
+    alreadyHavePetra: 0,
+    toCreate: 0,
+    created: 0,
+    skipped: 0,
+    failed: 0,
+    silkUntouched: true,
+    ambassadoriUntouched: true,
+  };
+
+  const client = await pool.connect();
+  try {
+    // Step 1: Resolve Petra company ID dynamically — never hardcoded
+    const petraRes = await client.query(
+      `SELECT dc.id, dfc.config_json
+         FROM developer_companies dc
+         JOIN developer_form_configs dfc ON dfc.developer_company_id = dc.id AND dfc.is_active = true
+        WHERE dc.name = 'Petra Group' AND dc.is_active = true
+        LIMIT 1`
+    );
+    if (petraRes.rows.length === 0) {
+      console.warn("[PetraBackfill] Petra Group company not found or has no active form config — aborting");
+      return result;
+    }
+    const petraCompanyId: number = petraRes.rows[0].id;
+    const configJson: Record<string, any> =
+      typeof petraRes.rows[0].config_json === "string"
+        ? JSON.parse(petraRes.rows[0].config_json)
+        : petraRes.rows[0].config_json ?? {};
+
+    console.log(`[PetraBackfill] Petra Group company_id=${petraCompanyId}`);
+
+    // Step 2: Count totals for the pre-run report
+    const totalRes = await client.query(`SELECT COUNT(*)::int AS cnt FROM crm_leads`);
+    result.totalLeads = totalRes.rows[0].cnt;
+
+    const hasRecordRes = await client.query(
+      `SELECT COUNT(*)::int AS cnt FROM developer_registration_records WHERE developer_company_id = $1`,
+      [petraCompanyId]
+    );
+    result.alreadyHavePetra = hasRecordRes.rows[0].cnt;
+    result.toCreate = result.totalLeads - result.alreadyHavePetra;
+
+    console.log(
+      `[PetraBackfill] Pre-run counts — totalLeads=${result.totalLeads} ` +
+      `alreadyHavePetra=${result.alreadyHavePetra} toCreate=${result.toCreate}`
+    );
+
+    if (result.toCreate === 0) {
+      console.log("[PetraBackfill] All leads already have Petra records — nothing to do");
+      return result;
+    }
+
+    // Step 3: Fetch only the leads that do NOT already have a Petra record
+    const leadsRes = await client.query(`
+      SELECT cl.id, cl.full_name, cl.first_name, cl.last_name,
+             cl.phone, cl.country, cl.city, cl.budget, cl.project_interest
+        FROM crm_leads cl
+       WHERE NOT EXISTS (
+         SELECT 1 FROM developer_registration_records drr
+          WHERE drr.crm_lead_id = cl.id
+            AND drr.developer_company_id = $1
+       )
+       ORDER BY cl.id ASC
+    `, [petraCompanyId]);
+
+    console.log(`[PetraBackfill] Processing ${leadsRes.rows.length} leads missing Petra records`);
+
+    // Step 4: Insert a prepared record for each missing lead
+    for (const lead of leadsRes.rows) {
+      try {
+        // Double-check idempotency inside the loop (race-condition guard)
+        const existing = await client.query(
+          `SELECT id FROM developer_registration_records
+            WHERE crm_lead_id = $1 AND developer_company_id = $2 LIMIT 1`,
+          [lead.id, petraCompanyId]
+        );
+        if (existing.rows.length > 0) {
+          result.skipped++;
+          continue;
+        }
+
+        const leadData: LeadData = {
+          id:              lead.id,
+          fullName:        lead.full_name,
+          firstName:       lead.first_name,
+          lastName:        lead.last_name,
+          phone:           lead.phone,
+          country:         lead.country,
+          city:            lead.city,
+          budget:          lead.budget,
+          projectInterest: lead.project_interest,
+        };
+
+        const { payload, needsReview, reviewReason } = prepareRegistrationPayload(leadData, configJson);
+        const status = needsReview ? "needs_review" : "prepared";
+
+        await client.query(`
+          INSERT INTO developer_registration_records
+            (crm_lead_id, developer_company_id, status, registration_payload_json,
+             last_error, protection_status, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, 'protected', NOW(), NOW())
+        `, [
+          lead.id,
+          petraCompanyId,
+          status,
+          JSON.stringify(payload),
+          reviewReason || null,
+        ]);
+
+        // Audit log entry
+        await client.query(`
+          INSERT INTO developer_registration_attempts
+            (registration_record_id, crm_lead_id, developer_company_id, attempt_type, status,
+             payload_json, result_message, created_by, created_at)
+          SELECT drr.id, $1, $2, 'initial', $3, $4, $5, NULL, NOW()
+            FROM developer_registration_records drr
+           WHERE drr.crm_lead_id = $1 AND drr.developer_company_id = $2
+           ORDER BY drr.created_at DESC LIMIT 1
+        `, [
+          lead.id,
+          petraCompanyId,
+          status,
+          JSON.stringify(payload),
+          status === "prepared"
+            ? "Petra backfill — record prepared for existing lead"
+            : `Petra backfill — needs review: ${reviewReason}`,
+        ]);
+
+        result.created++;
+      } catch (err: any) {
+        result.failed++;
+        console.error(`[PetraBackfill] Failed for leadId=${lead.id}: ${err.message}`);
+      }
+    }
+
+    console.log(
+      `[PetraBackfill] Complete — created=${result.created} skipped=${result.skipped} ` +
+      `failed=${result.failed} | Silk untouched ✓ | Ambassadori untouched ✓`
+    );
+  } finally {
+    client.release();
+  }
+
+  return result;
+}
+
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
 let _schedulerRunning = false;

@@ -6,7 +6,7 @@
 
 import { type Express, type Request, type Response } from "express";
 import { pool } from "./db";
-import { prepareRegistrationPayload, runDueReRegistrations } from "./developerRegistrationService";
+import { prepareRegistrationPayload, runDueReRegistrations, backfillPetraRecordsForExistingLeads } from "./developerRegistrationService";
 import {
   submitRecordToSilk,
   ensureSilkAttemptColumns,
@@ -1055,6 +1055,35 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
       res.json({ message: "Compatibility check placeholder complete (Phase 1)", result });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Petra backfill — create missing Petra records for all existing leads ──
+  app.post("/api/admin/developer-registration/petra-backfill", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const result = await backfillPetraRecordsForExistingLeads();
+      return res.json({
+        success: true,
+        preRunCounts: {
+          totalLeads:       result.totalLeads,
+          alreadyHavePetra: result.alreadyHavePetra,
+          missingPetra:     result.toCreate,
+        },
+        postRunCounts: {
+          created: result.created,
+          skipped: result.skipped,
+          failed:  result.failed,
+        },
+        safetyConfirmation: {
+          silkUntouched:         result.silkUntouched,
+          ambassadoriUntouched:  result.ambassadoriUntouched,
+          onlyPetraRowsInserted: true,
+        },
+      });
+    } catch (err: any) {
+      console.error("[PetraBackfill] Endpoint error:", err.message);
+      return res.status(500).json({ success: false, error: err.message });
     }
   });
 
