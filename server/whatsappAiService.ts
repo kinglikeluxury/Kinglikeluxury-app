@@ -529,6 +529,174 @@ export async function triggerNoAnswer3Recovery(
   }
 }
 
+// ── triggerNoAnswer2Recovery ──────────────────────────────────────────────────
+/**
+ * Called when a CRM lead status changes to "no_answer_2".
+ * Sends the fixed Arabic follow-up message via WhatsApp.
+ * If the 24-hour messaging window is open → free-form text.
+ * If the window is closed → falls back to the approved opener template.
+ * If the template is also unavailable → logs ACTION REQUIRED and does not crash.
+ * Idempotent: skips silently if recovery already sent for this lead.
+ * Completely isolated from triggerNoAnswer3Recovery.
+ */
+export async function triggerNoAnswer2Recovery(
+  leadId: number,
+  leadData: {
+    fullName?: string | null;
+    firstName?: string | null;
+    phone?: string | null;
+    country?: string | null;
+    city?: string | null;
+    budget?: string | null;
+    projectInterest?: string | null;
+    assignedTo?: number | null;
+  }
+): Promise<void> {
+  try {
+    console.log(`[WhatsAppAI][Recovery][NA2] No Answer 2 detected leadId=${leadId}`);
+
+    const rawPhone = leadData.phone?.trim() ?? "";
+    const digits   = rawPhone.replace(/[^0-9]/g, "");
+    if (!digits) {
+      console.log(`[WhatsAppAI][Recovery][NA2] No phone for leadId=${leadId} — skipping`);
+      return;
+    }
+
+    // Step 1: Ensure conversation record exists (mirrors NA3 pattern)
+    let [conv] = await db
+      .select()
+      .from(whatsappAiConversations)
+      .where(eq(whatsappAiConversations.leadId, leadId))
+      .limit(1);
+
+    if (!conv) {
+      await initConversationForLead(leadId, leadData);
+      const [fresh] = await db
+        .select()
+        .from(whatsappAiConversations)
+        .where(eq(whatsappAiConversations.leadId, leadId))
+        .limit(1);
+      if (!fresh) {
+        console.error(`[WhatsAppAI][Recovery][NA2] Failed to create conversation leadId=${leadId}`);
+        return;
+      }
+      conv = fresh;
+    }
+
+    // Step 2: Idempotency — skip if a no_answer_2_recovery message already exists
+    const { sql: drizzleSql } = await import("drizzle-orm");
+    const [existing] = await db
+      .select({ id: whatsappAiMessages.id })
+      .from(whatsappAiMessages)
+      .where(
+        drizzleSql`${whatsappAiMessages.conversationId} = ${conv.id}
+          AND ${whatsappAiMessages.rawPayloadJson}->>'messageType' = 'no_answer_2_recovery'`
+      )
+      .limit(1);
+
+    if (existing) {
+      console.log(`[WhatsAppAI][Recovery][NA2] Already sent leadId=${leadId} — skipping`);
+      return;
+    }
+
+    // Step 3: Fixed Arabic follow-up message (exact text specified)
+    const noAnswer2Message =
+      `مرحباً،\n\n` +
+      `حاولنا التواصل معكم أكثر من مرة بهدف تزويدكم بمعلومات حول فرص الاستثمار العقاري في جورجيا، ` +
+      `ويبدو أن الوقت لم يكن مناسباً لكم.\n\n` +
+      `أنا هنا لمساعدتكم والإجابة على أي استفسار لديكم حول المشاريع، الأسعار، طرق الدفع، ` +
+      `أو اختيار العقار الأنسب لكم.`;
+
+    // Step 4: Check 24-hour window via wa_qual_sessions
+    const { pool } = await import("./db");
+    const waClient = await pool.connect();
+    let withinWindow = false;
+    try {
+      const r = await waClient.query(
+        `SELECT 1 FROM wa_qual_sessions
+         WHERE phone = $1
+           AND last_message_at > NOW() - INTERVAL '24 hours'
+         LIMIT 1`,
+        [digits]
+      );
+      withinWindow = (r.rowCount ?? 0) > 0;
+    } finally {
+      waClient.release();
+    }
+
+    // Step 5: Send — free-form if window open, template otherwise
+    const { sendQualTextMessage, sendQualOpenerTemplate } = await import("./interactiveMessageHelper");
+    let sent = false;
+    const triggeredAt = new Date().toISOString();
+
+    if (withinWindow) {
+      try {
+        const result = await sendQualTextMessage(digits, noAnswer2Message);
+        if (result.wamid) {
+          sent = true;
+          console.log(`[WhatsAppAI][Recovery][NA2] Free-form sent leadId=${leadId} wamid=${result.wamid}`);
+        } else {
+          console.warn(`[WhatsAppAI][Recovery][NA2] Free-form returned no wamid leadId=${leadId} — trying template`);
+        }
+      } catch (sendErr: any) {
+        console.warn(`[WhatsAppAI][Recovery][NA2] Free-form send error leadId=${leadId}: ${sendErr.message} — trying template`);
+      }
+    }
+
+    if (!sent) {
+      try {
+        const result = await sendQualOpenerTemplate(digits);
+        if (result.success) {
+          sent = true;
+          console.log(`[WhatsAppAI][Recovery][NA2] Opener template sent leadId=${leadId} wamid=${result.wamid ?? "—"}`);
+        } else {
+          console.error(
+            `[WhatsAppAI][Recovery][NA2] Template send failed leadId=${leadId} — ` +
+            `ACTION REQUIRED: Ensure template "kinglike_qual_opener" (UTILITY/ar) is approved in Meta Business Suite. ` +
+            `Error: ${result.error ?? "unknown"}`
+          );
+        }
+      } catch (tplErr: any) {
+        console.error(
+          `[WhatsAppAI][Recovery][NA2] Template error leadId=${leadId} — ` +
+          `ACTION REQUIRED: Ensure template "kinglike_qual_opener" (UTILITY/ar) is approved in Meta Business Suite. ` +
+          `Error: ${tplErr.message}`
+        );
+      }
+    }
+
+    // Step 6: Record for idempotency (always, sent or not)
+    await db.insert(whatsappAiMessages).values({
+      conversationId: conv.id,
+      sender:         "ai",
+      messageText:    noAnswer2Message,
+      rawPayloadJson: { messageType: "no_answer_2_recovery", triggeredAt, sent },
+    });
+
+    // Step 7: Update conversation metadata
+    const existingJson = (conv.qualificationJson as Record<string, unknown>) ?? {};
+    await db
+      .update(whatsappAiConversations)
+      .set({
+        qualificationJson: {
+          ...existingJson,
+          no_answer_2_recovery_triggered_at: triggeredAt,
+          no_answer_2_recovery_sent:         sent,
+        },
+        lastMessageAt: new Date(),
+        updatedAt:     new Date(),
+      })
+      .where(eq(whatsappAiConversations.id, conv.id));
+
+    console.log(`[WhatsAppAI][Recovery][NA2] Done leadId=${leadId} sent=${sent}`);
+  } catch (err: any) {
+    console.error(
+      `[WhatsAppAI][Recovery] triggerNoAnswer2Recovery failed leadId=${leadId}:`,
+      err.message
+    );
+  }
+}
+
 // ── getConversationData ───────────────────────────────────────────────────────
 /**
  * Fetches full conversation + messages + report for a lead.

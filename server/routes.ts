@@ -5649,6 +5649,21 @@ ${metaTags}
           })
         ).catch(() => {});
       }
+      // No Answer 2 recovery — fire in background, never blocks response
+      if (req.body.status === "no_answer_2") {
+        import("./whatsappAiService").then(({ triggerNoAnswer2Recovery }) =>
+          triggerNoAnswer2Recovery(updated.id, {
+            fullName:        updated.fullName,
+            firstName:       updated.firstName,
+            phone:           updated.phone,
+            country:         updated.country,
+            city:            updated.city,
+            budget:          updated.budget,
+            projectInterest: updated.projectInterest,
+            assignedTo:      updated.assignedTo,
+          })
+        ).catch(() => {});
+      }
       // No Answer 3 recovery — fire in background, never blocks response
       if (req.body.status === "no_answer_3") {
         import("./whatsappAiService").then(({ triggerNoAnswer3Recovery }) =>
