@@ -5565,12 +5565,13 @@ ${metaTags}
     const _notesOnlyPatchIds = [24, 29];
     if (!req.session.isAdmin && !_notesOnlyPatchIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
-    // Samer (userId=29) and Fadi (userId=24) may only patch the notes field
+    // Samer (userId=29) and Fadi (userId=24) may only patch notes or status
     const NOTES_ONLY_USER_IDS = [24, 29];
     if (NOTES_ONLY_USER_IDS.includes(req.session.userId)) {
+      const ALLOWED_KEYS = ["notes", "status"];
       const patchKeys = Object.keys(req.body).filter(k => k !== "_comment");
-      if (!patchKeys.every(k => k === "notes")) {
-        return res.status(403).json({ message: "You may only edit the Notes field" });
+      if (!patchKeys.every(k => ALLOWED_KEYS.includes(k))) {
+        return res.status(403).json({ message: "You may only edit Notes or Lead Status" });
       }
     }
     try {

@@ -618,7 +618,6 @@ export default function CrmLeadDetailPage() {
   }
 
   function openStatusDialog(newStatus: string) {
-    if (isNotesOnlyUser) return;
     if (!lead || newStatus === lead.status) return;
     // Only these critical statuses require a written reason — all others save instantly
     const REQUIRES_REASON = [
@@ -879,7 +878,7 @@ export default function CrmLeadDetailPage() {
               <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
                 {isNotesOnlyUser ? <FileText className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
                 {isNotesOnlyUser
-                  ? "View-only — only the Notes field and Activity Timeline below are editable"
+                  ? "Limited access — you can edit Notes, Activity Timeline, and Lead Status only."
                   : "Click any field to edit it"}
               </p>
 
@@ -1606,13 +1605,10 @@ export default function CrmLeadDetailPage() {
                 <button
                   key={s}
                   onClick={() => openStatusDialog(s)}
-                  disabled={isNotesOnlyUser}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-between ${
                     lead.status === s
                       ? `${STATUS_CONFIG[s].color} ring-1 ring-inset ring-current`
-                      : isNotesOnlyUser
-                        ? "text-gray-400 cursor-default"
-                        : "hover:bg-gray-50 text-gray-600"
+                      : "hover:bg-gray-50 text-gray-600"
                   }`}
                 >
                   {STATUS_CONFIG[s].label}
