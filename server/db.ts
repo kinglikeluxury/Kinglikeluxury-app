@@ -381,6 +381,64 @@ export async function ensureDeveloperRegistrationTables(): Promise<void> {
       console.log("[DeveloperRegistration] Seeded Silk Development");
     }
 
+    // Seed Petra Group if not present
+    const petraExists = await client.query(`SELECT id FROM developer_companies WHERE name='Petra Group' LIMIT 1`);
+    if (petraExists.rows.length === 0) {
+      const petraResult = await client.query(`
+        INSERT INTO developer_companies (name, form_url, is_active, registration_interval_days, registration_mode, created_at, updated_at)
+        VALUES ('Petra Group', 'https://petragroup.bitrix24.site/crm_form_9zewt/', true, 30, 'manual', NOW(), NOW())
+        RETURNING id
+      `);
+      const petraId = petraResult.rows[0].id;
+
+      const petraConfig = {
+        field_mappings: {
+          email:      "info@kinglikeluxury.com",
+          agencyName: "Kinglike Luxury",
+          agentName:  "Tarik Imam",
+          agentPhone: "591000058",
+          comment:    "We are in touch with the client",
+        },
+        required_fields: ["contactName", "contactPhone"],
+        default_values: {},
+        payload_rules: {
+          use_lead_full_name_as_contact_name: true,
+          use_lead_phone_as_contact_phone:    true,
+          contact_email_override:             "info@kinglikeluxury.com",
+        },
+        petra_form_fields: {
+          "Name":                            "Lead first name",
+          "Surname":                         "Lead last name",
+          "Phone Number":                    "Lead phone with + prefix",
+          "Email":                           "info@kinglikeluxury.com",
+          "Agency/Agent":                    "Kinglike Luxury",
+          "Agent personal/identification":   "Tarik Imam",
+          "Agent telephone":                 "591000058",
+          "Comment":                         "We are in touch with the client",
+        },
+        compatibility_checker_result: {
+          can_auto_fill:            false,
+          captcha_detected:         null,
+          cloudflare_detected:      null,
+          submit_button_detected:   null,
+          required_fields_detected: ["Name", "Surname", "Phone Number", "Email", "Agency/Agent", "Agent personal/identification", "Agent telephone", "Comment"],
+          success_message_detected: null,
+          risk_level:               "medium",
+          last_checked_at:          null,
+          notes:                    "Phase 1 — manual submission only. Playwright selectors pending verification.",
+        },
+        risk_level: "medium",
+        notes:      "Petra Group — Bitrix24 CRM form — Phase 1 manual only. Auto-fill pending HTML selector verification.",
+      };
+
+      await client.query(`
+        INSERT INTO developer_form_configs (developer_company_id, config_json, is_active, created_at, updated_at)
+        VALUES ($1, $2, true, NOW(), NOW())
+      `, [petraId, JSON.stringify(petraConfig)]);
+
+      console.log("[DeveloperRegistration] Seeded Petra Group");
+    }
+
     console.log("[DB] Developer registration tables ensured");
   } catch (err: any) {
     console.warn("[DB] Could not create developer registration tables:", err.message);

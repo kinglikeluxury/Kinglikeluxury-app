@@ -897,6 +897,7 @@ export default function DeveloperRegistrationCenterPage() {
   const records: any[] = queueData?.records ?? [];
   const isSilkRecord        = (rec: any) => rec.developer_company_id === 1 || rec.developer_name === "Silk Development";
   const isAmbassadoriRecord = (rec: any) => rec.developer_company_id === 2 || (rec.developer_name ?? "").toLowerCase().includes("ambassadori");
+  const isPetraRecord       = (rec: any) => (rec.developer_name ?? "").toLowerCase().includes("petra group");
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -1136,6 +1137,7 @@ export default function DeveloperRegistrationCenterPage() {
                         {records.map(rec => {
                           const isSilk         = isSilkRecord(rec);
                           const isAmb          = isAmbassadoriRecord(rec);
+                          const isPetra        = isPetraRecord(rec);
                           const canSubmitSilk  = isSilk && !["stopped", "submitting", "success"].includes(rec.status);
                           const canSubmitAmb   = isAmb  && !["stopped", "submitting", "success"].includes(rec.status);
 
@@ -1264,14 +1266,33 @@ export default function DeveloperRegistrationCenterPage() {
                                       <CheckCircle2 className="h-3 w-3" /> Confirm ✓
                                     </Button>
                                   )}
-                                  {!isSilk && !isAmb && rec.form_url && (
+                                  {isPetra && rec.status !== "stopped" && (
+                                    <a href="https://petragroup.bitrix24.site/crm_form_9zewt/"
+                                      target="_blank" rel="noopener noreferrer">
+                                      <Button size="sm"
+                                        className="h-6 px-2 text-[10px] gap-1 bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90"
+                                        title="Open Petra Group Bitrix24 form — fill manually then mark as submitted">
+                                        <ExternalLink className="h-3 w-3" /> Petra Form
+                                      </Button>
+                                    </a>
+                                  )}
+                                  {isPetra && rec.status !== "submitted" && rec.status !== "stopped" && rec.status !== "success" && (
+                                    <Button size="sm"
+                                      className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      disabled={markSubmittedMutation.isPending}
+                                      title="Mark as manually submitted after filling the Petra form"
+                                      onClick={() => markSubmittedMutation.mutate(rec.id)}>
+                                      <CheckCircle2 className="h-3 w-3" /> Submitted
+                                    </Button>
+                                  )}
+                                  {!isSilk && !isAmb && !isPetra && rec.form_url && (
                                     <a href={rec.form_url} target="_blank" rel="noopener noreferrer">
                                       <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] gap-1">
                                         <ExternalLink className="h-3 w-3" /> Form
                                       </Button>
                                     </a>
                                   )}
-                                  {!isSilk && !isAmb && rec.status !== "submitted" && rec.status !== "stopped" && (
+                                  {!isSilk && !isAmb && !isPetra && rec.status !== "submitted" && rec.status !== "stopped" && (
                                     <Button size="sm"
                                       className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                                       disabled={markSubmittedMutation.isPending}
@@ -1483,6 +1504,11 @@ export default function DeveloperRegistrationCenterPage() {
                                 {(co.id === 2 || (co.name ?? "").toLowerCase().includes("ambassadori")) && (
                                   <Badge className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200">
                                     Ambassadori — HTTP Adapter
+                                  </Badge>
+                                )}
+                                {(co.name ?? "").toLowerCase().includes("petra group") && (
+                                  <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30">
+                                    Petra — Manual Phase 1
                                   </Badge>
                                 )}
                               </div>
