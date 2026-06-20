@@ -984,7 +984,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── CRM ────────────────────────────────────────────────────────────────────
-  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; expectedMonth?: string; contactDate?: string; sortOrder?: "newest" | "oldest"; limit?: number; offset?: number; qualScore?: string; aiScore?: string }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
+  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; expectedMonth?: string; contactDate?: string; sortOrder?: "newest" | "oldest"; limit?: number; offset?: number; qualScore?: string; aiScore?: string; projectInterest?: string }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
     const MAX_LIMIT = 50;
     const limit  = Math.min(filters?.limit  ?? MAX_LIMIT, MAX_LIMIT);
     const offset = filters?.offset ?? 0;
@@ -1065,6 +1065,11 @@ export class DatabaseStorage implements IStorage {
       } else {
         conditions.push(sql`ai_score_category = ${filters.aiScore}`);
       }
+    }
+
+    // Project interest filter — ILIKE '%value%' because values may be semicolon-joined
+    if (filters?.projectInterest && filters.projectInterest !== "all") {
+      conditions.push(ilike(crmLeads.projectInterest, `%${filters.projectInterest}%`));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;

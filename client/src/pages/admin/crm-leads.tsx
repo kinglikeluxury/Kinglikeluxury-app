@@ -188,8 +188,9 @@ export default function CrmLeadsPage() {
   const [expectedMonth, setExpectedMonthRaw] = useState(qs.get("expectedMonth") ?? "all");
   const [contactDate, setContactDateRaw]     = useState(qs.get("contactDate") ?? "all");
   const [sortBy, setSortByRaw]               = useState(qs.get("sortBy") ?? "newest");
-  const [qualScore, setQualScoreRaw]         = useState(qs.get("qualScore") ?? "all");
-  const [aiScore,   setAiScoreRaw]           = useState(qs.get("aiScore")   ?? "all");
+  const [qualScore,        setQualScoreRaw]        = useState(qs.get("qualScore")        ?? "all");
+  const [aiScore,          setAiScoreRaw]          = useState(qs.get("aiScore")          ?? "all");
+  const [projectInterest,  setProjectInterestRaw]  = useState(qs.get("projectInterest")  ?? "all");
   const [page, setPage] = useState(1);
 
   // Wrapper setters — reset page whenever any filter changes
@@ -200,8 +201,9 @@ export default function CrmLeadsPage() {
   const setExpectedMonth = (v: string) => { setExpectedMonthRaw(v); setPage(1); };
   const setContactDate   = (v: string) => { setContactDateRaw(v);   setPage(1); };
   const setSortBy        = (v: string) => { setSortByRaw(v);        setPage(1); };
-  const setQualScore     = (v: string) => { setQualScoreRaw(v);     setPage(1); };
-  const setAiScore       = (v: string) => { setAiScoreRaw(v);       setPage(1); };
+  const setQualScore        = (v: string) => { setQualScoreRaw(v);          setPage(1); };
+  const setAiScore          = (v: string) => { setAiScoreRaw(v);            setPage(1); };
+  const setProjectInterest  = (v: string) => { setProjectInterestRaw(v);    setPage(1); };
 
   const PAGE_SIZE = 50;
 
@@ -215,12 +217,13 @@ export default function CrmLeadsPage() {
     if (expectedMonth !== "all")  p.set("expectedMonth", expectedMonth);
     if (contactDate !== "all")    p.set("contactDate", contactDate);
     if (sortBy !== "newest")      p.set("sortBy", sortBy);
-    if (qualScore !== "all")      p.set("qualScore", qualScore);
-    if (aiScore   !== "all")      p.set("aiScore",   aiScore);
-    if (page > 1)                 p.set("page", String(page));
+    if (qualScore !== "all")           p.set("qualScore",       qualScore);
+    if (aiScore   !== "all")           p.set("aiScore",         aiScore);
+    if (projectInterest !== "all")     p.set("projectInterest", projectInterest);
+    if (page > 1)                      p.set("page", String(page));
     const qs = p.toString();
     window.history.replaceState(null, "", `/admin/crm${qs ? "?" + qs : ""}`);
-  }, [search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, aiScore, page]);
+  }, [search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, aiScore, projectInterest, page]);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -288,14 +291,15 @@ export default function CrmLeadsPage() {
   if (expectedMonth !== "all") params.set("expectedMonth", expectedMonth);
   if (contactDate !== "all")   params.set("contactDate", contactDate);
   if (sortBy !== "newest")     params.set("sortOrder", "oldest");
-  if (qualScore !== "all")     params.set("qualScore", qualScore);
-  if (aiScore   !== "all")     params.set("aiScore",   aiScore);
+  if (qualScore !== "all")           params.set("qualScore",       qualScore);
+  if (aiScore   !== "all")           params.set("aiScore",         aiScore);
+  if (projectInterest !== "all")     params.set("projectInterest", projectInterest);
   params.set("page", String(page));
   params.set("limit", String(PAGE_SIZE));
 
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: pageData, isLoading, refetch } = useQuery<{ leads: CrmLeadWithAssignee[]; total: number; page: number; limit: number }>({
-    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, aiScore, page],
+    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, aiScore, projectInterest, page],
     queryFn: () => fetch(`/api/admin/crm/leads?${params}`).then(r => {
       if (!r.ok) throw new Error("Forbidden");
       return r.json();
@@ -1162,6 +1166,19 @@ export default function CrmLeadsPage() {
                 <SelectItem value="WARM">🟡 AI WARM</SelectItem>
                 <SelectItem value="COLD">❄️ AI COLD</SelectItem>
                 <SelectItem value="none">— Not scored</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={projectInterest} onValueChange={setProjectInterest}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="All Projects" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects
+                  .filter(p => p.isActive)
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(p => (
+                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                  ))
+                }
               </SelectContent>
             </Select>
           </div>

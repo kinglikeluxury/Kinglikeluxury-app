@@ -4504,7 +4504,7 @@ ${metaTags}
   app.get("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try {
-      const { search, status, source, assignedTo, expectedMonth, contactDate, sortOrder, page, limit, qualScore, aiScore } = req.query as Record<string, string>;
+      const { search, status, source, assignedTo, expectedMonth, contactDate, sortOrder, page, limit, qualScore, aiScore, projectInterest } = req.query as Record<string, string>;
       const pageNum  = Math.max(1, parseInt(page  ?? "1",  10) || 1);
       const limitNum = Math.min(50, Math.max(1, parseInt(limit ?? "50", 10) || 50));
       const offset   = (pageNum - 1) * limitNum;
@@ -4526,6 +4526,7 @@ ${metaTags}
       if (sortOrder === "oldest") filters.sortOrder = "oldest";
       if (qualScore && qualScore !== "all") filters.qualScore = qualScore;
       if (aiScore  && aiScore  !== "all") filters.aiScore  = aiScore;
+      if (projectInterest && projectInterest !== "all") filters.projectInterest = projectInterest;
       const { leads, total } = await storage.getCrmLeads(filters);
       res.json({ leads, total, page: pageNum, limit: limitNum });
     } catch (err: any) {
