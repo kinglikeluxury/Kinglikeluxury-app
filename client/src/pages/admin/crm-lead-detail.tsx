@@ -297,10 +297,16 @@ export default function CrmLeadDetailPage() {
   const [transferComment, setTransferComment] = useState<string>("");
   const [projectMultiOpen, setProjectMultiOpen] = useState(false);
   const [projectMultiPicked, setProjectMultiPicked] = useState<string[]>([]);
+  const [countryMultiOpen, setCountryMultiOpen] = useState(false);
+  const [countryMultiPicked, setCountryMultiPicked] = useState<string[]>([]);
+  const [cityMultiOpen, setCityMultiOpen] = useState(false);
+  const [cityMultiPicked, setCityMultiPicked] = useState<string[]>([]);
 
   // Non-hook computations (safe before hooks)
   const isSubAgent = user?.role === "sub_agent";
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
+  // Samer (id=29) and Fadi (id=24) may only edit the Notes field
+  const isNotesOnlyUser = user?.id === 24 || user?.id === 29;
 
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: lead, isLoading, error: leadError } = useQuery<LeadDetail>({
@@ -577,6 +583,7 @@ export default function CrmLeadDetailPage() {
   if (authLoading || !isCrmAuthorized) return null;
 
   function openField(key: string, rawValue: string) {
+    if (isNotesOnlyUser && key !== "notes") return;
     setActiveField(key);
     setFieldDraft(rawValue ?? "");
     setFieldError(null);
@@ -928,39 +935,207 @@ export default function CrmLeadDetailPage() {
                 onSave={() => saveField("country", "Origin Country", lead.country ?? "")}
               />
 
-              {/* Interested Country */}
-              <InlineEditField
-                {...sharedFieldProps}
-                fieldKey="interestedCountry"
-                label="Interested Country"
-                icon={Globe}
-                displayValue={lead.interestedCountry}
-                editValue={lead.interestedCountry ?? ""}
-                type="select"
-                options={INTERESTED_COUNTRIES.map(c => ({ value: c, label: c }))}
-                noneLabel="— Not specified —"
-                onStart={() => openField("interestedCountry", lead.interestedCountry ?? "")}
-                onSave={() => saveField("interestedCountry", "Interested Country", lead.interestedCountry ?? "")}
-              />
-
-              {/* City — optional, suggestions based on Interested Country */}
+              {/* Interested Country — multi-select */}
               {(() => {
-                const citySuggestions = CITY_SUGGESTIONS[lead.interestedCountry ?? ""];
+                const currentCountries = (lead.interestedCountry ?? "")
+                  .split(";").map(v => v.trim()).filter(Boolean);
+                if (!countryMultiOpen) {
+                  return (
+                    <div
+                      className={`group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors ${isNotesOnlyUser ? "opacity-60 cursor-default" : "cursor-pointer hover:bg-[#3bcac4]/5"}`}
+                      onClick={() => {
+                        if (isNotesOnlyUser) return;
+                        setCountryMultiPicked(currentCountries);
+                        setCountryMultiOpen(true);
+                      }}
+                    >
+                      <Globe className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Interested Country</p>
+                        {currentCountries.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {currentCountries.map(c => (
+                              <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40">{c}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="italic text-muted-foreground/40 text-xs font-normal">Click to add...</span>
+                        )}
+                      </div>
+                      {!isNotesOnlyUser && <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />}
+                    </div>
+                  );
+                }
                 return (
-                  <InlineEditField
-                    {...sharedFieldProps}
-                    fieldKey="city"
-                    label="City (Optional)"
-                    icon={MapPin}
-                    displayValue={lead.city}
-                    editValue={lead.city ?? ""}
-                    type={citySuggestions ? "select" : "text"}
-                    options={citySuggestions ? citySuggestions.map(c => ({ value: c, label: c })) : undefined}
-                    noneLabel="— Not specified —"
-                    placeholder="Enter city..."
-                    onStart={() => openField("city", lead.city ?? "")}
-                    onSave={() => saveField("city", "City", lead.city ?? "")}
-                  />
+                  <div className="py-2.5 border-b last:border-0 bg-[#3bcac4]/5 rounded-md px-2 -mx-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Globe className="h-4 w-4 text-[#3bcac4] shrink-0" />
+                      <span className="text-xs font-semibold text-[#005476]">Interested Country</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {INTERESTED_COUNTRIES.map(name => {
+                        const selected = countryMultiPicked.includes(name);
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() =>
+                              setCountryMultiPicked(prev =>
+                                selected ? prev.filter(v => v !== name) : [...prev, name]
+                              )
+                            }
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                              selected
+                                ? "bg-[#3bcac4] text-white border-[#3bcac4]"
+                                : "bg-white text-[#005476] border-[#005476]/30 hover:border-[#3bcac4]"
+                            }`}
+                          >
+                            {selected && <X className="h-2.5 w-2.5" />}
+                            {name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="h-6 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] px-3 gap-1"
+                        onClick={() => {
+                          const oldRaw = lead.interestedCountry ?? "";
+                          const newValue = countryMultiPicked.join(";");
+                          updateMutation.mutate({ interestedCountry: newValue || null } as any, {
+                            onSuccess: () => {
+                              if (oldRaw !== newValue) {
+                                addNoteMutation.mutate(
+                                  `[Updated] Interested Country: "${oldRaw || "—"}" → "${newValue || "—"}"`
+                                );
+                              }
+                              setCountryMultiOpen(false);
+                            },
+                          });
+                        }}
+                        disabled={updateMutation.isPending}
+                      >
+                        {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={() => setCountryMultiOpen(false)}>
+                        <X className="h-3 w-3" /> Cancel
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* City — multi-select, pool from all selected interested countries */}
+              {(() => {
+                const currentCities = (lead.city ?? "")
+                  .split(";").map(v => v.trim()).filter(Boolean);
+                const selectedCountries = (lead.interestedCountry ?? "")
+                  .split(";").map(v => v.trim()).filter(Boolean);
+                const cityPool: string[] = Array.from(
+                  new Set(selectedCountries.flatMap(c => CITY_SUGGESTIONS[c] ?? []))
+                );
+
+                if (!cityMultiOpen) {
+                  return (
+                    <div
+                      className={`group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors ${isNotesOnlyUser ? "opacity-60 cursor-default" : "cursor-pointer hover:bg-[#3bcac4]/5"}`}
+                      onClick={() => {
+                        if (isNotesOnlyUser) return;
+                        setCityMultiPicked(currentCities);
+                        setCityMultiOpen(true);
+                      }}
+                    >
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">City (Optional)</p>
+                        {currentCities.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {currentCities.map(c => (
+                              <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40">{c}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="italic text-muted-foreground/40 text-xs font-normal">Click to add...</span>
+                        )}
+                      </div>
+                      {!isNotesOnlyUser && <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-50 mt-1.5 shrink-0 transition-opacity" />}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="py-2.5 border-b last:border-0 bg-[#3bcac4]/5 rounded-md px-2 -mx-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPin className="h-4 w-4 text-[#3bcac4] shrink-0" />
+                      <span className="text-xs font-semibold text-[#005476]">City (Optional)</span>
+                    </div>
+                    {cityPool.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {cityPool.map(name => {
+                          const selected = cityMultiPicked.includes(name);
+                          return (
+                            <button
+                              key={name}
+                              type="button"
+                              onClick={() =>
+                                setCityMultiPicked(prev =>
+                                  selected ? prev.filter(v => v !== name) : [...prev, name]
+                                )
+                              }
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                selected
+                                  ? "bg-[#3bcac4] text-white border-[#3bcac4]"
+                                  : "bg-white text-[#005476] border-[#005476]/30 hover:border-[#3bcac4]"
+                              }`}
+                            >
+                              {selected && <X className="h-2.5 w-2.5" />}
+                              {name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="mb-3">
+                        <Input
+                          autoFocus
+                          value={cityMultiPicked[0] ?? ""}
+                          onChange={e => setCityMultiPicked(e.target.value ? [e.target.value] : [])}
+                          placeholder="Enter city..."
+                          className="h-8 text-sm bg-white"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Select an Interested Country first to see city suggestions.</p>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="h-6 text-xs bg-gradient-to-r from-[#3bcac4] to-[#005476] px-3 gap-1"
+                        onClick={() => {
+                          const oldRaw = lead.city ?? "";
+                          const newValue = cityMultiPicked.join(";");
+                          updateMutation.mutate({ city: newValue || null } as any, {
+                            onSuccess: () => {
+                              if (oldRaw !== newValue) {
+                                addNoteMutation.mutate(
+                                  `[Updated] City: "${oldRaw || "—"}" → "${newValue || "—"}"`
+                                );
+                              }
+                              setCityMultiOpen(false);
+                            },
+                          });
+                        }}
+                        disabled={updateMutation.isPending}
+                      >
+                        {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={() => setCityMultiOpen(false)}>
+                        <X className="h-3 w-3" /> Cancel
+                      </Button>
+                    </div>
+                  </div>
                 );
               })()}
 

@@ -5562,6 +5562,14 @@ ${metaTags}
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
+    // Samer (userId=29) and Fadi (userId=24) may only patch the notes field
+    const NOTES_ONLY_USER_IDS = [24, 29];
+    if (NOTES_ONLY_USER_IDS.includes(req.session.userId)) {
+      const patchKeys = Object.keys(req.body).filter(k => k !== "_comment");
+      if (!patchKeys.every(k => k === "notes")) {
+        return res.status(403).json({ message: "You may only edit the Notes field" });
+      }
+    }
     try {
       // Extract sub-agent comment (required for all sub-agent changes)
       const _comment = (req.body._comment as string | undefined)?.trim() ?? "";
