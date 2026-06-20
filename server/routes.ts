@@ -5547,7 +5547,9 @@ ${metaTags}
   /** GET /api/admin/crm/leads/:id — lead detail with notes + assignee */
   app.get("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    if (!await canAccessLead(req, Number(req.params.id))) return res.status(403).json({ message: "Access denied: lead not assigned to you" });
+    const _notesOnlyViewIds = [24, 29];
+    if (!_notesOnlyViewIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
+      return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
       const lead = await storage.getCrmLead(Number(req.params.id));
       if (!lead) return res.status(404).json({ message: "Lead not found" });
@@ -5560,7 +5562,8 @@ ${metaTags}
   /** PATCH /api/admin/crm/leads/:id — update any lead fields */
   app.patch("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+    const _notesOnlyPatchIds = [24, 29];
+    if (!req.session.isAdmin && !_notesOnlyPatchIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     // Samer (userId=29) and Fadi (userId=24) may only patch the notes field
     const NOTES_ONLY_USER_IDS = [24, 29];
@@ -5863,7 +5866,8 @@ ${metaTags}
   /** POST /api/admin/crm/leads/:id/notes — add a note to a lead */
   app.post("/api/admin/crm/leads/:id/notes", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
+    const _notesOnlyNoteIds = [24, 29];
+    if (!req.session.isAdmin && !_notesOnlyNoteIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
       const { note } = req.body;

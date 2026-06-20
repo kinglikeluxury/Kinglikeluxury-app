@@ -616,6 +616,7 @@ export default function CrmLeadDetailPage() {
   }
 
   function openStatusDialog(newStatus: string) {
+    if (isNotesOnlyUser) return;
     if (!lead || newStatus === lead.status) return;
     // Only these critical statuses require a written reason — all others save instantly
     const REQUIRES_REASON = [
@@ -874,8 +875,10 @@ export default function CrmLeadDetailPage() {
 
             <CardContent className="pt-0">
               <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
-                <Edit3 className="h-3 w-3" />
-                Click any field to edit it
+                {isNotesOnlyUser ? <FileText className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
+                {isNotesOnlyUser
+                  ? "View-only — use the Notes field or Activity Timeline to add comments"
+                  : "Click any field to edit it"}
               </p>
 
               {/* Phone */}
@@ -1149,8 +1152,9 @@ export default function CrmLeadDetailPage() {
                 if (!projectMultiOpen) {
                   return (
                     <div
-                      className="group flex items-start gap-3 py-2.5 border-b last:border-0 cursor-pointer hover:bg-[#3bcac4]/5 rounded px-1 -mx-1 transition-colors"
+                      className={`group flex items-start gap-3 py-2.5 border-b last:border-0 rounded px-1 -mx-1 transition-colors ${isNotesOnlyUser ? "opacity-60 cursor-default" : "cursor-pointer hover:bg-[#3bcac4]/5"}`}
                       onClick={() => {
+                        if (isNotesOnlyUser) return;
                         setProjectMultiPicked(currentProjects);
                         setProjectMultiOpen(true);
                       }}
@@ -1619,6 +1623,7 @@ export default function CrmLeadDetailPage() {
                   <button
                     key={score}
                     onClick={() => {
+                      if (isNotesOnlyUser) return;
                       updateMutation.mutate({ leadScore: score } as Partial<CrmLead>, {
                         onSuccess: () => {
                           if (score !== lead.leadScore) {
