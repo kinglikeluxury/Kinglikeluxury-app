@@ -285,6 +285,8 @@ export default function CrmLeadDetailPage() {
   const [detectedCountry, setDetectedCountry] = useState("");
 
   const [newNote, setNewNote] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingNoteDraft, setEditingNoteDraft] = useState("");
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(EMPTY_TASK);
   const [editTaskOpen, setEditTaskOpen] = useState(false);
@@ -348,6 +350,13 @@ export default function CrmLeadDetailPage() {
   const addNoteMutation = useMutation({
     mutationFn: (note: string) => apiRequest("POST", `/api/admin/crm/leads/${leadId}/notes`, { note }),
     onSuccess: () => { invalidateLead(); setNewNote(""); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const editNoteMutation = useMutation({
+    mutationFn: ({ noteId, note }: { noteId: number; note: string }) =>
+      apiRequest("PATCH", `/api/admin/crm/leads/${leadId}/notes/${noteId}`, { note }),
+    onSuccess: () => { invalidateLead(); setEditingNoteId(null); setEditingNoteDraft(""); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -1519,6 +1528,9 @@ export default function CrmLeadDetailPage() {
                     const isStatusChange = note.note.startsWith("[Status Change]");
                     const isReassignment = note.note.startsWith("[Reassignment]");
                     const isAuto = note.note.startsWith("[Updated]") || isStatusChange;
+                    const isSystemNote = isAuto || isReassignment;
+                    const canEdit = !isSystemNote && note.userId === user?.id;
+                    const isEditing = editingNoteId === note.id;
                     return (
                       <div key={note.id} className="flex gap-3">
                         <div className="flex flex-col items-center">
@@ -1553,20 +1565,58 @@ export default function CrmLeadDetailPage() {
                             <span className="text-xs text-muted-foreground">
                               {new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
+                            {canEdit && !isEditing && (
+                              <button
+                                className="ml-auto text-xs text-muted-foreground hover:text-[#005476] flex items-center gap-1 transition-colors"
+                                onClick={() => { setEditingNoteId(note.id); setEditingNoteDraft(note.note); }}
+                              >
+                                <Edit3 className="h-3 w-3" /> Edit
+                              </button>
+                            )}
                           </div>
-                          <p className={`text-sm rounded-lg px-3 py-2 border whitespace-pre-wrap ${
-                            isReassignment
-                              ? "bg-[#3bcac4]/5 text-[#005476] border-[#3bcac4]/30 text-xs font-medium"
-                              : isStatusChange
-                              ? "bg-[#005476]/5 text-[#005476] border-[#005476]/20 text-xs font-medium"
-                              : isAuto
-                              ? "bg-[#3bcac4]/5 text-[#005476]/70 border-[#3bcac4]/20 text-xs"
-                              : "bg-gray-50 text-gray-700"
-                          }`}>
-                            {note.note
-                              .replace(/^\[Status Change\] /, "")
-                              .replace(/^\[Reassignment\] /, "")}
-                          </p>
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                rows={3}
+                                value={editingNoteDraft}
+                                onChange={e => setEditingNoteDraft(e.target.value)}
+                                className="resize-none text-sm"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  className="bg-gradient-to-r from-[#3bcac4] to-[#005476] h-7 text-xs px-3"
+                                  disabled={!editingNoteDraft.trim() || editNoteMutation.isPending}
+                                  onClick={() => editNoteMutation.mutate({ noteId: note.id, note: editingNoteDraft })}
+                                >
+                                  {editNoteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs px-3"
+                                  onClick={() => { setEditingNoteId(null); setEditingNoteDraft(""); }}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className={`text-sm rounded-lg px-3 py-2 border whitespace-pre-wrap ${
+                              isReassignment
+                                ? "bg-[#3bcac4]/5 text-[#005476] border-[#3bcac4]/30 text-xs font-medium"
+                                : isStatusChange
+                                ? "bg-[#005476]/5 text-[#005476] border-[#005476]/20 text-xs font-medium"
+                                : isAuto
+                                ? "bg-[#3bcac4]/5 text-[#005476]/70 border-[#3bcac4]/20 text-xs"
+                                : "bg-gray-50 text-gray-700"
+                            }`}>
+                              {note.note
+                                .replace(/^\[Status Change\] /, "")
+                                .replace(/^\[Reassignment\] /, "")}
+                            </p>
+                          )}
                         </div>
                       </div>
                     );

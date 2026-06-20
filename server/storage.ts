@@ -150,6 +150,7 @@ export interface IStorage {
   updateCrmLead(id: number, data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined>;
   deleteCrmLead(id: number): Promise<boolean>;
   addCrmNote(data: import("@shared/schema").InsertCrmNote): Promise<import("@shared/schema").CrmNote>;
+  updateCrmNote(noteId: number, newText: string, requestingUserId: number): Promise<import("@shared/schema").CrmNote | null>;
   // CRM project operations
   getCrmProjects(): Promise<import("@shared/schema").CrmProject[]>;
   createCrmProject(data: import("@shared/schema").InsertCrmProject): Promise<import("@shared/schema").CrmProject>;
@@ -591,6 +592,7 @@ export class MemStorage implements IStorage {
   async updateCrmLead(_id: number, _data: Partial<import("@shared/schema").CrmLead>): Promise<import("@shared/schema").CrmLead | undefined> { return undefined; }
   async deleteCrmLead(_id: number): Promise<boolean> { return false; }
   async addCrmNote(_data: import("@shared/schema").InsertCrmNote): Promise<import("@shared/schema").CrmNote> { throw new Error("Not implemented"); }
+  async updateCrmNote(_noteId: number, _newText: string, _requestingUserId: number): Promise<import("@shared/schema").CrmNote | null> { return null; }
   async getCrmProjects(): Promise<import("@shared/schema").CrmProject[]> { return []; }
   async createCrmProject(_data: import("@shared/schema").InsertCrmProject): Promise<import("@shared/schema").CrmProject> { throw new Error("Not implemented"); }
   async updateCrmProject(_id: number, _data: Partial<import("@shared/schema").CrmProject>): Promise<import("@shared/schema").CrmProject | undefined> { return undefined; }

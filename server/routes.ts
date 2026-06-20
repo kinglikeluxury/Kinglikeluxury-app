@@ -5899,6 +5899,44 @@ ${metaTags}
     }
   });
 
+  /** PATCH /api/admin/crm/leads/:leadId/notes/:noteId — edit own manual note */
+  app.patch("/api/admin/crm/leads/:leadId/notes/:noteId", isAuthenticated, async (req: any, res) => {
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    const leadId = Number(req.params.leadId);
+    const noteId = Number(req.params.noteId);
+    const { note: newText } = req.body;
+    if (!newText?.trim()) return res.status(400).json({ message: "Note text cannot be blank" });
+    try {
+      const { db } = await import("./db");
+      // Load note — confirm it exists and belongs to this lead
+      const rows = await db.execute(
+        `SELECT id, lead_id, user_id, note FROM crm_notes WHERE id = $1 AND lead_id = $2 LIMIT 1`,
+        [noteId, leadId]
+      ) as any;
+      const row = rows?.rows?.[0] ?? rows?.[0] ?? null;
+      if (!row) return res.status(404).json({ message: "Note not found" });
+      // Ownership: only the creator may edit
+      if (row.user_id !== req.session.userId) return res.status(403).json({ message: "You can only edit your own notes" });
+      // Block editing system/auto entries
+      const text: string = row.note ?? "";
+      if (text.startsWith("[Status Change]") || text.startsWith("[Reassignment]") || text.startsWith("[Updated]")) {
+        return res.status(403).json({ message: "System notes cannot be edited" });
+      }
+      await db.execute(
+        `UPDATE crm_notes SET note = $1 WHERE id = $2`,
+        [newText.trim(), noteId]
+      );
+      const updated = await db.execute(
+        `SELECT id, lead_id AS "leadId", user_id AS "userId", note, created_at AS "createdAt" FROM crm_notes WHERE id = $1`,
+        [noteId]
+      ) as any;
+      const updatedRow = updated?.rows?.[0] ?? updated?.[0] ?? { id: noteId, leadId, note: newText.trim() };
+      res.json(updatedRow);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Sub-Agent Management ─────────────────────────────────────────────────
 
   /** GET /api/admin/crm/assignable-agents — list users who can be assigned leads (admins + sub_agents only) */
