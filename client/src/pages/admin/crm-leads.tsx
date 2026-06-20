@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Users, Search, Plus, Flame, Thermometer, Snowflake,
   Phone, Mail, MapPin, Globe, RefreshCw, Loader2,
-  ChevronRight, Crown, UserCheck, Building2, FolderOpen,
+  ChevronRight, ChevronDown, Crown, UserCheck, Building2, FolderOpen,
   Edit3, Trash2, Upload, Download, CheckCircle2, XCircle, AlertCircle,
   FileText, Bot,
 } from "lucide-react";
@@ -156,6 +156,83 @@ const EMPTY_FORM = {
   leadSource: "manual", leadScore: "cold", status: "new",
 };
 
+// ── Multi-select filter dropdown ───────────────────────────────────────────────
+interface MultiSelectOption { label: string; value: string }
+
+function MultiSelectFilter({
+  label, options, selected, onChange, width = "w-48",
+}: {
+  label: string;
+  options: MultiSelectOption[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+  width?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const toggle = (v: string) =>
+    onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
+
+  const displayLabel = selected.length === 0
+    ? `All ${label}`
+    : `${label} (${selected.length})`;
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`${width} flex items-center justify-between gap-1 h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent hover:text-accent-foreground transition-colors`}
+      >
+        <span className={`truncate ${selected.length > 0 ? "text-[#005476] font-medium" : "text-muted-foreground"}`}>
+          {displayLabel}
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full min-w-[200px] rounded-md border bg-popover shadow-md">
+          <div className="max-h-60 overflow-y-auto p-1">
+            {options.map(opt => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-accent text-sm select-none"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt.value)}
+                  onChange={() => toggle(opt.value)}
+                  className="h-3.5 w-3.5 accent-[#3bcac4] shrink-0"
+                />
+                <span className="truncate">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+          {selected.length > 0 && (
+            <div className="border-t p-1">
+              <button
+                type="button"
+                onClick={() => { onChange([]); setOpen(false); }}
+                className="w-full text-xs text-muted-foreground hover:text-destructive px-2 py-1 rounded hover:bg-accent transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CRM_FIELD_LABELS: Record<string, string> = {
   "(skip)":               "— Skip Column —",
   firstName:              "First Name",
@@ -181,49 +258,49 @@ export default function CrmLeadsPage() {
 
   // Initialise filters from URL query params so they survive navigation
   const qs = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-  const [search, setSearchRaw]         = useState(qs.get("search") ?? "");
-  const [status, setStatusRaw]         = useState(qs.get("status") ?? "all");
-  const [source, setSourceRaw]         = useState(qs.get("source") ?? "all");
-  const [assigned, setAssignedRaw]     = useState(qs.get("assignedTo") ?? "all");
-  const [expectedMonth, setExpectedMonthRaw] = useState(qs.get("expectedMonth") ?? "all");
-  const [contactDate, setContactDateRaw]     = useState(qs.get("contactDate") ?? "all");
-  const [sortBy, setSortByRaw]               = useState(qs.get("sortBy") ?? "newest");
-  const [qualScore,        setQualScoreRaw]        = useState(qs.get("qualScore")        ?? "all");
-  const [aiScore,          setAiScoreRaw]          = useState(qs.get("aiScore")          ?? "all");
-  const [projectInterest,  setProjectInterestRaw]  = useState(qs.get("projectInterest")  ?? "all");
+  const [search, setSearchRaw]   = useState(qs.get("search") ?? "");
+  const [status,         setStatusRaw]         = useState<string[]>(qs.get("status")         ? qs.get("status")!.split(",").filter(Boolean) : []);
+  const [source,         setSourceRaw]         = useState<string[]>(qs.get("source")         ? qs.get("source")!.split(",").filter(Boolean) : []);
+  const [assigned,       setAssignedRaw]       = useState<string[]>(qs.get("assignedTo")     ? qs.get("assignedTo")!.split(",").filter(Boolean) : []);
+  const [expectedMonth,  setExpectedMonthRaw]  = useState<string[]>(qs.get("expectedMonth")  ? qs.get("expectedMonth")!.split(",").filter(Boolean) : []);
+  const [contactDate,    setContactDateRaw]    = useState(qs.get("contactDate") ?? "all");
+  const [sortBy,         setSortByRaw]         = useState(qs.get("sortBy") ?? "newest");
+  const [qualScore,      setQualScoreRaw]      = useState<string[]>(qs.get("qualScore")      ? qs.get("qualScore")!.split(",").filter(Boolean) : []);
+  const [aiScore,        setAiScoreRaw]        = useState<string[]>(qs.get("aiScore")        ? qs.get("aiScore")!.split(",").filter(Boolean) : []);
+  const [projectInterest, setProjectInterestRaw] = useState<string[]>(qs.get("projectInterest") ? qs.get("projectInterest")!.split(",").filter(Boolean) : []);
   const [page, setPage] = useState(1);
 
   // Wrapper setters — reset page whenever any filter changes
-  const setSearch        = (v: string) => { setSearchRaw(v);        setPage(1); };
-  const setStatus        = (v: string) => { setStatusRaw(v);        setPage(1); };
-  const setSource        = (v: string) => { setSourceRaw(v);        setPage(1); };
-  const setAssigned      = (v: string) => { setAssignedRaw(v);      setPage(1); };
-  const setExpectedMonth = (v: string) => { setExpectedMonthRaw(v); setPage(1); };
-  const setContactDate   = (v: string) => { setContactDateRaw(v);   setPage(1); };
-  const setSortBy        = (v: string) => { setSortByRaw(v);        setPage(1); };
-  const setQualScore        = (v: string) => { setQualScoreRaw(v);          setPage(1); };
-  const setAiScore          = (v: string) => { setAiScoreRaw(v);            setPage(1); };
-  const setProjectInterest  = (v: string) => { setProjectInterestRaw(v);    setPage(1); };
+  const setSearch        = (v: string)    => { setSearchRaw(v);         setPage(1); };
+  const setStatus        = (v: string[])  => { setStatusRaw(v);         setPage(1); };
+  const setSource        = (v: string[])  => { setSourceRaw(v);         setPage(1); };
+  const setAssigned      = (v: string[])  => { setAssignedRaw(v);       setPage(1); };
+  const setExpectedMonth = (v: string[])  => { setExpectedMonthRaw(v);  setPage(1); };
+  const setContactDate   = (v: string)    => { setContactDateRaw(v);    setPage(1); };
+  const setSortBy        = (v: string)    => { setSortByRaw(v);         setPage(1); };
+  const setQualScore     = (v: string[])  => { setQualScoreRaw(v);      setPage(1); };
+  const setAiScore       = (v: string[])  => { setAiScoreRaw(v);        setPage(1); };
+  const setProjectInterest = (v: string[]) => { setProjectInterestRaw(v); setPage(1); };
 
   const PAGE_SIZE = 50;
 
   // Keep URL in sync with filter state (replaceState — no new history entry)
   useEffect(() => {
     const p = new URLSearchParams();
-    if (search)                   p.set("search", search);
-    if (status !== "all")         p.set("status", status);
-    if (source !== "all")         p.set("source", source);
-    if (assigned !== "all")       p.set("assignedTo", assigned);
-    if (expectedMonth !== "all")  p.set("expectedMonth", expectedMonth);
-    if (contactDate !== "all")    p.set("contactDate", contactDate);
-    if (sortBy !== "newest")      p.set("sortBy", sortBy);
-    if (qualScore !== "all")           p.set("qualScore",       qualScore);
-    if (aiScore   !== "all")           p.set("aiScore",         aiScore);
-    if (projectInterest !== "all")     p.set("projectInterest", projectInterest);
-    if (page > 1)                      p.set("page", String(page));
+    if (search)                     p.set("search",          search);
+    if (status.length > 0)          p.set("status",          status.join(","));
+    if (source.length > 0)          p.set("source",          source.join(","));
+    if (assigned.length > 0)        p.set("assignedTo",      assigned.join(","));
+    if (expectedMonth.length > 0)   p.set("expectedMonth",   expectedMonth.join(","));
+    if (contactDate !== "all")      p.set("contactDate",     contactDate);
+    if (sortBy !== "newest")        p.set("sortBy",          sortBy);
+    if (qualScore.length > 0)       p.set("qualScore",       qualScore.join(","));
+    if (aiScore.length > 0)         p.set("aiScore",         aiScore.join(","));
+    if (projectInterest.length > 0) p.set("projectInterest", projectInterest.join(","));
+    if (page > 1)                   p.set("page",            String(page));
     const qs = p.toString();
     window.history.replaceState(null, "", `/admin/crm${qs ? "?" + qs : ""}`);
-  }, [search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, aiScore, projectInterest, page]);
+  }, [search, status.join(","), source.join(","), assigned.join(","), expectedMonth.join(","), contactDate, sortBy, qualScore.join(","), aiScore.join(","), projectInterest.join(","), page]);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -280,26 +357,26 @@ export default function CrmLeadsPage() {
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
 
   const params = new URLSearchParams();
-  if (search)                  params.set("search", search);
-  if (status !== "all")        params.set("status", status);
-  if (source !== "all")        params.set("source", source);
+  if (search)                     params.set("search",          search);
+  if (status.length > 0)          params.set("status",          status.join(","));
+  if (source.length > 0)          params.set("source",          source.join(","));
   if (isSubAgent && user) {
     params.set("assignedTo", String(user.id));
-  } else if (assigned !== "all") {
-    params.set("assignedTo", assigned);
+  } else if (assigned.length > 0) {
+    params.set("assignedTo", assigned.join(","));
   }
-  if (expectedMonth !== "all") params.set("expectedMonth", expectedMonth);
-  if (contactDate !== "all")   params.set("contactDate", contactDate);
-  if (sortBy !== "newest")     params.set("sortOrder", "oldest");
-  if (qualScore !== "all")           params.set("qualScore",       qualScore);
-  if (aiScore   !== "all")           params.set("aiScore",         aiScore);
-  if (projectInterest !== "all")     params.set("projectInterest", projectInterest);
+  if (expectedMonth.length > 0)   params.set("expectedMonth",   expectedMonth.join(","));
+  if (contactDate !== "all")      params.set("contactDate",     contactDate);
+  if (sortBy !== "newest")        params.set("sortOrder",       "oldest");
+  if (qualScore.length > 0)       params.set("qualScore",       qualScore.join(","));
+  if (aiScore.length > 0)         params.set("aiScore",         aiScore.join(","));
+  if (projectInterest.length > 0) params.set("projectInterest", projectInterest.join(","));
   params.set("page", String(page));
   params.set("limit", String(PAGE_SIZE));
 
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: pageData, isLoading, refetch } = useQuery<{ leads: CrmLeadWithAssignee[]; total: number; page: number; limit: number }>({
-    queryKey: ["/api/admin/crm/leads", search, status, source, assigned, expectedMonth, contactDate, sortBy, qualScore, aiScore, projectInterest, page],
+    queryKey: ["/api/admin/crm/leads", search, status.join(","), source.join(","), assigned.join(","), expectedMonth.join(","), contactDate, sortBy, qualScore.join(","), aiScore.join(","), projectInterest.join(","), page],
     queryFn: () => fetch(`/api/admin/crm/leads?${params}`).then(r => {
       if (!r.ok) throw new Error("Forbidden");
       return r.json();
@@ -1091,42 +1168,42 @@ export default function CrmLeadsPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="All Statuses" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {STATUSES.map(s => <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={source} onValueChange={setSource}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="All Sources" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                {SOURCES.map(s => <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              label="Status"
+              options={STATUSES.map(s => ({ label: STATUS_CONFIG[s].label, value: s }))}
+              selected={status}
+              onChange={setStatus}
+              width="w-44"
+            />
+            <MultiSelectFilter
+              label="Source"
+              options={SOURCES.map(s => ({ label: SOURCE_LABELS[s], value: s }))}
+              selected={source}
+              onChange={setSource}
+              width="w-36"
+            />
             {!isSubAgent && (
-              <Select value={assigned} onValueChange={setAssigned}>
-                <SelectTrigger className="w-44"><SelectValue placeholder="All Agents" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Agents</SelectItem>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {subAgents.map(a => (
-                    <SelectItem key={a.id} value={String(a.id)}>{a.username}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelectFilter
+                label="Agent"
+                options={[
+                  { label: "Unassigned", value: "unassigned" },
+                  ...subAgents.map(a => ({ label: a.username, value: String(a.id) })),
+                ]}
+                selected={assigned}
+                onChange={setAssigned}
+                width="w-44"
+              />
             )}
-            <Select value={expectedMonth} onValueChange={setExpectedMonth}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="All Months" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Months</SelectItem>
-                <SelectItem value="not_specified">Not specified</SelectItem>
-                {FILTER_MONTHS.map(m => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              label="Month"
+              options={[
+                { label: "Not specified", value: "not_specified" },
+                ...FILTER_MONTHS.map(m => ({ label: m, value: m })),
+              ]}
+              selected={expectedMonth}
+              onChange={setExpectedMonth}
+              width="w-44"
+            />
             <Select value={contactDate} onValueChange={setContactDate}>
               <SelectTrigger className="w-44"><SelectValue placeholder="Contact Date" /></SelectTrigger>
               <SelectContent>
@@ -1146,41 +1223,43 @@ export default function CrmLeadsPage() {
                 <SelectItem value="oldest">Oldest first</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={qualScore} onValueChange={setQualScore}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="WA Qual Score" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All WA Scores</SelectItem>
-                <SelectItem value="vip">⭐ VIP</SelectItem>
-                <SelectItem value="hot">🔥 Hot</SelectItem>
-                <SelectItem value="warm">🌡️ Warm</SelectItem>
-                <SelectItem value="cold">❄️ Cold</SelectItem>
-                <SelectItem value="in_progress">⏳ In Progress</SelectItem>
-                <SelectItem value="none">— Not qualified</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={aiScore} onValueChange={setAiScore}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="AI Score" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All AI Scores</SelectItem>
-                <SelectItem value="HOT">🔥 AI HOT</SelectItem>
-                <SelectItem value="WARM">🟡 AI WARM</SelectItem>
-                <SelectItem value="COLD">❄️ AI COLD</SelectItem>
-                <SelectItem value="none">— Not scored</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={projectInterest} onValueChange={setProjectInterest}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="All Projects" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {projects
-                  .filter(p => p.isActive)
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map(p => (
-                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                  ))
-                }
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              label="WA Score"
+              options={[
+                { label: "⭐ VIP", value: "vip" },
+                { label: "🔥 Hot", value: "hot" },
+                { label: "🌡️ Warm", value: "warm" },
+                { label: "❄️ Cold", value: "cold" },
+                { label: "⏳ In Progress", value: "in_progress" },
+                { label: "— Not qualified", value: "none" },
+              ]}
+              selected={qualScore}
+              onChange={setQualScore}
+              width="w-44"
+            />
+            <MultiSelectFilter
+              label="AI Score"
+              options={[
+                { label: "🔥 AI HOT", value: "HOT" },
+                { label: "🟡 AI WARM", value: "WARM" },
+                { label: "❄️ AI COLD", value: "COLD" },
+                { label: "— Not scored", value: "none" },
+              ]}
+              selected={aiScore}
+              onChange={setAiScore}
+              width="w-40"
+            />
+            <MultiSelectFilter
+              label="Projects"
+              options={projects
+                .filter(p => p.isActive)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(p => ({ label: p.name, value: p.name }))
+              }
+              selected={projectInterest}
+              onChange={setProjectInterest}
+              width="w-48"
+            />
           </div>
         </CardContent>
       </Card>

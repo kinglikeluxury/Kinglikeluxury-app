@@ -4509,24 +4509,28 @@ ${metaTags}
       const limitNum = Math.min(50, Math.max(1, parseInt(limit ?? "50", 10) || 50));
       const offset   = (pageNum - 1) * limitNum;
 
+      const splitParam = (v: string | undefined) =>
+        v ? v.split(",").map(s => s.trim()).filter(Boolean) : [];
+
       const filters: any = { limit: limitNum, offset };
       if (search) filters.search = search;
-      if (status) filters.status = status;
-      if (source) filters.source = source;
+      if (status) filters.status = splitParam(status);
+      if (source) filters.source = splitParam(source);
       if (!req.session.isAdmin && req.session.role === "sub_agent") {
         // Sub-agents can only see leads assigned to them — backend-enforced
-        filters.assignedTo = req.session.userId;
-      } else if (assignedTo === "unassigned") {
-        filters.assignedTo = null;
+        filters.assignedTo = [req.session.userId];
       } else if (assignedTo) {
-        filters.assignedTo = Number(assignedTo);
+        filters.assignedTo = assignedTo.split(",").map(v => {
+          const t = v.trim();
+          return t === "unassigned" ? null : Number(t);
+        }).filter(v => v === null || !isNaN(v as number));
       }
-      if (expectedMonth) filters.expectedMonth = expectedMonth;
+      if (expectedMonth) filters.expectedMonth = splitParam(expectedMonth);
       if (contactDate && contactDate !== "all") filters.contactDate = contactDate;
       if (sortOrder === "oldest") filters.sortOrder = "oldest";
-      if (qualScore && qualScore !== "all") filters.qualScore = qualScore;
-      if (aiScore  && aiScore  !== "all") filters.aiScore  = aiScore;
-      if (projectInterest && projectInterest !== "all") filters.projectInterest = projectInterest;
+      if (qualScore) filters.qualScore = splitParam(qualScore);
+      if (aiScore)   filters.aiScore   = splitParam(aiScore);
+      if (projectInterest) filters.projectInterest = splitParam(projectInterest);
       const { leads, total } = await storage.getCrmLeads(filters);
       res.json({ leads, total, page: pageNum, limit: limitNum });
     } catch (err: any) {

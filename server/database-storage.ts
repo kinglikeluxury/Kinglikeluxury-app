@@ -1,4 +1,4 @@
-import { eq, and, like, ilike, gte, lte, asc, desc, or, isNull, sql, gte as gteOp } from "drizzle-orm";
+import { eq, and, like, ilike, gte, lte, asc, desc, or, isNull, sql, gte as gteOp, inArray } from "drizzle-orm";
 import { db, withRetry } from "./db";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -984,16 +984,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── CRM ────────────────────────────────────────────────────────────────────
-  async getCrmLeads(filters?: { search?: string; status?: string; source?: string; assignedTo?: number | null; expectedMonth?: string; contactDate?: string; sortOrder?: "newest" | "oldest"; limit?: number; offset?: number; qualScore?: string; aiScore?: string; projectInterest?: string }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
+  async getCrmLeads(filters?: {
+    search?: string;
+    status?: string[];
+    source?: string[];
+    assignedTo?: Array<number | null>;
+    expectedMonth?: string[];
+    contactDate?: string;
+    sortOrder?: "newest" | "oldest";
+    limit?: number;
+    offset?: number;
+    qualScore?: string[];
+    aiScore?: string[];
+    projectInterest?: string[];
+  }): Promise<{ leads: (CrmLead & { assigneeName?: string | null })[]; total: number }> {
     const MAX_LIMIT = 50;
     const limit  = Math.min(filters?.limit  ?? MAX_LIMIT, MAX_LIMIT);
     const offset = filters?.offset ?? 0;
 
     const conditions: any[] = [];
-    if (filters?.status) conditions.push(eq(crmLeads.status, filters.status));
-    if (filters?.source) conditions.push(eq(crmLeads.leadSource, filters.source));
-    if (filters?.assignedTo !== undefined && filters.assignedTo !== null)
-      conditions.push(eq(crmLeads.assignedTo, filters.assignedTo));
+
+    // Status — multi-select OR
+    if (filters?.status && filters.status.length > 0) {
+      conditions.push(
+        filters.status.length === 1
+          ? eq(crmLeads.status, filters.status[0])
+          : inArray(crmLeads.status, filters.status)
+      );
+    }
+
+    // Source — multi-select OR
+    if (filters?.source && filters.source.length > 0) {
+      conditions.push(
+        filters.source.length === 1
+          ? eq(crmLeads.leadSource, filters.source[0])
+          : inArray(crmLeads.leadSource, filters.source)
+      );
+    }
+
+    // Assigned-to — multi-select OR (null element = unassigned)
+    if (filters?.assignedTo && filters.assignedTo.length > 0) {
+      const ids = filters.assignedTo.filter((v): v is number => v !== null);
+      const hasUnassigned = filters.assignedTo.includes(null);
+      if (hasUnassigned && ids.length > 0) {
+        conditions.push(or(isNull(crmLeads.assignedTo), inArray(crmLeads.assignedTo, ids)));
+      } else if (hasUnassigned) {
+        conditions.push(isNull(crmLeads.assignedTo));
+      } else {
+        conditions.push(
+          ids.length === 1 ? eq(crmLeads.assignedTo, ids[0]) : inArray(crmLeads.assignedTo, ids)
+        );
+      }
+    }
+
+    // Full-text search
     if (filters?.search) {
       const s = `%${filters.search}%`;
       conditions.push(or(
@@ -1005,17 +1049,17 @@ export class DatabaseStorage implements IStorage {
       ));
     }
 
-    // Expected Arrival Month filter
-    if (filters?.expectedMonth === "not_specified") {
-      conditions.push(or(
-        isNull(crmLeads.expectedPurchaseMonth),
-        eq(crmLeads.expectedPurchaseMonth, ""),
-      ));
-    } else if (filters?.expectedMonth) {
-      conditions.push(eq(crmLeads.expectedPurchaseMonth, filters.expectedMonth));
+    // Expected Purchase Month — multi-select OR (handles "not_specified")
+    if (filters?.expectedMonth && filters.expectedMonth.length > 0) {
+      const parts = filters.expectedMonth.map(v =>
+        v === "not_specified"
+          ? or(isNull(crmLeads.expectedPurchaseMonth), eq(crmLeads.expectedPurchaseMonth, ""))
+          : eq(crmLeads.expectedPurchaseMonth, v)
+      );
+      conditions.push(parts.length === 1 ? parts[0]! : or(...(parts as any[])));
     }
 
-    // Contact Date filter — priority: lastContactAt → createdAt
+    // Contact Date — single-select (date range presets are mutually exclusive)
     if (filters?.contactDate && filters.contactDate !== "all") {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1047,29 +1091,30 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // WA Qualification score filter (column added via raw SQL migration)
-    if (filters?.qualScore && filters.qualScore !== "all") {
-      if (filters.qualScore === "in_progress") {
-        conditions.push(sql`qualification_status = 'in_progress'`);
-      } else if (filters.qualScore === "none") {
-        conditions.push(sql`(qualification_status IS NULL OR qualification_status = 'none')`);
-      } else {
-        conditions.push(sql`qualification_score = ${filters.qualScore}`);
-      }
+    // WA Qualification score — multi-select OR (raw SQL column)
+    if (filters?.qualScore && filters.qualScore.length > 0) {
+      const qParts = filters.qualScore.map(v => {
+        if (v === "in_progress") return sql`qualification_status = 'in_progress'`;
+        if (v === "none")        return sql`(qualification_status IS NULL OR qualification_status = 'none')`;
+        return sql`qualification_score = ${v}`;
+      });
+      conditions.push(qParts.length === 1 ? qParts[0] : or(...qParts));
     }
 
-    // AI score category filter (column added via raw SQL migration)
-    if (filters?.aiScore && filters.aiScore !== "all") {
-      if (filters.aiScore === "none") {
-        conditions.push(sql`(ai_score_category IS NULL)`);
-      } else {
-        conditions.push(sql`ai_score_category = ${filters.aiScore}`);
-      }
+    // AI score category — multi-select OR (raw SQL column)
+    if (filters?.aiScore && filters.aiScore.length > 0) {
+      const aParts = filters.aiScore.map(v =>
+        v === "none" ? sql`(ai_score_category IS NULL)` : sql`ai_score_category = ${v}`
+      );
+      conditions.push(aParts.length === 1 ? aParts[0] : or(...aParts));
     }
 
-    // Project interest filter — ILIKE '%value%' because values may be semicolon-joined
-    if (filters?.projectInterest && filters.projectInterest !== "all") {
-      conditions.push(ilike(crmLeads.projectInterest, `%${filters.projectInterest}%`));
+    // Project interest — multi-select ILIKE OR (values may be semicolon-joined in DB)
+    if (filters?.projectInterest && filters.projectInterest.length > 0) {
+      const piParts = filters.projectInterest.map(v =>
+        ilike(crmLeads.projectInterest, `%${v}%`)
+      );
+      conditions.push(piParts.length === 1 ? piParts[0] : or(...piParts));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
