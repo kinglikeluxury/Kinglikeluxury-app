@@ -474,7 +474,7 @@ export default function ProjectOfferPage() {
   const [ambassadoriHighlightB64, setAmbassadoriHighlightB64] = useState<string>("");
 
   useEffect(() => {
-    if (!authLoading && (!user || !user.isAdmin)) navigate("/");
+    if (!authLoading && (!user || (!user.isAdmin && ![24, 29].includes(user.id)))) navigate("/");
   }, [user, authLoading, navigate]);
 
   const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/projects"] });

@@ -33,6 +33,7 @@ export interface AdminNavItem {
   iconColorClass?: string;
   iconColorHex?: string;
   highlight?: boolean;
+  visibleToUserIds?: number[];
 }
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
@@ -101,6 +102,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Project Offer",
     path: "/admin/project-offer",
     Icon: FileText,
+    visibleToUserIds: [24, 29],
   },
   {
     labelKey: "admin.emailCampaign",

@@ -318,13 +318,15 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           )}
 
           {/* Admin section — driven by ADMIN_NAV_ITEMS (shared with desktop Navbar) */}
-          {user?.isAdmin && (
+          {(user?.isAdmin || ADMIN_NAV_ITEMS.some(i => i.visibleToUserIds?.includes(user?.id ?? -1))) && (
             <div className="mb-2">
               <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                 {t("drawer.admin", "Admin Tools")}
               </p>
               <div className="bg-white">
-                {ADMIN_NAV_ITEMS.map((item) =>
+                {ADMIN_NAV_ITEMS.filter(item =>
+                  user?.isAdmin || item.visibleToUserIds?.includes(user?.id ?? -1)
+                ).map((item) =>
                   renderItem({
                     label: t(item.labelKey, item.labelFallback),
                     path: item.path,

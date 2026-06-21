@@ -225,11 +225,13 @@ const Navbar = () => {
                       )}
 
                       {/* Admin section */}
-                      {user.isAdmin && (
+                      {(user.isAdmin || ADMIN_NAV_ITEMS.some(i => i.visibleToUserIds?.includes(user.id))) && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel className="text-xs text-gray-400 font-semibold uppercase">Admin</DropdownMenuLabel>
-                          {ADMIN_NAV_ITEMS.map((item) => (
+                          {ADMIN_NAV_ITEMS.filter(item =>
+                            user.isAdmin || item.visibleToUserIds?.includes(user.id)
+                          ).map((item) => (
                             <DropdownMenuItem key={item.path} asChild>
                               <Link href={item.path} className="flex items-center gap-2">
                                 <item.Icon
