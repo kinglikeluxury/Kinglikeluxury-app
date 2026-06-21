@@ -43,6 +43,7 @@ export default function EmailCampaignPage() {
   const [results, setResults] = useState<SendResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasArabic = /[\u0600-\u06FF]/.test((bodyText || "") + (subject || ""));
 
   useEffect(() => {
     if (!authLoading && (!user || !user.isAdmin)) navigate("/");
@@ -431,7 +432,7 @@ export default function EmailCampaignPage() {
               <CardTitle className="text-sm text-[#005476]">معاينة الإيميل</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg overflow-hidden text-sm">
+              <div className="border rounded-lg overflow-hidden text-sm" dir={hasArabic ? "rtl" : "ltr"}>
                 <div className="bg-gradient-to-r from-[#3bcac4] to-[#005476] px-6 py-4 text-center text-white">
                   <div className="font-bold text-lg">Kinglike Luxury</div>
                   <div className="text-white/80 text-xs">منصة العقارات الفاخرة</div>
@@ -441,7 +442,7 @@ export default function EmailCampaignPage() {
                     <img src={effectiveImageUrl} alt="offer" className="w-full rounded-lg object-cover max-h-52" />
                   </div>
                 )}
-                <div className="px-6 py-4 space-y-3">
+                <div className="px-6 py-4 space-y-3" style={hasArabic ? {direction:"rtl",textAlign:"right",unicodeBidi:"embed"} : {}}>
                   {subject && <div className="font-bold text-[#005476]">{subject}</div>}
                   {bodyText && <div className="text-gray-600 whitespace-pre-wrap leading-relaxed">{bodyText}</div>}
                   {appLink && (

@@ -2881,8 +2881,9 @@ ${metaTags}
 
     const logoUrl = `${req.protocol}://${req.get("host")}/watermark-logo.png`;
 
+    const hasArabic = /[\u0600-\u06FF]/.test((subject || "") + (bodyText || ""));
     const html = `
-<div style="background:#f0f9f9;padding:40px 20px;font-family:Arial,Helvetica,sans-serif;direction:rtl">
+<div ${hasArabic ? 'dir="rtl" lang="ar"' : 'dir="ltr"'} style="background:#f0f9f9;padding:40px 20px;font-family:Arial,Helvetica,sans-serif;${hasArabic ? "direction:rtl;text-align:right;unicode-bidi:embed" : "direction:ltr"}">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,84,118,0.10)">
     <div style="background:linear-gradient(135deg,#3bcac4 0%,#005476 100%);padding:40px;text-align:center">
       <h1 style="color:#fff;margin:0;font-size:26px;font-weight:800">Kinglike Luxury</h1>
