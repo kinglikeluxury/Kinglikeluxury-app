@@ -4566,7 +4566,9 @@ ${metaTags}
       const { lead, autoAssignedTo } = await db.transaction(async (tx) => {
         const agentId = await pickAgentTx(tx, "Manual CRM");
         const [newLead] = await tx.insert(crmLeads).values({
-          fullName, firstName, lastName, phone, email, country, city,
+          fullName, firstName, lastName, phone, email,
+          country: country || (phone ? (phoneResult.country || null) : null),
+          city,
           interestedCountry, projectInterest, budget, expectedPurchaseMonth, description,
           campaignName, adsetName, adName, formName, externalLeadId, notes,
           leadSource: leadSource || "manual",
@@ -5090,7 +5092,7 @@ ${metaTags}
             lastName:              lead.lastName              || null,
             phone:                 phone                      || null,
             email:                 email                      || null,
-            country:               lead.country               || null,
+            country:               lead.country               || (phone ? (vPhone(phone).country || null) : null),
             city:                  lead.city                  || null,
             interestedCountry:     null as null,
             budget:                parsedBudget !== null ? String(parsedBudget) : (lead.budget || null),

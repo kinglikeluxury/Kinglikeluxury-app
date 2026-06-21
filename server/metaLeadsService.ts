@@ -6,6 +6,7 @@ import { initConversationForLead } from "./whatsappAiService";
 import { checkAndTrigger as waQualCheckAndTrigger } from "./waQualService";
 import { initDeveloperRegistrationsForLead } from "./developerRegistrationService";
 import { pickNextSubAgentId } from "./leadAssignmentService";
+import { validatePhone as vPhone } from "@shared/crmValidation";
 
 export interface PullSyncResult {
   formsChecked: number;
@@ -186,7 +187,7 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       fullName,
       phone:           fields["phone_number"] || fields["phone"] || null,
       email:           fields["email"] || null,
-      country:         fields["country"] || null,
+      country:         fields["country"] || ((fields["phone_number"] || fields["phone"]) ? (vPhone(fields["phone_number"] || fields["phone"] || "").country || null) : null),
       city:            fields["city"] || null,
       campaignName:    apiData.campaign_name || null,
       adsetName:       apiData.adset_name    || null,
@@ -562,7 +563,7 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             fullName,
             phone:           fields["phone_number"] || fields["phone"] || null,
             email:           fields["email"]        || null,
-            country:         fields["country"]      || null,
+            country:         fields["country"]      || ((fields["phone_number"] || fields["phone"]) ? (vPhone(fields["phone_number"] || fields["phone"] || "").country || null) : null),
             city:            fields["city"]         || null,
             projectInterest:
               fields["project_interest"] ||
