@@ -135,6 +135,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (verificationSent) return; // widget only needed before OTP is sent
+    if (!privacyAccepted) return; // container div not mounted until privacy is accepted
     if (window.turnstile) {
       renderTurnstile();
       return;
@@ -147,7 +148,7 @@ export default function RegisterPage() {
       }
     }, 150);
     return () => clearInterval(poll);
-  }, [turnstileKey, verificationSent, renderTurnstile]);
+  }, [turnstileKey, verificationSent, privacyAccepted, renderTurnstile]);
 
   // 10-second countdown after SMS sent successfully — then auto-send email OTP.
   // Does NOT run when SMS failed instantly (smsFailed=true), because email OTP
