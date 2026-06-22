@@ -582,7 +582,7 @@ async function sendOptOutAck(session: Session): Promise<void> {
 async function sendInvalidInput(session: Session): Promise<void> {
   await sendQualTextMessage(
     session.phone,
-    "عذراً، لم أفهم ردك. يرجى اختيار أحد الخيارات المتاحة. 🙏"
+    "يرجى اختيار أحد الخيارات الظاهرة أعلاه للمتابعة."
   );
   await updateSession(session.id, {
     invalid_input_count: (session.invalid_input_count ?? 0) + 1,
@@ -773,10 +773,10 @@ export async function handleInboundMessage(opts: {
 
   // ── Dispatch by current state ─────────────────────────────────────────────
 
-  // ── ai_concierge_active: hand off to AI concierge ────────────────────────
+  // ── ai_concierge_active: disabled — do not send AI replies ──────────────
   if (state === "ai_concierge_active") {
-    const { handleConciergeMessage } = await import("./waAiConcierge");
-    await handleConciergeMessage(session, opts);
+    // AI concierge is permanently disabled. Silently ignore inbound messages
+    // so no AI conversation or project suggestions are sent.
     return;
   }
 
@@ -828,31 +828,13 @@ export async function handleInboundMessage(opts: {
     return;
   }
 
-  // ── Truly legacy states → upgrade to AI concierge ────────────────────────
-  //
-  // Sessions stuck in old free-text states (greeting_sent, q4b_sent, q6_sent,
-  // q7_sent) or postponed are transparently handed to the AI concierge so the
-  // client gets a coherent reply.  q1-q5 are intentionally excluded: they are
-  // handled by the new button-only flow below.
-  //
-  const LEGACY_UPGRADE_STATES = new Set([
+  // ── Legacy / terminal states — no AI routing ─────────────────────────────
+  // Sessions in old free-text states or postponed are silently ignored.
+  // No AI concierge is ever invoked.
+  const SILENT_STATES = new Set([
     "greeting_sent", "q4b_sent", "q6_sent", "q7_sent", "postponed",
   ]);
-
-  if (LEGACY_UPGRADE_STATES.has(state)) {
-    console.log(
-      `[WaQual][LEGACY_UPGRADE] sessionId=${session.id} phone=${digits} ` +
-      `state=${state} → ai_concierge_active`
-    );
-    // Upgrade session status in DB before passing to AI
-    await updateSession(session.id, {
-      status:           "ai_concierge_active",
-      current_question: "ai_concierge",
-      last_message_at:  new Date(),
-    });
-    // Route current message to AI concierge with the upgraded session
-    const { handleConciergeMessage } = await import("./waAiConcierge");
-    await handleConciergeMessage({ ...session, status: "ai_concierge_active" }, opts);
+  if (SILENT_STATES.has(state)) {
     return;
   }
 
