@@ -48,6 +48,13 @@ const Q_COUNTRY_OPTIONS = [
   { id: "country_dubai",   title: "دبي" },
 ];
 
+// Q1b — City (Georgia only, 3 options → reply buttons)
+const Q_CITY_OPTIONS = [
+  { id: "city_batumi",   title: "باتومي" },
+  { id: "city_tbilisi",  title: "تبليسي" },
+  { id: "city_kobuleti", title: "كوبوليتي" },
+];
+
 // Q2 — Purchase goal (2 options → reply buttons)
 const Q_PURPOSE_OPTIONS = [
   { id: "purpose_invest", title: "استثمار" },
@@ -81,6 +88,11 @@ const COUNTRY_LABEL: Record<string, string> = {
   "country_turkey":  "تركيا",
   "country_cyprus":  "قبرص الشمالية",
   "country_dubai":   "دبي",
+};
+const CITY_LABEL: Record<string, string> = {
+  "city_batumi":   "باتومي",
+  "city_tbilisi":  "تبليسي",
+  "city_kobuleti": "كوبوليتي",
 };
 const PURPOSE_LABEL: Record<string, string> = {
   "purpose_invest": "استثمار",
@@ -310,6 +322,9 @@ async function updateCrmLeadScore(
   status: string,
   summary: string,
   preferredContactTime?: string,
+  interestedCountry?: string,
+  cityAnswer?: string,
+  budgetAnswer?: string,
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -326,9 +341,16 @@ async function updateCrmLeadScore(
           qualified_at           = NOW(),
           lead_score             = $4,
           preferred_contact_time = COALESCE($6, preferred_contact_time),
+          interested_country     = COALESCE(interested_country, $7),
+          city                   = COALESCE(city, $8),
+          budget                 = COALESCE(budget, $9),
           wa_stage               = 'qualified'
       WHERE id = $5
-    `, [status, score, summary, mappedLeadScore, leadId, preferredContactTime ?? null]);
+    `, [status, score, summary, mappedLeadScore, leadId,
+        preferredContactTime ?? null,
+        interestedCountry ?? null,
+        cityAnswer ?? null,
+        budgetAnswer ?? null]);
   } finally {
     client.release();
   }
@@ -497,6 +519,16 @@ async function sendQ1Country(session: Session): Promise<void> {
   );
 }
 
+async function sendQCity(session: Session): Promise<void> {
+  await sendAndUpdateSession(session, "city_sent", "city", () =>
+    sendInteractiveMessage(
+      session.phone,
+      "ما هي المدينة المفضلة لديكم للشراء؟",
+      Q_CITY_OPTIONS,
+    )
+  );
+}
+
 async function sendQ2Purpose(session: Session): Promise<void> {
   await sendAndUpdateSession(session, "q2_sent", "purpose", () =>
     sendInteractiveMessage(
@@ -615,11 +647,21 @@ export async function finishQualification(session: Session): Promise<void> {
   const contactTimeId    = answers["contact_time"];
   const preferredContact = labelOf(CONTACT_TIME_LABEL, contactTimeId);
 
+  // City: prefer the answer collected during the flow (Georgia sessions),
+  // fall back to whatever was already on the CRM lead record.
+  const collectedCityId    = answers["city"] ?? null;
+  const collectedCityLabel = collectedCityId ? labelOf(CITY_LABEL, collectedCityId) : null;
+  const displayCity        = collectedCityLabel ?? city ?? "—";
+
+  // Human-readable values for CRM auto-fill
+  const countryLabel = labelOf(COUNTRY_LABEL, answers["country"]) || null;
+  const budgetLabel  = labelOf(BUDGET_LABEL,  answers["budget_range"]) || null;
+
   const summaryLines: string[] = [
-    `الدولة: ${labelOf(COUNTRY_LABEL, answers["country"])}`,
+    `الدولة: ${countryLabel ?? "—"}`,
     `الهدف: ${labelOf(PURPOSE_LABEL, answers["purpose"])}`,
-    `المدينة: ${city ?? "—"}`,
-    `الميزانية: ${labelOf(BUDGET_LABEL, answers["budget_range"])}`,
+    `المدينة: ${displayCity}`,
+    `الميزانية: ${budgetLabel ?? "—"}`,
     `وقت التواصل: ${preferredContact}`,
     `مشروع محدد: ${labelOf(PROJECT_INTEREST_LABEL, answers["project_interest"])}`,
   ];
@@ -647,10 +689,13 @@ export async function finishQualification(session: Session): Promise<void> {
     c2.release();
   }
 
-  // Update CRM lead (includes preferred_contact_time)
+  // Update CRM lead — COALESCE guards ensure existing values are never overwritten
   await updateCrmLeadScore(
     session.lead_id, score, "completed", summaryText,
     contactTimeId ?? undefined,
+    countryLabel ?? undefined,
+    collectedCityLabel ?? undefined,
+    budgetLabel ?? undefined,
   );
 
   // Create internal CRM notification for assigned agent
@@ -844,6 +889,21 @@ export async function handleInboundMessage(opts: {
     const validIds = Q_COUNTRY_OPTIONS.map(o => o.id);
     if (answerId && validIds.includes(answerId)) {
       await saveAnswer(session.id, "country", opts.bodyText, answerId, "list");
+      if (answerId === "country_georgia") {
+        await sendQCity(session);
+      } else {
+        await sendQ2Purpose(session);
+      }
+    } else {
+      await sendInvalidInput(session);
+    }
+    return;
+  }
+
+  if (state === "city_sent") {
+    const validIds = Q_CITY_OPTIONS.map(o => o.id);
+    if (answerId && validIds.includes(answerId)) {
+      await saveAnswer(session.id, "city", opts.bodyText, answerId, "button");
       await sendQ2Purpose(session);
     } else {
       await sendInvalidInput(session);
@@ -909,7 +969,7 @@ export async function handleNudge(
   const session = await getSession(sessionId);
   if (!session) return;
   const ELIGIBLE = [
-    "greeting_sent","q1_sent","q2_sent","q3_sent","q4_sent",
+    "greeting_sent","q1_sent","city_sent","q2_sent","q3_sent","q4_sent",
     "q4b_sent","q5_sent","q6_sent","q7_sent","ai_concierge_active",
   ];
   if (!ELIGIBLE.includes(session.status)) return;
