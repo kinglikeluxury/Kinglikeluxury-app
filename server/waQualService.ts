@@ -63,9 +63,9 @@ const Q_PURPOSE_OPTIONS = [
 
 // Q3 — Budget (3 options → reply buttons)
 const Q_BUDGET_OPTIONS = [
-  { id: "budget_70_100",  title: "ما بين 70 إلى 100 ألف دولار" },
-  { id: "budget_110_150", title: "ما بين 110 إلى 150 ألف دولار" },
-  { id: "budget_gt150",   title: "أكثر من 150 ألف دولار" },
+  { id: "budget_lt70",  title: "أقل من 70 ألف $" },
+  { id: "budget_lt100", title: "أقل من 100 ألف $" },
+  { id: "budget_gt100", title: "أكثر من 100 ألف $" },
 ];
 
 // Q4 — Preferred contact time (3 options → reply buttons)
@@ -99,9 +99,9 @@ const PURPOSE_LABEL: Record<string, string> = {
   "purpose_reside": "للسكن",
 };
 const BUDGET_LABEL: Record<string, string> = {
-  "budget_70_100":  "70 - 100 ألف دولار",
-  "budget_110_150": "110 - 150 ألف دولار",
-  "budget_gt150":   "أكثر من 150 ألف دولار",
+  "budget_lt70":  "أقل من 70 ألف $",
+  "budget_lt100": "أقل من 100 ألف $",
+  "budget_gt100": "أكثر من 100 ألف $",
 };
 const CONTACT_TIME_LABEL: Record<string, string> = {
   "contact_morning": "الصباح",
@@ -290,9 +290,9 @@ function computeScore(answers: Record<string, string>): ScoreResult {
   // Base score from budget
   let points = 0;
   const budget = answers["budget_range"] ?? "";
-  if (budget === "budget_gt150")   { points = 2; reasons.push("Budget >150k"); }
-  else if (budget === "budget_110_150") { points = 1; reasons.push("Budget 110-150k"); }
-  else if (budget === "budget_70_100")  { points = 0; reasons.push("Budget 70-100k"); }
+  if (budget === "budget_gt100")  { points = 2; reasons.push("Budget >100k"); }
+  else if (budget === "budget_lt100") { points = 1; reasons.push("Budget <100k"); }
+  else if (budget === "budget_lt70")  { points = 0; reasons.push("Budget <70k"); }
 
   // Investment purpose bonus
   const purpose = answers["purpose"] ?? "";
@@ -657,14 +657,20 @@ export async function finishQualification(session: Session): Promise<void> {
   const countryLabel = labelOf(COUNTRY_LABEL, answers["country"]) || null;
   const budgetLabel  = labelOf(BUDGET_LABEL,  answers["budget_range"]) || null;
 
+  const projectInterestLabel = labelOf(PROJECT_INTEREST_LABEL, answers["project_interest"]);
+  const projectNameText      = answers["project_interest_text"] ?? null;
+
   const summaryLines: string[] = [
     `الدولة: ${countryLabel ?? "—"}`,
     `الهدف: ${labelOf(PURPOSE_LABEL, answers["purpose"])}`,
     `المدينة: ${displayCity}`,
     `الميزانية: ${budgetLabel ?? "—"}`,
     `وقت التواصل: ${preferredContact}`,
-    `مشروع محدد: ${labelOf(PROJECT_INTEREST_LABEL, answers["project_interest"])}`,
+    `مشروع محدد: ${projectInterestLabel}`,
   ];
+  if (projectNameText) {
+    summaryLines.push(`اسم المشروع: ${projectNameText}`);
+  }
   summaryLines.push(``, `Lead Score: ${score}`);
 
   const summaryText = summaryLines.join("\n");
@@ -948,9 +954,37 @@ export async function handleInboundMessage(opts: {
     const validIds = Q_PROJECT_INTEREST_OPTIONS.map(o => o.id);
     if (answerId && validIds.includes(answerId)) {
       await saveAnswer(session.id, "project_interest", opts.bodyText, answerId, "button");
-      await finishQualification(session);
+      if (answerId === "project_no") {
+        // No specific project — finish immediately
+        await finishQualification(session);
+      } else {
+        // project_yes — ask for the project name as free text
+        const result = await sendQualTextMessage(
+          session.phone,
+          "يرجى تزويدنا باسم المشروع"
+        );
+        await updateSession(session.id, {
+          status:              "project_name_sent",
+          current_question:    "project_name",
+          last_message_at:     new Date(),
+          last_outbound_wamid: result.wamid ?? null,
+        });
+      }
     } else {
       await sendInvalidInput(session);
+    }
+    return;
+  }
+
+  if (state === "project_name_sent") {
+    // Accept any non-empty text as the project name
+    const projectName = opts.bodyText?.trim();
+    if (projectName) {
+      await saveAnswer(session.id, "project_interest_text", projectName, projectName, "text");
+      await finishQualification(session);
+    } else {
+      await sendQualTextMessage(session.phone, "يرجى كتابة اسم المشروع للمتابعة.");
+      await updateSession(session.id, { last_message_at: new Date() });
     }
     return;
   }
@@ -970,7 +1004,7 @@ export async function handleNudge(
   if (!session) return;
   const ELIGIBLE = [
     "greeting_sent","q1_sent","city_sent","q2_sent","q3_sent","q4_sent",
-    "q4b_sent","q5_sent","q6_sent","q7_sent","ai_concierge_active",
+    "q4b_sent","q5_sent","project_name_sent","q6_sent","q7_sent","ai_concierge_active",
   ];
   if (!ELIGIBLE.includes(session.status)) return;
 
