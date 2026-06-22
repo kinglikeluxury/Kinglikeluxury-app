@@ -40,75 +40,65 @@ function isOptOut(text: string): boolean {
 
 // ── Question definitions ──────────────────────────────────────────────────────
 
+// Q1 — Country (4 options → renders as list message automatically)
+const Q_COUNTRY_OPTIONS = [
+  { id: "country_georgia", title: "جورجيا" },
+  { id: "country_turkey",  title: "تركيا" },
+  { id: "country_cyprus",  title: "قبرص الشمالية" },
+  { id: "country_dubai",   title: "دبي" },
+];
+
+// Q2 — Purchase goal (2 options → reply buttons)
+const Q_PURPOSE_OPTIONS = [
+  { id: "purpose_invest", title: "استثمار" },
+  { id: "purpose_reside", title: "للسكن" },
+];
+
+// Q3 — Budget (3 options → reply buttons)
 const Q_BUDGET_OPTIONS = [
-  { id: "budget_lt50",     title: "أقل من $50,000" },
-  { id: "budget_50_80",    title: "$50,000 - $80,000" },
-  { id: "budget_80_100",   title: "$80,000 - $100,000" },
-  { id: "budget_100_150",  title: "$100,000 - $150,000" },
-  { id: "budget_150_200",  title: "$150,000 - $200,000" },
-  { id: "budget_gt200",    title: "أكثر من $200,000" },
+  { id: "budget_70_100",  title: "ما بين 70 إلى 100 ألف دولار" },
+  { id: "budget_110_150", title: "ما بين 110 إلى 150 ألف دولار" },
+  { id: "budget_gt150",   title: "أكثر من 150 ألف دولار" },
 ];
 
-const Q_TIMELINE_OPTIONS = [
-  { id: "timeline_1m",  title: "هذا الشهر" },
-  { id: "timeline_3m",  title: "خلال 3 أشهر" },
-  { id: "timeline_6m+", title: "6 أشهر أو أكثر" },
-];
-
-const Q_GOAL_OPTIONS = [
-  { id: "goal_invest",   title: "استثمار فقط" },
-  { id: "goal_reside",   title: "سكن فقط" },
-  { id: "goal_both",     title: "استثمار وسكن" },
-];
-
-const Q_PROJECT_OPTIONS = [
-  { id: "proj_yes", title: "نعم، لدي مشروع محدد" },
-  { id: "proj_no",  title: "لا، أحتاج اقتراحات" },
-];
-
-const Q_VISIT_OPTIONS = [
-  { id: "visit_1m",   title: "نعم، خلال شهر" },
-  { id: "visit_later", title: "ربما لاحقاً" },
-  { id: "visit_no",   title: "لا" },
-];
-
+// Q4 — Preferred contact time (3 options → reply buttons)
 const Q_CONTACT_TIME_OPTIONS = [
-  { id: "contact_morning",   title: "بين 10 صباحاً و 1 ظهراً" },
-  { id: "contact_afternoon", title: "بين 2 ظهراً و 5 عصراً" },
-  { id: "contact_evening",   title: "بين 6 مساءً و 9 ليلاً" },
-  { id: "contact_anytime",   title: "أي وقت مناسب" },
+  { id: "contact_morning", title: "في ساعات الصباح" },
+  { id: "contact_noon",    title: "ظهراً" },
+  { id: "contact_evening", title: "مساءً" },
+];
+
+// Q5 — Specific project interest (2 options → reply buttons)
+const Q_PROJECT_INTEREST_OPTIONS = [
+  { id: "project_yes", title: "نعم" },
+  { id: "project_no",  title: "لا يوجد" },
 ];
 
 // ── Human-readable Arabic labels for summary generation ─────────────────────
 
+const COUNTRY_LABEL: Record<string, string> = {
+  "country_georgia": "جورجيا",
+  "country_turkey":  "تركيا",
+  "country_cyprus":  "قبرص الشمالية",
+  "country_dubai":   "دبي",
+};
+const PURPOSE_LABEL: Record<string, string> = {
+  "purpose_invest": "استثمار",
+  "purpose_reside": "للسكن",
+};
 const BUDGET_LABEL: Record<string, string> = {
-  "budget_lt50":    "أقل من 50 ألف $",
-  "budget_50_80":   "50 - 80 ألف $",
-  "budget_80_100":  "80 - 100 ألف $",
-  "budget_100_150": "100 - 150 ألف $",
-  "budget_150_200": "150 - 200 ألف $",
-  "budget_gt200":   "أكثر من 200 ألف $",
-};
-const TIMELINE_LABEL: Record<string, string> = {
-  "timeline_1m":  "هذا الشهر",
-  "timeline_3m":  "خلال 3 أشهر",
-  "timeline_6m+": "6 أشهر أو أكثر",
-};
-const GOAL_LABEL: Record<string, string> = {
-  "goal_invest": "استثمار",
-  "goal_reside": "سكن",
-  "goal_both":   "استثمار وسكن",
-};
-const VISIT_LABEL: Record<string, string> = {
-  "visit_1m":    "خلال شهر",
-  "visit_later": "ربما لاحقاً",
-  "visit_no":    "لا",
+  "budget_70_100":  "70 - 100 ألف دولار",
+  "budget_110_150": "110 - 150 ألف دولار",
+  "budget_gt150":   "أكثر من 150 ألف دولار",
 };
 const CONTACT_TIME_LABEL: Record<string, string> = {
-  "contact_morning":   "10 صباحاً - 1 ظهراً",
-  "contact_afternoon": "2 ظهراً - 5 عصراً",
-  "contact_evening":   "6 مساءً - 9 ليلاً",
-  "contact_anytime":   "أي وقت",
+  "contact_morning": "الصباح",
+  "contact_noon":    "الظهر",
+  "contact_evening": "المساء",
+};
+const PROJECT_INTEREST_LABEL: Record<string, string> = {
+  "project_yes": "نعم",
+  "project_no":  "لا يوجد",
 };
 
 function labelOf(map: Record<string, string>, id: string | undefined): string {
@@ -287,40 +277,23 @@ function computeScore(answers: Record<string, string>): ScoreResult {
 
   // Base score from budget
   let points = 0;
-  const budget = answers["budget"] ?? "";
-  if (budget === "budget_gt200")       { points = 3; reasons.push("Budget >$200k"); }
-  else if (budget === "budget_150_200") { points = 2; reasons.push("Budget $150k-$200k"); }
-  else if (budget === "budget_100_150") { points = 1; reasons.push("Budget $100k-$150k"); }
-  else if (budget === "budget_80_100")  { points = 1; reasons.push("Budget $80k-$100k"); }
-  else if (budget === "budget_50_80")   { points = 0; reasons.push("Budget $50k-$80k"); }
-  else                                  { points = 0; reasons.push("Budget <$50k"); }
+  const budget = answers["budget_range"] ?? "";
+  if (budget === "budget_gt150")   { points = 2; reasons.push("Budget >150k"); }
+  else if (budget === "budget_110_150") { points = 1; reasons.push("Budget 110-150k"); }
+  else if (budget === "budget_70_100")  { points = 0; reasons.push("Budget 70-100k"); }
 
-  // Timeline bonus
-  const timeline = answers["timeline"] ?? "";
-  if (timeline === "timeline_1m" || timeline === "timeline_3m") {
+  // Investment purpose bonus
+  const purpose = answers["purpose"] ?? "";
+  if (purpose === "purpose_invest") {
     points += 1;
-    reasons.push("Short timeline");
+    reasons.push("Investment purpose");
   }
 
-  // Specific project bonus
-  const project = answers["has_project"] ?? "";
-  if (project === "proj_yes") {
+  // Specific project interest bonus
+  const projectInterest = answers["project_interest"] ?? "";
+  if (projectInterest === "project_yes") {
     points += 1;
-    reasons.push("Has specific project");
-  }
-
-  // Dual goal bonus
-  const goal = answers["goal"] ?? "";
-  if (goal === "goal_both") {
-    points += 1;
-    reasons.push("Investment + residence goal");
-  }
-
-  // Site visit bonus
-  const visit = answers["site_visit"] ?? "";
-  if (visit === "visit_1m") {
-    points += 1;
-    reasons.push("Site visit within 1 month");
+    reasons.push("Interested in specific project");
   }
 
   const idx   = Math.min(points, TIERS.length - 1);
@@ -381,7 +354,7 @@ async function createCrmNotification(
       score === "HOT" ? "🔥" :
       score === "WARM" ? "♨️" : "❄️";
 
-    const budgetLabel      = labelOf(BUDGET_LABEL,       answers["budget"]);
+    const budgetLabel      = labelOf(BUDGET_LABEL,       answers["budget_range"]);
     const contactTimeLabel = labelOf(CONTACT_TIME_LABEL, answers["contact_time"]);
 
     const title   = `${scoreEmoji} Lead ${score} جديد`;
@@ -487,7 +460,7 @@ async function sendGreeting(session: Session, firstName: string | null): Promise
 // free-form messages require a customer-initiated reply first.
 //
 // State: idle → template_sent
-// Next:  any inbound reply → window opens → sendQ1Budget (QUALIFICATION_STARTED)
+// Next:  any inbound reply → window opens → sendQ1Country (QUALIFICATION_STARTED)
 async function sendQualOpener(session: Session): Promise<void> {
   console.log(`[WaQual][TEMPLATE_SENT] Sending opener template sessionId=${session.id} phone=${session.phone}`);
 
@@ -514,80 +487,52 @@ async function sendQualOpener(session: Session): Promise<void> {
   }
 }
 
-async function sendQ1Budget(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q1_sent", "budget", () =>
+async function sendQ1Country(session: Session): Promise<void> {
+  await sendAndUpdateSession(session, "q1_sent", "country", () =>
     sendInteractiveMessage(
       session.phone,
-      "💰 ما هي ميزانيتك التقريبية للاستثمار؟\n(بالدولار الأمريكي)",
+      "ما هي الدولة التي تودون شراء العقار بها؟",
+      Q_COUNTRY_OPTIONS,
+    )
+  );
+}
+
+async function sendQ2Purpose(session: Session): Promise<void> {
+  await sendAndUpdateSession(session, "q2_sent", "purpose", () =>
+    sendInteractiveMessage(
+      session.phone,
+      "ما هي الغاية من الشراء؟",
+      Q_PURPOSE_OPTIONS,
+    )
+  );
+}
+
+async function sendQ3Budget(session: Session): Promise<void> {
+  await sendAndUpdateSession(session, "q3_sent", "budget_range", () =>
+    sendInteractiveMessage(
+      session.phone,
+      "ما هي الميزانية التقريبية؟",
       Q_BUDGET_OPTIONS,
     )
   );
 }
 
-async function sendQ2Timeline(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q2_sent", "timeline", () =>
+async function sendQ4ContactTime(session: Session): Promise<void> {
+  await sendAndUpdateSession(session, "q4_sent", "contact_time", () =>
     sendInteractiveMessage(
       session.phone,
-      "📅 متى تتوقع إتمام عملية الشراء؟",
-      Q_TIMELINE_OPTIONS,
-    )
-  );
-}
-
-async function sendQ3Goal(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q3_sent", "goal", () =>
-    sendInteractiveMessage(
-      session.phone,
-      "🎯 ما هو هدفك الرئيسي من هذا الاستثمار العقاري؟",
-      Q_GOAL_OPTIONS,
-    )
-  );
-}
-
-async function sendQ4Project(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q4_sent", "has_project", () =>
-    sendInteractiveMessage(
-      session.phone,
-      "🏢 هل لديك مشروع عقاري محدد في ذهنك؟",
-      Q_PROJECT_OPTIONS,
-    )
-  );
-}
-
-async function sendQ4bProjectName(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q4b_sent", "project_name", () =>
-    sendQualTextMessage(
-      session.phone,
-      "📝 رائع! ما اسم المشروع الذي يثير اهتمامك؟\n(اكتبه لنا بحرية)"
-    )
-  );
-}
-
-async function sendQ5Visit(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q5_sent", "site_visit", () =>
-    sendInteractiveMessage(
-      session.phone,
-      "📍 هل أنت مهتم بجولة ميدانية خاصة لأبرز مشاريعنا الفاخرة خلال الشهر القادم؟",
-      Q_VISIT_OPTIONS,
-    )
-  );
-}
-
-async function sendQ6Notes(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q6_sent", "notes", () =>
-    sendQualTextMessage(
-      session.phone,
-      "✍️ هل لديك أي متطلبات خاصة أو ملاحظات إضافية؟\n\nاكتبها بحرية، أو أرسل \"لا\" للتخطي."
-    )
-  );
-}
-
-async function sendQ7ContactTime(session: Session): Promise<void> {
-  await sendAndUpdateSession(session, "q7_sent", "contact_time", () =>
-    sendInteractiveMessage(
-      session.phone,
-      "🕐 آخر سؤال!\n\nما هو الوقت المفضل لديك لاستقبال مكالمة من أحد مستشارينا المتخصصين؟",
+      "هل يوجد وقت محدد مناسب للتواصل معكم؟",
       Q_CONTACT_TIME_OPTIONS,
+    )
+  );
+}
+
+async function sendQ5ProjectInterest(session: Session): Promise<void> {
+  await sendAndUpdateSession(session, "q5_sent", "project_interest", () =>
+    sendInteractiveMessage(
+      session.phone,
+      "هل يوجد مشروع معين مهتمين به؟",
+      Q_PROJECT_INTEREST_OPTIONS,
     )
   );
 }
@@ -604,11 +549,9 @@ async function sendCompletion(
     score === "WARM" ? "♨️" : "❄️";
 
   const text =
-    `شكراً ${name}! ${scoreEmoji}\n\n` +
-    `تم حفظ بياناتك ومتطلباتك بنجاح ✅\n\n` +
-    `سيتواصل معك أحد مستشارينا المتخصصين في العقارات الفاخرة قريباً، ` +
-    `لمساعدتك في إيجاد العقار المثالي الذي يلائم تطلعاتك.\n\n` +
-    `🏢 *Kinglike Luxury — استثمر بثقة.*`;
+    `شكراً لتزويدنا بالمعلومات، سيقوم أحد مستشارينا العقاريين بالتواصل معكم لتزويدكم بكافة التفاصيل.\n` +
+    `نهاركم سعيد 🎖🌷\n\n` +
+    `https://www.kinglikeluxury.app`;
 
   const result = await sendQualTextMessage(session.phone, text);
   await updateSession(session.id, {
@@ -672,20 +615,14 @@ export async function finishQualification(session: Session): Promise<void> {
   const contactTimeId    = answers["contact_time"];
   const preferredContact = labelOf(CONTACT_TIME_LABEL, contactTimeId);
 
-  const hasProject    = answers["has_project"] === "proj_yes";
-  const projectLine   = hasProject ? (answers["project_name"] ?? "نعم") : "لا";
-  const noteValue     = answers["notes"];
-  const hasNotes      = noteValue && noteValue !== "لا";
-
   const summaryLines: string[] = [
-    `الهدف: ${labelOf(GOAL_LABEL, answers["goal"])}`,
+    `الدولة: ${labelOf(COUNTRY_LABEL, answers["country"])}`,
+    `الهدف: ${labelOf(PURPOSE_LABEL, answers["purpose"])}`,
     `المدينة: ${city ?? "—"}`,
-    `الميزانية: ${labelOf(BUDGET_LABEL, answers["budget"])}`,
-    `مشروع محدد: ${projectLine}`,
-    `موعد الزيارة: ${labelOf(VISIT_LABEL, answers["site_visit"])}`,
+    `الميزانية: ${labelOf(BUDGET_LABEL, answers["budget_range"])}`,
     `وقت التواصل: ${preferredContact}`,
+    `مشروع محدد: ${labelOf(PROJECT_INTEREST_LABEL, answers["project_interest"])}`,
   ];
-  if (hasNotes) summaryLines.push(`ملاحظات: ${noteValue}`);
   summaryLines.push(``, `Lead Score: ${score}`);
 
   const summaryText = summaryLines.join("\n");
@@ -874,48 +811,32 @@ export async function handleInboundMessage(opts: {
       return;
     }
 
-    // QUAL_YES button OR any free-text reply → window open, start AI concierge
+    // QUAL_YES button OR any free-text reply → window open, start button qualification flow
     console.log(`[WaQual][WINDOW_OPENED] sessionId=${session.id} phone=${digits} payload=${answerId ?? "free-text"}`);
-    console.log(`[WaQual][CONCIERGE_STARTED] sessionId=${session.id} phone=${digits}`);
+    console.log(`[WaQual][QUAL_STARTED] sessionId=${session.id} phone=${digits}`);
 
     // Mark lead as Interested in CRM
     await updateWaStage(session.lead_id, 'interested');
 
-    // Fetch first name for personalised greeting
-    const leadNameClient = await pool.connect();
-    let conciergeFirstName: string | null = null;
-    try {
-      const nr = await leadNameClient.query(
-        `SELECT first_name FROM crm_leads WHERE id = $1`,
-        [session.lead_id]
-      );
-      conciergeFirstName = nr.rows[0]?.first_name ?? null;
-    } finally {
-      leadNameClient.release();
-    }
-
-    // Hand off to AI concierge
-    const { startConciergeConversation } = await import("./waAiConcierge");
-    await startConciergeConversation(session, conciergeFirstName);
+    // Send welcome message then Q1 (Country)
+    await sendQualTextMessage(
+      session.phone,
+      "أهلاً وسهلاً بكم في Kinglike Luxury للاستثمار والتطوير العقاري.\n" +
+      "يرجى اختيار الإجابات من الأسئلة التالية لكي نقوم بتزويدكم بأفضل عقار مناسب لكم."
+    );
+    await sendQ1Country(session);
     return;
   }
 
-  // ── Legacy Q-flow states → upgrade to AI concierge immediately ───────────
+  // ── Truly legacy states → upgrade to AI concierge ────────────────────────
   //
-  // All sessions that are still in the old button-driven qualification states
-  // are transparently upgraded to ai_concierge_active on first contact so the
-  // client receives a natural AI advisor reply instead of "عذراً، لم أفهم ردك".
-  //
-  // This covers:
-  //   greeting_sent, q1_sent, q2_sent, q3_sent, q4_sent, q4b_sent,
-  //   q5_sent, q6_sent, q7_sent, postponed
-  //
-  // The legacy handlers below are kept only as emergency dead code — they are
-  // never reached under normal operation.
+  // Sessions stuck in old free-text states (greeting_sent, q4b_sent, q6_sent,
+  // q7_sent) or postponed are transparently handed to the AI concierge so the
+  // client gets a coherent reply.  q1-q5 are intentionally excluded: they are
+  // handled by the new button-only flow below.
   //
   const LEGACY_UPGRADE_STATES = new Set([
-    "greeting_sent", "q1_sent", "q2_sent", "q3_sent", "q4_sent",
-    "q4b_sent", "q5_sent", "q6_sent", "q7_sent", "postponed",
+    "greeting_sent", "q4b_sent", "q6_sent", "q7_sent", "postponed",
   ]);
 
   if (LEGACY_UPGRADE_STATES.has(state)) {
@@ -935,148 +856,59 @@ export async function handleInboundMessage(opts: {
     return;
   }
 
-  // ── EMERGENCY FALLBACK ONLY — never reached under normal operation ────────
-  // The blocks below are preserved for situations where the AI concierge is
-  // explicitly disabled or OpenAI is unavailable.  In normal operation every
-  // session is either ai_concierge_active or template_sent.
-
-  if (state === "greeting_sent") {
-    if (answerId === "greet_yes" || rawText.match(/^(نعم|yes|اه|ايه|أيوا|يلا|هيا|ابدأ|اوك|ok|sure)/i)) {
-      await sendQ1Budget(session);
-    } else if (answerId === "greet_no" || isOptOut(rawText)) {
-      await sendOptOutAck(session);
-    } else {
-      // Any other reply treated as "yes"
-      await sendQ1Budget(session);
-    }
-    return;
-  }
+  // ── Button qualification flow (q1–q5) ────────────────────────────────────
 
   if (state === "q1_sent") {
-    const validIds = Q_BUDGET_OPTIONS.map(o => o.id);
+    const validIds = Q_COUNTRY_OPTIONS.map(o => o.id);
     if (answerId && validIds.includes(answerId)) {
-      await saveAnswer(session.id, "budget", opts.bodyText, answerId, answerId ? "list" : "text");
-      await sendQ2Timeline(session);
+      await saveAnswer(session.id, "country", opts.bodyText, answerId, "list");
+      await sendQ2Purpose(session);
     } else {
-      // Try to map free text
-      const mapped = mapBudgetText(rawText);
-      if (mapped) {
-        await saveAnswer(session.id, "budget", rawText, mapped, "text");
-        await sendQ2Timeline(session);
-      } else {
-        await sendInvalidInput(session);
-        if ((session.invalid_input_count ?? 0) >= 2) await sendQ1Budget(session);
-      }
+      await sendInvalidInput(session);
     }
     return;
   }
 
   if (state === "q2_sent") {
-    const validIds = Q_TIMELINE_OPTIONS.map(o => o.id);
+    const validIds = Q_PURPOSE_OPTIONS.map(o => o.id);
     if (answerId && validIds.includes(answerId)) {
-      await saveAnswer(session.id, "timeline", opts.bodyText, answerId, "button");
-      await sendQ3Goal(session);
+      await saveAnswer(session.id, "purpose", opts.bodyText, answerId, "button");
+      await sendQ3Budget(session);
     } else {
-      const mapped = mapTimelineText(rawText);
-      if (mapped) {
-        await saveAnswer(session.id, "timeline", rawText, mapped, "text");
-        await sendQ3Goal(session);
-      } else {
-        await sendInvalidInput(session);
-        if ((session.invalid_input_count ?? 0) >= 2) await sendQ2Timeline(session);
-      }
+      await sendInvalidInput(session);
     }
     return;
   }
 
   if (state === "q3_sent") {
-    const validIds = Q_GOAL_OPTIONS.map(o => o.id);
+    const validIds = Q_BUDGET_OPTIONS.map(o => o.id);
     if (answerId && validIds.includes(answerId)) {
-      await saveAnswer(session.id, "goal", opts.bodyText, answerId, "button");
-      await sendQ4Project(session);
+      await saveAnswer(session.id, "budget_range", opts.bodyText, answerId, "button");
+      await sendQ4ContactTime(session);
     } else {
-      const mapped = mapGoalText(rawText);
-      if (mapped) {
-        await saveAnswer(session.id, "goal", rawText, mapped, "text");
-        await sendQ4Project(session);
-      } else {
-        await sendInvalidInput(session);
-        if ((session.invalid_input_count ?? 0) >= 2) await sendQ3Goal(session);
-      }
+      await sendInvalidInput(session);
     }
     return;
   }
 
   if (state === "q4_sent") {
-    const validIds = Q_PROJECT_OPTIONS.map(o => o.id);
+    const validIds = Q_CONTACT_TIME_OPTIONS.map(o => o.id);
     if (answerId && validIds.includes(answerId)) {
-      await saveAnswer(session.id, "has_project", opts.bodyText, answerId, "button");
-      if (answerId === "proj_yes") {
-        await sendQ4bProjectName(session);
-      } else {
-        await sendQ5Visit(session);
-      }
+      await saveAnswer(session.id, "contact_time", opts.bodyText, answerId, "button");
+      await sendQ5ProjectInterest(session);
     } else {
-      const mapped = mapYesNo(rawText);
-      if (mapped !== null) {
-        const normId = mapped ? "proj_yes" : "proj_no";
-        await saveAnswer(session.id, "has_project", rawText, normId, "text");
-        if (mapped) {
-          await sendQ4bProjectName(session);
-        } else {
-          await sendQ5Visit(session);
-        }
-      } else {
-        await sendInvalidInput(session);
-        if ((session.invalid_input_count ?? 0) >= 2) await sendQ4Project(session);
-      }
+      await sendInvalidInput(session);
     }
-    return;
-  }
-
-  if (state === "q4b_sent") {
-    // Free-text project name
-    await saveAnswer(session.id, "project_name", rawText, rawText, "text");
-    await sendQ5Visit(session);
     return;
   }
 
   if (state === "q5_sent") {
-    const validIds = Q_VISIT_OPTIONS.map(o => o.id);
+    const validIds = Q_PROJECT_INTEREST_OPTIONS.map(o => o.id);
     if (answerId && validIds.includes(answerId)) {
-      await saveAnswer(session.id, "site_visit", opts.bodyText, answerId, "button");
-      await sendQ6Notes(session);
-    } else {
-      const mapped = mapVisitText(rawText);
-      if (mapped) {
-        await saveAnswer(session.id, "site_visit", rawText, mapped, "text");
-        await sendQ6Notes(session);
-      } else {
-        await sendInvalidInput(session);
-        if ((session.invalid_input_count ?? 0) >= 2) await sendQ5Visit(session);
-      }
-    }
-    return;
-  }
-
-  if (state === "q6_sent") {
-    // Free-text notes (always accepted)
-    const normalised = rawText.match(/^(لا|no|نا|لأ)$/i) ? "لا" : rawText;
-    await saveAnswer(session.id, "notes", rawText, normalised, "text");
-    await sendQ7ContactTime(session);
-    return;
-  }
-
-  if (state === "q7_sent") {
-    const validIds = Q_CONTACT_TIME_OPTIONS.map(o => o.id);
-    if (answerId && validIds.includes(answerId)) {
-      await saveAnswer(session.id, "contact_time", opts.bodyText, answerId, "button");
+      await saveAnswer(session.id, "project_interest", opts.bodyText, answerId, "button");
       await finishQualification(session);
     } else {
-      // Accept any non-empty free text as "any time"
-      const fallback = rawText.length > 0 ? rawText : "contact_anytime";
-      await saveAnswer(session.id, "contact_time", rawText, fallback, "text");
-      await finishQualification(session);
+      await sendInvalidInput(session);
     }
     return;
   }
@@ -1140,8 +972,7 @@ export async function migrateLegacySessionsToAiConcierge(): Promise<void> {
           current_question  = 'ai_concierge',
           conversation_history = COALESCE(conversation_history, '[]'::jsonb)
       WHERE status IN (
-        'greeting_sent','q1_sent','q2_sent','q3_sent','q4_sent',
-        'q4b_sent','q5_sent','q6_sent','q7_sent','postponed'
+        'greeting_sent','q4b_sent','q6_sent','q7_sent','postponed'
       )
       RETURNING id
     `);
@@ -1341,46 +1172,3 @@ export async function restartQualification(leadId: number): Promise<RestartResul
   };
 }
 
-// ── Text mapping helpers ──────────────────────────────────────────────────────
-
-function mapBudgetText(text: string): string | null {
-  const t = text.toLowerCase();
-  if (t.includes("200") || t.includes("٢٠٠"))        return "budget_gt200";
-  if (t.includes("150") || t.includes("١٥٠"))        return "budget_150_200";
-  if (t.includes("100") || t.includes("١٠٠"))        return "budget_100_150";
-  if (t.includes("80")  || t.includes("٨٠"))         return "budget_80_100";
-  if (t.includes("50")  || t.includes("٥٠"))         return "budget_50_80";
-  if (t.includes("أقل") || t.includes("اقل") || t.includes("less")) return "budget_lt50";
-  return null;
-}
-
-function mapTimelineText(text: string): string | null {
-  const t = text.toLowerCase();
-  if (t.match(/هذا الشهر|this month|الآن|now|فوري/))   return "timeline_1m";
-  if (t.match(/3|ثلاث|3 أشهر|three/))                  return "timeline_3m";
-  if (t.match(/6|ست|سنة|year|later|لاحق/))             return "timeline_6m+";
-  return null;
-}
-
-function mapGoalText(text: string): string | null {
-  const t = text.toLowerCase();
-  if (t.match(/استثمار وسكن|both|كلاهما|invest.*reside|reside.*invest/)) return "goal_both";
-  if (t.match(/استثمار|invest/))                                          return "goal_invest";
-  if (t.match(/سكن|reside|live/))                                         return "goal_reside";
-  return null;
-}
-
-function mapYesNo(text: string): boolean | null {
-  const t = text.toLowerCase().trim();
-  if (t.match(/^(نعم|yes|اه|ايه|أيوا|يلا|اوك|ok|sure|بالتأكيد|طبعا)/)) return true;
-  if (t.match(/^(لا|no|لأ|نا|ما)/))                                      return false;
-  return null;
-}
-
-function mapVisitText(text: string): string | null {
-  const t = text.toLowerCase();
-  if (t.match(/نعم.*شهر|خلال شهر|yes.*month|within month|visit_1m/)) return "visit_1m";
-  if (t.match(/ربما|maybe|لاحق|later/))                               return "visit_later";
-  if (t.match(/^لا$|^no$/))                                           return "visit_no";
-  return null;
-}
