@@ -45,6 +45,7 @@ import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
+import { registerWebinarCampaignRoutes } from "./webinarCampaign";
 import { ensureAiConciergeColumns } from "./waAiConcierge";
 import { ensureEmailNurturingTables, startNurturingScheduler } from "./emailNurturingService";
 import { generateSitemapXml } from "./sitemapGenerator";
@@ -247,6 +248,7 @@ app.use((req, res, next) => {
   registerEmailNurturingRoutes(app);
   registerWhatsappApiHistoryRoutes(app);
   registerWaQualRoutes(app);
+  registerWebinarCampaignRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
