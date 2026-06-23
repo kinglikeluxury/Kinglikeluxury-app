@@ -22,6 +22,7 @@ import {
   Activity,
   BotMessageSquare,
   Rocket,
+  RadioTower,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -206,6 +207,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "AI Marketing Center",
     path: "/admin/ai-marketing-center",
     Icon: Rocket,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.broadcast",
+    labelFallback: "Email Broadcast",
+    path: "/admin/broadcast",
+    Icon: RadioTower,
     iconColorHex: "#3bcac4",
     highlight: true,
   },

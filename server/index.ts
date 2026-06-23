@@ -46,6 +46,8 @@ import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
 import { registerWebinarCampaignRoutes } from "./webinarCampaign";
+import { registerBroadcastRoutes } from "./broadcastRoutes";
+import { ensureBroadcastTables, resumePendingBroadcasts } from "./broadcastService";
 import { ensureAiConciergeColumns } from "./waAiConcierge";
 import { ensureEmailNurturingTables, startNurturingScheduler } from "./emailNurturingService";
 import { generateSitemapXml } from "./sitemapGenerator";
@@ -249,6 +251,7 @@ app.use((req, res, next) => {
   registerWhatsappApiHistoryRoutes(app);
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
+  registerBroadcastRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -368,6 +371,10 @@ app.use((req, res, next) => {
   ensureEmailNurturingTables()
     .then(() => { if (schedulersEnabled) startNurturingScheduler(); })
     .catch(err => console.error("[DB] ensureEmailNurturingTables failed:", err));
+
+  ensureBroadcastTables()
+    .then(() => resumePendingBroadcasts())
+    .catch(err => console.error("[DB] ensureBroadcastTables failed:", err));
 
   ensureWhatsAppApiTables()
     .catch(err => console.error("[DB] ensureWhatsAppApiTables failed:", err));

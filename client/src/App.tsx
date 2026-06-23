@@ -58,6 +58,7 @@ import CrmHealthPage from "@/pages/admin/crm-health";
 import WhatsappConciergeDashboard from "@/pages/admin/whatsapp-concierge-dashboard";
 import EmployeeDashboardPage from "@/pages/admin/employee-dashboard";
 import AiMarketingCenterPage from "@/pages/admin/ai-marketing-center";
+import BroadcastPage from "@/pages/admin/broadcast";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -111,6 +112,7 @@ function Router() {
           <Route path="/admin/crm-health" component={CrmHealthPage} />
           <Route path="/admin/whatsapp-concierge" component={WhatsappConciergeDashboard} />
           <Route path="/admin/ai-marketing-center" component={AiMarketingCenterPage} />
+          <Route path="/admin/broadcast" component={BroadcastPage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />
