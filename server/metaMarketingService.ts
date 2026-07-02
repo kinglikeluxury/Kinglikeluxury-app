@@ -272,7 +272,6 @@ export async function getInsightsBreakdowns(
     "impressions", "reach", "clicks",
     "spend", "actions", "cost_per_action_type",
     "date_start", "date_stop",
-    breakdown,
   ].join(",");
 
   const url = buildUrl(`/${acct}/insights`, {
