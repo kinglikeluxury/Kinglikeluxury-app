@@ -35,6 +35,7 @@ import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
 import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
 import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables } from "./db";
+import { ensureMetaIntelligenceTables } from "./metaIntelligenceSyncService";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { ensureAssignmentCursor } from "./leadAssignmentService";
 import { ensureCrmLeadEmailLogTable } from "./crmLeadEmailService";
@@ -397,6 +398,10 @@ app.use((req, res, next) => {
   // Phase 14 tables — performance learning engine
   ensureLearningEngineTables()
     .catch(err => console.error("[DB] ensureLearningEngineTables failed:", err));
+
+  // Meta Intelligence tables — read-only snapshot store
+  ensureMetaIntelligenceTables()
+    .catch(err => console.error("[DB] ensureMetaIntelligenceTables failed:", err));
 
   ensureWaQualTables()
     .then(() => ensureAiConciergeColumns())

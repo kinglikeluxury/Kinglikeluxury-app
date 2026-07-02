@@ -6779,6 +6779,66 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // ── Meta Intelligence Sync — admin-only, read-only ───────────────────────
+
+  // POST: trigger on-demand sync (reads Meta → stores in meta_intelligence_* tables)
+  app.post("/api/admin/ai-marketing/meta-intelligence/sync", isAdmin, async (_req, res) => {
+    try {
+      const { syncMetaIntelligence } = await import("./metaIntelligenceSyncService");
+      const result = await syncMetaIntelligence();
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: current sync status + stored counts
+  app.get("/api/admin/ai-marketing/meta-intelligence/status", isAdmin, async (_req, res) => {
+    try {
+      const { getLatestSyncStatus, getSyncCounts } = await import("./metaIntelligenceSyncService");
+      const [latest, counts] = await Promise.all([getLatestSyncStatus(), getSyncCounts()]);
+      res.json({ latest, counts });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // GET: stored campaigns
+  app.get("/api/admin/ai-marketing/meta-intelligence/campaigns", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(`SELECT * FROM meta_intelligence_campaigns ORDER BY synced_at DESC LIMIT 100`);
+      res.json({ ok: true, data: rows });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: stored ad sets with parsed targeting
+  app.get("/api/admin/ai-marketing/meta-intelligence/adsets", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(`SELECT * FROM meta_intelligence_adsets ORDER BY synced_at DESC LIMIT 100`);
+      res.json({ ok: true, data: rows });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: stored ads with creative data
+  app.get("/api/admin/ai-marketing/meta-intelligence/ads", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(`SELECT * FROM meta_intelligence_ads ORDER BY synced_at DESC LIMIT 100`);
+      res.json({ ok: true, data: rows });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: stored insights
+  app.get("/api/admin/ai-marketing/meta-intelligence/insights", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(`SELECT * FROM meta_intelligence_insights ORDER BY synced_at DESC LIMIT 200`);
+      res.json({ ok: true, data: rows });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: stored breakdowns
+  app.get("/api/admin/ai-marketing/meta-intelligence/breakdowns", isAdmin, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(`SELECT * FROM meta_intelligence_breakdowns ORDER BY synced_at DESC LIMIT 500`);
+      res.json({ ok: true, data: rows });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // ── Phase 4: Campaign Attribution Engine — READ-ONLY ─────────────────────
   // Aggregates existing CRM lead data (campaign_name, adset_name, ad_name,
   // lead_score, status) into performance summaries per campaign entity.

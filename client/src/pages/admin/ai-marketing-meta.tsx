@@ -47,6 +47,7 @@ const SUB_TABS = [
   { key: "adsets",    label: "Ad Sets",            Icon: Layers },
   { key: "ads",       label: "Ads",                Icon: Image },
   { key: "insights",  label: "Insights",           Icon: BarChart3 },
+  { key: "sync",      label: "Intelligence Sync",  Icon: TrendingUp },
 ] as const;
 type SubKey = typeof SUB_TABS[number]["key"];
 
@@ -625,6 +626,161 @@ export default function MetaConnection() {
           )}
         </div>
       )}
+
+      {/* ── Intelligence Sync ────────────────────────────────────────── */}
+      {sub === "sync" && <IntelligenceSyncPanel />}
+    </div>
+  );
+}
+
+// ── Intelligence Sync sub-panel (isolated, minimal) ───────────────────────────
+
+function IntelligenceSyncPanel() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery<{
+    latest: any | null;
+    counts: Record<string, number>;
+  }>({
+    queryKey: ["/api/admin/ai-marketing/meta-intelligence/status"],
+    refetchInterval: 10_000,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/ai-marketing/meta-intelligence/sync");
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/ai-marketing/meta-intelligence/status"] });
+      if (data.ok) {
+        toast({
+          title: "✅ Sync complete",
+          description: `Campaigns: ${data.campaigns_count} | Ad Sets: ${data.adsets_count} | Ads: ${data.ads_count} | Insights: ${data.insights_count} | Breakdowns: ${data.breakdowns_count} — ${data.duration_ms}ms`,
+        });
+      } else {
+        toast({
+          title: "⚠️ Sync completed with errors",
+          description: data.errors?.join(", ") ?? "Check server logs.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (e: any) => toast({ title: "Sync failed", description: e.message, variant: "destructive" }),
+  });
+
+  const latest = status?.latest;
+  const counts = status?.counts ?? { campaigns: 0, adsets: 0, ads: 0, insights: 0, breakdowns: 0 };
+
+  const countCards = [
+    { label: "Campaigns",  key: "campaigns",  Icon: Target },
+    { label: "Ad Sets",    key: "adsets",     Icon: Layers },
+    { label: "Ads",        key: "ads",        Icon: Image },
+    { label: "Insights",   key: "insights",   Icon: BarChart3 },
+    { label: "Breakdowns", key: "breakdowns", Icon: TrendingUp },
+  ] as const;
+
+  return (
+    <div className="space-y-4">
+      {/* Header + Sync button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-slate-800 text-base">Meta Intelligence Sync</h3>
+          <p className="text-sm text-slate-500">
+            Pull campaigns, ad sets, ads, creatives, insights, and breakdowns into the local DB for AI analysis.
+            All calls are read-only GET — nothing is written to Meta.
+          </p>
+        </div>
+        <Button
+          onClick={() => syncMutation.mutate()}
+          disabled={syncMutation.isPending}
+          className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white gap-2"
+        >
+          {syncMutation.isPending
+            ? <><RefreshCw className="h-4 w-4 animate-spin" /> Syncing…</>
+            : <><RefreshCw className="h-4 w-4" /> Run Sync Now</>}
+        </Button>
+      </div>
+
+      {/* Stored record counts */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {countCards.map(({ label, key, Icon: I }) => (
+          <Card key={key} className="shadow-sm border border-slate-200">
+            <CardContent className="p-4 text-center">
+              <I className="h-5 w-5 mx-auto mb-1.5 text-[#3bcac4]" />
+              <div className="text-2xl font-bold text-[#005476]">
+                {statusLoading ? "—" : (counts[key] ?? 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">{label}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Last sync info */}
+      {latest && (
+        <Card className={`shadow-sm border-2 ${latest.status === "completed" ? "border-green-200 bg-green-50/40" : latest.status === "running" ? "border-blue-200 bg-blue-50/40" : "border-amber-200 bg-amber-50/40"}`}>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Last Sync</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Started: {latest.sync_started_at ? new Date(latest.sync_started_at).toLocaleString() : "—"}
+                </p>
+                {latest.sync_finished_at && (
+                  <p className="text-xs text-slate-500">
+                    Finished: {new Date(latest.sync_finished_at).toLocaleString()} ({latest.duration_ms?.toLocaleString() ?? "—"}ms)
+                  </p>
+                )}
+              </div>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                latest.status === "completed" ? "bg-green-100 text-green-700" :
+                latest.status === "running"   ? "bg-blue-100 text-blue-700" :
+                "bg-amber-100 text-amber-700"
+              }`}>
+                {latest.status}
+              </span>
+            </div>
+            {latest.error_message && (
+              <p className="text-xs text-red-600 mt-2 font-mono bg-red-50 rounded p-2 break-all">
+                {latest.error_message}
+              </p>
+            )}
+            <div className="grid grid-cols-5 gap-2 mt-3">
+              {["campaigns","adsets","ads","insights","breakdowns"].map(k => (
+                <div key={k} className="bg-white/80 rounded-lg p-2 text-center border border-slate-100">
+                  <div className="text-base font-bold text-[#005476]">{latest[`${k}_count`] ?? 0}</div>
+                  <div className="text-[10px] text-slate-400 capitalize">{k}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!latest && !statusLoading && (
+        <Card className="border-dashed">
+          <CardContent className="py-10 text-center text-slate-400">
+            <RefreshCw className="h-10 w-10 mx-auto mb-3 opacity-20" />
+            <p className="font-medium">No sync has run yet.</p>
+            <p className="text-sm mt-1">Click "Run Sync Now" to pull Meta data into the local database.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Safety note */}
+      <Card className="border-slate-200 bg-slate-50">
+        <CardContent className="p-3 flex items-start gap-2">
+          <Info className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-slate-500">
+            Sync pulls data from Meta via <strong>GET requests only</strong>. No campaigns are created, paused, or edited.
+            No budgets are changed. No targeting is modified. Data is stored locally in
+            <code className="mx-1 text-[10px] bg-slate-200 px-1 rounded">meta_intelligence_*</code>
+            tables for AI analysis. CRM, WhatsApp, and email systems are not touched.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
