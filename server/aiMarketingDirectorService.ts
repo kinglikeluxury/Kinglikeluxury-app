@@ -14,6 +14,7 @@
 //     Permissions, or any existing AI Marketing table/route.
 
 import { pool } from "./db";
+import { computeKqsForAllLeads, buildKqsEntityTable } from "./kqsEngine";
 
 // ── Table bootstrap (new tables only, additive columns only) ───────────────
 
@@ -46,6 +47,7 @@ export async function ensureAiMarketingDirectorTables(): Promise<void> {
     await client.query(`ALTER TABLE ai_director_snapshots ADD COLUMN IF NOT EXISTS exchange_rates_json JSONB`);
     await client.query(`ALTER TABLE ai_director_snapshots ADD COLUMN IF NOT EXISTS rates_stale BOOLEAN`);
     await client.query(`ALTER TABLE ai_director_snapshots ADD COLUMN IF NOT EXISTS rates_fetched_at TIMESTAMPTZ`);
+    await client.query(`ALTER TABLE ai_director_snapshots ADD COLUMN IF NOT EXISTS kqs_json JSONB`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS ai_director_recommendations (
@@ -810,6 +812,68 @@ function buildBudgetIntelligence(campaigns: CampaignAgg[]) {
   };
 }
 
+// ── Section 8b: Kinglike Quality Score (KQS) — Phase 5 ──────────────────────
+//
+// Meta metrics (CPL/CTR) are only one signal here (25% weight). The bulk of
+// each campaign's score (75%) comes from real CRM outcomes: conversion rate,
+// profit-per-lead and funnel progression, Bayesian-smoothed so small-sample
+// campaigns don't look artificially perfect or terrible. This directly
+// implements the required behavior: a campaign with 300 leads and 1 sale
+// scores low; a campaign with 20 leads and 5 sales scores high — regardless
+// of what Meta's own CPL/CTR numbers say.
+async function buildKqsSection(campaigns: CampaignAgg[]) {
+  const kqs = await computeKqsForAllLeads();
+
+  const campaignRows = buildKqsEntityTable(
+    campaigns
+      .filter((c) => c.crmLeads > 0 || c.spend > 0)
+      .map((c) => ({
+        id: c.metaCampaignId,
+        name: c.name,
+        spend: c.spend,
+        cpl: c.cpl,
+        ctr: c.ctr,
+        crmLeads: c.crmLeads,
+        purchases: c.purchases,
+        appointments: c.appointments,
+        siteVisits: c.siteVisits,
+        profit: c.profit,
+      })),
+    kqs.byCampaign
+  );
+
+  const avgKqsFor = (arr: typeof kqs.leadScores) =>
+    arr.length ? round2(arr.reduce((s, l) => s + l.kqs, 0) / arr.length) ?? 0 : 0;
+
+  const adsetQuality = Array.from(kqs.byAdset.entries())
+    .map(([id, leads]) => ({ id, leads: leads.length, avgKqs: avgKqsFor(leads), duplicates: leads.filter((l) => l.isDuplicate).length }))
+    .sort((a, b) => b.avgKqs - a.avgKqs);
+
+  const adQuality = Array.from(kqs.byAd.entries())
+    .map(([id, leads]) => ({ id, leads: leads.length, avgKqs: avgKqsFor(leads), duplicates: leads.filter((l) => l.isDuplicate).length }))
+    .sort((a, b) => b.avgKqs - a.avgKqs);
+
+  const sortedLeads = [...kqs.leadScores].sort((a, b) => b.kqs - a.kqs);
+  const topLeads = sortedLeads.slice(0, 10);
+  const bottomLeads = sortedLeads.slice(-10).reverse();
+
+  const duplicateCount = kqs.leadScores.filter((l) => l.isDuplicate).length;
+  const highFakeRiskCount = kqs.leadScores.filter((l) => l.fakeProbability >= 50).length;
+
+  return {
+    campaigns: campaignRows,
+    adsetQuality: adsetQuality.slice(0, 20),
+    adQuality: adQuality.slice(0, 20),
+    topLeads,
+    bottomLeads,
+    duplicateCount,
+    highFakeRiskCount,
+    learningStatus: kqs.learningStatus,
+    methodologyNote:
+      "KQS recalculates on every report generation using all CRM outcomes to date. Final Recommendation always prioritizes KQS (real business performance) over Meta Score (CPL/CTR alone) — never optimize for Meta metrics in isolation.",
+  };
+}
+
 // ── Section 9: Sales Funnel Intelligence ────────────────────────────────────
 
 async function buildSalesFunnel(kpis: any) {
@@ -867,7 +931,8 @@ function buildPredictions(kpis: any, campaigns: CampaignAgg[]) {
 function buildRecommendations(
   campaigns: CampaignAgg[],
   audience: any,
-  creative: any
+  creative: any,
+  kqs?: any
 ): Recommendation[] {
   const recs: Recommendation[] = [];
   const withSpend = campaigns.filter((c) => c.spend > 0);
@@ -875,6 +940,54 @@ function buildRecommendations(
 
   const avgCpl = withSpend.reduce((s, c) => s + c.cpl, 0) / withSpend.length;
   const avgCtr = withSpend.reduce((s, c) => s + c.ctr, 0) / withSpend.length;
+
+  // KQS overrides — the final recommendation must always prioritize real CRM
+  // outcomes over Meta's own CPL/CTR metrics, per the Phase 5 requirement.
+  if (kqs?.campaigns?.length) {
+    const kqsById = new Map<string, any>(kqs.campaigns.map((k: any) => [k.entityId, k]));
+    for (const c of withSpend) {
+      const k = kqsById.get(c.metaCampaignId);
+      if (!k) continue;
+
+      if (k.warning) {
+        recs.push({
+          category: "kqs",
+          action: k.kqs < k.metaScore ? "kqs_override_reduce" : "kqs_override_increase",
+          title: `KQS vs Meta metrics conflict — "${c.name}"`,
+          reason: `${k.warning} Meta Score: ${k.metaScore}/100, CRM Score: ${k.crmScore}/100, Kinglike Quality Score: ${k.kqs}/100.`,
+          supportingMetrics: { metaScore: k.metaScore, crmScore: k.crmScore, kqs: k.kqs, leads: k.leads, purchases: k.supporting?.purchases, profit: round2(k.supporting?.profit) },
+          expectedImpact: k.finalRecommendation,
+          suggestedAction: k.finalRecommendation,
+          estimatedFinancialImpact: null,
+          estimatedFinancialImpactLabel: "Financial impact depends on the scale of the budget change applied",
+          businessImpact: "Aligns budget decisions with real sales outcomes instead of Meta's own click/lead-cost metrics, which can be misleading in isolation.",
+          confidence: kqs.learningStatus?.confidence === "High" ? "High" : kqs.learningStatus?.confidence === "Medium" ? "Medium" : "Low",
+          priority: "High",
+          entityType: "campaign",
+          entityId: c.metaCampaignId,
+          entityName: c.name,
+        });
+      } else if (k.kqs < 35 && k.leads >= 10) {
+        recs.push({
+          category: "kqs",
+          action: "pause_low_kqs",
+          title: `Low Kinglike Quality Score — "${c.name}"`,
+          reason: `This campaign's Kinglike Quality Score is ${k.kqs}/100 based on ${k.leads} leads and real CRM outcomes (${k.supporting?.purchases ?? 0} purchase(s)). Low KQS means leads rarely translate into real business results, regardless of lead volume.`,
+          supportingMetrics: { kqs: k.kqs, metaScore: k.metaScore, crmScore: k.crmScore, leads: k.leads, purchases: k.supporting?.purchases },
+          expectedImpact: k.finalRecommendation,
+          suggestedAction: k.finalRecommendation,
+          estimatedFinancialImpact: round2(c.spend * 0.5),
+          estimatedFinancialImpactLabel: "Estimated monthly spend at risk of being wasted on low-KQS leads",
+          businessImpact: "Redirects budget away from a channel that generates volume but not real business outcomes.",
+          confidence: kqs.learningStatus?.confidence === "High" ? "High" : "Medium",
+          priority: "High",
+          entityType: "campaign",
+          entityId: c.metaCampaignId,
+          entityName: c.name,
+        });
+      }
+    }
+  }
 
   for (const c of withSpend) {
     if (c.cpl > avgCpl * 1.5 && c.metaLeads > 0) {
@@ -1036,10 +1149,11 @@ export async function generateAiMarketingDirectorReport() {
   const project = await buildProjectIntelligence();
   const budget = buildBudgetIntelligence(campaigns);
   const sales = buildSalesIntelligence(campaigns);
+  const kqs = await buildKqsSection(campaigns);
   const funnel = await buildSalesFunnel(kpis);
   const predictions = buildPredictions(kpis, campaigns);
   const executiveReport = buildExecutiveReport(kpis, campaigns, audience);
-  const recommendations = buildRecommendations(campaigns, audience, creative);
+  const recommendations = buildRecommendations(campaigns, audience, creative, kqs);
 
   const client = await pool.connect();
   try {
@@ -1048,8 +1162,8 @@ export async function generateAiMarketingDirectorReport() {
       `INSERT INTO ai_director_snapshots
          (health_score, kpis_json, executive_report, audience_json, creative_json,
           project_json, budget_json, funnel_json, predictions_json, sales_json,
-          base_currency, exchange_rates_json, rates_stale, rates_fetched_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
+          base_currency, exchange_rates_json, rates_stale, rates_fetched_at, kqs_json)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),$14)
        RETURNING id, generated_at`,
       [
         kpis.healthScore,
@@ -1065,6 +1179,7 @@ export async function generateAiMarketingDirectorReport() {
         baseCurrency,
         JSON.stringify(displayRates),
         usdRatesResult.stale,
+        JSON.stringify(kqs),
       ]
     );
     const snapshotId = rows[0].id;
@@ -1109,6 +1224,7 @@ export async function generateAiMarketingDirectorReport() {
       project,
       budget,
       sales,
+      kqs,
       funnel,
       predictions,
       recommendations,

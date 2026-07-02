@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Sparkles, RefreshCw, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
-  Target, Users, Palette, DollarSign, Building2, GitBranch, LineChart, Flame,
+  Target, Users, Palette, DollarSign, Building2, GitBranch, LineChart, Flame, Award,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,7 @@ interface Snapshot {
   funnel_json: any;
   predictions_json: any;
   sales_json: any;
+  kqs_json: any;
   base_currency: string;
   exchange_rates_json: Record<string, number>;
   rates_stale: boolean;
@@ -150,6 +151,19 @@ const ACTION_COLORS: Record<string, string> = {
   pause: "bg-red-100 text-red-700 border-red-200",
   maintain: "bg-slate-100 text-slate-600 border-slate-200",
 };
+function finalRecColorClass(rec: string | null | undefined) {
+  if (!rec) return "bg-slate-100 text-slate-600 border-slate-200";
+  if (rec.startsWith("Scale")) return "bg-green-100 text-green-700 border-green-200";
+  if (rec.startsWith("Maintain")) return "bg-teal-100 text-teal-700 border-teal-200";
+  if (rec.startsWith("Review")) return "bg-amber-100 text-amber-700 border-amber-200";
+  return "bg-red-100 text-red-700 border-red-200";
+}
+function scoreColorClass(score: number | null | undefined) {
+  if (score == null) return "text-slate-400";
+  if (score >= 70) return "text-green-600";
+  if (score >= 40) return "text-amber-600";
+  return "text-red-600";
+}
 
 function KpiCard({ label, value, icon: Icon }: { label: string; value: string; icon: any }) {
   return (
@@ -513,6 +527,92 @@ export default function AiMarketingDirector() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </SectionCard>
+
+          {/* Section 8.5 — Kinglike Quality Score (KQS) */}
+          <SectionCard title="Kinglike Quality Score (KQS) — Real Quality Beyond Meta Metrics" icon={Award}>
+            <p className="text-sm text-slate-500 mb-3">
+              Meta only tracks clicks and cost-per-lead — it has no idea which leads actually became sales. KQS learns from real CRM outcomes
+              (replies, appointments, site visits, sales, commission) to score every lead and campaign on real quality, 0–100.
+              <strong> The Final Recommendation always prioritizes KQS over raw Meta metrics.</strong>
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <KpiCard label="Leads Scored" value={fmt(snapshot.kqs_json?.learningStatus?.totalLeadsScored)} icon={Users} />
+              <KpiCard label="Sales Observed" value={fmt(snapshot.kqs_json?.learningStatus?.totalSalesObserved)} icon={CheckCircle2} />
+              <KpiCard label="Duplicate Leads" value={fmt(snapshot.kqs_json?.duplicateCount)} icon={AlertTriangle} />
+              <KpiCard label="Fake-Risk Leads" value={fmt(snapshot.kqs_json?.highFakeRiskCount)} icon={AlertTriangle} />
+            </div>
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant="outline" className={CONFIDENCE_COLORS[snapshot.kqs_json?.learningStatus?.confidence] || ""}>
+                {snapshot.kqs_json?.learningStatus?.confidence || "Low"} Confidence
+              </Badge>
+              <span className="text-xs text-slate-400">{snapshot.kqs_json?.methodologyNote}</span>
+            </div>
+            <p className="font-semibold text-slate-700 text-sm mb-2">Meta Score vs. CRM Score vs. KQS — Per Campaign</p>
+            <div className="overflow-x-auto mb-5">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                    <th className="py-2 pr-3">Campaign</th>
+                    <th className="py-2 pr-3">Leads</th>
+                    <th className="py-2 pr-3">Meta Score</th>
+                    <th className="py-2 pr-3">CRM Score</th>
+                    <th className="py-2 pr-3">KQS</th>
+                    <th className="py-2 pr-3">Final Recommendation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(snapshot.kqs_json?.campaigns || []).map((c: any) => (
+                    <tr key={c.entityId} className="border-b border-slate-100 align-top">
+                      <td className="py-2 pr-3 text-slate-700 max-w-[200px] truncate">{c.name}</td>
+                      <td className="py-2 pr-3 text-slate-600">{c.leads}</td>
+                      <td className={`py-2 pr-3 font-semibold ${scoreColorClass(c.metaScore)}`}>{fmt(c.metaScore)}</td>
+                      <td className={`py-2 pr-3 font-semibold ${scoreColorClass(c.crmScore)}`}>{fmt(c.crmScore)}</td>
+                      <td className={`py-2 pr-3 font-bold ${scoreColorClass(c.kqs)}`}>{fmt(c.kqs)}</td>
+                      <td className="py-2 pr-3">
+                        <Badge variant="outline" className={finalRecColorClass(c.finalRecommendation)}>
+                          {(c.finalRecommendation || "").split(" — ")[0]}
+                        </Badge>
+                        {c.warning && (
+                          <p className="text-xs text-amber-600 flex items-start gap-1 mt-1 max-w-[280px]">
+                            <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" /> {c.warning}
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {!snapshot.kqs_json?.campaigns?.length && (
+                    <tr><td colSpan={6} className="py-4 text-center text-slate-400">No campaign data yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="font-semibold text-slate-700 text-sm mb-2">Top Quality Leads (Highest KQS)</p>
+                <div className="space-y-1.5">
+                  {(snapshot.kqs_json?.topLeads || []).slice(0, 8).map((l: any) => (
+                    <div key={l.leadId} className="flex justify-between text-xs border-b border-slate-100 pb-1">
+                      <span className="text-slate-600">Lead #{l.leadId}{l.isDuplicate ? " (dup)" : ""}</span>
+                      <span className={`font-semibold ${scoreColorClass(l.kqs)}`}>{l.kqs}</span>
+                    </div>
+                  ))}
+                  {!snapshot.kqs_json?.topLeads?.length && <p className="text-sm text-slate-400">No lead data yet.</p>}
+                </div>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-700 text-sm mb-2">Lowest Quality Leads (Lowest KQS)</p>
+                <div className="space-y-1.5">
+                  {(snapshot.kqs_json?.bottomLeads || []).slice(0, 8).map((l: any) => (
+                    <div key={l.leadId} className="flex justify-between text-xs border-b border-slate-100 pb-1">
+                      <span className="text-slate-600">Lead #{l.leadId}{l.isDuplicate ? " (dup)" : ""}{l.fakeProbability >= 50 ? " (fake risk)" : ""}</span>
+                      <span className={`font-semibold ${scoreColorClass(l.kqs)}`}>{l.kqs}</span>
+                    </div>
+                  ))}
+                  {!snapshot.kqs_json?.bottomLeads?.length && <p className="text-sm text-slate-400">No lead data yet.</p>}
+                </div>
+              </div>
             </div>
           </SectionCard>
 

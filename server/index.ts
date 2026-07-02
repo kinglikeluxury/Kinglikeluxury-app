@@ -408,6 +408,11 @@ app.use((req, res, next) => {
     .then(({ ensureAiMarketingDirectorTables }) => ensureAiMarketingDirectorTables())
     .catch(err => console.error("[DB] ensureAiMarketingDirectorTables failed:", err));
 
+  // Phase 5 — Kinglike Quality Score (KQS) tables (read-only scoring engine, additive only)
+  import("./kqsEngine")
+    .then(({ ensureKqsTables }) => ensureKqsTables())
+    .catch(err => console.error("[DB] ensureKqsTables failed:", err));
+
   ensureWaQualTables()
     .then(() => ensureAiConciergeColumns())
     .then(() => { if (schedulersEnabled) startWaQualScheduler(); })
