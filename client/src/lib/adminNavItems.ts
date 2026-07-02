@@ -23,6 +23,7 @@ import {
   BotMessageSquare,
   Rocket,
   RadioTower,
+  Swords,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -216,6 +217,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     path: "/admin/broadcast",
     Icon: RadioTower,
     iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.competitorIntelligence",
+    labelFallback: "Competitor Intelligence",
+    path: "/admin/competitor-intelligence",
+    Icon: Swords,
+    iconColorHex: "#005476",
     highlight: true,
   },
 ];

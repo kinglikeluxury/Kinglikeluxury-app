@@ -409,9 +409,15 @@ app.use((req, res, next) => {
     .catch(err => console.error("[DB] ensureAiMarketingDirectorTables failed:", err));
 
   // Phase 5 — Kinglike Quality Score (KQS) tables (read-only scoring engine, additive only)
+  // Competitor Intelligence tables are chained sequentially after KQS (not a
+  // separate concurrent chain) to avoid a known race in the Neon serverless
+  // driver where too many concurrent pool.connect() calls at startup trigger
+  // a "Release called on client which has already been released" crash.
   import("./kqsEngine")
     .then(({ ensureKqsTables }) => ensureKqsTables())
-    .catch(err => console.error("[DB] ensureKqsTables failed:", err));
+    .then(() => import("./competitorIntelligenceService"))
+    .then(({ ensureCompetitorIntelligenceTables }) => ensureCompetitorIntelligenceTables())
+    .catch(err => console.error("[DB] ensureKqsTables/ensureCompetitorIntelligenceTables failed:", err));
 
   ensureWaQualTables()
     .then(() => ensureAiConciergeColumns())

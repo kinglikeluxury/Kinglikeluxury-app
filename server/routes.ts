@@ -6884,6 +6884,56 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // ── Competitor Intelligence Engine — SAFE MODE, MVP (READ-ONLY) ──────────
+  // On-demand only: no scheduler ever calls into this file. Fetches the
+  // PUBLIC Meta Ad Library (logged-out) via Playwright, then stores results
+  // into the new competitor_* tables only. Zero writes to Meta, CRM,
+  // WhatsApp, Email, Auth, Permissions, KQS, or AI Marketing Director.
+
+  app.post("/api/admin/competitor-intelligence/search", isAdmin, async (req, res) => {
+    try {
+      const { term, country } = req.body || {};
+      if (!term || typeof term !== "string" || !term.trim()) {
+        return res.status(400).json({ ok: false, error: "Search term is required" });
+      }
+      const { runCompetitorSearch } = await import("./competitorIntelligenceService");
+      const result = await runCompetitorSearch(term.trim(), country);
+      res.json({ ok: true, data: result });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/competitors", isAdmin, async (_req, res) => {
+    try {
+      const { listCompetitors } = await import("./competitorIntelligenceService");
+      const data = await listCompetitors();
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/competitors/:id/ads", isAdmin, async (req, res) => {
+    try {
+      const { getCompetitorAds } = await import("./competitorIntelligenceService");
+      const data = await getCompetitorAds(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/search-runs", isAdmin, async (_req, res) => {
+    try {
+      const { getSearchRuns } = await import("./competitorIntelligenceService");
+      const data = await getSearchRuns();
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/war-room", isAdmin, async (_req, res) => {
+    try {
+      const { getWarRoom } = await import("./competitorIntelligenceService");
+      const data = await getWarRoom();
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // ── Phase 4: Campaign Attribution Engine — READ-ONLY ─────────────────────
   // Aggregates existing CRM lead data (campaign_name, adset_name, ad_name,
   // lead_score, status) into performance summaries per campaign entity.

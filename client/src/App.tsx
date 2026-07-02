@@ -59,6 +59,7 @@ import WhatsappConciergeDashboard from "@/pages/admin/whatsapp-concierge-dashboa
 import EmployeeDashboardPage from "@/pages/admin/employee-dashboard";
 import AiMarketingCenterPage from "@/pages/admin/ai-marketing-center";
 import BroadcastPage from "@/pages/admin/broadcast";
+import CompetitorIntelligencePage from "@/pages/admin/competitor-intelligence";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -113,6 +114,7 @@ function Router() {
           <Route path="/admin/whatsapp-concierge" component={WhatsappConciergeDashboard} />
           <Route path="/admin/ai-marketing-center" component={AiMarketingCenterPage} />
           <Route path="/admin/broadcast" component={BroadcastPage} />
+          <Route path="/admin/competitor-intelligence" component={CompetitorIntelligencePage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />

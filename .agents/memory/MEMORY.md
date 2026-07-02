@@ -8,4 +8,5 @@
 - [canvas native module — lazy import pattern](canvas-lazy-import.md) — wrap canvas require in try-catch so server starts when native binary is missing.
 - [Ambassadori browser automation](ambassadori-browser-automation.md) — Playwright + Nix Chromium for headless form-fill; session cookies in DB; false-success fix at startup.
 - [AI Lead Scoring columns](ai-lead-scoring.md) — 4 raw-SQL columns on crm_leads (ai_score, ai_score_category, ai_score_reason, ai_score_updated_at); scores cached in DB, generated fire-and-forget on create/update.
+- [Neon pool concurrent connect() race](neon-pool-concurrent-connect-race.md) — new startup table-bootstrap chains should chain sequentially onto an existing one, not float independently, to avoid an intermittent driver crash.
 - [Kinglike Quality Score (KQS) engine](kqs-scoring-engine.md) — read-only lead/campaign quality scoring (0-100) that overrides Meta CPL/CTR with real CRM outcomes; CRM Score weighted 75% vs Meta Score 25%.
