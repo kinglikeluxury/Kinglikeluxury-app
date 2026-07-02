@@ -696,7 +696,7 @@ export default function CrmLeadsPage() {
             <p className="text-sm text-muted-foreground">Lead Management System</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
