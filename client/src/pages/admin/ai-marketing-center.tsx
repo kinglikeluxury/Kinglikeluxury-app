@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import RevenueIntelligence from "./ai-marketing-revenue";
 import MetaConnection from "./ai-marketing-meta";
+import AiMarketingDirector from "./ai-marketing-director";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,7 @@ const TABS = [
   { key: "safety",         label: "Safety Settings",         Icon: ShieldCheck },
   { key: "revenue",        label: "Revenue Intelligence",    Icon: TrendingUp },
   { key: "meta",           label: "Meta Connection",         Icon: Wifi },
+  { key: "director",       label: "AI Marketing Director",   Icon: Rocket },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -910,6 +912,13 @@ export default function AiMarketingCenter() {
               <p className="text-sm text-slate-500">Phase 3 — Read-only verification of campaigns, ad sets, ads and insights. No write actions.</p>
             </div>
             <MetaConnection />
+          </div>
+        )}
+
+        {/* ── AI Marketing Director ─────────────────────────────────────── */}
+        {tab === "director" && (
+          <div>
+            <AiMarketingDirector />
           </div>
         )}
       </div>

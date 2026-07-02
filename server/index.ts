@@ -403,6 +403,11 @@ app.use((req, res, next) => {
   ensureMetaIntelligenceTables()
     .catch(err => console.error("[DB] ensureMetaIntelligenceTables failed:", err));
 
+  // Phase 4 — AI Marketing Director tables (read-only analysis engine, additive only)
+  import("./aiMarketingDirectorService")
+    .then(({ ensureAiMarketingDirectorTables }) => ensureAiMarketingDirectorTables())
+    .catch(err => console.error("[DB] ensureAiMarketingDirectorTables failed:", err));
+
   ensureWaQualTables()
     .then(() => ensureAiConciergeColumns())
     .then(() => { if (schedulersEnabled) startWaQualScheduler(); })

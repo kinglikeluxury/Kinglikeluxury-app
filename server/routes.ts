@@ -6839,6 +6839,51 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // ── AI Marketing Director — READ-ONLY analysis engine ────────────────────
+  // Reads only already-synced meta_intelligence_* tables + crm_leads +
+  // ai_marketing_sales_outcomes. Zero Meta API calls. Writes ONLY to the two
+  // new tables it owns: ai_director_snapshots, ai_director_recommendations.
+
+  // POST: run the analysis engine and persist a new snapshot + recommendations
+  app.post("/api/admin/ai-marketing-director/generate", isAdmin, async (_req, res) => {
+    try {
+      const { generateAiMarketingDirectorReport } = await import("./aiMarketingDirectorService");
+      const result = await generateAiMarketingDirectorReport();
+      res.json({ ok: true, data: result });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: latest snapshot (with its recommendations)
+  app.get("/api/admin/ai-marketing-director/latest", isAdmin, async (_req, res) => {
+    try {
+      const { getLatestSnapshot, getRecommendationsForSnapshot } = await import("./aiMarketingDirectorService");
+      const snapshot = await getLatestSnapshot();
+      if (!snapshot) return res.json({ ok: true, data: null });
+      const recommendations = await getRecommendationsForSnapshot(snapshot.id);
+      res.json({ ok: true, data: { ...snapshot, recommendations } });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: recommendations for a specific snapshot
+  app.get("/api/admin/ai-marketing-director/recommendations", isAdmin, async (req, res) => {
+    try {
+      const { getLatestSnapshot, getRecommendationsForSnapshot } = await import("./aiMarketingDirectorService");
+      const snapshotId = req.query.snapshotId ? Number(req.query.snapshotId) : (await getLatestSnapshot())?.id;
+      if (!snapshotId) return res.json({ ok: true, data: [] });
+      const recommendations = await getRecommendationsForSnapshot(snapshotId);
+      res.json({ ok: true, data: recommendations });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // GET: snapshot history (for trend display)
+  app.get("/api/admin/ai-marketing-director/history", isAdmin, async (_req, res) => {
+    try {
+      const { getSnapshotHistory } = await import("./aiMarketingDirectorService");
+      const history = await getSnapshotHistory();
+      res.json({ ok: true, data: history });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // ── Phase 4: Campaign Attribution Engine — READ-ONLY ─────────────────────
   // Aggregates existing CRM lead data (campaign_name, adset_name, ad_name,
   // lead_score, status) into performance summaries per campaign entity.
