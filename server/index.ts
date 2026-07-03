@@ -40,7 +40,7 @@ import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsServ
 import { ensureAssignmentCursor } from "./leadAssignmentService";
 import { ensureCrmLeadEmailLogTable } from "./crmLeadEmailService";
 import { registerWhatsappAiRoutes } from "./whatsappAiRoutes";
-import { registerDeveloperRegistrationRoutes } from "./developerRegistrationRoutes";
+import { registerDeveloperRegistrationRoutes, ensureDeveloperRegistrationRouteTables } from "./developerRegistrationRoutes";
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
 import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
@@ -328,108 +328,134 @@ app.use((req, res, next) => {
   }
   validateMetaWhatsAppConfig();
 
-  // Log active database status after server is up
-  logDatabaseStatus().catch(err =>
-    console.error("[DB] Failed to log database status:", err)
-  );
-
-  // Ensure CRM performance indexes exist (idempotent — IF NOT EXISTS)
-  ensureCrmIndexes().catch(err =>
-    console.error("[DB] ensureCrmIndexes failed:", err)
-  );
-
-  // Ensure the lead assignment cursor table exists (idempotent)
-  ensureAssignmentCursor().catch(err =>
-    console.error("[LeadAssignment] ensureAssignmentCursor failed:", err)
-  );
-
-  // Ensure the CRM lead email log table exists (idempotent)
-  ensureCrmLeadEmailLogTable().catch(err =>
-    console.error("[CrmLeadEmail] ensureCrmLeadEmailLogTable failed:", err)
-  );
-
-  ensureMetaLeadsTables()
-    .then(() => {
-      if (schedulersEnabled) {
-        startMetaLeadsProcessor();
-        if (process.env.META_LEAD_PULL_SYNC_ENABLED === "true") {
-          startPullSyncScheduler();
-        } else {
-          console.log("[MetaLeads][PullSync] Scheduler disabled — set META_LEAD_PULL_SYNC_ENABLED=true to enable");
+  // ─────────────────────────────────────────────────────────────────────────
+  // SEQUENTIAL STARTUP BOOTSTRAP QUEUE
+  //
+  // Root cause note: the Neon serverless driver's websocket-based Pool has a
+  // known race under concurrent connect()/release() traffic — when many
+  // ensureXTables() calls each grab their own client from the pool at nearly
+  // the same instant during boot, the driver can intermittently throw
+  // "Release called on client which has already been released to the pool."
+  // That error originates from the driver's internal event handling (not the
+  // awaited call path), so it bypasses individual .catch() handlers and
+  // trips the process-level uncaughtException handler, crashing the server.
+  //
+  // Fix: every table-bootstrap step below runs one at a time — fully awaited,
+  // in a fixed order — instead of as independent floating promises. This
+  // guarantees at most one pool.connect() from this boot sequence is ever in
+  // flight at once, which removes the concurrency burst that triggers the
+  // race. This does not change any application logic — each ensureXTables()
+  // function body is untouched; only the call-site orchestration changed.
+  // Non-fatal by design: a failure in one step is logged and the queue moves
+  // on to the next step, matching the previous per-chain error handling.
+  // ─────────────────────────────────────────────────────────────────────────
+  const bootSteps: Array<{ name: string; run: () => Promise<void> }> = [
+    { name: "logDatabaseStatus", run: () => logDatabaseStatus() },
+    { name: "ensureCrmIndexes", run: () => ensureCrmIndexes() },
+    { name: "ensureAssignmentCursor", run: () => ensureAssignmentCursor() },
+    { name: "ensureCrmLeadEmailLogTable", run: () => ensureCrmLeadEmailLogTable() },
+    {
+      name: "ensureDeveloperRegistrationRouteTables",
+      run: () => ensureDeveloperRegistrationRouteTables(),
+    },
+    {
+      name: "ensureMetaLeadsTables",
+      run: async () => {
+        await ensureMetaLeadsTables();
+        if (schedulersEnabled) {
+          startMetaLeadsProcessor();
+          if (process.env.META_LEAD_PULL_SYNC_ENABLED === "true") {
+            startPullSyncScheduler();
+          } else {
+            console.log("[MetaLeads][PullSync] Scheduler disabled — set META_LEAD_PULL_SYNC_ENABLED=true to enable");
+          }
         }
-      }
-    })
-    .catch(err => console.error("[DB] ensureMetaLeadsTables failed:", err));
+      },
+    },
+    { name: "ensureWhatsappAiTables", run: () => ensureWhatsappAiTables() },
+    {
+      name: "ensureDeveloperRegistrationTables",
+      run: async () => {
+        await ensureDeveloperRegistrationTables();
+        startDeveloperRegistrationScheduler();
+      },
+    },
+    {
+      name: "ensureEmailNurturingTables",
+      run: async () => {
+        await ensureEmailNurturingTables();
+        if (schedulersEnabled) startNurturingScheduler();
+      },
+    },
+    {
+      name: "ensureBroadcastTables",
+      run: async () => {
+        await ensureBroadcastTables();
+        await resumePendingBroadcasts();
+      },
+    },
+    { name: "ensureWhatsAppApiTables", run: () => ensureWhatsAppApiTables() },
+    {
+      name: "ensureAiMarketingTables",
+      run: async () => {
+        await ensureAiMarketingTables();
+        await ensureAiMarketingRevenueTables();
+        await ensureAiCampaignAttributionTables();
+        await ensureAiCreativeAttributionTable();
+        await ensureAiCreativeDraftsTable();
+      },
+    },
+    // Phase 11 tables
+    { name: "ensureAiCampaignDraftTables", run: () => ensureAiCampaignDraftTables() },
+    // Phase 12 tables — project marketing knowledge base
+    { name: "ensureProjectMarketingTables", run: () => ensureProjectMarketingTables() },
+    // Phase 14 tables — performance learning engine
+    { name: "ensureLearningEngineTables", run: () => ensureLearningEngineTables() },
+    // Meta Intelligence tables — read-only snapshot store
+    { name: "ensureMetaIntelligenceTables", run: () => ensureMetaIntelligenceTables() },
+    // Phase 4 — AI Marketing Director tables (read-only analysis engine, additive only)
+    {
+      name: "ensureAiMarketingDirectorTables",
+      run: async () => {
+        const { ensureAiMarketingDirectorTables } = await import("./aiMarketingDirectorService");
+        await ensureAiMarketingDirectorTables();
+      },
+    },
+    // Phase 5 — Kinglike Quality Score (KQS) tables (read-only scoring engine,
+    // additive only), then MVP Competitor Intelligence tables, then Phase 2 —
+    // Market Intelligence Enhancement tables (additive only, new competitor_*
+    // tables). All three already ran sequentially relative to each other;
+    // they now also run sequentially relative to every other boot step.
+    {
+      name: "ensureKqsTables/ensureCompetitorIntelligenceTables/ensureAllPhase2Tables",
+      run: async () => {
+        const { ensureKqsTables } = await import("./kqsEngine");
+        await ensureKqsTables();
+        const { ensureCompetitorIntelligenceTables } = await import("./competitorIntelligenceService");
+        await ensureCompetitorIntelligenceTables();
+        const { ensureAllPhase2Tables } = await import("./competitorPhase2Orchestrator");
+        await ensureAllPhase2Tables();
+      },
+    },
+    {
+      name: "ensureWaQualTables",
+      run: async () => {
+        await ensureWaQualTables();
+        await ensureAiConciergeColumns();
+        if (schedulersEnabled) startWaQualScheduler();
+        const { migrateLegacySessionsToAiConcierge } = await import("./waQualService");
+        await migrateLegacySessionsToAiConcierge();
+      },
+    },
+  ];
 
-  ensureWhatsappAiTables().catch(err =>
-    console.error("[DB] ensureWhatsappAiTables failed:", err)
-  );
-
-  ensureDeveloperRegistrationTables()
-    .then(() => startDeveloperRegistrationScheduler())
-    .catch(err => console.error("[DB] ensureDeveloperRegistrationTables failed:", err));
-
-  ensureEmailNurturingTables()
-    .then(() => { if (schedulersEnabled) startNurturingScheduler(); })
-    .catch(err => console.error("[DB] ensureEmailNurturingTables failed:", err));
-
-  ensureBroadcastTables()
-    .then(() => resumePendingBroadcasts())
-    .catch(err => console.error("[DB] ensureBroadcastTables failed:", err));
-
-  ensureWhatsAppApiTables()
-    .catch(err => console.error("[DB] ensureWhatsAppApiTables failed:", err));
-
-  ensureAiMarketingTables()
-    .then(() => ensureAiMarketingRevenueTables())
-    .then(() => ensureAiCampaignAttributionTables())
-    .then(() => ensureAiCreativeAttributionTable())
-    .then(() => ensureAiCreativeDraftsTable())
-    .catch(err => console.error("[DB] ensureAiMarketingTables failed:", err));
-
-  // Phase 11 tables — separate chain to avoid pool contention with PullSync
-  ensureAiCampaignDraftTables()
-    .catch(err => console.error("[DB] ensureAiCampaignDraftTables failed:", err));
-
-  // Phase 12 tables — project marketing knowledge base
-  ensureProjectMarketingTables()
-    .catch(err => console.error("[DB] ensureProjectMarketingTables failed:", err));
-
-  // Phase 14 tables — performance learning engine
-  ensureLearningEngineTables()
-    .catch(err => console.error("[DB] ensureLearningEngineTables failed:", err));
-
-  // Meta Intelligence tables — read-only snapshot store
-  ensureMetaIntelligenceTables()
-    .catch(err => console.error("[DB] ensureMetaIntelligenceTables failed:", err));
-
-  // Phase 4 — AI Marketing Director tables (read-only analysis engine, additive only)
-  import("./aiMarketingDirectorService")
-    .then(({ ensureAiMarketingDirectorTables }) => ensureAiMarketingDirectorTables())
-    .catch(err => console.error("[DB] ensureAiMarketingDirectorTables failed:", err));
-
-  // Phase 5 — Kinglike Quality Score (KQS) tables (read-only scoring engine, additive only)
-  // Competitor Intelligence tables are chained sequentially after KQS (not a
-  // separate concurrent chain) to avoid a known race in the Neon serverless
-  // driver where too many concurrent pool.connect() calls at startup trigger
-  // a "Release called on client which has already been released" crash.
-  // Phase 2 — Market Intelligence Enhancement tables (additive only, new
-  // competitor_* tables). Chained sequentially after the MVP Competitor
-  // Intelligence bootstrap for the same reason noted above (avoid concurrent
-  // pool.connect() races at startup).
-  import("./kqsEngine")
-    .then(({ ensureKqsTables }) => ensureKqsTables())
-    .then(() => import("./competitorIntelligenceService"))
-    .then(({ ensureCompetitorIntelligenceTables }) => ensureCompetitorIntelligenceTables())
-    .then(() => import("./competitorPhase2Orchestrator"))
-    .then(({ ensureAllPhase2Tables }) => ensureAllPhase2Tables())
-    .catch(err => console.error("[DB] ensureKqsTables/ensureCompetitorIntelligenceTables/ensureAllPhase2Tables failed:", err));
-
-  ensureWaQualTables()
-    .then(() => ensureAiConciergeColumns())
-    .then(() => { if (schedulersEnabled) startWaQualScheduler(); })
-    .then(() => import("./waQualService").then(({ migrateLegacySessionsToAiConcierge }) => migrateLegacySessionsToAiConcierge()))
-    .catch(err => console.error("[DB] ensureWaQualTables failed:", err));
+  for (const step of bootSteps) {
+    try {
+      await step.run();
+    } catch (err) {
+      console.error(`[DB] ${step.name} failed:`, err);
+    }
+  }
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];

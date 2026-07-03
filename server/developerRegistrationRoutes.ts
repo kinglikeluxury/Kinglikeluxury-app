@@ -54,15 +54,25 @@ function adminOnly(req: Request, res: Response): boolean {
   return true;
 }
 
-export function registerDeveloperRegistrationRoutes(app: Express): void {
+/**
+ * Ensures all Developer Registration schema/table prerequisites exist.
+ * Runs each step sequentially (awaited, one at a time) rather than as
+ * independent floating promises — this avoids piling concurrent
+ * pool.connect() calls onto the shared Neon pool during startup, which is
+ * a known trigger for an intermittent "double release" crash in the
+ * @neondatabase/serverless driver. Called once from the main sequential
+ * boot queue in server/index.ts; safe to call again (fully idempotent).
+ */
+export async function ensureDeveloperRegistrationRouteTables(): Promise<void> {
+  await ensureDevRegSchemaColumns().catch(() => {});
+  await ensureSilkAttemptColumns().catch(() => {});
+  await ensureAmbassadoriAttemptColumns().catch(() => {});
+  await ensureAmbassadoriCompany().catch(() => {});
+  await ensureAmbassadoriSessionTable().catch(() => {});
+  await fixAmbassadoriUnverifiedSuccesses().catch(() => {});
+}
 
-  // Ensure schema columns and attempt table columns exist (idempotent, runs once at startup)
-  ensureDevRegSchemaColumns().catch(() => {});
-  ensureSilkAttemptColumns().catch(() => {});
-  ensureAmbassadoriAttemptColumns().catch(() => {});
-  ensureAmbassadoriCompany().catch(() => {});
-  ensureAmbassadoriSessionTable().catch(() => {});
-  fixAmbassadoriUnverifiedSuccesses().catch(() => {});
+export function registerDeveloperRegistrationRoutes(app: Express): void {
 
   // ── Overview dashboard ────────────────────────────────────────────────────
 

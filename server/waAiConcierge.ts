@@ -59,10 +59,16 @@ export async function ensureAiConciergeColumns(): Promise<void> {
   }
 }
 
+// NOTE: This used to self-invoke ensureAiConciergeColumns() at module load
+// time (fires as soon as this file is imported, uncontrolled by startup
+// order). That was a duplicate of the same call already made sequentially
+// via the ensureWaQualTables() boot chain in server/index.ts, and the extra
+// concurrent pool.connect() it introduced contributed to an intermittent
+// "double release" race in the Neon serverless driver at startup. The
+// guardColumns() lazy-check below still ensures columns exist on first use
+// even if called before the boot chain finishes, so removing the eager
+// auto-invoke changes no behavior — it only removes a redundant race source.
 let _columnsReady = false;
-ensureAiConciergeColumns()
-  .then(() => { _columnsReady = true; })
-  .catch(() => {});
 
 async function guardColumns(): Promise<void> {
   if (_columnsReady) return;
