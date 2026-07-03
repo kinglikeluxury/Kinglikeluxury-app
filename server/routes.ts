@@ -6934,6 +6934,138 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // ── Competitor Intelligence Phase 2 — Market Intelligence Enhancement ────
+  // SAFE MODE, additive-only. Every route below is manual-admin-triggered
+  // (no scheduler). Never modifies competitorIntelligenceService.ts or
+  // competitorAdLibraryFetcher.ts (the MVP) — only reads from them and writes
+  // to new competitor_* tables owned by the Phase 2 services.
+
+  app.post("/api/admin/competitor-intelligence/refresh-intelligence", isAdmin, async (req, res) => {
+    try {
+      const { runId, adIds } = req.body || {};
+      if (!runId || !Array.isArray(adIds)) {
+        return res.status(400).json({ ok: false, error: "runId and adIds[] are required" });
+      }
+      const { getWarRoom } = await import("./competitorIntelligenceService");
+      const { refreshIntelligence } = await import("./competitorPhase2Orchestrator");
+      let opportunities: string[] = [];
+      try {
+        const warRoom: any = await getWarRoom();
+        opportunities = Array.isArray(warRoom?.opportunities) ? warRoom.opportunities : [];
+      } catch {
+        opportunities = [];
+      }
+      const result = await refreshIntelligence(Number(runId), adIds.map(Number), opportunities);
+      res.json({ ok: true, data: result });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/history/:id", isAdmin, async (req, res) => {
+    try {
+      const { getAdHistory } = await import("./competitorMemoryService");
+      const data = await getAdHistory(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/timeline/:id", isAdmin, async (req, res) => {
+    try {
+      const { getTimeline } = await import("./competitorTimelineService");
+      const data = await getTimeline(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/creative-evolution/:id", isAdmin, async (req, res) => {
+    try {
+      const { getEvolution } = await import("./competitorCreativeEvolutionService");
+      const data = await getEvolution(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/threat-score-v2/:id", isAdmin, async (req, res) => {
+    try {
+      const { getThreatScoreV2History } = await import("./competitorThreatScoreV2Service");
+      const data = await getThreatScoreV2History(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.post("/api/admin/competitor-intelligence/counter-strategy/:id/generate", isAdmin, async (req, res) => {
+    try {
+      const { generateCounterStrategy } = await import("./competitorStrategyService");
+      const data = await generateCounterStrategy(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/counter-strategy/:id", isAdmin, async (req, res) => {
+    try {
+      const { getStrategies } = await import("./competitorStrategyService");
+      const data = await getStrategies(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.post("/api/admin/competitor-intelligence/counter-strategy/:strategyId/feedback", isAdmin, async (req, res) => {
+    try {
+      const { feedback, note } = req.body || {};
+      if (feedback !== "useful" && feedback !== "not_useful") {
+        return res.status(400).json({ ok: false, error: "feedback must be 'useful' or 'not_useful'" });
+      }
+      const { submitFeedback } = await import("./competitorFeedbackService");
+      const data = await submitFeedback(Number(req.params.strategyId), feedback, note);
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/alerts", isAdmin, async (_req, res) => {
+    try {
+      const { getAlerts } = await import("./competitorAlertsService");
+      const data = await getAlerts();
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/change-summary/latest", isAdmin, async (_req, res) => {
+    try {
+      const { getLatestChangeSummary } = await import("./competitorChangeSummaryService");
+      const data = await getLatestChangeSummary();
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  // ── Competitor Intelligence Phase 2 — Public API seam (admin-gated for now) ─
+  // Sanctioned future integration point for AI Marketing Director / KQS /
+  // Meta Intelligence. Nothing currently consumes these except this route
+  // layer — kept isolated so a future consumer can be wired in without any
+  // redesign of the underlying services.
+
+  app.get("/api/admin/competitor-intelligence/public/v1/summary/:id", isAdmin, async (req, res) => {
+    try {
+      const { getCompetitorSummary } = await import("./competitorIntelligencePublicApi");
+      const data = await getCompetitorSummary(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/public/v1/threat-score/:id", isAdmin, async (req, res) => {
+    try {
+      const { getThreatScoreV2Public } = await import("./competitorIntelligencePublicApi");
+      const data = await getThreatScoreV2Public(Number(req.params.id));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/public/v1/alerts/latest", isAdmin, async (_req, res) => {
+    try {
+      const { getLatestAlertsPublic } = await import("./competitorIntelligencePublicApi");
+      const data = await getLatestAlertsPublic();
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // ── Phase 4: Campaign Attribution Engine — READ-ONLY ─────────────────────
   // Aggregates existing CRM lead data (campaign_name, adset_name, ad_name,
   // lead_score, status) into performance summaries per campaign entity.

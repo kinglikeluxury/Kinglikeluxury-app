@@ -413,11 +413,17 @@ app.use((req, res, next) => {
   // separate concurrent chain) to avoid a known race in the Neon serverless
   // driver where too many concurrent pool.connect() calls at startup trigger
   // a "Release called on client which has already been released" crash.
+  // Phase 2 — Market Intelligence Enhancement tables (additive only, new
+  // competitor_* tables). Chained sequentially after the MVP Competitor
+  // Intelligence bootstrap for the same reason noted above (avoid concurrent
+  // pool.connect() races at startup).
   import("./kqsEngine")
     .then(({ ensureKqsTables }) => ensureKqsTables())
     .then(() => import("./competitorIntelligenceService"))
     .then(({ ensureCompetitorIntelligenceTables }) => ensureCompetitorIntelligenceTables())
-    .catch(err => console.error("[DB] ensureKqsTables/ensureCompetitorIntelligenceTables failed:", err));
+    .then(() => import("./competitorPhase2Orchestrator"))
+    .then(({ ensureAllPhase2Tables }) => ensureAllPhase2Tables())
+    .catch(err => console.error("[DB] ensureKqsTables/ensureCompetitorIntelligenceTables/ensureAllPhase2Tables failed:", err));
 
   ensureWaQualTables()
     .then(() => ensureAiConciergeColumns())
