@@ -343,6 +343,13 @@ export async function runCompetitorSearch(term: string, country?: string) {
 }
 
 // ── Read queries for the admin UI ───────────────────────────────────────────
+//
+// Note: Market Intelligence Search / AI Market Analyst (marketIntelligenceService.ts)
+// reads competitor_ads, competitor_ai_analysis, and competitor_profiles
+// directly via its own read-only queries — it does not call into this file's
+// functions and this file does not call into it. This keeps the two features
+// fully isolated: nothing here was changed to support that feature besides
+// this comment.
 
 export async function listCompetitors() {
   const res = await pool.query(`

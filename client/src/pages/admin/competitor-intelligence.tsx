@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Swords, Search, Loader2, ShieldAlert, TrendingUp, Image as ImageIcon,
-  Video, Link as LinkIcon, Sparkles, Target, AlertTriangle, History, ChevronDown, ChevronUp,
+  Video, Link as LinkIcon, Sparkles, AlertTriangle, History, ChevronDown, ChevronUp,
   Bell, Clock, Wand2, ThumbsUp, ThumbsDown, BarChart3, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CompetitorCreativeGallery } from "@/components/admin/CompetitorCreativeGallery";
+import { MarketIntelligenceSearch } from "@/components/admin/MarketIntelligenceSearch";
+import { MarketInsightsDashboard } from "@/components/admin/MarketInsightsDashboard";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -526,104 +528,25 @@ function CompetitorIntelligencePageInner() {
         </Card>
       )}
 
-      {/* Search bar */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Search className="w-4 h-4 text-[#3bcac4]" /> Run a Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="flex flex-col sm:flex-row gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!searchTerm.trim()) {
-                toast({ title: "Enter a search term", variant: "destructive" });
-                return;
-              }
-              searchMutation.mutate();
-            }}
-          >
-            <Input
-              placeholder='e.g. "جزيرة باتومي" or "Ambassadori"'
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-              data-testid="input-search-term"
-            />
-            <Input
-              placeholder="Country code (optional, e.g. GE)"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="sm:w-52"
-              data-testid="input-country"
-            />
-            <Button
-              type="submit"
-              disabled={searchMutation.isPending}
-              className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90"
-              data-testid="button-run-search"
-            >
-              {searchMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-              Search
-            </Button>
-          </form>
+      {/* Real Estate Market Intelligence Search */}
+      <MarketIntelligenceSearch
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        country={country}
+        setCountry={setCountry}
+        onSubmit={() => {
+          if (!searchTerm.trim()) {
+            toast({ title: "Enter a search term", variant: "destructive" });
+            return;
+          }
+          searchMutation.mutate();
+        }}
+        isSearching={searchMutation.isPending}
+        lastResult={lastResult}
+      />
 
-          {lastResult && (
-            <div className="mt-4 text-sm p-3 rounded-lg border bg-slate-50">
-              <span className="font-medium">Last run:</span> "{lastResult.term}" — {lastResult.success ? "success" : "failed"}
-              {lastResult.blocked ? " (blocked page detected)" : ""}, {lastResult.attempts} attempt(s), {lastResult.ads?.length ?? 0} ad(s) found
-              {lastResult.error ? `, error: ${lastResult.error}` : ""}.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* War room */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Target className="w-4 h-4 text-[#005476]" /> War Room
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {warRoomQuery.isLoading ? (
-            <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
-          ) : warRoomQuery.isError ? (
-            <QueryErrorCard label="war room data" error={warRoomQuery.error} />
-          ) : (
-            <>
-              <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Top Keywords</div>
-                <div className="flex flex-wrap gap-2">
-                  {toSafeArray<{ word: string; count: number }>(warRoomQuery.data?.topKeywords).map((k) => (
-                    <Badge key={k.word} variant="outline" className="bg-slate-50">{toSafeDisplayString(k.word)} ({k.count})</Badge>
-                  ))}
-                  {toSafeArray(warRoomQuery.data?.topKeywords).length === 0 && (
-                    <span className="text-sm text-slate-400">No data yet — run a search first.</span>
-                  )}
-                </div>
-              </div>
-
-              {toSafeArray<string>(warRoomQuery.data?.opportunities).length > 0 && (
-                <div>
-                  <div className="text-xs font-semibold text-slate-500 uppercase mb-2 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> AI Opportunities
-                  </div>
-                  <ul className="space-y-1.5">
-                    {toSafeArray<string>(warRoomQuery.data?.opportunities).map((op, i) => (
-                      <li key={i} className="text-sm text-slate-700 flex gap-2">
-                        <span className="text-[#3bcac4]">•</span> {toSafeDisplayString(op)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {/* Market Insights + AI Market Analyst (replaces the old Top Keywords war room card) */}
+      <MarketInsightsDashboard />
 
       {/* Competitors table */}
       <Card>

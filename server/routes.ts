@@ -6934,6 +6934,29 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // ── Real Estate Market Intelligence Search + AI Market Analyst (SAFE MODE) ──
+  // Admin-only, read-only over already-stored competitor data. No scraping,
+  // no scheduler, no Meta calls. AI Market Analyst runs only on explicit click.
+
+  app.get("/api/admin/competitor-intelligence/market-insights", isAdmin, async (_req, res) => {
+    try {
+      const { getMarketInsights } = await import("./marketIntelligenceService");
+      const data = await getMarketInsights();
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.post("/api/admin/competitor-intelligence/market-analyst", isAdmin, async (_req, res) => {
+    try {
+      const { analyzeMarket } = await import("./marketIntelligenceService");
+      const result = await analyzeMarket();
+      if (!result.ok) {
+        return res.status(400).json({ ok: false, error: result.error });
+      }
+      res.json({ ok: true, data: result.report });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // ── Competitor Creative Gallery — Phase 27 (Lazy Cache, SAFE MODE) ───────
   // Admin-only. No bulk/background caching — every cache/analysis call below
   // is triggered synchronously by an admin explicitly opening one creative.
