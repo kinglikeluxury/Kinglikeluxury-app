@@ -6,7 +6,7 @@
 
 import { type Express, type Request, type Response } from "express";
 import { pool } from "./db";
-import { prepareRegistrationPayload, runDueReRegistrations, backfillPetraRecordsForExistingLeads } from "./developerRegistrationService";
+import { prepareRegistrationPayload, runDueReRegistrations, backfillPetraRecordsForExistingLeads, backfillOrigamiRecordsForExistingLeads } from "./developerRegistrationService";
 import {
   submitRecordToSilk,
   ensureSilkAttemptColumns,
@@ -1143,6 +1143,37 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
       });
     } catch (err: any) {
       console.error("[PetraBackfill] Endpoint error:", err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ── Origami backfill — create missing Origami records for leads from the last N days ──
+  app.post("/api/admin/developer-registration/origami-backfill", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const daysBack = parseInt(req.body?.daysBack, 10) || 10;
+      const result = await backfillOrigamiRecordsForExistingLeads(daysBack);
+      return res.json({
+        success: true,
+        report: {
+          totalLeadsLast10Days: result.totalLeadsLast10Days,
+          eligibleForOrigami:   result.eligibleForOrigami,
+          created:              result.created,
+          alreadyRegistered:    result.alreadyRegistered,
+          missingRequiredData:  result.missingRequiredData,
+          failed:               result.failed,
+          failedReasons:        result.failedReasons,
+        },
+        safetyConfirmation: {
+          silkUntouched:          result.silkUntouched,
+          ambassadoriUntouched:   result.ambassadoriUntouched,
+          petraUntouched:         result.petraUntouched,
+          crmLeadsModified:       result.crmLeadsModified,
+          onlyOrigamiRowsInserted: true,
+        },
+      });
+    } catch (err: any) {
+      console.error("[OrigamiBackfill] Endpoint error:", err.message);
       return res.status(500).json({ success: false, error: err.message });
     }
   });

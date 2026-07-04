@@ -574,6 +574,164 @@ export async function backfillPetraRecordsForExistingLeads(): Promise<PetraBackf
   return result;
 }
 
+// ── Origami backfill for existing leads (last N days) ──────────────────────────
+
+export interface OrigamiBackfillResult {
+  totalLeadsLast10Days: number;
+  eligibleForOrigami:   number;
+  alreadyRegistered:    number;
+  missingRequiredData:  number;
+  created:              number;
+  failed:               number;
+  failedReasons:        { leadId: number; reason: string }[];
+  silkUntouched:        true;
+  ambassadoriUntouched: true;
+  petraUntouched:       true;
+  crmLeadsModified:     false;
+}
+
+export async function backfillOrigamiRecordsForExistingLeads(daysBack = 10): Promise<OrigamiBackfillResult> {
+  const result: OrigamiBackfillResult = {
+    totalLeadsLast10Days: 0,
+    eligibleForOrigami:   0,
+    alreadyRegistered:    0,
+    missingRequiredData:  0,
+    created:              0,
+    failed:               0,
+    failedReasons:        [],
+    silkUntouched:        true,
+    ambassadoriUntouched: true,
+    petraUntouched:       true,
+    crmLeadsModified:     false,
+  };
+
+  const client = await pool.connect();
+  try {
+    // Step 1: Resolve Origami company ID dynamically — never hardcoded
+    const origamiRes = await client.query(
+      `SELECT dc.id, dfc.config_json
+         FROM developer_companies dc
+         JOIN developer_form_configs dfc ON dfc.developer_company_id = dc.id AND dfc.is_active = true
+        WHERE dc.name = 'Origami' AND dc.is_active = true
+        LIMIT 1`
+    );
+    if (origamiRes.rows.length === 0) {
+      console.warn("[OrigamiBackfill] Origami company not found or has no active form config — aborting");
+      return result;
+    }
+    const origamiCompanyId: number = origamiRes.rows[0].id;
+    const configJson: Record<string, any> =
+      typeof origamiRes.rows[0].config_json === "string"
+        ? JSON.parse(origamiRes.rows[0].config_json)
+        : origamiRes.rows[0].config_json ?? {};
+
+    console.log(`[OrigamiBackfill] Origami company_id=${origamiCompanyId} daysBack=${daysBack}`);
+
+    // Step 2: Leads created within the lookback window (read-only — CRM data is never modified)
+    const recentLeadsRes = await client.query(
+      `SELECT cl.id, cl.full_name, cl.first_name, cl.last_name, cl.phone,
+              cl.country, cl.city, cl.budget, cl.project_interest, cl.created_at
+         FROM crm_leads cl
+        WHERE cl.created_at >= NOW() - ($1 || ' days')::interval
+        ORDER BY cl.id ASC`,
+      [daysBack]
+    );
+    result.totalLeadsLast10Days = recentLeadsRes.rows.length;
+
+    console.log(`[OrigamiBackfill] Found ${result.totalLeadsLast10Days} leads created in the last ${daysBack} days`);
+
+    // Step 3: Classify + register each lead
+    for (const lead of recentLeadsRes.rows) {
+      const rawPhone = (lead.phone ?? "").toString().trim();
+      const digitCount = rawPhone.replace(/\D/g, "").length;
+      const hasValidPhone = digitCount >= 7;
+
+      if (!hasValidPhone) {
+        result.missingRequiredData++;
+        continue;
+      }
+
+      // Idempotency check — never create a duplicate Origami record for the same lead
+      const existing = await client.query(
+        `SELECT id FROM developer_registration_records WHERE crm_lead_id = $1 AND developer_company_id = $2 LIMIT 1`,
+        [lead.id, origamiCompanyId]
+      );
+      if (existing.rows.length > 0) {
+        result.alreadyRegistered++;
+        continue;
+      }
+
+      result.eligibleForOrigami++;
+
+      try {
+        const leadData: LeadData = {
+          id:              lead.id,
+          fullName:        lead.full_name,
+          firstName:       lead.first_name,
+          lastName:        lead.last_name,
+          phone:           lead.phone,
+          country:         lead.country,
+          city:            lead.city,
+          budget:          lead.budget,
+          projectInterest: lead.project_interest,
+        };
+
+        const { payload, needsReview, reviewReason } = prepareRegistrationPayload(leadData, configJson);
+        const status = needsReview ? "needs_review" : "prepared";
+
+        await client.query(`
+          INSERT INTO developer_registration_records
+            (crm_lead_id, developer_company_id, status, registration_payload_json,
+             last_error, protection_status, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, 'protected', NOW(), NOW())
+        `, [
+          lead.id,
+          origamiCompanyId,
+          status,
+          JSON.stringify(payload),
+          reviewReason || null,
+        ]);
+
+        // Audit log entry
+        await client.query(`
+          INSERT INTO developer_registration_attempts
+            (registration_record_id, crm_lead_id, developer_company_id, attempt_type, status,
+             payload_json, result_message, created_by, created_at)
+          SELECT drr.id, $1, $2, 'initial', $3, $4, $5, NULL, NOW()
+            FROM developer_registration_records drr
+           WHERE drr.crm_lead_id = $1 AND drr.developer_company_id = $2
+           ORDER BY drr.created_at DESC LIMIT 1
+        `, [
+          lead.id,
+          origamiCompanyId,
+          status,
+          JSON.stringify(payload),
+          status === "prepared"
+            ? "Origami backfill — record prepared for existing lead (last 10 days)"
+            : `Origami backfill — needs review: ${reviewReason}`,
+        ]);
+
+        result.created++;
+      } catch (err: any) {
+        result.failed++;
+        result.failedReasons.push({ leadId: lead.id, reason: err.message });
+        console.error(`[OrigamiBackfill] Failed for leadId=${lead.id}: ${err.message}`);
+      }
+    }
+
+    console.log(
+      `[OrigamiBackfill] Complete — totalLast10Days=${result.totalLeadsLast10Days} ` +
+      `eligible=${result.eligibleForOrigami} created=${result.created} ` +
+      `alreadyRegistered=${result.alreadyRegistered} missingData=${result.missingRequiredData} failed=${result.failed} ` +
+      `| Silk untouched \u2713 | Ambassadori untouched \u2713 | Petra untouched \u2713 | CRM leads untouched \u2713`
+    );
+  } finally {
+    client.release();
+  }
+
+  return result;
+}
+
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
 let _schedulerRunning = false;
