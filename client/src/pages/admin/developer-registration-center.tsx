@@ -1284,7 +1284,13 @@ export default function DeveloperRegistrationCenterPage() {
                                       <Button
                                         size="sm"
                                         className="h-6 px-2 text-[10px] gap-1 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
-                                        disabled={submitToAmbassadoriMutation.isPending || ambTokenStatus?.status === "invalid"}
+                                        disabled={
+                                          submitToAmbassadoriMutation.isPending ||
+                                          ambTokenStatus?.status === "invalid" ||
+                                          ambTokenStatus?.status === "service_unavailable" ||
+                                          ambTokenStatus?.status === "unknown" ||
+                                          !ambTokenStatus
+                                        }
                                         onClick={() => {
                                           if (ambTokenStatus?.status === "invalid") {
                                             toast({
@@ -1299,9 +1305,18 @@ export default function DeveloperRegistrationCenterPage() {
                                           if (ambTokenStatus?.status === "service_unavailable") {
                                             toast({
                                               title: "Ambassadori service unavailable",
-                                              description: ambTokenStatus?.message ?? "The Ambassadori server is temporarily unavailable. This is not a token problem — you can retry shortly.",
+                                              description: "Ambassadori service is temporarily unavailable. Please try again later.",
                                               variant: "destructive",
                                             });
+                                            return;
+                                          }
+                                          if (ambTokenStatus?.status === "unknown" || !ambTokenStatus) {
+                                            toast({
+                                              title: "Checking Ambassadori status",
+                                              description: "Still verifying the Ambassadori token — please wait for the next check and try again.",
+                                              variant: "destructive",
+                                            });
+                                            return;
                                           }
                                           submitToAmbassadoriMutation.mutate(rec.id);
                                         }}
@@ -1309,7 +1324,9 @@ export default function DeveloperRegistrationCenterPage() {
                                           ambTokenStatus?.status === "invalid"
                                             ? (ambTokenStatus?.message ?? "Ambassadori token is invalid or missing")
                                             : ambTokenStatus?.status === "service_unavailable"
-                                            ? (ambTokenStatus?.message ?? "Ambassadori service is temporarily unavailable")
+                                            ? "Ambassadori service is temporarily unavailable. Please try again later."
+                                            : ambTokenStatus?.status === "unknown" || !ambTokenStatus
+                                            ? "Checking Ambassadori token status…"
                                             : "API submission (token-based)"
                                         }
                                       >
