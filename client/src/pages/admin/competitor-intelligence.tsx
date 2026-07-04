@@ -168,6 +168,39 @@ function toSafeDisplayString(value: unknown): string {
   return String(value);
 }
 
+// Unwraps ANY of the API's known response envelopes into a plain array before
+// it is ever handed to .map()/.length. The backend for this page is not
+// consistent about response shape across its ~10 endpoints — some routes
+// return a bare array, others wrap it as { ok, data }, { data }, or
+// { success, data }, and a mis-typed/renamed field could return an unrelated
+// object entirely. Rather than assume one shape (which is what caused the
+// "(competitorsQuery.data ?? []).map is not a function" crash), this always
+// checks Array.isArray() first and only unwraps known envelope keys,
+// otherwise falling back to an empty array so rendering can never throw.
+function toSafeArray<T = any>(raw: unknown, altKey?: string): T[] {
+  if (Array.isArray(raw)) return raw as T[];
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.data)) return obj.data as T[];
+    if (altKey && Array.isArray(obj[altKey])) return obj[altKey] as T[];
+    if (Array.isArray(obj.competitors)) return obj.competitors as T[];
+    if (Array.isArray(obj.items)) return obj.items as T[];
+    if (Array.isArray(obj.results)) return obj.results as T[];
+  }
+  return [];
+}
+
+// Unwraps a single-object envelope ({ ok, data: {...} } / { data: {...} })
+// down to the inner object, or returns the raw value unchanged if it isn't
+// wrapped. Used for endpoints that return one object (war room, change
+// summary) rather than a list.
+function unwrapObject<T = any>(raw: unknown): T | null | undefined {
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && "data" in (raw as Record<string, unknown>)) {
+    return (raw as Record<string, unknown>).data as T;
+  }
+  return raw as T;
+}
+
 // Minimal, dependency-free error boundary scoped to this page only.
 class CompetitorIntelligenceErrorBoundary extends Component<
   { children: ReactNode },
@@ -243,14 +276,29 @@ function CompetitorIntelligencePageInner() {
 
   const competitorsQuery = useQuery<Competitor[]>({
     queryKey: ["/api/admin/competitor-intelligence/competitors"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/competitor-intelligence/competitors");
+      const json = await res.json();
+      return toSafeArray<Competitor>(json, "competitors");
+    },
   });
 
-  const warRoomQuery = useQuery<WarRoom>({
+  const warRoomQuery = useQuery<WarRoom | null>({
     queryKey: ["/api/admin/competitor-intelligence/war-room"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/competitor-intelligence/war-room");
+      const json = await res.json();
+      return unwrapObject<WarRoom>(json) ?? null;
+    },
   });
 
   const searchRunsQuery = useQuery<SearchRun[]>({
     queryKey: ["/api/admin/competitor-intelligence/search-runs"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/competitor-intelligence/search-runs");
+      const json = await res.json();
+      return toSafeArray<SearchRun>(json);
+    },
   });
 
   const adsQuery = useQuery<CompetitorAd[]>({
@@ -258,7 +306,7 @@ function CompetitorIntelligencePageInner() {
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/admin/competitor-intelligence/competitors/${expandedCompetitorId}/ads`);
       const json = await res.json();
-      return json.data;
+      return toSafeArray<CompetitorAd>(json);
     },
     enabled: expandedCompetitorId != null,
   });
@@ -268,7 +316,7 @@ function CompetitorIntelligencePageInner() {
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/admin/competitor-intelligence/timeline/${expandedCompetitorId}`);
       const json = await res.json();
-      return json.data;
+      return toSafeArray<TimelineEvent>(json);
     },
     enabled: expandedCompetitorId != null,
   });
@@ -278,7 +326,7 @@ function CompetitorIntelligencePageInner() {
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/admin/competitor-intelligence/threat-score-v2/${expandedCompetitorId}`);
       const json = await res.json();
-      return json.data;
+      return toSafeArray<ThreatScoreV2>(json);
     },
     enabled: expandedCompetitorId != null,
   });
@@ -288,17 +336,27 @@ function CompetitorIntelligencePageInner() {
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/admin/competitor-intelligence/counter-strategy/${expandedCompetitorId}`);
       const json = await res.json();
-      return json.data;
+      return toSafeArray<CounterStrategy>(json);
     },
     enabled: expandedCompetitorId != null,
   });
 
   const alertsQuery = useQuery<Alert[]>({
     queryKey: ["/api/admin/competitor-intelligence/alerts"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/competitor-intelligence/alerts");
+      const json = await res.json();
+      return toSafeArray<Alert>(json);
+    },
   });
 
   const changeSummaryQuery = useQuery<ChangeSummary | null>({
     queryKey: ["/api/admin/competitor-intelligence/change-summary/latest"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/competitor-intelligence/change-summary/latest");
+      const json = await res.json();
+      return unwrapObject<ChangeSummary>(json) ?? null;
+    },
   });
 
   const refreshIntelligenceMutation = useMutation({
@@ -446,7 +504,7 @@ function CompetitorIntelligencePageInner() {
       {/* Alerts feed */}
       {alertsQuery.isError ? (
         <QueryErrorCard label="alerts" error={alertsQuery.error} />
-      ) : (alertsQuery.data ?? []).length > 0 && (
+      ) : toSafeArray<Alert>(alertsQuery.data).length > 0 && (
         <Card data-testid="card-alerts">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -454,7 +512,7 @@ function CompetitorIntelligencePageInner() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">
-            {(alertsQuery.data ?? []).slice(0, 10).map((a) => (
+            {toSafeArray<Alert>(alertsQuery.data).slice(0, 10).map((a) => (
               <div key={a.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0" data-testid={`row-alert-${a.id}`}>
                 <span className="text-slate-700">{toSafeDisplayString(a.message)}</span>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -538,24 +596,24 @@ function CompetitorIntelligencePageInner() {
               <div>
                 <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Top Keywords</div>
                 <div className="flex flex-wrap gap-2">
-                  {(warRoomQuery.data?.topKeywords ?? []).map((k) => (
-                    <Badge key={k.word} variant="outline" className="bg-slate-50">{k.word} ({k.count})</Badge>
+                  {toSafeArray<{ word: string; count: number }>(warRoomQuery.data?.topKeywords).map((k) => (
+                    <Badge key={k.word} variant="outline" className="bg-slate-50">{toSafeDisplayString(k.word)} ({k.count})</Badge>
                   ))}
-                  {(!warRoomQuery.data?.topKeywords || warRoomQuery.data.topKeywords.length === 0) && (
+                  {toSafeArray(warRoomQuery.data?.topKeywords).length === 0 && (
                     <span className="text-sm text-slate-400">No data yet — run a search first.</span>
                   )}
                 </div>
               </div>
 
-              {warRoomQuery.data?.opportunities && warRoomQuery.data.opportunities.length > 0 && (
+              {toSafeArray<string>(warRoomQuery.data?.opportunities).length > 0 && (
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase mb-2 flex items-center gap-1">
                     <Sparkles className="w-3 h-3" /> AI Opportunities
                   </div>
                   <ul className="space-y-1.5">
-                    {warRoomQuery.data.opportunities.map((op, i) => (
+                    {toSafeArray<string>(warRoomQuery.data?.opportunities).map((op, i) => (
                       <li key={i} className="text-sm text-slate-700 flex gap-2">
-                        <span className="text-[#3bcac4]">•</span> {op}
+                        <span className="text-[#3bcac4]">•</span> {toSafeDisplayString(op)}
                       </li>
                     ))}
                   </ul>
@@ -578,11 +636,11 @@ function CompetitorIntelligencePageInner() {
             <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
           ) : competitorsQuery.isError ? (
             <QueryErrorCard label="competitors" error={competitorsQuery.error} />
-          ) : (competitorsQuery.data ?? []).length === 0 ? (
+          ) : toSafeArray<Competitor>(competitorsQuery.data).length === 0 ? (
             <div className="text-sm text-slate-400">No competitors detected yet. Run a search above.</div>
           ) : (
             <div className="space-y-2">
-              {(competitorsQuery.data ?? []).map((c) => (
+              {toSafeArray<Competitor>(competitorsQuery.data).map((c) => (
                 <div key={c.id} className="border rounded-lg overflow-hidden" data-testid={`row-competitor-${c.id}`}>
                   <button
                     className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors text-left"
@@ -609,10 +667,10 @@ function CompetitorIntelligencePageInner() {
                         <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading ads...</div>
                       ) : adsQuery.isError ? (
                         <QueryErrorCard label="ads" error={adsQuery.error} />
-                      ) : (adsQuery.data ?? []).length === 0 ? (
+                      ) : toSafeArray<CompetitorAd>(adsQuery.data).length === 0 ? (
                         <div className="text-sm text-slate-400">No ads stored for this competitor.</div>
                       ) : (
-                        (adsQuery.data ?? []).map((ad) => (
+                        toSafeArray<CompetitorAd>(adsQuery.data).map((ad) => (
                           <div key={ad.id} className="bg-white rounded-lg border p-3 space-y-2" data-testid={`card-ad-${ad.id}`}>
                             <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500">
                               {ad.status && <Badge variant="outline">{ad.status}</Badge>}
@@ -660,11 +718,11 @@ function CompetitorIntelligencePageInner() {
                           <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
                         ) : timelineQuery.isError ? (
                           <QueryErrorCard label="timeline" error={timelineQuery.error} />
-                        ) : (timelineQuery.data ?? []).length === 0 ? (
+                        ) : toSafeArray<TimelineEvent>(timelineQuery.data).length === 0 ? (
                           <div className="text-sm text-slate-400">No timeline events yet. Run a search to populate market memory.</div>
                         ) : (
                           <ul className="space-y-1.5">
-                            {(timelineQuery.data ?? []).slice(0, 8).map((e) => (
+                            {toSafeArray<TimelineEvent>(timelineQuery.data).slice(0, 8).map((e) => (
                               <li key={e.id} className="text-sm text-slate-700 flex items-start gap-2" data-testid={`row-timeline-${e.id}`}>
                                 <span className="text-[#3bcac4] mt-0.5">•</span>
                                 <span>
@@ -686,11 +744,11 @@ function CompetitorIntelligencePageInner() {
                           <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
                         ) : threatV2Query.isError ? (
                           <QueryErrorCard label="threat score" error={threatV2Query.error} />
-                        ) : (threatV2Query.data ?? []).length === 0 ? (
+                        ) : toSafeArray<ThreatScoreV2>(threatV2Query.data).length === 0 ? (
                           <div className="text-sm text-slate-400">Not computed yet. Run a search to trigger scoring.</div>
                         ) : (
                           (() => {
-                            const latest = (threatV2Query.data ?? [])[0];
+                            const latest = toSafeArray<ThreatScoreV2>(threatV2Query.data)[0];
                             return (
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
@@ -700,7 +758,7 @@ function CompetitorIntelligencePageInner() {
                                   <p className="text-sm text-slate-700">{toSafeDisplayString(latest.overall_explanation)}</p>
                                 )}
                                 <div className="grid sm:grid-cols-2 gap-1.5 pt-1">
-                                  {(latest.factors_json ?? []).map((f, i) => (
+                                  {toSafeArray<{ name: string; raw: number; max: number; explanation: string }>(latest.factors_json).map((f, i) => (
                                     <div key={f?.name ?? i} className="text-xs">
                                       <span className="font-semibold text-slate-500">{toSafeDisplayString(f?.name)}:</span> {toSafeDisplayString(f?.raw)}/{toSafeDisplayString(f?.max)} — {toSafeDisplayString(f?.explanation)}
                                     </div>
@@ -733,11 +791,11 @@ function CompetitorIntelligencePageInner() {
                           <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
                         ) : strategiesQuery.isError ? (
                           <QueryErrorCard label="counter strategy" error={strategiesQuery.error} />
-                        ) : (strategiesQuery.data ?? []).length === 0 ? (
+                        ) : toSafeArray<CounterStrategy>(strategiesQuery.data).length === 0 ? (
                           <div className="text-sm text-slate-400">No strategy generated yet.</div>
                         ) : (
                           (() => {
-                            const latest = (strategiesQuery.data ?? [])[0];
+                            const latest = toSafeArray<CounterStrategy>(strategiesQuery.data)[0];
                             return (
                               <div className="space-y-2" data-testid={`card-strategy-${latest.id}`}>
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -811,11 +869,11 @@ function CompetitorIntelligencePageInner() {
             <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
           ) : searchRunsQuery.isError ? (
             <QueryErrorCard label="search history" error={searchRunsQuery.error} />
-          ) : (searchRunsQuery.data ?? []).length === 0 ? (
+          ) : toSafeArray<SearchRun>(searchRunsQuery.data).length === 0 ? (
             <div className="text-sm text-slate-400">No searches run yet.</div>
           ) : (
             <div className="space-y-1.5">
-              {(searchRunsQuery.data ?? []).map((r) => (
+              {toSafeArray<SearchRun>(searchRunsQuery.data).map((r) => (
                 <div key={r.id} className="flex items-center justify-between text-sm py-1.5 border-b last:border-0" data-testid={`row-run-${r.id}`}>
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{toSafeDisplayString(r.search_term)}</span>
