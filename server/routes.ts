@@ -6934,6 +6934,40 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // ── Competitor Creative Gallery — Phase 27 (Lazy Cache, SAFE MODE) ───────
+  // Admin-only. No bulk/background caching — every cache/analysis call below
+  // is triggered synchronously by an admin explicitly opening one creative.
+
+  app.get("/api/admin/competitor-intelligence/ads/:adId/media", isAdmin, async (req, res) => {
+    try {
+      const { getMediaForAd } = await import("./competitorCreativeMediaService");
+      const data = await getMediaForAd(Number(req.params.adId));
+      res.json({ ok: true, data });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.post("/api/admin/competitor-intelligence/media/:mediaId/cache", isAdmin, async (req, res) => {
+    try {
+      const { cacheMedia } = await import("./competitorCreativeMediaService");
+      const result = await cacheMedia(Number(req.params.mediaId));
+      if (!result.ok) {
+        return res.status(422).json({ ok: false, error: result.error });
+      }
+      res.json({ ok: true, data: result.media });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/media/:mediaId/analysis", isAdmin, async (req, res) => {
+    try {
+      const { getOrGenerateCreativeAnalysis } = await import("./competitorCreativeAnalysisService");
+      const result = await getOrGenerateCreativeAnalysis(Number(req.params.mediaId));
+      if (!result.ok) {
+        return res.status(422).json({ ok: false, error: result.error });
+      }
+      res.json({ ok: true, data: result.analysis });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // ── Competitor Intelligence Phase 2 — Market Intelligence Enhancement ────
   // SAFE MODE, additive-only. Every route below is manual-admin-triggered
   // (no scheduler). Never modifies competitorIntelligenceService.ts or

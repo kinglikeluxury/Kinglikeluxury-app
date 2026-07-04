@@ -435,6 +435,9 @@ app.use((req, res, next) => {
         await ensureCompetitorIntelligenceTables();
         const { ensureAllPhase2Tables } = await import("./competitorPhase2Orchestrator");
         await ensureAllPhase2Tables();
+        // Phase 27 — Competitor Creative Gallery: new table only, additive.
+        const { ensureCompetitorAdMediaTable } = await import("./competitorCreativeMediaService");
+        await ensureCompetitorAdMediaTable();
       },
     },
     {

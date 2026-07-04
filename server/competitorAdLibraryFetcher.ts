@@ -14,6 +14,12 @@
 
 import { execSync } from "node:child_process";
 
+export interface RawMediaItem {
+  mediaType: "image" | "video" | "video_poster";
+  position: number;
+  originalUrl: string;
+}
+
 export interface RawCompetitorAd {
   libraryId: string | null;
   advertiserName: string | null;
@@ -27,6 +33,7 @@ export interface RawCompetitorAd {
   landingUrl: string | null;
   language: string;
   rawCardText: string;
+  mediaItems: RawMediaItem[];
 }
 
 export interface AdLibrarySearchResult {
@@ -130,16 +137,31 @@ function extractAdsFromDom() {
     seenLibraryIds.add(libraryId);
     const cardText = card.innerText || "";
 
-    const images = Array.from(card.querySelectorAll("img")).filter(
-      (img: any) => img.src && img.src.includes("scontent"),
-    ).length;
-    const videos = card.querySelectorAll("video").length;
+    const imageSrcs = Array.from(card.querySelectorAll("img"))
+      .map((img: any) => img.src || "")
+      .filter((src: string) => src && src.includes("scontent"));
+    const videoEls = Array.from(card.querySelectorAll("video"));
+    const videoSrcs = videoEls
+      .map((v: any) => v.currentSrc || v.src || "")
+      .filter((src: string) => !!src);
+    const videoPosters = videoEls
+      .map((v: any) => v.poster || "")
+      .filter((src: string) => !!src);
 
     const outboundLinks = Array.from(card.querySelectorAll("a[href]"))
       .map((a: any) => a.getAttribute("href") || "")
       .filter((h: string) => h.includes("l.facebook.com/l.php"));
 
-    results.push({ libraryId, cardText, images, videos, outboundLinks });
+    results.push({
+      libraryId,
+      cardText,
+      images: imageSrcs.length,
+      videos: videoSrcs.length,
+      imageSrcs,
+      videoSrcs,
+      videoPosters,
+      outboundLinks,
+    });
   }
 
   return results;
@@ -150,6 +172,9 @@ function parseCard(raw: {
   cardText: string;
   images: number;
   videos: number;
+  imageSrcs: string[];
+  videoSrcs: string[];
+  videoPosters: string[];
   outboundLinks: string[];
 }): RawCompetitorAd {
   const text = raw.cardText;
@@ -214,6 +239,27 @@ function parseCard(raw: {
     }
   }
 
+  // Build the media item list (URLs only — no download/upload happens here).
+  // Dedup within the card and cap counts to keep this metadata-only step cheap.
+  const mediaItems: RawMediaItem[] = [];
+  const seenUrls = new Set<string>();
+  let pos = 0;
+  for (const src of raw.imageSrcs.slice(0, 10)) {
+    if (seenUrls.has(src)) continue;
+    seenUrls.add(src);
+    mediaItems.push({ mediaType: "image", position: pos++, originalUrl: src });
+  }
+  for (const poster of raw.videoPosters.slice(0, 5)) {
+    if (seenUrls.has(poster)) continue;
+    seenUrls.add(poster);
+    mediaItems.push({ mediaType: "video_poster", position: pos++, originalUrl: poster });
+  }
+  for (const src of raw.videoSrcs.slice(0, 5)) {
+    if (seenUrls.has(src)) continue;
+    seenUrls.add(src);
+    mediaItems.push({ mediaType: "video", position: pos++, originalUrl: src });
+  }
+
   return {
     libraryId: raw.libraryId,
     advertiserName,
@@ -227,6 +273,7 @@ function parseCard(raw: {
     landingUrl,
     language: detectLanguage(adText || advertiserName || ""),
     rawCardText: text.slice(0, 4000),
+    mediaItems,
   };
 }
 

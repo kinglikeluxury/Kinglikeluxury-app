@@ -105,6 +105,49 @@ export async function uploadToCloudinary(
   });
 }
 
+const UNSIGNED_UPLOAD_PRESET = "kinglike_unsigned";
+
+/**
+ * Uploads a buffer via the account's unsigned upload preset instead of a
+ * signed request. This mirrors the only upload path already proven to work
+ * in this Cloudinary account (see imageProcessing.ts watermark overlay init)
+ * — direct signed uploads via upload_stream currently return HTTP 403 on
+ * this account, independent of any caller's code. Additive-only: does not
+ * change uploadToCloudinary's existing signed behavior for any existing
+ * caller.
+ */
+export async function uploadBufferUnsigned(
+  buffer: Buffer,
+  options: {
+    folder?:       string;
+    resourceType?: "image" | "video";
+  } = {}
+): Promise<CloudinaryUploadResult> {
+  const { folder = "kinglike", resourceType = "image" } = options;
+
+  if (!cloudName) {
+    throw new Error("Cloudinary cloud name missing. Set CLOUDINARY_CLOUD_NAME.");
+  }
+
+  const dataUri = `data:${resourceType === "video" ? "video/mp4" : "image/png"};base64,${buffer.toString("base64")}`;
+
+  const result: any = await cloudinary.uploader.unsigned_upload(dataUri, UNSIGNED_UPLOAD_PRESET, {
+    folder,
+    resource_type: resourceType,
+  });
+
+  return {
+    url:          result.url,
+    secureUrl:    result.secure_url,
+    publicId:     result.public_id,
+    resourceType: result.resource_type,
+    format:       result.format,
+    width:        result.width,
+    height:       result.height,
+    bytes:        result.bytes,
+  };
+}
+
 export async function deleteFromCloudinary(
   publicId:     string,
   resourceType: "image" | "video" | "raw" = "image"

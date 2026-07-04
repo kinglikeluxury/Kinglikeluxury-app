@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { CompetitorCreativeGallery } from "@/components/admin/CompetitorCreativeGallery";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -704,6 +705,10 @@ function CompetitorIntelligencePageInner() {
                                   </div>
                                 )}
                               </div>
+                            )}
+
+                            {(ad.has_image || ad.has_video) && (
+                              <CompetitorCreativeGallery adId={ad.id} />
                             )}
                           </div>
                         ))

@@ -14,6 +14,7 @@
 
 import { pool } from "./db";
 import { searchAdLibrary, type RawCompetitorAd } from "./competitorAdLibraryFetcher";
+import { storeMediaForAd } from "./competitorCreativeMediaService";
 import OpenAI from "openai";
 
 const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
@@ -285,6 +286,13 @@ export async function runCompetitorSearch(term: string, country?: string) {
       const adId = adInsert.rows[0].id;
 
       await c2.query("COMMIT");
+
+      if (ad.mediaItems && ad.mediaItems.length > 0) {
+        // Metadata-only: persists original media URLs, does NOT download or
+        // upload anything. Caching happens later, only when an admin opens
+        // a specific creative in the gallery.
+        await storeMediaForAd(adId, ad.mediaItems);
+      }
 
       const analysis = await analyzeAdWithAi(ad);
       if (analysis) {
