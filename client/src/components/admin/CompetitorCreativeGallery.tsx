@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Image as ImageIcon, Video, Loader2, X, Sparkles, AlertTriangle,
-  ShieldCheck, Heart, Eye, Lightbulb,
+  ShieldCheck, Heart, Eye, Lightbulb, Dna, Target, Users, Clock, Gem,
+  Palette, TrendingUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,35 @@ interface CreativeAnalysis {
   emotionalTriggers: string;
   weaknesses: string;
   kinglikeSuggestion: string;
+}
+
+interface CreativeDna {
+  id: number;
+  mediaId: number;
+  version: number;
+  luxuryScore: number | null;
+  trustScore: number | null;
+  investmentAppealScore: number | null;
+  emotionalScore: number | null;
+  familyAppealScore: number | null;
+  urgencyScore: number | null;
+  scarcityScore: number | null;
+  visualQualityScore: number | null;
+  brandQualityScore: number | null;
+  expectedConversionScore: number | null;
+  detectedObjects: string[];
+  sceneType: string;
+  colors: string[];
+  brightness: string;
+  compositionNotes: string;
+  visibleTextOcr: string;
+  likelyTargetAudience: string;
+  strengths: string;
+  weaknesses: string;
+  kinglikeBetterAngle: string;
+  aiExplanation: string;
+  confidencePercent: number | null;
+  createdAt: string;
 }
 
 function toSafeArray<T = any>(raw: unknown): T[] {
@@ -86,6 +116,169 @@ function AnalysisRow({ icon: Icon, label, value }: { icon: any; label: string; v
     <div className="flex gap-2 text-xs">
       <Icon className="w-3.5 h-3.5 text-[#005476] shrink-0 mt-0.5" />
       <span><span className="font-semibold text-slate-600">{label}:</span> <span className="text-slate-700">{value}</span></span>
+    </div>
+  );
+}
+
+function DnaScoreChip({ label, value }: { label: string; value: number | null }) {
+  if (value === null || value === undefined) return null;
+  return (
+    <div className="flex flex-col items-center bg-white rounded-lg border px-2 py-1.5 min-w-[72px]">
+      <span className="text-[10px] text-slate-500 uppercase text-center leading-tight">{label}</span>
+      <span className="text-sm font-bold text-[#005476]">{value}</span>
+    </div>
+  );
+}
+
+function CreativeDnaPanel({ item }: { item: MediaItem }) {
+  const queryClient = useQueryClient();
+
+  const dnaQuery = useQuery<CreativeDna | null>({
+    queryKey: ["/api/admin/competitor-intelligence/media", item.id, "dna"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/admin/competitor-intelligence/media/${item.id}/dna`);
+      if (res.status === 404) return null;
+      const json = await res.json();
+      if (!json.ok) return null;
+      return unwrapObject<CreativeDna>(json);
+    },
+    enabled: !!item.cached && item.media_type !== "video",
+    retry: false,
+  });
+
+  const analyzeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/competitor-intelligence/media/${item.id}/dna/analyze`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Failed to analyze Creative DNA");
+      return unwrapObject<CreativeDna>(json);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/competitor-intelligence/media", item.id, "dna"] });
+    },
+  });
+
+  const isCached = !!item.cloudinary_url;
+  const dna = dnaQuery.data;
+
+  if (!isCached) {
+    return (
+      <div className="border-t pt-3">
+        <div className="text-xs font-semibold text-slate-500 uppercase mb-2 flex items-center gap-1">
+          <Dna className="w-3.5 h-3.5" /> Creative DNA
+        </div>
+        <p className="text-xs text-slate-400">Cache this creative first.</p>
+      </div>
+    );
+  }
+
+  if (item.media_type === "video") {
+    return (
+      <div className="border-t pt-3">
+        <div className="text-xs font-semibold text-slate-500 uppercase mb-2 flex items-center gap-1">
+          <Dna className="w-3.5 h-3.5" /> Creative DNA
+        </div>
+        <p className="text-xs text-slate-400">Creative DNA currently supports images only.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1">
+          <Dna className="w-3.5 h-3.5" /> Creative DNA {dna ? `(v${dna.version})` : ""}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => analyzeMutation.mutate()}
+          disabled={analyzeMutation.isPending || dnaQuery.isLoading}
+          className="h-7 text-xs"
+          data-testid={`button-analyze-dna-${item.id}`}
+        >
+          {analyzeMutation.isPending ? (
+            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Analyzing DNA...</>
+          ) : dna ? (
+            "Re-analyze Creative DNA"
+          ) : (
+            "Analyze Creative DNA"
+          )}
+        </Button>
+      </div>
+
+      {analyzeMutation.isError && (
+        <p className="text-xs text-red-600 flex items-center gap-1 mb-2">
+          <AlertTriangle className="w-3.5 h-3.5" /> {(analyzeMutation.error as Error).message}
+        </p>
+      )}
+
+      {dnaQuery.isLoading ? (
+        <div className="text-sm text-slate-500 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading Creative DNA...
+        </div>
+      ) : dna ? (
+        <div className="space-y-3 bg-slate-50 rounded-lg p-3">
+          <div className="flex gap-2 flex-wrap">
+            <DnaScoreChip label="Luxury" value={dna.luxuryScore} />
+            <DnaScoreChip label="Trust" value={dna.trustScore} />
+            <DnaScoreChip label="Investment" value={dna.investmentAppealScore} />
+            <DnaScoreChip label="Emotional" value={dna.emotionalScore} />
+            <DnaScoreChip label="Family" value={dna.familyAppealScore} />
+            <DnaScoreChip label="Urgency" value={dna.urgencyScore} />
+            <DnaScoreChip label="Scarcity" value={dna.scarcityScore} />
+            <DnaScoreChip label="Visual quality" value={dna.visualQualityScore} />
+            <DnaScoreChip label="Brand quality" value={dna.brandQualityScore} />
+            <DnaScoreChip label="Exp. conversion" value={dna.expectedConversionScore} />
+          </div>
+
+          {dna.detectedObjects.length > 0 && (
+            <div className="flex gap-2 text-xs">
+              <Target className="w-3.5 h-3.5 text-[#005476] shrink-0 mt-0.5" />
+              <span>
+                <span className="font-semibold text-slate-600">Detected objects:</span>{" "}
+                {dna.detectedObjects.map((obj, i) => (
+                  <Badge key={i} variant="secondary" className="mr-1 mb-1 text-[10px]">{obj}</Badge>
+                ))}
+              </span>
+            </div>
+          )}
+
+          <AnalysisRow icon={ImageIcon} label="Scene type" value={dna.sceneType} />
+          {dna.colors.length > 0 && (
+            <div className="flex gap-2 text-xs">
+              <Palette className="w-3.5 h-3.5 text-[#005476] shrink-0 mt-0.5" />
+              <span><span className="font-semibold text-slate-600">Colors:</span> {dna.colors.join(", ")}</span>
+            </div>
+          )}
+          <AnalysisRow icon={Eye} label="Brightness" value={dna.brightness} />
+          <AnalysisRow icon={Sparkles} label="Composition" value={dna.compositionNotes} />
+          <AnalysisRow icon={Clock} label="Visible text (OCR)" value={dna.visibleTextOcr} />
+          <AnalysisRow icon={Users} label="Likely target audience" value={dna.likelyTargetAudience} />
+          <AnalysisRow icon={Gem} label="Strengths" value={dna.strengths} />
+          <AnalysisRow icon={AlertTriangle} label="Weaknesses" value={dna.weaknesses} />
+
+          {dna.kinglikeBetterAngle && (
+            <div className="flex gap-2 text-xs bg-[#3bcac4]/10 rounded p-2 mt-2">
+              <Lightbulb className="w-3.5 h-3.5 text-[#005476] shrink-0 mt-0.5" />
+              <span><span className="font-semibold text-[#005476]">Kinglike better angle:</span> {dna.kinglikeBetterAngle}</span>
+            </div>
+          )}
+
+          {dna.aiExplanation && (
+            <div className="flex gap-2 text-xs text-slate-500 italic">
+              <TrendingUp className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{dna.aiExplanation}</span>
+            </div>
+          )}
+
+          {dna.confidencePercent !== null && (
+            <div className="text-[10px] text-slate-400">Confidence: {dna.confidencePercent}%</div>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400">No Creative DNA analysis yet — click "Analyze Creative DNA" above.</p>
+      )}
     </div>
   );
 }
@@ -208,6 +401,8 @@ function Lightbox({ item, onClose }: { item: MediaItem; onClose: () => void }) {
           {isCached && item.media_type === "video" && (
             <p className="text-xs text-slate-400">AI analysis currently supports images and video posters only.</p>
           )}
+
+          <CreativeDnaPanel item={item} />
         </div>
       </div>
     </div>

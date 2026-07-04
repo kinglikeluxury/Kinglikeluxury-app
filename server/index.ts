@@ -438,6 +438,9 @@ app.use((req, res, next) => {
         // Phase 27 — Competitor Creative Gallery: new table only, additive.
         const { ensureCompetitorAdMediaTable } = await import("./competitorCreativeMediaService");
         await ensureCompetitorAdMediaTable();
+        // Phase 28 — Creative DNA Foundation: new table only, additive.
+        const { ensureCompetitorCreativeDnaTable } = await import("./competitorCreativeDnaService");
+        await ensureCompetitorCreativeDnaTable();
       },
     },
     {

@@ -6968,6 +6968,29 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // ── Phase 28 — Creative DNA Foundation (SAFE MODE, on-demand only) ────────
+  app.post("/api/admin/competitor-intelligence/media/:mediaId/dna/analyze", isAdmin, async (req, res) => {
+    try {
+      const { analyzeCreativeDna } = await import("./competitorCreativeDnaService");
+      const result = await analyzeCreativeDna(Number(req.params.mediaId));
+      if (!result.ok) {
+        return res.status(422).json({ ok: false, error: result.error });
+      }
+      res.json({ ok: true, data: result.dna });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/competitor-intelligence/media/:mediaId/dna", isAdmin, async (req, res) => {
+    try {
+      const { getLatestCreativeDna } = await import("./competitorCreativeDnaService");
+      const dna = await getLatestCreativeDna(Number(req.params.mediaId));
+      if (!dna) {
+        return res.status(404).json({ ok: false, error: "No Creative DNA analysis found for this media item yet" });
+      }
+      res.json({ ok: true, data: dna });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // ── Competitor Intelligence Phase 2 — Market Intelligence Enhancement ────
   // SAFE MODE, additive-only. Every route below is manual-admin-triggered
   // (no scheduler). Never modifies competitorIntelligenceService.ts or
