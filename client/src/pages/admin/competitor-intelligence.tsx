@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Component, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -150,9 +150,89 @@ function bandColor(band: string) {
   }
 }
 
+// Normalizes any field that is supposed to be a display string but may
+// actually arrive as null/undefined/array/nested object (e.g. legacy JSONB
+// rows generated before server-side normalization existed). Guarantees a
+// safe primitive string is ever handed to JSX, never a raw object.
+function toSafeDisplayString(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map((v) => toSafeDisplayString(v)).filter(Boolean).join("; ");
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${k}: ${toSafeDisplayString(v)}`)
+      .filter(Boolean)
+      .join(" | ");
+  }
+  return String(value);
+}
+
+// Minimal, dependency-free error boundary scoped to this page only.
+class CompetitorIntelligenceErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    console.error("[CompetitorIntelligence] Render error caught by boundary:", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-red-700">
+                <AlertTriangle className="w-4 h-4" /> Something went wrong loading Competitor Intelligence
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-red-700">
+                This page hit an unexpected error and couldn't render. This has been logged. You can try reloading the page.
+              </p>
+              {this.state.error?.message && (
+                <p className="text-xs text-red-500 font-mono break-all">{this.state.error.message}</p>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-100"
+                onClick={() => this.setState({ hasError: false, error: null })}
+              >
+                Try again
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function QueryErrorCard({ label, error }: { label: string; error: unknown }) {
+  const message = error instanceof Error ? error.message : "Unknown error";
+  return (
+    <div className="text-sm text-red-600 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
+      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+      <span>Failed to load {label}: {message}</span>
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────
 
-export default function CompetitorIntelligencePage() {
+function CompetitorIntelligencePageInner() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -320,9 +400,21 @@ export default function CompetitorIntelligencePage() {
       </div>
 
       {/* Change summary banner */}
-      {changeSummaryQuery.data && (
+      {changeSummaryQuery.isError ? (
+        <QueryErrorCard label="change summary" error={changeSummaryQuery.error} />
+      ) : changeSummaryQuery.data && (
         (() => {
-          const s = changeSummaryQuery.data.summary_json;
+          const raw = changeSummaryQuery.data.summary_json ?? ({} as Partial<ChangeSummary["summary_json"]>);
+          // Defensive: legacy rows or shape drift could leave any of these
+          // fields missing/non-array; coerce to arrays so .length/.join never throw.
+          const s = {
+            newCompetitors: Array.isArray(raw.newCompetitors) ? raw.newCompetitors : [],
+            newCreatives: Array.isArray(raw.newCreatives) ? raw.newCreatives : [],
+            newOffers: Array.isArray(raw.newOffers) ? raw.newOffers : [],
+            stoppedCampaigns: Array.isArray(raw.stoppedCampaigns) ? raw.stoppedCampaigns : [],
+            threatIncreases: Array.isArray(raw.threatIncreases) ? raw.threatIncreases : [],
+            opportunities: Array.isArray(raw.opportunities) ? raw.opportunities : [],
+          };
           const hasAny =
             s.newCompetitors.length + s.newCreatives.length + s.newOffers.length +
             s.stoppedCampaigns.length + s.threatIncreases.length + s.opportunities.length > 0;
@@ -335,15 +427,15 @@ export default function CompetitorIntelligencePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-1.5">
-                {s.newCompetitors.length > 0 && <div><span className="font-semibold">New competitors:</span> {s.newCompetitors.join(", ")}</div>}
+                {s.newCompetitors.length > 0 && <div><span className="font-semibold">New competitors:</span> {s.newCompetitors.map((v) => toSafeDisplayString(v)).join(", ")}</div>}
                 {s.newCreatives.length > 0 && <div><span className="font-semibold">New creatives:</span> {s.newCreatives.length} across tracked competitors</div>}
                 {s.newOffers.length > 0 && <div><span className="font-semibold">Offer changes:</span> {s.newOffers.length}</div>}
                 {s.stoppedCampaigns.length > 0 && <div><span className="font-semibold">Campaigns stopped:</span> {s.stoppedCampaigns.length}</div>}
                 {s.threatIncreases.length > 0 && (
-                  <div><span className="font-semibold">Threat increases:</span> {s.threatIncreases.join("; ")}</div>
+                  <div><span className="font-semibold">Threat increases:</span> {s.threatIncreases.map((v) => toSafeDisplayString(v)).join("; ")}</div>
                 )}
                 {s.opportunities.length > 0 && (
-                  <div><span className="font-semibold">Opportunities:</span> {s.opportunities.join("; ")}</div>
+                  <div><span className="font-semibold">Opportunities:</span> {s.opportunities.map((v) => toSafeDisplayString(v)).join("; ")}</div>
                 )}
               </CardContent>
             </Card>
@@ -352,7 +444,9 @@ export default function CompetitorIntelligencePage() {
       )}
 
       {/* Alerts feed */}
-      {(alertsQuery.data ?? []).length > 0 && (
+      {alertsQuery.isError ? (
+        <QueryErrorCard label="alerts" error={alertsQuery.error} />
+      ) : (alertsQuery.data ?? []).length > 0 && (
         <Card data-testid="card-alerts">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -362,7 +456,7 @@ export default function CompetitorIntelligencePage() {
           <CardContent className="space-y-1.5">
             {(alertsQuery.data ?? []).slice(0, 10).map((a) => (
               <div key={a.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0" data-testid={`row-alert-${a.id}`}>
-                <span className="text-slate-700">{a.message}</span>
+                <span className="text-slate-700">{toSafeDisplayString(a.message)}</span>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
                   <Badge variant="outline" className={severityColor(a.severity)}>{a.severity}</Badge>
                   <span className="text-xs text-slate-400">{new Date(a.created_at).toLocaleString()}</span>
@@ -437,6 +531,8 @@ export default function CompetitorIntelligencePage() {
         <CardContent className="space-y-4">
           {warRoomQuery.isLoading ? (
             <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
+          ) : warRoomQuery.isError ? (
+            <QueryErrorCard label="war room data" error={warRoomQuery.error} />
           ) : (
             <>
               <div>
@@ -480,6 +576,8 @@ export default function CompetitorIntelligencePage() {
         <CardContent>
           {competitorsQuery.isLoading ? (
             <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
+          ) : competitorsQuery.isError ? (
+            <QueryErrorCard label="competitors" error={competitorsQuery.error} />
           ) : (competitorsQuery.data ?? []).length === 0 ? (
             <div className="text-sm text-slate-400">No competitors detected yet. Run a search above.</div>
           ) : (
@@ -509,6 +607,8 @@ export default function CompetitorIntelligencePage() {
                     <div className="border-t bg-slate-50/50 p-3 space-y-3">
                       {adsQuery.isLoading ? (
                         <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading ads...</div>
+                      ) : adsQuery.isError ? (
+                        <QueryErrorCard label="ads" error={adsQuery.error} />
                       ) : (adsQuery.data ?? []).length === 0 ? (
                         <div className="text-sm text-slate-400">No ads stored for this competitor.</div>
                       ) : (
@@ -558,6 +658,8 @@ export default function CompetitorIntelligencePage() {
                         </div>
                         {timelineQuery.isLoading ? (
                           <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
+                        ) : timelineQuery.isError ? (
+                          <QueryErrorCard label="timeline" error={timelineQuery.error} />
                         ) : (timelineQuery.data ?? []).length === 0 ? (
                           <div className="text-sm text-slate-400">No timeline events yet. Run a search to populate market memory.</div>
                         ) : (
@@ -566,7 +668,7 @@ export default function CompetitorIntelligencePage() {
                               <li key={e.id} className="text-sm text-slate-700 flex items-start gap-2" data-testid={`row-timeline-${e.id}`}>
                                 <span className="text-[#3bcac4] mt-0.5">•</span>
                                 <span>
-                                  <span className="font-medium">{e.event_type.replace(/_/g, " ")}</span>
+                                  <span className="font-medium">{toSafeDisplayString(e.event_type).replace(/_/g, " ") || "event"}</span>
                                   <span className="text-xs text-slate-400 ml-2">{new Date(e.detected_at).toLocaleString()}</span>
                                 </span>
                               </li>
@@ -582,6 +684,8 @@ export default function CompetitorIntelligencePage() {
                         </div>
                         {threatV2Query.isLoading ? (
                           <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
+                        ) : threatV2Query.isError ? (
+                          <QueryErrorCard label="threat score" error={threatV2Query.error} />
                         ) : (threatV2Query.data ?? []).length === 0 ? (
                           <div className="text-sm text-slate-400">Not computed yet. Run a search to trigger scoring.</div>
                         ) : (
@@ -593,12 +697,12 @@ export default function CompetitorIntelligencePage() {
                                   <Badge variant="outline" className={bandColor(latest.band)}>{latest.band} · {latest.score}/100</Badge>
                                 </div>
                                 {latest.overall_explanation && (
-                                  <p className="text-sm text-slate-700">{latest.overall_explanation}</p>
+                                  <p className="text-sm text-slate-700">{toSafeDisplayString(latest.overall_explanation)}</p>
                                 )}
                                 <div className="grid sm:grid-cols-2 gap-1.5 pt-1">
-                                  {(latest.factors_json ?? []).map((f) => (
-                                    <div key={f.name} className="text-xs">
-                                      <span className="font-semibold text-slate-500">{f.name}:</span> {f.raw}/{f.max} — {f.explanation}
+                                  {(latest.factors_json ?? []).map((f, i) => (
+                                    <div key={f?.name ?? i} className="text-xs">
+                                      <span className="font-semibold text-slate-500">{toSafeDisplayString(f?.name)}:</span> {toSafeDisplayString(f?.raw)}/{toSafeDisplayString(f?.max)} — {toSafeDisplayString(f?.explanation)}
                                     </div>
                                   ))}
                                 </div>
@@ -627,6 +731,8 @@ export default function CompetitorIntelligencePage() {
                         </div>
                         {strategiesQuery.isLoading ? (
                           <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
+                        ) : strategiesQuery.isError ? (
+                          <QueryErrorCard label="counter strategy" error={strategiesQuery.error} />
                         ) : (strategiesQuery.data ?? []).length === 0 ? (
                           <div className="text-sm text-slate-400">No strategy generated yet.</div>
                         ) : (
@@ -641,17 +747,17 @@ export default function CompetitorIntelligencePage() {
                                   </Badge>
                                 </div>
                                 {latest.strategy_json?.strategyText && (
-                                  <p className="text-sm text-slate-700">{latest.strategy_json.strategyText}</p>
+                                  <p className="text-sm text-slate-700">{toSafeDisplayString(latest.strategy_json.strategyText)}</p>
                                 )}
                                 <div className="grid sm:grid-cols-2 gap-1.5 text-xs">
-                                  {latest.strategy_json?.audience && <div><span className="font-semibold text-slate-500">Audience:</span> {latest.strategy_json.audience}</div>}
-                                  {latest.strategy_json?.age && <div><span className="font-semibold text-slate-500">Age:</span> {latest.strategy_json.age}</div>}
-                                  {latest.strategy_json?.interests && <div><span className="font-semibold text-slate-500">Interests:</span> {latest.strategy_json.interests}</div>}
-                                  {latest.strategy_json?.behaviours && <div><span className="font-semibold text-slate-500">Behaviours:</span> {latest.strategy_json.behaviours}</div>}
-                                  {latest.strategy_json?.placements && <div><span className="font-semibold text-slate-500">Placements:</span> {latest.strategy_json.placements}</div>}
-                                  {latest.strategy_json?.creatives && <div><span className="font-semibold text-slate-500">Creatives:</span> {latest.strategy_json.creatives}</div>}
-                                  {latest.strategy_json?.budget && <div><span className="font-semibold text-slate-500">Budget:</span> {latest.strategy_json.budget}</div>}
-                                  {latest.strategy_json?.cta && <div><span className="font-semibold text-slate-500">CTA:</span> {latest.strategy_json.cta}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.audience) && <div><span className="font-semibold text-slate-500">Audience:</span> {toSafeDisplayString(latest.strategy_json.audience)}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.age) && <div><span className="font-semibold text-slate-500">Age:</span> {toSafeDisplayString(latest.strategy_json.age)}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.interests) && <div><span className="font-semibold text-slate-500">Interests:</span> {toSafeDisplayString(latest.strategy_json.interests)}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.behaviours) && <div><span className="font-semibold text-slate-500">Behaviours:</span> {toSafeDisplayString(latest.strategy_json.behaviours)}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.placements) && <div><span className="font-semibold text-slate-500">Placements:</span> {toSafeDisplayString(latest.strategy_json.placements)}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.creatives) && <div><span className="font-semibold text-slate-500">Creatives:</span> {toSafeDisplayString(latest.strategy_json.creatives)}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.budget) && <div><span className="font-semibold text-slate-500">Budget:</span> {toSafeDisplayString(latest.strategy_json.budget)}</div>}
+                                  {toSafeDisplayString(latest.strategy_json?.cta) && <div><span className="font-semibold text-slate-500">CTA:</span> {toSafeDisplayString(latest.strategy_json.cta)}</div>}
                                 </div>
                                 {latest.expected_impact && (
                                   <div className="text-xs text-slate-500"><span className="font-semibold">Expected impact:</span> {latest.expected_impact}</div>
@@ -703,6 +809,8 @@ export default function CompetitorIntelligencePage() {
         <CardContent>
           {searchRunsQuery.isLoading ? (
             <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
+          ) : searchRunsQuery.isError ? (
+            <QueryErrorCard label="search history" error={searchRunsQuery.error} />
           ) : (searchRunsQuery.data ?? []).length === 0 ? (
             <div className="text-sm text-slate-400">No searches run yet.</div>
           ) : (
@@ -710,7 +818,7 @@ export default function CompetitorIntelligencePage() {
               {(searchRunsQuery.data ?? []).map((r) => (
                 <div key={r.id} className="flex items-center justify-between text-sm py-1.5 border-b last:border-0" data-testid={`row-run-${r.id}`}>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{r.search_term}</span>
+                    <span className="font-medium">{toSafeDisplayString(r.search_term)}</span>
                     {r.country && <span className="text-xs text-slate-400">({r.country})</span>}
                   </div>
                   <div className="flex items-center gap-2 text-xs">
@@ -727,5 +835,13 @@ export default function CompetitorIntelligencePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CompetitorIntelligencePage() {
+  return (
+    <CompetitorIntelligenceErrorBoundary>
+      <CompetitorIntelligencePageInner />
+    </CompetitorIntelligenceErrorBoundary>
   );
 }
