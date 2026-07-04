@@ -16,6 +16,7 @@ import {
   submitRecordToAmbassadori,
   ensureAmbassadoriAttemptColumns,
   ensureAmbassadoriCompany,
+  validateAmbassadoriToken,
   AMBASSADORI_COMPANY_ID,
 } from "./ambassadoriSubmissionAdapter";
 import {
@@ -808,6 +809,18 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
     if (!adminOnly(req, res)) return;
     try {
       const status = await getSessionStatus();
+      res.json(status);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Ambassadori API token status (read-only live validation) ─────────────
+
+  app.get("/api/admin/developer-registration/ambassadori/token-status", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const status = await validateAmbassadoriToken();
       res.json(status);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

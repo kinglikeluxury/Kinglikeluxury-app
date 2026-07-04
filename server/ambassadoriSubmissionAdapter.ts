@@ -57,6 +57,66 @@ function getToken(): string | null {
   return process.env.AMBASSADORI_SESSION_TOKEN?.trim() || null;
 }
 
+// ── Live token validation (read-only, no lead creation) ───────────────────────
+// Uses a fixed placeholder phone number so this never touches real customer data
+// and never creates/mutates anything in the ITRIELT portal.
+
+const TOKEN_CHECK_PHONE = "+00000000000";
+
+export interface TokenValidationResult {
+  configured: boolean;
+  valid:      boolean;
+  message:    string;
+  checkedAt:  string;
+}
+
+export async function validateAmbassadoriToken(): Promise<TokenValidationResult> {
+  const checkedAt = new Date().toISOString();
+  const token = getToken();
+  if (!token) {
+    return {
+      configured: false,
+      valid:      false,
+      message:    "AMBASSADORI_SESSION_TOKEN is not set in Secrets.",
+      checkedAt,
+    };
+  }
+
+  try {
+    const { status, isHtml, json } = await apiGet("/api/get-buys-loot-check", { phone: TOKEN_CHECK_PHONE });
+
+    if (isHtml) {
+      return {
+        configured: true,
+        valid:      false,
+        message:    `Token appears expired or invalid — portal returned a login page (HTTP ${status}).`,
+        checkedAt,
+      };
+    }
+    if (status < 200 || status >= 300 || json === null) {
+      return {
+        configured: true,
+        valid:      false,
+        message:    `Token check failed — unexpected response (HTTP ${status}).`,
+        checkedAt,
+      };
+    }
+    return {
+      configured: true,
+      valid:      true,
+      message:    "Token is valid and accepted by the ITRIELT API.",
+      checkedAt,
+    };
+  } catch (err: any) {
+    return {
+      configured: true,
+      valid:      false,
+      message:    `Token check failed — network/timeout error: ${err.message ?? "unknown error"}.`,
+      checkedAt,
+    };
+  }
+}
+
 function buildHeaders(): Record<string, string> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -393,10 +453,12 @@ export async function submitRecordToAmbassadori(
       city,
     };
 
-    // ── 3. Check token ────────────────────────────────────────────────────────
-    const token = getToken();
-    if (!token) {
-      const errMsg = "AMBASSADORI_SESSION_TOKEN is not set — add it in Replit Secrets";
+    // ── 3. Validate token (presence + live check) before touching real data ────
+    const tokenCheck = await validateAmbassadoriToken();
+    if (!tokenCheck.valid) {
+      const errMsg = tokenCheck.configured
+        ? `Ambassadori token validation failed — ${tokenCheck.message}`
+        : "AMBASSADORI_SESSION_TOKEN is not set — add it in Replit Secrets";
       console.warn(`[Ambassadori][Submit] ${errMsg}`);
       await writeAttempt(client, recordId, rec, adminId, attemptType, submitPayload, null, null, errMsg, "failed");
       await client.query(`UPDATE developer_registration_records SET status='failed', last_error=$1, updated_at=NOW() WHERE id=$2`, [errMsg, recordId]);

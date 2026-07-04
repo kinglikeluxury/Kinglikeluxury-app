@@ -722,6 +722,14 @@ export default function DeveloperRegistrationCenterPage() {
     refetchInterval: 60000,
   });
 
+  const { data: ambTokenStatus } = useQuery<{ configured: boolean; valid: boolean; message: string; checkedAt: string }>({
+    queryKey: ["/api/admin/developer-registration/ambassadori/token-status"],
+    queryFn: () =>
+      apiRequest("GET", "/api/admin/developer-registration/ambassadori/token-status").then(r => r.json()),
+    enabled: !!user?.isAdmin,
+    refetchInterval: 60000,
+  });
+
   // ── Mutations ───────────────────────────────────────────────────────────────
 
   const submitToSilkMutation = useMutation({
@@ -951,6 +959,17 @@ export default function DeveloperRegistrationCenterPage() {
             <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30 flex items-center gap-1"
               title={`Session active — saved ${ambSession?.ageHours ?? "?"}h ago (${ambSession?.cookieCount ?? 0} cookies)`}>
               Ambassadori Active ✓
+            </Badge>
+          ) : null}
+          {ambTokenStatus && ambTokenStatus.valid === false ? (
+            <Badge className="text-[10px] bg-red-50 text-red-700 border border-red-300 flex items-center gap-1 cursor-pointer"
+              title={ambTokenStatus.message}>
+              <AlertTriangle className="h-3 w-3" /> Amb API Token Invalid
+            </Badge>
+          ) : ambTokenStatus?.valid ? (
+            <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30 flex items-center gap-1"
+              title="Ambassadori API token verified against the ITRIELT API">
+              Amb API Token ✓
             </Badge>
           ) : (
             <Badge className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1"
@@ -1259,10 +1278,26 @@ export default function DeveloperRegistrationCenterPage() {
                                     <>
                                       <Button
                                         size="sm"
-                                        className="h-6 px-2 text-[10px] gap-1 bg-purple-600 hover:bg-purple-700 text-white"
-                                        disabled={submitToAmbassadoriMutation.isPending}
-                                        onClick={() => submitToAmbassadoriMutation.mutate(rec.id)}
-                                        title="API submission (token-based)"
+                                        className="h-6 px-2 text-[10px] gap-1 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                                        disabled={submitToAmbassadoriMutation.isPending || ambTokenStatus?.valid === false}
+                                        onClick={() => {
+                                          if (ambTokenStatus?.valid === false) {
+                                            toast({
+                                              title: "Ambassadori API unavailable",
+                                              description: ambTokenStatus?.configured === false
+                                                ? "AMBASSADORI_SESSION_TOKEN is not configured in Secrets. Contact an admin to add it."
+                                                : (ambTokenStatus?.message ?? "The Ambassadori session token appears invalid or expired."),
+                                              variant: "destructive",
+                                            });
+                                            return;
+                                          }
+                                          submitToAmbassadoriMutation.mutate(rec.id);
+                                        }}
+                                        title={
+                                          ambTokenStatus?.valid === false
+                                            ? (ambTokenStatus?.message ?? "Ambassadori token is invalid or missing")
+                                            : "API submission (token-based)"
+                                        }
                                       >
                                         {submitToAmbassadoriMutation.isPending
                                           ? <Loader2 className="h-3 w-3 animate-spin" />
