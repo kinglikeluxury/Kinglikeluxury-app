@@ -63,11 +63,41 @@ function getToken(): string | null {
 
 const TOKEN_CHECK_PHONE = "+00000000000";
 
+// Four-state classification:
+//  - "valid"               → token accepted by the ITRIELT API right now
+//  - "invalid"             → token itself is wrong/missing/expired (actionable by an admin)
+//  - "service_unavailable" → the Ambassadori/ITRIELT service could not be reached or errored
+//                            (network timeout, DNS failure, connection refused, HTTP 5xx) —
+//                            this says nothing about whether the token is good or bad
+//  - "unknown"             → check could not be completed and the cause doesn't clearly fit
+//                            either bucket above (e.g. unexpected non-5xx response, unforeseen error)
+export type TokenValidationStatus = "valid" | "invalid" | "service_unavailable" | "unknown";
+
 export interface TokenValidationResult {
+  status:     TokenValidationStatus;
   configured: boolean;
-  valid:      boolean;
+  valid:      boolean; // convenience flag, kept for backward-compat call sites: true iff status === "valid"
   message:    string;
   checkedAt:  string;
+}
+
+function classifyNetworkError(err: any): { status: TokenValidationStatus; reason: string } {
+  const code = err?.cause?.code ?? err?.code;
+  const name = err?.name;
+
+  // fetch() with AbortSignal.timeout() throws a TimeoutError/AbortError on timeout
+  if (name === "TimeoutError" || name === "AbortError") {
+    return { status: "service_unavailable", reason: "the request timed out" };
+  }
+  // DNS resolution failures
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+    return { status: "service_unavailable", reason: "DNS lookup for the Ambassadori API failed" };
+  }
+  // Connection-level failures (server down, refusing connections, dropped mid-request)
+  if (code === "ECONNREFUSED" || code === "ECONNRESET" || code === "ETIMEDOUT" || code === "EHOSTUNREACH" || code === "EPIPE") {
+    return { status: "service_unavailable", reason: `connection to the Ambassadori API failed (${code})` };
+  }
+  return { status: "unknown", reason: err?.message ?? "an unexpected error occurred" };
 }
 
 export async function validateAmbassadoriToken(): Promise<TokenValidationResult> {
@@ -75,6 +105,7 @@ export async function validateAmbassadoriToken(): Promise<TokenValidationResult>
   const token = getToken();
   if (!token) {
     return {
+      status:     "invalid",
       configured: false,
       valid:      false,
       message:    "AMBASSADORI_SESSION_TOKEN is not set in Secrets.",
@@ -87,31 +118,47 @@ export async function validateAmbassadoriToken(): Promise<TokenValidationResult>
 
     if (isHtml) {
       return {
+        status:     "invalid",
         configured: true,
         valid:      false,
         message:    `Token appears expired or invalid — portal returned a login page (HTTP ${status}).`,
         checkedAt,
       };
     }
-    if (status < 200 || status >= 300 || json === null) {
+    if (status >= 500) {
       return {
+        status:     "service_unavailable",
         configured: true,
         valid:      false,
-        message:    `Token check failed — unexpected response (HTTP ${status}).`,
+        message:    `Ambassadori server is temporarily unavailable (HTTP ${status}). This is not a token problem — try again shortly.`,
+        checkedAt,
+      };
+    }
+    if (status < 200 || status >= 300 || json === null) {
+      return {
+        status:     "unknown",
+        configured: true,
+        valid:      false,
+        message:    `Token check returned an unexpected response (HTTP ${status}) — unable to confirm token validity.`,
         checkedAt,
       };
     }
     return {
+      status:     "valid",
       configured: true,
       valid:      true,
       message:    "Token is valid and accepted by the ITRIELT API.",
       checkedAt,
     };
   } catch (err: any) {
+    const { status: classified, reason } = classifyNetworkError(err);
     return {
+      status:     classified,
       configured: true,
       valid:      false,
-      message:    `Token check failed — network/timeout error: ${err.message ?? "unknown error"}.`,
+      message:    classified === "service_unavailable"
+        ? `Ambassadori server is temporarily unavailable — ${reason}. This is not a token problem — try again shortly.`
+        : `Token check failed — ${reason}.`,
       checkedAt,
     };
   }

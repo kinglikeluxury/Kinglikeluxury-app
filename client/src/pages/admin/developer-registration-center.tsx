@@ -722,7 +722,7 @@ export default function DeveloperRegistrationCenterPage() {
     refetchInterval: 60000,
   });
 
-  const { data: ambTokenStatus } = useQuery<{ configured: boolean; valid: boolean; message: string; checkedAt: string }>({
+  const { data: ambTokenStatus } = useQuery<{ status: "valid" | "invalid" | "service_unavailable" | "unknown"; configured: boolean; valid: boolean; message: string; checkedAt: string }>({
     queryKey: ["/api/admin/developer-registration/ambassadori/token-status"],
     queryFn: () =>
       apiRequest("GET", "/api/admin/developer-registration/ambassadori/token-status").then(r => r.json()),
@@ -961,20 +961,25 @@ export default function DeveloperRegistrationCenterPage() {
               Ambassadori Active ✓
             </Badge>
           ) : null}
-          {ambTokenStatus && ambTokenStatus.valid === false ? (
-            <Badge className="text-[10px] bg-red-50 text-red-700 border border-red-300 flex items-center gap-1 cursor-pointer"
-              title={ambTokenStatus.message}>
-              <AlertTriangle className="h-3 w-3" /> Amb API Token Invalid
-            </Badge>
-          ) : ambTokenStatus?.valid ? (
+          {ambTokenStatus?.status === "valid" ? (
             <Badge className="text-[10px] bg-[#3bcac4]/10 text-[#005476] border border-[#3bcac4]/30 flex items-center gap-1"
               title="Ambassadori API token verified against the ITRIELT API">
-              Amb API Token ✓
+              🟢 Amb Token Valid
+            </Badge>
+          ) : ambTokenStatus?.status === "invalid" ? (
+            <Badge className="text-[10px] bg-red-50 text-red-700 border border-red-300 flex items-center gap-1 cursor-pointer"
+              title={ambTokenStatus.message}>
+              🔴 Invalid Token
+            </Badge>
+          ) : ambTokenStatus?.status === "service_unavailable" ? (
+            <Badge className="text-[10px] bg-amber-50 text-amber-700 border border-amber-300 flex items-center gap-1 cursor-pointer"
+              title={ambTokenStatus.message}>
+              🟡 Ambassadori Service Unavailable
             </Badge>
           ) : (
-            <Badge className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1"
-              title="No saved browser session — token seed from env will be used on first attempt">
-              <AlertTriangle className="h-3 w-3" /> Amb: No Session
+            <Badge className="text-[10px] bg-gray-100 text-gray-600 border border-gray-300 flex items-center gap-1"
+              title={ambTokenStatus?.message ?? "Checking Ambassadori API token status…"}>
+              ⚪ Unknown / Checking...
             </Badge>
           )}
           <Button
@@ -1279,9 +1284,9 @@ export default function DeveloperRegistrationCenterPage() {
                                       <Button
                                         size="sm"
                                         className="h-6 px-2 text-[10px] gap-1 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
-                                        disabled={submitToAmbassadoriMutation.isPending || ambTokenStatus?.valid === false}
+                                        disabled={submitToAmbassadoriMutation.isPending || ambTokenStatus?.status === "invalid"}
                                         onClick={() => {
-                                          if (ambTokenStatus?.valid === false) {
+                                          if (ambTokenStatus?.status === "invalid") {
                                             toast({
                                               title: "Ambassadori API unavailable",
                                               description: ambTokenStatus?.configured === false
@@ -1291,11 +1296,20 @@ export default function DeveloperRegistrationCenterPage() {
                                             });
                                             return;
                                           }
+                                          if (ambTokenStatus?.status === "service_unavailable") {
+                                            toast({
+                                              title: "Ambassadori service unavailable",
+                                              description: ambTokenStatus?.message ?? "The Ambassadori server is temporarily unavailable. This is not a token problem — you can retry shortly.",
+                                              variant: "destructive",
+                                            });
+                                          }
                                           submitToAmbassadoriMutation.mutate(rec.id);
                                         }}
                                         title={
-                                          ambTokenStatus?.valid === false
+                                          ambTokenStatus?.status === "invalid"
                                             ? (ambTokenStatus?.message ?? "Ambassadori token is invalid or missing")
+                                            : ambTokenStatus?.status === "service_unavailable"
+                                            ? (ambTokenStatus?.message ?? "Ambassadori service is temporarily unavailable")
                                             : "API submission (token-based)"
                                         }
                                       >
