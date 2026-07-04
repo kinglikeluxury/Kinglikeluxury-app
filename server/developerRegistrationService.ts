@@ -325,12 +325,19 @@ export async function runDueReRegistrations(): Promise<ReRegistrationResult> {
     const { submitRecordToSilk, SILK_COMPANY_ID } = await import("./silkSubmissionAdapter");
     const { submitRecordToAmbassadori, AMBASSADORI_COMPANY_ID } = await import("./ambassadoriSubmissionAdapter");
     const { submitLeadToPetra } = await import("./petraSubmissionAdapter");
+    const { submitLeadToOrigami } = await import("./origamiSubmissionAdapter");
 
     // Resolve Petra company_id once for the batch
     const petraCoRes = await client.query(
       `SELECT id FROM developer_companies WHERE name='Petra Group' AND is_active=true LIMIT 1`
     );
     const PETRA_COMPANY_ID: number | null = petraCoRes.rows[0]?.id ?? null;
+
+    // Resolve Origami company_id once for the batch
+    const origamiCoRes = await client.query(
+      `SELECT id FROM developer_companies WHERE name='Origami' AND is_active=true LIMIT 1`
+    );
+    const ORIGAMI_COMPANY_ID: number | null = origamiCoRes.rows[0]?.id ?? null;
 
     for (const rec of dueResult.rows) {
       try {
@@ -360,6 +367,15 @@ export async function runDueReRegistrations(): Promise<ReRegistrationResult> {
           } else {
             result.failed++;
             console.warn(`[DeveloperRegistration] Petra re-registration failed recordId=${rec.id}: ${submitResult.errorMessage}`);
+          }
+        } else if (ORIGAMI_COMPANY_ID !== null && rec.developer_company_id === ORIGAMI_COMPANY_ID) {
+          const submitResult = await submitLeadToOrigami(rec.id, 0, "origami_auto");
+          if (submitResult.success) {
+            result.submitted++;
+            console.log(`[DeveloperRegistration] Auto re-registered to Origami recordId=${rec.id} leadId=${rec.crm_lead_id}`);
+          } else {
+            result.failed++;
+            console.warn(`[DeveloperRegistration] Origami re-registration failed recordId=${rec.id}: ${submitResult.errorMessage}`);
           }
         } else {
           // Other developers — keep as pending_re_registration for manual processing

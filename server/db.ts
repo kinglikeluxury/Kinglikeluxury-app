@@ -439,6 +439,65 @@ export async function ensureDeveloperRegistrationTables(): Promise<void> {
       console.log("[DeveloperRegistration] Seeded Petra Group");
     }
 
+    // Seed Origami if not present
+    const origamiExists = await client.query(`SELECT id FROM developer_companies WHERE name='Origami' LIMIT 1`);
+    if (origamiExists.rows.length === 0) {
+      const origamiResult = await client.query(`
+        INSERT INTO developer_companies (name, form_url, is_active, registration_interval_days, registration_mode, created_at, updated_at)
+        VALUES ('Origami', 'https://origami.bitrix24.site/en/', true, 45, 'auto', NOW(), NOW())
+        RETURNING id
+      `);
+      const origamiId = origamiResult.rows[0].id;
+
+      const origamiConfig = {
+        field_mappings: {
+          email:      "info@kinglikeluxury.app",
+          agencyName: "Kinglike Luxury",
+          agentName:  "Tarik Imam",
+          comment:    "we are in touch with the client",
+        },
+        required_fields: ["contactName", "contactPhone"],
+        default_values: {
+          lastNameFallback: ".",
+        },
+        payload_rules: {
+          use_lead_full_name_as_contact_name: true,
+          use_lead_phone_as_contact_phone:    true,
+          contact_email_override:             "info@kinglikeluxury.app",
+          last_name_blank_fallback:           ".",
+        },
+        origami_form_fields: {
+          "First Name":             "Lead first name",
+          "Last Name":              "Lead last name (\".\" if blank)",
+          "Phone":                  "Lead phone with + prefix",
+          "E-mail":                 "info@kinglikeluxury.app",
+          "Comments":               "we are in touch with the client",
+          "Agency Name":            "Kinglike Luxury",
+          "Sales manager's Name":   "Tarik Imam",
+        },
+        compatibility_checker_result: {
+          can_auto_fill:            true,
+          captcha_detected:         false,
+          cloudflare_detected:      false,
+          submit_button_detected:   true,
+          required_fields_detected: ["First Name", "Last Name", "Phone", "E-mail", "Comments", "Agency Name", "Sales manager's Name"],
+          success_message_detected: null,
+          risk_level:               "low",
+          last_checked_at:          new Date().toISOString(),
+          notes:                    "Origami — Bitrix24 CRM form — DOM selectors verified live. Playwright auto-fill enabled.",
+        },
+        risk_level: "low",
+        notes:      "Origami — Bitrix24 CRM form (origami.bitrix24.site) — same architecture as Petra Group. Playwright browser automation via server/origamiSubmissionAdapter.ts.",
+      };
+
+      await client.query(`
+        INSERT INTO developer_form_configs (developer_company_id, config_json, is_active, created_at, updated_at)
+        VALUES ($1, $2, true, NOW(), NOW())
+      `, [origamiId, JSON.stringify(origamiConfig)]);
+
+      console.log("[DeveloperRegistration] Seeded Origami");
+    }
+
     console.log("[DB] Developer registration tables ensured");
   } catch (err: any) {
     console.warn("[DB] Could not create developer registration tables:", err.message);

@@ -24,6 +24,7 @@ import {
   fixAmbassadoriUnverifiedSuccesses,
 } from "./ambassadoriBrowserService";
 import { submitLeadToPetra } from "./petraSubmissionAdapter";
+import { submitLeadToOrigami } from "./origamiSubmissionAdapter";
 import {
   ensureAmbassadoriSessionTable,
   saveSessionData,
@@ -745,6 +746,42 @@ export function registerDeveloperRegistrationRoutes(app: Express): void {
       res.json(result);
     } catch (err: any) {
       console.error("[Petra][Browser] Error:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Submit to Origami (Bitrix24 registration form — automated form fill) ──
+
+  app.post("/api/admin/developer-registration/:recordId/submit-to-origami", async (req: Request, res: Response) => {
+    if (!adminOnly(req, res)) return;
+    try {
+      const recordId = parseInt(req.params.recordId, 10);
+      const adminId  = (req as any).session?.userId ?? null;
+      if (!recordId) return res.status(400).json({ message: "Invalid record id" });
+
+      const client = await pool.connect();
+      try {
+        const chk = await client.query(
+          `SELECT dc.name, drr.status
+             FROM developer_registration_records drr
+             JOIN developer_companies dc ON dc.id = drr.developer_company_id
+            WHERE drr.id = $1`,
+          [recordId]
+        );
+        if (chk.rows.length === 0) return res.status(404).json({ message: "Record not found" });
+        if (!(chk.rows[0].name ?? "").toLowerCase().includes("origami")) {
+          return res.status(400).json({ message: "Record is not for Origami" });
+        }
+        if (chk.rows[0].status === "stopped")    return res.status(400).json({ message: "Cannot submit a stopped record" });
+        if (chk.rows[0].status === "submitting") return res.status(409).json({ message: "Submission already in progress" });
+      } finally { client.release(); }
+
+      console.log(`[Origami][Browser] Starting browser submission recordId=${recordId}`);
+      const result = await submitLeadToOrigami(recordId, adminId);
+      console.log(`[Origami][Browser] Done recordId=${recordId} outcome=${result.outcome}`);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Origami][Browser] Error:", err.message);
       res.status(500).json({ message: err.message });
     }
   });
