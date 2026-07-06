@@ -844,6 +844,34 @@ export default function DeveloperRegistrationCenterPage() {
       toast({ title: "Petra Error", description: e.message, variant: "destructive" }),
   });
 
+  const submitToOrigamiMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("POST", `/api/admin/developer-registration/${id}/submit-to-origami`, {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data.outcome === "success") {
+        toast({
+          title: "✅ Origami form submitted",
+          description: "Lead registered on Origami Bitrix24.",
+        });
+      } else if (data.outcome === "needs_review") {
+        toast({
+          title: "⚠ Needs Review",
+          description: data.errorMessage ?? "Form submitted but no confirmation detected. Verify manually.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "❌ Origami submission failed",
+          description: data.errorMessage ?? "Check the audit log for details.",
+          variant: "destructive",
+        });
+      }
+      refetchQueue(); refetchOverview();
+    },
+    onError: (e: any) =>
+      toast({ title: "Origami Error", description: e.message, variant: "destructive" }),
+  });
+
   const markManuallyConfirmedMutation = useMutation({
     mutationFn: ({ id, dealId }: { id: number; dealId?: string }) =>
       apiRequest("POST", `/api/admin/developer-registration/${id}/mark-manually-confirmed`, { dealId: dealId ?? "" }).then(r => r.json()),
@@ -934,6 +962,7 @@ export default function DeveloperRegistrationCenterPage() {
   const isSilkRecord        = (rec: any) => rec.developer_company_id === 1 || rec.developer_name === "Silk Development";
   const isAmbassadoriRecord = (rec: any) => rec.developer_company_id === 2 || (rec.developer_name ?? "").toLowerCase().includes("ambassadori");
   const isPetraRecord       = (rec: any) => (rec.developer_name ?? "").toLowerCase().includes("petra group");
+  const isOrigamiRecord     = (rec: any) => (rec.developer_name ?? "").toLowerCase().includes("origami");
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -1190,6 +1219,7 @@ export default function DeveloperRegistrationCenterPage() {
                           const isSilk         = isSilkRecord(rec);
                           const isAmb          = isAmbassadoriRecord(rec);
                           const isPetra        = isPetraRecord(rec);
+                          const isOrigami      = isOrigamiRecord(rec);
                           const canSubmitSilk  = isSilk && !["stopped", "submitting", "success"].includes(rec.status);
                           const canSubmitAmb   = isAmb  && !["stopped", "submitting", "success"].includes(rec.status);
 
@@ -1379,6 +1409,17 @@ export default function DeveloperRegistrationCenterPage() {
                                         <ExternalLink className="h-3 w-3" /> Manual
                                       </Button>
                                     </a>
+                                  )}
+                                  {isOrigami && rec.status !== "stopped" && rec.status !== "success" && rec.status !== "submitting" && (
+                                    <Button size="sm"
+                                      className="h-6 px-2 text-[10px] gap-1 bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90"
+                                      disabled={submitToOrigamiMutation.isPending}
+                                      title="Auto-fill and submit Origami Bitrix24 form via browser automation"
+                                      onClick={() => submitToOrigamiMutation.mutate(rec.id)}>
+                                      {submitToOrigamiMutation.isPending
+                                        ? <><RefreshCw className="h-3 w-3 animate-spin" /> Submitting…</>
+                                        : <><ExternalLink className="h-3 w-3" /> Submit to Origami</>}
+                                    </Button>
                                   )}
                                   {!isSilk && !isAmb && !isPetra && rec.form_url && (
                                     <a href={rec.form_url} target="_blank" rel="noopener noreferrer">
