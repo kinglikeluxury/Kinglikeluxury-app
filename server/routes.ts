@@ -6901,6 +6901,129 @@ ${metaTags}
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // ── AI Natural Language Search — Phase 28 ────────────────────────────────
+  // POST /api/admin/competitor-intelligence/ai-search
+  // Accepts a free-text natural language query (any language, any topic).
+  // OpenAI extracts the canonical search term + intent, then triggers the
+  // existing Meta Ad Library scrape. Never returns "keyword not found" errors.
+  app.post("/api/admin/competitor-intelligence/ai-search", isAdmin, async (req, res) => {
+    try {
+      const { query } = req.body || {};
+      if (!query || typeof query !== "string" || !query.trim()) {
+        return res.status(400).json({ ok: false, error: "Query is required" });
+      }
+      const q = query.trim();
+
+      const apiKey = process.env.OPENAI_API_KEY;
+      let parsedTerm = q;
+      let parsedCountry: string | undefined;
+      let intentSummary = `Searching for "${q}"`;
+      let confidence = "medium";
+      let isRealEstateQuery = true;
+      let searchCategories: string[] = ["competitors"];
+
+      if (apiKey) {
+        try {
+          const OpenAI = (await import("openai")).default;
+          const openai = new OpenAI({ apiKey });
+          const parseRes = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: `You are an AI assistant for a real estate competitive intelligence platform focused primarily on Batumi, Georgia and the broader post-Soviet luxury real estate market.
+Extract structured search parameters from the user's natural language query. The user can ask in ANY language.
+Return a JSON object with these fields:
+- term: the single best search keyword to use (e.g. project name, developer name, city, offer type, audience segment). Keep it concise (1–3 words). Never return an empty string.
+- country: 2-letter ISO country code ONLY if clearly mentioned (GE=Georgia, AE=UAE, IL=Israel, TR=Turkey, SA=Saudi Arabia, KW=Kuwait, QA=Qatar) — or null.
+- intentSummary: one sentence (max 90 chars) describing what the user is looking for in English.
+- searchCategories: array from ["projects","developers","competitors","countries","languages","offers","audiences","creatives","videos"] describing what the user wants.
+- isRealEstateQuery: boolean — true if about real estate, properties, investment, construction, or real-estate marketing.
+- confidence: "high", "medium", or "low".`,
+              },
+              { role: "user", content: q },
+            ],
+            response_format: { type: "json_object" },
+            max_tokens: 300,
+            temperature: 0.1,
+          });
+          const parsed = JSON.parse(parseRes.choices[0].message.content || "{}");
+          parsedTerm = (typeof parsed.term === "string" && parsed.term.trim()) ? parsed.term.trim() : q;
+          parsedCountry = typeof parsed.country === "string" && parsed.country.length === 2 ? parsed.country : undefined;
+          intentSummary = typeof parsed.intentSummary === "string" ? parsed.intentSummary : intentSummary;
+          confidence = ["high", "medium", "low"].includes(parsed.confidence) ? parsed.confidence : "medium";
+          isRealEstateQuery = parsed.isRealEstateQuery !== false;
+          searchCategories = Array.isArray(parsed.searchCategories) ? parsed.searchCategories : searchCategories;
+        } catch (_parseErr) {
+          // OpenAI parse failed — fall back to raw query as term
+        }
+      }
+
+      const { runCompetitorSearch } = await import("./competitorIntelligenceService");
+      const searchResult = await runCompetitorSearch(parsedTerm, parsedCountry);
+
+      res.json({
+        ok: true,
+        data: {
+          originalQuery: q,
+          parsedTerm,
+          parsedCountry,
+          intentSummary,
+          confidence,
+          isRealEstateQuery,
+          searchCategories,
+          searchResult,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── AI Ad Industry Classifier — Phase 28 ─────────────────────────────────
+  // POST /api/admin/competitor-intelligence/classify-ad
+  // Classifies a single ad's text into an industry category (Real Estate,
+  // Tourism, Hotels, Airlines, Medical, Education, Finance, Retail,
+  // Automotive, Construction, Other).
+  app.post("/api/admin/competitor-intelligence/classify-ad", isAdmin, async (req, res) => {
+    try {
+      const { adText } = req.body || {};
+      if (!adText || typeof adText !== "string" || !adText.trim()) {
+        return res.status(400).json({ ok: false, error: "adText is required" });
+      }
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.json({ ok: true, data: { category: "Real Estate", isRealEstate: true, confidence: "low", reason: "No OpenAI key — defaulted" } });
+      }
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey });
+      const classRes = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `Classify this advertisement into EXACTLY ONE of these industry categories:
+Real Estate, Tourism, Hotels, Airlines, Medical, Education, Finance, Retail, Automotive, Construction, Other
+
+Return JSON with:
+- category: one of the categories above
+- isRealEstate: boolean (true ONLY if it's Real Estate)
+- confidence: "high" | "medium" | "low"
+- reason: one short sentence explaining why`,
+          },
+          { role: "user", content: `Ad text: ${adText.slice(0, 600)}` },
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 150,
+        temperature: 0.1,
+      });
+      const result = JSON.parse(classRes.choices[0].message.content || "{}");
+      res.json({ ok: true, data: result });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   app.get("/api/admin/competitor-intelligence/competitors", isAdmin, async (_req, res) => {
     try {
       const { listCompetitors } = await import("./competitorIntelligenceService");

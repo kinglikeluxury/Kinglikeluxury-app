@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { BarChart3, Loader2, Sparkles, RefreshCw } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, Loader2, Sparkles, ChevronRight, TrendingUp, Globe, Languages, Tag, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -57,21 +56,57 @@ function unwrap<T>(json: any): T | null {
   return json as T;
 }
 
-const CATEGORY_LABELS: Array<{ key: keyof MarketInsights; label: string }> = [
-  { key: "mostAdvertisedProjects", label: "Most Advertised Projects" },
-  { key: "mostAdvertisedDevelopers", label: "Most Advertised Developers" },
-  { key: "mostActiveCompetitors", label: "Most Active Competitors" },
-  { key: "mostAdvertisedCities", label: "Most Advertised Cities" },
-  { key: "mostTargetedCountries", label: "Most Targeted Countries" },
-  { key: "mostUsedLanguages", label: "Most Used Languages" },
-  { key: "mostCommonOffers", label: "Most Common Offers" },
-  { key: "mostCommonCtas", label: "Most Common CTAs" },
-  { key: "mostCommonInvestmentAngles", label: "Most Common Investment Angles" },
-  { key: "mostCommonPaymentPlans", label: "Most Common Payment Plans" },
-  { key: "mostCommonPropertyTypes", label: "Most Common Property Types" },
-  { key: "mostCommonLuxuryKeywords", label: "Most Common Luxury Keywords" },
-  { key: "mostCommonBuyerMotivations", label: "Most Common Buyer Motivations" },
+const INSIGHT_CATEGORIES: Array<{ key: keyof MarketInsights; label: string; icon: any }> = [
+  { key: "mostAdvertisedProjects", label: "Projects", icon: BarChart3 },
+  { key: "mostAdvertisedDevelopers", label: "Developers", icon: TrendingUp },
+  { key: "mostActiveCompetitors", label: "Competitors", icon: Users },
+  { key: "mostTargetedCountries", label: "Countries", icon: Globe },
+  { key: "mostUsedLanguages", label: "Languages", icon: Languages },
+  { key: "mostCommonOffers", label: "Offers", icon: Tag },
+  { key: "mostCommonCtas", label: "CTAs", icon: ChevronRight },
+  { key: "mostCommonInvestmentAngles", label: "Investment Angles", icon: TrendingUp },
+  { key: "mostCommonPaymentPlans", label: "Payment Plans", icon: Tag },
+  { key: "mostCommonPropertyTypes", label: "Property Types", icon: BarChart3 },
+  { key: "mostCommonLuxuryKeywords", label: "Luxury Keywords", icon: Sparkles },
+  { key: "mostCommonBuyerMotivations", label: "Buyer Motivations", icon: Users },
+  { key: "mostAdvertisedCities", label: "Cities", icon: Globe },
 ];
+
+function TopBar({ items, max = 5 }: { items: CountedTerm[]; max?: number }) {
+  if (!items || items.length === 0) return <p className="text-xs text-slate-400 italic">No data yet</p>;
+  const topCount = items[0]?.count || 1;
+  return (
+    <div className="space-y-1.5">
+      {items.slice(0, max).map((item, i) => (
+        <div key={item.term} className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-400 w-4 shrink-0">{i + 1}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-xs text-slate-700 font-medium truncate">{item.term}</span>
+              <span className="text-[10px] text-slate-400 ml-2 shrink-0">{item.count}</span>
+            </div>
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#3bcac4] to-[#005476] transition-all"
+                style={{ width: `${Math.max(8, Math.round((item.count / topCount) * 100))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReportSection({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</div>
+      <p className="text-sm text-slate-700 leading-relaxed">{value}</p>
+    </div>
+  );
+}
 
 export function MarketInsightsDashboard() {
   const { toast } = useToast();
@@ -98,131 +133,131 @@ export function MarketInsightsDashboard() {
         return;
       }
       setReport(data);
-      toast({ title: "Market analysis complete", description: "The AI Market Analyst report is ready below." });
+      toast({ title: "Market analysis complete", description: "AI has generated a fresh strategic report." });
     },
     onError: (err: any) => {
-      toast({ title: "AI Market Analyst failed", description: err.message, variant: "destructive" });
+      toast({ title: "Analysis failed", description: err.message, variant: "destructive" });
     },
   });
 
   const insights = insightsQuery.data;
-  const hasAnyData = insights && insights.sampleSize > 0;
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-[#3bcac4]" /> Market Insights
-          </CardTitle>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => insightsQuery.refetch()}
-            disabled={insightsQuery.isFetching}
-            data-testid="button-refresh-insights"
-          >
-            {insightsQuery.isFetching ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />}
-            Refresh
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {insightsQuery.isLoading ? (
-            <div className="text-sm text-slate-400 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading market insights...</div>
-          ) : insightsQuery.isError ? (
-            <div className="text-sm text-red-500">Failed to load market insights.</div>
-          ) : !hasAnyData ? (
-            <div className="text-sm text-slate-400">No stored competitor data yet. Run a search above to populate Market Insights.</div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {CATEGORY_LABELS.map(({ key, label }) => {
-                const items = insights![key] as CountedTerm[];
-                if (!items || items.length === 0) return null;
-                return (
-                  <div key={key} className="border rounded-lg p-3 bg-slate-50/50">
-                    <div className="text-[11px] font-semibold text-slate-500 uppercase mb-2">{label}</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {items.slice(0, 6).map((item) => (
-                        <Badge key={item.term} variant="outline" className="bg-white text-slate-700 text-xs">
-                          {item.term} <span className="ml-1 text-[#005476] font-semibold">{item.count}</span>
-                        </Badge>
-                      ))}
-                    </div>
+      {/* KPI summary row */}
+      {insights && insights.sampleSize > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Projects tracked", value: insights.mostAdvertisedProjects.length },
+            { label: "Countries targeted", value: insights.mostTargetedCountries.length },
+            { label: "Languages detected", value: insights.mostUsedLanguages.length },
+            { label: "Ads analysed", value: insights.sampleSize },
+          ].map((kpi) => (
+            <div key={kpi.label} className="bg-gradient-to-br from-[#3bcac4]/5 to-[#005476]/5 border border-[#3bcac4]/20 rounded-xl p-3 text-center">
+              <div className="text-2xl font-bold text-[#005476]">{kpi.value}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{kpi.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Insight categories grid */}
+      {insightsQuery.isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading market insights…
+        </div>
+      ) : !insights || insights.sampleSize === 0 ? (
+        <div className="text-sm text-slate-400 py-4 text-center">
+          No market data yet — run a search to populate insights.
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {INSIGHT_CATEGORIES.map(({ key, label, icon: Icon }) => {
+            const items = (insights[key] as CountedTerm[]) ?? [];
+            if (items.length === 0) return null;
+            return (
+              <div key={key} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-lg bg-[#3bcac4]/10 flex items-center justify-center">
+                    <Icon className="w-3.5 h-3.5 text-[#005476]" />
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  <span className="text-xs font-semibold text-slate-600">{label}</span>
+                  <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 text-slate-400 border-slate-200">
+                    {items.length}
+                  </Badge>
+                </div>
+                <TopBar items={items} max={5} />
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-      <Card className="border-[#3bcac4]/30">
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#005476]" /> AI Market Analyst
-          </CardTitle>
+      {/* AI Market Analyst */}
+      <div className="border border-dashed border-[#3bcac4]/40 rounded-xl p-5 bg-gradient-to-br from-[#3bcac4]/3 to-[#005476]/3">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3bcac4] to-[#005476] flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-800">AI Market Analyst</div>
+              <div className="text-[10px] text-slate-400">Full strategic intelligence report · One-click generation</div>
+            </div>
+          </div>
           <Button
-            type="button"
             size="sm"
+            disabled={analystMutation.isPending}
             onClick={() => analystMutation.mutate()}
-            disabled={analystMutation.isPending || !hasAnyData}
-            className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90"
-            data-testid="button-analyze-market"
+            className="bg-gradient-to-r from-[#3bcac4] to-[#005476] text-white hover:opacity-90 text-xs h-8"
+            data-testid="button-generate-market-analyst"
           >
-            {analystMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-2" />}
-            Analyze Market
+            {analystMutation.isPending ? (
+              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Analysing…</>
+            ) : (
+              <><Sparkles className="w-3.5 h-3.5 mr-1.5" /> Generate Report</>
+            )}
           </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!hasAnyData && (
-            <p className="text-sm text-slate-400">Run a search first so there is stored data for the analyst to read.</p>
-          )}
-          {hasAnyData && !report && !analystMutation.isPending && (
-            <p className="text-sm text-slate-400">Click "Analyze Market" to generate a one-time AI report from already-stored competitor data.</p>
-          )}
-          {report && (
-            <div className="space-y-3">
-              <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                <InsightLine label="Rising competitors" value={report.risingCompetitors} />
-                <InsightLine label="Project focus" value={report.projectFocus} />
-                <InsightLine label="Common offers" value={report.commonOffers} />
-                <InsightLine label="Overused angles" value={report.overusedAngles} />
-                <InsightLine label="Underused angles" value={report.underusedAngles} />
-                <InsightLine label="Unused opportunities" value={report.unusedOpportunities} />
-                <InsightLine label="Biggest threat" value={report.biggestThreat} />
-                <InsightLine label="Dominant language" value={report.dominantLanguage} />
-                <InsightLine label="Dominant market" value={report.dominantMarket} />
-                <InsightLine label="What to launch next" value={report.whatToLaunch} />
-              </div>
-              <div className="rounded-lg border border-[#3bcac4]/30 bg-[#3bcac4]/5 p-4">
-                <div className="text-sm font-semibold text-[#005476] mb-2">
-                  If I were Kinglike Marketing Director, I would do the following this week:
-                </div>
-                <div className="space-y-1.5 text-sm">
-                  <InsightLine label="Campaign strategy" value={report.directorPlan.campaignStrategy} />
-                  <InsightLine label="Creative strategy" value={report.directorPlan.creativeStrategy} />
-                  <InsightLine label="Audience strategy" value={report.directorPlan.audienceStrategy} />
-                  <InsightLine label="Offer strategy" value={report.directorPlan.offerStrategy} />
-                  <InsightLine label="Budget suggestion" value={report.directorPlan.budgetSuggestion} />
-                  <InsightLine label="Expected impact" value={report.directorPlan.expectedImpact} />
-                  <InsightLine label="Confidence level" value={report.directorPlan.confidenceLevel} />
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+        </div>
 
-function InsightLine({ label, value }: { label: string; value: string }) {
-  if (!value) return null;
-  return (
-    <div>
-      <span className="font-semibold text-slate-600">{label}:</span>{" "}
-      <span className="text-slate-600">{value}</span>
+        {report && (
+          <div className="space-y-5 pt-4 border-t border-[#3bcac4]/20">
+            {/* Director plan highlights */}
+            {report.directorPlan && (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  { label: "Campaign Strategy", value: report.directorPlan.campaignStrategy },
+                  { label: "Creative Strategy", value: report.directorPlan.creativeStrategy },
+                  { label: "Audience Strategy", value: report.directorPlan.audienceStrategy },
+                  { label: "Offer Strategy", value: report.directorPlan.offerStrategy },
+                  { label: "Budget Suggestion", value: report.directorPlan.budgetSuggestion },
+                  { label: "Expected Impact", value: report.directorPlan.expectedImpact },
+                ].filter(item => item.value).map((item) => (
+                  <div key={item.label} className="bg-white rounded-lg border border-slate-100 p-3">
+                    <div className="text-[10px] font-semibold text-[#005476] uppercase tracking-wide mb-1">{item.label}</div>
+                    <p className="text-xs text-slate-700 leading-relaxed">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <ReportSection label="Rising Competitors" value={report.risingCompetitors} />
+              <ReportSection label="Biggest Threat" value={report.biggestThreat} />
+              <ReportSection label="Market Opportunities" value={report.unusedOpportunities} />
+              <ReportSection label="What to Launch" value={report.whatToLaunch} />
+              <ReportSection label="Overused Angles" value={report.overusedAngles} />
+              <ReportSection label="Underused Angles" value={report.underusedAngles} />
+            </div>
+            {report.directorPlan?.confidenceLevel && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-[#3bcac4]/10 text-[#005476] border-[#3bcac4]/30 text-xs">
+                  AI Confidence: {report.directorPlan.confidenceLevel}
+                </Badge>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
