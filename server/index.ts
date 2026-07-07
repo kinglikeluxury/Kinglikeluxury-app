@@ -322,10 +322,11 @@ app.use((req, res, next) => {
   if (schedulersEnabled) {
     startScheduler();
     startDailyBackup();
-    startCrmTaskReminderScheduler();
   } else {
     console.log("[Schedulers] Disabled by ENABLE_BACKGROUND_SCHEDULERS — set to 'true' to enable background processing");
   }
+  // CRM task reminders are lightweight and user-facing — always run regardless of the heavy-scheduler gate
+  startCrmTaskReminderScheduler();
   validateMetaWhatsAppConfig();
 
   // ─────────────────────────────────────────────────────────────────────────

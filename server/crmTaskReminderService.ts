@@ -85,7 +85,10 @@ function parseDueAt(dueDate: string, dueTime: string): Date | null {
 
 // ── Employee resolution ────────────────────────────────────────────────────────
 
-function resolveEmployeePhone(assigneeName: string): string | null {
+function resolveEmployeePhone(assigneeName: string, dbPhone?: string | null): string | null {
+  // Prefer the phone number stored in the users table (covers all employees)
+  if (dbPhone?.trim()) return dbPhone.trim();
+  // Fall back to hardcoded map for legacy entries
   const lower = assigneeName.toLowerCase();
   for (const [key, phone] of Object.entries(EMPLOYEE_PHONES)) {
     if (lower.includes(key)) return phone;
@@ -186,6 +189,7 @@ async function runTaskReminders(): Promise<void> {
       lead_phone: string | null;
       lead_assignee_name: string | null;
       lead_assignee_email: string | null;
+      lead_assignee_phone: string | null;
     }>(`
       SELECT
         ct.id,
@@ -201,7 +205,8 @@ async function runTaskReminders(): Promise<void> {
         ) AS lead_name,
         cl.phone                    AS lead_phone,
         lu.username                 AS lead_assignee_name,
-        lu.email                    AS lead_assignee_email
+        lu.email                    AS lead_assignee_email,
+        lu.phone_number             AS lead_assignee_phone
       FROM crm_tasks ct
       LEFT JOIN crm_leads cl ON cl.id = ct.lead_id
       LEFT JOIN users      lu ON lu.id = cl.assigned_to
@@ -228,9 +233,9 @@ async function runTaskReminders(): Promise<void> {
         continue;
       }
 
-      const employeePhone = resolveEmployeePhone(row.lead_assignee_name);
+      const employeePhone = resolveEmployeePhone(row.lead_assignee_name, row.lead_assignee_phone);
       if (!employeePhone) {
-        console.warn(`[CrmReminder] taskId=${row.id} — no WA phone mapped for "${row.lead_assignee_name}", skipping`);
+        console.warn(`[CrmReminder] taskId=${row.id} — no WA phone for "${row.lead_assignee_name}" (db or map), skipping`);
         continue;
       }
 
