@@ -7102,6 +7102,18 @@ Return JSON with:
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
+  // Phase 27 Hardening — Manual admin-triggered refresh of a single media item.
+  // Re-probes the original Meta CDN URL to check if it has recovered.
+  // Cloudinary URL, AI analysis, Creative DNA, and content hash are NEVER deleted.
+  // No scheduler, no background job, no bulk refresh.
+  app.post("/api/admin/competitor-intelligence/media/:mediaId/refresh", isAdmin, async (req, res) => {
+    try {
+      const { refreshOriginalMedia } = await import("./competitorCreativeMediaService");
+      const result = await refreshOriginalMedia(Number(req.params.mediaId));
+      res.json({ ok: result.ok, data: result.media, error: result.error, expired: result.expired });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   app.get("/api/admin/competitor-intelligence/media/:mediaId/analysis", isAdmin, async (req, res) => {
     try {
       const { getOrGenerateCreativeAnalysis } = await import("./competitorCreativeAnalysisService");

@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Image as ImageIcon, Video, Loader2, X, Sparkles, AlertTriangle,
   ShieldCheck, Heart, Eye, Lightbulb, Dna, Target, Users, Clock, Gem,
-  Palette, TrendingUp,
+  Palette, TrendingUp, RefreshCw, CheckCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ interface MediaItem {
   cached: boolean;
   cache_error: string | null;
   cached_at: string | null;
+  media_status: string | null;
   ai_analysis: CreativeAnalysis | null;
   ai_analysis_generated_at: string | null;
 }
@@ -74,11 +75,21 @@ function unwrapObject<T = any>(raw: unknown): T | null {
   return (raw as T) ?? null;
 }
 
-/** Thumbnail for a single media item — lazy loads only when rendered, and
- *  only triggers the caching+analysis network calls when explicitly clicked. */
+// ── Cache age helper ────────────────────────────────────────────────────────
+
+function cacheAgeInfo(cachedAt: string | null): { days: number; label: string } | null {
+  if (!cachedAt) return null;
+  const days = Math.floor((Date.now() - new Date(cachedAt).getTime()) / (1000 * 60 * 60 * 24));
+  if (days === 0) return { days, label: "Cached today" };
+  if (days === 1) return { days, label: "Cached 1 day ago" };
+  return { days, label: `Cached ${days} days ago` };
+}
+
+/** Thumbnail for a single media item */
 function Thumbnail({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem) => void }) {
   const isVideo = item.media_type === "video";
-  const previewUrl = item.cloudinary_url; // never render the raw third-party URL directly
+  const isExpired = item.media_status === "expired";
+  const previewUrl = item.cloudinary_url;
 
   return (
     <button
@@ -101,7 +112,12 @@ function Thumbnail({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem
           </div>
         </div>
       )}
-      {item.cache_error && (
+      {isExpired && (
+        <div className="absolute bottom-0 left-0 right-0 bg-amber-600/80 text-white text-[9px] text-center py-0.5">
+          expired
+        </div>
+      )}
+      {!isExpired && item.cache_error && (
         <div className="absolute bottom-0 left-0 right-0 bg-red-600/80 text-white text-[9px] text-center py-0.5">
           unavailable
         </div>
@@ -298,6 +314,16 @@ function Lightbox({ item, onClose }: { item: MediaItem; onClose: () => void }) {
     },
   });
 
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/competitor-intelligence/media/${item.id}/refresh`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/competitor-intelligence/ads", item.ad_id, "media"] });
+    },
+  });
+
   const analysisQuery = useQuery<CreativeAnalysis | null>({
     queryKey: ["/api/admin/competitor-intelligence/media", item.id, "analysis"],
     queryFn: async () => {
@@ -311,7 +337,11 @@ function Lightbox({ item, onClose }: { item: MediaItem; onClose: () => void }) {
   });
 
   const isCached = !!item.cloudinary_url;
-  const cannotCache = !!item.cache_error && !isCached;
+  const isExpired = item.media_status === "expired";
+  const cannotCache = !!item.cache_error && !isCached && !isExpired;
+
+  const age = cacheAgeInfo(item.cached_at);
+  const isStale = age !== null && age.days > 90;
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
@@ -330,7 +360,46 @@ function Lightbox({ item, onClose }: { item: MediaItem; onClose: () => void }) {
         </div>
 
         <div className="p-4 space-y-4">
-          {!isCached && !cannotCache && (
+
+          {/* Expired Meta URL notice */}
+          {isExpired && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex flex-col gap-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800">
+                  <p className="font-semibold mb-0.5">Original Meta media has expired.</p>
+                  <p>Run a new competitor search to refresh this creative, or try the button below to check if the URL has recovered.</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+                className="self-start h-7 text-xs border-amber-400 text-amber-800 hover:bg-amber-100"
+                data-testid={`button-refresh-original-${item.id}`}
+              >
+                {refreshMutation.isPending ? (
+                  <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Checking...</>
+                ) : (
+                  <><RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Original Media</>
+                )}
+              </Button>
+              {refreshMutation.isSuccess && (refreshMutation.data as any)?.ok && (
+                <p className="text-xs text-emerald-700 flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" /> Original URL is live again.
+                </p>
+              )}
+              {refreshMutation.isSuccess && !(refreshMutation.data as any)?.ok && (
+                <p className="text-xs text-amber-700 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Still expired — try running a new search to get a fresh URL.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Pre-cache CTA */}
+          {!isCached && !cannotCache && !isExpired && (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
               <Button
                 onClick={() => cacheMutation.mutate()}
@@ -355,6 +424,7 @@ function Lightbox({ item, onClose }: { item: MediaItem; onClose: () => void }) {
             </div>
           )}
 
+          {/* Permanent error state */}
           {cannotCache && (
             <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
               <AlertTriangle className="w-6 h-6 text-amber-500" />
@@ -364,12 +434,44 @@ function Lightbox({ item, onClose }: { item: MediaItem; onClose: () => void }) {
             </div>
           )}
 
+          {/* Media display */}
           {isCached && item.media_type === "video" ? (
             <video src={item.cloudinary_url!} controls className="w-full rounded-lg max-h-[50vh]" />
           ) : isCached ? (
             <img src={item.cloudinary_url!} alt="Competitor creative" className="w-full rounded-lg max-h-[50vh] object-contain bg-slate-50" />
           ) : null}
 
+          {/* Cache age */}
+          {isCached && age && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                <Clock className="w-3 h-3" /> {age.label}
+              </span>
+              {isStale && (
+                <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 bg-amber-50">
+                  Cache may be outdated
+                </Badge>
+              )}
+              {isStale && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={refreshMutation.isPending}
+                  className="h-6 text-[11px] text-slate-500 px-2"
+                  data-testid={`button-refresh-stale-${item.id}`}
+                >
+                  {refreshMutation.isPending ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <><RefreshCw className="w-3 h-3 mr-1" /> Refresh Original</>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* AI Creative Analysis */}
           {isCached && item.media_type !== "video" && (
             <div className="border-t pt-3">
               <div className="text-xs font-semibold text-slate-500 uppercase mb-2 flex items-center gap-1">
@@ -422,16 +524,11 @@ export function CompetitorCreativeGallery({ adId }: { adId: number }) {
   });
 
   const items = toSafeArray<MediaItem>(mediaQuery.data);
-  // Prefer showing one thumbnail per visual: images as-is, and for videos show
-  // the poster thumbnail if one exists (fallback to the video item itself).
   const displayItems: MediaItem[] = [];
   const posters = items.filter((m) => m.media_type === "video_poster");
   const images = items.filter((m) => m.media_type === "image");
   const videos = items.filter((m) => m.media_type === "video");
 
-  // Simple ordering: images, then video posters (acting as the video's visual
-  // thumbnail — clicking still opens the full lightbox for the actual video item
-  // if one exists at the same position, otherwise shows the poster itself).
   for (const img of images) displayItems.push(img);
   for (const poster of posters) displayItems.push(poster);
   if (videos.length > 0 && posters.length === 0) {

@@ -189,6 +189,7 @@ export async function analyzeCreativeDna(mediaId: number): Promise<{
   ok: boolean;
   dna?: CreativeDna;
   error?: string;
+  reused?: boolean;
 }> {
   const media = await getMediaById(mediaId);
   if (!media) return { ok: false, error: "Media item not found" };
@@ -203,6 +204,63 @@ export async function analyzeCreativeDna(mediaId: number): Promise<{
 
   if (!openai) {
     return { ok: false, error: "AI analysis is not configured" };
+  }
+
+  // Hardening: DNA dedup by SHA-256 content hash.
+  // If another media row with the same hash already has DNA, copy it here
+  // instead of calling OpenAI Vision again.
+  if (media.content_hash) {
+    const dedupRes = await pool.query(
+      `SELECT cd.*
+       FROM competitor_creative_dna cd
+       JOIN competitor_ad_media cam ON cam.id = cd.media_id
+       WHERE cam.content_hash = $1
+         AND cam.id != $2
+         AND cd.media_id != $2
+       ORDER BY cd.version DESC
+       LIMIT 1`,
+      [media.content_hash, mediaId],
+    );
+    if (dedupRes.rows.length > 0) {
+      const source = dedupRes.rows[0];
+      const client = await pool.connect();
+      let insertedRow: any;
+      try {
+        const versionRes = await client.query(
+          `SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+           FROM competitor_creative_dna WHERE media_id = $1`,
+          [mediaId],
+        );
+        const nextVersion = versionRes.rows[0].next_version;
+        const insertRes = await client.query(
+          `INSERT INTO competitor_creative_dna (
+             media_id, version, luxury_score, trust_score, investment_appeal_score,
+             emotional_score, family_appeal_score, urgency_score, scarcity_score,
+             visual_quality_score, brand_quality_score, expected_conversion_score,
+             detected_objects, scene_type, colors, brightness, composition_notes,
+             visible_text_ocr, likely_target_audience, strengths, weaknesses,
+             kinglike_better_angle, ai_explanation, confidence_percent
+           ) VALUES (
+             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24
+           ) RETURNING *`,
+          [
+            mediaId, nextVersion,
+            source.luxury_score, source.trust_score, source.investment_appeal_score,
+            source.emotional_score, source.family_appeal_score, source.urgency_score,
+            source.scarcity_score, source.visual_quality_score, source.brand_quality_score,
+            source.expected_conversion_score,
+            source.detected_objects, source.scene_type, source.colors, source.brightness,
+            source.composition_notes, source.visible_text_ocr, source.likely_target_audience,
+            source.strengths, source.weaknesses, source.kinglike_better_angle,
+            source.ai_explanation, source.confidence_percent,
+          ],
+        );
+        insertedRow = insertRes.rows[0];
+      } finally {
+        client.release();
+      }
+      return { ok: true, dna: rowToDna(insertedRow), reused: true };
+    }
   }
 
   try {
