@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { PROPERTY_TYPES } from "@shared/schema";
 import luxuryLogoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
-import constructionImagePath from "@assets/1702663538423.jfif";
+import constructionImagePath from "@assets/1702663538423.jpg";
 import { useTranslation } from "react-i18next";
 import {
   Dialog,

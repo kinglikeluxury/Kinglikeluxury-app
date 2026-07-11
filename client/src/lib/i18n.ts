@@ -36,13 +36,25 @@ export const languages = {
   fr: { name: 'Français', dir: 'ltr', flagCode: 'fr' },
 };
 
-export const getFlagUrl = (code: string) => {
-  // Support full locale codes like 'en-US', 'ar-EG', 'zh-CN', 'pt-BR'
-  // by trying exact match first, then falling back to the base language code
-  const lang = languages[code as keyof typeof languages]
-    || languages[code.split('-')[0] as keyof typeof languages];
+export const getFlagUrl = (code: string): string => {
+  // Normalize: lowercase + replace underscores with hyphens (handles en-US, pt_BR, zh-CN, etc.)
+  const normalized = (code || '').toLowerCase().replace(/_/g, '-');
+  const base = normalized.split('-')[0];
+  const lang = languages[normalized as keyof typeof languages]
+    || languages[base as keyof typeof languages];
   if (!lang) return '';
   return `https://flagcdn.com/w40/${lang.flagCode}.png`;
+};
+
+// Resolve a full locale code (e.g. 'en-US', 'pt_BR') to the display name
+export const getLanguageName = (code: string): string => {
+  const normalized = (code || '').toLowerCase().replace(/_/g, '-');
+  const base = normalized.split('-')[0];
+  return (
+    languages[normalized as keyof typeof languages]?.name ||
+    languages[base as keyof typeof languages]?.name ||
+    'English'
+  );
 };
 
 export const getLanguageDirection = (lng: string): string => {

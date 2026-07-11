@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/hooks/use-favorites";
-import { languages, getFlagUrl } from "@/lib/i18n";
+import { languages, getFlagUrl, getLanguageName } from "@/lib/i18n";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import { useQuery } from "@tanstack/react-query";
 import type { UserNotification } from "@shared/schema";
@@ -375,10 +375,13 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             >
               <div className="flex items-center gap-3.5">
                 <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                  <img src={getFlagUrl(i18n.language)} alt="" className="w-5 h-4 object-cover rounded-sm" />
+                  {getFlagUrl(i18n.language)
+                    ? <img src={getFlagUrl(i18n.language)} alt="" className="w-5 h-4 object-cover rounded-sm" />
+                    : <Globe className="w-4 h-4 text-gray-500" />
+                  }
                 </div>
                 <span className="text-[15px] font-medium text-gray-800">
-                  {t("nav.language", "اللغة")} — {languages[i18n.language as keyof typeof languages]?.name || "English"}
+                  {t("nav.language", "اللغة")} — {getLanguageName(i18n.language)}
                 </span>
               </div>
               {langExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
