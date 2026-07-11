@@ -96,7 +96,13 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.jfif')) {
+        res.setHeader('Content-Type', 'image/jpeg');
+      }
+    },
+  }));
 
   app.use("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));

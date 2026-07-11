@@ -37,7 +37,10 @@ export const languages = {
 };
 
 export const getFlagUrl = (code: string) => {
-  const lang = languages[code as keyof typeof languages];
+  // Support full locale codes like 'en-US', 'ar-EG', 'zh-CN', 'pt-BR'
+  // by trying exact match first, then falling back to the base language code
+  const lang = languages[code as keyof typeof languages]
+    || languages[code.split('-')[0] as keyof typeof languages];
   if (!lang) return '';
   return `https://flagcdn.com/w40/${lang.flagCode}.png`;
 };

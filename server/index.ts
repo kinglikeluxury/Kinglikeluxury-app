@@ -124,7 +124,7 @@ app.use(
           "https://flagcdn.com",
           "https://images.unsplash.com",
           "https://cdnjs.cloudflare.com",
-          "https://*.cartocdn.com",
+          "https://*.basemaps.cartocdn.com",
         ],
         mediaSrc: [
           "'self'",
