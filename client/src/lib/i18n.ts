@@ -19,21 +19,21 @@ import svCommon from '../locales/sv/common.json';
 import frCommon from '../locales/fr/common.json';
 
 export const languages = {
-  en: { name: 'English', dir: 'ltr', flagCode: 'gb' },
-  ar: { name: 'العربية', dir: 'rtl', flagCode: 'ae' },
-  fa: { name: 'فارسی', dir: 'rtl', flagCode: 'ir' },
-  he: { name: 'עברית', dir: 'rtl', flagCode: 'il' },
-  ru: { name: 'Русский', dir: 'ltr', flagCode: 'ru' },
-  ka: { name: 'ქართული', dir: 'ltr', flagCode: 'ge' },
-  az: { name: 'Azərbaycan', dir: 'ltr', flagCode: 'az' },
-  tr: { name: 'Türkçe', dir: 'ltr', flagCode: 'tr' },
-  zh: { name: '中文', dir: 'ltr', flagCode: 'cn' },
-  pl: { name: 'Polski', dir: 'ltr', flagCode: 'pl' },
-  it: { name: 'Italiano', dir: 'ltr', flagCode: 'it' },
-  nl: { name: 'Nederlands', dir: 'ltr', flagCode: 'nl' },
-  de: { name: 'Deutsch', dir: 'ltr', flagCode: 'de' },
-  sv: { name: 'Svenska', dir: 'ltr', flagCode: 'se' },
-  fr: { name: 'Français', dir: 'ltr', flagCode: 'fr' },
+  en: { name: 'English', dir: 'ltr', flagCode: 'gb', flagEmoji: '🇬🇧' },
+  ar: { name: 'العربية', dir: 'rtl', flagCode: 'ae', flagEmoji: '🇦🇪' },
+  fa: { name: 'فارسی', dir: 'rtl', flagCode: 'ir', flagEmoji: '🇮🇷' },
+  he: { name: 'עברית', dir: 'rtl', flagCode: 'il', flagEmoji: '🇮🇱' },
+  ru: { name: 'Русский', dir: 'ltr', flagCode: 'ru', flagEmoji: '🇷🇺' },
+  ka: { name: 'ქართული', dir: 'ltr', flagCode: 'ge', flagEmoji: '🇬🇪' },
+  az: { name: 'Azərbaycan', dir: 'ltr', flagCode: 'az', flagEmoji: '🇦🇿' },
+  tr: { name: 'Türkçe', dir: 'ltr', flagCode: 'tr', flagEmoji: '🇹🇷' },
+  zh: { name: '中文', dir: 'ltr', flagCode: 'cn', flagEmoji: '🇨🇳' },
+  pl: { name: 'Polski', dir: 'ltr', flagCode: 'pl', flagEmoji: '🇵🇱' },
+  it: { name: 'Italiano', dir: 'ltr', flagCode: 'it', flagEmoji: '🇮🇹' },
+  nl: { name: 'Nederlands', dir: 'ltr', flagCode: 'nl', flagEmoji: '🇳🇱' },
+  de: { name: 'Deutsch', dir: 'ltr', flagCode: 'de', flagEmoji: '🇩🇪' },
+  sv: { name: 'Svenska', dir: 'ltr', flagCode: 'se', flagEmoji: '🇸🇪' },
+  fr: { name: 'Français', dir: 'ltr', flagCode: 'fr', flagEmoji: '🇫🇷' },
 };
 
 export const getFlagUrl = (code: string): string => {

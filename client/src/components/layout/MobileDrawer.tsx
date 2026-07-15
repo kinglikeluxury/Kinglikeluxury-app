@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/hooks/use-favorites";
-import { languages, getFlagUrl, getLanguageName } from "@/lib/i18n";
+import { languages, getLanguageName } from "@/lib/i18n";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import { useQuery } from "@tanstack/react-query";
 import type { UserNotification } from "@shared/schema";
@@ -375,10 +375,14 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             >
               <div className="flex items-center gap-3.5">
                 <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                  {getFlagUrl(i18n.language)
-                    ? <img src={getFlagUrl(i18n.language)} alt="" className="w-5 h-4 object-cover rounded-sm" />
-                    : <Globe className="w-4 h-4 text-gray-500" />
-                  }
+                  {(() => {
+                    const norm = (i18n.language || '').toLowerCase().replace(/_/g, '-');
+                    const base = norm.split('-')[0];
+                    const lang = languages[norm as keyof typeof languages] || languages[base as keyof typeof languages];
+                    return lang?.flagEmoji
+                      ? <span className="text-lg leading-none">{lang.flagEmoji}</span>
+                      : <Globe className="w-4 h-4 text-gray-500" />;
+                  })()}
                 </div>
                 <span className="text-[15px] font-medium text-gray-800">
                   {t("nav.language", "اللغة")} — {getLanguageName(i18n.language)}
@@ -401,7 +405,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                         background: active ? "#f0fdfc" : "#fff",
                       }}
                     >
-                      <img src={getFlagUrl(code)} alt="" className="w-6 h-4 object-cover rounded-sm flex-shrink-0" />
+                      <span className="text-xl leading-none flex-shrink-0">{languages[code as keyof typeof languages]?.flagEmoji}</span>
                       <span className="text-[13px] font-medium truncate" style={{ color: active ? "#3bcac4" : "#374151" }}>
                         {name}
                       </span>

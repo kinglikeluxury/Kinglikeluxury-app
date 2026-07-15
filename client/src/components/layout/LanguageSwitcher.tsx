@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { languages, getFlagUrl } from "@/lib/i18n";
+import { languages } from "@/lib/i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,36 +16,33 @@ export default function LanguageSwitcher() {
     i18n.changeLanguage(lng);
   };
 
-  const currentFlagUrl = getFlagUrl(i18n.language);
+  const normalized = (i18n.language || '').toLowerCase().replace(/_/g, '-');
+  const base = normalized.split('-')[0];
+  const currentLang = languages[normalized as keyof typeof languages] || languages[base as keyof typeof languages];
+  const currentEmoji = currentLang?.flagEmoji;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="h-8 flex items-center gap-1 px-2">
-          {currentFlagUrl
-            ? <img src={currentFlagUrl} alt="" className="w-5 h-4 object-cover rounded-sm" />
+          {currentEmoji
+            ? <span className="text-lg leading-none">{currentEmoji}</span>
             : <Globe className="h-4 w-4" />
           }
           <span className="sr-only">Switch language</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {Object.entries(languages).map(([code, { name }]) => {
-          const flagUrl = getFlagUrl(code);
-          return (
-            <DropdownMenuItem
-              key={code}
-              onClick={() => changeLanguage(code)}
-              className={i18n.language === code ? "bg-accent font-semibold" : ""}
-            >
-              {flagUrl
-                ? <img src={flagUrl} alt="" className="w-5 h-4 object-cover rounded-sm mr-2" />
-                : <Globe className="h-4 w-4 mr-2" />
-              }
-              {name}
-            </DropdownMenuItem>
-          );
-        })}
+        {Object.entries(languages).map(([code, { name, flagEmoji }]) => (
+          <DropdownMenuItem
+            key={code}
+            onClick={() => changeLanguage(code)}
+            className={i18n.language === code ? "bg-accent font-semibold" : ""}
+          >
+            <span className="text-lg leading-none mr-2">{flagEmoji}</span>
+            {name}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
