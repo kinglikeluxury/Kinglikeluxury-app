@@ -3,6 +3,9 @@ import { useLocation } from "wouter";
 import { PROPERTY_TYPES } from "@shared/schema";
 import luxuryLogoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import constructionImagePath from "@assets/1702663538423.jpg";
+import apartmentsImagePath from "@assets/category-apartments.jpg";
+import villasImagePath from "@assets/category-villas.jpg";
+import landsImagePath from "@assets/category-lands.jpg";
 import { useTranslation } from "react-i18next";
 import {
   Dialog,
@@ -107,19 +110,19 @@ const CategorySection = () => {
   const categories = [
     {
       name: t('propertyTypes.apartment', 'Apartments'),
-      image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+      image: apartmentsImagePath,
       type: PROPERTY_TYPES.APARTMENT,
       count: t('property.listings', '120+ Listings'),
     },
     {
       name: t('propertyTypes.villa', 'Villas'),
-      image: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80",
+      image: villasImagePath,
       type: PROPERTY_TYPES.VILLA,
       count: t('property.listings2', '85+ Listings'),
     },
     {
       name: t('propertyTypes.land', 'Lands'),
-      image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
+      image: landsImagePath,
       type: PROPERTY_TYPES.LAND,
       count: t('property.listings3', '63+ Listings'),
     },
