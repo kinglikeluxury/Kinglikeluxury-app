@@ -17,8 +17,9 @@ const EMPLOYEE_PHONES: Record<string, string> = {
 };
 
 const EMPLOYEE_EMAILS: Record<string, string> = {
-  samer: "kinglikeluxury.sales.ge@gmail.com",
-  fadi:  "kinglikeluxury.fadi@gmail.com",
+  samer:  "kinglikeluxury.sales.ge@gmail.com",
+  fadi:   "kinglikeluxury.fadi@gmail.com",
+  jwana:  "kinglikeluxury.sales@gmail.com",
 };
 
 // ── Resend client (lazy singleton) ─────────────────────────────────────────────

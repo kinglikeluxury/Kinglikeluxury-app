@@ -4776,9 +4776,10 @@ ${metaTags}
    * "Fadi al-Mofti", "Fadi Al-Moufti", "Fadi al moufti", "فادي" → "fadialmofti"
    */
   const ARABIC_AGENT_MAP: Record<string, string> = {
-    "فادي": "fadi",
-    "سامر": "samer",
-    "سامير": "samer",
+    "فادي":   "fadi",
+    "سامر":   "samer",
+    "سامير":  "samer",
+    "جوانا":  "jwana",
   };
   const slugifyAgent = (raw: string): string => {
     let s = raw.toLowerCase().trim();
