@@ -104,7 +104,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Project Offer",
     path: "/admin/project-offer",
     Icon: FileText,
-    visibleToUserIds: [24, 29],
+    visibleToUserIds: [24, 29, 31],
   },
   {
     labelKey: "admin.emailCampaign",

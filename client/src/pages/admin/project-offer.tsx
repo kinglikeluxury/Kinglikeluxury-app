@@ -474,7 +474,7 @@ export default function ProjectOfferPage() {
   const [ambassadoriHighlightB64, setAmbassadoriHighlightB64] = useState<string>("");
 
   useEffect(() => {
-    if (!authLoading && (!user || (!user.isAdmin && ![24, 29].includes(user.id)))) navigate("/");
+    if (!authLoading && (!user || (!user.isAdmin && ![24, 29, 31].includes(user.id)))) navigate("/");
   }, [user, authLoading, navigate]);
 
   const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/projects"] });
@@ -678,7 +678,7 @@ export default function ProjectOfferPage() {
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#3bcac4]" />
     </div>
   );
-  if (!user?.isAdmin && ![24, 29].includes(user?.id ?? -1)) return null;
+  if (!user?.isAdmin && ![24, 29, 31].includes(user?.id ?? -1)) return null;
 
   /* ── Images for preview in form ─ */
   const previewImages = selectedProject?.images?.slice(0, 3) ?? [];
