@@ -629,6 +629,7 @@ function normalizeBudget(raw: string): string {
 const EMPLOYEE_PHONES: Record<string, string> = {
   samer: "+995511746491",
   fadi:  "+995591888863",
+  jwana: "+995591000047",
 };
 
 // ── CRM task creation + employee WhatsApp notification ─────────────────────────
