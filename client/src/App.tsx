@@ -144,20 +144,7 @@ function Router() {
 function App() {
   const [location] = useLocation();
   const { i18n } = useTranslation();
-
-  // Standalone landing page — no Navbar, Footer, or BottomNav
-  if (location === "/invest-georgia-il") {
-    return (
-      <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Toaster />
-            <InvestGeorgiaIl />
-          </TooltipProvider>
-        </QueryClientProvider>
-      </HelmetProvider>
-    );
-  }
+  // All hooks must be declared unconditionally — before any conditional return.
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashComplete = useCallback(() => setSplashDone(true), []);
 
@@ -171,6 +158,21 @@ function App() {
     document.documentElement.dir = getLanguageDirection(i18n.language);
     document.documentElement.lang = i18n.language;
   }, [i18n.language]);
+
+  // Standalone landing page — no Navbar, Footer, or BottomNav
+  // This check must come AFTER all hooks above to satisfy React's Rules of Hooks.
+  if (location === "/invest-georgia-il") {
+    return (
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <InvestGeorgiaIl />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
+    );
+  }
 
   return (
     <HelmetProvider>
