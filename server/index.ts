@@ -86,7 +86,7 @@ app.get("/robots.txt", (_req, res) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.end(
-    "User-agent: *\nAllow: /\n\nSitemap: https://www.kinglikeluxury.app/sitemap.xml\n"
+    "User-agent: *\nAllow: /\nDisallow: /invest-georgia-il\n\nSitemap: https://www.kinglikeluxury.app/sitemap.xml\n"
   );
 });
 // ─────────────────────────────────────────────────────────────────────────────

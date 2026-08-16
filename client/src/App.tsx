@@ -60,6 +60,7 @@ import EmployeeDashboardPage from "@/pages/admin/employee-dashboard";
 import AiMarketingCenterPage from "@/pages/admin/ai-marketing-center";
 import BroadcastPage from "@/pages/admin/broadcast";
 import CompetitorIntelligencePage from "@/pages/admin/competitor-intelligence";
+import InvestGeorgiaIl from "@/pages/invest-georgia-il";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
@@ -141,7 +142,22 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
   const { i18n } = useTranslation();
+
+  // Standalone landing page — no Navbar, Footer, or BottomNav
+  if (location === "/invest-georgia-il") {
+    return (
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <InvestGeorgiaIl />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
+    );
+  }
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashComplete = useCallback(() => setSplashDone(true), []);
 

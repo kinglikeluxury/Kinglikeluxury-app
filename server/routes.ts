@@ -9496,5 +9496,94 @@ Rules:
     }
   });
 
+  // ── Public landing page — /invest-georgia-il ──────────────────────────────
+
+  /** POST /api/landing/invest-georgia-il
+   *  No authentication required — public form submission from Google/YouTube ad landing page.
+   *  Creates a CRM lead using the same atomic round-robin mechanism as all other lead sources.
+   */
+  app.post("/api/landing/invest-georgia-il", async (req: any, res) => {
+    try {
+      const {
+        fullName, phone, email, budget, goal, city, expectedPurchaseMonth,
+        utm_source, utm_medium, utm_campaign, utm_content, utm_term, gclid,
+      } = req.body;
+
+      // Required field validation
+      if (!fullName?.trim()) return res.status(400).json({ message: "الاسم مطلوب" });
+      const phoneResult = vPhone(phone ?? "");
+      if (!phoneResult.valid) return res.status(400).json({ message: "رقم الهاتف غير صحيح" });
+      if (email?.trim()) {
+        const emailResult = vEmail(email.trim());
+        if (!emailResult.valid) return res.status(400).json({ message: "البريد الإلكتروني غير صحيح" });
+      }
+
+      // Build UTM/gclid notes string
+      const utmParts = [
+        utm_source   && `utm_source=${utm_source}`,
+        utm_medium   && `utm_medium=${utm_medium}`,
+        utm_campaign && `utm_campaign=${utm_campaign}`,
+        utm_content  && `utm_content=${utm_content}`,
+        utm_term     && `utm_term=${utm_term}`,
+        gclid        && `gclid=${gclid}`,
+      ].filter(Boolean) as string[];
+
+      const { pickNextSubAgentIdForTx: pickAgentTx } = await import("./leadAssignmentService");
+      const { lead, autoAssignedTo } = await db.transaction(async (tx: any) => {
+        const agentId = await pickAgentTx(tx, "Landing Page IL");
+        const [newLead] = await tx.insert(crmLeads).values({
+          fullName:              fullName.trim(),
+          phone,
+          email:                 email?.trim() || null,
+          budget:                budget || null,
+          city:                  city   || null,
+          expectedPurchaseMonth: expectedPurchaseMonth || null,
+          description:           goal ? `الهدف: ${goal}` : null,
+          campaignName:          utm_campaign || null,
+          notes:                 utmParts.length ? utmParts.join(" | ") : null,
+          leadSource:            "google_youtube",
+          leadScore:             "cold",
+          status:                "new",
+          assignedTo:            agentId,
+          updatedAt:             new Date(),
+        }).returning();
+        return { lead: newLead, autoAssignedTo: agentId };
+      });
+
+      // Fire-and-forget notifications — identical to manual CRM creation path
+      if (autoAssignedTo) {
+        import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
+          notifyAgentOfLeadAssignment({
+            leadId: lead.id, leadName: lead.fullName, leadPhone: lead.phone,
+            leadEmail: lead.email, leadSource: lead.leadSource,
+            assignedToUserId: autoAssignedTo, context: "new",
+          })
+        ).catch(() => {});
+      }
+      import("./developerRegistrationService").then(({ initDeveloperRegistrationsForLead }) =>
+        initDeveloperRegistrationsForLead(lead.id, {
+          id: lead.id, fullName: lead.fullName, firstName: lead.firstName ?? null,
+          lastName: lead.lastName ?? null, phone: lead.phone,
+          country: lead.country ?? null, city: lead.city ?? null,
+          budget: lead.budget ?? null, projectInterest: lead.projectInterest ?? null,
+        })
+      ).catch(() => {});
+      import("./waQualService").then(({ checkAndTrigger }) =>
+        checkAndTrigger(lead.id, lead.phone, lead.firstName ?? null)
+      ).catch(() => {});
+      setTimeout(() => {
+        import("./aiLeadScoringService").then(({ scoreAndSaveLead }) =>
+          scoreAndSaveLead(lead.id)
+        ).catch(() => {});
+      }, 500);
+
+      console.log(`[LandingPageIL] Lead #${lead.id} created — assigned to userId=${autoAssignedTo}`);
+      res.status(201).json({ success: true, id: lead.id });
+    } catch (err: any) {
+      console.error("[LandingPageIL] Error:", err.message);
+      res.status(500).json({ message: "حدث خطأ، يرجى المحاولة مجدداً" });
+    }
+  });
+
   return httpServer;
 }
