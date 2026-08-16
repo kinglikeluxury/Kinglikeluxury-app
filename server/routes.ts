@@ -9528,6 +9528,15 @@ Rules:
         gclid        && `gclid=${gclid}`,
       ].filter(Boolean) as string[];
 
+      // budget arrives as a plain numeric string (e.g. "50000") so the CRM's
+      // fmtBudget(Number(budget)) renders correctly. Reject anything non-numeric.
+      const budgetNum = budget ? Number(budget) : null;
+      const budgetVal = budgetNum && !isNaN(budgetNum) ? String(budgetNum) : null;
+
+      // origin country derived from the phone prefix (e.g. +972 → "Israel")
+      const originCountry = phoneResult.country && phoneResult.country !== "Country not detected"
+        ? phoneResult.country : null;
+
       const { pickNextSubAgentIdForTx: pickAgentTx } = await import("./leadAssignmentService");
       const { lead, autoAssignedTo } = await db.transaction(async (tx: any) => {
         const agentId = await pickAgentTx(tx, "Landing Page IL");
@@ -9535,7 +9544,9 @@ Rules:
           fullName:              fullName.trim(),
           phone,
           email:                 email?.trim() || null,
-          budget:                budget || null,
+          country:               originCountry,          // origin country from phone prefix
+          interestedCountry:     "Georgia",              // every IL landing page lead targets Georgia
+          budget:                budgetVal,              // numeric string → CRM fmtBudget safe
           city:                  city   || null,
           expectedPurchaseMonth: expectedPurchaseMonth || null,
           description:           goal ? `الهدف: ${goal}` : null,
