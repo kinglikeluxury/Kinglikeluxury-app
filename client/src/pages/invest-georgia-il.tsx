@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { trackGoogleAdsLeadConversion } from "@/lib/googleAds";
 
 /* ─── Country-code list ──────────────────────────────────────────────────── */
 const COUNTRY_CODES = [
@@ -177,7 +178,8 @@ export default function InvestGeorgiaIl() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.message || "حدث خطأ، يرجى المحاولة مجدداً"); return; }
+      if (!res.ok || data?.success !== true) { setError(data.message || "حدث خطأ، يرجى المحاولة مجدداً"); return; }
+      trackGoogleAdsLeadConversion();
       setSubmitted(true);
     } catch {
       setError("حدث خطأ في الاتصال، يرجى المحاولة مجدداً");
