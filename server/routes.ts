@@ -5276,15 +5276,40 @@ ${metaTags}
   /** PATCH /api/admin/crm/leads/:id/tasks/:taskId — update task (e.g. complete) */
   app.patch("/api/admin/crm/leads/:id/tasks/:taskId", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
-      return res.status(403).json({ message: "Access denied" });
     try {
+      const leadId = Number(req.params.id);
+      const taskId = Number(req.params.taskId);
+
+      if (!req.session.isAdmin) {
+        const canAccessTaskLead = await canAccessLead(req, leadId);
+        const task = (await storage.getCrmTasks(leadId)).find(t => t.id === taskId);
+        if (!task) return res.status(404).json({ message: "Task not found" });
+
+        // A sub-agent may complete (but not otherwise edit) a task they created,
+        // even if its lead was subsequently reassigned. Existing lead-owner
+        // permissions remain unchanged.
+        const isCompletionOnly = Object.keys(req.body).length === 1 &&
+          typeof req.body.completedAt === "string";
+        const canCompleteOwnTask = isCompletionOnly && task.createdBy === req.session.userId;
+        if (!canAccessTaskLead && !canCompleteOwnTask)
+          return res.status(403).json({ message: "Access denied" });
+      }
+
       // If due date or time is being changed, reset reminder so it re-fires at the new time
       const updateData = { ...req.body };
+      // The client submits completedAt as an ISO string; Drizzle's timestamp
+      // column requires a Date instance for persistence.
+      if (typeof updateData.completedAt === "string") {
+        const completedAt = new Date(updateData.completedAt);
+        if (isNaN(completedAt.getTime())) {
+          return res.status(400).json({ message: "Invalid completion time" });
+        }
+        updateData.completedAt = completedAt;
+      }
       if ("dueDate" in req.body || "dueTime" in req.body) {
         updateData.reminderSentAt = null;
       }
-      const task = await storage.updateCrmTask(Number(req.params.taskId), updateData);
+      const task = await storage.updateCrmTask(taskId, updateData);
       if (!task) return res.status(404).json({ message: "Task not found" });
       res.json(task);
       // Notify admin when a sub-admin / employee updates a task
