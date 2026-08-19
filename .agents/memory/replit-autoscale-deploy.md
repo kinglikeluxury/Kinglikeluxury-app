@@ -6,23 +6,21 @@ description: How to correctly configure build/run for Replit autoscale so node_m
 # Replit Autoscale Deployment
 
 ## The Rule
-- Production run container starts with NO node_modules — only workspace files are present.
-- `npm install --omit=dev` (no `--prefer-offline`) MUST run in `scripts/start-prod.sh` before `node dist/index.js`.
-- `npm install` (full) must also run in the build step so the TypeScript/Vite build succeeds.
+- The deployment build installs dependencies, creates `dist`, and prunes to production dependencies before promotion.
+- Production startup must use that prepared artifact and open the application port immediately; do not run a full `npm install` or a frontend/server rebuild during startup.
 - Port must be `parseInt(process.env.PORT || "5000", 10)`.
 
-**Why:** esbuild uses `--packages=external` — all npm packages are bare runtime imports in dist/index.js. Without node_modules in the run container every import fails with ERR_MODULE_NOT_FOUND.
+**Why:** Autoscale health checks begin as soon as the runtime command starts. A full install/build before launching the server can consume the entire startup window, so port 5000 never opens and promotion fails. The deployment artifact includes the already-built app and production dependencies.
 
-**Critical: do NOT use `--prefer-offline`** — the run container's npm cache is empty; `--prefer-offline` causes npm to fall back to lockfile `resolved` URLs. This project's lockfile contains 28 dev packages with `package-firewall.replit.local` URLs (Replit Socket Security proxy, unreachable outside dev). With `--omit=dev` those 28 are skipped cleanly. Without `--prefer-offline` npm fetches production packages straight from registry.npmjs.org (all prod packages use real registry URLs — 0 firewall URLs in prod deps).
+**Critical:** Keep the start command limited to validating the supplied build artifact (with a missing-dependency fallback only if needed) and launching `dist/index.js`. Dependency installation and build work belong in the deployment build command.
 
-**Correct scripts/start-prod.sh run sequence:**
+**Correct production run sequence:**
 ```bash
-npm install --omit=dev        # install prod deps from real registry
-exec node dist/index.js       # start server
+exec node dist/index.js       # start the prepared server promptly
 ```
 
 **Correct .replit:**
 ```toml
-build = ["bash", "-c", "npm install && npm run build"]
+build = ["bash", "-c", "npm install && npm run build && npm install --omit=dev --no-audit --no-fund"]
 run   = ["bash", "-c", "bash scripts/start-prod.sh"]
 ```
