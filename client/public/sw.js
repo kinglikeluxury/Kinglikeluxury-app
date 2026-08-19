@@ -29,6 +29,14 @@ self.addEventListener('fetch', (event) => {
   // This prevents stale cached responses from masking backend API endpoints.
   if (url.pathname.startsWith('/api/')) return;
 
+  // Leaflet map tiles and reverse geocoding are cross-origin map services.
+  // Do not route them through this cache-first handler: an uncached external
+  // response has no same-origin cache fallback, causing the map to render gray.
+  if (
+    url.hostname.endsWith('.basemaps.cartocdn.com') ||
+    url.hostname === 'nominatim.openstreetmap.org'
+  ) return;
+
   // NEVER cache Vite dev-server paths — these use timestamped/hashed URLs that
   // change on every server restart. Caching them causes a blank page because old
   // module URLs become invalid after a restart.
