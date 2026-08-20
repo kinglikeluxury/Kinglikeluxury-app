@@ -13,29 +13,29 @@ import { trackGoogleAdsLeadConversion } from "@/lib/googleAds";
 
 /* ─── Country-code list ──────────────────────────────────────────────────── */
 const COUNTRY_CODES = [
-  { code: "+972", label: "🇮🇱 +972" },
-  { code: "+970", label: "🇵🇸 +970" },
-  { code: "+971", label: "🇦🇪 +971" },
-  { code: "+966", label: "🇸🇦 +966" },
-  { code: "+962", label: "🇯🇴 +962" },
-  { code: "+965", label: "🇰🇼 +965" },
-  { code: "+974", label: "🇶🇦 +974" },
-  { code: "+968", label: "🇴🇲 +968" },
-  { code: "+973", label: "🇧🇭 +973" },
-  { code: "+20",  label: "🇪🇬 +20"  },
-  { code: "+961", label: "🇱🇧 +961" },
-  { code: "+963", label: "🇸🇾 +963" },
-  { code: "+964", label: "🇮🇶 +964" },
-  { code: "+212", label: "🇲🇦 +212" },
-  { code: "+213", label: "🇩🇿 +213" },
-  { code: "+216", label: "🇹🇳 +216" },
-  { code: "+249", label: "🇸🇩 +249" },
-  { code: "+218", label: "🇱🇾 +218" },
-  { code: "+90",  label: "🇹🇷 +90"  },
-  { code: "+995", label: "🇬🇪 +995" },
-  { code: "+1",   label: "🇺🇸 +1"   },
-  { code: "+44",  label: "🇬🇧 +44"  },
-  { code: "+49",  label: "🇩🇪 +49"  },
+  { code: "+972", flag: "🇮🇱" },
+  { code: "+970", flag: "🇵🇸" },
+  { code: "+971", flag: "🇦🇪" },
+  { code: "+966", flag: "🇸🇦" },
+  { code: "+962", flag: "🇯🇴" },
+  { code: "+965", flag: "🇰🇼" },
+  { code: "+974", flag: "🇶🇦" },
+  { code: "+968", flag: "🇴🇲" },
+  { code: "+973", flag: "🇧🇭" },
+  { code: "+20",  flag: "🇪🇬" },
+  { code: "+961", flag: "🇱🇧" },
+  { code: "+963", flag: "🇸🇾" },
+  { code: "+964", flag: "🇮🇶" },
+  { code: "+212", flag: "🇲🇦" },
+  { code: "+213", flag: "🇩🇿" },
+  { code: "+216", flag: "🇹🇳" },
+  { code: "+249", flag: "🇸🇩" },
+  { code: "+218", flag: "🇱🇾" },
+  { code: "+90",  flag: "🇹🇷" },
+  { code: "+995", flag: "🇬🇪" },
+  { code: "+1",   flag: "🇺🇸" },
+  { code: "+44",  flag: "🇬🇧" },
+  { code: "+49",  flag: "🇩🇪" },
 ];
 
 /**
@@ -340,8 +340,8 @@ export default function InvestGeorgiaIl() {
               }}
             >
               {[
-                { icon: "🏆", text: "+125 صفقة عقارية" },
-                { icon: "📅", text: "متخصصون في السوق الجورجي منذ 2023" },
+                { icon: "🏆", text: "+1250 صفقة عقارية" },
+                { icon: "📅", text: "متخصصون في السوق الجورجي منذ 2022" },
                 { icon: "🆓", text: "استشارة مجانية" },
               ].map((b) => (
                 <div
@@ -430,7 +430,7 @@ export default function InvestGeorgiaIl() {
                     }}
                   >
                     {COUNTRY_CODES.map((c) => (
-                      <option key={c.code} value={c.code}>{c.label}</option>
+                      <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
                     ))}
                   </select>
                   <input
@@ -640,7 +640,7 @@ export default function InvestGeorgiaIl() {
               flexWrap: "wrap",
             }}
           >
-            {["✅ استشارة مجانية", "🏆 +125 صفقة", "🌍 عملاء من 20+ دولة"].map((b) => (
+            {["✅ استشارة مجانية", "🏆 +1250 صفقة", "🌍 عملاء من 20+ دولة"].map((b) => (
               <span key={b} style={{ fontSize: "12px", color: "#005476", fontWeight: "700" }}>
                 {b}
               </span>
