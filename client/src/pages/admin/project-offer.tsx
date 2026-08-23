@@ -439,6 +439,97 @@ const buildAmbassadoriHighlight = async (aptNum: string): Promise<string> => {
   return canvas.toDataURL("image/jpeg", 0.93);
 };
 
+/* ─── Crown Plaza Batumi floor-plan highlight helpers ───────────────────── */
+
+const CROWN_PLAZA_FLOOR_PLAN_URL = "/crown-plaza-batumi-floor-plan.jpg";
+
+// Image: 1438 × 759 px. Points are normalized [x, y] pairs traced from the
+// supplied floor plan. Unit keys omit the visible "N" prefix so both "901"
+// and "N901" map to the same apartment. Common corridors and cores are omitted.
+type FloorPlanPoint = [number, number];
+const CROWN_PLAZA_APT_POLYGONS: Record<string, FloorPlanPoint[]> = {
+  // ── Upper arc: N901 → N915 (left → right) ───────────────────────────────
+  "901": [[0.038,0.356],[0.083,0.303],[0.139,0.343],[0.136,0.534],[0.083,0.551]],
+  "902": [[0.125,0.316],[0.174,0.250],[0.202,0.303],[0.195,0.507],[0.136,0.534]],
+  "903": [[0.188,0.270],[0.236,0.204],[0.268,0.250],[0.257,0.474],[0.195,0.507]],
+  "904": [[0.250,0.217],[0.296,0.165],[0.323,0.217],[0.316,0.448],[0.257,0.474]],
+  "905": [[0.306,0.178],[0.355,0.145],[0.383,0.191],[0.375,0.429],[0.316,0.448]],
+  "906": [[0.365,0.155],[0.414,0.125],[0.442,0.165],[0.438,0.416],[0.375,0.429]],
+  "907": [[0.428,0.132],[0.473,0.112],[0.501,0.148],[0.499,0.408],[0.438,0.416]],
+  "908": [[0.490,0.115],[0.536,0.105],[0.560,0.138],[0.560,0.407],[0.499,0.408]],
+  "909": [[0.553,0.105],[0.597,0.112],[0.619,0.151],[0.621,0.415],[0.560,0.407]],
+  "910": [[0.612,0.126],[0.654,0.148],[0.675,0.191],[0.680,0.428],[0.621,0.415]],
+  "911": [[0.668,0.165],[0.704,0.198],[0.727,0.237],[0.736,0.451],[0.680,0.428]],
+  "912": [[0.720,0.217],[0.758,0.250],[0.779,0.296],[0.789,0.481],[0.736,0.451]],
+  "913": [[0.772,0.270],[0.810,0.310],[0.831,0.362],[0.845,0.507],[0.789,0.481]],
+  "914": [[0.824,0.323],[0.862,0.369],[0.887,0.422],[0.901,0.527],[0.845,0.507]],
+  "915": [[0.876,0.375],[0.918,0.428],[0.946,0.481],[0.953,0.567],[0.901,0.527]],
+  // ── Lower arc: N916 → N930 (right → left) ───────────────────────────────
+  "916": [[0.853,0.475],[0.900,0.558],[0.947,0.580],[0.926,0.656],[0.850,0.693],[0.809,0.555]],
+  "917": [[0.809,0.555],[0.850,0.693],[0.809,0.732],[0.758,0.569]],
+  "918": [[0.758,0.569],[0.809,0.732],[0.759,0.761],[0.705,0.584]],
+  "919": [[0.705,0.584],[0.759,0.761],[0.700,0.785],[0.645,0.589]],
+  "920": [[0.645,0.589],[0.700,0.785],[0.636,0.800],[0.582,0.587]],
+  "921": [[0.582,0.587],[0.636,0.800],[0.573,0.806],[0.519,0.577]],
+  "922": [[0.519,0.577],[0.573,0.806],[0.509,0.802],[0.459,0.561]],
+  "923": [[0.459,0.561],[0.509,0.802],[0.447,0.790],[0.400,0.548]],
+  "924": [[0.400,0.548],[0.447,0.790],[0.386,0.767],[0.342,0.531]],
+  "925": [[0.342,0.531],[0.386,0.767],[0.330,0.739],[0.287,0.508]],
+  "926": [[0.287,0.508],[0.330,0.739],[0.278,0.705],[0.231,0.491]],
+  "927": [[0.231,0.491],[0.278,0.705],[0.225,0.664],[0.181,0.467]],
+  "928": [[0.181,0.467],[0.225,0.664],[0.178,0.617],[0.132,0.445]],
+  "929": [[0.132,0.445],[0.178,0.617],[0.129,0.566],[0.080,0.430]],
+  "930": [[0.080,0.430],[0.129,0.566],[0.079,0.521],[0.041,0.455]],
+};
+
+const buildCrownPlazaHighlight = async (aptNum: string): Promise<string> => {
+  const raw = aptNum.trim();
+  const key = raw.replace(/^N/i, "");
+  const points = CROWN_PLAZA_APT_POLYGONS[key] ?? CROWN_PLAZA_APT_POLYGONS[raw];
+
+  const dataUrl = await imgToBase64(CROWN_PLAZA_FLOOR_PLAN_URL);
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  if (points) {
+    const W = canvas.width, H = canvas.height;
+    ctx.beginPath();
+    points.forEach(([x, y], index) => {
+      const px = x * W, py = y * H;
+      if (index === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+
+    ctx.fillStyle = "rgba(59,202,196,0.38)";
+    ctx.fill();
+
+    ctx.strokeStyle = "#e53e3e";
+    ctx.lineWidth = Math.max(4, W * 0.004);
+    ctx.stroke();
+
+    const centerX = points.reduce((sum, [x]) => sum + x, 0) / points.length * W;
+    const centerY = points.reduce((sum, [, y]) => sum + y, 0) / points.length * H;
+    ctx.font = `bold ${Math.round(W * 0.022)}px Arial`;
+    ctx.fillStyle = "#e53e3e";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(raw, centerX, centerY);
+  }
+
+  return canvas.toDataURL("image/jpeg", 0.93);
+};
+
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function ProjectOfferPage() {
@@ -472,6 +563,7 @@ export default function ProjectOfferPage() {
   const [silkHighlightB64, setSilkHighlightB64] = useState<string>("");
   const [petraHighlightB64, setPetraHighlightB64] = useState<string>("");
   const [ambassadoriHighlightB64, setAmbassadoriHighlightB64] = useState<string>("");
+  const [crownPlazaHighlightB64, setCrownPlazaHighlightB64] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!user || (!user.isAdmin && ![24, 29, 31].includes(user.id)))) navigate("/");
@@ -592,8 +684,9 @@ export default function ProjectOfferPage() {
       const isSilk        = /silk/i.test(selectedProject.title ?? "")         || /سيلك/i.test(selectedProject.title ?? "");
       const isPetra       = /petra\s*sea/i.test(selectedProject.title ?? "")  || /بترا\s*سي/i.test(selectedProject.title ?? "");
       const isAmbassadori = /ambassadori/i.test(selectedProject.title ?? "")  || /أمباسادوري/i.test(selectedProject.title ?? "");
+      const isCrownPlaza  = /crown\s*plaza/i.test(selectedProject.title ?? "") || /كراون\s*بلازا/i.test(selectedProject.title ?? "");
 
-      const [loaded, fpB64, silkB64, petraB64, ambB64] = await Promise.all([
+      const [loaded, fpB64, silkB64, petraB64, ambB64, crownPlazaB64] = await Promise.all([
         Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
         selectedFloorPlan ? imgToBase64(selectedFloorPlan) : Promise.resolve(""),
         isSilk && apartmentNumber.trim()
@@ -605,6 +698,9 @@ export default function ProjectOfferPage() {
         isAmbassadori
           ? buildAmbassadoriHighlight(apartmentNumber).catch((e) => { console.error("Ambassadori highlight error:", e); return ""; })
           : Promise.resolve(""),
+        isCrownPlaza
+          ? buildCrownPlazaHighlight(apartmentNumber).catch((e) => { console.error("Crown Plaza highlight error:", e); return ""; })
+          : Promise.resolve(""),
       ]);
 
       // Force-sync all state updates into the DOM in one shot before capture
@@ -615,6 +711,7 @@ export default function ProjectOfferPage() {
         setSilkHighlightB64(silkB64);
         setPetraHighlightB64(petraB64);
         setAmbassadoriHighlightB64(ambB64);
+        setCrownPlazaHighlightB64(crownPlazaB64);
       });
 
       const el = pdfRef.current;
@@ -1095,6 +1192,7 @@ export default function ProjectOfferPage() {
             silkHighlightB64={silkHighlightB64}
             petraHighlightB64={petraHighlightB64}
             ambassadoriHighlightB64={ambassadoriHighlightB64}
+            crownPlazaHighlightB64={crownPlazaHighlightB64}
           />
         )}
       </div>
@@ -1111,7 +1209,7 @@ function PDFTemplate({
   finalPaymentPercent, finalPaymentAmount, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
   getAptLabel, getDelivLabel, getViewLabel, getDateLabel, floorsLabel, fmt,
-  viewType, silkHighlightB64, petraHighlightB64, ambassadoriHighlightB64
+  viewType, silkHighlightB64, petraHighlightB64, ambassadoriHighlightB64, crownPlazaHighlightB64
 }: any) {
 
   const W   = 794;
@@ -1501,6 +1599,69 @@ function PDFTemplate({
                  lang === "tr" ? `Seçilen Daire: ${apartmentNumber}` :
                  lang === "zh" ? `所选公寓：${apartmentNumber}` :
                  lang === "pl" ? `Wybrane mieszkanie: ${apartmentNumber}` :
+                 lang === "it" ? `Unità selezionata: ${apartmentNumber}` :
+                 `Selected Unit: ${apartmentNumber}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {crownPlazaHighlightB64 && (
+        <div style={{ padding: "0 40px 20px" }}>
+          <div style={{
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "2.5px solid #005476",
+            boxShadow: "0 4px 20px rgba(0,84,118,0.15)",
+          }}>
+            <div style={{
+              background: "#005476",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <div style={{ fontSize: 18 }}>🗺️</div>
+              <div dir={dir} style={{ fontSize: 21, fontWeight: 700, color: "#fff", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
+                {lang === "ar" ? `مخطط الطابق — الشقة رقم ${apartmentNumber}` :
+                 lang === "he" ? `תוכנית הקומה — דירה ${apartmentNumber}` :
+                 lang === "ru" ? `План этажа — квартира ${apartmentNumber}` :
+                 lang === "ka" ? `სართულის გეგმა — ბინა ${apartmentNumber}` :
+                 lang === "az" ? `Mərtəbə planı — mənzil ${apartmentNumber}` :
+                 lang === "tr" ? `Kat Planı — Daire ${apartmentNumber}` :
+                 lang === "zh" ? `楼层平面图 — ${apartmentNumber} 号公寓` :
+                 lang === "pl" ? `Plan piętra — mieszkanie ${apartmentNumber}` :
+                 lang === "it" ? `Planimetria — Appartamento ${apartmentNumber}` :
+                 `Floor Plan — Unit ${apartmentNumber}`}
+              </div>
+            </div>
+            <div style={{ background: "#f8f9fa", textAlign: "center" as const, padding: "16px" }}>
+              <img
+                src={crownPlazaHighlightB64}
+                style={{ maxWidth: "100%", height: "auto", display: "inline-block", borderRadius: 8 }}
+              />
+            </div>
+            <div style={{
+              background: "#f0f4f8",
+              padding: "10px 20px",
+              display: "flex",
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 12,
+              borderTop: "1px solid #dde3ea",
+            }}>
+              <div style={{ width: 20, height: 20, background: "rgba(59,202,196,0.38)", border: "2px solid #e53e3e", borderRadius: 3, flexShrink: 0 }} />
+              <div dir={dir} style={{ fontSize: 15, color: "#475569", fontFamily: ff, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const }}>
+                {lang === "ar" ? `الشقة المحددة: رقم ${apartmentNumber}` :
+                 lang === "he" ? `הדירה הנבחרת: מס' ${apartmentNumber}` :
+                 lang === "ru" ? `Выбранная квартира: ${apartmentNumber}` :
+                 lang === "ka" ? `არჩეული ბინა: № ${apartmentNumber}` :
+                 lang === "az" ? `Seçilmiş mənzil: № ${apartmentNumber}` :
+                 lang === "tr" ? `Seçilen Daire: No. ${apartmentNumber}` :
+                 lang === "zh" ? `所选公寓：${apartmentNumber}` :
+                 lang === "pl" ? `Wybrane mieszkanie: nr ${apartmentNumber}` :
                  lang === "it" ? `Unità selezionata: ${apartmentNumber}` :
                  `Selected Unit: ${apartmentNumber}`}
               </div>
