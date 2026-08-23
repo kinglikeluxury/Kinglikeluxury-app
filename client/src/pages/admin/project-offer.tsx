@@ -509,11 +509,17 @@ const buildCrownPlazaHighlight = async (aptNum: string): Promise<string> => {
     });
     ctx.closePath();
 
-    ctx.fillStyle = "rgba(59,202,196,0.38)";
+    ctx.fillStyle = "rgba(59,202,196,0.27)";
     ctx.fill();
 
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(255,255,255,0.92)";
+    ctx.lineWidth = Math.max(7, W * 0.0055);
+    ctx.stroke();
+
     ctx.strokeStyle = "#e53e3e";
-    ctx.lineWidth = Math.max(4, W * 0.004);
+    ctx.lineWidth = Math.max(3, W * 0.0028);
     ctx.stroke();
 
     const centerX = points.reduce((sum, [x]) => sum + x, 0) / points.length * W;
@@ -522,6 +528,11 @@ const buildCrownPlazaHighlight = async (aptNum: string): Promise<string> => {
     ctx.fillStyle = "#e53e3e";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.lineWidth = Math.max(4, W * 0.0025);
+    ctx.strokeText(raw, centerX, centerY);
+    ctx.fillStyle = "#e53e3e";
     ctx.fillText(raw, centerX, centerY);
   }
 
