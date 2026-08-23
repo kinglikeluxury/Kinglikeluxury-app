@@ -140,6 +140,7 @@ app.use(
           "https://api.cloudinary.com",
           "https://res.cloudinary.com",
           "https://challenges.cloudflare.com",
+          "https://nominatim.openstreetmap.org",
           "https://api.ip-api.com",
           "http://ip-api.com",
           "https://www.google-analytics.com",

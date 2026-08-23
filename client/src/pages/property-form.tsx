@@ -894,7 +894,18 @@ const PropertyForm = () => {
     try {
       console.log('✅ Step 1: user check. user?.id =', user?.id, 'propertyType =', propertyType);
       // Transform location data: combine country+city into location format for database
+      const hasSelectedCoordinates =
+        Number.isFinite(formData.coordinates?.lat) &&
+        Number.isFinite(formData.coordinates?.lng) &&
+        !(formData.coordinates?.lat === 0 && formData.coordinates?.lng === 0);
+
       const getLocationString = () => {
+        // A map selection is the source of truth. Do not replace its
+        // reverse-geocoded address with the city dropdown value.
+        if (hasSelectedCoordinates && formData.location.trim()) {
+          return formData.location.trim();
+        }
+
         const cities = formData.city ? formData.city.split(',') : [];
         const countries = formData.country ? formData.country.split(',') : [];
         
@@ -1061,10 +1072,10 @@ const PropertyForm = () => {
         listingExpiresAt: isEditMode && existingProperty ? existingProperty.listingExpiresAt : (expirationDate || null),
         readyStatus: formData.readyStatus || null,
         topRated: formData.topRated === true,
-        latitude: formData.coordinates?.lat && formData.coordinates.lat !== 0
+        latitude: hasSelectedCoordinates
           ? formData.coordinates.lat.toString()
           : (isEditMode && existingProperty ? (existingProperty as any).latitude : null),
-        longitude: formData.coordinates?.lng && formData.coordinates.lng !== 0
+        longitude: hasSelectedCoordinates
           ? formData.coordinates.lng.toString()
           : (isEditMode && existingProperty ? (existingProperty as any).longitude : null),
       };
@@ -1831,6 +1842,18 @@ const PropertyForm = () => {
                           }}
                           selectedLocation={formData.location}
                           city={formData.city}
+                          initialLat={
+                            formData.coordinates &&
+                            (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0)
+                              ? formData.coordinates.lat
+                              : undefined
+                          }
+                          initialLng={
+                            formData.coordinates &&
+                            (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0)
+                              ? formData.coordinates.lng
+                              : undefined
+                          }
                           className="h-full w-full"
                         />
                       </div>

@@ -39,6 +39,7 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const locationRequestRef = useRef(0);
   const [isMapReady, setIsMapReady] = useState(false);
 
   const getCenter = () => {
@@ -51,14 +52,21 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
 
   useEffect(() => {
     if (leafletMapRef.current && city) {
+      const hasSelectedCoordinates =
+        Number.isFinite(initialLat) &&
+        Number.isFinite(initialLng) &&
+        !(initialLat === 0 && initialLng === 0);
+
+      // City centers are only map-view defaults. They must never replace a
+      // pin selected by the user or coordinates loaded from the database.
+      if (hasSelectedCoordinates) return;
+
       const center = getCenter();
       leafletMapRef.current.setView([center.lat, center.lng], center.zoom);
       if (markerRef.current) {
         markerRef.current.remove();
         markerRef.current = null;
       }
-      // Auto-save city center coordinates so they're stored even without clicking the map
-      onLocationSelect('', { lat: center.lat, lng: center.lng });
     }
   }, [city]);
 
@@ -68,8 +76,12 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
 
       try {
         const center = getCenter();
-        const startLat = initialLat ?? center.lat;
-        const startLng = initialLng ?? center.lng;
+        const hasInitialCoordinates =
+          Number.isFinite(initialLat) &&
+          Number.isFinite(initialLng) &&
+          !(initialLat === 0 && initialLng === 0);
+        const startLat = hasInitialCoordinates ? initialLat! : center.lat;
+        const startLng = hasInitialCoordinates ? initialLng! : center.lng;
 
         const map = L.map(mapRef.current, {
           zoomControl: true,
@@ -84,6 +96,48 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
         }).addTo(map);
 
         leafletMapRef.current = map;
+
+        const reverseGeocode = async (lat: number, lng: number, marker: L.Marker) => {
+          const requestId = ++locationRequestRef.current;
+          const coordinateFallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+          marker.bindPopup('<b>📍 Locating address...</b>').openPopup();
+          onLocationSelect(coordinateFallback, { lat, lng });
+
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`
+            );
+            const data = await response.json();
+
+            // Ignore a late response for a pin the user has already moved.
+            const currentPosition = marker.getLatLng();
+            if (
+              requestId !== locationRequestRef.current ||
+              currentPosition.lat !== lat ||
+              currentPosition.lng !== lng
+            ) {
+              return;
+            }
+
+            if (data?.display_name) {
+              const addr = data.address || {};
+              const parts = [
+                addr.road || addr.pedestrian || addr.street,
+                addr.neighbourhood || addr.suburb,
+                addr.city || addr.town || addr.village || addr.county,
+              ].filter(Boolean);
+              const locationName = parts.length > 0
+                ? parts.join(', ')
+                : data.display_name.split(',').slice(0, 3).join(', ').trim();
+
+              marker.bindPopup(`<b>📍 ${locationName}</b>`).openPopup();
+              onLocationSelect(locationName, { lat, lng });
+            }
+          } catch {
+            // Keep the exact coordinate fallback when reverse geocoding fails.
+          }
+        };
 
         // Custom teal marker icon
         const customIcon = L.divIcon({
@@ -101,12 +155,12 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
         });
 
         // If initial coordinates provided, place marker
-        if (initialLat && initialLng) {
-          const marker = L.marker([initialLat, initialLng], { icon: customIcon, draggable: true }).addTo(map);
+        if (hasInitialCoordinates) {
+          const marker = L.marker([startLat, startLng], { icon: customIcon, draggable: true }).addTo(map);
           markerRef.current = marker;
           marker.on('dragend', () => {
             const pos = marker.getLatLng();
-            onLocationSelect(`Lat: ${pos.lat.toFixed(5)}, Lng: ${pos.lng.toFixed(5)}`, { lat: pos.lat, lng: pos.lng });
+            void reverseGeocode(pos.lat, pos.lng, marker);
           });
         }
 
@@ -119,49 +173,13 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
           } else {
             const marker = L.marker([lat, lng], { icon: customIcon, draggable: true }).addTo(map);
             markerRef.current = marker;
-            marker.on('dragend', async () => {
+            marker.on('dragend', () => {
               const pos = marker.getLatLng();
-              onLocationSelect(`${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`, { lat: pos.lat, lng: pos.lng });
-              try {
-                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.lat}&lon=${pos.lng}&format=json&addressdetails=1`);
-                const d = await r.json();
-                if (d?.address) {
-                  const addr = d.address;
-                  const parts = [addr.road || addr.pedestrian, addr.neighbourhood || addr.suburb, addr.city || addr.town || addr.village].filter(Boolean);
-                  const name = parts.length > 0 ? parts.join(', ') : d.display_name.split(',').slice(0, 3).join(', ');
-                  marker.bindPopup(`<b>📍 ${name}</b>`).openPopup();
-                  onLocationSelect(name, { lat: pos.lat, lng: pos.lng });
-                }
-              } catch { /* keep coordinate fallback */ }
+              void reverseGeocode(pos.lat, pos.lng, marker);
             });
           }
 
-          markerRef.current!.bindPopup('<b>📍 Locating address...</b>').openPopup();
-          // Use coordinates as fallback immediately
-          onLocationSelect(`${lat.toFixed(5)}, ${lng.toFixed(5)}`, { lat, lng });
-
-          // Reverse geocode to get actual street address
-          try {
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`
-            );
-            const data = await response.json();
-            if (data?.display_name) {
-              // Build a readable address: road + neighbourhood + city
-              const addr = data.address || {};
-              const parts = [
-                addr.road || addr.pedestrian || addr.street,
-                addr.neighbourhood || addr.suburb,
-                addr.city || addr.town || addr.village || addr.county,
-              ].filter(Boolean);
-              const locationName = parts.length > 0
-                ? parts.join(', ')
-                : data.display_name.split(',').slice(0, 3).join(', ').trim();
-              markerRef.current?.bindPopup(`<b>📍 ${locationName}</b>`).openPopup();
-              // Update form with real address name
-              onLocationSelect(locationName, { lat, lng });
-            }
-          } catch { /* keep coordinate fallback */ }
+          void reverseGeocode(lat, lng, markerRef.current!);
         });
 
         setTimeout(() => {
@@ -183,6 +201,7 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
       }
+      locationRequestRef.current += 1;
       setIsMapReady(false);
     };
   }, []);
