@@ -1,12 +1,14 @@
 import { db } from "./db";
-import { leadImportQueue, leadImportAuditLog, crmLeads } from "@shared/schema";
-import { eq, and, lte } from "drizzle-orm";
+import { leadImportQueue, leadImportAuditLog, crmLeads, users } from "@shared/schema";
+import { eq, and, lte, asc, sql } from "drizzle-orm";
 import https from "https";
 import { initConversationForLead } from "./whatsappAiService";
 import { checkAndTrigger as waQualCheckAndTrigger } from "./waQualService";
 import { initDeveloperRegistrationsForLead } from "./developerRegistrationService";
-import { pickNextSubAgentId } from "./leadAssignmentService";
+import { pickNextSubAgentIdForTx } from "./leadAssignmentService";
 import { validatePhone as vPhone } from "@shared/crmValidation";
+import { sendEmail } from "./notificationService";
+import { sendQualTextMessage } from "./interactiveMessageHelper";
 
 export interface PullSyncResult {
   formsChecked: number;
@@ -133,6 +135,231 @@ async function logAudit(queueEntryId: number, metaLeadId: string, action: string
   }
 }
 
+// ── Meta phone duplicate protection ──────────────────────────────────────────
+
+type MetaCrmPayload = typeof crmLeads.$inferInsert;
+type MetaCrmLead = typeof crmLeads.$inferSelect;
+
+type MetaLeadDecision =
+  | {
+      kind: "created";
+      lead: MetaCrmLead;
+      normalizedPhone: string | null;
+    }
+  | {
+      kind: "duplicate";
+      lead: MetaCrmLead;
+      normalizedPhone: string | null;
+      matchingLeadCount: number;
+      matchedBy: "external_lead_id" | "phone";
+    };
+
+interface DuplicateNotificationResult {
+  ownerUserId: number | null;
+  emailRecipient: string | null;
+  emailSent: boolean;
+  emailError?: string;
+  whatsappRecipient: string | null;
+  whatsappSent: boolean;
+  whatsappError?: string;
+}
+
+/**
+ * Meta-only comparison key. Existing phone storage remains untouched; this key
+ * is used solely for exact digit-for-digit duplicate checks.
+ */
+export function normalizeMetaLeadPhone(phone: string | null | undefined): string | null {
+  const digits = String(phone ?? "").replace(/[^0-9]/g, "");
+  return digits || null;
+}
+
+/**
+ * Performs the complete Meta create decision in one transaction:
+ * advisory lock → duplicate lookup → round-robin selection → insert.
+ */
+export async function createOrFindMetaLead(
+  payload: MetaCrmPayload,
+  assignmentSource: "Meta Webhook" | "Meta Pull Sync",
+): Promise<MetaLeadDecision> {
+  const normalizedPhone = normalizeMetaLeadPhone(payload.phone);
+  const externalLeadId = payload.externalLeadId?.trim() || null;
+
+  return db.transaction(async (tx) => {
+    // The external-id lock closes the webhook ↔ pull-sync race even when Meta
+    // omits a phone number or returns a corrected phone in one of the paths.
+    if (externalLeadId) {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${"meta-external:" + externalLeadId}))`,
+      );
+
+      const matchingExternalLeads = await tx
+        .select()
+        .from(crmLeads)
+        .where(
+          and(
+            eq(crmLeads.leadSource, "meta_ads"),
+            eq(crmLeads.externalLeadId, externalLeadId),
+          ),
+        )
+        .orderBy(asc(crmLeads.id))
+        .limit(2);
+
+      if (matchingExternalLeads.length > 0) {
+        return {
+          kind: "duplicate" as const,
+          lead: matchingExternalLeads[0],
+          normalizedPhone,
+          matchingLeadCount: matchingExternalLeads.length,
+          matchedBy: "external_lead_id" as const,
+        };
+      }
+    }
+
+    if (normalizedPhone) {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${"meta-phone:" + normalizedPhone}))`,
+      );
+
+      const matchingLeads = await tx
+        .select()
+        .from(crmLeads)
+        .where(
+          sql`regexp_replace(${crmLeads.phone}, '[^0-9]', '', 'g') = ${normalizedPhone}`,
+        )
+        .orderBy(asc(crmLeads.id))
+        .limit(2);
+
+      if (matchingLeads.length > 0) {
+        return {
+          kind: "duplicate" as const,
+          lead: matchingLeads[0],
+          normalizedPhone,
+          // Two means "two or more"; the lookup intentionally stops early because
+          // existing duplicate history must not be merged or modified.
+          matchingLeadCount: matchingLeads.length,
+          matchedBy: "phone" as const,
+        };
+      }
+    }
+
+    const assignedTo = await pickNextSubAgentIdForTx(tx, assignmentSource);
+    const [lead] = await tx
+      .insert(crmLeads)
+      .values({
+        ...payload,
+        assignedTo,
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    if (!lead) {
+      throw new Error("CRM insert returned no row — possible DB constraint violation");
+    }
+
+    return {
+      kind: "created" as const,
+      lead,
+      normalizedPhone,
+    };
+  });
+}
+
+function escapeHtml(value: string | null | undefined): string {
+  return String(value ?? "—")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+async function notifyOwnerOfDuplicateMetaLead(
+  lead: MetaCrmLead,
+): Promise<DuplicateNotificationResult> {
+  const result: DuplicateNotificationResult = {
+    ownerUserId: lead.assignedTo ?? null,
+    emailRecipient: null,
+    emailSent: false,
+    whatsappRecipient: null,
+    whatsappSent: false,
+  };
+
+  if (!lead.assignedTo) {
+    result.emailError = "Existing lead is unassigned";
+    result.whatsappError = "Existing lead is unassigned";
+    return result;
+  }
+
+  const [owner] = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      whatsappNumber: users.whatsappNumber,
+      phoneNumber: users.phoneNumber,
+    })
+    .from(users)
+    .where(eq(users.id, lead.assignedTo))
+    .limit(1);
+
+  if (!owner) {
+    result.emailError = "Assigned user not found";
+    result.whatsappError = "Assigned user not found";
+    return result;
+  }
+
+  const leadLink = `${process.env.APP_URL || "https://www.kinglikeluxury.app"}/admin/crm/${lead.id}`;
+  const leadName = lead.fullName || [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—";
+  const message =
+    `⚠️ طلب Meta مكرر\n\n` +
+    `العميل: ${leadName}\n` +
+    `الهاتف: ${lead.phone || "—"}\n\n` +
+    `وصل طلب جديد من Meta برقم موجود مسبقًا في CRM. ` +
+    `لم يتم إنشاء Lead جديد ولم يتغير الموظف المكلّف.\n\n` +
+    `فتح ملف العميل: ${leadLink}`;
+
+  if (owner.email?.trim()) {
+    result.emailRecipient = owner.email.trim();
+    const emailResult = await sendEmail({
+      to: result.emailRecipient,
+      subject: "⚠️ طلب Meta مكرر لعميل موجود",
+      html: `
+        <div style="font-family:Arial,sans-serif;direction:rtl;max-width:600px;margin:auto">
+          <h2 style="color:#005476">طلب Meta مكرر</h2>
+          <p>مرحباً ${escapeHtml(owner.username)}،</p>
+          <p>وصل طلب جديد من Meta لرقم هاتف موجود مسبقًا في CRM. لم يتم إنشاء Lead جديد ولم يتغير الموظف المكلّف.</p>
+          <table style="width:100%;border-collapse:collapse">
+            <tr><td style="padding:8px;border-bottom:1px solid #eee">العميل</td><td style="padding:8px;border-bottom:1px solid #eee">${escapeHtml(leadName)}</td></tr>
+            <tr><td style="padding:8px;border-bottom:1px solid #eee">الهاتف</td><td style="padding:8px;border-bottom:1px solid #eee;direction:ltr">${escapeHtml(lead.phone)}</td></tr>
+          </table>
+          <p style="margin-top:24px"><a href="${escapeHtml(leadLink)}" style="background:#005476;color:#fff;padding:12px 20px;text-decoration:none;border-radius:8px">فتح ملف العميل</a></p>
+        </div>`,
+    });
+    result.emailSent = emailResult.sent;
+    result.emailError = emailResult.error;
+  } else {
+    result.emailError = "Assigned user has no email";
+  }
+
+  const employeeWhatsapp = owner.whatsappNumber?.trim() || owner.phoneNumber?.trim() || null;
+  if (employeeWhatsapp) {
+    result.whatsappRecipient = employeeWhatsapp;
+    const whatsappResult = await sendQualTextMessage(employeeWhatsapp, message);
+    result.whatsappSent = whatsappResult.success;
+    result.whatsappError = whatsappResult.error;
+  } else {
+    result.whatsappError = "Assigned user has no WhatsApp or phone number";
+  }
+
+  console.log(
+    `[MetaLeads][DuplicateNotify] leadId=${lead.id} ownerUserId=${owner.id} ` +
+    `email=${result.emailSent ? "sent" : `skipped/failed:${result.emailError ?? "unknown"}`} ` +
+    `whatsapp=${result.whatsappSent ? "sent" : `skipped/failed:${result.whatsappError ?? "unknown"}`}`,
+  );
+
+  return result;
+}
+
 // ── Entry processor ───────────────────────────────────────────────────────────
 async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise<void> {
   const now = new Date();
@@ -176,9 +403,7 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       [firstName, lastName].filter(Boolean).join(" ") ||
       null;
 
-    // ── Step C: insert into CRM leads ──────────────────────────────────────
-    const webhookAssignedTo = await pickNextSubAgentId("Meta Webhook");
-
+    // ── Step C: atomically detect duplicate phone or create CRM lead ───────
     const crmPayload = {
       leadSource:      "meta_ads" as const,
       externalLeadId:  entry.metaLeadId,
@@ -199,7 +424,6 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       budget:    fields["budget"] || null,
       status:    "new"  as const,
       leadScore: "cold" as const,
-      assignedTo: webhookAssignedTo,
       metaCampaignId: entry.campaignId  || null,
       metaAdId:       entry.adId        || null,
       metaAdsetId:    entry.adgroupId   || null,
@@ -207,16 +431,55 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
     };
 
     console.log(
-      `[MetaLeads][Processor] Step C — inserting CRM lead | ` +
+      `[MetaLeads][Processor] Step C — duplicate/create decision | ` +
       `queueId=${entry.id} | externalLeadId=${entry.metaLeadId} | ` +
       `fullName=${fullName ?? "—"} | ` +
       `phone_present=${!!crmPayload.phone} | email_present=${!!crmPayload.email}`
     );
 
-    const [crmLead] = await db.insert(crmLeads).values(crmPayload).returning();
+    const decision = await createOrFindMetaLead(crmPayload, "Meta Webhook");
+    const crmLead = decision.lead;
 
-    if (!crmLead) {
-      throw new Error("CRM insert returned no row — possible DB constraint violation");
+    if (decision.kind === "duplicate") {
+      const notification = await notifyOwnerOfDuplicateMetaLead(crmLead).catch((err: any) => ({
+        ownerUserId: crmLead.assignedTo ?? null,
+        emailRecipient: null,
+        emailSent: false,
+        emailError: err.message,
+        whatsappRecipient: null,
+        whatsappSent: false,
+        whatsappError: err.message,
+      }));
+
+      await db.update(leadImportQueue).set({
+        status:       "completed",
+        leadData:     apiData,
+        crmLeadId:    crmLead.id,
+        processedAt:  now,
+        errorMessage: null,
+        updatedAt:    now,
+      }).where(eq(leadImportQueue.id, entry.id));
+
+      await logAudit(entry.id, entry.metaLeadId, "duplicate_meta_lead_skipped", {
+        existingCrmLeadId: crmLead.id,
+        matchedBy: decision.matchedBy,
+        normalizedPhone: decision.normalizedPhone,
+        matchingLeadCount: decision.matchingLeadCount === 2 ? "2_or_more" : 1,
+        ownerUserId: notification.ownerUserId,
+        emailRecipient: notification.emailRecipient,
+        emailSent: notification.emailSent,
+        emailError: notification.emailError,
+        whatsappRecipient: notification.whatsappRecipient,
+        whatsappSent: notification.whatsappSent,
+        whatsappError: notification.whatsappError,
+      });
+
+      console.warn(
+        `[MetaLeads][Processor] Duplicate skipped — metaLeadId=${entry.metaLeadId} ` +
+        `matchedBy=${decision.matchedBy} existingCrmLeadId=${crmLead.id} ` +
+        `matches=${decision.matchingLeadCount === 2 ? "2+" : "1"}`,
+      );
+      return;
     }
 
     console.log(
@@ -553,9 +816,7 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             fields["full_name"] || fields["name"] ||
             [firstName, lastName].filter(Boolean).join(" ") || null;
 
-          // Insert CRM lead — use global cursor so pull-sync and webhook share one counter
-          const pullSyncAssignedTo = await pickNextSubAgentId("Meta Pull Sync");
-          const [crmLead] = await db.insert(crmLeads).values({
+          const crmPayload = {
             leadSource:      "meta_ads" as const,
             externalLeadId:  leadId,
             firstName,
@@ -571,14 +832,75 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             budget:    fields["budget"] || null,
             status:    "new"  as const,
             leadScore: "cold" as const,
-            assignedTo:     pullSyncAssignedTo,
             metaCampaignId: (lead.campaign_id as string) || null,
             metaAdId:       (lead.ad_id       as string) || null,
             metaAdsetId:    null,
             metaFormId:     (lead.form_id     as string) || null,
-          }).returning();
+          };
 
-          if (!crmLead) throw new Error("CRM insert returned no row");
+          // The same transaction-safe decision used by webhook processing.
+          const decision = await createOrFindMetaLead(crmPayload, "Meta Pull Sync");
+          const crmLead = decision.lead;
+
+          // Parse created_time — Meta sends ISO string from /leads, integer from webhooks
+          const now = new Date();
+          const createdTime = lead.created_time
+            ? typeof lead.created_time === "number"
+              ? new Date(lead.created_time * 1000)
+              : new Date(lead.created_time)
+            : now;
+
+          if (decision.kind === "duplicate") {
+            const [queueEntry] = await db.insert(leadImportQueue).values({
+              metaLeadId:        leadId,
+              leadgenId:         leadId,
+              formId:            String(form.id),
+              pageId:            null,
+              adId:              lead.ad_id       ? String(lead.ad_id)       : null,
+              campaignId:        lead.campaign_id ? String(lead.campaign_id) : null,
+              status:            "completed",
+              retryCount:        0,
+              maxRetries:        3,
+              rawWebhookPayload: lead,
+              leadData:          lead,
+              crmLeadId:         crmLead.id,
+              processedAt:       now,
+              receivedAt:        createdTime,
+            }).returning();
+
+            const notification = await notifyOwnerOfDuplicateMetaLead(crmLead).catch((err: any) => ({
+              ownerUserId: crmLead.assignedTo ?? null,
+              emailRecipient: null,
+              emailSent: false,
+              emailError: err.message,
+              whatsappRecipient: null,
+              whatsappSent: false,
+              whatsappError: err.message,
+            }));
+
+            if (queueEntry) {
+              await logAudit(queueEntry.id, leadId, "pull_sync_duplicate_meta_lead_skipped", {
+                formId: form.id,
+                formName: form.name,
+                existingCrmLeadId: crmLead.id,
+                matchedBy: decision.matchedBy,
+                normalizedPhone: decision.normalizedPhone,
+                matchingLeadCount: decision.matchingLeadCount === 2 ? "2_or_more" : 1,
+                ownerUserId: notification.ownerUserId,
+                emailRecipient: notification.emailRecipient,
+                emailSent: notification.emailSent,
+                emailError: notification.emailError,
+                whatsappRecipient: notification.whatsappRecipient,
+                whatsappSent: notification.whatsappSent,
+                whatsappError: notification.whatsappError,
+              });
+            }
+
+            dups++;
+            result.duplicatesSkipped++;
+            continue;
+          }
+
           if (crmLead.assignedTo) {
             console.log(`[LeadAssignment] Assigned leadId=${crmLead.id} to userId=${crmLead.assignedTo}`);
             import("./leadAssignmentNotificationService").then(({ notifyAgentOfLeadAssignment }) =>
@@ -630,14 +952,6 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
           ).catch(err =>
             console.error(`[EmailNurturing] Init failed crmLeadId=${crmLead.id}: ${err.message}`)
           );
-
-          // Parse created_time — Meta sends ISO string from /leads, integer from webhooks
-          const now = new Date();
-          const createdTime = lead.created_time
-            ? typeof lead.created_time === "number"
-              ? new Date(lead.created_time * 1000)
-              : new Date(lead.created_time)
-            : now;
 
           // Insert queue entry as completed (data already in hand)
           const [queueEntry] = await db.insert(leadImportQueue).values({

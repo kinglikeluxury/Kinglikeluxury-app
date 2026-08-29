@@ -12,3 +12,4 @@
 - [Kinglike Quality Score (KQS) engine](kqs-scoring-engine.md) — read-only lead/campaign quality scoring (0-100) that overrides Meta CPL/CTR with real CRM outcomes; CRM Score weighted 75% vs Meta Score 25%.
 - [Crown Plaza selection verified](crown-plaza-selection-verified.md) — user confirmed apartment selection is correct; future visual changes must leave polygon-to-unit mapping unchanged.
 - [Replit secrets vs stale autoscale deploys](secrets-vs-stale-deploy.md) — a secret existing in Replit Secrets doesn't mean a running autoscale instance has it; only a fresh deploy/restart picks up newly-added secrets.
+- [Meta lead duplicate locking](meta-lead-duplicate-locking.md) — lock Meta external ID before normalized phone, and keep duplicate lookup, assignment, and insert in one transaction.
