@@ -6,14 +6,15 @@
  *
  * No authentication required — the form is publicly accessible.
  *
- * Selectors verified from live DOM inspection on 2026-07-04:
- *   input[name="name"]        → First Name (field 0)
- *   input[name="lastname"]    → Last Name (field 1)
- *   input[name="phone"]       → Phone (field 2)
- *   input[name="email"]       → E-mail (field 3)
- *   .b24-form-control nth(4)  → Comments (textarea, no name attr)
- *   .b24-form-control nth(5)  → Agency Name (no name attr — custom field)
- *   .b24-form-control nth(6)  → Sales manager's Name (no name attr — custom field)
+ * Locators verified from live DOM inspection:
+ *   label "First Name"           → Customer first name
+ *   label "Last Name"            → Customer last name
+ *   label "Phone"                → Customer phone
+ *   label "E-mail"               → Fixed agency email
+ *   label "Comments"             → Fixed registration comment
+ *   label "Agency Unical Code"   → Fixed agency code
+ *   label "Agency Name"          → Fixed agency name
+ *   label "Sales manager's Name" → Fixed sales manager
  *   button[type="submit"].b24-form-btn → "Send" submit button
  *   Success indicator: .b24-form-state.b24-form-success visible, or
  *     page text containing "sent"/"success"/"thank you" (English form)
@@ -178,32 +179,52 @@ export async function submitLeadToOrigami(
       };
     }
 
-    // ── 4. Fill named fields ──────────────────────────────────────────────
+    // ── 4. Fill fields by unique visible/accessibility labels ──────────────
     console.log("[OrigamiBrowser] Filling form fields...");
 
+    const uniqueField = async (label: RegExp, fieldName: string) => {
+      const field = page.getByLabel(label);
+      const count = await field.count();
+      if (count !== 1) {
+        throw new Error(`Origami ${fieldName} locator resolved to ${count} fields`);
+      }
+      return field;
+    };
+
+    const firstNameField = await uniqueField(/First Name/i, "First Name");
+    const lastNameField = await uniqueField(/Last Name/i, "Last Name");
+    const customerPhoneField = await uniqueField(/Phone/i, "customer Phone");
+    const emailField = await uniqueField(/E-mail/i, "E-mail");
+    const commentsField = await uniqueField(/Comments/i, "Comments");
+    const agencyCodeField = await uniqueField(/Agency Unical Code/i, "Agency Unical Code");
+    const agencyNameField = await uniqueField(/Agency Name/i, "Agency Name");
+    const salesManagerField = await uniqueField(/Sales manager's Name/i, "Sales manager's Name");
+
     // First Name
-    await page.locator('input[name="name"]').fill(firstName);
+    await firstNameField.fill(firstName);
 
     // Last Name (or "." if the lead has none)
-    await page.locator('input[name="lastname"]').fill(lastName);
+    await lastNameField.fill(lastName);
 
     // Phone (with + prefix preserved)
-    await page.locator('input[name="phone"]').fill(phone);
+    await customerPhoneField.fill(phone);
 
     // E-mail (fixed agency email)
-    await page.locator('input[name="email"]').fill("info@kinglikeluxury.app");
+    await emailField.fill("info@kinglikeluxury.com");
 
-    // ── 5. Fill unnamed custom fields (nth-based, order verified from DOM) ──
-    const unnamed = page.locator(".b24-form-control");
+    // ── 5. Fill fixed agency fields by unique visible/accessibility labels ─
 
-    // Comments (index 4 — textarea)
-    await unnamed.nth(4).fill("we are in touch with the client");
+    // Comments
+    await commentsField.fill("we are in touch with the clinet");
 
-    // Agency Name (index 5)
-    await unnamed.nth(5).fill("Kinglike Luxury");
+    // Agency Unical Code — must remain separate from the customer's Phone
+    await agencyCodeField.fill("+995591000058");
 
-    // Sales manager's Name (index 6)
-    await unnamed.nth(6).fill("Tarik Imam");
+    // Agency Name
+    await agencyNameField.fill("kinglike luxury");
+
+    // Sales manager's Name
+    await salesManagerField.fill("tarik imam");
 
     await page.waitForTimeout(500);
 
