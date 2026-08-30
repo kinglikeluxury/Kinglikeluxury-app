@@ -5231,6 +5231,218 @@ ${metaTags}
 
   // ── CRM Task management ────────────────────────────────────────────────────
 
+  /** GET /api/admin/crm/tasks — centralized, permission-scoped task list */
+  app.get("/api/admin/crm/tasks", isAuthenticated, async (req: any, res) => {
+    if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+
+    try {
+      const queryString = (key: string) => {
+        const value = req.query[key];
+        return typeof value === "string" ? value.trim() : "";
+      };
+      const positiveId = (value: string) => {
+        const parsed = Number(value);
+        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+      };
+      const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+      const dateAtOffset = (offset: number) => {
+        const date = new Date();
+        date.setUTCHours(12, 0, 0, 0);
+        date.setUTCDate(date.getUTCDate() + offset);
+        return date.toISOString().slice(0, 10);
+      };
+
+      const today = dateAtOffset(0);
+      const tomorrow = dateAtOffset(1);
+      const dayOfWeek = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;
+      const weekEnd = dateAtOffset(6 - dayOfWeek);
+      const page = Math.max(1, Number.parseInt(queryString("page") || "1", 10) || 1);
+      const limit = Math.min(50, Math.max(1, Number.parseInt(queryString("limit") || "25", 10) || 25));
+      const offset = (page - 1) * limit;
+      const search = queryString("search");
+      const priority = queryString("priority");
+      const status = queryString("status").toLowerCase();
+      const datePreset = queryString("datePreset").toLowerCase();
+      const sort = queryString("sort").toLowerCase();
+      const dateFrom = validDate(queryString("dateFrom"));
+      const dateTo = validDate(queryString("dateTo"));
+
+      const baseParams: unknown[] = [];
+      const addBaseParam = (value: unknown) => {
+        baseParams.push(value);
+        return `$${baseParams.length}`;
+      };
+      const baseWhere = ["1=1"];
+
+      // This scope is deliberately applied before any user-controlled filters.
+      // Sub-agents can only see tasks attached to leads they currently own.
+      if (!req.session.isAdmin) {
+        baseWhere.push(`l.assigned_to = ${addBaseParam(req.session.userId)}`);
+      } else {
+        const assignedTo = positiveId(queryString("assignedTo"));
+        if (assignedTo) baseWhere.push(`l.assigned_to = ${addBaseParam(assignedTo)}`);
+      }
+
+      const createdBy = req.session.isAdmin ? positiveId(queryString("createdBy")) : null;
+      if (createdBy) baseWhere.push(`t.created_by = ${addBaseParam(createdBy)}`);
+      if (priority && priority.length <= 40) {
+        baseWhere.push(`t.priority = ${addBaseParam(priority)}`);
+      }
+      if (search) {
+        baseWhere.push(
+          `LOWER(CONCAT_WS(' ', l.full_name, l.first_name, l.last_name, l.phone, t.title, t.description)) LIKE ${addBaseParam(`%${search.slice(0, 120).toLowerCase()}%`)}`
+        );
+      }
+
+      const listWhere = [...baseWhere];
+      const listFilterParams = [...baseParams];
+      const addListParam = (value: unknown) => {
+        listFilterParams.push(value);
+        return `$${listFilterParams.length}`;
+      };
+
+      if (datePreset === "today") {
+        listWhere.push(`t.due_date = ${addListParam(today)}`);
+      } else if (datePreset === "tomorrow") {
+        listWhere.push(`t.due_date = ${addListParam(tomorrow)}`);
+      } else if (datePreset === "this_week") {
+        listWhere.push(`t.due_date >= ${addListParam(today)} AND t.due_date <= ${addListParam(weekEnd)}`);
+      } else if (datePreset === "overdue") {
+        listWhere.push(`t.completed_at IS NULL AND t.due_date < ${addListParam(today)}`);
+      } else if (datePreset === "upcoming") {
+        listWhere.push(`t.completed_at IS NULL AND t.due_date > ${addListParam(today)}`);
+      } else if (datePreset === "completed") {
+        listWhere.push("t.completed_at IS NOT NULL");
+      } else {
+        if (dateFrom) listWhere.push(`t.due_date >= ${addListParam(dateFrom)}`);
+        if (dateTo) listWhere.push(`t.due_date <= ${addListParam(dateTo)}`);
+      }
+
+      if (status === "pending") {
+        listWhere.push("t.completed_at IS NULL");
+      } else if (status === "completed") {
+        listWhere.push("t.completed_at IS NOT NULL");
+      } else if (status === "overdue") {
+        listWhere.push(`t.completed_at IS NULL AND t.due_date < ${addListParam(today)}`);
+      }
+
+      const orderBy = sort === "due_desc"
+        ? "t.due_date DESC NULLS LAST, t.due_time DESC NULLS LAST, t.created_at DESC"
+        : sort === "priority"
+        ? "CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END ASC, t.due_date ASC NULLS LAST, t.created_at DESC"
+        : sort === "created_desc"
+        ? "t.created_at DESC"
+        : sort === "due_asc"
+        ? "t.due_date ASC NULLS LAST, t.due_time ASC NULLS LAST, t.created_at ASC"
+        : `CASE WHEN t.completed_at IS NULL AND t.due_date < '${today}' THEN 0 WHEN t.completed_at IS NULL AND t.due_date = '${today}' THEN 1 WHEN t.completed_at IS NULL THEN 2 ELSE 3 END ASC, t.due_date ASC NULLS LAST, t.due_time ASC NULLS LAST, t.created_at ASC`;
+
+      const listParams = [...listFilterParams, limit, offset];
+      const limitPlaceholder = `$${listFilterParams.length + 1}`;
+      const offsetPlaceholder = `$${listFilterParams.length + 2}`;
+      const listQuery = `
+        SELECT
+          t.id,
+          t.title,
+          t.description,
+          t.due_date,
+          t.due_time,
+          t.priority,
+          t.completed_at,
+          t.created_at,
+          t.lead_id,
+          l.full_name AS lead_full_name,
+          l.first_name AS lead_first_name,
+          l.last_name AS lead_last_name,
+          l.phone AS lead_phone,
+          l.assigned_to,
+          assignee.username AS assignee_name,
+          t.created_by,
+          creator.username AS creator_name,
+          CASE
+            WHEN t.completed_at IS NOT NULL THEN 'completed'
+            WHEN t.due_date IS NOT NULL AND t.due_date < '${today}' THEN 'overdue'
+            ELSE 'pending'
+          END AS status
+        FROM crm_tasks t
+        INNER JOIN crm_leads l ON l.id = t.lead_id
+        LEFT JOIN users assignee ON assignee.id = l.assigned_to
+        LEFT JOIN users creator ON creator.id = t.created_by
+        WHERE ${listWhere.join(" AND ")}
+        ORDER BY ${orderBy}
+        LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}
+      `;
+      const countQuery = `
+        SELECT COUNT(*)::int AS total
+        FROM crm_tasks t
+        INNER JOIN crm_leads l ON l.id = t.lead_id
+        WHERE ${listWhere.join(" AND ")}
+      `;
+
+      // Counters intentionally ignore date/status filters so they remain useful
+      // while a user drills into one category. Assignment, creator, priority,
+      // and search still scope the counters to the visible working set.
+      const summaryParams = [...baseParams];
+      const addSummaryParam = (value: unknown) => {
+        summaryParams.push(value);
+        return `$${summaryParams.length}`;
+      };
+      const summaryToday = addSummaryParam(today);
+      const summaryQuery = `
+        SELECT
+          COUNT(*) FILTER (WHERE t.completed_at IS NULL AND t.due_date = ${summaryToday})::int AS today,
+          COUNT(*) FILTER (WHERE t.completed_at IS NULL AND t.due_date < ${summaryToday})::int AS overdue,
+          COUNT(*) FILTER (WHERE t.completed_at IS NULL AND t.due_date > ${summaryToday})::int AS upcoming,
+          COUNT(*) FILTER (WHERE t.completed_at IS NOT NULL)::int AS completed
+        FROM crm_tasks t
+        INNER JOIN crm_leads l ON l.id = t.lead_id
+        WHERE ${baseWhere.join(" AND ")}
+      `;
+
+      const [listResult, countResult, summaryResult] = await Promise.all([
+        pool.query(listQuery, listParams),
+        pool.query(countQuery, listFilterParams),
+        pool.query(summaryQuery, summaryParams),
+      ]);
+
+      const rows = listResult.rows.map((row: any) => ({
+        id: Number(row.id),
+        title: row.title,
+        description: row.description,
+        dueDate: row.due_date,
+        dueTime: row.due_time,
+        priority: row.priority || "medium",
+        completedAt: row.completed_at,
+        createdAt: row.created_at,
+        leadId: Number(row.lead_id),
+        leadName: row.lead_full_name || [row.lead_first_name, row.lead_last_name].filter(Boolean).join(" ") || "Unnamed lead",
+        leadPhone: row.lead_phone,
+        assignedTo: row.assigned_to ? Number(row.assigned_to) : null,
+        assigneeName: row.assignee_name,
+        createdBy: row.created_by ? Number(row.created_by) : null,
+        creatorName: row.creator_name,
+        status: row.status,
+      }));
+      const total = Number(countResult.rows[0]?.total ?? 0);
+      const summary = summaryResult.rows[0] ?? {};
+
+      res.json({
+        tasks: rows,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        summary: {
+          today: Number(summary.today ?? 0),
+          overdue: Number(summary.overdue ?? 0),
+          upcoming: Number(summary.upcoming ?? 0),
+          completed: Number(summary.completed ?? 0),
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   /** GET /api/admin/crm/leads/:id/tasks — list tasks for a lead */
   app.get("/api/admin/crm/leads/:id/tasks", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });

@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv, Crown, LayoutDashboard,
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv, Crown, LayoutDashboard, ListTodo,
 } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
@@ -313,6 +313,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               <div className="bg-white">
                 {renderItem({ label: "Dashboard", path: "/admin/employee-dashboard", icon: LayoutDashboard, highlight: true })}
                 {renderItem({ label: "Kinglike CRM", path: "/admin/crm", icon: Crown, highlight: true })}
+                {renderItem({ label: "Tasks / المهام", path: "/admin/crm/tasks", icon: ListTodo, highlight: true })}
               </div>
             </div>
           )}

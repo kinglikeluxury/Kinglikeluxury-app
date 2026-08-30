@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   CheckSquare,
+  ListTodo,
   PlusCircle,
   BookOpen,
   Users,
@@ -145,6 +146,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Kinglike CRM",
     path: "/admin/crm",
     Icon: Crown,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.crmTasks",
+    labelFallback: "Tasks / المهام",
+    path: "/admin/crm/tasks",
+    Icon: ListTodo,
     iconColorHex: "#3bcac4",
     highlight: true,
   },
