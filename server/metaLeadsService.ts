@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, pool } from "./db";
 import { leadImportQueue, leadImportAuditLog, crmLeads, users } from "@shared/schema";
 import { eq, and, lte, desc, sql } from "drizzle-orm";
 import https from "https";
@@ -25,6 +25,16 @@ const META_PAGE_ID = process.env.META_PAGE_ID || "127710467090772";
 // ── Alert tracking (in-memory) ────────────────────────────────────────────────
 let lastLeadReceivedAt: Date | null = null;
 let queueProcessorRunning = false;
+let queueProcessorStarted = false;
+
+const META_QUEUE_GRAPH_TIMEOUT_MS = 45_000;
+const META_QUEUE_NOTIFICATION_TIMEOUT_MS = 45_000;
+const META_QUEUE_DB_STATEMENT_TIMEOUT_MS = 15_000;
+const META_QUEUE_DB_LOCK_TIMEOUT_MS = 5_000;
+const META_QUEUE_AUDIT_TIMEOUT_MS = 15_000;
+export const META_QUEUE_STALE_AFTER_MS = 15 * 60_000;
+const META_QUEUE_PENDING_BATCH_SIZE = 10;
+const META_QUEUE_RETRY_BATCH_SIZE = 5;
 
 export function recordLeadReceived(): void {
   lastLeadReceivedAt = new Date();
@@ -54,7 +64,10 @@ export function getAlertStatus(): AlertStatus {
 }
 
 // ── Graph API ─────────────────────────────────────────────────────────────────
-async function fetchLeadFromGraph(leadgenId: string): Promise<any> {
+export async function fetchLeadFromGraph(
+  leadgenId: string,
+  timeoutMs = META_QUEUE_GRAPH_TIMEOUT_MS,
+): Promise<any> {
   const accessToken = process.env.META_ACCESS_TOKEN;
   const tokenLen    = accessToken?.length ?? 0;
   console.log(
@@ -79,7 +92,8 @@ async function fetchLeadFromGraph(leadgenId: string): Promise<any> {
   const url = `${META_GRAPH_BASE}/${leadgenId}?access_token=${encodeURIComponent(accessToken)}&fields=${fields}`;
 
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const signal = AbortSignal.timeout(timeoutMs);
+    const request = https.get(url, { signal }, (res) => {
       const httpStatus = res.statusCode ?? 0;
       console.log(`[MetaLeads][Graph] HTTP ${httpStatus} for leadgen_id=${leadgenId}`);
       let raw = "";
@@ -111,7 +125,8 @@ async function fetchLeadFromGraph(leadgenId: string): Promise<any> {
           reject(new Error(parseErr));
         }
       });
-    }).on("error", (err) => {
+    });
+    request.on("error", (err) => {
       console.error(`[MetaLeads][Graph] Network error for leadgen_id=${leadgenId} — ${err.message}`);
       reject(err);
     });
@@ -132,6 +147,36 @@ async function logAudit(queueEntryId: number, metaLeadId: string, action: string
     await db.insert(leadImportAuditLog).values({ queueEntryId, metaLeadId, action, details });
   } catch (err) {
     console.error("[MetaLeads] Audit log write failed:", err);
+  }
+}
+
+async function logQueueAudit(
+  queueEntryId: number,
+  metaLeadId: string,
+  action: string,
+  details: any,
+): Promise<void> {
+  const client = await pool.connect();
+  let transactionOpen = false;
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    await client.query("SELECT set_config('statement_timeout', $1, true)", [`${META_QUEUE_AUDIT_TIMEOUT_MS}ms`]);
+    await client.query("SELECT set_config('lock_timeout', $1, true)", [`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`]);
+    await client.query(
+      `INSERT INTO lead_import_audit_log (queue_entry_id, meta_lead_id, action, details)
+       VALUES ($1, $2, $3, $4::jsonb)`,
+      [queueEntryId, metaLeadId, action, JSON.stringify(details)],
+    );
+    await client.query("COMMIT");
+    transactionOpen = false;
+  } catch (err) {
+    if (transactionOpen) {
+      await client.query("ROLLBACK").catch(() => {});
+    }
+    console.error("[MetaLeads] Queue audit log write failed:", err);
+  } finally {
+    client.release();
   }
 }
 
@@ -197,6 +242,11 @@ export async function createOrFindMetaLead(
   }
 
   return db.transaction(async (tx) => {
+    if (queueContext.queueEntryId) {
+      await tx.execute(sql`SELECT set_config('statement_timeout', ${`${META_QUEUE_DB_STATEMENT_TIMEOUT_MS}ms`}, true)`);
+      await tx.execute(sql`SELECT set_config('lock_timeout', ${`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`}, true)`);
+    }
+
     // The external-id lock closes the webhook ↔ pull-sync race even when Meta
     // omits a phone number or returns a corrected phone in one of the paths.
     if (externalLeadId) {
@@ -348,6 +398,7 @@ function escapeHtml(value: string | null | undefined): string {
 
 async function notifyOwnerOfDuplicateMetaLead(
   lead: MetaCrmLead,
+  externalLeadId?: string,
 ): Promise<DuplicateNotificationResult> {
   const result: DuplicateNotificationResult = {
     ownerUserId: lead.assignedTo ?? null,
@@ -363,17 +414,22 @@ async function notifyOwnerOfDuplicateMetaLead(
     return result;
   }
 
-  const [owner] = await db
-    .select({
-      id: users.id,
-      username: users.username,
-      email: users.email,
-      whatsappNumber: users.whatsappNumber,
-      phoneNumber: users.phoneNumber,
-    })
-    .from(users)
-    .where(eq(users.id, lead.assignedTo))
-    .limit(1);
+  const ownerId = lead.assignedTo;
+  const [owner] = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('statement_timeout', ${`${META_QUEUE_AUDIT_TIMEOUT_MS}ms`}, true)`);
+    await tx.execute(sql`SELECT set_config('lock_timeout', ${`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`}, true)`);
+    return tx
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        whatsappNumber: users.whatsappNumber,
+        phoneNumber: users.phoneNumber,
+      })
+      .from(users)
+      .where(eq(users.id, ownerId))
+      .limit(1);
+  });
 
   if (!owner) {
     result.emailError = "Assigned user not found";
@@ -396,6 +452,8 @@ async function notifyOwnerOfDuplicateMetaLead(
     const emailResult = await sendEmail({
       to: result.emailRecipient,
       subject: "⚠️ طلب Meta مكرر لعميل موجود",
+      signal: AbortSignal.timeout(META_QUEUE_NOTIFICATION_TIMEOUT_MS),
+      idempotencyKey: externalLeadId ? `meta-duplicate-${externalLeadId}` : undefined,
       html: `
         <div style="font-family:Arial,sans-serif;direction:rtl;max-width:600px;margin:auto">
           <h2 style="color:#005476">طلب Meta مكرر</h2>
@@ -417,7 +475,10 @@ async function notifyOwnerOfDuplicateMetaLead(
   const employeeWhatsapp = owner.whatsappNumber?.trim() || owner.phoneNumber?.trim() || null;
   if (employeeWhatsapp) {
     result.whatsappRecipient = employeeWhatsapp;
-    const whatsappResult = await sendQualTextMessage(employeeWhatsapp, message);
+    const whatsappResult = await sendQualTextMessage(employeeWhatsapp, message, {
+      signal: AbortSignal.timeout(META_QUEUE_NOTIFICATION_TIMEOUT_MS),
+      dbStatementTimeoutMs: META_QUEUE_AUDIT_TIMEOUT_MS,
+    });
     result.whatsappSent = whatsappResult.success;
     result.whatsappError = whatsappResult.error;
   } else {
@@ -434,6 +495,97 @@ async function notifyOwnerOfDuplicateMetaLead(
 }
 
 // ── Entry processor ───────────────────────────────────────────────────────────
+type MetaQueueEntry = typeof leadImportQueue.$inferSelect;
+interface MetaQueuePoolLike {
+  connect(): Promise<{
+    query(text: string, params?: any[]): Promise<any>;
+    release(): void;
+  }>;
+}
+
+function mapQueueRow(row: any): MetaQueueEntry {
+  return {
+    id: Number(row.id),
+    metaLeadId: row.meta_lead_id,
+    leadgenId: row.leadgen_id,
+    formId: row.form_id,
+    pageId: row.page_id,
+    adId: row.ad_id,
+    adgroupId: row.adgroup_id,
+    campaignId: row.campaign_id,
+    status: row.status,
+    retryCount: Number(row.retry_count),
+    maxRetries: Number(row.max_retries),
+    rawWebhookPayload: row.raw_webhook_payload,
+    leadData: row.lead_data,
+    crmLeadId: row.crm_lead_id == null ? null : Number(row.crm_lead_id),
+    errorMessage: row.error_message,
+    nextRetryAt: row.next_retry_at,
+    receivedAt: row.received_at,
+    processedAt: row.processed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function updateClaimedQueueEntry(
+  entry: MetaQueueEntry,
+  values: {
+    status: "completed" | "retry" | "needs_review";
+    leadData?: any;
+    crmLeadId?: number | null;
+    processedAt?: Date | null;
+    retryCount?: number;
+    nextRetryAt?: Date | null;
+    errorMessage?: string | null;
+  },
+): Promise<boolean> {
+  const client = await pool.connect();
+  let transactionOpen = false;
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    await client.query("SELECT set_config('statement_timeout', $1, true)", [`${META_QUEUE_AUDIT_TIMEOUT_MS}ms`]);
+    await client.query("SELECT set_config('lock_timeout', $1, true)", [`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`]);
+    const result = await client.query(
+      `UPDATE lead_import_queue
+       SET status = $1,
+           lead_data = COALESCE($2::jsonb, lead_data),
+           crm_lead_id = COALESCE($3, crm_lead_id),
+           processed_at = COALESCE($4, processed_at),
+           retry_count = COALESCE($5, retry_count),
+           next_retry_at = $6,
+           error_message = $7,
+           updated_at = date_trunc('milliseconds', NOW())
+       WHERE id = $8
+         AND status = 'processing'
+         AND updated_at = $9
+       RETURNING id`,
+      [
+        values.status,
+        values.leadData === undefined ? null : JSON.stringify(values.leadData),
+        values.crmLeadId === undefined ? null : values.crmLeadId,
+        values.processedAt === undefined ? null : values.processedAt,
+        values.retryCount === undefined ? null : values.retryCount,
+        values.nextRetryAt ?? null,
+        values.errorMessage ?? null,
+        entry.id,
+        entry.updatedAt,
+      ],
+    );
+    await client.query("COMMIT");
+    transactionOpen = false;
+    return result.rowCount === 1;
+  } catch (err) {
+    if (transactionOpen) {
+      await client.query("ROLLBACK").catch(() => {});
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise<void> {
   const now = new Date();
 
@@ -443,11 +595,7 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
     `status=${entry.status} | retryCount=${entry.retryCount}/${entry.maxRetries}`
   );
 
-  await db.update(leadImportQueue)
-    .set({ status: "processing", updatedAt: now })
-    .where(eq(leadImportQueue.id, entry.id));
-
-  await logAudit(entry.id, entry.metaLeadId, "processing", { attempt: entry.retryCount + 1 });
+  await logQueueAudit(entry.id, entry.metaLeadId, "processing", { attempt: entry.retryCount + 1 });
 
   try {
     // ── Step A: fetch lead details from Graph API ──────────────────────────
@@ -516,14 +664,17 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
     const crmLead = decision.lead;
 
     if (decision.kind === "duplicate") {
-      await db.update(leadImportQueue).set({
+      const completed = await updateClaimedQueueEntry(entry, {
         status:       "completed",
         leadData:     apiData,
         crmLeadId:    crmLead.id,
         processedAt:  now,
         errorMessage: null,
-        updatedAt:    now,
-      }).where(eq(leadImportQueue.id, decision.queueEntryId));
+      });
+      if (!completed) {
+        console.warn(`[MetaLeads][Processor] Lost queue claim before duplicate completion — queueId=${entry.id}`);
+        return;
+      }
 
       let notification: DuplicateNotificationResult = {
         ownerUserId: crmLead.assignedTo ?? null,
@@ -534,7 +685,7 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       };
 
       if (decision.notificationClaimed) {
-        notification = await notifyOwnerOfDuplicateMetaLead(crmLead).catch((err: any) => ({
+        notification = await notifyOwnerOfDuplicateMetaLead(crmLead, entry.metaLeadId).catch((err: any) => ({
           ownerUserId: crmLead.assignedTo ?? null,
           emailRecipient: null,
           emailSent: false,
@@ -544,19 +695,19 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
           whatsappError: err.message,
         }));
 
-        await logAudit(decision.queueEntryId, entry.metaLeadId, "duplicate_notification_email_outcome", {
+        await logQueueAudit(decision.queueEntryId, entry.metaLeadId, "duplicate_notification_email_outcome", {
           recipient: notification.emailRecipient,
           sent: notification.emailSent,
           error: notification.emailError,
         });
-        await logAudit(decision.queueEntryId, entry.metaLeadId, "duplicate_notification_whatsapp_outcome", {
+        await logQueueAudit(decision.queueEntryId, entry.metaLeadId, "duplicate_notification_whatsapp_outcome", {
           recipient: notification.whatsappRecipient,
           sent: notification.whatsappSent,
           error: notification.whatsappError,
         });
       }
 
-      await logAudit(decision.queueEntryId, entry.metaLeadId, "duplicate_meta_lead_skipped", {
+      await logQueueAudit(decision.queueEntryId, entry.metaLeadId, "duplicate_meta_lead_skipped", {
         existingCrmLeadId: crmLead.id,
         matchedBy: decision.matchedBy,
         normalizedPhone: decision.normalizedPhone,
@@ -655,19 +806,22 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
     ).catch(() => {});
 
     // ── Step D: mark queue entry completed ─────────────────────────────────
-    await db.update(leadImportQueue).set({
+    const completed = await updateClaimedQueueEntry(entry, {
       status:       "completed",
       leadData:     apiData,
       crmLeadId:    crmLead.id,
       processedAt:  now,
       errorMessage: null,
-      updatedAt:    now,
-    }).where(eq(leadImportQueue.id, entry.id));
-
-    await logAudit(entry.id, entry.metaLeadId, "completed", {
-      crmLeadId:   crmLead.id,
-      fieldsFound: allFieldNames,
     });
+
+    if (completed) {
+      await logQueueAudit(entry.id, entry.metaLeadId, "completed", {
+        crmLeadId:   crmLead.id,
+        fieldsFound: allFieldNames,
+      });
+    } else {
+      console.warn(`[MetaLeads][Processor] Lost queue claim before completion — queueId=${entry.id}`);
+    }
 
     console.log(
       `[MetaLeads][Processor] ✓ Complete — metaLeadId=${entry.metaLeadId} → crmLeadId=${crmLead.id}`
@@ -684,17 +838,18 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
     );
 
     if (retryCount >= entry.maxRetries) {
-      await db.update(leadImportQueue).set({
+      const transitioned = await updateClaimedQueueEntry(entry, {
         status:       "needs_review",
         retryCount,
         errorMessage: err.message,
-        updatedAt:    now,
-      }).where(eq(leadImportQueue.id, entry.id));
-
-      await logAudit(entry.id, entry.metaLeadId, "needs_review", {
-        error:         err.message,
-        totalAttempts: retryCount,
       });
+
+      if (transitioned) {
+        await logQueueAudit(entry.id, entry.metaLeadId, "needs_review", {
+          error:         err.message,
+          totalAttempts: retryCount,
+        });
+      }
 
       console.warn(
         `[MetaLeads][Processor] → needs_review after ${retryCount} attempts | ` +
@@ -704,19 +859,20 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
       const delay       = retryDelaysMs[retryCount - 1] ?? retryDelaysMs[retryDelaysMs.length - 1];
       const nextRetryAt = new Date(Date.now() + delay);
 
-      await db.update(leadImportQueue).set({
+      const transitioned = await updateClaimedQueueEntry(entry, {
         status:       "retry",
         retryCount,
         errorMessage: err.message,
         nextRetryAt,
-        updatedAt:    now,
-      }).where(eq(leadImportQueue.id, entry.id));
-
-      await logAudit(entry.id, entry.metaLeadId, "retry_scheduled", {
-        retryCount,
-        nextRetryAt: nextRetryAt.toISOString(),
-        error:       err.message,
       });
+
+      if (transitioned) {
+        await logQueueAudit(entry.id, entry.metaLeadId, "retry_scheduled", {
+          retryCount,
+          nextRetryAt: nextRetryAt.toISOString(),
+          error:       err.message,
+        });
+      }
 
       console.warn(
         `[MetaLeads][Processor] Retry ${retryCount}/${entry.maxRetries} scheduled at ` +
@@ -728,34 +884,137 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
 }
 
 // ── Queue processor ───────────────────────────────────────────────────────────
+export async function claimQueueEntries(
+  queuePool: MetaQueuePoolLike = pool,
+  currentTimeMs = Date.now(),
+): Promise<MetaQueueEntry[]> {
+  const client = await queuePool.connect();
+  let transactionOpen = false;
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    await client.query("SELECT set_config('statement_timeout', $1, true)", [`${META_QUEUE_DB_STATEMENT_TIMEOUT_MS}ms`]);
+    await client.query("SELECT set_config('lock_timeout', $1, true)", [`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`]);
+    await client.query("SELECT set_config('idle_in_transaction_session_timeout', $1, true)", [`${META_QUEUE_DB_STATEMENT_TIMEOUT_MS}ms`]);
+
+    const staleCutoff = new Date(currentTimeMs - META_QUEUE_STALE_AFTER_MS);
+
+    const exhausted = await client.query(
+      `WITH candidates AS (
+         SELECT id
+         FROM lead_import_queue
+         WHERE status = 'processing'
+           AND updated_at <= $1
+           AND retry_count + 1 >= max_retries
+         ORDER BY updated_at ASC, id ASC
+         LIMIT $2
+         FOR UPDATE SKIP LOCKED
+       )
+       UPDATE lead_import_queue AS q
+       SET status = 'needs_review',
+           retry_count = q.retry_count + 1,
+           error_message = 'Recovered stale processing row after worker termination; retry limit reached',
+           next_retry_at = NULL,
+           updated_at = date_trunc('milliseconds', NOW())
+       FROM candidates
+       WHERE q.id = candidates.id
+       RETURNING q.id, q.meta_lead_id`,
+      [staleCutoff, META_QUEUE_RETRY_BATCH_SIZE],
+    );
+
+    for (const row of exhausted.rows) {
+      await client.query(
+        `INSERT INTO lead_import_audit_log (queue_entry_id, meta_lead_id, action, details)
+         VALUES ($1, $2, 'stale_processing_needs_review', $3::jsonb)`,
+        [
+          row.id,
+          row.meta_lead_id,
+          JSON.stringify({ staleAfterMs: META_QUEUE_STALE_AFTER_MS }),
+        ],
+      );
+    }
+
+    const pending = await client.query(
+      `WITH candidates AS (
+         SELECT id
+         FROM lead_import_queue
+         WHERE status = 'pending'
+         ORDER BY received_at ASC, id ASC
+         LIMIT $1
+         FOR UPDATE SKIP LOCKED
+       )
+       UPDATE lead_import_queue AS q
+       SET status = 'processing',
+           updated_at = date_trunc('milliseconds', NOW())
+       FROM candidates
+       WHERE q.id = candidates.id
+       RETURNING q.*`,
+      [META_QUEUE_PENDING_BATCH_SIZE],
+    );
+
+    const retries = await client.query(
+      `WITH candidates AS (
+         SELECT id, status = 'processing' AS recovered_stale
+         FROM lead_import_queue
+         WHERE (
+             status = 'retry'
+             AND next_retry_at <= NOW()
+           )
+           OR (
+             status = 'processing'
+             AND updated_at <= $1
+             AND retry_count + 1 < max_retries
+           )
+         ORDER BY
+           CASE WHEN status = 'processing' THEN 0 ELSE 1 END,
+           COALESCE(next_retry_at, updated_at) ASC,
+           received_at ASC,
+           id ASC
+         LIMIT $2
+         FOR UPDATE SKIP LOCKED
+       )
+       UPDATE lead_import_queue AS q
+       SET status = 'processing',
+           retry_count = CASE
+             WHEN candidates.recovered_stale THEN q.retry_count + 1
+             ELSE q.retry_count
+           END,
+           next_retry_at = NULL,
+           error_message = CASE
+             WHEN candidates.recovered_stale
+               THEN 'Recovered stale processing row after worker termination'
+             ELSE q.error_message
+           END,
+           updated_at = date_trunc('milliseconds', NOW())
+       FROM candidates
+       WHERE q.id = candidates.id
+       RETURNING q.*`,
+      [staleCutoff, META_QUEUE_RETRY_BATCH_SIZE],
+    );
+
+    await client.query("COMMIT");
+    transactionOpen = false;
+
+    return [...pending.rows, ...retries.rows].map(mapQueueRow);
+  } catch (err) {
+    if (transactionOpen) {
+      await client.query("ROLLBACK").catch(() => {});
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function processQueue(): Promise<void> {
   if (queueProcessorRunning) return;
   queueProcessorRunning = true;
 
   try {
-    const now = new Date();
-
-    const pending = await db
-      .select()
-      .from(leadImportQueue)
-      .where(eq(leadImportQueue.status, "pending"))
-      .limit(10);
-
-    const readyRetries = await db
-      .select()
-      .from(leadImportQueue)
-      .where(
-        and(
-          eq(leadImportQueue.status, "retry"),
-          lte(leadImportQueue.nextRetryAt, now),
-        ),
-      )
-      .limit(5);
-
-    const toProcess = [...pending, ...readyRetries];
+    const toProcess = await claimQueueEntries();
 
     console.log(
-      `[MetaLeads][Queue] tick — pending=${pending.length} | ready_retries=${readyRetries.length} | total_to_process=${toProcess.length}`
+      `[MetaLeads][Queue] tick — claimed=${toProcess.length}`
     );
 
     for (const entry of toProcess) {
@@ -769,6 +1028,11 @@ async function processQueue(): Promise<void> {
 }
 
 export function startMetaLeadsProcessor(): void {
+  if (queueProcessorStarted) {
+    console.warn("[MetaLeads] Queue processor already started — duplicate start ignored");
+    return;
+  }
+  queueProcessorStarted = true;
   console.log("[MetaLeads] Queue processor started — polling every 30s");
   processQueue();
   setInterval(processQueue, 30_000);

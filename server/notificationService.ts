@@ -35,6 +35,8 @@ export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  signal?: AbortSignal;
+  idempotencyKey?: string;
 }): Promise<NotifResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
@@ -47,12 +49,18 @@ export async function sendEmail(opts: {
   }
   try {
     const resend = new Resend(key);
-    const result = await resend.emails.send({
-      from: "Kinglike Luxury <info@kinglikeluxury.app>",
-      to: [opts.to],
-      subject: opts.subject,
-      html: opts.html,
-    });
+    const result = await resend.emails.send(
+      {
+        from: "Kinglike Luxury <info@kinglikeluxury.app>",
+        to: [opts.to],
+        subject: opts.subject,
+        html: opts.html,
+      },
+      {
+        signal: opts.signal,
+        idempotencyKey: opts.idempotencyKey,
+      } as any,
+    );
     if (result.error) {
       console.error(`[Email] ✗ Resend API error to ${opts.to}:`, result.error);
       return { sent: false, error: JSON.stringify(result.error) };

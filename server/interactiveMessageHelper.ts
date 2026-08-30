@@ -37,6 +37,11 @@ export interface InteractiveSendResult {
   error?:    string;
 }
 
+export interface QualTextSendOptions {
+  signal?: AbortSignal;
+  dbStatementTimeoutMs?: number;
+}
+
 /**
  * Send an interactive message with button or list, depending on option count.
  *
@@ -144,6 +149,7 @@ export async function sendInteractiveMessage(
 export async function sendQualTextMessage(
   phone: string,
   text: string,
+  options: QualTextSendOptions = {},
 ): Promise<InteractiveSendResult> {
   const token = getToken();
   if (!token) return { success: false, error: "No token" };
@@ -165,22 +171,23 @@ export async function sendQualTextMessage(
         "Authorization": `Bearer ${token}`,
       },
       body,
+      signal: options.signal,
     });
 
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok) {
       const errMsg = json?.error?.message ?? `HTTP ${res.status}`;
       console.error(`[QualTextMsg] ✗ to=${to}:`, errMsg);
-      await logToHistory(to, text, "failed", undefined, errMsg);
+      await logToHistory(to, text, "failed", undefined, errMsg, "interactive", options.dbStatementTimeoutMs);
       return { success: false, error: errMsg };
     }
 
     const wamid: string | undefined = json?.messages?.[0]?.id;
     console.log(`[QualTextMsg] ✓ Sent to=${to} | wamid=${wamid ?? "—"}`);
-    await logToHistory(to, text, "sent", wamid);
+    await logToHistory(to, text, "sent", wamid, undefined, "interactive", options.dbStatementTimeoutMs);
     return { success: true, wamid };
   } catch (err: any) {
-    await logToHistory(to, text, "failed", undefined, err.message);
+    await logToHistory(to, text, "failed", undefined, err.message, "interactive", options.dbStatementTimeoutMs);
     return { success: false, error: err.message };
   }
 }
@@ -194,9 +201,18 @@ async function logToHistory(
   wamid?:   string,
   errorMsg?: string,
   msgType:  string = "interactive",
+  statementTimeoutMs?: number,
 ): Promise<void> {
   const client = await pool.connect();
+  let transactionOpen = false;
   try {
+    if (statementTimeoutMs) {
+      await client.query("BEGIN");
+      transactionOpen = true;
+      await client.query("SELECT set_config('statement_timeout', $1, true)", [`${statementTimeoutMs}ms`]);
+      await client.query("SELECT set_config('lock_timeout', $1, true)", ["5000ms"]);
+    }
+
     const convResult = await client.query(`
       INSERT INTO whatsapp_api_conversations
         (phone_number, last_message_at, last_message_preview, source, updated_at)
@@ -218,7 +234,15 @@ async function logToHistory(
          wamid, status, context_label, error_message, created_at)
       VALUES ($1, 'outbound', $2, $3, $4, $5, 'qualification', $6, NOW())
     `, [convId, text, msgType, wamid ?? null, status, errorMsg ?? null]);
+    if (transactionOpen) {
+      await client.query("COMMIT");
+      transactionOpen = false;
+    }
   } catch {
+    if (transactionOpen) {
+      await client.query("ROLLBACK").catch(() => {});
+      transactionOpen = false;
+    }
     // non-critical
   } finally {
     client.release();

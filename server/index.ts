@@ -328,6 +328,7 @@ app.use((req, res, next) => {
   server.headersTimeout = 630000;
 
   const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
+  const metaLeadsProcessorEnabled = process.env.ENABLE_META_LEADS_PROCESSOR === "true";
   if (schedulersEnabled) {
     startScheduler();
     startDailyBackup();
@@ -372,8 +373,12 @@ app.use((req, res, next) => {
       name: "ensureMetaLeadsTables",
       run: async () => {
         await ensureMetaLeadsTables();
-        if (schedulersEnabled) {
+        if (metaLeadsProcessorEnabled) {
           startMetaLeadsProcessor();
+        } else {
+          console.log("[MetaLeads] Queue processor disabled — set ENABLE_META_LEADS_PROCESSOR=true to enable");
+        }
+        if (schedulersEnabled) {
           if (process.env.META_LEAD_PULL_SYNC_ENABLED === "true") {
             startPullSyncScheduler();
           } else {
