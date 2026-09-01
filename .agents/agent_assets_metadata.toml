@@ -6,135 +6,256 @@ id = "eA3InOIcayTCTDPco4I70"
 uri = "file://kinglike-mobile-app.zip"
 type = "unspecified"
 title = "Kinglike Luxury - مشروع Android (React Native)"
+logical_id = "98fd30ca-03be-4d2b-8c8e-6d4035c644c7"
 
 [[outputs]]
 id = "QZCce8phDI7OhnFzGucih"
 uri = "file://kinglike-project.zip"
 type = "unspecified"
 title = "Kinglike Luxury — Full Project"
+logical_id = "27c6ce34-de96-488e-8bbb-e8d6cd008415"
 
 [[outputs]]
 id = "uGu6rEXaEyTm4oVFtmPxF"
 uri = "file://backups/backup-after-history-restore.zip"
 type = "unspecified"
 title = "Database Backup — backup-after-history-restore.zip"
+logical_id = "42643d85-ef7b-4c07-a507-ad3c75afcaf0"
 
 [[outputs]]
 id = "MTo5UQfvvMJQUQaYpiB-z"
 uri = "file://backups/production-full-backup-after-ai-consultation-restore.zip"
 type = "unspecified"
 title = "Production Backup (SQL + JSON) — production-full-backup-after-ai-consultation-restore.zip"
+logical_id = "9c95b420-09eb-419a-8a73-023a169e3755"
 
 [[outputs]]
 id = "Ue6Qswlw2PuWZXeKw1OKM"
 uri = "file://backups/railway-live-production-full.zip"
 type = "unspecified"
 title = "Railway Production Backup — railway-live-production-full.zip"
+logical_id = "63295e4b-7c51-412b-9e3e-44795ac108e1"
 
 [[outputs]]
 id = "S8QEIEJHMfMt2y70qfcNR"
 uri = "file://backups/live-production-final.zip"
 type = "unspecified"
 title = "Live Production Final Backup — live-production-final.zip (595 KB)"
+logical_id = "172e9aad-9265-4e9b-883a-a3369149e945"
 
 [[outputs]]
 id = "_K-FHtCfWBY3e1ZZ5wR4E"
 uri = "file://production-backup-2026-05-26/kinglike-full-backup-2026-05-26.zip"
 type = "unspecified"
 title = "DB Dump + Env Template + README — kinglike-full-backup-2026-05-26.zip"
+logical_id = "a4777898-5660-42d2-97b8-b6434a4f6d94"
 
 [[outputs]]
 id = "9Gfprdj4WK-u-7XXfbBiq"
 uri = "file://production-backup-2026-05-26/kinglike-project-2026-05-26.zip"
 type = "unspecified"
 title = "Full Project Source Code — kinglike-project-2026-05-26.zip"
+logical_id = "6d56b535-36f5-40b7-a161-3512535eb89c"
 
 [[outputs]]
 id = "WfYzbuCTDEZt22kHknHYQ"
 uri = "file://kinglike-full-backup-2026-05-27-COMPLETE.zip"
 type = "unspecified"
 title = "Complete Backup Bundle (SQL dump + README + .env.example)"
+logical_id = "873ced20-7201-469e-81c3-a8e6e014fa8e"
 
 [[outputs]]
 id = "thtx06F7y0xMON_ml9dRt"
 uri = "file://kinglike-full-backup-2026-05-27/kinglike-source-2026-05-27.zip"
 type = "unspecified"
 title = "Full Source Code (client + server + shared + configs)"
+logical_id = "1fffcde3-4f18-4d75-9d53-44be3b650b10"
 
 [[outputs]]
 id = "Qh42CVcxo9kQcL3o1sKvr"
 uri = "file://backups/code-backup-2026-05-29.zip"
 type = "unspecified"
 title = "Source Code Backup (3.2 MB)"
+logical_id = "2bc428df-e954-4a5b-8030-5ca3c0755fa8"
 
 [[outputs]]
 id = "gxbgDbSdinBwT_WBcAaC5"
 uri = "file://backups/database-backup-2026-05-29.zip"
 type = "unspecified"
 title = "database-backup-2026-05-29.sql (inside this zip — 639 KB)"
+logical_id = "b2e2868b-19cf-48d0-8b45-2ad27fe945b3"
 
 [[outputs]]
 id = "hv2vKrU7NiEf1mQRDBeIl"
 uri = "file://backups/RESTORE-INSTRUCTIONS.md"
 type = "text"
 title = "Restore Instructions"
+logical_id = "61ad8e40-75e7-4192-99d0-8cc9456aa744"
 
 [[outputs]]
 id = "njS7trmPDyKQXufSLS-3l"
 uri = "file://backups/ENVIRONMENT-INVENTORY.md"
 type = "text"
 title = "ENVIRONMENT-INVENTORY.md — 38 variable names"
+logical_id = "26b71403-f639-45d5-a6f7-996ba9f8f365"
 
 [[outputs]]
 id = "6BILMTmlomsX3FuYQYYg6"
 uri = "file://public/downloads/kinglike-code-backup-2026-05-31.zip"
 type = "unspecified"
 title = "Code Backup — kinglike-code-backup-2026-05-31.zip (5.0 MB)"
+logical_id = "b0705dad-07fd-4e5a-8a59-823704c239f7"
 
 [[outputs]]
 id = "oTXLzs012SYjZ_aEc7-Ue"
 uri = "file://public/downloads/kinglike-db-backup-2026-05-31.zip"
 type = "unspecified"
 title = "Database Backup — kinglike-db-backup-2026-05-31.zip (776 KB)"
+logical_id = "40e00106-2f21-4663-8a73-05a475480f3f"
 
 [[outputs]]
 id = "RBGXwlfBLzOKCwX8fr2kx"
 uri = "file://docs/ai-backup/AI-CONFIG-BACKUP.txt"
 type = "text"
 title = "AI-CONFIG-BACKUP.txt"
+logical_id = "bc95ae1a-522e-440e-8e0a-ef57b29c036f"
 
 [[outputs]]
 id = "KOQmf9uFh2FTKYN8bt7g1"
 uri = "file://docs/ai-backup/AI-CONFIG-BACKUP.zip"
 type = "unspecified"
 title = "AI-CONFIG-BACKUP.zip"
+logical_id = "db02a374-788b-4860-8e81-7df078eba1ba"
 
 [[outputs]]
 id = "Etq73BquKEEwMtzO08MmZ"
 uri = "file://CRM_CHECKPOINT_2026_06_05.md"
 type = "text"
 title = "CRM Checkpoint Report — June 05, 2026"
+logical_id = "03bd6369-b1aa-4c1f-98b8-52f2f4f8204c"
 
 [[outputs]]
 id = "CSJwoqPkpOd4lcqsMvZn4"
 uri = "file://docs/ai-whatsapp-qualification/AI-WHATSAPP-QUALIFICATION-PLAN.md"
 type = "text"
 title = "AI WhatsApp Lead Qualification — Full Planning Document"
+logical_id = "fc6cbbb9-4bdd-4a04-b3b4-ef08a14d3e96"
 
 [[outputs]]
 id = "365OjJ3g18JfD3Wf5-t3H"
 uri = "file://kinglike-luxury-full-code-backup-2026-06-10.zip"
 type = "unspecified"
 title = "Updated Source Code Archive (includes manifest) — kinglike-luxury-full-code-backup-2026-06-10.zip (2.8 MB)"
+logical_id = "34eb261b-af93-4bd6-b209-4f420fb8010e"
 
 [[outputs]]
 id = "Qd8AF9dGKxX25M30_7grj"
 uri = "file://kinglike-luxury-db-backup-2026-06-10.sql.gz"
 type = "unspecified"
 title = "Database Backup — kinglike-luxury-db-backup-2026-06-10.sql.gz (879 KB compressed / 5.2 MB raw)"
+logical_id = "b644d5d9-4bf2-4074-811b-9376528ea373"
 
 [[outputs]]
 id = "VWNBQIVFzux4Zo7-h2EN8"
 uri = "file://backup-manifest-2026-06-10.txt"
 type = "text"
 title = "Backup Manifest — backup-manifest-2026-06-10.txt"
+logical_id = "e92fb4cf-b13d-4f95-8621-222369720b56"
+
+[[outputs]]
+id = "8wd75qCsuGDDuQ7LlojuU"
+uri = "file://artifacts/one-peninsula-floor-plan-verification/master-all-26-units.png"
+type = "image"
+title = "One Peninsula — all 26 unit polygons"
+description = "Master diagnostic overlay with unit IDs 101–126."
+logical_id = "110963f5-eaac-4981-905a-9d0df69408cc"
+content_hash = "sha256:55d7f459e7f0a1f3782b11c6254e0d3e7b947f59a0095853384ef017f3fa03b6"
+size = 217330
+mtime_ms = 1788299251167
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/110963f5-eaac-4981-905a-9d0df69408cc/55f6bad2-85a2-4b41-a081-6517bfd920ed"
+storage_version_token = "1788299288268968"
+content_type = "image/png"
+
+[[outputs]]
+id = "FCteOK7LqDz6hPRFEZw9M"
+uri = "file://artifacts/one-peninsula-floor-plan-verification/unit-101.png"
+type = "image"
+title = "One Peninsula — Unit 101"
+description = "Diagnostic highlight for unit 101."
+logical_id = "5480127a-775f-4212-9a96-e6c6772f779e"
+content_hash = "sha256:0775d2191859c0e80a6f80078f18fe27f4bd7143e7b8c80c7e05ff05834da134"
+size = 226676
+mtime_ms = 1788299247343
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/5480127a-775f-4212-9a96-e6c6772f779e/7a87e894-7624-4796-9bf4-88b1cbf0ca30"
+storage_version_token = "1788299290601570"
+content_type = "image/png"
+
+[[outputs]]
+id = "eJ0rE-XFH8QQNMh2YMv_6"
+uri = "file://artifacts/one-peninsula-floor-plan-verification/unit-104.png"
+type = "image"
+title = "One Peninsula — Unit 104"
+description = "Diagnostic highlight for rounded unit 104."
+logical_id = "a3be88f4-f685-4765-af89-b22464867b76"
+content_hash = "sha256:2723b93b93a2bac1567b51a7340b2e46ffd99c0b23818d216ccf1a475ccf9b28"
+size = 227225
+mtime_ms = 1788299247975
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/a3be88f4-f685-4765-af89-b22464867b76/8c31eede-65ef-4d5b-96cf-f7776aa94eb1"
+storage_version_token = "1788299293369079"
+content_type = "image/png"
+
+[[outputs]]
+id = "A3qvfsD7Wo1K3xO7rFKJf"
+uri = "file://artifacts/one-peninsula-floor-plan-verification/unit-106.png"
+type = "image"
+title = "One Peninsula — Unit 106"
+description = "Diagnostic highlight for rounded unit 106."
+logical_id = "5165565d-0205-41db-b062-4f0a2fca5491"
+content_hash = "sha256:a03dee6ffec590e208ab58ce72fb9ca31c4f7bfc20c69cd9faa52e27f2885315"
+size = 228346
+mtime_ms = 1788299248683
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/5165565d-0205-41db-b062-4f0a2fca5491/e504651a-e094-4134-b053-3929c02c5887"
+storage_version_token = "1788299295424290"
+content_type = "image/png"
+
+[[outputs]]
+id = "Joa19QFksAYCF_KZCYgN7"
+uri = "file://artifacts/one-peninsula-floor-plan-verification/unit-112.png"
+type = "image"
+title = "One Peninsula — Unit 112"
+description = "Diagnostic highlight for irregular unit 112."
+logical_id = "c731bcf4-d53a-4efb-b631-2ca35c4b3b2a"
+content_hash = "sha256:85414957c002b5f78d015b54da1b983b24c184849958cb6db0ff274d852a02d7"
+size = 228693
+mtime_ms = 1788299249323
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/c731bcf4-d53a-4efb-b631-2ca35c4b3b2a/5c505a7d-f82a-4d75-98f6-67b4929b3cf9"
+storage_version_token = "1788299297665154"
+content_type = "image/png"
+
+[[outputs]]
+id = "azUwOUSp-3rb4n20taZCB"
+uri = "file://artifacts/one-peninsula-floor-plan-verification/unit-120.png"
+type = "image"
+title = "One Peninsula — Unit 120"
+description = "Diagnostic highlight for rounded unit 120."
+logical_id = "84d0b0be-5896-41db-9533-18ffc2bc67ab"
+content_hash = "sha256:b2321eac9057ccbc15a87d403708806f4fb61628feb5e9f2638b125373b0e178"
+size = 226866
+mtime_ms = 1788299249923
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/84d0b0be-5896-41db-9533-18ffc2bc67ab/aa527515-ee2a-4764-ad3e-1c4e2a2306bb"
+storage_version_token = "1788299299718676"
+content_type = "image/png"
+
+[[outputs]]
+id = "-nMObbC5Ad9dhaFz694KG"
+uri = "file://artifacts/one-peninsula-floor-plan-verification/unit-126.png"
+type = "image"
+title = "One Peninsula — Unit 126"
+description = "Diagnostic highlight for irregular unit 126."
+logical_id = "ad1ccea4-e29e-4e00-948f-4eace61dd83a"
+content_hash = "sha256:fdbe7e0a7dc625e211147da20e8bd4f267d42d664553492612df0f181468f0ad"
+size = 228167
+mtime_ms = 1788299250543
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/ad1ccea4-e29e-4e00-948f-4eace61dd83a/823d60c3-170f-435d-82f6-8e5c9abfd889"
+storage_version_token = "1788299301805814"
+content_type = "image/png"
