@@ -321,7 +321,12 @@ const Projects = () => {
         'turkey': 'turkey',
       };
       const countryName = countryNameMap[selectedCountry] || selectedCountry.replace(/-/g, ' ');
-      if (!projectLocation.includes(countryName)) {
+      const matchesCountryName = projectLocation.includes(countryName);
+      const georgianCityAliases = ['batumi', 'tbilisi', 'kobuleti'];
+      const matchesGeorgianCity =
+        selectedCountry === 'georgia' &&
+        georgianCityAliases.some((city) => projectLocation.includes(city));
+      if (!matchesCountryName && !matchesGeorgianCity) {
         return false;
       }
     }
