@@ -5194,7 +5194,52 @@ ${metaTags}
   /** GET /api/admin/crm/projects — list all projects (admins + sub_agents can read) */
   app.get("/api/admin/crm/projects", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    try { res.json(await storage.getCrmProjects()); }
+    try {
+      const [legacyProjects, projectProperties] = await Promise.all([
+        storage.getCrmProjects(),
+        storage.getPropertiesByType(PROPERTY_TYPES.PROJECT),
+      ]);
+
+      const byNormalizedName = new Map<string, any>();
+      const normalizeName = (name: string) => name.trim().toLocaleLowerCase();
+
+      for (const property of projectProperties) {
+        const name = property.title?.trim();
+        if (!name || property.status !== PROPERTY_STATUS.APPROVED) continue;
+
+        const normalizedName = normalizeName(name);
+        if (!byNormalizedName.has(normalizedName)) {
+          byNormalizedName.set(normalizedName, {
+            id: -property.id,
+            name,
+            isActive: true,
+            sortOrder: 0,
+            createdAt: property.createdAt,
+            source: "property",
+          });
+        }
+      }
+
+      for (const legacyProject of legacyProjects) {
+        const name = legacyProject.name.trim();
+        if (!name) continue;
+
+        const normalizedName = normalizeName(name);
+        if (!byNormalizedName.has(normalizedName)) {
+          byNormalizedName.set(normalizedName, {
+            ...legacyProject,
+            name,
+            source: "legacy",
+          });
+        }
+      }
+
+      res.json(
+        Array.from(byNormalizedName.values()).sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        )
+      );
+    }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 

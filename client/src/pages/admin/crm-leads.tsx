@@ -28,6 +28,7 @@ import { SiWhatsapp } from "react-icons/si";
 import type { CrmLead, CrmProject } from "@shared/schema";
 
 interface CrmLeadWithAssignee extends CrmLead { assigneeName?: string | null }
+interface CrmProjectOption extends CrmProject { source?: "property" | "legacy" }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   new:                   { label: "New",                                                    color: "bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40" },
@@ -398,7 +399,7 @@ export default function CrmLeadsPage() {
   const allVisibleSelected = leads.length > 0 && leads.every(l => selectedIds.has(l.id));
   const someVisibleSelected = leads.some(l => selectedIds.has(l.id));
 
-  const { data: projects = [] } = useQuery<CrmProject[]>({
+  const { data: projects = [] } = useQuery<CrmProjectOption[]>({
     queryKey: ["/api/admin/crm/projects"],
     queryFn: () => fetch("/api/admin/crm/projects").then(r => {
       if (!r.ok) return [];
@@ -785,15 +786,21 @@ export default function CrmLeadsPage() {
                         ) : (
                           <>
                             <span className="flex-1 text-sm font-medium text-[#005476]">{p.name}</span>
-                            {!p.isActive && <span className="text-xs text-muted-foreground">(inactive)</span>}
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
-                              onClick={() => { setEditingProjectId(p.id); setEditingProjectName(p.name); }}>
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
-                              onClick={() => { if (confirm(`Remove project "${p.name}"?`)) deleteProjectMutation.mutate(p.id); }}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {p.source === "property" ? (
+                              <span className="text-xs text-[#3bcac4]">synced</span>
+                            ) : (
+                              <>
+                                {!p.isActive && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                                  onClick={() => { setEditingProjectId(p.id); setEditingProjectName(p.name); }}>
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
+                                  onClick={() => { if (confirm(`Remove project "${p.name}"?`)) deleteProjectMutation.mutate(p.id); }}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
