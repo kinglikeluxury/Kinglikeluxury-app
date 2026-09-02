@@ -588,17 +588,39 @@ export default function ProjectOfferPage() {
     developer: p.developer || "",
   }));
 
-  const locParts = (loc: string) => {
-    const parts = loc.split(",").map((s: string) => s.trim());
-    return { city: parts[0] || "", country: parts[parts.length - 1] || "" };
-  };
-
+  // These options are also used to recognize cities embedded in full street
+  // addresses, e.g. "Odysseas Dimitriadis Street, Tamari, Batumi".
   // Hardcoded countries and cities — not dependent on existing project data
   const COUNTRY_CITY_MAP: Record<string, string[]> = {
     "Georgia": ["Tbilisi", "Batumi", "Kutaisi", "Rustavi", "Zugdidi", "Gori", "Poti", "Telavi", "Mtskheta", "Kobuleti", "Borjomi", "Akhaltsikhe", "Senaki", "Anaklia", "Sighnaghi", "Ambrolauri", "Khashuri", "Samtredia", "Zestafoni", "Chiatura"],
     "UAE": ["Dubai", "Sharjah", "Ras Al Khaimah", "Abu Dhabi", "Ajman", "Fujairah", "Umm Al Quwain"],
     "Northern Cyprus (TRNC)": ["Lefkoşa (Nicosia)", "Gazimağusa (Famagusta)", "Girne (Kyrenia)", "İskele", "Güzelyurt", "Esentepe"],
     "Turkey": ["İstanbul", "Trabzon", "Ankara", "İzmir", "Antalya", "Bursa", "Alanya", "Mersin"],
+  };
+
+  const normalizeLocationPart = (value: string) => value.trim().toLocaleLowerCase();
+  const locationCities = Object.entries(COUNTRY_CITY_MAP).flatMap(([country, cityList]) =>
+    cityList.map((city) => ({ country, city, normalized: normalizeLocationPart(city) })),
+  );
+
+  const locParts = (loc: string) => {
+    const parts = loc.split(",").map((s: string) => s.trim()).filter(Boolean);
+    const normalizedParts = parts.map(normalizeLocationPart);
+    const cityMatch = [...normalizedParts]
+      .reverse()
+      .map((part) => locationCities.find((entry) => entry.normalized === part))
+      .find(Boolean);
+    const countryMatch = [...normalizedParts]
+      .reverse()
+      .map((part) => Object.keys(COUNTRY_CITY_MAP).find(
+        (country) => normalizeLocationPart(country) === part,
+      ))
+      .find(Boolean);
+
+    return {
+      city: cityMatch?.city || parts[0] || "",
+      country: countryMatch || cityMatch?.country || parts[parts.length - 1] || "",
+    };
   };
 
   const countries = Object.keys(COUNTRY_CITY_MAP);
