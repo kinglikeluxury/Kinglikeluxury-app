@@ -21,7 +21,9 @@ import fp3 from "@assets/20260515_125940_0000_1778839490192.png";
 import fp4 from "@assets/20260515_125858_0000_1778839490192.png";
 import fp5 from "@assets/20260515_125830_0000_1778839490193.png";
 import {
+  ONE_PENINSULA_IMAGE_HEIGHT,
   ONE_PENINSULA_IMAGE_PATH,
+  ONE_PENINSULA_IMAGE_WIDTH,
   ONE_PENINSULA_PROPERTY_ID,
   ONE_PENINSULA_UNIT_POLYGONS,
 } from "@/lib/floorPlans/onePeninsula";
@@ -1421,6 +1423,14 @@ function PDFTemplate({
   const hero   = imgs[0] ?? null;
   const thumb1 = imgs[1] ?? null;
   const thumb2 = imgs[2] ?? null;
+  const isOnePeninsula = project.id === ONE_PENINSULA_PROPERTY_ID
+    || /one\s*peninsula/i.test(project.title ?? "");
+  const onePeninsulaUnitKey = isOnePeninsula
+    ? normalizeOnePeninsulaUnitNumber(apartmentNumber ?? "")
+    : "";
+  const onePeninsulaPoints = ONE_PENINSULA_UNIT_POLYGONS[
+    onePeninsulaUnitKey as keyof typeof ONE_PENINSULA_UNIT_POLYGONS
+  ];
 
   // Build detail rows — only non-empty fields
   const rows: { label: string; value: string; accent?: boolean; group?: "secondPayment" }[] = [];
@@ -1615,17 +1625,55 @@ function PDFTemplate({
               </div>
             </div>
             {/* Plan image — full width, natural ratio */}
-            <div style={{ background: "#f8f9fa", textAlign: "center" as const }}>
-              <img
-                src={floorPlanB64}
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: 400,
-                  objectFit: "contain",
-                  display: "inline-block",
-                  padding: "16px",
-                }}
-              />
+            <div style={{ background: "#f8f9fa", textAlign: "center" as const, padding: "16px" }}>
+              <div style={{ position: "relative" as const, display: "inline-block", maxWidth: "100%", lineHeight: 0 }}>
+                <img
+                  src={floorPlanB64}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: 400,
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+                {onePeninsulaPoints && (
+                  <svg
+                    viewBox={`0 0 ${ONE_PENINSULA_IMAGE_WIDTH} ${ONE_PENINSULA_IMAGE_HEIGHT}`}
+                    preserveAspectRatio="none"
+                    aria-label={`Selected apartment ${onePeninsulaUnitKey}`}
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+                  >
+                    <polygon
+                      points={onePeninsulaPoints.map(([x, y]) => `${x},${y}`).join(" ")}
+                      fill="rgba(59,202,196,0.38)"
+                      stroke="rgba(255,255,255,0.95)"
+                      strokeWidth="10"
+                      strokeLinejoin="round"
+                    />
+                    <polygon
+                      points={onePeninsulaPoints.map(([x, y]) => `${x},${y}`).join(" ")}
+                      fill="none"
+                      stroke="#e53e3e"
+                      strokeWidth="5"
+                      strokeLinejoin="round"
+                    />
+                    <text
+                      x={onePeninsulaPoints.reduce((sum, [x]) => sum + x, 0) / onePeninsulaPoints.length}
+                      y={onePeninsulaPoints.reduce((sum, [, y]) => sum + y, 0) / onePeninsulaPoints.length}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="#e53e3e"
+                      stroke="#ffffff"
+                      strokeWidth="3"
+                      paintOrder="stroke"
+                      fontSize="32"
+                      fontWeight="700"
+                    >
+                      {onePeninsulaUnitKey}
+                    </text>
+                  </svg>
+                )}
+              </div>
             </div>
           </div>
         </div>
