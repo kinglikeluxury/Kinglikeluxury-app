@@ -817,7 +817,7 @@ export default function ProjectOfferPage() {
       const isOnePeninsula = selectedProject.id === ONE_PENINSULA_PROPERTY_ID
         || /one\s*peninsula/i.test(selectedProject.title ?? "");
 
-      const [loaded, fpB64, silkB64, petraB64, ambB64, crownPlazaB64, onePeninsulaB64] = await Promise.all([
+      const [loaded, fpB64, silkB64, petraB64, ambB64, crownPlazaB64] = await Promise.all([
         Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
         isOnePeninsula
           ? buildOnePeninsulaHighlight(apartmentNumber).catch((e) => { console.error("One Peninsula floor plan error:", e); return ""; })
@@ -839,7 +839,7 @@ export default function ProjectOfferPage() {
       // Force-sync all state updates into the DOM in one shot before capture
       flushSync(() => {
         setB64Images(loaded);
-        setFloorPlanB64(isOnePeninsula ? onePeninsulaB64 : fpB64);
+        setFloorPlanB64(fpB64);
         setFlagB64(makeGeorgiaFlagB64());
         setSilkHighlightB64(silkB64);
         setPetraHighlightB64(petraB64);
@@ -1411,7 +1411,7 @@ function PDFTemplate({
   const thumb2 = imgs[2] ?? null;
 
   // Build detail rows — only non-empty fields
-  const rows: { label: string; value: string; accent?: boolean }[] = [];
+  const rows: { label: string; value: string; accent?: boolean; group?: "secondPayment" }[] = [];
   if (apartmentType)          rows.push({ label: t("aptType",lang),      value: getAptLabel(apartmentType) });
   if (viewType)               rows.push({ label: t("viewType",lang),     value: getViewLabel(viewType) });
   if (selectedBlock)          rows.push({ label: t("block",lang),         value: selectedBlock });
@@ -1426,9 +1426,9 @@ function PDFTemplate({
   if (paymentPercent && discountedPrice > 0)
     rows.push({ label: `${t("downPayment",lang)} — ${paymentPercent}%`,  value: `$${fmt(downPayment)}` });
   if (secondPaymentPercent && discountedPrice > 0)
-    rows.push({ label: `${t("secondPayment",lang)} — ${secondPaymentPercent}%`, value: `$${fmt(secondPaymentAmount)}` });
+    rows.push({ label: `${t("secondPayment",lang)} — ${secondPaymentPercent}%`, value: `$${fmt(secondPaymentAmount)}`, group: "secondPayment" });
   if (secondPaymentDate)
-    rows.push({ label: t("secondPaymentDate",lang), value: getSecondPaymentDateLabel(secondPaymentDate, lang) });
+    rows.push({ label: t("secondPaymentDate",lang), value: getSecondPaymentDateLabel(secondPaymentDate, lang), group: "secondPayment" });
   if (finalPaymentPercent && discountedPrice > 0)
     rows.push({ label: `${t("finalPayment",lang)} — ${finalPaymentPercent}%`, value: `$${fmt(finalPaymentAmount)}` });
   if ((paymentPercent || finalPaymentPercent) && discountedPrice > 0)
@@ -1437,6 +1437,7 @@ function PDFTemplate({
   if (monthlyInstall > 0)     rows.push({ label: t("monthlyPayment",lang), value: `$${fmt(monthlyInstall)}`, accent: true });
   if (deliveryType)           rows.push({ label: t("deliveryType",lang),  value: getDelivLabel(deliveryType) });
   if (deliveryDate)           rows.push({ label: t("deliveryDate",lang),  value: getDateLabel(deliveryDate) });
+  const secondPaymentRows = rows.filter((row) => row.group === "secondPayment");
 
   // ── Helpers for inline RTL on text nodes only (avoids html2canvas RTL canvas-flip bug)
   const txt  = (extra?: object) => ({ direction: dir, unicodeBidi: "embed" as const, ...(extra ?? {}) });
@@ -1445,12 +1446,12 @@ function PDFTemplate({
   const S = {
     // IMPORTANT: page is always LTR — RTL applied per-text-element only
     page:       { width: W, backgroundColor: "#fff", fontFamily: ff, direction: "ltr" as const, overflow: "hidden" as const },
-    header:     { background: "#ffffff", padding: "22px 40px 30px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+    header:     { background: "#ffffff", padding: "22px 40px 30px", position: "relative" as const, height: 273, boxSizing: "border-box" as const },
     hLogo:      { flexShrink: 0 },
-    hCenter:    { flex: 1, textAlign: "center" as const, padding: "0 24px" },
+    hCenter:    { position: "absolute" as const, top: 22, left: "50%", transform: "translateX(-50%)", textAlign: "center" as const, width: "max-content", maxWidth: 430 },
     hTagline:   { fontSize: 17, color: "#3bcac4", letterSpacing: 3, marginBottom: 6, fontWeight: 600 as const },
     hTitle:     { fontSize: 40, fontWeight: 900 as const, color: "#005476", lineHeight: 1.25, marginTop: 10, direction: dir, unicodeBidi: "embed" as const },
-    hRight:     { flexShrink: 0, textAlign: "right" as const, minWidth: 190 },
+    hRight:     { position: "absolute" as const, top: "50%", right: 40, transform: "translateY(-50%)", textAlign: "right" as const },
     hLocation:  { fontSize: 22, color: "#3bcac4", fontWeight: 700 as const, marginTop: 4, textAlign: "right" as const, direction: dir, unicodeBidi: "embed" as const, whiteSpace: "nowrap" as const },
     logo:       { height: 160, width: "auto", objectFit: "contain" as const, flexShrink: 0 },
     imgWrap1:   { width: "100%", background: "#fff", textAlign: "center" as const, lineHeight: 0 },
@@ -1484,9 +1485,6 @@ function PDFTemplate({
 
       {/* ── Header — logo CENTER · location RIGHT (always, all langs) ── */}
       <div style={{ ...S.header, direction: "ltr" }}>
-        {/* Left: spacer to balance the right column */}
-        <div style={{ minWidth: 120 }} />
-
         {/* Center: original-color logo + project title */}
         <div style={S.hCenter}>
           <img
@@ -1499,18 +1497,16 @@ function PDFTemplate({
 
         {/* Right: city / country */}
         <div style={S.hRight}>
-          {project.location && (
-            <div style={{ ...S.hLocation, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-              {flagB64 && (
-                <img
-                  src={flagB64}
-                  alt="GE"
-                  style={{ width: 34, height: 23, objectFit: "fill", border: "1px solid #e2e8f0", borderRadius: 2, flexShrink: 0 }}
-                />
-              )}
-              <span>{project.location}</span>
-            </div>
-          )}
+          <div style={{ ...S.hLocation, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+            {flagB64 && (
+              <img
+                src={flagB64}
+                alt="GE"
+                style={{ width: 34, height: 23, objectFit: "fill", border: "1px solid #e2e8f0", borderRadius: 2, flexShrink: 0 }}
+              />
+            )}
+            <span>باتومي - جورجيا</span>
+          </div>
         </div>
       </div>
 
@@ -1541,12 +1537,37 @@ function PDFTemplate({
 
       {/* ── Details grid ── */}
       <div style={S.grid}>
-        {rows.map((row, i) => (
-          <div key={i} style={row.accent ? S.cellAccent : S.cell}>
-            <div dir={dir} style={row.accent ? S.cellLblA : S.cellLbl}>{row.label}</div>
-            <div dir={dir} style={row.accent ? S.cellValA : S.cellVal}>{row.value}</div>
-          </div>
-        ))}
+        {rows.map((row, i) => {
+          if (row.group === "secondPayment") {
+            if (rows[i - 1]?.group === "secondPayment") return null;
+            return (
+              <div
+                key="second-payment-pair"
+                style={{
+                  gridColumn: "1 / -1",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 14,
+                  direction: dir,
+                }}
+              >
+                {secondPaymentRows.map((paymentRow) => (
+                  <div key={paymentRow.label} style={S.cell}>
+                    <div dir={dir} style={S.cellLbl}>{paymentRow.label}</div>
+                    <div dir={dir} style={S.cellVal}>{paymentRow.value}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
+          return (
+            <div key={i} style={row.accent ? S.cellAccent : S.cell}>
+              <div dir={dir} style={row.accent ? S.cellLblA : S.cellLbl}>{row.label}</div>
+              <div dir={dir} style={row.accent ? S.cellValA : S.cellVal}>{row.value}</div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Floor plan section (only if selected) ── */}
