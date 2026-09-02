@@ -577,6 +577,18 @@ const buildCrownPlazaHighlight = async (aptNum: string): Promise<string> => {
 
 /* ─── One Peninsula floor-plan highlight helper ───────────────────────────── */
 
+const normalizeOnePeninsulaUnitNumber = (value: string): string => {
+  const latinDigits = value
+    .trim()
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/\s+/g, "")
+    .replace(/^N[-_]?/i, "");
+
+  const unitMatch = latinDigits.match(/(?:10[1-9]|11\d|12[0-6])/);
+  return unitMatch?.[0] ?? latinDigits;
+};
+
 const buildOnePeninsulaHighlight = async (aptNum: string): Promise<string> => {
   const dataUrl = await imgToBase64(ONE_PENINSULA_IMAGE_PATH);
   const img = new Image();
@@ -593,7 +605,7 @@ const buildOnePeninsulaHighlight = async (aptNum: string): Promise<string> => {
   ctx.drawImage(img, 0, 0);
 
   const raw = aptNum.trim();
-  const key = raw.replace(/^N/i, "");
+  const key = normalizeOnePeninsulaUnitNumber(raw);
   const points = ONE_PENINSULA_UNIT_POLYGONS[
     key as keyof typeof ONE_PENINSULA_UNIT_POLYGONS
   ];
@@ -628,7 +640,7 @@ const buildOnePeninsulaHighlight = async (aptNum: string): Promise<string> => {
     ctx.lineWidth = Math.max(4, W * 0.0025);
     ctx.strokeText(raw, centerX, centerY);
     ctx.fillStyle = "#e53e3e";
-    ctx.fillText(raw, centerX, centerY);
+    ctx.fillText(key, centerX, centerY);
   }
 
   return canvas.toDataURL("image/jpeg", 0.93);
