@@ -580,15 +580,25 @@ const buildCrownPlazaHighlight = async (aptNum: string): Promise<string> => {
 /* ─── One Peninsula floor-plan highlight helper ───────────────────────────── */
 
 const normalizeOnePeninsulaUnitNumber = (value: string): string => {
-  const latinDigits = value
+  const normalized = value
     .trim()
     .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
     .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-    .replace(/\s+/g, "")
-    .replace(/^N[-_]?/i, "");
+    .replace(/^N[-_\s]?/i, "");
 
-  const unitMatch = latinDigits.match(/(?:10[1-9]|11\d|12[0-6])/);
-  return unitMatch?.[0] ?? latinDigits;
+  const digitGroups = normalized.match(/\d+/g) ?? [];
+
+  for (const digits of digitGroups) {
+    const number = Number(digits);
+    if (number >= 101 && number <= 126) return String(number);
+
+    const unitSuffix = Number(digits.slice(-2));
+    if (unitSuffix >= 1 && unitSuffix <= 26) {
+      return String(100 + unitSuffix);
+    }
+  }
+
+  return normalized.replace(/\s+/g, "");
 };
 
 const buildOnePeninsulaHighlight = async (aptNum: string): Promise<string> => {
