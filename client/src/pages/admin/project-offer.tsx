@@ -85,6 +85,35 @@ const LANGUAGES = [
 
 const PAYMENT_PERCENTAGES = [5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
 
+const SECOND_PAYMENT_DATES = Array.from({ length: 48 }, (_, index) => String(index + 1));
+
+function getSecondPaymentDateLabel(value: string, lang: LangCode): string {
+  const months = Number(value);
+  if (!Number.isFinite(months) || months < 1) return "";
+
+  if (lang === "ar") {
+    const monthLabel = (count: number) =>
+      count === 1 ? "شهر" : count === 2 ? "شهرين" : `${count} أشهر`;
+    const yearLabel = (count: number) =>
+      count === 1 ? "سنة" : count === 2 ? "سنتين" : `${count} سنوات`;
+    if (months < 12) return `بعد ${monthLabel(months)}`;
+    const years = Math.floor(months / 12);
+    const remainingMonths = months % 12;
+    return remainingMonths === 0
+      ? `بعد ${yearLabel(years)}`
+      : `بعد ${yearLabel(years)} و${monthLabel(remainingMonths)}`;
+  }
+
+  const monthLabel = (count: number) => `${count} ${count === 1 ? "month" : "months"}`;
+  const yearLabel = (count: number) => `${count} ${count === 1 ? "year" : "years"}`;
+  if (months < 12) return `After ${monthLabel(months)}`;
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  return remainingMonths === 0
+    ? `After ${yearLabel(years)}`
+    : `After ${yearLabel(years)} and ${monthLabel(remainingMonths)}`;
+}
+
 function generateDeliveryDates() {
   const items: { value: string; label: string }[] = [];
   const months: Record<string, string[]> = {
@@ -152,6 +181,8 @@ const T: Record<string, Record<LangCode, string>> = {
   viewType:       { ar:"الإطلالة", en:"View", ru:"Вид", ka:"ხედი", az:"Mənzərə", tr:"Manzara", zh:"景观", pl:"Widok", he:"נוף", it:"Vista" },
   contact:        { ar:"للتواصل والاستفسار", en:"Contact & Inquiries", ru:"Связь и вопросы", ka:"კონტაქტი", az:"Əlaqə", tr:"İletişim ve Bilgi", zh:"联系与咨询", pl:"Kontakt i zapytania", he:"צור קשר", it:"Contatti e informazioni" },
   exclusiveOffer: { ar:"عرض حصري من شركة", en:"Exclusive offer presented by", ru:"Эксклюзивное предложение от", ka:"ექსკლუზიური შეთავაზება", az:"Eksklüziv təklif:", tr:"Özel Teklif — ", zh:"独家报价由", pl:"Oferta ekskluzywna od", he:"הצעה בלעדית מאת", it:"Offerta esclusiva di" },
+  secondPayment: { ar:"الدفعة الثانية", en:"Second Payment", ru:"Второй платёж", ka:"მეორე გადახდა", az:"İkinci ödəniş", tr:"İkinci Ödeme", zh:"第二笔付款", pl:"Druga wpłata", he:"תשלום שני", it:"Secondo pagamento" },
+  secondPaymentDate: { ar:"تاريخ الدفعة الثانية", en:"Second Payment Date", ru:"Дата второго платежа", ka:"მეორე გადახდის თარიღი", az:"İkinci ödəniş tarixi", tr:"İkinci Ödeme Tarihi", zh:"第二笔付款日期", pl:"Termin drugiej wpłaty", he:"מועד התשלום השני", it:"Data del secondo pagamento" },
 };
 
 function t(key: string, lang: LangCode): string {
@@ -623,6 +654,8 @@ export default function ProjectOfferPage() {
   const [totalArea, setTotalArea]               = useState("");
   const [pricePerMeter, setPricePerMeter]       = useState("");
   const [paymentPercent, setPaymentPercent]     = useState<number | null>(null);
+  const [secondPaymentPercent, setSecondPaymentPercent] = useState<number | null>(null);
+  const [secondPaymentDate, setSecondPaymentDate] = useState("");
   const [installments, setInstallments]         = useState("");
   const [deliveryType, setDeliveryType]         = useState("");
   const [deliveryDate, setDeliveryDate]         = useState("");
@@ -701,8 +734,9 @@ export default function ProjectOfferPage() {
   const discountVal      = discountPercent && parseFloat(discountPercent) > 0 ? parseFloat(discountPercent) : 0;
   const discountedPrice  = discountVal > 0 ? totalPrice * (1 - discountVal / 100) : totalPrice;
   const downPayment         = paymentPercent ? (discountedPrice * paymentPercent) / 100 : 0;
+  const secondPaymentAmount = secondPaymentPercent ? (discountedPrice * secondPaymentPercent) / 100 : 0;
   const finalPaymentAmount  = finalPaymentPercent ? (discountedPrice * finalPaymentPercent) / 100 : 0;
-  const remainingBalance    = discountedPrice - downPayment - finalPaymentAmount;
+  const remainingBalance    = Math.max(0, discountedPrice - downPayment - secondPaymentAmount - finalPaymentAmount);
   const monthlyInstall      = installments && parseInt(installments) > 0 ? remainingBalance / parseInt(installments) : 0;
 
   const toggleFloor = (f: number) =>
@@ -1156,6 +1190,52 @@ export default function ProjectOfferPage() {
               )}
             </div>
 
+            {/* Second payment */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block">الدفعة الثانية (%)</Label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {PAYMENT_PERCENTAGES.map((p) => (
+                    <button
+                      key={p} type="button"
+                      onClick={() => setSecondPaymentPercent(secondPaymentPercent === p ? null : p)}
+                      className={`py-1.5 rounded-md text-xs font-semibold border transition-all ${secondPaymentPercent === p ? "bg-[#3bcac4] text-white border-[#3bcac4] shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:border-[#3bcac4]"}`}
+                    >
+                      {p}%
+                    </button>
+                  ))}
+                </div>
+                {secondPaymentPercent && discountedPrice > 0 && (
+                  <div className="mt-2 rounded-lg border border-[#3bcac4]/30 bg-[#3bcac4]/5 p-2 text-center">
+                    <div className="text-xs text-gray-500 mb-0.5">مبلغ الدفعة الثانية</div>
+                    <div className="font-bold text-[#005476]">${fmt(secondPaymentAmount)}</div>
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block">تاريخ الدفعة الثانية</Label>
+                <Select value={secondPaymentDate} onValueChange={setSecondPaymentDate}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="اختر موعد الدفعة الثانية" /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {SECOND_PAYMENT_DATES.map((months) => (
+                      <SelectItem key={months} value={months}>
+                        {getSecondPaymentDateLabel(months, "ar")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {secondPaymentDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSecondPaymentDate("")}
+                    className="mt-1 text-xs text-gray-400 hover:text-red-500"
+                  >
+                    ✕ إزالة التاريخ
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Final Payment on Delivery */}
             <div>
               <Label className="text-xs text-gray-500 mb-1.5 block">الدفعة الأخيرة عند التسليم (%)</Label>
@@ -1274,6 +1354,9 @@ export default function ProjectOfferPage() {
             discountedPrice={discountedPrice}
             paymentPercent={paymentPercent}
             downPayment={downPayment}
+            secondPaymentPercent={secondPaymentPercent}
+            secondPaymentAmount={secondPaymentAmount}
+            secondPaymentDate={secondPaymentDate}
             finalPaymentPercent={finalPaymentPercent}
             finalPaymentAmount={finalPaymentAmount}
             remainingBalance={remainingBalance}
@@ -1285,6 +1368,7 @@ export default function ProjectOfferPage() {
             getDelivLabel={getDelivLabel}
             getViewLabel={getViewLabel}
             getDateLabel={getDateLabel}
+            getSecondPaymentDateLabel={getSecondPaymentDateLabel}
             floorsLabel={floorsLabel}
             fmt={fmt}
             viewType={viewType}
@@ -1305,9 +1389,10 @@ function PDFTemplate({
   project, b64Images, floorPlanB64, flagB64, lang, isRTL,
   apartmentType, selectedBlock, selectedFloors, apartmentNumber, totalArea, pricePerMeter,
   totalPrice, discountVal, discountedPrice, paymentPercent, downPayment,
+  secondPaymentPercent, secondPaymentAmount, secondPaymentDate,
   finalPaymentPercent, finalPaymentAmount, remainingBalance,
   installments, monthlyInstall, deliveryType, deliveryDate,
-  getAptLabel, getDelivLabel, getViewLabel, getDateLabel, floorsLabel, fmt,
+  getAptLabel, getDelivLabel, getViewLabel, getDateLabel, getSecondPaymentDateLabel, floorsLabel, fmt,
   viewType, silkHighlightB64, petraHighlightB64, ambassadoriHighlightB64, crownPlazaHighlightB64
 }: any) {
 
@@ -1340,6 +1425,10 @@ function PDFTemplate({
   }
   if (paymentPercent && discountedPrice > 0)
     rows.push({ label: `${t("downPayment",lang)} — ${paymentPercent}%`,  value: `$${fmt(downPayment)}` });
+  if (secondPaymentPercent && discountedPrice > 0)
+    rows.push({ label: `${t("secondPayment",lang)} — ${secondPaymentPercent}%`, value: `$${fmt(secondPaymentAmount)}` });
+  if (secondPaymentDate)
+    rows.push({ label: t("secondPaymentDate",lang), value: getSecondPaymentDateLabel(secondPaymentDate, lang) });
   if (finalPaymentPercent && discountedPrice > 0)
     rows.push({ label: `${t("finalPayment",lang)} — ${finalPaymentPercent}%`, value: `$${fmt(finalPaymentAmount)}` });
   if ((paymentPercent || finalPaymentPercent) && discountedPrice > 0)
