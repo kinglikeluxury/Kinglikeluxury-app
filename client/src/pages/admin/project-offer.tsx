@@ -20,6 +20,11 @@ import fp2 from "@assets/20260515_125957_0000_1778839490183.png";
 import fp3 from "@assets/20260515_125940_0000_1778839490192.png";
 import fp4 from "@assets/20260515_125858_0000_1778839490192.png";
 import fp5 from "@assets/20260515_125830_0000_1778839490193.png";
+import {
+  ONE_PENINSULA_IMAGE_PATH,
+  ONE_PENINSULA_PROPERTY_ID,
+  ONE_PENINSULA_UNIT_POLYGONS,
+} from "@/lib/floorPlans/onePeninsula";
 
 const FLOOR_PLANS = [
   { id: "fp1", src: fp1, label: "4 غرف" },
@@ -539,6 +544,65 @@ const buildCrownPlazaHighlight = async (aptNum: string): Promise<string> => {
   return canvas.toDataURL("image/jpeg", 0.93);
 };
 
+/* ─── One Peninsula floor-plan highlight helper ───────────────────────────── */
+
+const buildOnePeninsulaHighlight = async (aptNum: string): Promise<string> => {
+  const dataUrl = await imgToBase64(ONE_PENINSULA_IMAGE_PATH);
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  const raw = aptNum.trim();
+  const key = raw.replace(/^N/i, "");
+  const points = ONE_PENINSULA_UNIT_POLYGONS[
+    key as keyof typeof ONE_PENINSULA_UNIT_POLYGONS
+  ];
+
+  if (points) {
+    const W = canvas.width;
+    const H = canvas.height;
+    ctx.beginPath();
+    points.forEach(([x, y], index) => {
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+
+    ctx.fillStyle = "rgba(59,202,196,0.30)";
+    ctx.fill();
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.lineWidth = Math.max(7, W * 0.0055);
+    ctx.stroke();
+    ctx.strokeStyle = "#e53e3e";
+    ctx.lineWidth = Math.max(3, W * 0.0028);
+    ctx.stroke();
+
+    const centerX = points.reduce((sum, [x]) => sum + x, 0) / points.length;
+    const centerY = points.reduce((sum, [, y]) => sum + y, 0) / points.length;
+    ctx.font = `bold ${Math.round(W * 0.022)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.lineWidth = Math.max(4, W * 0.0025);
+    ctx.strokeText(raw, centerX, centerY);
+    ctx.fillStyle = "#e53e3e";
+    ctx.fillText(raw, centerX, centerY);
+  }
+
+  return canvas.toDataURL("image/jpeg", 0.93);
+};
+
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function ProjectOfferPage() {
@@ -716,10 +780,14 @@ export default function ProjectOfferPage() {
       const isPetra       = /petra\s*sea/i.test(selectedProject.title ?? "")  || /بترا\s*سي/i.test(selectedProject.title ?? "");
       const isAmbassadori = /ambassadori/i.test(selectedProject.title ?? "")  || /أمباسادوري/i.test(selectedProject.title ?? "");
       const isCrownPlaza  = /crown\s*plaza/i.test(selectedProject.title ?? "") || /كراون\s*بلازا/i.test(selectedProject.title ?? "");
+      const isOnePeninsula = selectedProject.id === ONE_PENINSULA_PROPERTY_ID
+        || /one\s*peninsula/i.test(selectedProject.title ?? "");
 
-      const [loaded, fpB64, silkB64, petraB64, ambB64, crownPlazaB64] = await Promise.all([
+      const [loaded, fpB64, silkB64, petraB64, ambB64, crownPlazaB64, onePeninsulaB64] = await Promise.all([
         Promise.all(rawUrls.map((u: string) => imgToBase64(u))),
-        selectedFloorPlan ? imgToBase64(selectedFloorPlan) : Promise.resolve(""),
+        isOnePeninsula
+          ? buildOnePeninsulaHighlight(apartmentNumber).catch((e) => { console.error("One Peninsula floor plan error:", e); return ""; })
+          : selectedFloorPlan ? imgToBase64(selectedFloorPlan) : Promise.resolve(""),
         isSilk && apartmentNumber.trim()
           ? buildSilkTowersHighlight(apartmentNumber).catch(() => "")
           : Promise.resolve(""),
@@ -737,7 +805,7 @@ export default function ProjectOfferPage() {
       // Force-sync all state updates into the DOM in one shot before capture
       flushSync(() => {
         setB64Images(loaded);
-        setFloorPlanB64(fpB64);
+        setFloorPlanB64(isOnePeninsula ? onePeninsulaB64 : fpB64);
         setFlagB64(makeGeorgiaFlagB64());
         setSilkHighlightB64(silkB64);
         setPetraHighlightB64(petraB64);
