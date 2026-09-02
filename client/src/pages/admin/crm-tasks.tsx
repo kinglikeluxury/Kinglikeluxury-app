@@ -305,6 +305,12 @@ export default function CrmTasksPage() {
     staleTime: 60_000,
   });
 
+  useEffect(() => {
+    if (data && page > data.totalPages) {
+      setPage(data.totalPages);
+    }
+  }, [data, page]);
+
   const completeMutation = useMutation({
     mutationFn: async (task: TaskRow) => {
       setCompletingId(task.id);

@@ -160,7 +160,7 @@ export interface IStorage {
   getCrmTasks(leadId: number): Promise<import("@shared/schema").CrmTask[]>;
   createCrmTask(data: import("@shared/schema").InsertCrmTask): Promise<import("@shared/schema").CrmTask>;
   updateCrmTask(id: number, data: Partial<import("@shared/schema").CrmTask>): Promise<import("@shared/schema").CrmTask | undefined>;
-  deleteCrmTask(id: number): Promise<boolean>;
+  deleteCrmTask(id: number, leadId?: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -600,7 +600,7 @@ export class MemStorage implements IStorage {
   async getCrmTasks(_leadId: number): Promise<import("@shared/schema").CrmTask[]> { return []; }
   async createCrmTask(_data: import("@shared/schema").InsertCrmTask): Promise<import("@shared/schema").CrmTask> { throw new Error("Not implemented"); }
   async updateCrmTask(_id: number, _data: Partial<import("@shared/schema").CrmTask>): Promise<import("@shared/schema").CrmTask | undefined> { return undefined; }
-  async deleteCrmTask(_id: number): Promise<boolean> { return false; }
+  async deleteCrmTask(_id: number, _leadId?: number): Promise<boolean> { return false; }
 }
 
 // Import the DatabaseStorage class

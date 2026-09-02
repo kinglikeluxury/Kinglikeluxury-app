@@ -5289,7 +5289,16 @@ ${metaTags}
         const parsed = Number(value);
         return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
       };
-      const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+      const validDate = (value: string) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+        const [year, month, day] = value.split("-").map(Number);
+        const parsed = new Date(Date.UTC(year, month - 1, day));
+        return parsed.getUTCFullYear() === year &&
+          parsed.getUTCMonth() === month - 1 &&
+          parsed.getUTCDate() === day
+          ? value
+          : "";
+      };
       const dateAtOffset = (offset: number) => {
         const date = new Date();
         date.setUTCHours(12, 0, 0, 0);
@@ -5305,12 +5314,30 @@ ${metaTags}
       const limit = Math.min(50, Math.max(1, Number.parseInt(queryString("limit") || "25", 10) || 25));
       const offset = (page - 1) * limit;
       const search = queryString("search");
-      const priority = queryString("priority");
+      const priority = queryString("priority").toLowerCase();
       const status = queryString("status").toLowerCase();
       const datePreset = queryString("datePreset").toLowerCase();
       const sort = queryString("sort").toLowerCase();
-      const dateFrom = validDate(queryString("dateFrom"));
-      const dateTo = validDate(queryString("dateTo"));
+      const rawDateFrom = queryString("dateFrom");
+      const rawDateTo = queryString("dateTo");
+      const dateFrom = validDate(rawDateFrom);
+      const dateTo = validDate(rawDateTo);
+      const allowedPriorities = new Set(["high", "medium", "low"]);
+      const allowedStatuses = new Set(["", "pending", "completed", "overdue"]);
+      const allowedDatePresets = new Set(["", "today", "tomorrow", "this_week", "overdue", "upcoming", "completed", "custom"]);
+      const allowedSorts = new Set(["", "operational", "due_asc", "due_desc", "priority", "created_desc"]);
+
+      if (
+        (priority && !allowedPriorities.has(priority.toLowerCase())) ||
+        !allowedStatuses.has(status) ||
+        !allowedDatePresets.has(datePreset) ||
+        !allowedSorts.has(sort) ||
+        (rawDateFrom && !dateFrom) ||
+        (rawDateTo && !dateTo) ||
+        (dateFrom && dateTo && dateFrom > dateTo)
+      ) {
+        return res.status(400).json({ message: "Invalid CRM task filter" });
+      }
 
       const baseParams: unknown[] = [];
       const addBaseParam = (value: unknown) => {
@@ -5324,11 +5351,19 @@ ${metaTags}
       if (!req.session.isAdmin) {
         baseWhere.push(`l.assigned_to = ${addBaseParam(req.session.userId)}`);
       } else {
-        const assignedTo = positiveId(queryString("assignedTo"));
+        const rawAssignedTo = queryString("assignedTo");
+        const assignedTo = positiveId(rawAssignedTo);
+        if (rawAssignedTo && !assignedTo) {
+          return res.status(400).json({ message: "Invalid assigned employee filter" });
+        }
         if (assignedTo) baseWhere.push(`l.assigned_to = ${addBaseParam(assignedTo)}`);
       }
 
-      const createdBy = req.session.isAdmin ? positiveId(queryString("createdBy")) : null;
+      const rawCreatedBy = req.session.isAdmin ? queryString("createdBy") : "";
+      const createdBy = positiveId(rawCreatedBy);
+      if (rawCreatedBy && !createdBy) {
+        return res.status(400).json({ message: "Invalid creator filter" });
+      }
       if (createdBy) baseWhere.push(`t.created_by = ${addBaseParam(createdBy)}`);
       if (priority && priority.length <= 40) {
         baseWhere.push(`t.priority = ${addBaseParam(priority)}`);
@@ -5589,10 +5624,12 @@ ${metaTags}
     if (!req.session.isAdmin && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied" });
     try {
+      const leadId = Number(req.params.id);
+      const taskId = Number(req.params.taskId);
       // Fetch task before deletion so we can include its title in the notification
-      const tasksBefore = !req.session.isAdmin ? await storage.getCrmTasks(Number(req.params.id)) : [];
-      const taskToDelete = tasksBefore.find(t => t.id === Number(req.params.taskId));
-      const ok = await storage.deleteCrmTask(Number(req.params.taskId));
+      const taskToDelete = (await storage.getCrmTasks(leadId)).find(t => t.id === taskId);
+      if (!taskToDelete) return res.status(404).json({ message: "Task not found" });
+      const ok = await storage.deleteCrmTask(taskId, leadId);
       if (!ok) return res.status(404).json({ message: "Task not found" });
       res.json({ success: true });
       // Notify admin when a sub-admin / employee deletes a task

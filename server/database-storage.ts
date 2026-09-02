@@ -1225,8 +1225,11 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async deleteCrmTask(id: number): Promise<boolean> {
-    const result = await db.delete(crmTasks).where(eq(crmTasks.id, id)).returning();
+  async deleteCrmTask(id: number, leadId?: number): Promise<boolean> {
+    const taskCondition = leadId === undefined
+      ? eq(crmTasks.id, id)
+      : and(eq(crmTasks.id, id), eq(crmTasks.leadId, leadId));
+    const result = await db.delete(crmTasks).where(taskCondition).returning();
     return result.length > 0;
   }
 }
