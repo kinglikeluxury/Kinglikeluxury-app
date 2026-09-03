@@ -72,4 +72,3 @@ META_LEAD_PULL_SYNC_ENABLED = "true"
 EMAIL_NURTURING_ENABLED = "true"
 
 [userenv.development]
-ENABLE_BACKGROUND_SCHEDULERS = "false"
