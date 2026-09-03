@@ -61,6 +61,7 @@ import CrmTasksPage from "@/pages/admin/crm-tasks";
 import AiMarketingCenterPage from "@/pages/admin/ai-marketing-center";
 import BroadcastPage from "@/pages/admin/broadcast";
 import CompetitorIntelligencePage from "@/pages/admin/competitor-intelligence";
+import KayControlCenterPage from "@/pages/admin/kay-control-center";
 import InvestGeorgiaIl from "@/pages/invest-georgia-il";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
@@ -118,6 +119,7 @@ function Router() {
           <Route path="/admin/ai-marketing-center" component={AiMarketingCenterPage} />
           <Route path="/admin/broadcast" component={BroadcastPage} />
           <Route path="/admin/competitor-intelligence" component={CompetitorIntelligencePage} />
+          <Route path="/admin/kay-control-center" component={KayControlCenterPage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />

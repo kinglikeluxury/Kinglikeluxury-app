@@ -34,7 +34,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
 import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
-import { logDatabaseStatus, ensureCrmIndexes, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, ensureKayTables, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables } from "./db";
 import { ensureMetaIntelligenceTables } from "./metaIntelligenceSyncService";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { ensureAssignmentCursor } from "./leadAssignmentService";
@@ -363,6 +363,7 @@ app.use((req, res, next) => {
   const bootSteps: Array<{ name: string; run: () => Promise<void> }> = [
     { name: "logDatabaseStatus", run: () => logDatabaseStatus() },
     { name: "ensureCrmIndexes", run: () => ensureCrmIndexes() },
+    { name: "ensureKayTables", run: () => ensureKayTables() },
     { name: "ensureAssignmentCursor", run: () => ensureAssignmentCursor() },
     { name: "ensureCrmLeadEmailLogTable", run: () => ensureCrmLeadEmailLogTable() },
     {

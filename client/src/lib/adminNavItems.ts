@@ -25,6 +25,7 @@ import {
   Rocket,
   RadioTower,
   Swords,
+  Bot,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -225,6 +226,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Email Broadcast",
     path: "/admin/broadcast",
     Icon: RadioTower,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.kayControlCenter",
+    labelFallback: "Kay Control Center",
+    path: "/admin/kay-control-center",
+    Icon: Bot,
     iconColorHex: "#3bcac4",
     highlight: true,
   },

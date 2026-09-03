@@ -131,6 +131,45 @@ export async function ensureCrmIndexes(): Promise<void> {
   }
 }
 
+/** Kay Phase A tables are additive and its default is always the safe shadow mode. */
+export async function ensureKayTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS kay_events (
+        id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        employee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        event_type TEXT NOT NULL, event_source TEXT NOT NULL DEFAULT 'crm',
+        previous_value JSONB, new_value JSONB, metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        kay_generated BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS kay_decisions (
+        id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+        event_id INTEGER REFERENCES kay_events(id) ON DELETE SET NULL,
+        decision_type TEXT NOT NULL, mode TEXT NOT NULL, rationale TEXT NOT NULL,
+        payload JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS kay_settings (
+        key TEXT PRIMARY KEY, value JSONB NOT NULL,
+        updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS kay_events_lead_created_at_idx ON kay_events(lead_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS kay_events_created_at_idx ON kay_events(created_at DESC);
+      CREATE INDEX IF NOT EXISTS kay_decisions_lead_created_at_idx ON kay_decisions(lead_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS kay_decisions_created_at_idx ON kay_decisions(created_at DESC);
+      INSERT INTO kay_settings (key, value) VALUES ('mode', '{"mode":"shadow"}'::jsonb)
+      ON CONFLICT (key) DO NOTHING;
+    `);
+    console.log("[DB] Kay Phase A tables ensured");
+  } catch (err: any) {
+    console.warn("[DB] Could not create Kay Phase A tables:", err.message);
+  } finally {
+    client.release();
+  }
+}
+
 /**
  * Creates the Meta Lead Ads import tables if they don't exist.
  * Safe to run on every startup — all statements use IF NOT EXISTS.

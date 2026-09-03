@@ -41,6 +41,7 @@ import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate, sendEmailOtp } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
+import { getKayControlSnapshot, setKayMode, validateKayModeUpdate } from "./kayService";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -469,6 +470,26 @@ ${metaTags}
     }
     res.status(403).json({ message: "Not authorized" });
   };
+
+  // ─── Kay Zero Max Phase A — admin-only, observation-only control center ───
+  app.get("/api/admin/kay/control", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      res.json(await getKayControlSnapshot());
+    } catch (err: any) {
+      res.status(500).json({ message: "Unable to load Kay control data." });
+    }
+  });
+
+  app.put("/api/admin/kay/settings/mode", isAuthenticated, isAdmin, async (req: any, res) => {
+    const validation = validateKayModeUpdate(req.body);
+    if (!validation.ok) return res.status(400).json({ message: validation.message });
+    try {
+      await setKayMode(validation.mode, req.session.userId);
+      res.json({ mode: validation.mode });
+    } catch (_err) {
+      res.status(500).json({ message: "Unable to update Kay mode." });
+    }
+  });
 
   // Digital Asset Links for TWA (Trusted Web Activity) - Required for Google Play
   app.get("/.well-known/assetlinks.json", (req, res) => {
@@ -4590,6 +4611,11 @@ ${metaTags}
           })
         ).catch(() => {});
       }
+      // Kay is strictly best-effort observation. This call is intentionally not
+      // awaited, so a ledger outage can never change a successful CRM outcome.
+      void import("./kayService").then(({ safelyObserveLeadCreated }) =>
+        safelyObserveLeadCreated(lead, req.session.userId)
+      ).catch(() => {});
       // Admin + client welcome emails for every new lead (fire-and-forget)
       import("./crmLeadEmailService").then(({ sendNewLeadNotifications }) =>
         sendNewLeadNotifications({

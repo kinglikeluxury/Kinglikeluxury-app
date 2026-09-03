@@ -698,6 +698,50 @@ export const leadImportAuditLog = pgTable("lead_import_audit_log", {
 
 export type LeadImportAuditLog = typeof leadImportAuditLog.$inferSelect;
 
+// ── Kay Zero Max — Phase A observation foundation ────────────────────────────
+// These records are append-only at the application layer. They intentionally
+// sit beside CRM data and never change CRM statuses, assignments, or filters.
+export const kayEvents = pgTable("kay_events", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  employeeId: integer("employee_id").references(() => users.id, { onDelete: "set null" }),
+  eventType: text("event_type").notNull(),
+  eventSource: text("event_source").notNull().default("crm"),
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  metadata: jsonb("metadata").notNull().default({}),
+  kayGenerated: boolean("kay_generated").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  leadCreatedAtIdx: index("kay_events_lead_created_at_idx").on(table.leadId, table.createdAt),
+  createdAtIdx: index("kay_events_created_at_idx").on(table.createdAt),
+}));
+export type KayEvent = typeof kayEvents.$inferSelect;
+
+export const kayDecisions = pgTable("kay_decisions", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  eventId: integer("event_id").references(() => kayEvents.id, { onDelete: "set null" }),
+  decisionType: text("decision_type").notNull(),
+  mode: text("mode").notNull(),
+  rationale: text("rationale").notNull(),
+  payload: jsonb("payload").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  leadCreatedAtIdx: index("kay_decisions_lead_created_at_idx").on(table.leadId, table.createdAt),
+  createdAtIdx: index("kay_decisions_created_at_idx").on(table.createdAt),
+}));
+export type KayDecision = typeof kayDecisions.$inferSelect;
+
+export const kaySettings = pgTable("kay_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type KaySetting = typeof kaySettings.$inferSelect;
+
 // ── WhatsApp AI Qualification System (Phase 1 — internal only) ───────────────
 
 export const whatsappAiConversations = pgTable("whatsapp_ai_conversations", {
