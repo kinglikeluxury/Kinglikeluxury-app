@@ -1171,10 +1171,18 @@ export class DatabaseStorage implements IStorage {
 
   async updateCrmLead(id: number, data: Partial<CrmLead>): Promise<CrmLead | undefined> {
     const { id: _id, createdAt: _c, ...safe } = data as any;
+    // Read only to determine whether an independent Kay post-commit observation
+    // is needed; the CRM write below remains authoritative.
+    const [before] = await db.select().from(crmLeads).where(eq(crmLeads.id, id)).limit(1);
     const [row] = await db.update(crmLeads)
       .set({ ...safe, updatedAt: new Date() })
       .where(eq(crmLeads.id, id))
       .returning();
+    if (row && before && before.assignedTo !== row.assignedTo) {
+      void import("./kayService").then(({ observeLeadAssignmentAfterCommit }) =>
+        observeLeadAssignmentAfterCommit(row.id, before.assignedTo, row.assignedTo)
+      ).catch(() => {});
+    }
     return row;
   }
 

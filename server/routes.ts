@@ -16,7 +16,7 @@ import {
   insertBlogPostSchema,
   PROPERTY_TYPES,
   PROPERTY_STATUS,
-  crmLeads,
+  crmLeads, kaySettings, kayEvents,
 } from "@shared/schema";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
@@ -41,7 +41,7 @@ import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate, sendEmailOtp } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
-import { getKayControlSnapshot, setKayMode, validateKayModeUpdate } from "./kayService";
+import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { requireKayAdmin } from "./kayAuth";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
@@ -490,6 +490,51 @@ ${metaTags}
     } catch (_err) {
       res.status(500).json({ message: "Unable to update Kay mode." });
     }
+  });
+
+  // Phase B is an admin-only, bounded shadow configuration. There is no rescue
+  // execution endpoint anywhere in this router.
+  app.get("/api/admin/kay/settings/rescue", requireKayAdmin, async (_req, res) => {
+    res.json(await getRescueSettings());
+  });
+  app.put("/api/admin/kay/settings/rescue", requireKayAdmin, async (req: any, res) => {
+    const parsed = rescueSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid shadow rescue settings." });
+    try {
+      await db.transaction(async tx => {
+        await tx.insert(kaySettings).values({ key: "rescue_rules", value: { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, rescue_enabled: false }, updatedBy: null }).onConflictDoNothing();
+        const [current] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).for("update").limit(1);
+        const before = rescueSettingsSchema.safeParse(current?.value).data ?? null;
+        await tx.insert(kaySettings).values({ key: "rescue_rules", value: parsed.data, updatedBy: req.session.userId, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: kaySettings.key, set: { value: parsed.data, updatedBy: req.session.userId, updatedAt: new Date() } });
+        await tx.insert(kayEvents).values({ userId: req.session.userId, eventType: "kay_rule_changed", eventSource: "admin",
+          previousValue: before, newValue: parsed.data, metadata: { setting: "rescue_rules", phase: "B", shadow: true }, kayGenerated: false });
+      });
+      res.json(parsed.data);
+    } catch { res.status(500).json({ message: "Unable to update rescue settings." }); }
+  });
+  app.put("/api/admin/kay/leads/:leadId/protection", requireKayAdmin, async (req: any, res) => {
+    const leadId = Number(req.params.leadId);
+    const parsed = z.object({ protected: z.boolean(), reason: z.string().max(120).optional().default(""), note: z.string().max(1000).nullable().optional() }).strict().safeParse(req.body);
+    if (!Number.isInteger(leadId) || leadId < 1 || !parsed.success) return res.status(400).json({ message: "Invalid protection request." });
+    const [lead] = await db.select({ id: crmLeads.id }).from(crmLeads).where(eq(crmLeads.id, leadId)).limit(1);
+    if (!lead) return res.status(404).json({ message: "Lead not found." });
+    try {
+      await setLeadProtection(leadId, parsed.data.reason, parsed.data.note ?? null, req.session.userId, parsed.data.protected);
+      res.json({ leadId, protected: parsed.data.protected, shadow: true });
+    } catch (error: any) { res.status(400).json({ message: error.message || "Unable to change protection." }); }
+  });
+  app.get("/api/admin/kay/leads/:leadId/protection", requireKayAdmin, async (req, res) => {
+    const leadId = Number(req.params.leadId);
+    if (!Number.isInteger(leadId) || leadId < 1) return res.status(400).json({ message: "Invalid lead id." });
+    const result = await db.execute(drizzleSql`SELECT p.*, u.username AS protected_by_name FROM kay_lead_protection p LEFT JOIN users u ON u.id=p.protected_by WHERE p.lead_id=${leadId} AND p.removed_at IS NULL LIMIT 1`);
+    res.json({ protection: result.rows[0] ?? null });
+  });
+  app.post("/api/admin/kay/rescue/evaluate", requireKayAdmin, async (_req, res) => {
+    try {
+      await enqueueKayEvaluationScan();
+      res.json({ ...(await runKayShadowEvaluator()), shadow: true });
+    } catch { res.status(500).json({ message: "Kay evaluator could not complete; CRM was not affected." }); }
   });
 
   // Digital Asset Links for TWA (Trusted Web Activity) - Required for Google Play

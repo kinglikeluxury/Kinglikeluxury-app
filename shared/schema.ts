@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -732,6 +733,7 @@ export const kayDecisions = pgTable("kay_decisions", {
 }, (table) => ({
   leadCreatedAtIdx: index("kay_decisions_lead_created_at_idx").on(table.leadId, table.createdAt),
   createdAtIdx: index("kay_decisions_created_at_idx").on(table.createdAt),
+  eventIdUniqueIdx: uniqueIndex("kay_decisions_event_id_unique_idx").on(table.eventId),
 }));
 export type KayDecision = typeof kayDecisions.$inferSelect;
 
@@ -742,6 +744,42 @@ export const kaySettings = pgTable("kay_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type KaySetting = typeof kaySettings.$inferSelect;
+
+// ── Kay Phase B — shadow-only lead safety ledger ────────────────────────────
+// These tables deliberately have no FK-triggered CRM writes.  They are an
+// append-only observation/control plane beside the CRM.
+export const kayLeadStatusHistory = pgTable("kay_lead_status_history", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  status: text("status").notNull(),
+  enteredAt: timestamp("entered_at").notNull(),
+  observedBy: integer("observed_by").references(() => users.id, { onDelete: "set null" }),
+  eventKey: text("event_key").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({ leadEnteredIdx: index("kay_status_lead_entered_idx").on(table.leadId, table.enteredAt) }));
+
+export const kayLeadProtection = pgTable("kay_lead_protection", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").unique().references(() => crmLeads.id, { onDelete: "set null" }),
+  reason: text("reason").notNull(),
+  note: text("note"),
+  protectedBy: integer("protected_by").references(() => users.id, { onDelete: "set null" }),
+  protectedAt: timestamp("protected_at").defaultNow().notNull(),
+  removedBy: integer("removed_by").references(() => users.id, { onDelete: "set null" }),
+  removedAt: timestamp("removed_at"),
+});
+
+export const leadAssignmentHistory = pgTable("lead_assignment_history", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  fromUserId: integer("from_user_id").references(() => users.id, { onDelete: "set null" }),
+  toUserId: integer("to_user_id").references(() => users.id, { onDelete: "set null" }),
+  reason: text("reason").notNull().default("crm_assignment"),
+  automatic: boolean("automatic").notNull().default(false),
+  kayDecisionId: integer("kay_decision_id").references(() => kayDecisions.id, { onDelete: "set null" }),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+}, (table) => ({ leadAssignedIdx: index("lead_assignment_lead_assigned_idx").on(table.leadId, table.assignedAt) }));
 
 // ── WhatsApp AI Qualification System (Phase 1 — internal only) ───────────────
 

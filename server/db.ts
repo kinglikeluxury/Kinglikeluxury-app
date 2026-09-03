@@ -163,8 +163,67 @@ export async function ensureKayTables(): Promise<void> {
         ON kay_events(idempotency_key) WHERE idempotency_key IS NOT NULL;
       CREATE INDEX IF NOT EXISTS kay_decisions_lead_created_at_idx ON kay_decisions(lead_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS kay_decisions_created_at_idx ON kay_decisions(created_at DESC);
+       CREATE UNIQUE INDEX IF NOT EXISTS kay_decisions_event_id_unique_idx
+         ON kay_decisions(event_id);
       INSERT INTO kay_settings (key, value) VALUES ('mode', '{"mode":"shadow"}'::jsonb)
       ON CONFLICT (key) DO NOTHING;
+       CREATE TABLE IF NOT EXISTS kay_lead_status_history (
+         id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+         status TEXT NOT NULL, entered_at TIMESTAMP NOT NULL, observed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+         event_key TEXT NOT NULL UNIQUE, created_at TIMESTAMP NOT NULL DEFAULT NOW()
+       );
+       CREATE TABLE IF NOT EXISTS kay_lead_protection (
+         id SERIAL PRIMARY KEY, lead_id INTEGER UNIQUE REFERENCES crm_leads(id) ON DELETE SET NULL,
+         reason TEXT NOT NULL, note TEXT, protected_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+         protected_at TIMESTAMP NOT NULL DEFAULT NOW(), removed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+         removed_at TIMESTAMP
+       );
+       CREATE TABLE IF NOT EXISTS lead_assignment_history (
+         id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+         from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, to_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+         reason TEXT NOT NULL DEFAULT 'crm_assignment', automatic BOOLEAN NOT NULL DEFAULT false,
+         kay_decision_id INTEGER REFERENCES kay_decisions(id) ON DELETE SET NULL,
+         assigned_at TIMESTAMP NOT NULL DEFAULT NOW(), ended_at TIMESTAMP
+       );
+       CREATE INDEX IF NOT EXISTS kay_status_lead_entered_idx ON kay_lead_status_history(lead_id, entered_at DESC);
+       CREATE INDEX IF NOT EXISTS lead_assignment_lead_assigned_idx ON lead_assignment_history(lead_id, assigned_at DESC);
+       CREATE TABLE IF NOT EXISTS kay_evaluator_queue (
+         id SERIAL PRIMARY KEY, queue_key TEXT NOT NULL UNIQUE, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+         status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, available_at TIMESTAMP NOT NULL DEFAULT NOW(),
+         claimed_at TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+       );
+       CREATE INDEX IF NOT EXISTS kay_evaluator_queue_claim_idx ON kay_evaluator_queue(status, available_at, id);
+       -- Exact status-entry observation is database-local, ordered with the CRM
+       -- write, and exception-isolated so Kay can never reject a CRM mutation.
+       CREATE OR REPLACE FUNCTION kay_capture_crm_lead_status_entry() RETURNS trigger AS $$
+       DECLARE capture_time timestamp := clock_timestamp(); capture_key text;
+       BEGIN
+         IF TG_OP = 'UPDATE' AND OLD.status IS NOT DISTINCT FROM NEW.status THEN RETURN NEW; END IF;
+         capture_key := 'status_entry:' || NEW.id || ':' || NEW.status || ':' || txid_current() || ':' || extract(epoch FROM capture_time)::bigint || ':' || extract(microseconds FROM capture_time)::bigint;
+         INSERT INTO kay_lead_status_history (lead_id, status, entered_at, event_key)
+           VALUES (NEW.id, NEW.status, capture_time, capture_key) ON CONFLICT (event_key) DO NOTHING;
+          UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
+            WHERE lead_id=NEW.id
+              AND event_id IN (SELECT id FROM kay_events WHERE event_type='shadow_rescue_evaluated')
+              AND payload->>'state' IN ('ACTIVE','BLOCKED')
+              AND payload->>'status' IS DISTINCT FROM NEW.status;
+          UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
+            WHERE lead_id=NEW.id AND decision_type='unprotected_opportunity'
+              AND payload->>'state'='ACTIVE'
+              AND payload->>'status' IS DISTINCT FROM NEW.status;
+          RETURN NEW;
+       EXCEPTION WHEN OTHERS THEN
+         RETURN NEW;
+       END; $$ LANGUAGE plpgsql;
+       DO $$ BEGIN
+         IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='kay_crm_lead_status_entry_trigger') THEN
+           CREATE TRIGGER kay_crm_lead_status_entry_trigger AFTER INSERT OR UPDATE OF status ON crm_leads
+             FOR EACH ROW EXECUTE FUNCTION kay_capture_crm_lead_status_entry();
+         END IF;
+       END $$;
+       INSERT INTO kay_settings (key, value) VALUES
+         ('rescue_rules', '{"no_answer_1_threshold_hours":24,"no_answer_2_threshold_hours":24,"max_human_rescue_attempts":2,"rescue_warning_minutes":30,"rescue_enabled":false}'::jsonb)
+       ON CONFLICT (key) DO NOTHING;
     `);
     console.log("[DB] Kay Phase A tables ensured");
   } catch (err: any) {

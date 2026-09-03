@@ -60,5 +60,5 @@ test("Kay admin inspection data is bounded and sanitized", () => {
   const source = readFileSync("server/kayService.ts", "utf8");
   const snapshot = source.slice(source.indexOf("export async function getKayControlSnapshot"));
   assert.equal(snapshot.match(/\.limit\(30\)/g)?.length, 2);
-  assert.equal(snapshot.match(/sanitizeKayJson/g)?.length, 2);
+  assert.equal(snapshot.match(/sanitizeKayJson/g)?.length, 3);
 });

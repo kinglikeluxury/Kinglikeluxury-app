@@ -335,6 +335,16 @@ export default function CrmLeadDetailPage() {
     }),
     enabled: isCrmAuthorized,
   });
+  const { data: kayProtection, refetch: refetchKayProtection } = useQuery<{ protection: { reason: string; note?: string | null; protected_at?: string; protected_by_name?: string } | null }>({
+    queryKey: ["/api/admin/kay/leads", leadId, "protection"],
+    queryFn: () => fetch(`/api/admin/kay/leads/${leadId}/protection`).then(r => r.ok ? r.json() : { protection: null }),
+    enabled: isCrmAuthorized && !!leadId && !!user?.isAdmin,
+  });
+  const protectionMutation = useMutation({
+    mutationFn: (protectedValue: boolean) => apiRequest("PUT", `/api/admin/kay/leads/${leadId}/protection`, { protected: protectedValue, reason: protectedValue ? "Admin protected lead" : "" }),
+    onSuccess: () => { refetchKayProtection(); toast({ title: "Protected Lead updated" }); },
+    onError: (e: any) => toast({ title: "Unable to update protection", description: e.message, variant: "destructive" }),
+  });
 
   const invalidateLead = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/leads", leadId] });
@@ -780,6 +790,7 @@ export default function CrmLeadDetailPage() {
           </Button>
           <span className="text-muted-foreground">/</span>
           <span className="text-sm font-medium text-[#005476]">{displayName}</span>
+          {kayProtection?.protection && <span className="text-xs font-medium text-amber-700">🔒 Protected Lead · {kayProtection.protection.reason}</span>}
         </div>
         {!isSubAgent && (
           <Button
@@ -792,6 +803,12 @@ export default function CrmLeadDetailPage() {
           </Button>
         )}
       </div>
+        {!!user?.isAdmin && <div className="mb-4 flex items-center gap-2 text-sm">
+          <span className={kayProtection?.protection ? "text-amber-700 font-medium" : "text-muted-foreground"}>🔒 Protected Lead</span>
+          <Button variant="outline" size="sm" disabled={protectionMutation.isPending} onClick={() => protectionMutation.mutate(!kayProtection?.protection)}>
+            {kayProtection?.protection ? "Remove protection" : "Protect lead"}
+          </Button>
+        </div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: Lead Info */}
