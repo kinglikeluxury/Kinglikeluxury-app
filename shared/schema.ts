@@ -782,6 +782,104 @@ export const kayMissions = pgTable("kay_missions", {
 }));
 export type KayMission = typeof kayMissions.$inferSelect;
 
+// ── Kay Phase D — internal commitment loop (never a CRM control plane) ──────
+// These tables intentionally model employee accountability separately from
+// crm_tasks and do not contain customer-contact instructions or automation.
+export const kayCommitments = pgTable("kay_commitments", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  missionId: integer("mission_id").references(() => kayMissions.id, { onDelete: "set null" }),
+  employeeId: integer("employee_id").references(() => users.id, { onDelete: "set null" }).notNull(),
+  action: text("action").notNull(),
+  status: text("status").notNull().default("PENDING"), // PENDING/ACCEPTED/EXTENDED/OVERDUE/COMPLETED/CANCELLED/STALE
+  dueAt: timestamp("due_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  staleAt: timestamp("stale_at"),
+  extensionCount: integer("extension_count").notNull().default(0),
+  maxExtensions: integer("max_extensions").notNull().default(2),
+  reminderVersion: integer("reminder_version").notNull().default(0),
+  lastReminderAt: timestamp("last_reminder_at"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  details: jsonb("details").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("kay_commitments_idempotency_key_unique_idx").on(table.idempotencyKey),
+  employeeStatusDueIdx: index("kay_commitments_employee_status_due_idx").on(table.employeeId, table.status, table.dueAt),
+  leadStatusIdx: index("kay_commitments_lead_status_idx").on(table.leadId, table.status),
+}));
+export type KayCommitment = typeof kayCommitments.$inferSelect;
+
+export const kayPromises = pgTable("kay_promises", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }).notNull(),
+  employeeId: integer("employee_id").references(() => users.id, { onDelete: "set null" }).notNull(),
+  promiseText: text("promise_text").notNull(),
+  importance: text("importance").notNull().default("NORMAL"),
+  status: text("status").notNull().default("PENDING"), // PENDING/DUE_SOON/OVERDUE/COMPLETED/CANCELLED
+  dueAt: timestamp("due_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  ownerReviewRequiredAt: timestamp("owner_review_required_at"),
+  reminderVersion: integer("reminder_version").notNull().default(0),
+  lastReminderAt: timestamp("last_reminder_at"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  details: jsonb("details").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("kay_promises_idempotency_key_unique_idx").on(table.idempotencyKey),
+  employeeStatusDueIdx: index("kay_promises_employee_status_due_idx").on(table.employeeId, table.status, table.dueAt),
+  leadStatusIdx: index("kay_promises_lead_status_idx").on(table.leadId, table.status),
+}));
+export type KayPromise = typeof kayPromises.$inferSelect;
+
+export const kayManagerReviews = pgTable("kay_manager_reviews", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  missionId: integer("mission_id").references(() => kayMissions.id, { onDelete: "set null" }),
+  commitmentId: integer("commitment_id").references(() => kayCommitments.id, { onDelete: "set null" }),
+  promiseId: integer("promise_id").references(() => kayPromises.id, { onDelete: "set null" }),
+  employeeId: integer("employee_id").references(() => users.id, { onDelete: "set null" }),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("OPEN"),
+  resolutionNote: text("resolution_note"),
+  resolvedBy: integer("resolved_by").references(() => users.id, { onDelete: "set null" }),
+  resolvedAt: timestamp("resolved_at"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  details: jsonb("details").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("kay_manager_reviews_idempotency_key_unique_idx").on(table.idempotencyKey),
+  statusCreatedIdx: index("kay_manager_reviews_status_created_idx").on(table.status, table.createdAt),
+}));
+export type KayManagerReview = typeof kayManagerReviews.$inferSelect;
+
+export const kayInternalBriefings = pgTable("kay_internal_briefings", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").references(() => users.id, { onDelete: "set null" }).notNull(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  missionId: integer("mission_id").references(() => kayMissions.id, { onDelete: "set null" }),
+  commitmentId: integer("commitment_id").references(() => kayCommitments.id, { onDelete: "set null" }),
+  promiseId: integer("promise_id").references(() => kayPromises.id, { onDelete: "set null" }),
+  triggerType: text("trigger_type").notNull(),
+  severity: text("severity").notNull().default("NORMAL"),
+  triggerVersion: integer("trigger_version").notNull().default(1),
+  text: text("text").notNull(),
+  deepLink: text("deep_link"),
+  sentAt: timestamp("sent_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  escalationLevel: integer("escalation_level").notNull().default(0),
+  idempotencyKey: text("idempotency_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("kay_internal_briefings_idempotency_key_unique_idx").on(table.idempotencyKey),
+  employeeAcknowledgedIdx: index("kay_internal_briefings_employee_acknowledged_idx").on(table.employeeId, table.acknowledgedAt, table.createdAt),
+}));
+export type KayInternalBriefing = typeof kayInternalBriefings.$inferSelect;
+
 // ── Kay Phase B — shadow-only lead safety ledger ────────────────────────────
 // These tables deliberately have no FK-triggered CRM writes.  They are an
 // append-only observation/control plane beside the CRM.

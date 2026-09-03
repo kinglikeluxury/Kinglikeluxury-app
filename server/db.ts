@@ -261,6 +261,70 @@ export async function ensureKayTables(): Promise<void> {
         -- Additive C.1 default repair for installations created during Phase C.
         UPDATE kay_settings SET value = '{"max_next_60_minutes_items":6,"priority_formula_version":"phase_c_v1","mission_notifications_enabled":true,"mission_generation_interval_minutes":5,"quiet_hours_enabled":false,"quiet_hours_start":null,"quiet_hours_end":null}'::jsonb
         WHERE key='phase_c_workflow' AND NOT (value ? 'mission_generation_interval_minutes');
+         -- Phase D is additive: all accountability data is Kay-owned and no
+          -- statement below is isolated from CRM lead mutations.
+         CREATE TABLE IF NOT EXISTS kay_commitments (
+           id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+           mission_id INTEGER REFERENCES kay_missions(id) ON DELETE SET NULL,
+           employee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+            action TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'PENDING', due_at TIMESTAMP NOT NULL,
+           completed_at TIMESTAMP, stale_at TIMESTAMP, extension_count INTEGER NOT NULL DEFAULT 0,
+           max_extensions INTEGER NOT NULL DEFAULT 2, reminder_version INTEGER NOT NULL DEFAULT 0,
+           last_reminder_at TIMESTAMP, idempotency_key TEXT NOT NULL UNIQUE,
+           details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+         );
+          ALTER TABLE kay_commitments ALTER COLUMN status SET DEFAULT 'PENDING';
+         CREATE INDEX IF NOT EXISTS kay_commitments_employee_status_due_idx ON kay_commitments(employee_id,status,due_at);
+         CREATE INDEX IF NOT EXISTS kay_commitments_lead_status_idx ON kay_commitments(lead_id,status);
+         CREATE UNIQUE INDEX IF NOT EXISTS kay_commitments_idempotency_key_unique_idx ON kay_commitments(idempotency_key);
+         CREATE TABLE IF NOT EXISTS kay_promises (
+           id SERIAL PRIMARY KEY, lead_id INTEGER NOT NULL REFERENCES crm_leads(id) ON DELETE SET NULL,
+           employee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+           promise_text TEXT NOT NULL, importance TEXT NOT NULL DEFAULT 'NORMAL',
+            status TEXT NOT NULL DEFAULT 'PENDING', due_at TIMESTAMP NOT NULL, completed_at TIMESTAMP,
+           cancelled_at TIMESTAMP, owner_review_required_at TIMESTAMP,
+           reminder_version INTEGER NOT NULL DEFAULT 0, last_reminder_at TIMESTAMP,
+           idempotency_key TEXT NOT NULL UNIQUE, details JSONB NOT NULL DEFAULT '{}'::jsonb,
+           created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+         );
+          ALTER TABLE kay_promises ALTER COLUMN status SET DEFAULT 'PENDING';
+         CREATE INDEX IF NOT EXISTS kay_promises_employee_status_due_idx ON kay_promises(employee_id,status,due_at);
+         CREATE INDEX IF NOT EXISTS kay_promises_lead_status_idx ON kay_promises(lead_id,status);
+         CREATE UNIQUE INDEX IF NOT EXISTS kay_promises_idempotency_key_unique_idx ON kay_promises(idempotency_key);
+         CREATE TABLE IF NOT EXISTS kay_manager_reviews (
+           id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+           mission_id INTEGER REFERENCES kay_missions(id) ON DELETE SET NULL,
+           commitment_id INTEGER REFERENCES kay_commitments(id) ON DELETE SET NULL,
+           promise_id INTEGER REFERENCES kay_promises(id) ON DELETE SET NULL,
+           employee_id INTEGER REFERENCES users(id) ON DELETE SET NULL, reason TEXT NOT NULL,
+           status TEXT NOT NULL DEFAULT 'OPEN', resolution_note TEXT,
+           resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL, resolved_at TIMESTAMP,
+           idempotency_key TEXT NOT NULL UNIQUE, details JSONB NOT NULL DEFAULT '{}'::jsonb,
+           created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+         );
+         CREATE INDEX IF NOT EXISTS kay_manager_reviews_status_created_idx ON kay_manager_reviews(status,created_at);
+         CREATE UNIQUE INDEX IF NOT EXISTS kay_manager_reviews_idempotency_key_unique_idx ON kay_manager_reviews(idempotency_key);
+         CREATE TABLE IF NOT EXISTS kay_internal_briefings (
+           id SERIAL PRIMARY KEY, employee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+           lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+           mission_id INTEGER REFERENCES kay_missions(id) ON DELETE SET NULL,
+           commitment_id INTEGER REFERENCES kay_commitments(id) ON DELETE SET NULL,
+           promise_id INTEGER REFERENCES kay_promises(id) ON DELETE SET NULL,
+           trigger_type TEXT NOT NULL, severity TEXT NOT NULL DEFAULT 'NORMAL',
+           trigger_version INTEGER NOT NULL DEFAULT 1, text TEXT NOT NULL, deep_link TEXT,
+           sent_at TIMESTAMP, acknowledged_at TIMESTAMP, escalation_level INTEGER NOT NULL DEFAULT 0,
+           idempotency_key TEXT NOT NULL UNIQUE, created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+         );
+         CREATE INDEX IF NOT EXISTS kay_internal_briefings_employee_acknowledged_idx ON kay_internal_briefings(employee_id,acknowledged_at,created_at);
+         CREATE UNIQUE INDEX IF NOT EXISTS kay_internal_briefings_idempotency_key_unique_idx ON kay_internal_briefings(idempotency_key);
+          INSERT INTO kay_settings (key, value) VALUES
+            ('phase_d_workflow', '{"enabled":false,"evaluation_interval_minutes":5,"max_commitment_extensions":2,"critical_bypass_quiet_hours":false,"reminder_minutes":5,"promise_escalation_minutes":60,"voice_enabled":false,"default_language":"en","style":"PROFESSIONAL","directness_level":3,"brief_length":"SHORT","preferred_voice_name":null,"speech_rate":1,"speech_pitch":1,"max_brief_seconds":30,"call_style":"PROFESSIONAL","owner_address":"Owner","employee_address_style":"FIRST_NAME","personality_toggles":{"warm":true,"encouraging":true,"concise":true,"empathetic":true},"employee_profiles":{},"trigger_types":["CRITICAL_MISSION","COMMITMENT_OVERDUE","IMPORTANT_PROMISE_OVERDUE","MANAGER_REVIEW"]}'::jsonb)
+         ON CONFLICT (key) DO NOTHING;
+          UPDATE kay_settings SET value = '{"reminder_minutes":5,"promise_escalation_minutes":60,"preferred_voice_name":null,"speech_rate":1,"speech_pitch":1,"max_brief_seconds":30,"call_style":"PROFESSIONAL","owner_address":"Owner","employee_address_style":"FIRST_NAME","personality_toggles":{"warm":true,"encouraging":true,"concise":true,"empathetic":true},"employee_profiles":{},"trigger_types":["CRITICAL_MISSION","COMMITMENT_OVERDUE","IMPORTANT_PROMISE_OVERDUE","MANAGER_REVIEW"]}'::jsonb ||
+            (value - 'voice_profile_map' - 'voice_toggles' - 'personality' - 'tone' - 'address_style' - 'preferred_language' - 'language' - 'voice_name' - 'voice_rate' - 'rate' - 'voice_pitch' - 'pitch' - 'escalation_style' - 'max_brief_words' - 'employee_overrides' - 'employeeOverrides')
+          WHERE key='phase_d_workflow';
     `);
     console.log("[DB] Kay Phase A tables ensured");
   } catch (err: any) {

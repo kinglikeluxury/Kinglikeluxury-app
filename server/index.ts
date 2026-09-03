@@ -57,6 +57,7 @@ import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { startKayShadowEvaluator } from "./kayService";
 import { startKayMissionGenerator } from "./kayMissionService";
+import { startPhaseDEvaluator } from "./kayPhaseDService";
 
 const app = express();
 
@@ -485,6 +486,7 @@ app.use((req, res, next) => {
   if (schedulersEnabled) {
     startKayShadowEvaluator();
     startKayMissionGenerator();
+    startPhaseDEvaluator();
   }
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────

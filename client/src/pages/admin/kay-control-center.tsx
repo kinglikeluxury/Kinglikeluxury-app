@@ -1,10 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, RefreshCw, ShieldCheck } from "lucide-react";
+import { Bot, RefreshCw, ShieldCheck, Volume2, Check, RotateCcw } from "lucide-react";
 
 type LedgerItem = {
   id: number; eventType?: string; decisionType?: string; eventSource?: string;
@@ -20,7 +21,7 @@ type LedgerItem = {
 type StatusIntelligence = { status: string; classification: string; terminal: boolean; rescueEvaluated: boolean; protectedCandidate: boolean; description: string };
 type WorkflowEmployee = { employee_id:number; employee_name:string; missions_total:number; active_missions:number; active_critical:number; unacknowledged_critical?:number; unacknowledged_high?:number; oldest_pending?:string; last_kay_activity?:string; completed:number; dismissed:number; stale:number; rescue_risk:number; unprotected:number; protected_attention:number; results:Record<string,number> };
 type MissionInspection = {id:number;mission_type:string;priority:string;status:string;reason_code:string;created_at:string;accepted_at?:string;completed_at?:string;result_code?:string;lead_id?:number;lead_name?:string;employee_name?:string};
-type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[]; employeeWorkflow?: WorkflowEmployee[]; missionInspection?:MissionInspection[]; availability?:{employeeId:number;availability:string}[]; operationsHealth?:any };
+type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[]; employeeWorkflow?: WorkflowEmployee[]; employees?: any[]; missionInspection?:MissionInspection[]; availability?:{employeeId:number;availability:string}[]; operationsHealth?:any };
 
 function timestamp(value: string) {
   return new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -40,6 +41,12 @@ export default function KayControlCenterPage() {
     mutationFn: async () => (await apiRequest("POST", "/api/admin/kay/missions/generate", {})).json(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/kay/control"] }),
   });
+  const phaseD = useQuery<any>({ queryKey:["/api/admin/kay/settings/phase-d"], queryFn:async()=>(await apiRequest("GET","/api/admin/kay/settings/phase-d")).json() });
+  const ownerBrief = useQuery<any>({ queryKey:["/api/admin/kay/owner-brief"], queryFn:async()=>(await apiRequest("GET","/api/admin/kay/owner-brief")).json() });
+  const phaseDRun = useMutation({ mutationFn:async()=>(await apiRequest("POST","/api/admin/kay/evaluate-phase-d",{})).json(), onSuccess:()=>{queryClient.invalidateQueries({queryKey:["/api/admin/kay/owner-brief"]});} });
+  const savePhaseD = useMutation({ mutationFn:async(value:any)=>(await apiRequest("PUT","/api/admin/kay/settings/phase-d",value)).json(), onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/admin/kay/settings/phase-d"]}) });
+  const reviews = useQuery<any>({queryKey:["/api/admin/kay/reviews"],queryFn:async()=>(await apiRequest("GET","/api/admin/kay/reviews?status=OPEN")).json()});
+  const reviewAction = useMutation({mutationFn:async({id,action,note}:{id:number;action:"resolve"|"return";note?:string})=>(await apiRequest("POST",`/api/admin/kay/reviews/${id}/${action}`,{note})).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/admin/kay/reviews"]})});
   const mode = data?.mode ?? "shadow";
   const rescueItems = (data?.decisions ?? []).filter(item =>
     item.decisionType?.includes("rescue") || item.decisionType === "manager_review" || item.decisionType === "unprotected_opportunity" ||
@@ -84,6 +91,8 @@ export default function KayControlCenterPage() {
           <div>Notification system: {data?.operationsHealth?.notifications ?? "Disabled"} · Pending HIGH/CRITICAL: {data?.operationsHealth?.pendingHighCritical ?? 0}</div>
           <Button size="sm" variant="outline" disabled={manualRun.isPending} onClick={()=>manualRun.mutate()}><RefreshCw className={`mr-1 h-3 w-3 ${manualRun.isPending ? "animate-spin" : ""}`}/>Manual Run</Button>
         </CardContent></Card>
+         <PhaseDCard data={phaseD.data} availableEmployees={data?.employees ?? data?.employeeWorkflow ?? []} save={(v:any)=>savePhaseD.mutate(v)} run={()=>phaseDRun.mutate()} running={phaseDRun.isPending} ownerText={ownerBrief.data?.text} />
+         <Card className="border-amber-300"><CardHeader><CardTitle className="text-lg text-[#005476]">Manager review queue</CardTitle></CardHeader><CardContent className="space-y-2">{(reviews.data?.reviews||reviews.data||[]).length===0?<p className="text-sm text-muted-foreground">No open reviews.</p>:(reviews.data?.reviews||reviews.data||[]).map((review:any)=><ReviewRow key={review.id} review={review} onAction={(a:"resolve"|"return")=>reviewAction.mutate({id:review.id,action:a,note:window.prompt("Optional note")||undefined})}/>)}</CardContent></Card>
         <Card className="border-amber-300 bg-amber-50">
           <CardHeader><CardTitle className="text-lg text-[#005476]">Rescue Intelligence · SHADOW</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
@@ -163,3 +172,35 @@ function Ledger({ title, items, loading, decisions = false }: { title: string; i
     </CardContent>
   </Card>;
 }
+
+function PhaseDCard({data,availableEmployees,save,run,running,ownerText}:{data:any;availableEmployees:any[];save:(v:any)=>void;run:()=>void;running:boolean;ownerText?:string}) {
+  const [draft,setDraft]=useState<any>(null);
+  const value={...(data||{}),...(draft||{})};
+  const set=(key:string,v:any)=>setDraft({...value,[key]:v});
+  const speak=()=>{if(ownerText&&"speechSynthesis" in window){window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(ownerText);u.lang=value.default_language==="ar"?"ar-SA":"en-US";u.rate=Number(value.speech_rate??1);u.pitch=Number(value.speech_pitch??1);if(value.preferred_voice_name){const selected=window.speechSynthesis.getVoices().find(v=>v.name===value.preferred_voice_name);if(selected)u.voice=selected;}window.speechSynthesis.speak(u);}};
+  return <Card className="border-[#3bcac4]/40"><CardHeader><CardTitle className="text-lg text-[#005476]">Phase D · Voice & Personality</CardTitle></CardHeader><CardContent className="space-y-4 text-sm">
+    <p className="text-muted-foreground">Browser-local speech only. Briefings always remain readable; no customer contact, telephony, external TTS, or audio leaves this device.</p>
+    <div className="flex flex-wrap gap-4 items-center"><label className="flex gap-2 items-center">Enabled <input type="checkbox" checked={!!value.enabled} onChange={e=>set("enabled",e.target.checked)}/></label><label className="flex gap-2 items-center">Voice enabled <input type="checkbox" checked={!!value.voice_enabled} onChange={e=>set("voice_enabled",e.target.checked)}/></label></div>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="Style" value={value.style??"PROFESSIONAL"} onChange={v=>set("style",v)} placeholder="PROFESSIONAL"/><Field label="Call style" value={value.call_style??"PROFESSIONAL"} onChange={v=>set("call_style",v)} placeholder="PROFESSIONAL"/><Field label="Owner address" value={value.owner_address??"Owner"} onChange={v=>set("owner_address",v)}/><Field label="Employee address style" value={value.employee_address_style??"FIRST_NAME"} onChange={v=>set("employee_address_style",v)} placeholder="FIRST_NAME"/></div>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="Default language" value={value.default_language??"en"} onChange={v=>set("default_language",v)} placeholder="en / ar"/><Field label="Voice name (optional)" value={value.preferred_voice_name??""} onChange={v=>set("preferred_voice_name",v.trim()||null)}/><Field label="Rate (0.5–2)" type="number" value={value.speech_rate??1} onChange={v=>set("speech_rate",Number(v))}/><Field label="Pitch (0.5–2)" type="number" value={value.speech_pitch??1} onChange={v=>set("speech_pitch",Number(v))}/></div>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="Directness (1–5)" type="number" value={value.directness_level??3} onChange={v=>set("directness_level",Number(v))}/><Field label="Brief length" value={value.brief_length??"SHORT"} onChange={v=>set("brief_length",v)} placeholder="SHORT"/><Field label="Max brief seconds" type="number" value={value.max_brief_seconds??30} onChange={v=>set("max_brief_seconds",Number(v))}/><div className="space-y-1">{Object.entries(value.personality_toggles||{}).map(([key,enabled])=><label key={key} className="flex gap-2 items-center capitalize"><input type="checkbox" checked={!!enabled} onChange={e=>set("personality_toggles",{...value.personality_toggles,[key]:e.target.checked})}/>{key}</label>)}</div></div>
+    <EmployeeProfiles value={value} availableEmployees={availableEmployees} onChange={(profiles)=>set("employee_profiles",profiles)} />
+    <div className="flex flex-wrap gap-2"><Button onClick={()=>{save(value);setDraft(null)}}>Save voice settings</Button><Button variant="outline" onClick={speak} disabled={!ownerText||value.voice_enabled===false}><Volume2 className="mr-1 h-3 w-3"/>Test voice with owner brief</Button><Button variant="outline" onClick={run} disabled={running}>{running?"Evaluating…":"Run internal evaluator"}</Button></div>
+    <div className="rounded border p-3 bg-slate-50"><b>Owner brief</b><p className="mt-1">{ownerText||"Loading…"}</p></div>
+  </CardContent></Card>;
+}
+function Field({label,value,onChange,type="text",placeholder}:{label:string;value:any;onChange:(v:string)=>void;type?:string;placeholder?:string}) { return <label className="block"><span className="text-xs text-muted-foreground">{label}</span><input className="mt-1 w-full border rounded px-2 py-1.5 bg-background" type={type} value={value} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/></label>; }
+function EmployeeProfiles({value,availableEmployees,onChange}:{value:any;availableEmployees:any[];onChange:(profiles:Record<string,any>)=>void}) {
+  const profiles:Record<string,any>=value.employee_profiles&&typeof value.employee_profiles==="object"&&!Array.isArray(value.employee_profiles)?value.employee_profiles:{};
+  const [selected,setSelected]=useState("");
+  const available=availableEmployees.map(employee=>({...employee,employee_id:employee.employee_id??employee.id,employee_name:employee.employee_name??employee.name})).filter(employee=>employee.employee_id&&!profiles[String(employee.employee_id)]);
+  const add=()=>{if(!selected||profiles[selected])return;const employee=available.find(item=>String(item.employee_id)===selected);onChange({...profiles,[selected]:{language:"en",address:String(employee?.employee_name||`Employee ${selected}`).trim(),style:"PROFESSIONAL",preferred_voice_name:null}});setSelected("");};
+  return <div className="border rounded p-3 space-y-3"><div><b>Employee profiles</b><p className="text-xs text-muted-foreground">Create the first profile from employees already returned by Control Center. Profiles are saved in canonical <code>employee_profiles</code>.</p></div>
+    {Object.keys(profiles).length===0&&<div className="rounded bg-slate-50 border border-dashed p-3 text-sm text-muted-foreground">No employee profiles yet. Choose an available employee to add the first profile.</div>}
+    {Object.entries(profiles).map(([id,employee]:[string,any])=><OverrideRow key={id} employee={{...employee,employee_id:id}} onChange={(next)=>{const {employee_id,employee_name,...profile}=next;onChange({...profiles,[employee_id]:profile});}}/>)}
+    {available.length>0?<div className="flex gap-2 items-end flex-wrap"><label className="block text-sm flex-1 min-w-56"><span className="text-xs text-muted-foreground">Available employee</span><select aria-label="Available employee" className="mt-1 w-full border rounded px-2 py-1.5 bg-background" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Select employee</option>{available.map(employee=><option key={employee.employee_id} value={employee.employee_id}>{employee.employee_name} · #{employee.employee_id}</option>)}</select></label><Button type="button" onClick={add} disabled={!selected}><PlusIcon/>Add profile</Button></div>:Object.keys(profiles).length>0?<p className="text-xs text-muted-foreground">All employees in the current Control Center data already have profiles.</p>:<p className="text-xs text-muted-foreground">No eligible employees are available in the current control payload.</p>}
+  </div>;
+}
+function PlusIcon(){return <span className="mr-1" aria-hidden="true">+</span>;}
+function OverrideRow({employee,onChange}:{employee:any;onChange:(value:any)=>void}) { const value={language:employee.language||"en",address:employee.address||"",style:employee.style||"PROFESSIONAL",preferred_voice_name:employee.preferred_voice_name||""};return <div className="grid md:grid-cols-5 gap-2 items-end border rounded p-3"><div className="font-medium">{employee.employee_name||`Employee ${employee.employee_id}`}</div><Field label="Language" value={value.language} onChange={v=>onChange({...employee,language:v})}/><Field label="Address" value={value.address} onChange={v=>onChange({...employee,address:v})}/><Field label="Style" value={value.style} onChange={v=>onChange({...employee,style:v})}/><Field label="Preferred voice" value={value.preferred_voice_name} onChange={v=>onChange({...employee,preferred_voice_name:v.trim()||null})}/></div>; }
+function ReviewRow({review,onAction}:{review:any;onAction:(a:"resolve"|"return")=>void}) { return <div className="border rounded p-3"><div className="flex justify-between gap-2"><b>{review.title||review.reason||`Review #${review.id}`}</b><Badge>{review.status||"OPEN"}</Badge></div><p className="text-sm text-muted-foreground mt-1">{review.description||review.rationale||"Kay recommends a manager decision."}</p><div className="flex flex-wrap gap-2 mt-2"><Button size="sm" onClick={()=>onAction("resolve")}><Check className="mr-1 h-3 w-3"/>Resolve</Button><Button size="sm" variant="outline" onClick={()=>onAction("return")}><RotateCcw className="mr-1 h-3 w-3"/>Return for more context</Button></div></div>; }

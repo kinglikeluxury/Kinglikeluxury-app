@@ -44,6 +44,7 @@ import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { requireKayAdmin } from "./kayAuth";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
+import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -598,6 +599,90 @@ ${metaTags}
   });
   app.post("/api/admin/kay/missions/generate", requireKayAdmin, async (req: any, res) => {
     try { res.json({ ...(await generateKayMissions(200, "manual", req.session.userId)), shadow: true }); } catch { res.status(500).json({ message: "Mission generation failed; CRM was not affected." }); }
+  });
+  // Phase D: employee accountability records only. Every employee path uses
+  // current lead ownership inside the service; no client supplied employee ID.
+  app.get("/api/kay/commitments", requireKayWorkspaceUser, async (req: any, res) => {
+    try { res.json({ commitments: await listCommitments(req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch { res.status(500).json({ message: "Unable to load commitments." }); }
+  });
+  app.post("/api/kay/commitments", requireKayWorkspaceUser, async (req: any, res) => {
+    if (!commitmentInput.safeParse(req.body).success) return res.status(400).json({ message: "Invalid commitment." });
+    try { res.status(201).json({ commitment: await createCommitment(req.body, req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/kay/commitments/:id/complete", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid commitment id." });
+    try { res.json({ commitment: await completeCommitment(id, req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/kay/commitments/:id/accept", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid commitment id." });
+    try { res.json({ commitment: await acceptCommitment(id, req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/kay/commitments/:id/extend", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); const dueAt = z.coerce.date().safeParse(req.body?.dueAt);
+    if (!Number.isInteger(id) || id < 1 || !dueAt.success) return res.status(400).json({ message: "Invalid extension deadline." });
+    try { res.json({ commitment: await extendCommitment(id, req.session.userId, !!req.kayIsAdmin, dueAt.data), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/kay/commitments/:id/cancel", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid commitment id." });
+    try { res.json({ commitment: await cancelCommitment(id, req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.get("/api/kay/promises", requireKayWorkspaceUser, async (req: any, res) => {
+    try { res.json({ promises: await listPromises(req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch { res.status(500).json({ message: "Unable to load promises." }); }
+  });
+  app.post("/api/kay/promises", requireKayWorkspaceUser, async (req: any, res) => {
+    try { res.status(201).json({ promise: await createPromise(req.body, req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/kay/promises/:id/complete", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid promise id." });
+    try { res.json({ promise: await completePromise(id, req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/kay/promises/:id/cancel", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid promise id." });
+    try { res.json({ promise: await cancelPromise(id, req.session.userId, !!req.kayIsAdmin), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.get("/api/kay/briefings", requireKayWorkspaceUser, async (req: any, res) => {
+    try { res.json({ briefings: await listBriefings(req.session.userId, !!req.kayIsAdmin), localVoiceOnly: true }); } catch { res.status(500).json({ message: "Unable to load briefings." }); }
+  });
+  app.post("/api/kay/briefings/:id/acknowledge", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid briefing id." });
+    try { res.json({ briefing: await acknowledgeBriefing(id, req.session.userId, !!req.kayIsAdmin) }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/kay/missions/:id/cannot-handle", requireKayWorkspaceUser, async (req: any, res) => {
+    const missionId = Number(req.params.id); if (!Number.isInteger(missionId) || missionId < 1) return res.status(400).json({ message: "Invalid mission id." });
+    const mission = await getKayMission(missionId, req.session.userId, !!req.kayIsAdmin);
+    if (!mission) return res.status(404).json({ message: "Mission not found." });
+    const review = await createManagerReview("EMPLOYEE_CANNOT_HANDLE_MISSION", { missionId, leadId: (mission as any).lead_id ?? (mission as any).leadId, employeeId: (mission as any).employee_id ?? (mission as any).employeeId }, `review:cannot-handle:${missionId}`);
+    res.status(201).json({ review, shadow: true });
+  });
+  app.get("/api/kay/settings/phase-d", requireKayWorkspaceUser, async (req: any, res) => {
+    try { res.json(await getEmployeePhaseDVoiceSettings(req.session.userId)); }
+    catch { res.status(500).json({ message: "Unable to load voice settings." }); }
+  });
+  app.get("/api/admin/kay/settings/phase-d", requireKayAdmin, async (_req, res) => res.json(await getPhaseDSettings()));
+  app.put("/api/admin/kay/settings/phase-d", requireKayAdmin, async (req: any, res) => {
+    if (!phaseDSettingsSchema.safeParse(req.body).success) return res.status(400).json({ message: "Invalid Phase D voice and workflow settings." });
+    try { res.json(await setPhaseDSettings(req.body, req.session.userId)); } catch { res.status(500).json({ message: "Unable to update Phase D settings." }); }
+  });
+  app.get("/api/admin/kay/owner-brief", requireKayAdmin, async (_req, res) => res.json(await getOwnerBrief()));
+  app.get("/api/admin/kay/reviews", requireKayAdmin, async (_req, res) => {
+    const reviews = await db.execute(drizzleSql`SELECT * FROM kay_manager_reviews ORDER BY created_at DESC LIMIT 100`);
+    res.json({ reviews: reviews.rows, shadow: true });
+  });
+  app.post("/api/admin/kay/reviews/:id/resolve", requireKayAdmin, async (req: any, res) => {
+    const id = Number(req.params.id); const note = z.string().trim().min(1).max(1000).safeParse(req.body?.note);
+    if (!Number.isInteger(id) || id < 1 || !note.success) return res.status(400).json({ message: "A resolution note is required." });
+    try { res.json({ review: await resolveManagerReview(id, req.session.userId, note.data), shadow: true }); } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/admin/kay/reviews/:id/return", requireKayAdmin, async (req: any, res) => {
+    const id = Number(req.params.id); const note = z.string().trim().min(1).max(1000).safeParse(req.body?.note);
+    if (!Number.isInteger(id) || id < 1 || !note.success) return res.status(400).json({ message: "A return note is required." });
+    try {
+      const review = await resolveManagerReview(id, req.session.userId, `RETURNED: ${note.data}`);
+      res.json({ review, shadow: true });
+    } catch (e: any) { res.status(e.status || 400).json({ message: e.message }); }
+  });
+  app.post("/api/admin/kay/evaluate-phase-d", requireKayAdmin, async (_req, res) => {
+    try { res.json({ ...(await runPhaseDEvaluator()), shadow: true }); } catch { res.status(500).json({ message: "Phase D evaluation failed; CRM was not affected." }); }
   });
 
   // Digital Asset Links for TWA (Trusted Web Activity) - Required for Google Play
