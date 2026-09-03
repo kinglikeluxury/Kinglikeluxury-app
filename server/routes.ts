@@ -42,6 +42,7 @@ import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate } from "./kayService";
+import { requireKayAdmin } from "./kayAuth";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -472,7 +473,7 @@ ${metaTags}
   };
 
   // ─── Kay Zero Max Phase A — admin-only, observation-only control center ───
-  app.get("/api/admin/kay/control", isAuthenticated, isAdmin, async (_req, res) => {
+  app.get("/api/admin/kay/control", requireKayAdmin, async (_req, res) => {
     try {
       res.json(await getKayControlSnapshot());
     } catch (err: any) {
@@ -480,7 +481,7 @@ ${metaTags}
     }
   });
 
-  app.put("/api/admin/kay/settings/mode", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.put("/api/admin/kay/settings/mode", requireKayAdmin, async (req: any, res) => {
     const validation = validateKayModeUpdate(req.body);
     if (!validation.ok) return res.status(400).json({ message: validation.message });
     try {

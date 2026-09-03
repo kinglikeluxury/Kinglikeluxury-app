@@ -10,7 +10,7 @@ type LedgerItem = {
   id: number; eventType?: string; decisionType?: string; eventSource?: string;
   mode?: string; rationale?: string; leadId: number | null; createdAt: string;
 };
-type KayControlData = { mode: "shadow" | "advisory"; events: LedgerItem[]; decisions: LedgerItem[] };
+type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[] };
 
 function timestamp(value: string) {
   return new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -52,7 +52,6 @@ export default function KayControlCenterPage() {
               <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="shadow">Shadow (default)</SelectItem>
-                <SelectItem value="advisory">Advisory</SelectItem>
               </SelectContent>
             </Select>
             <Badge className="bg-[#3bcac4]/20 text-[#005476] hover:bg-[#3bcac4]/20">{mode.toUpperCase()}</Badge>

@@ -137,7 +137,8 @@ export async function ensureKayTables(): Promise<void> {
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS kay_events (
-        id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+        id SERIAL PRIMARY KEY, idempotency_key TEXT,
+        lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
         user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         employee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         event_type TEXT NOT NULL, event_source TEXT NOT NULL DEFAULT 'crm',
@@ -155,8 +156,11 @@ export async function ensureKayTables(): Promise<void> {
         updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE kay_events ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
       CREATE INDEX IF NOT EXISTS kay_events_lead_created_at_idx ON kay_events(lead_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS kay_events_created_at_idx ON kay_events(created_at DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS kay_events_idempotency_key_idx
+        ON kay_events(idempotency_key) WHERE idempotency_key IS NOT NULL;
       CREATE INDEX IF NOT EXISTS kay_decisions_lead_created_at_idx ON kay_decisions(lead_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS kay_decisions_created_at_idx ON kay_decisions(created_at DESC);
       INSERT INTO kay_settings (key, value) VALUES ('mode', '{"mode":"shadow"}'::jsonb)

@@ -703,6 +703,7 @@ export type LeadImportAuditLog = typeof leadImportAuditLog.$inferSelect;
 // sit beside CRM data and never change CRM statuses, assignments, or filters.
 export const kayEvents = pgTable("kay_events", {
   id: serial("id").primaryKey(),
+  idempotencyKey: text("idempotency_key"),
   leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
   userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   employeeId: integer("employee_id").references(() => users.id, { onDelete: "set null" }),
