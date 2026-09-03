@@ -1,7 +1,7 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "./db";
-import { claimKayEvaluationQueue } from "./kayService";
+import { claimKayEvaluationQueue, recordImmutableRescueEvaluation } from "./kayService";
 
 after(async () => {
   await pool.end();
@@ -31,5 +31,39 @@ test("concurrent queue claims cannot claim the same Kay job", async () => {
     assert.deepEqual(claimed, [...ids].sort((x, y) => x - y));
   } finally {
     await pool.query(`DELETE FROM kay_evaluator_queue WHERE queue_key = ANY($1::text[])`, [keys]);
+  }
+});
+
+test("24h to 12h rule change preserves history and one current recommendation", async () => {
+  const leadResult = await pool.query(`SELECT id FROM crm_leads ORDER BY id LIMIT 1`);
+  assert.ok(leadResult.rows[0]?.id, "integration test requires one existing lead");
+  const leadId = Number(leadResult.rows[0].id);
+  const marker = `2099-01-01T00:00:${String(Date.now() % 60).padStart(2, "0")}.000Z`;
+  const keys = [`integration-rule-24:${leadId}:${marker}`, `integration-rule-12:${leadId}:${marker}`];
+  try {
+    await recordImmutableRescueEvaluation({
+      leadId, employeeId: null, evaluationKey: keys[0], decisionType: "no_answer_1_rescue_eligible", fingerprint: "integration-24",
+      payload: { state: "ACTIVE", evaluation_state: "ACTIVE", status: "no_answer_1", status_entered_at: marker,
+        threshold_minutes: 1440, rescue_rule_version: "phase_b_1", settings_snapshot: { no_answer_1_threshold_hours: 24 }, shadow: true },
+    });
+    await recordImmutableRescueEvaluation({
+      leadId, employeeId: null, evaluationKey: keys[1], decisionType: "no_answer_1_rescue_eligible", fingerprint: "integration-12",
+      payload: { state: "ACTIVE", evaluation_state: "ACTIVE", status: "no_answer_1", status_entered_at: marker,
+        threshold_minutes: 720, rescue_rule_version: "phase_b_1", settings_snapshot: { no_answer_1_threshold_hours: 12 }, shadow: true },
+    });
+    const result = await pool.query(`
+      SELECT d.payload FROM kay_decisions d JOIN kay_events e ON e.id=d.event_id
+      WHERE e.idempotency_key = ANY($1::text[]) ORDER BY (d.payload->>'threshold_minutes')::int DESC
+    `, [keys]);
+    assert.equal(result.rows.length, 2);
+    assert.equal(result.rows[0].payload.threshold_minutes, 1440);
+    assert.equal(result.rows[0].payload.settings_snapshot.no_answer_1_threshold_hours, 24);
+    assert.equal(result.rows[0].payload.evaluation_state, "ACTIVE");
+    assert.equal(result.rows[0].payload.state, "STALE");
+    assert.equal(result.rows[1].payload.threshold_minutes, 720);
+    assert.equal(result.rows[1].payload.state, "ACTIVE");
+  } finally {
+    await pool.query(`DELETE FROM kay_decisions WHERE event_id IN (SELECT id FROM kay_events WHERE idempotency_key = ANY($1::text[]))`, [keys]);
+    await pool.query(`DELETE FROM kay_events WHERE idempotency_key = ANY($1::text[])`, [keys]);
   }
 });

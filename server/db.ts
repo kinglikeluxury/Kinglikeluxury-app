@@ -211,6 +211,10 @@ export async function ensureKayTables(): Promise<void> {
             WHERE lead_id=NEW.id AND decision_type='unprotected_opportunity'
               AND payload->>'state'='ACTIVE'
               AND payload->>'status' IS DISTINCT FROM NEW.status;
+           UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
+             WHERE lead_id=NEW.id AND decision_type='protection_recommended'
+               AND payload->>'state'='ACTIVE'
+               AND payload->>'status' IS DISTINCT FROM NEW.status;
           RETURN NEW;
        EXCEPTION WHEN OTHERS THEN
          RETURN NEW;
@@ -222,7 +226,7 @@ export async function ensureKayTables(): Promise<void> {
          END IF;
        END $$;
        INSERT INTO kay_settings (key, value) VALUES
-         ('rescue_rules', '{"no_answer_1_threshold_hours":24,"no_answer_2_threshold_hours":24,"max_human_rescue_attempts":2,"rescue_warning_minutes":30,"rescue_enabled":false}'::jsonb)
+          ('rescue_rules', '{"no_answer_1_threshold_hours":24,"no_answer_2_threshold_hours":24,"max_human_rescue_attempts":2,"rescue_warning_minutes":30,"protected_review_after_days":7,"rescue_enabled":false}'::jsonb)
        ON CONFLICT (key) DO NOTHING;
     `);
     console.log("[DB] Kay Phase A tables ensured");

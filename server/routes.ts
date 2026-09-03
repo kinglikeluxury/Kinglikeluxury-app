@@ -502,7 +502,7 @@ ${metaTags}
     if (!parsed.success) return res.status(400).json({ message: "Invalid shadow rescue settings." });
     try {
       await db.transaction(async tx => {
-        await tx.insert(kaySettings).values({ key: "rescue_rules", value: { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, rescue_enabled: false }, updatedBy: null }).onConflictDoNothing();
+        await tx.insert(kaySettings).values({ key: "rescue_rules", value: { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, rescue_enabled: false }, updatedBy: null }).onConflictDoNothing();
         const [current] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).for("update").limit(1);
         const before = rescueSettingsSchema.safeParse(current?.value).data ?? null;
         await tx.insert(kaySettings).values({ key: "rescue_rules", value: parsed.data, updatedBy: req.session.userId, updatedAt: new Date() })

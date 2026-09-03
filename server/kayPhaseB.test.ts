@@ -2,16 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createSafeKayEvaluatorRunner, evaluateRescueWindow, rescueSettingsSchema, recommendRescueEmployee } from "./kayService";
+import { getKayStatusIntelligence, isKayOrphanEligibleStatus, isKayRescueEvaluatedStatus, isKayTerminalStatus } from "./kayStatusClassification";
 
 const now = new Date("2026-01-02T12:00:00.000Z");
 const entered = (minutes: number) => new Date(now.getTime() - minutes * 60_000);
 
 test("Phase B evaluator: no-answer-1 below threshold is not eligible", () =>
-  assert.equal(evaluateRescueWindow({ status: "no_answer_1", statusEnteredAt: entered(1439), now, thresholdHours: 24 }).eligible, false));
+  assert.deepEqual(
+    { eligible: evaluateRescueWindow({ status: "no_answer_1", statusEnteredAt: entered(1439), now, thresholdHours: 24 }).eligible,
+      state: evaluateRescueWindow({ status: "no_answer_1", statusEnteredAt: entered(1439), now, thresholdHours: 24 }).state },
+    { eligible: false, state: "NOT_YET_ELIGIBLE" },
+  ));
 test("Phase B evaluator: no-answer-1 at threshold is active", () =>
   assert.equal(evaluateRescueWindow({ status: "no_answer_1", statusEnteredAt: entered(1440), now, thresholdHours: 24 }).state, "ACTIVE"));
 test("Phase B evaluator: no-answer-2 below threshold is not eligible", () =>
-  assert.equal(evaluateRescueWindow({ status: "no_answer_2", statusEnteredAt: entered(1439), now, thresholdHours: 24 }).eligible, false));
+  assert.equal(evaluateRescueWindow({ status: "no_answer_2", statusEnteredAt: entered(1439), now, thresholdHours: 24 }).state, "NOT_YET_ELIGIBLE"));
 test("Phase B evaluator: no-answer-2 at threshold is active", () =>
   assert.equal(evaluateRescueWindow({ status: "no_answer_2", statusEnteredAt: entered(1440), now, thresholdHours: 24 }).state, "ACTIVE"));
 test("Phase B evaluator: non-rescue statuses never activate", () =>
@@ -32,8 +37,8 @@ test("Phase B settings reject invalid threshold", () =>
   assert.equal(rescueSettingsSchema.safeParse({ no_answer_1_threshold_hours: 0, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, rescue_enabled: false }).success, false));
 test("Phase B evaluator: absent status entry cannot infer lead age", () =>
   assert.equal(evaluateRescueWindow({ status: "no_answer_1", statusEnteredAt: null, now, thresholdHours: 24 }).eligible, false));
-test("Phase B evaluator: owner unavailable is an explicit observed blocker", () =>
-  assert.equal(evaluateRescueWindow({ status: "no_answer_2", statusEnteredAt: entered(1440), now, thresholdHours: 24, blockers: ["OWNER_UNAVAILABLE"] }).state, "BLOCKED"));
+test("Phase B.1 evaluator: owner unavailable is urgency, not a blocker", () =>
+  assert.equal(evaluateRescueWindow({ status: "no_answer_2", statusEnteredAt: entered(1440), now, thresholdHours: 24, blockers: ["OWNER_UNAVAILABLE"] }).state, "ACTIVE"));
 test("Phase B evaluator: future entry cannot produce negative duration", () =>
   assert.equal(evaluateRescueWindow({ status: "no_answer_1", statusEnteredAt: new Date(now.getTime() + 1), now, thresholdHours: 24 }).elapsedMinutes, 0));
 test("Phase B setting limits reject arbitrary properties", () =>
@@ -98,9 +103,13 @@ test("deleted queue leads are completed rather than stranded", () => {
   const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");
   assert.match(source, /!job\.lead_id[\s\S]*status='completed'/);
 });
-test("same-window rescue decisions are reconciled", () => {
+test("same-window rescue evaluations are immutable and fingerprinted", () => {
   const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");
-  assert.match(source, /target: kayDecisions\.eventId/);
+  assert.match(source, /evaluation_fingerprint/);
+  assert.match(source, /settings_snapshot/);
+  assert.match(source, /recordImmutableRescueEvaluation/);
+  assert.match(source, /onConflictDoNothing\(\)\.returning/);
+  assert.doesNotMatch(source, /target: kayDecisions\.eventId/);
   const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
   assert.match(dbSource, /kay_decisions_event_id_unique_idx/);
 });
@@ -142,4 +151,61 @@ test("rescue attempts are read from assignment history", () => {
   const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");
   assert.match(source, /FROM lead_assignment_history ah/);
   assert.match(source, /rescueAttempts: Number\(lead\.rescue_attempts/);
+});
+
+// Phase B.1 status intelligence matrix: each case is a separately reported test.
+for (const [status, classification, terminal, rescue, orphan] of [
+  ["unknown_future_status", "UNKNOWN_REVIEW", false, false, false],
+  ["no_answer_1", "RESCUE_ELIGIBLE_STAGE", false, true, true],
+  ["no_answer_2", "RESCUE_ELIGIBLE_STAGE", false, true, true],
+  ["no_answer_3", "UNKNOWN_REVIEW", false, false, false],
+  ["no_answer_4", "CONTACT_ATTEMPT", false, false, true],
+  ["after_3_no_answer_whatsapp_contacted", "FOLLOW_UP", false, false, false],
+  ["new_fresh_after_3_no_answer", "ACTIVE_NEW", false, false, true],
+  ["no_answer_converted", "TERMINAL_LOSS", true, false, false],
+  ["deposited", "CLOSING", false, false, true],
+  ["reserved", "CLOSING", false, false, true],
+  ["purchased", "TERMINAL_SUCCESS", true, false, false],
+  ["converted", "TERMINAL_SUCCESS", true, false, false],
+  ["sold_by_kinglike_luxury", "TERMINAL_SUCCESS", true, false, false],
+  ["lost_competition", "TERMINAL_LOSS", true, false, false],
+  ["not_interested_maybe_later", "FOLLOW_UP", false, false, false],
+  ["not_qualified", "TERMINAL_LOSS", true, false, false],
+  ["junk_lead", "TERMINAL_LOSS", true, false, false],
+  ["broker", "NON_SALES", false, false, false],
+  ["agency", "NON_SALES", false, false, false],
+  ["second_hand", "NON_SALES", false, false, false],
+  ["re_sale", "NON_SALES", false, false, false],
+] as const) {
+  test(`Phase B.1 status intelligence: ${status}`, () => {
+    assert.equal(getKayStatusIntelligence(status).classification, classification);
+    assert.equal(isKayTerminalStatus(status), terminal);
+    assert.equal(isKayRescueEvaluatedStatus(status), rescue);
+    assert.equal(isKayOrphanEligibleStatus(status), orphan);
+  });
+}
+
+test("Phase B.1 task schema limitation and safe WHY contract are recorded", () => {
+  const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");
+  assert.match(source, /schema_has_no_task_type/);
+  assert.match(source, /classification: "NEEDS_REVIEW", confidence: 0/);
+  assert.match(source, /incomplete_task_due_time/);
+});
+test("Phase B.1 protection review is informational and threshold is bounded", () => {
+  assert.equal(rescueSettingsSchema.safeParse({ no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, rescue_enabled: false }).success, true);
+  assert.equal(rescueSettingsSchema.safeParse({ no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 0, rescue_enabled: false }).success, false);
+});
+test("Phase B.1 protected leads cannot remain or become unprotected opportunities", () => {
+  const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");
+  assert.match(source, /hasIncompleteTask \|\| lead\.protection_id \|\| !isKayOrphanEligibleStatus/);
+  assert.match(source, /isKayOrphanEligibleStatus\(lead\.status\) && !hasIncompleteTask && !lead\.protection_id/);
+  const protectionSection = source.slice(source.indexOf("export async function setLeadProtection"), source.indexOf("type QueueLead"));
+  assert.match(protectionSection, /decision_type='unprotected_opportunity'/);
+});
+test("Phase B.1 immutable threshold snapshots preserve original evaluation fields", () => {
+  const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");
+  assert.match(source, /thresholdMinutes: threshold \* 60/);
+  assert.match(source, /evaluation_state: decision\.state/);
+  assert.match(source, /payload->>'state' IN \('ACTIVE','BLOCKED'\)/);
+  assert.match(source, /pg_advisory_xact_lock\(hashtext\(\$\{`kay-rescue:/);
 });

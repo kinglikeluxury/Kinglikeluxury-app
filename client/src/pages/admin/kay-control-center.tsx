@@ -13,9 +13,12 @@ type LedgerItem = {
     state?: string; status?: string; elapsed_minutes?: number; threshold_minutes?: number;
     blockers?: string[]; recommended_employee_name?: string | null;
     employee_selection_explanation?: string; manager_review?: boolean; shadow?: boolean;
+    task_blocker?: { id: number; title: string; dueDate?: string | null; dueTime?: string | null; createdBy?: number | null; classification: string; confidence: number; rule: string };
+    protected_review_after_days?: number; protected_at?: string;
   };
 };
-type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[] };
+type StatusIntelligence = { status: string; classification: string; terminal: boolean; rescueEvaluated: boolean; protectedCandidate: boolean; description: string };
+type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[] };
 
 function timestamp(value: string) {
   return new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -33,7 +36,8 @@ export default function KayControlCenterPage() {
   });
   const mode = data?.mode ?? "shadow";
   const rescueItems = (data?.decisions ?? []).filter(item =>
-    item.decisionType?.includes("rescue") || item.decisionType === "manager_review" || item.decisionType === "unprotected_opportunity");
+    item.decisionType?.includes("rescue") || item.decisionType === "manager_review" || item.decisionType === "unprotected_opportunity" ||
+    item.decisionType === "protection_recommended" || item.decisionType === "protected_lead_review_due");
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -74,7 +78,7 @@ export default function KayControlCenterPage() {
             <p className="text-muted-foreground">Protected Leads: <span className="font-medium text-[#005476]">{data?.protectedLeads?.length ?? 0}</span></p>
             {(data?.protectedLeads?.length ?? 0) > 0 && <div className="text-xs text-muted-foreground">{data!.protectedLeads!.slice(0, 10).map(p => <div key={p.id}>🔒 Lead {p.leadId} · {p.reason} · {timestamp(p.protectedAt)}</div>)}</div>}
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-3">
-              {["ACTIVE", "BLOCKED", "STALE", "SIMULATED_LIMIT_REACHED"].map(state => <div key={state} className="rounded-lg border bg-white px-3 py-2">
+              {["ACTIVE", "BLOCKED", "NOT_YET_ELIGIBLE", "STALE", "SIMULATED_LIMIT_REACHED"].map(state => <div key={state} className="rounded-lg border bg-white px-3 py-2">
                 <div className="text-xs text-muted-foreground">{state.replaceAll("_", " ")}</div>
                 <div className="text-xl font-semibold text-[#005476]">{rescueItems.filter(item => item.payload?.state === state).length}</div>
               </div>)}
@@ -88,10 +92,20 @@ export default function KayControlCenterPage() {
                   <div>Blockers: {item.payload?.blockers?.join(", ") || "None"}</div>
                   <div>Recommended: {item.payload?.recommended_employee_name || (item.payload?.manager_review ? "Manager review" : "—")}</div>
                   <div>Reason: {item.payload?.employee_selection_explanation || item.rationale}</div>
+                   {item.payload?.task_blocker && <div>Task WHY: #{item.payload.task_blocker.id} · {item.payload.task_blocker.title || "Untitled"} · due {item.payload.task_blocker.dueDate || "unscheduled"} {item.payload.task_blocker.dueTime || ""} · created by {item.payload.task_blocker.createdBy ?? "—"} · {item.payload.task_blocker.classification} ({item.payload.task_blocker.rule})</div>}
+                   {item.decisionType === "protected_lead_review_due" && <div>Protection review: protected since {item.payload?.protected_at ? timestamp(item.payload.protected_at) : "—"}; informational threshold {item.payload?.protected_review_after_days} days. No removal was performed.</div>}
                   <Badge className="mt-1 w-fit bg-amber-100 text-amber-800 hover:bg-amber-100">SHADOW · NO ACTION TAKEN</Badge>
                 </div>
               </details>)}
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-lg text-[#005476]">CRM Status Intelligence</CardTitle></CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-xs"><thead className="text-left text-muted-foreground"><tr><th className="p-2">CRM Status</th><th className="p-2">Kay Classification</th><th className="p-2">Terminal?</th><th className="p-2">Rescue evaluated?</th><th className="p-2">Protected candidate?</th><th className="p-2">Workflow meaning</th></tr></thead>
+              <tbody>{(data?.statusIntelligence ?? []).map(row => <tr key={row.status} className="border-t"><td className="p-2 font-medium">{row.status}</td><td className="p-2">{row.classification}</td><td className="p-2">{row.terminal ? "Yes" : "No"}</td><td className="p-2">{row.rescueEvaluated ? "Yes" : "No"}</td><td className="p-2">{row.protectedCandidate ? "Yes" : "No"}</td><td className="p-2 text-muted-foreground">{row.description}</td></tr>)}</tbody>
+            </table>
           </CardContent>
         </Card>
         <div className="grid lg:grid-cols-2 gap-6">
