@@ -42,6 +42,7 @@ import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
+import { acceptPromiseHandoff, executeAssistedRescue, getAssistedRescuePreview, listPromiseHandoffs, undoAssistedRescue } from "./kayRescueService";
 import { requireKayAdmin } from "./kayAuth";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
@@ -506,7 +507,7 @@ ${metaTags}
     if (!parsed.success) return res.status(400).json({ message: "Invalid shadow rescue settings." });
     try {
       await db.transaction(async tx => {
-        await tx.insert(kaySettings).values({ key: "rescue_rules", value: { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, rescue_enabled: false }, updatedBy: null }).onConflictDoNothing();
+        await tx.insert(kaySettings).values({ key: "rescue_rules", value: { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, assisted_rescue_undo_minutes: 15, rescue_enabled: false }, updatedBy: null }).onConflictDoNothing();
         const [current] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).for("update").limit(1);
         const before = rescueSettingsSchema.safeParse(current?.value).data ?? null;
         await tx.insert(kaySettings).values({ key: "rescue_rules", value: parsed.data, updatedBy: req.session.userId, updatedAt: new Date() })
@@ -540,6 +541,26 @@ ${metaTags}
       res.json({ ...(await runKayShadowEvaluator()), shadow: true });
     } catch { res.status(500).json({ message: "Kay evaluator could not complete; CRM was not affected." }); }
   });
+  // Explicit admin command endpoints. Evaluators/schedulers only create recommendations.
+  app.get("/api/admin/kay/rescue/:leadId/:decisionId/preview", requireKayAdmin, async (req, res) => {
+    const leadId = Number(req.params.leadId), decisionId = Number(req.params.decisionId);
+    if (!Number.isInteger(leadId) || !Number.isInteger(decisionId)) return res.status(400).json({ message: "Invalid rescue reference." });
+    const preview = await getAssistedRescuePreview(leadId, decisionId);
+    if (!preview) return res.status(404).json({ message: "Rescue recommendation not found." });
+    res.json({ preview, warning: "This will change the real CRM Lead owner.", revalidationRequired: true });
+  });
+  app.post("/api/admin/kay/rescue/execute", requireKayAdmin, async (req: any, res) => {
+    const parsed = z.object({ leadId:z.number().int().positive(), decisionId:z.number().int().positive(), expectedOwnerId:z.number().int().positive(), targetEmployeeId:z.number().int().positive().optional(), overrideReason:z.enum(["EMPLOYEE_LANGUAGE","EMPLOYEE_AVAILABILITY","WORKLOAD","MANAGER_DECISION","OTHER"]).optional(), overrideNote:z.string().trim().max(1000).optional() }).strict().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid rescue confirmation." });
+    try { res.status(201).json(await executeAssistedRescue(parsed.data, req.session.userId)); }
+    catch (error: any) { res.status(error.status || 500).json({ message: error.message || "Rescue execution failed.", code: error.code }); }
+  });
+  app.post("/api/admin/kay/rescue/:executionId/undo", requireKayAdmin, async (req: any, res) => {
+    const id = Number(req.params.executionId); const parsed = z.object({ reason: z.string().trim().min(2).max(500) }).strict().safeParse(req.body);
+    if (!Number.isInteger(id) || id < 1 || !parsed.success) return res.status(400).json({ message: "Undo reason is required." });
+    try { res.json(await undoAssistedRescue(id, req.session.userId, parsed.data.reason)); }
+    catch (error: any) { res.status(error.status || 500).json({ message: error.code === "MANUAL_REVIEW_REQUIRED" ? "MANUAL REVIEW REQUIRED" : (error.message || "Undo failed."), code: error.code }); }
+  });
   // Phase C remains an internal, shadow-mode workflow layer. These routes do
   // not accept employee IDs from non-admin callers and never write CRM tables.
   const requireKayWorkspaceUser = async (req: any, res: Response, next: Function) => {
@@ -550,6 +571,13 @@ ${metaTags}
     req.kayIsAdmin = false;
     next();
   };
+  app.get("/api/kay/promise-handoffs", requireKayWorkspaceUser, async (req: any, res) => {
+    try { res.json({ handoffs: await listPromiseHandoffs(req.session.userId, !!req.kayIsAdmin) }); } catch { res.status(500).json({ message: "Unable to load promise handoffs." }); }
+  });
+  app.post("/api/kay/promise-handoffs/:id/accept", requireKayWorkspaceUser, async (req: any, res) => {
+    const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid handoff id." });
+    try { res.json({ handoff: await acceptPromiseHandoff(id, req.session.userId, !!req.kayIsAdmin) }); } catch (error: any) { res.status(error.status || 500).json({ message: error.message || "Unable to accept handoff." }); }
+  });
   app.get("/api/kay/missions", requireKayWorkspaceUser, async (req: any, res) => {
     try {
       const includeCompleted = req.query.completed === "true";

@@ -91,9 +91,9 @@ test("incomplete overdue tasks remain active blockers", () => {
   assert.match(source, /t\.completed_at IS NULL\) AS active_task/);
   assert.match(source, /FOLLOWUP_SCHEDULED/);
 });
-test("only simulated Kay rescue assignments count toward attempt limit", () => {
+test("only simulated or assisted Kay rescue assignments count toward attempt limit", () => {
   const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");
-  assert.match(source, /ah\.automatic=true AND ah\.reason='kay_rescue'/);
+  assert.match(source, /ah\.reason='kay_rescue' AND \(ah\.automatic=true OR \(ah\.automatic=false AND ah\.metadata->>'mode'='assisted'\)\)/);
 });
 test("stale queue leases have bounded pending and failed transitions", () => {
   const source = readFileSync(new URL("./kayService.ts", import.meta.url), "utf8");

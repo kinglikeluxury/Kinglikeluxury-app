@@ -145,6 +145,7 @@ export async function ensureKayTables(): Promise<void> {
         previous_value JSONB, new_value JSONB, metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
         kay_generated BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
       CREATE TABLE IF NOT EXISTS kay_decisions (
         id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
         event_id INTEGER REFERENCES kay_events(id) ON DELETE SET NULL,
@@ -185,6 +186,19 @@ export async function ensureKayTables(): Promise<void> {
          kay_decision_id INTEGER REFERENCES kay_decisions(id) ON DELETE SET NULL,
          assigned_at TIMESTAMP NOT NULL DEFAULT NOW(), ended_at TIMESTAMP
        );
+        ALTER TABLE lead_assignment_history ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+        CREATE TABLE IF NOT EXISTS kay_rescue_executions (
+           id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+           decision_id INTEGER REFERENCES kay_decisions(id) ON DELETE SET NULL,
+          from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, to_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+           approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL, outcome TEXT NOT NULL, rejection_reason TEXT,
+          transaction_id TEXT, undo_of_execution_id INTEGER, metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(), undone_at TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS kay_rescue_executions_lead_created_idx ON kay_rescue_executions(lead_id,created_at DESC);
+         ALTER TABLE kay_rescue_executions ALTER COLUMN lead_id DROP NOT NULL;
+         ALTER TABLE kay_rescue_executions ALTER COLUMN decision_id DROP NOT NULL;
+         ALTER TABLE kay_rescue_executions ALTER COLUMN approved_by DROP NOT NULL;
        CREATE INDEX IF NOT EXISTS kay_status_lead_entered_idx ON kay_lead_status_history(lead_id, entered_at DESC);
        CREATE INDEX IF NOT EXISTS lead_assignment_lead_assigned_idx ON lead_assignment_history(lead_id, assigned_at DESC);
        CREATE TABLE IF NOT EXISTS kay_evaluator_queue (
@@ -226,8 +240,9 @@ export async function ensureKayTables(): Promise<void> {
          END IF;
        END $$;
        INSERT INTO kay_settings (key, value) VALUES
-          ('rescue_rules', '{"no_answer_1_threshold_hours":24,"no_answer_2_threshold_hours":24,"max_human_rescue_attempts":2,"rescue_warning_minutes":30,"protected_review_after_days":7,"rescue_enabled":false}'::jsonb)
+           ('rescue_rules', '{"no_answer_1_threshold_hours":24,"no_answer_2_threshold_hours":24,"max_human_rescue_attempts":2,"rescue_warning_minutes":30,"protected_review_after_days":7,"assisted_rescue_undo_minutes":15,"rescue_enabled":false}'::jsonb)
        ON CONFLICT (key) DO NOTHING;
+        UPDATE kay_settings SET value=value || '{"assisted_rescue_undo_minutes":15}'::jsonb WHERE key='rescue_rules' AND NOT value ? 'assisted_rescue_undo_minutes';
        CREATE TABLE IF NOT EXISTS kay_missions (
          id SERIAL PRIMARY KEY,
          lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
@@ -248,9 +263,6 @@ export async function ensureKayTables(): Promise<void> {
        CREATE INDEX IF NOT EXISTS kay_missions_employee_status_due_priority_idx ON kay_missions(employee_id, status, due_at, priority);
        CREATE INDEX IF NOT EXISTS kay_missions_lead_type_status_idx ON kay_missions(lead_id, mission_type, status);
        DO $$ BEGIN
-         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='kay_missions_type_check') THEN
-           ALTER TABLE kay_missions ADD CONSTRAINT kay_missions_type_check CHECK (mission_type IN ('FOLLOW_UP_DUE','RESCUE_RISK','RESCUE_ELIGIBLE','UNPROTECTED_LEAD','PROTECTED_LEAD_REVIEW','CLOSING_ATTENTION','MANAGER_REVIEW_REQUIRED'));
-         END IF;
          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='kay_missions_priority_check') THEN
            ALTER TABLE kay_missions ADD CONSTRAINT kay_missions_priority_check CHECK (priority IN ('CRITICAL','HIGH','NORMAL','LOW'));
          END IF;
@@ -292,6 +304,19 @@ export async function ensureKayTables(): Promise<void> {
          CREATE INDEX IF NOT EXISTS kay_promises_employee_status_due_idx ON kay_promises(employee_id,status,due_at);
          CREATE INDEX IF NOT EXISTS kay_promises_lead_status_idx ON kay_promises(lead_id,status);
          CREATE UNIQUE INDEX IF NOT EXISTS kay_promises_idempotency_key_unique_idx ON kay_promises(idempotency_key);
+          CREATE TABLE IF NOT EXISTS kay_promise_handoffs (
+            id SERIAL PRIMARY KEY, promise_id INTEGER REFERENCES kay_promises(id) ON DELETE SET NULL,
+            lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+            original_owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            current_responsible_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            execution_id INTEGER REFERENCES kay_rescue_executions(id) ON DELETE SET NULL,
+            transfer_reason TEXT NOT NULL, transferred_at TIMESTAMP NOT NULL DEFAULT NOW(), accepted_at TIMESTAMP
+          );
+          ALTER TABLE kay_promise_handoffs ALTER COLUMN promise_id DROP NOT NULL;
+          ALTER TABLE kay_promise_handoffs ALTER COLUMN lead_id DROP NOT NULL;
+          ALTER TABLE kay_promise_handoffs ALTER COLUMN original_owner_id DROP NOT NULL;
+          ALTER TABLE kay_promise_handoffs ALTER COLUMN current_responsible_id DROP NOT NULL;
+          CREATE INDEX IF NOT EXISTS kay_promise_handoffs_responsible_idx ON kay_promise_handoffs(current_responsible_id,accepted_at);
          CREATE TABLE IF NOT EXISTS kay_manager_reviews (
            id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
            mission_id INTEGER REFERENCES kay_missions(id) ON DELETE SET NULL,

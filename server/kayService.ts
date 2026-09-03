@@ -11,13 +11,11 @@ import { getKayStatusIntelligence, isKayOrphanEligibleStatus, isKayRescueEvaluat
 export const kayApprovedModeSchema = z.enum([
   "shadow",
   "assisted",
-  "controlled_automation",
-  "full_approved_automation",
 ]);
 export type KayApprovedMode = z.infer<typeof kayApprovedModeSchema>;
 
 /** Phase A's sole operational mode. */
-export const kayModeSchema = z.literal("shadow");
+export const kayModeSchema = z.enum(["shadow", "assisted"]);
 export type KayMode = z.infer<typeof kayModeSchema>;
 export const kayModeUpdateSchema = z.object({ mode: kayModeSchema }).strict();
 
@@ -34,7 +32,7 @@ export function validateKayModeUpdate(value: unknown):
   const parsed = kayModeUpdateSchema.safeParse(value);
   return parsed.success
     ? { ok: true, mode: parsed.data.mode }
-    : { ok: false, message: "Kay Phase A only permits shadow mode." };
+    : { ok: false, message: "Kay only permits shadow or assisted mode." };
 }
 
 /**
@@ -239,11 +237,12 @@ export const rescueSettingsSchema = z.object({
   max_human_rescue_attempts: z.number().int().min(0).max(10),
   rescue_warning_minutes: z.number().int().min(0).max(10_080),
   protected_review_after_days: z.number().int().min(1).max(365).default(7),
+  assisted_rescue_undo_minutes: z.number().int().min(5).max(60).default(15),
   // Phase B parses only the permanently safe operational value.
   rescue_enabled: z.literal(false),
 }).strict();
 export type RescueSettings = z.infer<typeof rescueSettingsSchema>;
-export const defaultRescueSettings: RescueSettings = { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, rescue_enabled: false };
+export const defaultRescueSettings: RescueSettings = { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, assisted_rescue_undo_minutes: 15, rescue_enabled: false };
 
 export async function getRescueSettings(): Promise<RescueSettings> {
   const [setting] = await db.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).limit(1);
@@ -404,7 +403,7 @@ export async function runKayShadowEvaluator(): Promise<{ checked: number; eligib
       }
       const result = await db.execute(sql`
         SELECT l.id, l.status, l.assigned_to, owner.role AS owner_role, h.entered_at, p.id AS protection_id, p.protected_at,
-          (SELECT COUNT(*)::int FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.automatic=true AND ah.reason='kay_rescue') AS rescue_attempts,
+           (SELECT COUNT(*)::int FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.reason='kay_rescue' AND (ah.automatic=true OR (ah.automatic=false AND ah.metadata->>'mode'='assisted'))) AS rescue_attempts,
           task.id AS incomplete_task_id, task.title AS incomplete_task_title, task.due_date AS incomplete_task_due_date,
           task.due_time AS incomplete_task_due_time, task.created_by AS incomplete_task_created_by,
           COALESCE((SELECT t.id::text || ':' || COALESCE(t.completed_at::text, 'open')

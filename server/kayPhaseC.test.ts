@@ -76,7 +76,10 @@ test("C notification retries are independent of newly inserted missions", () => 
   assert.match(service, /await deliverPendingKayMissionNotifications\(settings\)/);
   assert.doesNotMatch(service, /if \(inserted\)[\s\S]{0,800}mission_notification:/);
 });
-test("C database constrains mission types and priorities", () => { assert.match(db, /kay_missions_type_check/); assert.match(db, /kay_missions_priority_check/); });
+test("C database constrains mission priorities while mission types remain additive", () => {
+  assert.doesNotMatch(db, /kay_missions_type_check/);
+  assert.match(db, /kay_missions_priority_check/);
+});
 test("C next sixty minutes excludes overdue, null, and beyond-hour due dates", () => {
   assert.match(routes, /mission\.dueAt && new Date\(mission\.dueAt\)\.getTime\(\) >= now && new Date\(mission\.dueAt\)\.getTime\(\) <= nextHour/);
 });

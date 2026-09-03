@@ -42,10 +42,11 @@ test("Phase D promise UI sends only supported importance values", () => {
 });
 
 test("Phase D employee profile UI uses only the canonical preferred voice field", () => {
-  assert.match(controlCenter, /preferred_voice_name:null/);
-  assert.match(controlCenter, /employee\?\.employee_name\|\|`Employee \$\{selected\}`/);
-  assert.doesNotMatch(controlCenter, /address:""/);
-  assert.doesNotMatch(controlCenter, /preferred_voice:/);
+  assert.match(controlCenter, /["']preferred_voice_name["']/);
+  assert.match(controlCenter, /k\s*===\s*["']preferred_voice_name["']\s*\?\s*\(e\.target\.value\.trim\(\)\s*\|\|\s*null\)/);
+  assert.match(controlCenter, /address\s*:\s*String\(employee\?\.name\s*\?\?\s*`Employee \$\{e\.target\.value\}`\)/);
+  assert.doesNotMatch(controlCenter, /\baddress\s*:\s*["']\s*["']/);
+  assert.doesNotMatch(controlCenter, /\bpreferred_voice\s*:/);
 });
 
 test("Phase D ownership is checked at creation, listing, and completion", () => {

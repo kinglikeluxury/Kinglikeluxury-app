@@ -7,7 +7,7 @@ import { sanitizeKayJson } from "./kayService";
 
 export const PHASE_C_PRIORITY_FORMULA_VERSION = "phase_c_v1" as const;
 export const missionStatusSchema = z.enum(["NEW", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "DISMISSED", "STALE"]);
-export const missionTypeSchema = z.enum(["FOLLOW_UP_DUE", "RESCUE_RISK", "RESCUE_ELIGIBLE", "UNPROTECTED_LEAD", "PROTECTED_LEAD_REVIEW", "CLOSING_ATTENTION", "MANAGER_REVIEW_REQUIRED"]);
+export const missionTypeSchema = z.enum(["FOLLOW_UP_DUE", "RESCUE_RISK", "RESCUE_ELIGIBLE", "UNPROTECTED_LEAD", "PROTECTED_LEAD_REVIEW", "CLOSING_ATTENTION", "MANAGER_REVIEW_REQUIRED", "RESCUE_LEAD_ASSIGNED"]);
 export const missionPrioritySchema = z.enum(["CRITICAL", "HIGH", "NORMAL", "LOW"]);
 export const completionResultSchema = z.enum(["INTERESTED", "HOT", "FOLLOW_UP_NEEDED", "NO_ANSWER", "PRICE_ISSUE", "PAYMENT_PLAN_ISSUE", "DELIVERY_ISSUE", "NOT_INTERESTED", "CONTACTED_OTHER"]);
 export const dismissalReasonSchema = z.enum(["CUSTOMER_ALREADY_CONTACTED", "DUPLICATE", "WRONG_LEAD_STATE", "NEED_MANAGER_REVIEW", "NOT_AVAILABLE", "OTHER"]);

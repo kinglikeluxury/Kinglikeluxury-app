@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   authMethod: text("auth_method").notNull().default(AUTH_METHODS.EMAIL),
   isVerified: boolean("is_verified").default(false).notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
   role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -46,6 +47,7 @@ export const insertUserSchema = createInsertSchema(users)
     facebookId: true,
     authMethod: true,
     isAdmin: true,
+    isActive: true,
     isVerified: true,
     role: true,
   })
@@ -912,9 +914,41 @@ export const leadAssignmentHistory = pgTable("lead_assignment_history", {
   reason: text("reason").notNull().default("crm_assignment"),
   automatic: boolean("automatic").notNull().default(false),
   kayDecisionId: integer("kay_decision_id").references(() => kayDecisions.id, { onDelete: "set null" }),
+  metadata: jsonb("metadata").notNull().default({}),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   endedAt: timestamp("ended_at"),
 }, (table) => ({ leadAssignedIdx: index("lead_assignment_lead_assigned_idx").on(table.leadId, table.assignedAt) }));
+
+/** Phase E.1 immutable execution ledger.  It is separate from recommendations. */
+export const kayRescueExecutions = pgTable("kay_rescue_executions", {
+  id: serial("id").primaryKey(),
+  // Nullable deliberately: rejected commands must be auditable even when an
+  // attacker/stale page supplied a lead or decision that no longer exists.
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  decisionId: integer("decision_id").references(() => kayDecisions.id, { onDelete: "set null" }),
+  fromUserId: integer("from_user_id").references(() => users.id, { onDelete: "set null" }),
+  toUserId: integer("to_user_id").references(() => users.id, { onDelete: "set null" }),
+  approvedBy: integer("approved_by").references(() => users.id, { onDelete: "set null" }),
+  outcome: text("outcome").notNull(), // SUCCESS/REJECTED/UNDONE/MANUAL_REVIEW_REQUIRED
+  rejectionReason: text("rejection_reason"),
+  transactionId: text("transaction_id"),
+  undoOfExecutionId: integer("undo_of_execution_id"),
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  undoneAt: timestamp("undone_at"),
+}, (table) => ({ leadCreatedIdx: index("kay_rescue_executions_lead_created_idx").on(table.leadId, table.createdAt) }));
+
+export const kayPromiseHandoffs = pgTable("kay_promise_handoffs", {
+  id: serial("id").primaryKey(),
+  promiseId: integer("promise_id").references(() => kayPromises.id, { onDelete: "set null" }),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  originalOwnerId: integer("original_owner_id").references(() => users.id, { onDelete: "set null" }),
+  currentResponsibleId: integer("current_responsible_id").references(() => users.id, { onDelete: "set null" }),
+  executionId: integer("execution_id").references(() => kayRescueExecutions.id, { onDelete: "set null" }),
+  transferReason: text("transfer_reason").notNull(),
+  transferredAt: timestamp("transferred_at").defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at"),
+}, (table) => ({ responsibleIdx: index("kay_promise_handoffs_responsible_idx").on(table.currentResponsibleId, table.acceptedAt) }));
 
 // ── WhatsApp AI Qualification System (Phase 1 — internal only) ───────────────
 

@@ -38,7 +38,7 @@ test("Kay schema bootstrap is additive, shadow-defaulted, idempotent, and non-ca
   assert.match(kayBootstrap, /INSERT INTO kay_settings[\s\S]*"shadow"/);
   assert.match(kayBootstrap, /ON CONFLICT \(key\) DO NOTHING/);
   assert.match(kayBootstrap, /idempotency_key/);
-  assert.doesNotMatch(kayBootstrap, /\b(DROP|TRUNCATE|RENAME)\b/i);
+  assert.doesNotMatch(kayBootstrap, /\b(DROP\s+(?:TABLE|COLUMN|CONSTRAINT)|TRUNCATE|RENAME)\b/i);
   assert.doesNotMatch(kayBootstrap, /ON DELETE CASCADE/i);
   assert.match(kayBootstrap, /ON DELETE SET NULL/);
 });

@@ -1,206 +1,114 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert, Undo2, Check, RotateCcw } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, RefreshCw, ShieldCheck, Volume2, Check, RotateCcw } from "lucide-react";
 
-type LedgerItem = {
-  id: number; eventType?: string; decisionType?: string; eventSource?: string;
-  mode?: string; rationale?: string; leadId: number | null; createdAt: string;
-  payload?: {
-    state?: string; status?: string; elapsed_minutes?: number; threshold_minutes?: number;
-    blockers?: string[]; recommended_employee_name?: string | null;
-    employee_selection_explanation?: string; manager_review?: boolean; shadow?: boolean;
-    task_blocker?: { id: number; title: string; dueDate?: string | null; dueTime?: string | null; createdBy?: number | null; classification: string; confidence: number; rule: string };
-    protected_review_after_days?: number; protected_at?: string;
-  };
+type Decision = { id:number; leadId:number|null; decisionType?:string; rationale?:string; createdAt:string; payload?:any };
+type Employee = { id?:number; employee_id?:number; name?:string; employee_name?:string; availability?:string };
+type Control = { mode:"shadow"|"assisted"; decisions:Decision[]; events?:any[]; employees?:Employee[]; employeeWorkflow?:Employee[]; statusIntelligence?:any[]; operationsHealth?:any; protectedLeads?:any[] };
+type RescuePreview = {
+  lead:{id:number;status:string;ownerId:number;ownerName:string;contactStage?:string|null};
+  decision:{id:number;state:string;statusWindow?:string|null;thresholdMinutes:number;elapsedMinutes:number;why:string;fingerprint?:string};
+  protection:{protected:boolean}; blockers:{id?:number;title?:string;reason?:string}[];
+  lastMission:{id?:number;missionType?:string;status?:string;createdAt?:string;objective?:string}|null;
+  commitments:{id?:number;action?:string;status?:string;dueAt?:string}[];
+  promises:{id?:number;promiseText?:string;status?:string;dueAt?:string}[];
+  target:{id:number;name:string;role:string;active:boolean;availability:string;eligible:boolean};
 };
-type StatusIntelligence = { status: string; classification: string; terminal: boolean; rescueEvaluated: boolean; protectedCandidate: boolean; description: string };
-type WorkflowEmployee = { employee_id:number; employee_name:string; missions_total:number; active_missions:number; active_critical:number; unacknowledged_critical?:number; unacknowledged_high?:number; oldest_pending?:string; last_kay_activity?:string; completed:number; dismissed:number; stale:number; rescue_risk:number; unprotected:number; protected_attention:number; results:Record<string,number> };
-type MissionInspection = {id:number;mission_type:string;priority:string;status:string;reason_code:string;created_at:string;accepted_at?:string;completed_at?:string;result_code?:string;lead_id?:number;lead_name?:string;employee_name?:string};
-type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[]; employeeWorkflow?: WorkflowEmployee[]; employees?: any[]; missionInspection?:MissionInspection[]; availability?:{employeeId:number;availability:string}[]; operationsHealth?:any };
+type PreviewResponse = {preview:RescuePreview;warning:string;revalidationRequired:boolean};
 
-function timestamp(value: string) {
-  return new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-}
+const date = (v?:string|null) => v ? new Date(v).toLocaleString([], { dateStyle:"medium", timeStyle:"short" }) : "Not available";
+const label = (v:any) => v === undefined || v === null || v === "" ? "Not available" : String(v);
 
 export default function KayControlCenterPage() {
-  const { data, isLoading, isFetching, refetch } = useQuery<KayControlData>({
-    queryKey: ["/api/admin/kay/control"],
-    queryFn: async () => (await apiRequest("GET", "/api/admin/kay/control")).json(),
+  const control = useQuery<Control>({ queryKey:["/api/admin/kay/control"], queryFn:async() => (await apiRequest("GET","/api/admin/kay/control")).json() });
+  const [selected, setSelected] = useState<Decision|null>(null);
+  const [preview, setPreview] = useState<PreviewResponse|null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [execution, setExecution] = useState<any>(null);
+  const [undoReason, setUndoReason] = useState("");
+  const [override, setOverride] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overrideNote, setOverrideNote] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [notice, setNotice] = useState("");
+  const modeMutation = useMutation({
+    mutationFn: async (next:"shadow"|"assisted") => (await apiRequest("PUT","/api/admin/kay/settings/mode",{ mode:next })).json(),
+    onSuccess: () => { setNotice("Operating mode updated."); queryClient.invalidateQueries({queryKey:["/api/admin/kay/control"]}); },
   });
-  const saveMode = useMutation({
-    mutationFn: async (mode: KayControlData["mode"]) =>
-      (await apiRequest("PUT", "/api/admin/kay/settings/mode", { mode })).json(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/kay/control"] }),
-  });
-  const manualRun = useMutation({
-    mutationFn: async () => (await apiRequest("POST", "/api/admin/kay/missions/generate", {})).json(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/kay/control"] }),
-  });
-  const phaseD = useQuery<any>({ queryKey:["/api/admin/kay/settings/phase-d"], queryFn:async()=>(await apiRequest("GET","/api/admin/kay/settings/phase-d")).json() });
-  const ownerBrief = useQuery<any>({ queryKey:["/api/admin/kay/owner-brief"], queryFn:async()=>(await apiRequest("GET","/api/admin/kay/owner-brief")).json() });
-  const phaseDRun = useMutation({ mutationFn:async()=>(await apiRequest("POST","/api/admin/kay/evaluate-phase-d",{})).json(), onSuccess:()=>{queryClient.invalidateQueries({queryKey:["/api/admin/kay/owner-brief"]});} });
-  const savePhaseD = useMutation({ mutationFn:async(value:any)=>(await apiRequest("PUT","/api/admin/kay/settings/phase-d",value)).json(), onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/admin/kay/settings/phase-d"]}) });
-  const reviews = useQuery<any>({queryKey:["/api/admin/kay/reviews"],queryFn:async()=>(await apiRequest("GET","/api/admin/kay/reviews?status=OPEN")).json()});
-  const reviewAction = useMutation({mutationFn:async({id,action,note}:{id:number;action:"resolve"|"return";note?:string})=>(await apiRequest("POST",`/api/admin/kay/reviews/${id}/${action}`,{note})).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/admin/kay/reviews"]})});
-  const mode = data?.mode ?? "shadow";
-  const rescueItems = (data?.decisions ?? []).filter(item =>
-    item.decisionType?.includes("rescue") || item.decisionType === "manager_review" || item.decisionType === "unprotected_opportunity" ||
-    item.decisionType === "protection_recommended" || item.decisionType === "protected_lead_review_due");
+  const phaseD = useQuery<any>({queryKey:["/api/admin/kay/settings/phase-d"],queryFn:async()=>(await apiRequest("GET","/api/admin/kay/settings/phase-d")).json()});
+  const ownerBrief = useQuery<any>({queryKey:["/api/admin/kay/owner-brief"],queryFn:async()=>(await apiRequest("GET","/api/admin/kay/owner-brief")).json()});
+  const reviews = useQuery<any>({queryKey:["/api/admin/kay/reviews"],queryFn:async()=>(await apiRequest("GET","/api/admin/kay/reviews")).json()});
+  const saveD = useMutation({mutationFn:async(v:any)=>(await apiRequest("PUT","/api/admin/kay/settings/phase-d",v)).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/admin/kay/settings/phase-d"]})});
+  const runD = useMutation({mutationFn:async()=>(await apiRequest("POST","/api/admin/kay/evaluate-phase-d",{})).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/admin/kay/owner-brief"]})});
+  const reviewAction = useMutation({mutationFn:async({id,kind,note}:{id:number;kind:"resolve"|"return";note:string})=>(apiRequest("POST",`/api/admin/kay/reviews/${id}/${kind}`,{note})),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/admin/kay/reviews"]})});
+  const mode = control.data?.mode ?? "shadow";
+  const decisions = useMemo(() => (control.data?.decisions ?? []).filter(d => d.payload?.state === "ACTIVE"), [control.data?.decisions]);
+  const employees = (control.data?.employees ?? control.data?.employeeWorkflow ?? []).map(e => ({
+    id:e.id ?? e.employee_id!, name:e.name ?? e.employee_name ?? `Employee ${e.id ?? e.employee_id}`, availability:e.availability ?? "AVAILABLE"
+  })).filter(e => e.id);
 
-  return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white px-6 py-8">
-        <div className="max-w-6xl mx-auto flex justify-between gap-4 flex-wrap">
-          <div className="flex gap-3">
-            <div className="p-2.5 bg-white/20 rounded-xl"><Bot className="h-6 w-6" /></div>
-            <div>
-              <h1 className="text-2xl font-bold">Kay Control Center</h1>
-              <p className="text-sm text-white/80 mt-0.5">Phase B · Lead protection and rescue intelligence</p>
-            </div>
-          </div>
-          <Button variant="secondary" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
-          </Button>
-        </div>
-      </div>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        <Card className="border-[#3bcac4]/40">
-          <CardHeader><CardTitle className="flex items-center gap-2 text-[#005476]"><ShieldCheck className="h-5 w-5" /> Operating mode</CardTitle></CardHeader>
-          <CardContent className="flex items-center gap-4 flex-wrap">
-            <Select value={mode} onValueChange={(value) => saveMode.mutate(value as KayControlData["mode"])} disabled={saveMode.isPending}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="shadow">Shadow (default)</SelectItem>
-              </SelectContent>
-            </Select>
-            <Badge className="bg-[#3bcac4]/20 text-[#005476] hover:bg-[#3bcac4]/20">{mode.toUpperCase()}</Badge>
-            <p className="text-sm text-muted-foreground">Kay records observations and decisions only. It does not change leads, assignments, statuses, messages, or CRM permissions.</p>
-            {saveMode.isError && <p className="text-sm text-red-600">Mode update failed. The existing setting was kept.</p>}
-          </CardContent>
-        </Card>
-        <Card className="border-[#3bcac4]/40"><CardHeader><CardTitle className="text-lg text-[#005476]">Kay Operations Health</CardTitle></CardHeader><CardContent className="text-sm space-y-1">
-          <div>Mission Scheduler: <b>{data?.operationsHealth?.scheduler ?? "Disabled"}</b> {data?.operationsHealth?.warning && <Badge variant="destructive">{data.operationsHealth.warning}</Badge>}</div>
-          <div>Last generation: {data?.operationsHealth?.lastGeneration ? timestamp(data.operationsHealth.lastGeneration) : "—"} · Last automatic run: {data?.operationsHealth?.lastAutomaticRun ? timestamp(data.operationsHealth.lastAutomaticRun) : "—"} · Manual run: {data?.operationsHealth?.lastManualRun ? timestamp(data.operationsHealth.lastManualRun) : "—"}</div>
-          <div>Last successful cycle: {data?.operationsHealth?.lastSuccessfulCycle ? timestamp(data.operationsHealth.lastSuccessfulCycle) : "—"} · Next expected: {data?.operationsHealth?.nextExpectedRun ? timestamp(data.operationsHealth.nextExpectedRun) : "—"}</div>
-          <div>Checked {data?.operationsHealth?.checked ?? 0} · Created {data?.operationsHealth?.created ?? 0} · Staled {data?.operationsHealth?.staled ?? 0} · Errors {data?.operationsHealth?.errors ?? 0} · Lease {data?.operationsHealth?.leaseState ?? "—"} · Circuit {data?.operationsHealth?.circuitOpenUntil ? `open until ${timestamp(data.operationsHealth.circuitOpenUntil)}` : "closed"}</div>
-          <div>Notification system: {data?.operationsHealth?.notifications ?? "Disabled"} · Pending HIGH/CRITICAL: {data?.operationsHealth?.pendingHighCritical ?? 0}</div>
-          <Button size="sm" variant="outline" disabled={manualRun.isPending} onClick={()=>manualRun.mutate()}><RefreshCw className={`mr-1 h-3 w-3 ${manualRun.isPending ? "animate-spin" : ""}`}/>Manual Run</Button>
-        </CardContent></Card>
-         <PhaseDCard data={phaseD.data} availableEmployees={data?.employees ?? data?.employeeWorkflow ?? []} save={(v:any)=>savePhaseD.mutate(v)} run={()=>phaseDRun.mutate()} running={phaseDRun.isPending} ownerText={ownerBrief.data?.text} />
-         <Card className="border-amber-300"><CardHeader><CardTitle className="text-lg text-[#005476]">Manager review queue</CardTitle></CardHeader><CardContent className="space-y-2">{(reviews.data?.reviews||reviews.data||[]).length===0?<p className="text-sm text-muted-foreground">No open reviews.</p>:(reviews.data?.reviews||reviews.data||[]).map((review:any)=><ReviewRow key={review.id} review={review} onAction={(a:"resolve"|"return")=>reviewAction.mutate({id:review.id,action:a,note:window.prompt("Optional note")||undefined})}/>)}</CardContent></Card>
-        <Card className="border-amber-300 bg-amber-50">
-          <CardHeader><CardTitle className="text-lg text-[#005476]">Rescue Intelligence · SHADOW</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p className="font-medium">SHADOW — NO LEADS ARE BEING REASSIGNED</p>
-            <p className="text-muted-foreground">Kay only observes, calculates, logs, and recommends. It never changes lead status, ownership, customer communication, tasks, or WhatsApp.</p>
-            <p className="text-muted-foreground">Protected Leads: <span className="font-medium text-[#005476]">{data?.protectedLeads?.length ?? 0}</span></p>
-            {(data?.protectedLeads?.length ?? 0) > 0 && <div className="text-xs text-muted-foreground">{data!.protectedLeads!.slice(0, 10).map(p => <div key={p.id}>🔒 Lead {p.leadId} · {p.reason} · {timestamp(p.protectedAt)}</div>)}</div>}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-3">
-              {["ACTIVE", "BLOCKED", "NOT_YET_ELIGIBLE", "STALE", "SIMULATED_LIMIT_REACHED"].map(state => <div key={state} className="rounded-lg border bg-white px-3 py-2">
-                <div className="text-xs text-muted-foreground">{state.replaceAll("_", " ")}</div>
-                <div className="text-xl font-semibold text-[#005476]">{rescueItems.filter(item => item.payload?.state === state).length}</div>
-              </div>)}
-            </div>
-            <div className="space-y-2 pt-2">
-              {rescueItems.slice(0, 12).map(item => <details key={item.id} className="rounded-lg border bg-white p-3">
-                <summary className="cursor-pointer font-medium">Lead {item.leadId ?? "—"} · {item.payload?.state ?? "OBSERVED"} · WHY?</summary>
-                <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-                  <div>Status: {item.payload?.status ?? "—"}</div>
-                  <div>Time in status: {item.payload?.elapsed_minutes ?? 0}m / {item.payload?.threshold_minutes ?? 0}m</div>
-                  <div>Blockers: {item.payload?.blockers?.join(", ") || "None"}</div>
-                  <div>Recommended: {item.payload?.recommended_employee_name || (item.payload?.manager_review ? "Manager review" : "—")}</div>
-                  <div>Reason: {item.payload?.employee_selection_explanation || item.rationale}</div>
-                   {item.payload?.task_blocker && <div>Task WHY: #{item.payload.task_blocker.id} · {item.payload.task_blocker.title || "Untitled"} · due {item.payload.task_blocker.dueDate || "unscheduled"} {item.payload.task_blocker.dueTime || ""} · created by {item.payload.task_blocker.createdBy ?? "—"} · {item.payload.task_blocker.classification} ({item.payload.task_blocker.rule})</div>}
-                   {item.decisionType === "protected_lead_review_due" && <div>Protection review: protected since {item.payload?.protected_at ? timestamp(item.payload.protected_at) : "—"}; informational threshold {item.payload?.protected_review_after_days} days. No removal was performed.</div>}
-                  <Badge className="mt-1 w-fit bg-amber-100 text-amber-800 hover:bg-amber-100">SHADOW · NO ACTION TAKEN</Badge>
-                </div>
-              </details>)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-lg text-[#005476]">CRM Status Intelligence</CardTitle></CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full text-xs"><thead className="text-left text-muted-foreground"><tr><th className="p-2">CRM Status</th><th className="p-2">Kay Classification</th><th className="p-2">Terminal?</th><th className="p-2">Rescue evaluated?</th><th className="p-2">Protected candidate?</th><th className="p-2">Workflow meaning</th></tr></thead>
-              <tbody>{(data?.statusIntelligence ?? []).map(row => <tr key={row.status} className="border-t"><td className="p-2 font-medium">{row.status}</td><td className="p-2">{row.classification}</td><td className="p-2">{row.terminal ? "Yes" : "No"}</td><td className="p-2">{row.rescueEvaluated ? "Yes" : "No"}</td><td className="p-2">{row.protectedCandidate ? "Yes" : "No"}</td><td className="p-2 text-muted-foreground">{row.description}</td></tr>)}</tbody>
-            </table>
-          </CardContent>
-        </Card>
-        <Card className="border-[#3bcac4]/40">
-          <CardHeader><CardTitle className="text-lg text-[#005476]">Employee Workflow Intelligence</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">Work organization counts only — not a performance ranking or score.</p>
-            {(data?.employeeWorkflow?.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">No eligible employee workflow records yet.</p> :
-              <div className="grid gap-3 md:grid-cols-2">{data!.employeeWorkflow!.map(employee => <div key={employee.employee_id} className="rounded-lg border p-3">
-                <div className="font-medium text-[#005476]">{employee.employee_name}</div>
-                <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-                  <div>Active <b>{employee.active_missions}</b></div><div>Critical <b>{employee.active_critical}</b></div><div>Rescue risk <b>{employee.rescue_risk}</b></div>
-                  <div>Follow-up gaps <b>{employee.unprotected}</b></div><div>Protected attention <b>{employee.protected_attention}</b></div><div>Completed <b>{employee.completed}</b></div>
-                  <div>Dismissed <b>{employee.dismissed}</b></div><div>Stale <b>{employee.stale}</b></div><div>Total <b>{employee.missions_total}</b></div>
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">Unacknowledged: Critical {employee.unacknowledged_critical ?? 0} · High {employee.unacknowledged_high ?? 0} · Oldest pending {employee.oldest_pending ? timestamp(employee.oldest_pending) : "—"} · Availability {data?.availability?.find(a=>a.employeeId===employee.employee_id)?.availability ?? "AVAILABLE"} · Last Kay activity {employee.last_kay_activity ? timestamp(employee.last_kay_activity) : "—"}</div>
-                {Object.keys(employee.results || {}).length > 0 && <div className="mt-2 text-xs text-muted-foreground">Reported outcomes: {Object.entries(employee.results).map(([name,total]) => `${name}: ${total}`).join(" · ")}</div>}
-              </div>)}</div>}
-            <details className="mt-4"><summary className="cursor-pointer text-sm font-medium text-[#005476]">Inspect recent missions (50 max)</summary>
-              <div className="mt-2 max-h-64 overflow-auto text-xs">{(data?.missionInspection ?? []).map(m=><div key={m.id} className="border-b py-2">#{m.id} · {m.employee_name || "—"} · {m.lead_name || `Lead ${m.lead_id ?? "—"}`} · {m.mission_type} · {m.priority} · {m.status} · {m.reason_code} · created {timestamp(m.created_at)} {m.accepted_at ? `· accepted ${timestamp(m.accepted_at)}` : ""} {m.completed_at ? `· completed ${timestamp(m.completed_at)}` : ""} {m.result_code ? `· result ${m.result_code}` : ""}</div>)}</div>
-            </details>
-          </CardContent>
-        </Card>
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Ledger title="Recent events" items={data?.events ?? []} loading={isLoading} />
-          <Ledger title="Recent decisions" items={data?.decisions ?? []} loading={isLoading} decisions />
-        </div>
-      </div>
+  const loadPreview = async (decision:Decision) => {
+    if (mode !== "assisted" || !decision.leadId) return;
+    setSelected(decision); setPreview(null); setPreviewError(""); setExecution(null); setAcknowledged(false); setOverride(""); setOverrideReason(""); setOverrideNote("");
+    try { setPreview(await (await apiRequest("GET", `/api/admin/kay/rescue/${decision.leadId}/${decision.id}/preview`)).json() as PreviewResponse); }
+    catch (e:any) { setPreviewError(e.message || "Unable to load the live rescue preview."); }
+  };
+  const execute = useMutation({
+    mutationFn: async () => {
+      const p = preview?.preview;
+      return (await apiRequest("POST", "/api/admin/kay/rescue/execute", {
+        leadId:Number(selected?.leadId), decisionId:Number(selected?.id), expectedOwnerId:Number(p?.lead.ownerId),
+        ...(override ? { targetEmployeeId:Number(override), overrideReason, ...(overrideNote.trim() ? { overrideNote:overrideNote.trim()} : {}) } : {})
+      })).json();
+    },
+    onSuccess: (result) => { setExecution(result); setNotice("Rescue executed. The CRM owner was changed and the action is now reversible within the displayed window."); queryClient.invalidateQueries({queryKey:["/api/admin/kay/control"]}); },
+  });
+  const undo = useMutation({
+    mutationFn: async () => (await apiRequest("POST", `/api/admin/kay/rescue/${execution.executionId}/undo`, { reason:undoReason.trim() })).json(),
+    onSuccess: () => { setNotice("Rescue undone. The previous owner has been restored."); setExecution((x:any) => ({...x, outcome:"UNDONE"})); queryClient.invalidateQueries({queryKey:["/api/admin/kay/control"]}); },
+  });
+
+  if (control.isLoading) return <main className="min-h-[100dvh] bg-[#f4f7f6] p-6"><div className="mx-auto max-w-6xl space-y-4 animate-pulse"><div className="h-28 rounded-2xl bg-[#dbe7e3]"/><div className="h-48 rounded-2xl bg-[#e7efec]"/><div className="h-64 rounded-2xl bg-[#e7efec]"/></div></main>;
+  if (control.isError) return <main className="min-h-[100dvh] bg-[#f4f7f6] p-8"><Card className="mx-auto max-w-lg border-red-200"><CardContent className="space-y-4 p-6"><ShieldAlert className="text-red-700"/><h1 className="text-xl font-semibold text-[#163b3b]">Kay Control Center unavailable</h1><p className="text-sm text-slate-600">The control snapshot could not be loaded. No CRM action was taken.</p><Button onClick={() => control.refetch()}>Retry</Button></CardContent></Card></main>;
+  return <main className="min-h-[100dvh] bg-[#f4f7f6] pb-16 text-[#193b3a]">
+    <header className="border-b border-[#bed2cc] bg-[#173f3d] text-[#f1f7f4]"><div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-7"><div><p className="text-xs font-semibold uppercase tracking-[.22em] text-[#a9d5ca]">Kay · Phase E.1</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Rescue Control Center</h1><p className="mt-2 max-w-2xl text-sm text-[#c4dcd5]">A review surface for high-consequence ownership changes. Kay never performs full automation.</p></div><Button variant="outline" className="border-[#709f96] bg-transparent text-white hover:bg-[#285650]" onClick={() => control.refetch()} disabled={control.isFetching}><RefreshCw className="mr-2 h-4 w-4"/>Refresh</Button></div></header>
+    <div className="mx-auto max-w-6xl space-y-5 px-5 py-6">
+      <Card className="border-[#a9c9c0] bg-[#fbfdfc]"><CardContent className="flex flex-wrap items-center justify-between gap-5 p-5"><div><p className="text-xs font-bold uppercase tracking-widest text-[#57756e]">Operating mode</p><div className="mt-2 flex flex-wrap items-center gap-3"><select aria-label="Kay operating mode" className="rounded-md border border-[#a9c9c0] bg-white px-3 py-2 text-sm font-semibold" value={mode} onChange={e=>modeMutation.mutate(e.target.value as "shadow"|"assisted")} disabled={modeMutation.isPending}><option value="shadow">SHADOW</option><option value="assisted">ASSISTED</option></select><Badge className="bg-[#d8eee8] text-[#205c52] hover:bg-[#d8eee8]">{mode.toUpperCase()}</Badge><span className="text-sm font-medium">{mode === "shadow" ? "Recommendations only" : "Admin-confirmed execution"}</span></div>{modeMutation.isError&&<p className="mt-2 text-sm text-red-700">Mode update failed; the existing setting was kept.</p>}</div><p className="max-w-xl text-sm leading-6 text-slate-600">{mode === "shadow" ? "SHADOW observes, evaluates, and records. There is no active execution control and no lead ownership changes." : "ASSISTED prepares a live preview, then requires an Admin to revalidate and explicitly confirm each rescue. It is not Full Automation."}</p></CardContent></Card>
+      {notice && <div role="status" className="rounded-xl border border-[#9ccabd] bg-[#e7f5ef] p-4 text-sm font-medium text-[#205c52]"><CheckCircle2 className="mr-2 inline h-4 w-4"/>{notice}</div>}
+      <section><div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#57756e]">Decision ledger</p><h2 className="mt-1 text-2xl font-semibold">Active rescue recommendations</h2></div><Badge variant="outline">{decisions.length} active</Badge></div>
+        {decisions.length === 0 ? <Card><CardContent className="p-8 text-center text-sm text-slate-600">No active valid rescue decisions require review.</CardContent></Card> :
+        <div className="space-y-3">{decisions.map(d => <DecisionRow key={d.id} decision={d} mode={mode} onReview={() => loadPreview(d)}/>)}</div>}
+      </section>
+      <Card className="border-[#bed2cc]"><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ClipboardCheck className="h-5 w-5 text-[#287567]"/>Operational trace</CardTitle></CardHeader><CardContent className="grid gap-3 text-sm sm:grid-cols-3"><Metric title="Scheduler" value={label(control.data?.operationsHealth?.scheduler ?? "Disabled")}/><Metric title="Last successful cycle" value={date(control.data?.operationsHealth?.lastSuccessfulCycle)}/><Metric title="Protected leads" value={label(control.data?.protectedLeads?.length ?? 0)}/></CardContent></Card>
+      <PhaseDCard data={phaseD.data} ownerText={ownerBrief.data?.text} employees={employees} onSave={(v:any)=>saveD.mutate(v)} onRun={()=>runD.mutate()} running={runD.isPending}/>
+      <ReviewQueue reviews={reviews.data?.reviews??[]} onAction={(id,kind)=>{const note=window.prompt(kind==="resolve"?"Resolution note":"Return note"); if(note?.trim()) reviewAction.mutate({id,kind,note})}}/>
+      <LegacyIntelligence data={control.data}/>
     </div>
-  );
+    {selected && <RescueReview decision={selected} preview={preview} error={previewError} mode={mode} employees={employees} override={override} setOverride={setOverride} overrideReason={overrideReason} setOverrideReason={setOverrideReason} overrideNote={overrideNote} setOverrideNote={setOverrideNote} acknowledged={acknowledged} setAcknowledged={setAcknowledged} execution={execution} execute={execute} undo={undo} undoReason={undoReason} setUndoReason={setUndoReason} onClose={() => setSelected(null)} />}
+  </main>;
 }
-
-function Ledger({ title, items, loading, decisions = false }: { title: string; items: LedgerItem[]; loading: boolean; decisions?: boolean }) {
-  return <Card>
-    <CardHeader><CardTitle className="text-lg text-[#005476]">{title}</CardTitle></CardHeader>
-    <CardContent>
-      {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : items.length === 0 ? <p className="text-sm text-muted-foreground">No Kay records yet.</p> :
-        <div className="space-y-3">{items.map(item => <div key={item.id} className="border-b last:border-0 pb-3 last:pb-0">
-          <div className="flex justify-between gap-3"><span className="font-medium text-sm">{decisions ? item.decisionType : item.eventType}</span><span className="text-xs text-muted-foreground whitespace-nowrap">{timestamp(item.createdAt)}</span></div>
-          <p className="text-xs text-muted-foreground mt-1">{decisions ? item.rationale : `${item.eventSource} · Lead ${item.leadId ?? "—"}`}</p>
-        </div>)}</div>}
-    </CardContent>
-  </Card>;
-}
-
-function PhaseDCard({data,availableEmployees,save,run,running,ownerText}:{data:any;availableEmployees:any[];save:(v:any)=>void;run:()=>void;running:boolean;ownerText?:string}) {
-  const [draft,setDraft]=useState<any>(null);
-  const value={...(data||{}),...(draft||{})};
-  const set=(key:string,v:any)=>setDraft({...value,[key]:v});
-  const speak=()=>{if(ownerText&&"speechSynthesis" in window){window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(ownerText);u.lang=value.default_language==="ar"?"ar-SA":"en-US";u.rate=Number(value.speech_rate??1);u.pitch=Number(value.speech_pitch??1);if(value.preferred_voice_name){const selected=window.speechSynthesis.getVoices().find(v=>v.name===value.preferred_voice_name);if(selected)u.voice=selected;}window.speechSynthesis.speak(u);}};
-  return <Card className="border-[#3bcac4]/40"><CardHeader><CardTitle className="text-lg text-[#005476]">Phase D · Voice & Personality</CardTitle></CardHeader><CardContent className="space-y-4 text-sm">
-    <p className="text-muted-foreground">Browser-local speech only. Briefings always remain readable; no customer contact, telephony, external TTS, or audio leaves this device.</p>
-    <div className="flex flex-wrap gap-4 items-center"><label className="flex gap-2 items-center">Enabled <input type="checkbox" checked={!!value.enabled} onChange={e=>set("enabled",e.target.checked)}/></label><label className="flex gap-2 items-center">Voice enabled <input type="checkbox" checked={!!value.voice_enabled} onChange={e=>set("voice_enabled",e.target.checked)}/></label></div>
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="Style" value={value.style??"PROFESSIONAL"} onChange={v=>set("style",v)} placeholder="PROFESSIONAL"/><Field label="Call style" value={value.call_style??"PROFESSIONAL"} onChange={v=>set("call_style",v)} placeholder="PROFESSIONAL"/><Field label="Owner address" value={value.owner_address??"Owner"} onChange={v=>set("owner_address",v)}/><Field label="Employee address style" value={value.employee_address_style??"FIRST_NAME"} onChange={v=>set("employee_address_style",v)} placeholder="FIRST_NAME"/></div>
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="Default language" value={value.default_language??"en"} onChange={v=>set("default_language",v)} placeholder="en / ar"/><Field label="Voice name (optional)" value={value.preferred_voice_name??""} onChange={v=>set("preferred_voice_name",v.trim()||null)}/><Field label="Rate (0.5–2)" type="number" value={value.speech_rate??1} onChange={v=>set("speech_rate",Number(v))}/><Field label="Pitch (0.5–2)" type="number" value={value.speech_pitch??1} onChange={v=>set("speech_pitch",Number(v))}/></div>
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="Directness (1–5)" type="number" value={value.directness_level??3} onChange={v=>set("directness_level",Number(v))}/><Field label="Brief length" value={value.brief_length??"SHORT"} onChange={v=>set("brief_length",v)} placeholder="SHORT"/><Field label="Max brief seconds" type="number" value={value.max_brief_seconds??30} onChange={v=>set("max_brief_seconds",Number(v))}/><div className="space-y-1">{Object.entries(value.personality_toggles||{}).map(([key,enabled])=><label key={key} className="flex gap-2 items-center capitalize"><input type="checkbox" checked={!!enabled} onChange={e=>set("personality_toggles",{...value.personality_toggles,[key]:e.target.checked})}/>{key}</label>)}</div></div>
-    <EmployeeProfiles value={value} availableEmployees={availableEmployees} onChange={(profiles)=>set("employee_profiles",profiles)} />
-    <div className="flex flex-wrap gap-2"><Button onClick={()=>{save(value);setDraft(null)}}>Save voice settings</Button><Button variant="outline" onClick={speak} disabled={!ownerText||value.voice_enabled===false}><Volume2 className="mr-1 h-3 w-3"/>Test voice with owner brief</Button><Button variant="outline" onClick={run} disabled={running}>{running?"Evaluating…":"Run internal evaluator"}</Button></div>
-    <div className="rounded border p-3 bg-slate-50"><b>Owner brief</b><p className="mt-1">{ownerText||"Loading…"}</p></div>
+function DecisionRow({decision,mode,onReview}:{decision:Decision;mode:string;onReview:()=>void}) { const p=decision.payload??{}; return <Card className="border-l-4 border-l-[#d39b45]"><CardContent className="flex flex-wrap items-center justify-between gap-4 p-5"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">Lead {decision.leadId ?? "—"}</span><Badge className="bg-[#fff1d9] text-[#825a1d] hover:bg-[#fff1d9]">{p.state ?? "ACTIVE"}</Badge><span className="text-xs text-slate-500">{date(decision.createdAt)}</span></div><p className="mt-2 text-sm text-slate-600">{p.employee_selection_explanation ?? decision.rationale ?? "Kay identified a rescue review candidate."}</p></div>{mode === "assisted" ? <Button onClick={onReview} className="bg-[#c57d2f] text-white hover:bg-[#a96825]">Review rescue</Button> : <Badge variant="outline" className="border-[#d39b45] text-[#825a1d]">SHADOW · NO EXECUTION</Badge>}</CardContent></Card>; }
+function Metric({title,value}:{title:string;value:string}) { return <div className="rounded-lg bg-[#eef5f2] p-3"><p className="text-xs uppercase tracking-wide text-slate-500">{title}</p><p className="mt-1 font-semibold">{value}</p></div>; }
+function PhaseDCard({data,ownerText,employees,onSave,onRun,running}:{data:any;ownerText?:string;employees:any[];onSave:(v:any)=>void;onRun:()=>void;running:boolean}) {
+  const [draft,setDraft]=useState<any>(null); const value={...(data??{}),...(draft??{})}; const set=(k:string,v:any)=>setDraft({...value,[k]:v});
+  const speak=()=>{if(!ownerText||!("speechSynthesis" in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(ownerText);u.lang=value.default_language==="ar"?"ar-SA":"en-US";u.rate=Number(value.speech_rate??1);u.pitch=Number(value.speech_pitch??1);const voice=window.speechSynthesis.getVoices().find(v=>v.name===value.preferred_voice_name);if(voice)u.voice=voice;window.speechSynthesis.speak(u);};
+  const profiles=value.employee_profiles&&typeof value.employee_profiles==="object"&&!Array.isArray(value.employee_profiles)?value.employee_profiles:{};
+  return <Card className="border-[#9fbfb5]"><CardHeader><CardTitle>Phase D · Voice, personality & accountability</CardTitle></CardHeader><CardContent className="space-y-4 text-sm"><p className="text-slate-600">Browser-local voice only. Briefings remain readable; no customer contact or audio leaves this device.</p>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><label>Enabled<input className="ml-2" type="checkbox" checked={!!value.enabled} onChange={e=>set("enabled",e.target.checked)}/></label><label>Voice enabled<input className="ml-2" type="checkbox" checked={value.voice_enabled!==false} onChange={e=>set("voice_enabled",e.target.checked)}/></label>{[["default_language","Default language","en"],["style","Style","PROFESSIONAL"],["call_style","Call style","PROFESSIONAL"],["owner_address","Owner address","Owner"],["employee_address_style","Address style","FIRST_NAME"],["brief_length","Brief length","SHORT"],["preferred_voice_name","Preferred voice",""],["speech_rate","Speech rate","1"],["speech_pitch","Speech pitch","1"],["max_brief_seconds","Max brief seconds","30"],["directness_level","Directness (1–5)","3"]].map(([k,n,placeholder])=><label key={k}><span className="text-xs text-slate-500">{n}</span><input type={["speech_rate","speech_pitch","max_brief_seconds","directness_level"].includes(k)?"number":"text"} className="mt-1 w-full rounded border px-2 py-1.5" placeholder={placeholder} value={value[k]??""} onChange={e=>set(k,["speech_rate","speech_pitch","max_brief_seconds","directness_level"].includes(k)?Number(e.target.value):e.target.value)}/></label>)}</div>
+    <div className="rounded-lg border p-3"><p className="font-semibold">Personality toggles</p><div className="mt-2 flex flex-wrap gap-4">{Object.entries(value.personality_toggles??{}).map(([k,v]:any)=><label key={k}><input type="checkbox" checked={!!v} onChange={e=>set("personality_toggles",{...value.personality_toggles,[k]:e.target.checked})}/> <span className="capitalize">{k.replaceAll("_"," ")}</span></label>)}</div></div>
+    <div className="rounded-lg border p-3"><p className="font-semibold">Employee profiles</p><div className="mt-2 space-y-2">{Object.entries(profiles).map(([id,p]:any)=><div className="grid gap-2 rounded bg-[#f1f6f4] p-2 sm:grid-cols-4" key={id}><b>Employee #{id}</b>{["language","address","style","preferred_voice_name"].map(k=><input aria-label={`${k} for employee ${id}`} className="rounded border px-2 py-1" value={p?.[k]??""} placeholder={k} onChange={e=>set("employee_profiles",{...profiles,[id]:{...p,[k]:k==="preferred_voice_name"?(e.target.value.trim()||null):e.target.value}})}/>)}</div>)}</div><select aria-label="Add employee profile" className="mt-3 rounded border px-2 py-1" defaultValue="" onChange={e=>{if(!e.target.value)return;const employee=employees.find(x=>String(x.id)===e.target.value);set("employee_profiles",{...profiles,[e.target.value]:{language:"en",address:String(employee?.name??`Employee ${e.target.value}`),style:"PROFESSIONAL",preferred_voice_name:null}})}}><option value="">Add employee profile…</option>{employees.filter(e=>!profiles[String(e.id)]).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+    <div className="flex flex-wrap gap-2"><Button onClick={()=>{onSave(value);setDraft(null)}}>Save Phase D settings</Button><Button variant="outline" onClick={speak} disabled={!ownerText||value.voice_enabled===false}>Test local voice</Button><Button variant="outline" onClick={onRun} disabled={running}>{running?"Evaluating…":"Run evaluator"}</Button></div><div className="rounded border bg-[#f1f6f4] p-3"><b>Owner Brief</b><p className="mt-1">{ownerText??"Loading owner brief…"}</p></div>
   </CardContent></Card>;
 }
-function Field({label,value,onChange,type="text",placeholder}:{label:string;value:any;onChange:(v:string)=>void;type?:string;placeholder?:string}) { return <label className="block"><span className="text-xs text-muted-foreground">{label}</span><input className="mt-1 w-full border rounded px-2 py-1.5 bg-background" type={type} value={value} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/></label>; }
-function EmployeeProfiles({value,availableEmployees,onChange}:{value:any;availableEmployees:any[];onChange:(profiles:Record<string,any>)=>void}) {
-  const profiles:Record<string,any>=value.employee_profiles&&typeof value.employee_profiles==="object"&&!Array.isArray(value.employee_profiles)?value.employee_profiles:{};
-  const [selected,setSelected]=useState("");
-  const available=availableEmployees.map(employee=>({...employee,employee_id:employee.employee_id??employee.id,employee_name:employee.employee_name??employee.name})).filter(employee=>employee.employee_id&&!profiles[String(employee.employee_id)]);
-  const add=()=>{if(!selected||profiles[selected])return;const employee=available.find(item=>String(item.employee_id)===selected);onChange({...profiles,[selected]:{language:"en",address:String(employee?.employee_name||`Employee ${selected}`).trim(),style:"PROFESSIONAL",preferred_voice_name:null}});setSelected("");};
-  return <div className="border rounded p-3 space-y-3"><div><b>Employee profiles</b><p className="text-xs text-muted-foreground">Create the first profile from employees already returned by Control Center. Profiles are saved in canonical <code>employee_profiles</code>.</p></div>
-    {Object.keys(profiles).length===0&&<div className="rounded bg-slate-50 border border-dashed p-3 text-sm text-muted-foreground">No employee profiles yet. Choose an available employee to add the first profile.</div>}
-    {Object.entries(profiles).map(([id,employee]:[string,any])=><OverrideRow key={id} employee={{...employee,employee_id:id}} onChange={(next)=>{const {employee_id,employee_name,...profile}=next;onChange({...profiles,[employee_id]:profile});}}/>)}
-    {available.length>0?<div className="flex gap-2 items-end flex-wrap"><label className="block text-sm flex-1 min-w-56"><span className="text-xs text-muted-foreground">Available employee</span><select aria-label="Available employee" className="mt-1 w-full border rounded px-2 py-1.5 bg-background" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Select employee</option>{available.map(employee=><option key={employee.employee_id} value={employee.employee_id}>{employee.employee_name} · #{employee.employee_id}</option>)}</select></label><Button type="button" onClick={add} disabled={!selected}><PlusIcon/>Add profile</Button></div>:Object.keys(profiles).length>0?<p className="text-xs text-muted-foreground">All employees in the current Control Center data already have profiles.</p>:<p className="text-xs text-muted-foreground">No eligible employees are available in the current control payload.</p>}
-  </div>;
+function ReviewQueue({reviews,onAction}:{reviews:any[];onAction:(id:number,k:"resolve"|"return")=>void}) { return <Card className="border-[#d5b374]"><CardHeader><CardTitle>Manager reviews</CardTitle></CardHeader><CardContent className="space-y-2">{reviews.length===0?<p className="text-sm text-slate-600">No manager reviews.</p>:reviews.map(r=><div className="rounded border p-3" key={r.id}><div className="flex justify-between"><b>{r.title??r.reason??`Review #${r.id}`}</b><Badge>{r.status??"OPEN"}</Badge></div><p className="my-2 text-sm text-slate-600">{r.description??r.rationale??"Manager context is required."}</p><div className="flex gap-2"><Button size="sm" onClick={()=>onAction(r.id,"resolve")}><Check className="mr-1 h-3 w-3"/>Resolve</Button><Button size="sm" variant="outline" onClick={()=>onAction(r.id,"return")}><RotateCcw className="mr-1 h-3 w-3"/>Return</Button></div></div>)}</CardContent></Card>; }
+function LegacyIntelligence({data}:{data?:Control}) { const workflow:any[]=data?.employeeWorkflow??[]; const statuses:any[]=data?.statusIntelligence??[]; return <div className="grid gap-5 lg:grid-cols-2"><Card><CardHeader><CardTitle>CRM status intelligence</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="text-left text-slate-500"><th className="p-2">Status</th><th className="p-2">Classification</th><th className="p-2">Rescue</th><th className="p-2">Workflow meaning</th></tr></thead><tbody>{statuses.map((s:any)=><tr className="border-t" key={s.status}><td className="p-2 font-medium">{s.status}</td><td className="p-2">{s.classification}</td><td className="p-2">{s.rescueEvaluated?"Yes":"No"}</td><td className="p-2">{s.description}</td></tr>)}</tbody></table>{!statuses.length&&<p className="p-3 text-sm text-slate-600">No status intelligence records.</p>}</CardContent></Card><Card><CardHeader><CardTitle>Employee workflow intelligence</CardTitle></CardHeader><CardContent className="space-y-2">{workflow.length?workflow.map((e:any)=><div className="rounded border p-3 text-sm" key={e.employee_id}><b>{e.employee_name}</b><p className="mt-1 text-slate-600">Active {e.active_missions} · Critical {e.active_critical} · Rescue risk {e.rescue_risk} · Completed {e.completed} · Stale {e.stale}</p></div>):<p className="text-sm text-slate-600">No eligible employee workflow records.</p>}</CardContent></Card></div>; }
+function RescueReview({decision,preview,error,employees,override,setOverride,overrideReason,setOverrideReason,overrideNote,setOverrideNote,acknowledged,setAcknowledged,execution,execute,undo,undoReason,setUndoReason,onClose}:any) {
+  const p:RescuePreview|undefined=preview?.preview; const hasOverride=Boolean(override); const canConfirm=Boolean(p && p.target.eligible && p.decision.state==="ACTIVE" && !p.protection.protected && p.blockers.length===0 && acknowledged && (!hasOverride || (overrideReason && (overrideReason!=="OTHER" || overrideNote.trim()))));
+  return <div className="fixed inset-0 z-50 overflow-y-auto bg-[#173f3d]/70 p-4" role="dialog" aria-modal="true" aria-labelledby="rescue-review-title"><div className="mx-auto my-6 max-w-3xl rounded-2xl border border-[#bed2cc] bg-[#fbfdfc] shadow-2xl"><div className="flex items-start justify-between border-b border-[#d5e2de] p-5"><div><p className="text-xs font-bold uppercase tracking-widest text-[#a96825]">Sensitive action · Admin only</p><h2 id="rescue-review-title" className="mt-1 text-2xl font-semibold">Confirm rescue for Lead {decision.leadId}</h2><p className="mt-1 text-sm text-slate-600">This review must be completed against the live preview. It is not a one-click transfer.</p></div><Button variant="ghost" onClick={onClose} aria-label="Close rescue review">Close</Button></div>
+  <div className="space-y-5 p-5">{error&&<div role="alert" className="rounded-lg bg-[#fff0ed] p-3 text-sm text-[#943f32]">{error}</div>}{!p&&!error&&<div className="flex items-center gap-2 rounded-lg bg-[#eef5f2] p-4 text-sm"><RefreshCw className="h-4 w-4 animate-spin"/>Loading live preview…</div>}{p&& !execution&&<><div className="rounded-lg border border-[#c77c69] bg-[#fff1ee] p-4 text-sm text-[#75352c]"><AlertTriangle className="mr-2 inline h-5 w-5"/>Warning: confirming will change the real CRM Lead owner. Revalidation protects against the live state below.</div><div className="grid gap-3 sm:grid-cols-2">{[["Lead",`#${p.lead.id}`],["Current owner",p.lead.ownerName],["Recommended target",p.target.name],["Current status",p.lead.status],["Contact stage",label(p.lead.contactStage)],["Status window",date(p.decision.statusWindow)],["Time / threshold",`${p.decision.elapsedMinutes} min / ${p.decision.thresholdMinutes} min`],["Protected",p.protection.protected?"Yes":"No"],["Target eligibility",p.target.eligible?`${p.target.role} · ${p.target.availability}`:"Not eligible"],["Fingerprint",label(p.decision.fingerprint)]].map(([a,b])=><div key={a} className="rounded-lg border border-[#d5e2de] bg-white p-3"><p className="text-xs uppercase tracking-wide text-slate-500">{a}</p><p className="mt-1 break-words text-sm font-semibold">{b}</p></div>)}</div><div className="rounded-lg bg-[#eef5f2] p-4 text-sm"><p className="font-semibold">WHY this recommendation exists</p><p className="mt-1 text-slate-700">{p.decision.why}</p></div><LiveList title="Blockers" items={p.blockers} empty="No live blockers."/><LiveList title="Last mission" items={p.lastMission?[p.lastMission]:[]} empty="No prior mission supplied."/><LiveList title="Open commitments" items={p.commitments} empty="No open commitments."/><LiveList title="Open promises" items={p.promises} empty="No open promises."/><div className="space-y-3 rounded-lg border border-[#d5e2de] p-4"><p className="font-semibold">Optional override target</p><select aria-label="Override target employee" className="w-full rounded-md border p-2" value={override} onChange={e=>setOverride(e.target.value)}><option value="">Use recommended owner: {p.target.name}</option>{employees.filter((e:any)=>e.availability==="AVAILABLE" && String(e.id)!==String(p.lead.ownerId)).map((e:any)=><option key={e.id} value={e.id}>{e.name} · available</option>)}</select>{hasOverride&&<><select aria-label="Override reason" className="w-full rounded-md border p-2" value={overrideReason} onChange={e=>setOverrideReason(e.target.value)}><option value="">Select override reason</option>{["EMPLOYEE_LANGUAGE","EMPLOYEE_AVAILABILITY","WORKLOAD","MANAGER_DECISION","OTHER"].map(x=><option key={x}>{x}</option>)}</select><textarea aria-label="Override note" className="w-full rounded-md border p-2" rows={3} placeholder={overrideReason==="OTHER"?"Required for OTHER":"Note (optional)"} value={overrideNote} onChange={e=>setOverrideNote(e.target.value.slice(0,1000))}/></>}</div>{(!p.target.eligible||p.decision.state!=="ACTIVE"||p.protection.protected||p.blockers.length>0)&&<p role="alert" className="rounded bg-[#fff1ee] p-3 text-sm text-[#943f32]">This rescue cannot be confirmed: live eligibility, decision state, protection, or blockers make it unsafe.</p>}<label className="flex gap-3 rounded-lg border border-[#c77c69] bg-[#fff8f5] p-4 text-sm"><input type="checkbox" className="mt-1 h-4 w-4" checked={acknowledged} onChange={e=>setAcknowledged(e.target.checked)}/><span>I reviewed the live values above and understand this action changes the real CRM owner.</span></label><div className="flex flex-wrap justify-end gap-2"><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={!canConfirm||execute.isPending} onClick={()=>execute.mutate()} className="bg-[#b9652e] hover:bg-[#954c20]">{execute.isPending?"Confirming…":"Approve rescue"}</Button>{execute.isError&&<p role="alert" className="w-full text-sm text-red-700">Unsafe or stale rescue: {execute.error?.message ?? "Review the live state again."}</p>}</div></>}{execution&&<div className="space-y-4"><div className="rounded-lg border border-[#9ccabd] bg-[#e7f5ef] p-4"><CheckCircle2 className="mr-2 inline text-[#287567]"/><b>Rescue executed successfully.</b><p className="mt-1 text-sm">Execution #{execution.executionId} · Lead {execution.leadId} · new owner #{execution.toUserId}</p><p className="mt-1 text-sm">UNDO window ends {date(execution.undoUntil)}.</p></div>{execution.outcome!=="UNDONE"&&<div className="rounded-lg border border-[#d5e2de] p-4"><p className="font-semibold">UNDO RESCUE</p><p className="mt-1 text-sm text-slate-600">Only undo if the reassignment remains safe. A reason is required and the server will reject unsafe reversals.</p><textarea aria-label="Undo reason" className="mt-3 w-full rounded-md border p-2" rows={2} value={undoReason} onChange={e=>setUndoReason(e.target.value.slice(0,500))}/><Button className="mt-2" variant="outline" disabled={!undoReason.trim()||undo.isPending} onClick={()=>undo.mutate()}><Undo2 className="mr-2 h-4 w-4"/>Undo rescue</Button>{undo.isError&&<p role="alert" className="mt-2 text-sm text-red-700">Manual review required: {undo.error?.message}</p>}</div>}<Button variant="outline" onClick={onClose}>Close review</Button></div>}</div></div></div>;
 }
-function PlusIcon(){return <span className="mr-1" aria-hidden="true">+</span>;}
-function OverrideRow({employee,onChange}:{employee:any;onChange:(value:any)=>void}) { const value={language:employee.language||"en",address:employee.address||"",style:employee.style||"PROFESSIONAL",preferred_voice_name:employee.preferred_voice_name||""};return <div className="grid md:grid-cols-5 gap-2 items-end border rounded p-3"><div className="font-medium">{employee.employee_name||`Employee ${employee.employee_id}`}</div><Field label="Language" value={value.language} onChange={v=>onChange({...employee,language:v})}/><Field label="Address" value={value.address} onChange={v=>onChange({...employee,address:v})}/><Field label="Style" value={value.style} onChange={v=>onChange({...employee,style:v})}/><Field label="Preferred voice" value={value.preferred_voice_name} onChange={v=>onChange({...employee,preferred_voice_name:v.trim()||null})}/></div>; }
-function ReviewRow({review,onAction}:{review:any;onAction:(a:"resolve"|"return")=>void}) { return <div className="border rounded p-3"><div className="flex justify-between gap-2"><b>{review.title||review.reason||`Review #${review.id}`}</b><Badge>{review.status||"OPEN"}</Badge></div><p className="text-sm text-muted-foreground mt-1">{review.description||review.rationale||"Kay recommends a manager decision."}</p><div className="flex flex-wrap gap-2 mt-2"><Button size="sm" onClick={()=>onAction("resolve")}><Check className="mr-1 h-3 w-3"/>Resolve</Button><Button size="sm" variant="outline" onClick={()=>onAction("return")}><RotateCcw className="mr-1 h-3 w-3"/>Return for more context</Button></div></div>; }
+function LiveList({title,items,empty}:{title:string;items:Record<string,any>[];empty:string}) { return <div className="rounded-lg border border-[#d5e2de] p-3 text-sm"><p className="font-semibold">{title}</p>{items.length?items.map((item,index)=><pre className="mt-2 overflow-x-auto rounded bg-[#f1f6f4] p-2 text-xs whitespace-pre-wrap" key={item.id??index}>{JSON.stringify(item,null,2)}</pre>):<p className="mt-1 text-slate-600">{empty}</p>}</div>; }
