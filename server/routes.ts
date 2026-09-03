@@ -43,6 +43,7 @@ import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./w
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { acceptPromiseHandoff, executeAssistedRescue, getAssistedRescuePreview, listPromiseHandoffs, undoAssistedRescue } from "./kayRescueService";
+import { applyAutoRescueLastChance, getAutoRescueHealth, getAutoRescueReadiness, runKayAutoRescueWorker } from "./kayAutoRescueService";
 import { requireKayAdmin } from "./kayAuth";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
@@ -506,8 +507,25 @@ ${metaTags}
     const parsed = rescueSettingsSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid shadow rescue settings." });
     try {
+      if (parsed.data.auto_rescue_canary_employee_ids.length) {
+        const valid = await pool.query(`SELECT count(*)::int n FROM users
+          WHERE id=ANY($1::int[]) AND role='sub_agent'`, [parsed.data.auto_rescue_canary_employee_ids]);
+        if (Number(valid.rows[0]?.n) !== new Set(parsed.data.auto_rescue_canary_employee_ids).size) {
+          return res.status(400).json({ message: "Canary list contains an invalid sales employee." });
+        }
+      }
       await db.transaction(async tx => {
-        await tx.insert(kaySettings).values({ key: "rescue_rules", value: { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, assisted_rescue_undo_minutes: 15, rescue_enabled: false }, updatedBy: null }).onConflictDoNothing();
+        await tx.insert(kaySettings).values({ key: "rescue_rules", value: {
+          no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24,
+          max_human_rescue_attempts: 2, rescue_warning_minutes: 30,
+          protected_review_after_days: 7, assisted_rescue_undo_minutes: 15,
+          auto_rescue_no_answer_1_enabled: false, auto_rescue_no_answer_2_enabled: false,
+          auto_rescue_kill_switch: true, auto_rescue_canary_enabled: true,
+          auto_rescue_canary_employee_ids: [], auto_rescue_daily_limit: 5,
+          auto_rescue_per_employee_daily_limit: 3, rescue_grace_minutes: 30,
+          rescue_grace_max_count: 1, auto_rescue_rule_version: "phase_e2_v1",
+          rescue_enabled: false,
+        }, updatedBy: null }).onConflictDoNothing();
         const [current] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).for("update").limit(1);
         const before = rescueSettingsSchema.safeParse(current?.value).data ?? null;
         await tx.insert(kaySettings).values({ key: "rescue_rules", value: parsed.data, updatedBy: req.session.userId, updatedAt: new Date() })
@@ -517,6 +535,30 @@ ${metaTags}
       });
       res.json(parsed.data);
     } catch { res.status(500).json({ message: "Unable to update rescue settings." }); }
+  });
+  app.get("/api/admin/kay/auto-rescue/health", requireKayAdmin, async (_req, res) => {
+    res.json(await getAutoRescueHealth());
+  });
+  app.get("/api/admin/kay/auto-rescue/readiness", requireKayAdmin, async (req, res) => {
+    res.json(await getAutoRescueReadiness(Number(req.query.limit) || 500));
+  });
+  // Read-only CRM dry run: it intentionally shares the aggregate readiness
+  // query and does not invoke the worker or claim queue work.
+  app.post("/api/admin/kay/auto-rescue/dry-run", requireKayAdmin, async (req: any, res) => {
+    res.json({ ...(await getAutoRescueReadiness(Number(req.body?.limit) || 500)), dryRun: true, aggregateOnly: true });
+  });
+  app.get("/api/admin/kay/auto-rescue/history", requireKayAdmin, async (_req, res) => {
+    const rows = await pool.query(`SELECT x.id,x.lead_id,x.from_user_id,x.to_user_id,x.outcome,x.rejection_reason,x.created_at,x.undone_at,
+      x.metadata->>'executionMode' execution_mode,h.rule_version,q.rule_status,q.status queue_status
+      FROM kay_rescue_executions x LEFT JOIN kay_auto_rescue_queue q ON q.execution_id=x.id
+      LEFT JOIN LATERAL (SELECT rule_version FROM kay_auto_rescue_queue qq WHERE qq.execution_id=x.id LIMIT 1) h ON true
+      WHERE x.metadata->>'executionMode'='automatic' ORDER BY x.created_at DESC LIMIT 200`);
+    res.json({ history: rows.rows });
+  });
+  // Manually running a cycle is admin-only. It remains fail-closed unless all
+  // server gates are deliberately enabled, and is useful for synthetic tests.
+  app.post("/api/admin/kay/auto-rescue/run", requireKayAdmin, async (_req, res) => {
+    try { res.json(await runKayAutoRescueWorker()); } catch { res.status(500).json({ message:"Automatic Rescue worker failed; CRM was not retried blindly." }); }
   });
   app.put("/api/admin/kay/leads/:leadId/protection", requireKayAdmin, async (req: any, res) => {
     const leadId = Number(req.params.leadId);
@@ -560,6 +602,17 @@ ${metaTags}
     if (!Number.isInteger(id) || id < 1 || !parsed.success) return res.status(400).json({ message: "Undo reason is required." });
     try { res.json(await undoAssistedRescue(id, req.session.userId, parsed.data.reason)); }
     catch (error: any) { res.status(error.status || 500).json({ message: error.code === "MANUAL_REVIEW_REQUIRED" ? "MANUAL REVIEW REQUIRED" : (error.message || "Undo failed."), code: error.code }); }
+  });
+  // E.2 last-chance actions are scoped to the current lead owner.  They only
+  // create Kay-owned work/grace state and never alter CRM status or contact a
+  // customer.
+  app.post("/api/kay/auto-rescue/:queueId/last-chance", isAuthenticated, async (req: any, res) => {
+    const queueId = Number(req.params.queueId);
+    const parsed = z.object({ action: z.enum(["CONTACT_NOW", "NEED_30_MINUTES", "CANNOT_HANDLE"]) }).strict().safeParse(req.body);
+    if (!Number.isInteger(queueId) || !parsed.success) return res.status(400).json({ message:"Invalid last-chance action." });
+    try {
+      res.json(await applyAutoRescueLastChance(queueId,req.session.userId,!!req.session.isAdmin,parsed.data.action));
+    } catch (error:any) { res.status(error?.status||500).json({message:error?.message||"Unable to apply last-chance action.",code:error?.code}); }
   });
   // Phase C remains an internal, shadow-mode workflow layer. These routes do
   // not accept employee IDs from non-admin callers and never write CRM tables.

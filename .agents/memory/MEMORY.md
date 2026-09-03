@@ -15,3 +15,4 @@
 - [Kay ordered shadow observations](kay-ordered-shadow-observations.md) — exact CRM transition timing must be DB-local and exception-isolated; one current decision per event requires DB uniqueness and atomic upsert.
 - [Neon advisory locks](neon-advisory-locks.md) — pooled background generators need expiring row leases; session advisory locks can remain attached to pooled DB sessions.
 - [Kay assisted rescue safety](kay-assisted-rescue-safety.md) — real lead ownership changes are explicit admin commands only; production defaults to SHADOW and undo fails closed.
+- [Kay controlled auto-rescue safety](kay-controlled-auto-rescue-safety.md) — E.2 is a four-gate, canary-only worker; production stays fully disarmed pending explicit approval.

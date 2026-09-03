@@ -168,6 +168,9 @@ export async function ensureKayTables(): Promise<void> {
          ON kay_decisions(event_id);
       INSERT INTO kay_settings (key, value) VALUES ('mode', '{"mode":"shadow"}'::jsonb)
       ON CONFLICT (key) DO NOTHING;
+       ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+       CREATE UNIQUE INDEX IF NOT EXISTS user_notifications_idempotency_key_unique_idx
+         ON user_notifications(idempotency_key) WHERE idempotency_key IS NOT NULL;
        CREATE TABLE IF NOT EXISTS kay_lead_status_history (
          id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
          status TEXT NOT NULL, entered_at TIMESTAMP NOT NULL, observed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -243,6 +246,60 @@ export async function ensureKayTables(): Promise<void> {
            ('rescue_rules', '{"no_answer_1_threshold_hours":24,"no_answer_2_threshold_hours":24,"max_human_rescue_attempts":2,"rescue_warning_minutes":30,"protected_review_after_days":7,"assisted_rescue_undo_minutes":15,"rescue_enabled":false}'::jsonb)
        ON CONFLICT (key) DO NOTHING;
         UPDATE kay_settings SET value=value || '{"assisted_rescue_undo_minutes":15}'::jsonb WHERE key='rescue_rules' AND NOT value ? 'assisted_rescue_undo_minutes';
+        -- Phase E.2 is additive and deliberately disarmed.  JSONB merge only
+        -- supplies missing keys; it never changes an existing administrator
+        -- value, while fresh installations receive the safe defaults.
+        UPDATE kay_settings SET value=value || jsonb_strip_nulls(jsonb_build_object(
+          'auto_rescue_no_answer_1_enabled', CASE WHEN value ? 'auto_rescue_no_answer_1_enabled' THEN NULL ELSE false END,
+          'auto_rescue_no_answer_2_enabled', CASE WHEN value ? 'auto_rescue_no_answer_2_enabled' THEN NULL ELSE false END,
+          'auto_rescue_kill_switch', CASE WHEN value ? 'auto_rescue_kill_switch' THEN NULL ELSE true END,
+          'auto_rescue_canary_enabled', CASE WHEN value ? 'auto_rescue_canary_enabled' THEN NULL ELSE true END,
+          'auto_rescue_canary_employee_ids', CASE WHEN value ? 'auto_rescue_canary_employee_ids' THEN NULL ELSE '[]'::jsonb END,
+          'auto_rescue_daily_limit', CASE WHEN value ? 'auto_rescue_daily_limit' THEN NULL ELSE 5 END,
+          'auto_rescue_per_employee_daily_limit', CASE WHEN value ? 'auto_rescue_per_employee_daily_limit' THEN NULL ELSE 3 END,
+          'rescue_grace_minutes', CASE WHEN value ? 'rescue_grace_minutes' THEN NULL ELSE 30 END,
+          'rescue_grace_max_count', CASE WHEN value ? 'rescue_grace_max_count' THEN NULL ELSE 1 END,
+          'auto_rescue_rule_version', CASE WHEN value ? 'auto_rescue_rule_version' THEN NULL ELSE 'phase_e2_v1' END
+        ))
+        WHERE key='rescue_rules';
+        CREATE TABLE IF NOT EXISTS kay_auto_rescue_queue (
+          id SERIAL PRIMARY KEY,
+          lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+          status TEXT NOT NULL DEFAULT 'PENDING',
+          rule_status TEXT NOT NULL,
+          status_window TIMESTAMP NOT NULL,
+          rescue_attempt INTEGER NOT NULL,
+          rule_version TEXT NOT NULL,
+          expected_owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          target_employee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          reasons JSONB NOT NULL DEFAULT '{}'::jsonb,
+          warning_at TIMESTAMP,
+          -- kay_missions is created later in this additive bootstrap block;
+          -- its FK is attached immediately after that table exists.
+          warning_mission_id INTEGER,
+          grace_until TIMESTAMP,
+          grace_count INTEGER NOT NULL DEFAULT 0,
+          lease_token TEXT,
+          lease_expires_at TIMESTAMP,
+          fencing_token INTEGER NOT NULL DEFAULT 0,
+          next_run_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          execution_id INTEGER REFERENCES kay_rescue_executions(id) ON DELETE SET NULL,
+          rejection_reason TEXT,
+          claimed_at TIMESTAMP,
+          executed_at TIMESTAMP,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          CONSTRAINT kay_auto_rescue_queue_status_check CHECK
+            (status IN ('PENDING','WARNING','READY','CLAIMED','EXECUTED','BLOCKED','REJECTED','MANAGER_REVIEW','STALE')),
+          CONSTRAINT kay_auto_rescue_queue_grace_count_check CHECK (grace_count >= 0),
+          CONSTRAINT kay_auto_rescue_queue_identity_unique UNIQUE
+            (lead_id,rule_status,status_window,rescue_attempt,rule_version)
+        );
+        CREATE INDEX IF NOT EXISTS kay_auto_rescue_queue_claim_idx
+          ON kay_auto_rescue_queue(status,next_run_at,id);
+        CREATE INDEX IF NOT EXISTS kay_auto_rescue_queue_lead_idx
+          ON kay_auto_rescue_queue(lead_id,created_at DESC);
+        ALTER TABLE kay_auto_rescue_queue ADD COLUMN IF NOT EXISTS rule_status TEXT;
        CREATE TABLE IF NOT EXISTS kay_missions (
          id SERIAL PRIMARY KEY,
          lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
@@ -262,6 +319,12 @@ export async function ensureKayTables(): Promise<void> {
         ALTER TABLE kay_missions ADD COLUMN IF NOT EXISTS notification_version INTEGER NOT NULL DEFAULT 0;
        CREATE INDEX IF NOT EXISTS kay_missions_employee_status_due_priority_idx ON kay_missions(employee_id, status, due_at, priority);
        CREATE INDEX IF NOT EXISTS kay_missions_lead_type_status_idx ON kay_missions(lead_id, mission_type, status);
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='kay_auto_rescue_queue_warning_mission_fk') THEN
+            ALTER TABLE kay_auto_rescue_queue ADD CONSTRAINT kay_auto_rescue_queue_warning_mission_fk
+              FOREIGN KEY (warning_mission_id) REFERENCES kay_missions(id) ON DELETE SET NULL;
+          END IF;
+        END $$;
        DO $$ BEGIN
          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='kay_missions_priority_check') THEN
            ALTER TABLE kay_missions ADD CONSTRAINT kay_missions_priority_check CHECK (priority IN ('CRITICAL','HIGH','NORMAL','LOW'));

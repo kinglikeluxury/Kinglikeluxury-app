@@ -430,9 +430,12 @@ export const userNotifications = pgTable("user_notifications", {
   title: text("title").notNull(),
   message: text("message").notNull(),
   data: jsonb("data").$type<Record<string, any>>(),
+  idempotencyKey: text("idempotency_key"),
   isRead: boolean("is_read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idempotencyKeyUnique: uniqueIndex("user_notifications_idempotency_key_unique_idx").on(table.idempotencyKey),
+}));
 
 export const insertUserNotificationSchema = createInsertSchema(userNotifications).omit({ id: true, createdAt: true });
 export type UserNotification = typeof userNotifications.$inferSelect;
@@ -937,6 +940,40 @@ export const kayRescueExecutions = pgTable("kay_rescue_executions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   undoneAt: timestamp("undone_at"),
 }, (table) => ({ leadCreatedIdx: index("kay_rescue_executions_lead_created_idx").on(table.leadId, table.createdAt) }));
+
+/** E.2 durable automatic-rescue work ledger.  Identity is a status window,
+ * not a mutable queue state, so retries and worker crashes cannot repeat a
+ * transfer.  All references use SET NULL to retain historical evidence. */
+export const kayAutoRescueQueue = pgTable("kay_auto_rescue_queue", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  status: text("status").notNull().default("PENDING"),
+  ruleStatus: text("rule_status").notNull(),
+  statusWindow: timestamp("status_window").notNull(),
+  rescueAttempt: integer("rescue_attempt").notNull(),
+  ruleVersion: text("rule_version").notNull(),
+  expectedOwnerId: integer("expected_owner_id").references(() => users.id, { onDelete: "set null" }),
+  targetEmployeeId: integer("target_employee_id").references(() => users.id, { onDelete: "set null" }),
+  reasons: jsonb("reasons").notNull().default({}),
+  warningAt: timestamp("warning_at"),
+  warningMissionId: integer("warning_mission_id").references(() => kayMissions.id, { onDelete: "set null" }),
+  graceUntil: timestamp("grace_until"),
+  graceCount: integer("grace_count").notNull().default(0),
+  leaseToken: text("lease_token"),
+  leaseExpiresAt: timestamp("lease_expires_at"),
+  fencingToken: integer("fencing_token").notNull().default(0),
+  nextRunAt: timestamp("next_run_at").notNull().defaultNow(),
+  executionId: integer("execution_id").references(() => kayRescueExecutions.id, { onDelete: "set null" }),
+  rejectionReason: text("rejection_reason"),
+  claimedAt: timestamp("claimed_at"),
+  executedAt: timestamp("executed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  identityUnique: uniqueIndex("kay_auto_rescue_queue_identity_unique_idx").on(table.leadId, table.ruleStatus, table.statusWindow, table.rescueAttempt, table.ruleVersion),
+  claimIdx: index("kay_auto_rescue_queue_claim_idx").on(table.status, table.nextRunAt, table.id),
+}));
+export type KayAutoRescueQueueItem = typeof kayAutoRescueQueue.$inferSelect;
 
 export const kayPromiseHandoffs = pgTable("kay_promise_handoffs", {
   id: serial("id").primaryKey(),

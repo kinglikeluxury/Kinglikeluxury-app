@@ -17,10 +17,11 @@ test("Kay mode resolves invalid or absent stored settings to safe shadow", () =>
   assert.equal(resolveKayMode(resolveKayMode(undefined) === "shadow" ? { mode: "shadow" } : undefined), "shadow");
 });
 
-test("Kay mode update validation permits only shadow and assisted", () => {
+test("Kay mode update validation permits only shadow, assisted, and controlled automation", () => {
   assert.deepEqual(validateKayModeUpdate({ mode: "shadow" }), { ok: true, mode: "shadow" });
   assert.deepEqual(validateKayModeUpdate({ mode: "assisted" }), { ok: true, mode: "assisted" });
-  for (const mode of ["active", "controlled_automation", "full_approved_automation", "unknown", "AUTO", "FULL", true, 1]) {
+  assert.deepEqual(validateKayModeUpdate({ mode: "controlled_automation" }), { ok: true, mode: "controlled_automation" });
+  for (const mode of ["active", "full_approved_automation", "unknown", "AUTO", "FULL", true, 1]) {
     assert.equal(validateKayModeUpdate({ mode }).ok, false);
   }
   assert.equal(validateKayModeUpdate({ mode: "shadow", extra: true }).ok, false);

@@ -9,10 +9,10 @@ const scheduler = readFileSync(new URL("./kayService.ts", import.meta.url), "utf
   + readFileSync(new URL("./kayMissionService.ts", import.meta.url), "utf8")
   + readFileSync(new URL("./kayPhaseDService.ts", import.meta.url), "utf8");
 
-test("E.1 modes remain explicit and automation modes are rejected", () => {
+test("E.1 modes remain explicit; only controlled automation is admitted by E.2", () => {
   assert.equal(kayModeSchema.safeParse("shadow").success, true);
   assert.equal(kayModeSchema.safeParse("assisted").success, true);
-  assert.equal(kayModeSchema.safeParse("controlled_automation").success, false);
+  assert.equal(kayModeSchema.safeParse("controlled_automation").success, true);
   assert.equal(validateKayModeUpdate({ mode: "full_approved_automation" }).ok, false);
 });
 test("E.1 rescue settings bound undo window", () => {

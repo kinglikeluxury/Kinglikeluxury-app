@@ -11,11 +11,12 @@ import { getKayStatusIntelligence, isKayOrphanEligibleStatus, isKayRescueEvaluat
 export const kayApprovedModeSchema = z.enum([
   "shadow",
   "assisted",
+  "controlled_automation",
 ]);
 export type KayApprovedMode = z.infer<typeof kayApprovedModeSchema>;
 
 /** Phase A's sole operational mode. */
-export const kayModeSchema = z.enum(["shadow", "assisted"]);
+export const kayModeSchema = z.enum(["shadow", "assisted", "controlled_automation"]);
 export type KayMode = z.infer<typeof kayModeSchema>;
 export const kayModeUpdateSchema = z.object({ mode: kayModeSchema }).strict();
 
@@ -32,7 +33,7 @@ export function validateKayModeUpdate(value: unknown):
   const parsed = kayModeUpdateSchema.safeParse(value);
   return parsed.success
     ? { ok: true, mode: parsed.data.mode }
-    : { ok: false, message: "Kay only permits shadow or assisted mode." };
+    : { ok: false, message: "Kay only permits shadow, assisted, or controlled automation mode." };
 }
 
 /**
@@ -238,11 +239,33 @@ export const rescueSettingsSchema = z.object({
   rescue_warning_minutes: z.number().int().min(0).max(10_080),
   protected_review_after_days: z.number().int().min(1).max(365).default(7),
   assisted_rescue_undo_minutes: z.number().int().min(5).max(60).default(15),
+  // E.2 is intentionally disarmed by defaults.  These fields are additive so
+  // historical E.1 configuration remains valid after the one-time repair.
+  auto_rescue_no_answer_1_enabled: z.boolean().default(false),
+  auto_rescue_no_answer_2_enabled: z.boolean().default(false),
+  auto_rescue_kill_switch: z.boolean().default(true),
+  auto_rescue_canary_enabled: z.boolean().default(true),
+  auto_rescue_canary_employee_ids: z.array(z.number().int().positive()).max(1000).default([]),
+  auto_rescue_daily_limit: z.number().int().min(1).max(50).default(5),
+  auto_rescue_per_employee_daily_limit: z.number().int().min(1).max(50).default(3),
+  rescue_grace_minutes: z.number().int().min(10).max(60).default(30),
+  rescue_grace_max_count: z.number().int().min(0).max(1).default(1),
+  auto_rescue_rule_version: z.string().trim().min(1).max(80).default("phase_e2_v1"),
   // Phase B parses only the permanently safe operational value.
   rescue_enabled: z.literal(false),
 }).strict();
 export type RescueSettings = z.infer<typeof rescueSettingsSchema>;
-export const defaultRescueSettings: RescueSettings = { no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24, max_human_rescue_attempts: 2, rescue_warning_minutes: 30, protected_review_after_days: 7, assisted_rescue_undo_minutes: 15, rescue_enabled: false };
+export const defaultRescueSettings: RescueSettings = {
+  no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24,
+  max_human_rescue_attempts: 2, rescue_warning_minutes: 30,
+  protected_review_after_days: 7, assisted_rescue_undo_minutes: 15,
+  auto_rescue_no_answer_1_enabled: false, auto_rescue_no_answer_2_enabled: false,
+  auto_rescue_kill_switch: true, auto_rescue_canary_enabled: true,
+  auto_rescue_canary_employee_ids: [], auto_rescue_daily_limit: 5,
+  auto_rescue_per_employee_daily_limit: 3, rescue_grace_minutes: 30,
+  rescue_grace_max_count: 1, auto_rescue_rule_version: "phase_e2_v1",
+  rescue_enabled: false,
+};
 
 export async function getRescueSettings(): Promise<RescueSettings> {
   const [setting] = await db.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).limit(1);

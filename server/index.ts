@@ -58,6 +58,7 @@ import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { startKayShadowEvaluator } from "./kayService";
 import { startKayMissionGenerator } from "./kayMissionService";
 import { startPhaseDEvaluator } from "./kayPhaseDService";
+import { startKayAutoRescueWorker } from "./kayAutoRescueService";
 
 const app = express();
 
@@ -487,6 +488,9 @@ app.use((req, res, next) => {
     startKayShadowEvaluator();
     startKayMissionGenerator();
     startPhaseDEvaluator();
+    // E.2 worker independently rechecks all execution gates; this scheduler
+    // gate merely prevents background activity when schedulers are disabled.
+    startKayAutoRescueWorker();
   }
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
