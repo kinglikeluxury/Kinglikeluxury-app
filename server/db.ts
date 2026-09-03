@@ -228,6 +228,33 @@ export async function ensureKayTables(): Promise<void> {
        INSERT INTO kay_settings (key, value) VALUES
           ('rescue_rules', '{"no_answer_1_threshold_hours":24,"no_answer_2_threshold_hours":24,"max_human_rescue_attempts":2,"rescue_warning_minutes":30,"protected_review_after_days":7,"rescue_enabled":false}'::jsonb)
        ON CONFLICT (key) DO NOTHING;
+       CREATE TABLE IF NOT EXISTS kay_missions (
+         id SERIAL PRIMARY KEY,
+         lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+         employee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+         mission_type TEXT NOT NULL, priority TEXT NOT NULL, priority_score INTEGER NOT NULL DEFAULT 0,
+         priority_formula_version TEXT NOT NULL DEFAULT 'phase_c_v1',
+         reason_code TEXT NOT NULL, reason_details JSONB NOT NULL DEFAULT '{}'::jsonb,
+         objective TEXT NOT NULL, suggested_action TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'NEW',
+         due_at TIMESTAMP, accepted_at TIMESTAMP, started_at TIMESTAMP, completed_at TIMESTAMP, dismissed_at TIMESTAMP,
+         result_code TEXT, result_details JSONB,
+         source_decision_id INTEGER REFERENCES kay_decisions(id) ON DELETE SET NULL,
+         idempotency_key TEXT NOT NULL UNIQUE, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+         CONSTRAINT kay_missions_status_check CHECK (status IN ('NEW','ACCEPTED','IN_PROGRESS','COMPLETED','DISMISSED','STALE'))
+       );
+       CREATE INDEX IF NOT EXISTS kay_missions_employee_status_due_priority_idx ON kay_missions(employee_id, status, due_at, priority);
+       CREATE INDEX IF NOT EXISTS kay_missions_lead_type_status_idx ON kay_missions(lead_id, mission_type, status);
+       DO $$ BEGIN
+         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='kay_missions_type_check') THEN
+           ALTER TABLE kay_missions ADD CONSTRAINT kay_missions_type_check CHECK (mission_type IN ('FOLLOW_UP_DUE','RESCUE_RISK','RESCUE_ELIGIBLE','UNPROTECTED_LEAD','PROTECTED_LEAD_REVIEW','CLOSING_ATTENTION','MANAGER_REVIEW_REQUIRED'));
+         END IF;
+         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='kay_missions_priority_check') THEN
+           ALTER TABLE kay_missions ADD CONSTRAINT kay_missions_priority_check CHECK (priority IN ('CRITICAL','HIGH','NORMAL','LOW'));
+         END IF;
+       END $$;
+       INSERT INTO kay_settings (key, value) VALUES
+         ('phase_c_workflow', '{"max_next_60_minutes_items":6,"priority_formula_version":"phase_c_v1","mission_notifications_enabled":false}'::jsonb)
+       ON CONFLICT (key) DO NOTHING;
     `);
     console.log("[DB] Kay Phase A tables ensured");
   } catch (err: any) {

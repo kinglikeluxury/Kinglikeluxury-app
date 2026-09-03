@@ -1,0 +1,31 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
+import { useEffect } from "react";
+import { useAuth } from "@/lib/auth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Bot, CheckCircle2, Clock, ExternalLink, ShieldAlert } from "lucide-react";
+
+type Mission = { id:number; leadId:number|null; missionType:string; priority:string; priorityScore:number; status:string; objective:string; suggestedAction:string; reasonDetails?: { explanation?:string; factors?: { label:string; points:number }[] }; dueAt?:string|null };
+type Data = { missions: Mission[]; next60Minutes: Mission[]; settings:{max_next_60_minutes_items:number} };
+const colors: Record<string,string> = { CRITICAL:"bg-red-100 text-red-700", HIGH:"bg-orange-100 text-orange-700", NORMAL:"bg-amber-100 text-amber-700", LOW:"bg-slate-100 text-slate-700" };
+export default function KayMySalesPage() {
+  const { user, isLoading: authLoading } = useAuth(); const [, navigate] = useLocation();
+  const allowed = !!user && (!!user.isAdmin || user.role === "sub_agent");
+  useEffect(() => { if (!authLoading && !allowed) navigate("/"); }, [allowed, authLoading, navigate]);
+  const query = useQuery<Data>({ queryKey:["/api/kay/missions"], queryFn: async () => (await apiRequest("GET","/api/kay/missions")).json(), enabled: allowed });
+  const completed = useQuery<Data>({ queryKey:["/api/kay/missions","completed"], queryFn: async () => (await apiRequest("GET","/api/kay/missions?completed=true")).json(), enabled: allowed });
+  const action = useMutation({ mutationFn: async ({id, action, payload}:{id:number;action:string;payload?:any}) => (await apiRequest("POST",`/api/kay/missions/${id}/${action}`, payload ?? (action === "complete" ? { resultCode:"CONTACTED_OTHER" } : action === "dismiss" ? { reason:"OTHER" } : {}))).json(), onSuccess: () => queryClient.invalidateQueries({queryKey:["/api/kay/missions"]}) });
+  if (authLoading || !allowed) return null;
+  const missions = query.data?.missions ?? [];
+  const today = new Date().toDateString();
+  const sections = [["Priority Queue", missions],["Rescue Risk",missions.filter(m=>m.missionType==="RESCUE_RISK")],["Follow-ups",missions.filter(m=>m.missionType==="FOLLOW_UP_DUE")],["Unprotected Opportunities",missions.filter(m=>m.missionType==="UNPROTECTED_LEAD")],["Kay Missions",missions],["Completed Today",(completed.data?.missions ?? []).filter((m:any)=>m.status==="COMPLETED" && m.completedAt && new Date(m.completedAt).toDateString()===today)]];
+  return <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
+    <header className="rounded-2xl bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white p-5"><div className="flex gap-3"><Bot/><div><h1 className="text-xl font-bold">Kay — My Sales</h1><p className="text-sm text-white/85">I’m helping protect this deal with you. Kay is in shadow mode; CRM stays unchanged.</p></div></div></header>
+    <Card><CardHeader><CardTitle className="flex gap-2 text-[#005476]"><Clock/>Your Next 60 Minutes <Badge>{query.data?.settings.max_next_60_minutes_items ?? 6} max</Badge></CardTitle></CardHeader><CardContent>{(query.data?.next60Minutes ?? []).length ? <div className="space-y-2">{query.data!.next60Minutes.map(m=><MissionCard key={m.id} mission={m} action={action}/>)}</div> : <p className="text-muted-foreground text-sm py-3">You are clear for the next hour.</p>}</CardContent></Card>
+    {sections.map(([title, items]) => <Card key={title as string}><CardHeader className="py-4"><CardTitle className="text-base text-[#005476]">{title as string} <Badge variant="secondary">{(items as Mission[]).length}</Badge></CardTitle></CardHeader><CardContent>{(items as Mission[]).length ? <div className="space-y-2">{(items as Mission[]).slice(0,20).map(m=><MissionCard key={m.id} mission={m} action={action}/>)}</div> : <p className="text-sm text-muted-foreground">Nothing needs attention here right now.</p>}</CardContent></Card>)}
+  </div>;
+}
+function MissionCard({mission,action}:{mission:Mission;action:any}) { const complete = () => { const note = window.prompt("What happened? Optional, maximum 500 characters.") || ""; action.mutate({id:mission.id,action:"complete",payload:{resultCode:"CONTACTED_OTHER",note:note.slice(0,500)}}); }; const dismiss = () => { const note = window.prompt("Why dismiss this mission? Optional note.") || ""; action.mutate({id:mission.id,action:"dismiss",payload:{reason:"OTHER",note:note.slice(0,500)}}); }; return <div className="border rounded-xl p-3 space-y-2"><div className="flex items-center justify-between gap-2"><b className="text-sm text-[#005476]">{mission.missionType.replaceAll("_"," ")}</b><Badge className={colors[mission.priority]||""}>{mission.priority} · {mission.priorityScore}</Badge></div><p className="text-sm">{mission.reasonDetails?.explanation || mission.objective}</p><details className="text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">WHY THIS IS PRIORITY</summary>{mission.reasonDetails?.factors?.map(f=><div key={f.label}>{f.label} +{f.points}</div>)}</details><p className="text-xs text-muted-foreground">{mission.suggestedAction}</p><div className="flex flex-wrap gap-2">{mission.leadId && <Button size="sm" variant="outline" asChild><Link href={`/admin/crm/${mission.leadId}`}>Open lead <ExternalLink className="ml-1 h-3 w-3"/></Link></Button>}{mission.status==="NEW"&&<Button size="sm" onClick={()=>action.mutate({id:mission.id,action:"accept"})}>Accept</Button>}{mission.status==="ACCEPTED"&&<Button size="sm" onClick={()=>action.mutate({id:mission.id,action:"start"})}>Start</Button>}{["ACCEPTED","IN_PROGRESS"].includes(mission.status)&&<><Button size="sm" variant="secondary" onClick={complete}><CheckCircle2 className="mr-1 h-3 w-3"/>Complete & debrief</Button><Button size="sm" variant="ghost" onClick={dismiss}><ShieldAlert className="mr-1 h-3 w-3"/>Dismiss</Button></>}</div></div>; }

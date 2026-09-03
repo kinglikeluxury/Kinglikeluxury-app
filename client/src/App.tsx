@@ -62,6 +62,7 @@ import AiMarketingCenterPage from "@/pages/admin/ai-marketing-center";
 import BroadcastPage from "@/pages/admin/broadcast";
 import CompetitorIntelligencePage from "@/pages/admin/competitor-intelligence";
 import KayControlCenterPage from "@/pages/admin/kay-control-center";
+import KayMySalesPage from "@/pages/admin/kay-my-sales";
 import InvestGeorgiaIl from "@/pages/invest-georgia-il";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
@@ -120,6 +121,7 @@ function Router() {
           <Route path="/admin/broadcast" component={BroadcastPage} />
           <Route path="/admin/competitor-intelligence" component={CompetitorIntelligencePage} />
           <Route path="/admin/kay-control-center" component={KayControlCenterPage} />
+           <Route path="/admin/kay/my-sales" component={KayMySalesPage} />
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />

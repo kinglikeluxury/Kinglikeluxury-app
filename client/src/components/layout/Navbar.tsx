@@ -216,6 +216,12 @@ const Navbar = () => {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
+                            <Link href="/admin/kay/my-sales" className="flex items-center gap-2">
+                              <Bot className="w-3.5 h-3.5" style={{ color: "#3bcac4" }} />
+                              Kay — My Sales
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
                             <Link href="/admin/crm" className="flex items-center gap-2">
                               <Crown className="w-3.5 h-3.5" style={{ color: "#3bcac4" }} />
                               Kinglike CRM

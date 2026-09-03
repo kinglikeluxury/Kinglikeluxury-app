@@ -18,7 +18,9 @@ type LedgerItem = {
   };
 };
 type StatusIntelligence = { status: string; classification: string; terminal: boolean; rescueEvaluated: boolean; protectedCandidate: boolean; description: string };
-type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[] };
+type WorkflowEmployee = { employee_id:number; employee_name:string; missions_total:number; active_missions:number; active_critical:number; completed:number; dismissed:number; stale:number; rescue_risk:number; unprotected:number; protected_attention:number; results:Record<string,number> };
+type MissionInspection = {id:number;mission_type:string;priority:string;status:string;reason_code:string;created_at:string;accepted_at?:string;completed_at?:string;result_code?:string;lead_id?:number;lead_name?:string;employee_name?:string};
+type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[]; employeeWorkflow?: WorkflowEmployee[]; missionInspection?:MissionInspection[] };
 
 function timestamp(value: string) {
   return new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -106,6 +108,25 @@ export default function KayControlCenterPage() {
             <table className="w-full text-xs"><thead className="text-left text-muted-foreground"><tr><th className="p-2">CRM Status</th><th className="p-2">Kay Classification</th><th className="p-2">Terminal?</th><th className="p-2">Rescue evaluated?</th><th className="p-2">Protected candidate?</th><th className="p-2">Workflow meaning</th></tr></thead>
               <tbody>{(data?.statusIntelligence ?? []).map(row => <tr key={row.status} className="border-t"><td className="p-2 font-medium">{row.status}</td><td className="p-2">{row.classification}</td><td className="p-2">{row.terminal ? "Yes" : "No"}</td><td className="p-2">{row.rescueEvaluated ? "Yes" : "No"}</td><td className="p-2">{row.protectedCandidate ? "Yes" : "No"}</td><td className="p-2 text-muted-foreground">{row.description}</td></tr>)}</tbody>
             </table>
+          </CardContent>
+        </Card>
+        <Card className="border-[#3bcac4]/40">
+          <CardHeader><CardTitle className="text-lg text-[#005476]">Employee Workflow Intelligence</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">Work organization counts only — not a performance ranking or score.</p>
+            {(data?.employeeWorkflow?.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">No eligible employee workflow records yet.</p> :
+              <div className="grid gap-3 md:grid-cols-2">{data!.employeeWorkflow!.map(employee => <div key={employee.employee_id} className="rounded-lg border p-3">
+                <div className="font-medium text-[#005476]">{employee.employee_name}</div>
+                <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                  <div>Active <b>{employee.active_missions}</b></div><div>Critical <b>{employee.active_critical}</b></div><div>Rescue risk <b>{employee.rescue_risk}</b></div>
+                  <div>Follow-up gaps <b>{employee.unprotected}</b></div><div>Protected attention <b>{employee.protected_attention}</b></div><div>Completed <b>{employee.completed}</b></div>
+                  <div>Dismissed <b>{employee.dismissed}</b></div><div>Stale <b>{employee.stale}</b></div><div>Total <b>{employee.missions_total}</b></div>
+                </div>
+                {Object.keys(employee.results || {}).length > 0 && <div className="mt-2 text-xs text-muted-foreground">Reported outcomes: {Object.entries(employee.results).map(([name,total]) => `${name}: ${total}`).join(" · ")}</div>}
+              </div>)}</div>}
+            <details className="mt-4"><summary className="cursor-pointer text-sm font-medium text-[#005476]">Inspect recent missions (50 max)</summary>
+              <div className="mt-2 max-h-64 overflow-auto text-xs">{(data?.missionInspection ?? []).map(m=><div key={m.id} className="border-b py-2">#{m.id} · {m.employee_name || "—"} · {m.lead_name || `Lead ${m.lead_id ?? "—"}`} · {m.mission_type} · {m.priority} · {m.status} · {m.reason_code} · created {timestamp(m.created_at)} {m.accepted_at ? `· accepted ${timestamp(m.accepted_at)}` : ""} {m.completed_at ? `· completed ${timestamp(m.completed_at)}` : ""} {m.result_code ? `· result ${m.result_code}` : ""}</div>)}</div>
+            </details>
           </CardContent>
         </Card>
         <div className="grid lg:grid-cols-2 gap-6">

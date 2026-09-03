@@ -745,6 +745,40 @@ export const kaySettings = pgTable("kay_settings", {
 });
 export type KaySetting = typeof kaySettings.$inferSelect;
 
+// ── Kay Phase C — internal employee workflow only ──────────────────────────
+// This is intentionally separate from crm_tasks. Mission completion is an
+// employee debrief and never implies a CRM lead/status/assignment mutation.
+export const kayMissions = pgTable("kay_missions", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  employeeId: integer("employee_id").references(() => users.id, { onDelete: "set null" }),
+  missionType: text("mission_type").notNull(),
+  priority: text("priority").notNull(),
+  priorityScore: integer("priority_score").notNull().default(0),
+  priorityFormulaVersion: text("priority_formula_version").notNull().default("phase_c_v1"),
+  reasonCode: text("reason_code").notNull(),
+  reasonDetails: jsonb("reason_details").notNull().default({}),
+  objective: text("objective").notNull(),
+  suggestedAction: text("suggested_action").notNull(),
+  status: text("status").notNull().default("NEW"),
+  dueAt: timestamp("due_at"),
+  acceptedAt: timestamp("accepted_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  dismissedAt: timestamp("dismissed_at"),
+  resultCode: text("result_code"),
+  resultDetails: jsonb("result_details"),
+  sourceDecisionId: integer("source_decision_id").references(() => kayDecisions.id, { onDelete: "set null" }),
+  idempotencyKey: text("idempotency_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyKeyUnique: uniqueIndex("kay_missions_idempotency_key_unique_idx").on(table.idempotencyKey),
+  employeeStatusDuePriorityIdx: index("kay_missions_employee_status_due_priority_idx").on(table.employeeId, table.status, table.dueAt, table.priority),
+  leadTypeStatusIdx: index("kay_missions_lead_type_status_idx").on(table.leadId, table.missionType, table.status),
+}));
+export type KayMission = typeof kayMissions.$inferSelect;
+
 // ── Kay Phase B — shadow-only lead safety ledger ────────────────────────────
 // These tables deliberately have no FK-triggered CRM writes.  They are an
 // append-only observation/control plane beside the CRM.

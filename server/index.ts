@@ -56,6 +56,7 @@ import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { startKayShadowEvaluator } from "./kayService";
+import { startKayMissionGenerator } from "./kayMissionService";
 
 const app = express();
 
@@ -481,7 +482,10 @@ app.use((req, res, next) => {
   }
   // Claims are persistent PostgreSQL SKIP LOCKED claims, so this is safe when
   // multiple Autoscale instances run it. It remains behind the existing gate.
-  if (schedulersEnabled) startKayShadowEvaluator();
+  if (schedulersEnabled) {
+    startKayShadowEvaluator();
+    startKayMissionGenerator();
+  }
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];

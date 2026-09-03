@@ -13,3 +13,4 @@
 - [Crown Plaza selection verified](crown-plaza-selection-verified.md) — user confirmed apartment selection is correct; future visual changes must leave polygon-to-unit mapping unchanged.
 - [Replit secrets vs stale autoscale deploys](secrets-vs-stale-deploy.md) — a secret existing in Replit Secrets doesn't mean a running autoscale instance has it; only a fresh deploy/restart picks up newly-added secrets.
 - [Kay ordered shadow observations](kay-ordered-shadow-observations.md) — exact CRM transition timing must be DB-local and exception-isolated; one current decision per event requires DB uniqueness and atomic upsert.
+- [Neon advisory locks](neon-advisory-locks.md) — pooled background generators need expiring row leases; session advisory locks can remain attached to pooled DB sessions.

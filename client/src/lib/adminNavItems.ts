@@ -26,6 +26,7 @@ import {
   RadioTower,
   Swords,
   Bot,
+  ClipboardCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -234,6 +235,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     labelFallback: "Kay Control Center",
     path: "/admin/kay-control-center",
     Icon: Bot,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
+    labelKey: "admin.kayMySales",
+    labelFallback: "Kay — My Sales",
+    path: "/admin/kay/my-sales",
+    Icon: ClipboardCheck,
     iconColorHex: "#3bcac4",
     highlight: true,
   },
