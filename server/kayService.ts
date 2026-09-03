@@ -3,6 +3,9 @@ import { db, pool } from "./db";
 import { kayDecisions, kayEvents, kaySettings, kayLeadProtection } from "@shared/schema";
 import { desc, eq, and, isNull, sql } from "drizzle-orm";
 import { getKayStatusIntelligence, isKayOrphanEligibleStatus, isKayRescueEvaluatedStatus, KAY_STATUS_INTELLIGENCE } from "./kayStatusClassification";
+export { recommendRescueEmployee, evaluateRescueWindow } from "./kayAutoRescuePlanner";
+import { recommendRescueEmployee, evaluateRescueWindow } from "./kayAutoRescuePlanner";
+import type { RescueBlocker, RescueCandidate, RescueState } from "./kayAutoRescuePlanner";
 
 /**
  * These are names reserved for later explicitly-approved phases.  They are
@@ -195,42 +198,8 @@ export function createKayLeadCreatedObserver(dependencies: KayObserverDependenci
 export const safelyObserveLeadCreated = createKayLeadCreatedObserver();
 
 export const KAY_RESCUE_STATUSES = ["no_answer_1", "no_answer_2"] as const;
-export type RescueState = "ACTIVE" | "BLOCKED" | "STALE" | "NOT_YET_ELIGIBLE" | "SIMULATED_LIMIT_REACHED";
+export type { RescueState, RescueBlocker, RescueCandidate };
 /** OWNER_UNAVAILABLE is retained as an observation input for compatibility, but is an urgency flag, never a blocker. */
-export type RescueBlocker = "PROTECTED_LEAD" | "FOLLOWUP_SCHEDULED" | "ACTIVE_TASK" | "OWNER_UNAVAILABLE";
-export type RescueCandidate = { id: number; name: string; activeLeadCount: number; overdueTaskCount: number; recentPreviousOwner?: boolean };
-export function recommendRescueEmployee(candidates: RescueCandidate[], currentOwnerId: number | null | undefined) {
-  const eligible = candidates.filter(candidate => candidate.id !== currentOwnerId);
-  if (!eligible.length) return { candidate: null, managerReview: true, explanation: "NO_ELIGIBLE_EMPLOYEE", capacityScore: null };
-  // Capacity is documented and deterministic: active leads + 2 × overdue tasks.
-  // A recent prior owner receives 1,000 points, so is avoided whenever an
-  // alternative exists without inventing availability or performance signals.
-  const ranked = eligible.map(candidate => ({ candidate, capacityScore: candidate.activeLeadCount + 2 * candidate.overdueTaskCount + (candidate.recentPreviousOwner ? 1000 : 0) }))
-    .sort((a, b) => a.capacityScore - b.capacityScore || a.candidate.id - b.candidate.id);
-  const winner = ranked[0];
-  return { candidate: winner.candidate, managerReview: false, capacityScore: winner.capacityScore,
-    explanation: `Lower fair workload selected: ${winner.candidate.activeLeadCount} active leads + 2×${winner.candidate.overdueTaskCount} overdue tasks${winner.candidate.recentPreviousOwner ? "; prior-owner penalty applied because no lower alternative exists" : ""}.` };
-}
-
-/** Pure, duration-safe eligibility evaluation. Dates are UTC instants; display may use Asia/Tbilisi. */
-export function evaluateRescueWindow(input: {
-  status: string; statusEnteredAt: Date | null; now: Date; thresholdHours: number;
-  blockers?: RescueBlocker[]; rescueAttempts?: number; maxAttempts?: number;
-}): { eligible: boolean; state: RescueState | null; elapsedMinutes: number; blockers: RescueBlocker[] } {
-  const blockers = (input.blockers ?? []).filter(blocker => blocker !== "OWNER_UNAVAILABLE");
-  const elapsedMinutes = input.statusEnteredAt
-    ? Math.max(0, Math.floor((input.now.getTime() - input.statusEnteredAt.getTime()) / 60_000)) : 0;
-  if (!isKayRescueEvaluatedStatus(input.status) || !input.statusEnteredAt) {
-    return { eligible: false, state: null, elapsedMinutes, blockers };
-  }
-  if ((input.rescueAttempts ?? 0) >= (input.maxAttempts ?? 2)) {
-    return { eligible: false, state: "SIMULATED_LIMIT_REACHED", elapsedMinutes, blockers };
-  }
-  if (elapsedMinutes < input.thresholdHours * 60) return { eligible: false, state: "NOT_YET_ELIGIBLE", elapsedMinutes, blockers };
-  return blockers.length
-    ? { eligible: false, state: "BLOCKED", elapsedMinutes, blockers }
-    : { eligible: true, state: "ACTIVE", elapsedMinutes, blockers };
-}
 
 export const rescueSettingsSchema = z.object({
   no_answer_1_threshold_hours: z.number().int().min(1).max(168),

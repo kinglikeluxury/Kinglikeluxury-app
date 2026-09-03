@@ -1,5 +1,6 @@
 import { pool } from "./db";
-import { getRescueSettings, getKayMode, recommendRescueEmployee } from "./kayService";
+import { getRescueSettings, getKayMode } from "./kayService";
+import { recommendRescueEmployee, rescueAttemptPredicate, rescuePingPongPredicate } from "./kayAutoRescuePlanner";
 import { executeAutomaticRescue } from "./kayRescueService";
 
 type Queryable = { query: (sql: string, values?: any[]) => Promise<any> };
@@ -210,7 +211,7 @@ async function ensureWarningArtifacts(itemId: number, leadId: number, ownerId: n
 
 async function evaluateIntoQueue(settings: any, limit: number) {
   const candidates = await pool.query(`SELECT l.id,l.status,l.assigned_to,h.entered_at,
-    (SELECT count(*)::int FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.reason IN ('kay_rescue','kay_rescue_assisted','kay_rescue_automatic')) attempts
+    (SELECT count(*)::int FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ${rescueAttemptPredicate}) attempts
     FROM crm_leads l JOIN users owner ON owner.id=l.assigned_to
     JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
     WHERE l.status IN ('no_answer_1','no_answer_2') ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 100)]);
@@ -273,8 +274,7 @@ export async function runKayAutoRescueWorker(limit = 25) {
           EXISTS(SELECT 1 FROM lead_assignment_history h WHERE h.lead_id=$1 AND h.from_user_id=u.id AND h.assigned_at>NOW()-interval '30 days') recent_previous_owner
           FROM users u LEFT JOIN crm_leads l ON l.assigned_to=u.id WHERE u.role='sub_agent' AND u.is_active=true
           AND COALESCE((SELECT value->>'availability' FROM kay_settings WHERE key='phase_c_availability:'||u.id::text),'AVAILABLE')='AVAILABLE'
-          AND NOT EXISTS(SELECT 1 FROM lead_assignment_history h WHERE h.lead_id=$1 AND h.from_user_id=u.id
-            AND h.to_user_id=$2 AND h.assigned_at>NOW()-interval '30 days')
+           AND NOT EXISTS(SELECT 1 FROM lead_assignment_history h WHERE h.lead_id=$1 AND ${rescuePingPongPredicate.replace("$1", "u.id").replace("$2", "$2")})
           GROUP BY u.id,u.username`,[q.lead_id,lead.assigned_to]);
         const pick = recommendRescueEmployee(targets.rows.map((x:any)=>({id:Number(x.id),name:x.name,activeLeadCount:Number(x.active_lead_count),overdueTaskCount:Number(x.overdue_task_count),recentPreviousOwner:x.recent_previous_owner})), lead.assigned_to);
         if (!pick.candidate) { if (await claimedTransition(q,token,"MANAGER_REVIEW","NO_ELIGIBLE_EMPLOYEE")) await managerReview(q,"NO_ELIGIBLE_EMPLOYEE"); continue; }
