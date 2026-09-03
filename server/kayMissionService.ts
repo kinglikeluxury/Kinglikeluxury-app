@@ -15,9 +15,14 @@ export const phaseCSettingsSchema = z.object({
   max_next_60_minutes_items: z.number().int().min(1).max(8),
   priority_formula_version: z.literal(PHASE_C_PRIORITY_FORMULA_VERSION),
   mission_notifications_enabled: z.boolean(),
+  mission_generation_interval_minutes: z.number().int().min(1).max(60).default(5),
+  quiet_hours_enabled: z.boolean().default(false),
+  quiet_hours_start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().default(null),
+  quiet_hours_end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().default(null),
 }).strict();
 export type PhaseCSettings = z.infer<typeof phaseCSettingsSchema>;
-export const defaultPhaseCSettings: PhaseCSettings = { max_next_60_minutes_items: 6, priority_formula_version: PHASE_C_PRIORITY_FORMULA_VERSION, mission_notifications_enabled: false };
+export const defaultPhaseCSettings: PhaseCSettings = { max_next_60_minutes_items: 6, priority_formula_version: PHASE_C_PRIORITY_FORMULA_VERSION, mission_notifications_enabled: true, mission_generation_interval_minutes: 5, quiet_hours_enabled: false, quiet_hours_start: null, quiet_hours_end: null };
+export const kayAvailabilitySchema = z.enum(["AVAILABLE", "BUSY", "DO_NOT_ASSIGN", "LEAVE"]);
 
 export function calculateMissionPriority(signals: { protected?: boolean; closing?: boolean; hot?: boolean; overdueTask?: boolean; rescueEligible?: boolean; rescueRisk?: boolean; unprotected?: boolean; dueWithin60?: boolean }) {
   const factors = [
@@ -51,33 +56,78 @@ export async function setPhaseCSettings(value: unknown, userId: number): Promise
   return settings;
 }
 
+export async function getKayAvailability(employeeId: number) {
+  const [row] = await db.select().from(kaySettings).where(eq(kaySettings.key, `phase_c_availability:${employeeId}`)).limit(1);
+  const availability = kayAvailabilitySchema.safeParse((row?.value as any)?.availability);
+  return { availability: availability.success ? availability.data : "AVAILABLE", updatedAt: row?.updatedAt ?? null };
+}
+export async function setKayAvailability(employeeId: number, availability: unknown, actorId: number, adminOverride = false) {
+  const parsed = kayAvailabilitySchema.parse(availability);
+  await db.transaction(async tx => {
+    const key = `phase_c_availability:${employeeId}`;
+    const [before] = await tx.select().from(kaySettings).where(eq(kaySettings.key, key)).for("update").limit(1);
+    await tx.insert(kaySettings).values({ key, value: { availability: parsed }, updatedBy: actorId, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: kaySettings.key, set: { value: { availability: parsed }, updatedBy: actorId, updatedAt: new Date() } });
+    await tx.insert(kayEvents).values({ userId: actorId, employeeId, eventType: "mission_availability_changed", eventSource: adminOverride ? "admin" : "employee", previousValue: sanitizeKayJson(before?.value), newValue: { availability: parsed }, metadata: { adminOverride, shadow: true }, kayGenerated: false });
+  });
+  return getKayAvailability(employeeId);
+}
+
+export async function getKayOperationsHealth() {
+  const [row] = await db.select().from(kaySettings).where(eq(kaySettings.key, "phase_c_generator_health")).limit(1);
+  const health: any = row?.value || {};
+  const settings = await getPhaseCSettings();
+  const lastSuccess = health.last_successful_cycle ? new Date(health.last_successful_cycle).getTime() : 0;
+  const stale = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true" && (!lastSuccess || Date.now() - lastSuccess > settings.mission_generation_interval_minutes * 3 * 60_000);
+  const pending = await db.execute(sql`SELECT COUNT(*)::int AS count FROM kay_missions WHERE status='NEW' AND priority IN ('HIGH','CRITICAL')`);
+  return { scheduler: process.env.ENABLE_BACKGROUND_SCHEDULERS === "true" ? (health.degraded ? "DEGRADED" : "RUNNING") : "DISABLED", stale, warning: stale ? "KAY MISSION GENERATOR MAY BE STALE." : null, lastGeneration: health.last_generation ?? null, lastSuccessfulCycle: health.last_successful_cycle ?? null, lastAutomaticRun: health.last_automatic_run ?? null, lastManualRun: health.last_manual_run ?? null, nextExpectedRun: health.next_expected_run ?? null, checked: health.checked ?? 0, created: health.created ?? 0, staled: health.staled ?? 0, errors: health.errors ?? 0, consecutiveFailures: health.consecutive_failures ?? 0, circuitOpenUntil: health.circuit_open_until ?? null, leaseState: health.lease_state ?? "unknown", notifications: settings.mission_notifications_enabled ? "ENABLED" : "DISABLED", pendingHighCritical: pending.rows[0]?.count ?? 0 };
+}
+
+async function persistGeneratorHealth(patch: Record<string, unknown>) {
+  await db.insert(kaySettings).values({ key: "phase_c_generator_health", value: patch, updatedAt: new Date() })
+    .onConflictDoUpdate({ target: kaySettings.key, set: { value: sql`${kaySettings.value} || ${JSON.stringify(patch)}::jsonb`, updatedAt: new Date() } });
+}
+
 type Candidate = { lead_id: number; employee_id: number; status: string; name: string | null; protected: boolean; due_date: string | null; due_time: string | null; task_id: number | null; entered_at: Date | null; decision_id: number | null; decision_type: string | null; decision_payload: any };
 const activeStatuses = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 
-async function acquireKayMissionGeneratorLease(): Promise<string | null> {
+export async function acquireKayMissionGeneratorLease(): Promise<string | null> {
   const token = `${process.pid}:${Date.now()}:${Math.random()}`;
   await db.insert(kaySettings).values({
     key: "phase_c_generator_lease",
     value: { released: true },
   }).onConflictDoNothing();
   const [lease] = await db.update(kaySettings).set({
-    value: { token, locked_until: new Date(Date.now() + 10 * 60_000).toISOString() },
+    value: { token, locked_until: new Date(Date.now() + 15 * 60_000).toISOString() },
     updatedAt: new Date(),
   }).where(and(
     eq(kaySettings.key, "phase_c_generator_lease"),
-    sql`COALESCE((${kaySettings.value}->>'locked_until')::timestamptz, to_timestamp(0)) < NOW()`,
+    sql`CASE
+      WHEN (${kaySettings.value}->>'locked_until') ~ '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$'
+      THEN (${kaySettings.value}->>'locked_until')::timestamptz
+      ELSE to_timestamp(0)
+    END < NOW()`,
   )).returning({ key: kaySettings.key });
   return lease ? token : null;
 }
 
-async function releaseKayMissionGeneratorLease(token: string): Promise<void> {
-  await db.update(kaySettings).set({
+export async function renewKayMissionGeneratorLease(token: string): Promise<boolean> {
+  const rows = await db.update(kaySettings).set({
+    value: { token, locked_until: new Date(Date.now() + 15 * 60_000).toISOString() },
+    updatedAt: new Date(),
+  }).where(and(eq(kaySettings.key, "phase_c_generator_lease"), sql`${kaySettings.value}->>'token' = ${token}`)).returning({ key: kaySettings.key });
+  return rows.length === 1;
+}
+
+export async function releaseKayMissionGeneratorLease(token: string): Promise<boolean> {
+  const rows = await db.update(kaySettings).set({
     value: { released: true, released_at: new Date().toISOString() },
     updatedAt: new Date(),
   }).where(and(
     eq(kaySettings.key, "phase_c_generator_lease"),
     sql`${kaySettings.value}->>'token' = ${token}`,
-  ));
+  )).returning({ key: kaySettings.key });
+  return rows.length === 1;
 }
 
 /** Retryable, bounded in-app delivery. The marker and notification commit together. */
@@ -85,37 +135,68 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
   const effectiveSettings = settings ?? await getPhaseCSettings();
   if (!effectiveSettings.mission_notifications_enabled) return 0;
   const pending = await db.execute(sql`
-    SELECT m.id, m.idempotency_key, m.lead_id, m.employee_id, m.priority
-    FROM kay_missions m
+    SELECT m.id, m.idempotency_key, m.lead_id, m.employee_id, m.priority, m.notification_version,
+      COALESCE(NULLIF(split_part(COALESCE(l.first_name,l.full_name,''), ' ', 1),''), 'Lead #' || m.lead_id::text) AS safe_name
+    FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id
     WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS')
       AND m.priority IN ('CRITICAL','HIGH')
       AND m.employee_id IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM kay_events e
-        WHERE e.idempotency_key = 'mission_notification:' || m.idempotency_key
-      )
+      AND (m.notification_sent_at IS NULL OR m.notification_level IS DISTINCT FROM m.priority)
     ORDER BY m.priority_score DESC, m.created_at ASC, m.id ASC
     LIMIT ${Math.min(Math.max(limit, 1), 100)}`);
   let delivered = 0;
   for (const mission of pending.rows as any[]) {
     try {
       const didDeliver = await db.transaction(async tx => {
-        const marker = await tx.insert(kayEvents).values({
-          idempotencyKey: `mission_notification:${mission.idempotency_key}`,
-          leadId: mission.lead_id,
-          employeeId: mission.employee_id,
+        await tx.insert(kaySettings).values({ key: `phase_c_availability:${mission.employee_id}`, value: { availability: "AVAILABLE" } }).onConflictDoNothing();
+        // Lock and re-read every policy input. The initial bounded query is
+        // merely a candidate list and is never trusted for delivery.
+        const locked = await tx.execute(sql`SELECT m.*,
+          COALESCE(NULLIF(split_part(COALESCE(l.first_name,l.full_name,''), ' ', 1),''), 'Lead #' || m.lead_id::text) AS safe_name,
+          COALESCE(a.value->>'availability','AVAILABLE') AS availability
+          FROM kay_missions m JOIN crm_leads l ON l.id=m.lead_id JOIN users u ON u.id=m.employee_id
+          JOIN kay_settings a ON a.key='phase_c_availability:' || m.employee_id::text
+          WHERE m.id=${mission.id} AND l.assigned_to=m.employee_id AND u.role='sub_agent'
+          FOR UPDATE OF m,l,u,a`);
+        const current: any = locked.rows[0];
+        if (!current || !["NEW","ACCEPTED","IN_PROGRESS"].includes(current.status) ||
+            !["HIGH","CRITICAL"].includes(current.priority) ||
+            (current.notification_sent_at && current.notification_level === current.priority)) return false;
+        const quiet = isKayQuietHours(effectiveSettings, new Date());
+        const unavailable = current.availability !== "AVAILABLE";
+        if (quiet || unavailable) {
+          const reason = quiet ? "quiet_hours_utc" : `availability_${current.availability}`;
+          await tx.insert(kayEvents).values({
+            idempotencyKey: `mission_notification_deferred:${current.idempotency_key}:${current.priority}:${reason}`,
+            leadId: current.lead_id, employeeId: current.employee_id,
+            eventType: "mission_notification_deferred", eventSource: "kay",
+            metadata: { missionId: current.id, reason, nextEligibleAttempt: new Date(Date.now() + effectiveSettings.mission_generation_interval_minutes * 60_000).toISOString(), shadow: true },
+            kayGenerated: true,
+          }).onConflictDoNothing();
+          return false;
+        }
+        const version = Number(current.notification_version || 0) + 1;
+        // Claim the version first. No event/notification can exist unless this
+        // compare-and-set returned the locked mission.
+        const claimed = await tx.update(kayMissions).set({ notificationSentAt: new Date(), notificationLevel: current.priority, notificationVersion: version, updatedAt: new Date() })
+          .where(and(eq(kayMissions.id, current.id), sql`notification_version = ${Number(current.notification_version || 0)}`, sql`notification_level IS DISTINCT FROM ${current.priority}`))
+          .returning({ id: kayMissions.id });
+        if (!claimed[0]) return false;
+        await tx.insert(kayEvents).values({
+          idempotencyKey: `mission_notification:${current.idempotency_key}:v${version}`,
+          leadId: current.lead_id,
+          employeeId: current.employee_id,
           eventType: "mission_notification_created",
           eventSource: "kay",
-          metadata: { missionId: mission.id, shadow: true },
+          metadata: { missionId: current.id, notificationLevel: current.priority, notificationVersion: version, deepLink: `/admin/kay/my-sales?mission=${current.id}`, shadow: true },
           kayGenerated: true,
-        }).onConflictDoNothing().returning({ id: kayEvents.id });
-        if (!marker[0]) return false;
+        });
         await tx.insert(userNotifications).values({
-          userId: mission.employee_id,
+          userId: current.employee_id,
           type: "kay_mission",
-          title: `Kay ${mission.priority} mission`,
-          message: "A priority Kay mission is ready in My Sales.",
-          data: { missionId: mission.id, shadow: true },
+          title: `Kay ${current.priority} mission`,
+          message: `Kay: ${String(current.safe_name).slice(0, 40)} needs ${String(current.priority).toLowerCase()} attention — open mission.`,
+          data: { missionId: current.id, deepLink: `/admin/kay/my-sales?mission=${current.id}`, shadow: true },
         });
         return true;
       });
@@ -127,11 +208,38 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
   return delivered;
 }
 
+export function isKayQuietHours(settings: PhaseCSettings, now: Date): boolean {
+  if (!settings.quiet_hours_enabled || !settings.quiet_hours_start || !settings.quiet_hours_end) return false;
+  // No company timezone exists in current app settings; Kay quiet hours are
+  // therefore explicitly interpreted as UTC rather than inventing policy.
+  const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const parse = (time: string) => { const [hour, minutes] = time.split(":").map(Number); return hour * 60 + minutes; };
+  const start = parse(settings.quiet_hours_start), end = parse(settings.quiet_hours_end);
+  return start === end ? false : start < end ? minute >= start && minute < end : minute >= start || minute < end;
+}
+
 /** Bounded, read-only CRM signal query. It only inserts/stales Kay-owned rows. */
-export async function generateKayMissions(limit = 200): Promise<{ created: number; staled: number; checked: number }> {
-  const leaseToken = await acquireKayMissionGeneratorLease();
-  if (!leaseToken) return { created: 0, staled: 0, checked: 0 };
+export async function generateKayMissions(limit = 200, runType: "manual" | "automatic" = "manual", actorId: number | null = null): Promise<{ created: number; staled: number; checked: number }> {
+  let leaseToken: string | null;
   try {
+    leaseToken = await acquireKayMissionGeneratorLease();
+  } catch (error) {
+    const [row] = await db.select().from(kaySettings).where(eq(kaySettings.key, "phase_c_generator_health")).limit(1).catch(() => [] as any[]);
+    const old: any = row?.value || {};
+    const failures = Number(old.consecutive_failures || 0) + 1;
+    const settings = await getPhaseCSettings().catch(() => defaultPhaseCSettings);
+    await persistGeneratorHealth({ last_attempt: new Date().toISOString(), errors: Number(old.errors || 0) + 1, consecutive_failures: failures, degraded: failures >= 3, lease_state: "acquire_error", run_type: runType, ...(failures >= 3 ? { circuit_open_until: new Date(Date.now() + settings.mission_generation_interval_minutes * 3 * 60_000).toISOString() } : {}), ...(runType === "manual" ? { manual_actor_id: actorId } : {}) }).catch(() => {});
+    if (error && typeof error === "object") (error as any).kayHealthCounted = true;
+    throw error;
+  }
+  if (!leaseToken) {
+    await persistGeneratorHealth({ last_attempt: new Date().toISOString(), lease_state: "busy", last_skipped_run: runType, ...(runType === "manual" ? { manual_actor_id: actorId, last_manual_skipped_at: new Date().toISOString() } : {}) });
+    return { created: 0, staled: 0, checked: 0 };
+  }
+  const heartbeat = setInterval(() => renewKayMissionGeneratorLease(leaseToken).catch(() => false), 2 * 60_000);
+  heartbeat.unref();
+  try {
+    await persistGeneratorHealth({ last_attempt: new Date().toISOString(), lease_state: "owned", lease_owner: leaseToken.split(":")[0], run_type: runType, ...(runType === "manual" ? { manual_actor_id: actorId } : {}) });
     const settings = await getPhaseCSettings();
     const rows = await db.execute(sql`
     SELECT l.id lead_id, l.assigned_to employee_id, l.status, COALESCE(l.full_name, l.first_name, 'Lead') name,
@@ -170,7 +278,14 @@ export async function generateKayMissions(limit = 200): Promise<{ created: numbe
       current.set(row.lead_id, [...(current.get(row.lead_id) ?? []), key]);
       const inserted = await db.transaction(async tx => {
         const mission = await tx.insert(kayMissions).values({ leadId: row.lead_id, employeeId: row.employee_id, missionType: spec.type, priority: priority.priority, priorityScore: priority.score, priorityFormulaVersion: priority.version, reasonCode: spec.type, reasonDetails: sanitizeKayJson({ explanation: spec.reason, factors: priority.factors, task_classification: spec.type === "FOLLOW_UP_DUE" ? "NEEDS_REVIEW" : undefined, shadow: true }), objective: "Support the next appropriate employee action while keeping CRM status unchanged.", suggestedAction: "Open the existing CRM lead and use the established workflow.", dueAt: spec.dueAt ?? null, sourceDecisionId: row.decision_id, idempotencyKey: key }).onConflictDoNothing().returning({ id: kayMissions.id });
-        if (!mission[0]) return null;
+         if (!mission[0]) {
+           // The same mission can gain stronger signals while remaining the
+           // same idempotent work item. Increase only; never downgrade and
+           // let severity-version notification logic deliver exactly once.
+           await tx.update(kayMissions).set({ priority: priority.priority, priorityScore: priority.score, reasonDetails: sanitizeKayJson({ explanation: spec.reason, factors: priority.factors, shadow: true }), updatedAt: now })
+             .where(and(eq(kayMissions.idempotencyKey, key), sql`${kayMissions.priorityScore} < ${priority.score}`));
+           return null;
+         }
         await tx.insert(kayEvents).values({ idempotencyKey:`mission_created:${key}`, leadId: row.lead_id, employeeId: row.employee_id, eventType: "mission_created", eventSource: "kay", metadata: { missionId: mission[0].id, missionType: spec.type, priority: priority.priority, shadow: true }, kayGenerated: true });
         return mission[0];
       });
@@ -202,8 +317,11 @@ export async function generateKayMissions(limit = 200): Promise<{ created: numbe
     return rows;
   });
     await deliverPendingKayMissionNotifications(settings);
-    return { created, staled: reconciled + (stale.rowCount ?? 0), checked: rows.rows.length };
+    const result = { created, staled: reconciled + (stale.rowCount ?? 0), checked: rows.rows.length };
+    await persistGeneratorHealth({ last_generation: new Date().toISOString(), ...(runType === "automatic" ? { last_automatic_run: new Date().toISOString() } : { last_manual_run: new Date().toISOString() }), last_successful_cycle: new Date().toISOString(), checked: result.checked, created: result.created, staled: result.staled, errors: 0, consecutive_failures: 0, degraded: false, circuit_open_until: null, half_open: false, lease_state: "released" });
+    return result;
   } finally {
+    clearInterval(heartbeat);
     await releaseKayMissionGeneratorLease(leaseToken).catch(() => {});
   }
 }
@@ -262,7 +380,11 @@ export async function getKayEmployeeWorkflowSnapshot() {
       COUNT(m.id) FILTER (WHERE m.mission_type='RESCUE_RISK' AND m.status IN ('NEW','ACCEPTED','IN_PROGRESS'))::int AS rescue_risk,
       COUNT(m.id) FILTER (WHERE m.mission_type='UNPROTECTED_LEAD' AND m.status IN ('NEW','ACCEPTED','IN_PROGRESS'))::int AS unprotected,
       COUNT(m.id) FILTER (WHERE m.mission_type IN ('CLOSING_ATTENTION','PROTECTED_LEAD_REVIEW') AND m.status IN ('NEW','ACCEPTED','IN_PROGRESS'))::int AS protected_attention,
-      COALESCE((SELECT jsonb_object_agg(q.result_code, q.total) FROM (SELECT result_code, COUNT(*)::int AS total FROM kay_missions x WHERE x.employee_id=u.id AND x.result_code IS NOT NULL GROUP BY result_code) q), '{}'::jsonb) AS results
+       COUNT(m.id) FILTER (WHERE m.status='NEW' AND m.priority='CRITICAL')::int AS unacknowledged_critical,
+       COUNT(m.id) FILTER (WHERE m.status='NEW' AND m.priority='HIGH')::int AS unacknowledged_high,
+       MIN(m.created_at) FILTER (WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS')) AS oldest_pending,
+       (SELECT MAX(e.created_at) FROM kay_events e WHERE e.employee_id=u.id AND e.event_type LIKE 'mission_%') AS last_kay_activity,
+       COALESCE((SELECT jsonb_object_agg(q.result_code, q.total) FROM (SELECT result_code, COUNT(*)::int AS total FROM kay_missions x WHERE x.employee_id=u.id AND x.result_code IS NOT NULL GROUP BY result_code) q), '{}'::jsonb) AS results
     FROM users u LEFT JOIN kay_missions m ON m.employee_id=u.id
     WHERE u.role='sub_agent'
     GROUP BY u.id,u.username LIMIT 100`);
@@ -278,7 +400,34 @@ export async function getKayMissionInspection() {
 
 /** Best-effort worker; it is deliberately behind the same scheduler gate. */
 export function startKayMissionGenerator(): void {
-  const run = () => generateKayMissions().catch(error => console.warn(`[Kay] mission generator skipped: ${error instanceof Error ? error.message : "unknown"}`));
-  run();
-  setInterval(run, 15 * 60_000).unref();
+  let timer: NodeJS.Timeout | undefined;
+  const schedule = async () => {
+    const settings = await getPhaseCSettings().catch(() => defaultPhaseCSettings);
+    const delay = settings.mission_generation_interval_minutes * 60_000;
+    timer = setTimeout(run, delay); timer.unref();
+  };
+  const run = async () => {
+    try {
+      const health: any = await getKayOperationsHealth();
+      if (health.circuitOpenUntil && new Date(health.circuitOpenUntil).getTime() > Date.now()) {
+        await persistGeneratorHealth({ degraded: true, lease_state: "circuit_open" });
+        return;
+      }
+      if (health.circuitOpenUntil) await persistGeneratorHealth({ half_open: true, lease_state: "half_open_probe" });
+      const result = await generateKayMissions(200, "automatic");
+      await persistGeneratorHealth({ last_automatic_run: new Date().toISOString(), next_expected_run: new Date(Date.now() + (await getPhaseCSettings()).mission_generation_interval_minutes * 60_000).toISOString(), ...result });
+    } catch (error) {
+      if ((error as any)?.kayHealthCounted) {
+        console.warn(`[Kay] mission generator lease acquisition failed: ${error instanceof Error ? error.message : "unknown"}`);
+        return;
+      }
+      const old: any = await getKayOperationsHealth().catch(() => ({ consecutiveFailures: 0, errors: 0 }));
+      const failures = Number(old.consecutiveFailures || 0) + 1;
+      const settings = await getPhaseCSettings().catch(() => defaultPhaseCSettings);
+      await persistGeneratorHealth({ errors: Number(old.errors || 0) + 1, consecutive_failures: failures, degraded: failures >= 3, lease_state: "error", ...(failures >= 3 ? { circuit_open_until: new Date(Date.now() + settings.mission_generation_interval_minutes * 3 * 60_000).toISOString() } : {}) }).catch(() => {});
+      console.warn(`[Kay] mission generator skipped: ${error instanceof Error ? error.message : "unknown"}`);
+    } finally { await schedule(); }
+  };
+  // Delayed readiness start: never scan synchronously during application boot.
+  setTimeout(run, 10_000).unref();
 }

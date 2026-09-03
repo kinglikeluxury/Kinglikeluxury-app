@@ -43,7 +43,7 @@ import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./w
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { requireKayAdmin } from "./kayAuth";
-import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getPhaseCSettings, listKayMissions, phaseCSettingsSchema, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
+import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -476,8 +476,9 @@ ${metaTags}
   // ─── Kay Zero Max Phase A — admin-only, observation-only control center ───
   app.get("/api/admin/kay/control", requireKayAdmin, async (_req, res) => {
     try {
-      const [control, employeeWorkflow, missionInspection] = await Promise.all([getKayControlSnapshot(), getKayEmployeeWorkflowSnapshot(), getKayMissionInspection()]);
-      res.json({ ...control, employeeWorkflow, missionInspection });
+      const [control, employeeWorkflow, missionInspection, operationsHealth] = await Promise.all([getKayControlSnapshot(), getKayEmployeeWorkflowSnapshot(), getKayMissionInspection(), getKayOperationsHealth()]);
+      const availability = await Promise.all((employeeWorkflow as any[]).map(async employee => ({ employeeId: employee.employee_id, ...(await getKayAvailability(employee.employee_id)) })));
+      res.json({ ...control, employeeWorkflow, missionInspection, operationsHealth, availability });
     } catch (err: any) {
       res.status(500).json({ message: "Unable to load Kay control data." });
     }
@@ -542,15 +543,16 @@ ${metaTags}
   // not accept employee IDs from non-admin callers and never write CRM tables.
   const requireKayWorkspaceUser = async (req: any, res: Response, next: Function) => {
     if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    if (req.session.isAdmin) return next();
-    const result = await db.execute(drizzleSql`SELECT role FROM users WHERE id=${req.session.userId} LIMIT 1`);
+    const result = await db.execute(drizzleSql`SELECT role,is_admin FROM users WHERE id=${req.session.userId} LIMIT 1`);
+    if (result.rows[0]?.is_admin) { req.kayIsAdmin = true; return next(); }
     if (result.rows[0]?.role !== "sub_agent") return res.status(403).json({ message: "Kay My Sales is available to eligible sales employees only." });
+    req.kayIsAdmin = false;
     next();
   };
   app.get("/api/kay/missions", requireKayWorkspaceUser, async (req: any, res) => {
     try {
       const includeCompleted = req.query.completed === "true";
-      const missions = await listKayMissions(req.session.userId, !!req.session.isAdmin, includeCompleted);
+      const missions = await listKayMissions(req.session.userId, !!req.kayIsAdmin, includeCompleted);
       const settings = await getPhaseCSettings();
       const nextHour = Date.now() + 60 * 60_000;
       const now = Date.now();
@@ -562,7 +564,7 @@ ${metaTags}
   app.get("/api/kay/missions/:id", requireKayWorkspaceUser, async (req: any, res) => {
     const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid mission id." });
     try {
-      const mission = await getKayMission(id, req.session.userId, !!req.session.isAdmin);
+      const mission = await getKayMission(id, req.session.userId, !!req.kayIsAdmin);
       if (!mission) return res.status(404).json({ message: "Mission not found." });
       res.json({ mission, shadow: true });
     } catch { res.status(500).json({ message: "Unable to load Kay mission." }); }
@@ -570,16 +572,32 @@ ${metaTags}
   app.post("/api/kay/missions/:id/:action", requireKayWorkspaceUser, async (req: any, res) => {
     const id = Number(req.params.id); const action = req.params.action;
     if (!Number.isInteger(id) || id < 1 || !["accept", "start", "complete", "dismiss"].includes(action)) return res.status(400).json({ message: "Invalid mission action." });
-    try { res.json({ mission: await transitionKayMission(id, req.session.userId, !!req.session.isAdmin, action, req.body), shadow: true, crmStatusUnchanged: true }); }
+    try { res.json({ mission: await transitionKayMission(id, req.session.userId, !!req.kayIsAdmin, action, req.body), shadow: true, crmStatusUnchanged: true }); }
     catch (error: any) { res.status(error.status || 400).json({ message: error.message || "Unable to update Kay mission." }); }
+  });
+  app.get("/api/kay/availability", requireKayWorkspaceUser, async (req: any, res) => {
+    res.json({ ...(await getKayAvailability(req.session.userId)), employeeId: req.session.userId });
+  });
+  app.put("/api/kay/availability", requireKayWorkspaceUser, async (req: any, res) => {
+    const parsed = kayAvailabilitySchema.safeParse(req.body?.availability);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid Kay availability." });
+    try { res.json(await setKayAvailability(req.session.userId, parsed.data, req.session.userId)); }
+    catch { res.status(500).json({ message: "Unable to update Kay availability." }); }
+  });
+  app.put("/api/admin/kay/employees/:employeeId/availability", requireKayAdmin, async (req: any, res) => {
+    const employeeId = Number(req.params.employeeId); const parsed = kayAvailabilitySchema.safeParse(req.body?.availability);
+    if (!Number.isInteger(employeeId) || employeeId < 1 || !parsed.success) return res.status(400).json({ message: "Invalid Kay availability." });
+    const employee = await db.execute(drizzleSql`SELECT id FROM users WHERE id=${employeeId} AND role='sub_agent' LIMIT 1`);
+    if (!employee.rows[0]) return res.status(404).json({ message: "Employee not found." });
+    res.json(await setKayAvailability(employeeId, parsed.data, req.session.userId, true));
   });
   app.get("/api/admin/kay/settings/workflow", requireKayAdmin, async (_req, res) => res.json(await getPhaseCSettings()));
   app.put("/api/admin/kay/settings/workflow", requireKayAdmin, async (req: any, res) => {
     if (!phaseCSettingsSchema.safeParse(req.body).success) return res.status(400).json({ message: "Invalid Phase C workflow settings." });
     try { res.json(await setPhaseCSettings(req.body, req.session.userId)); } catch { res.status(500).json({ message: "Unable to update workflow settings." }); }
   });
-  app.post("/api/admin/kay/missions/generate", requireKayAdmin, async (_req, res) => {
-    try { res.json({ ...(await generateKayMissions()), shadow: true }); } catch { res.status(500).json({ message: "Mission generation failed; CRM was not affected." }); }
+  app.post("/api/admin/kay/missions/generate", requireKayAdmin, async (req: any, res) => {
+    try { res.json({ ...(await generateKayMissions(200, "manual", req.session.userId)), shadow: true }); } catch { res.status(500).json({ message: "Mission generation failed; CRM was not affected." }); }
   });
 
   // Digital Asset Links for TWA (Trusted Web Activity) - Required for Google Play

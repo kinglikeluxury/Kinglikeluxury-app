@@ -242,6 +242,9 @@ export async function ensureKayTables(): Promise<void> {
          idempotency_key TEXT NOT NULL UNIQUE, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
          CONSTRAINT kay_missions_status_check CHECK (status IN ('NEW','ACCEPTED','IN_PROGRESS','COMPLETED','DISMISSED','STALE'))
        );
+        ALTER TABLE kay_missions ADD COLUMN IF NOT EXISTS notification_sent_at TIMESTAMP;
+        ALTER TABLE kay_missions ADD COLUMN IF NOT EXISTS notification_level TEXT;
+        ALTER TABLE kay_missions ADD COLUMN IF NOT EXISTS notification_version INTEGER NOT NULL DEFAULT 0;
        CREATE INDEX IF NOT EXISTS kay_missions_employee_status_due_priority_idx ON kay_missions(employee_id, status, due_at, priority);
        CREATE INDEX IF NOT EXISTS kay_missions_lead_type_status_idx ON kay_missions(lead_id, mission_type, status);
        DO $$ BEGIN
@@ -252,9 +255,12 @@ export async function ensureKayTables(): Promise<void> {
            ALTER TABLE kay_missions ADD CONSTRAINT kay_missions_priority_check CHECK (priority IN ('CRITICAL','HIGH','NORMAL','LOW'));
          END IF;
        END $$;
-       INSERT INTO kay_settings (key, value) VALUES
-         ('phase_c_workflow', '{"max_next_60_minutes_items":6,"priority_formula_version":"phase_c_v1","mission_notifications_enabled":false}'::jsonb)
-       ON CONFLICT (key) DO NOTHING;
+        INSERT INTO kay_settings (key, value) VALUES
+          ('phase_c_workflow', '{"max_next_60_minutes_items":6,"priority_formula_version":"phase_c_v1","mission_notifications_enabled":true,"mission_generation_interval_minutes":5,"quiet_hours_enabled":false,"quiet_hours_start":null,"quiet_hours_end":null}'::jsonb)
+        ON CONFLICT (key) DO NOTHING;
+        -- Additive C.1 default repair for installations created during Phase C.
+        UPDATE kay_settings SET value = '{"max_next_60_minutes_items":6,"priority_formula_version":"phase_c_v1","mission_notifications_enabled":true,"mission_generation_interval_minutes":5,"quiet_hours_enabled":false,"quiet_hours_start":null,"quiet_hours_end":null}'::jsonb
+        WHERE key='phase_c_workflow' AND NOT (value ? 'mission_generation_interval_minutes');
     `);
     console.log("[DB] Kay Phase A tables ensured");
   } catch (err: any) {

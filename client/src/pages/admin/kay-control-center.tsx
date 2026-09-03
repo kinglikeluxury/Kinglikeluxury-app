@@ -18,9 +18,9 @@ type LedgerItem = {
   };
 };
 type StatusIntelligence = { status: string; classification: string; terminal: boolean; rescueEvaluated: boolean; protectedCandidate: boolean; description: string };
-type WorkflowEmployee = { employee_id:number; employee_name:string; missions_total:number; active_missions:number; active_critical:number; completed:number; dismissed:number; stale:number; rescue_risk:number; unprotected:number; protected_attention:number; results:Record<string,number> };
+type WorkflowEmployee = { employee_id:number; employee_name:string; missions_total:number; active_missions:number; active_critical:number; unacknowledged_critical?:number; unacknowledged_high?:number; oldest_pending?:string; last_kay_activity?:string; completed:number; dismissed:number; stale:number; rescue_risk:number; unprotected:number; protected_attention:number; results:Record<string,number> };
 type MissionInspection = {id:number;mission_type:string;priority:string;status:string;reason_code:string;created_at:string;accepted_at?:string;completed_at?:string;result_code?:string;lead_id?:number;lead_name?:string;employee_name?:string};
-type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[]; employeeWorkflow?: WorkflowEmployee[]; missionInspection?:MissionInspection[] };
+type KayControlData = { mode: "shadow"; events: LedgerItem[]; decisions: LedgerItem[]; protectedLeads?: { id: number; leadId: number; reason: string; protectedAt: string }[]; statusIntelligence?: StatusIntelligence[]; employeeWorkflow?: WorkflowEmployee[]; missionInspection?:MissionInspection[]; availability?:{employeeId:number;availability:string}[]; operationsHealth?:any };
 
 function timestamp(value: string) {
   return new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -34,6 +34,10 @@ export default function KayControlCenterPage() {
   const saveMode = useMutation({
     mutationFn: async (mode: KayControlData["mode"]) =>
       (await apiRequest("PUT", "/api/admin/kay/settings/mode", { mode })).json(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/kay/control"] }),
+  });
+  const manualRun = useMutation({
+    mutationFn: async () => (await apiRequest("POST", "/api/admin/kay/missions/generate", {})).json(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/kay/control"] }),
   });
   const mode = data?.mode ?? "shadow";
@@ -72,6 +76,14 @@ export default function KayControlCenterPage() {
             {saveMode.isError && <p className="text-sm text-red-600">Mode update failed. The existing setting was kept.</p>}
           </CardContent>
         </Card>
+        <Card className="border-[#3bcac4]/40"><CardHeader><CardTitle className="text-lg text-[#005476]">Kay Operations Health</CardTitle></CardHeader><CardContent className="text-sm space-y-1">
+          <div>Mission Scheduler: <b>{data?.operationsHealth?.scheduler ?? "Disabled"}</b> {data?.operationsHealth?.warning && <Badge variant="destructive">{data.operationsHealth.warning}</Badge>}</div>
+          <div>Last generation: {data?.operationsHealth?.lastGeneration ? timestamp(data.operationsHealth.lastGeneration) : "—"} · Last automatic run: {data?.operationsHealth?.lastAutomaticRun ? timestamp(data.operationsHealth.lastAutomaticRun) : "—"} · Manual run: {data?.operationsHealth?.lastManualRun ? timestamp(data.operationsHealth.lastManualRun) : "—"}</div>
+          <div>Last successful cycle: {data?.operationsHealth?.lastSuccessfulCycle ? timestamp(data.operationsHealth.lastSuccessfulCycle) : "—"} · Next expected: {data?.operationsHealth?.nextExpectedRun ? timestamp(data.operationsHealth.nextExpectedRun) : "—"}</div>
+          <div>Checked {data?.operationsHealth?.checked ?? 0} · Created {data?.operationsHealth?.created ?? 0} · Staled {data?.operationsHealth?.staled ?? 0} · Errors {data?.operationsHealth?.errors ?? 0} · Lease {data?.operationsHealth?.leaseState ?? "—"} · Circuit {data?.operationsHealth?.circuitOpenUntil ? `open until ${timestamp(data.operationsHealth.circuitOpenUntil)}` : "closed"}</div>
+          <div>Notification system: {data?.operationsHealth?.notifications ?? "Disabled"} · Pending HIGH/CRITICAL: {data?.operationsHealth?.pendingHighCritical ?? 0}</div>
+          <Button size="sm" variant="outline" disabled={manualRun.isPending} onClick={()=>manualRun.mutate()}><RefreshCw className={`mr-1 h-3 w-3 ${manualRun.isPending ? "animate-spin" : ""}`}/>Manual Run</Button>
+        </CardContent></Card>
         <Card className="border-amber-300 bg-amber-50">
           <CardHeader><CardTitle className="text-lg text-[#005476]">Rescue Intelligence · SHADOW</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
@@ -122,6 +134,7 @@ export default function KayControlCenterPage() {
                   <div>Follow-up gaps <b>{employee.unprotected}</b></div><div>Protected attention <b>{employee.protected_attention}</b></div><div>Completed <b>{employee.completed}</b></div>
                   <div>Dismissed <b>{employee.dismissed}</b></div><div>Stale <b>{employee.stale}</b></div><div>Total <b>{employee.missions_total}</b></div>
                 </div>
+                <div className="mt-2 text-xs text-muted-foreground">Unacknowledged: Critical {employee.unacknowledged_critical ?? 0} · High {employee.unacknowledged_high ?? 0} · Oldest pending {employee.oldest_pending ? timestamp(employee.oldest_pending) : "—"} · Availability {data?.availability?.find(a=>a.employeeId===employee.employee_id)?.availability ?? "AVAILABLE"} · Last Kay activity {employee.last_kay_activity ? timestamp(employee.last_kay_activity) : "—"}</div>
                 {Object.keys(employee.results || {}).length > 0 && <div className="mt-2 text-xs text-muted-foreground">Reported outcomes: {Object.entries(employee.results).map(([name,total]) => `${name}: ${total}`).join(" · ")}</div>}
               </div>)}</div>}
             <details className="mt-4"><summary className="cursor-pointer text-sm font-medium text-[#005476]">Inspect recent missions (50 max)</summary>

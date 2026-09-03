@@ -770,6 +770,9 @@ export const kayMissions = pgTable("kay_missions", {
   resultDetails: jsonb("result_details"),
   sourceDecisionId: integer("source_decision_id").references(() => kayDecisions.id, { onDelete: "set null" }),
   idempotencyKey: text("idempotency_key").notNull(),
+  notificationSentAt: timestamp("notification_sent_at"),
+  notificationLevel: text("notification_level"),
+  notificationVersion: integer("notification_version").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

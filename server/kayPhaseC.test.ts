@@ -38,7 +38,7 @@ test("C direct other mission ID fails closed against current owner", () => {
   assert.match(service, /m\.employee_id=\$\{actorId\} AND l\.assigned_to=\$\{actorId\}/);
   assert.match(service, /u\.role='sub_agent'/);
 });
-test("C non-admin list is forced to employee id", () => assert.match(routes, /listKayMissions\(req\.session\.userId, !!req\.session\.isAdmin/));
+test("C non-admin list is forced to employee id using live role", () => assert.match(routes, /listKayMissions\(req\.session\.userId, !!req\.kayIsAdmin/));
 test("C admin list supports company-wide scope", () => assert.match(service, /if \(!admin\) filters\.push/));
 test("C generation has unique idempotency key", () => assert.match(schema, /idempotencyKeyUnique/));
 test("C database has unique mission key", () => assert.match(db, /idempotency_key TEXT NOT NULL UNIQUE/));
@@ -68,8 +68,8 @@ test("C creation event is idempotently keyed", () => assert.match(service, /miss
 test("C in-app notification is retryable, atomic, and failure isolated", () => {
   assert.match(service, /mission_notifications_enabled/);
   assert.match(service, /deliverPendingKayMissionNotifications/);
-  assert.match(service, /NOT EXISTS \([\s\S]*mission_notification:/);
-  assert.match(service, /await db\.transaction\(async tx => \{[\s\S]*mission_notification:\$\{mission\.idempotency_key\}[\s\S]*tx\.insert\(userNotifications\)/);
+  assert.match(service, /notification_level IS DISTINCT FROM m\.priority/);
+  assert.match(service, /await db\.transaction\(async tx => \{[\s\S]*FOR UPDATE OF m,l,u,a[\s\S]*const claimed[\s\S]*tx\.insert\(userNotifications\)/);
   assert.match(service, /notification skipped/);
 });
 test("C notification retries are independent of newly inserted missions", () => {
