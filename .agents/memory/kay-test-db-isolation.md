@@ -8,3 +8,8 @@ Never run a mutation-capable Kay integration suite against a shared, development
 **Why:** Shared-database E.2 runs exposed transient synthetic leads in the real CRM and allowed background schedulers to produce orphan internal artifacts referencing synthetic users, even though normal test cleanup later removed the fixture leads.
 
 **How to apply:** Every current and future Kay DB-writing suite must call the centralized preflight before setup or schema mutation. Synthetic markers include the run ID; fixtures only INSERT new rows; every mutation and cleanup is constrained to IDs registered by that run plus its exact marker. Never repurpose an existing lead as a fixture.
+
+The dedicated environment is a separate Neon project named
+`kinglike-kay-testing`, with database `kay_testing` owned by `kay_test_owner`.
+Keep production connection variables out of the test child process even when
+both projects are administered through the same Neon organization.

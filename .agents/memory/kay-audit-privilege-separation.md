@@ -16,3 +16,9 @@ replace them.
 **How to apply:** Provision the ledger and roles through an operator migration,
 store the writer connection separately, and fail Kay closed when the credential,
 trigger, non-ownership, or INSERT-only grants cannot be verified.
+
+On the connected Neon account, roles created through the Neon role-management
+API were automatically given `neon_superuser` membership plus `CREATEDB` and
+`CREATEROLE`, and the project administrator could not revoke that membership.
+For least-privilege Kay production roles, create them with SQL instead and
+verify effective memberships and attributes before assigning credentials.
