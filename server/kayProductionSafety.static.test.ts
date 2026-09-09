@@ -1,0 +1,57 @@
+import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+const read = (name: string) => readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
+
+test("Kay production startup does not start any write-capable scheduler", () => {
+  const source = read("index.ts");
+  const startup = source.slice(source.indexOf("for (const step of bootSteps)"));
+  assert.doesNotMatch(startup, /startKay(?:ShadowEvaluator|MissionGenerator|AutoRescueWorker)\(\)/);
+  assert.doesNotMatch(startup, /startPhaseDEvaluator\(\)/);
+  assert.match(startup, /all Kay schedulers disabled/);
+  assert.doesNotMatch(startup, /ensureKayTables\(\)/);
+  assert.match(source, /enforceKayProductionSafetyFreeze/);
+});
+
+test("all Kay HTTP mutations pass through the centralized denial middleware", () => {
+  const source = read("routes.ts");
+  const middleware = source.indexOf('app.use(["/api/kay", "/api/admin/kay"]');
+  const firstMutation = source.indexOf('app.put("/api/admin/kay/');
+  assert.ok(middleware >= 0 && middleware < firstMutation);
+  assert.match(source.slice(middleware, firstMutation), /denyKayWrite\("http\.write"/);
+});
+
+test("legacy Kay execution entry points cannot bypass the Action Gateway", () => {
+  const expectations: Array<[string, RegExp]> = [
+    ["kayRescueService.ts", /executeRescueTransaction[\s\S]{0,500}denyKayWrite\("rescue\.execute"/],
+    ["kayAutoRescueService.ts", /runKayAutoRescueWorker[\s\S]{0,250}denyKayWrite\("rescue\.execute"/],
+    ["kayMissionService.ts", /generateKayMissions[\s\S]{0,350}denyKayWrite\("missions\.generate"/],
+    ["kayPhaseE24Service.ts", /activateE24Fadi[\s\S]{0,250}denyKayWrite\("settings\.update"/],
+    ["kayPhaseDService.ts", /evaluatePhaseD[\s\S]{0,250}denyKayWrite\("missions\.generate"/],
+    ["kayLegacyBaselineService.ts", /initializeLegacyBaselines[\s\S]{0,500}denyKayWrite\("crm\.write"/],
+  ];
+  for (const [file, pattern] of expectations) assert.match(read(file), pattern, file);
+});
+
+test("read-only analysis has no production writer-pool fallback", () => {
+  const source = read("kayAnalysisDatabase.ts");
+  assert.match(source, /KAY_ANALYSIS_DATABASE_URL/);
+  assert.doesNotMatch(source, /from "\.\/db"/);
+  assert.match(source, /BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);
+  assert.match(source, /has_table_privilege/);
+});
+
+test("audit runtime uses a non-owner insert-only connection and performs no DDL", () => {
+  const source = read("kayActionGateway.ts");
+  assert.match(source, /KAY_AUDIT_DATABASE_URL/);
+  assert.match(source, /has_table_privilege/);
+  assert.match(source, /owns_ledger/);
+  assert.doesNotMatch(source, /\b(?:CREATE|ALTER|DROP)\s+(?:TABLE|ROLE|TRIGGER|FUNCTION)/i);
+});
+
+test("dangerous uncertain-reconciliation test helper is retired behind full DB preflight", () => {
+  const source = read("kayAutoRescueService.ts");
+  assert.match(source, /reconcileAutoRescueUncertainForTest[\s\S]{0,300}assertSafeKayMutationTestDatabase/);
+  assert.match(source, /mutation helper is retired/);
+});

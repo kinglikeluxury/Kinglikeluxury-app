@@ -52,6 +52,7 @@ import { getKayOperationalScopeAdminView, getKayScopeConfiguration, getKayScopeF
 import { randomUUID } from "crypto";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
+import { authorizeKayAction, denyKayWrite } from "./kayActionGateway";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -482,7 +483,50 @@ ${metaTags}
     res.status(403).json({ message: "Not authorized" });
   };
 
-  // ─── Kay Zero Max Phase A — admin-only, observation-only control center ───
+  // Production hardening: all Kay mutations are centrally denied and audited.
+  // GET inspection and the aggregate-only dry-run remain available.
+  app.use(["/api/kay", "/api/admin/kay"], async (req: any, res, next) => {
+    const route = req.originalUrl.split("?")[0];
+    const dryRun = req.method === "POST" && route === "/api/admin/kay/auto-rescue/dry-run";
+    const readonlyAnalysis = dryRun ||
+      (req.method === "GET" && route === "/api/admin/kay/auto-rescue/readiness");
+    if (req.method === "GET" || dryRun) {
+      try {
+        const capability = dryRun ? "kay.crm.analyze" : "kay.crm.read";
+        const decision = await authorizeKayAction({
+          action: dryRun ? "crm.analyze" : "crm.read",
+          actorId: req.session?.userId,
+          actorCapabilities: [capability],
+          capability,
+          targetType: "http_route",
+          targetId: route,
+          environment: process.env.NODE_ENV || "development",
+          mode: "shadow",
+          killSwitch: true,
+          dryRun: true,
+        });
+        if (!decision.ok) return res.status(423).json({ message: decision.audit.policy.reason, actionId: decision.audit.actionId });
+        if (readonlyAnalysis) return next();
+        return res.status(503).json({
+          message: "KAY_READONLY_ANALYSIS_ROUTE_NOT_MIGRATED",
+          actionId: decision.audit.actionId,
+        });
+      } catch {
+        return res.status(503).json({ message: "KAY_AUDIT_UNAVAILABLE" });
+      }
+    }
+    try {
+      await denyKayWrite("http.write", req.session?.userId, "http_route", route);
+    } catch (error: any) {
+      return res.status(423).json({
+        message: "KAY_WRITES_DISABLED",
+        code: "KAY_WRITES_DISABLED",
+        actionId: error?.actionId,
+      });
+    }
+  });
+
+  // ─── Kay Zero Max — admin-only, observation-only control center ───
   app.get("/api/admin/kay/control", requireKayAdmin, async (_req, res) => {
     try {
       const [control, employeeWorkflow, missionInspection, operationsHealth] = await Promise.all([getKayControlSnapshot(), getKayEmployeeWorkflowSnapshot(), getKayMissionInspection(), getKayOperationsHealth()]);

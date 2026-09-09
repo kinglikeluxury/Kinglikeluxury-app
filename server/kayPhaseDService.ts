@@ -4,6 +4,7 @@ import { db, pool } from "./db";
 import { crmLeads, kayCommitments, kayEvents, kayInternalBriefings, kayManagerReviews, kayMissions, kayPromises, kaySettings } from "@shared/schema";
 import { getKayAvailability, getPhaseCSettings, isKayQuietHours } from "./kayMissionService";
 import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeService";
+import { denyKayWrite } from "./kayActionGateway";
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const phaseDStyleSchema = z.enum(["FRIENDLY", "PROFESSIONAL", "DIRECT", "FIRM", "SALES_COACH", "EXECUTIVE"]);
@@ -71,6 +72,7 @@ export function employeeSafePhaseDSettings(settings: PhaseDSettings, employeeId:
   };
 }
 export async function setPhaseDSettings(value: unknown, actorId: number) {
+  await denyKayWrite("settings.update", actorId, "kay_setting", "phase_d");
   const parsed = phaseDSettingsSchema.parse(value);
   await db.transaction(async tx => {
     const [before] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "phase_d_workflow")).for("update").limit(1);
@@ -85,6 +87,7 @@ async function ownsLead(employeeId: number, leadId: number | null | undefined) {
   return !!lead;
 }
 export async function createCommitment(input: unknown, employeeId: number, admin = false) {
+  await denyKayWrite("tasks.create", employeeId, "kay_commitment", "new");
   const data = commitmentInput.parse(input);
   if (data.leadId) {
     const scope = await getKayScopeForLead(pool, data.leadId);
@@ -121,6 +124,7 @@ export async function createCommitment(input: unknown, employeeId: number, admin
   });
 }
 export async function createPromise(input: unknown, employeeId: number, admin = false) {
+  await denyKayWrite("tasks.create", employeeId, "kay_promise", "new");
   const data = promiseInput.parse(input);
   const scope = await getKayScopeForLead(pool, data.leadId);
   if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay promises require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
@@ -146,21 +150,25 @@ export async function listPromises(employeeId: number, admin: boolean) {
   return result.rows;
 }
 export async function completeCommitment(id: number, employeeId: number, admin: boolean) {
+  await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
   const rows = await db.execute(sql`UPDATE kay_commitments c SET status='COMPLETED',completed_at=NOW(),updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment not found or no longer available."); e.status = 404; throw e; }
   const c: any = rows.rows[0]; await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_completed", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function acceptCommitment(id: number, employeeId: number, admin: boolean) {
+  await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
   const rows = await db.execute(sql`UPDATE kay_commitments c SET status='ACCEPTED',updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment cannot be accepted."); e.status = 409; throw e; } const c: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_accepted", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function cancelCommitment(id: number, employeeId: number, admin: boolean) {
+  await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
   const rows = await db.execute(sql`UPDATE kay_commitments c SET status='CANCELLED',updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment cannot be cancelled."); e.status =409; throw e; } const c: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_cancelled", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function extendCommitment(id: number, employeeId: number, admin: boolean, dueAt: Date) {
+  await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
   if (dueAt.getTime() <= Date.now()) { const e: any = new Error("Extension deadline must be in the future."); e.status = 400; throw e; }
   const rows = await db.execute(sql`UPDATE kay_commitments c SET status='EXTENDED',due_at=${dueAt},extension_count=extension_count+1,reminder_version=0,last_reminder_at=NULL,updated_at=NOW()
     WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.extension_count<c.max_extensions AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
@@ -168,16 +176,19 @@ export async function extendCommitment(id: number, employeeId: number, admin: bo
   const c: any = rows.rows[0]; await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_extended", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function completePromise(id: number, employeeId: number, admin: boolean) {
+  await denyKayWrite("workflow.transition", employeeId, "kay_promise", id);
   const rows = await db.execute(sql`UPDATE kay_promises p SET status='COMPLETED',completed_at=NOW(),updated_at=NOW() WHERE p.id=${id} AND p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND (${admin} OR (p.employee_id=${employeeId} AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=${employeeId}))) RETURNING p.*`);
   if (!rows.rows[0]) { const e: any = new Error("Promise not found or no longer available."); e.status = 404; throw e; } const p: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: p.lead_id, employeeId: p.employee_id, userId: employeeId, eventType: "promise_completed", eventSource: admin ? "admin" : "employee", metadata: { promiseId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return p;
 }
 export async function cancelPromise(id: number, employeeId: number, admin: boolean) {
+  await denyKayWrite("workflow.transition", employeeId, "kay_promise", id);
   const rows = await db.execute(sql`UPDATE kay_promises p SET status='CANCELLED',cancelled_at=NOW(),updated_at=NOW() WHERE p.id=${id} AND p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND (${admin} OR (p.employee_id=${employeeId} AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=${employeeId}))) RETURNING p.*`);
   if (!rows.rows[0]) { const e: any = new Error("Promise cannot be cancelled."); e.status = 409; throw e; } const p: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: p.lead_id, employeeId: p.employee_id, userId: employeeId, eventType: "promise_cancelled", eventSource: admin ? "admin" : "employee", metadata: { promiseId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return p;
 }
 export async function createManagerReview(reason: string, fields: { leadId?: number | null; missionId?: number | null; commitmentId?: number | null; promiseId?: number | null; employeeId?: number | null }, key: string) {
+  await denyKayWrite("tasks.create", fields.employeeId ?? undefined, "manager_review", key);
   const [row] = await db.insert(kayManagerReviews).values({ ...fields, reason, idempotencyKey: key, details: { internalOnly: true } }).onConflictDoNothing().returning();
   return row ?? (await db.select().from(kayManagerReviews).where(eq(kayManagerReviews.idempotencyKey, key)).limit(1))[0];
 }
@@ -185,6 +196,7 @@ export async function listBriefings(employeeId: number, admin: boolean) {
   return db.select().from(kayInternalBriefings).where(admin ? undefined : eq(kayInternalBriefings.employeeId, employeeId)).orderBy(desc(kayInternalBriefings.createdAt)).limit(100);
 }
 export async function acknowledgeBriefing(id: number, employeeId: number, admin: boolean) {
+  await denyKayWrite("workflow.transition", employeeId, "kay_briefing", id);
   const rows = await db.update(kayInternalBriefings).set({ acknowledgedAt: new Date(), updatedAt: new Date() }).where(and(eq(kayInternalBriefings.id, id), ...(admin ? [] : [eq(kayInternalBriefings.employeeId, employeeId)]))).returning();
   if (!rows[0]) { const e: any = new Error("Briefing not found."); e.status = 404; throw e; } return rows[0];
 }
@@ -246,6 +258,7 @@ async function createManagerReviewWith(executor: any, reason: string, fields: an
   return row ?? (await executor.select().from(kayManagerReviews).where(eq(kayManagerReviews.idempotencyKey, key)).limit(1))[0];
 }
 export async function evaluatePhaseD(token: string, limit = 100) {
+  await denyKayWrite("missions.generate", undefined, "phase", "D");
   const settings = await getPhaseDSettings(); if (!settings.enabled) return { checked: 0, briefings: 0, reviews: 0, disabled: true };
   const scopeConfiguration = await getKayScopeConfiguration();
   if (scopeConfiguration.status !== "OK") {
@@ -345,20 +358,24 @@ export async function getOwnerBrief() {
   const facts: any = result.rows[0]; return { ...facts, text: `${settings.owner_address}: ${facts.critical_missions} critical missions, ${facts.overdue_promises} overdue promises, ${facts.overdue_commitments} overdue commitments, and ${facts.manager_reviews} open manager reviews.` };
 }
 export async function resolveManagerReview(id: number, actorId: number, note: string) {
+  await denyKayWrite("workflow.transition", actorId, "manager_review", id);
   const [row] = await db.update(kayManagerReviews).set({ status: "RESOLVED", resolutionNote: note, resolvedBy: actorId, resolvedAt: new Date(), updatedAt: new Date() }).where(and(eq(kayManagerReviews.id, id), eq(kayManagerReviews.status, "OPEN"))).returning();
   if (!row) { const e: any = new Error("Open manager review not found."); e.status = 404; throw e; }
   await db.insert(kayEvents).values({ userId: actorId, leadId: row.leadId, employeeId: row.employeeId, eventType: "manager_review_resolved", eventSource: "admin", metadata: { reviewId: id, internalOnly: true }, kayGenerated: false });
   return row;
 }
 export async function acquirePhaseDLease() {
+  await denyKayWrite("missions.generate", undefined, "phase_d_lease", "acquire");
   const token = `${process.pid}:${Date.now()}:${Math.random()}`; await db.insert(kaySettings).values({ key: "phase_d_evaluator_lease", value: { released: true } }).onConflictDoNothing();
   const rows = await db.update(kaySettings).set({ value: { token, locked_until: new Date(Date.now() + 10 * 60_000).toISOString() }, updatedAt: new Date() }).where(and(eq(kaySettings.key, "phase_d_evaluator_lease"), sql`CASE WHEN (${kaySettings.value}->>'locked_until') ~ '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$' THEN (${kaySettings.value}->>'locked_until')::timestamptz ELSE to_timestamp(0) END < NOW()`)).returning(); return rows[0] ? token : null;
 }
 export async function renewPhaseDLease(token: string): Promise<boolean> {
+  await denyKayWrite("missions.generate", undefined, "phase_d_lease", "renew");
   const rows = await db.update(kaySettings).set({ value: { token, locked_until: new Date(Date.now() + 10 * 60_000).toISOString() }, updatedAt: new Date() }).where(and(eq(kaySettings.key, "phase_d_evaluator_lease"), sql`${kaySettings.value}->>'token'=${token}`)).returning();
   return rows.length === 1;
 }
 export async function releasePhaseDLease(token: string): Promise<boolean> {
+  await denyKayWrite("missions.generate", undefined, "phase_d_lease", "release");
   const rows = await db.update(kaySettings).set({ value: { released: true, released_at: new Date().toISOString() }, updatedAt: new Date() }).where(and(eq(kaySettings.key, "phase_d_evaluator_lease"), sql`${kaySettings.value}->>'token'=${token}`)).returning();
   return rows.length === 1;
 }
@@ -367,6 +384,7 @@ export async function ownsPhaseDLease(token: string): Promise<boolean> {
   return (row?.value as any)?.token === token;
 }
 export async function runPhaseDEvaluator() {
+  await denyKayWrite("missions.generate", undefined, "phase", "D");
   const token = await acquirePhaseDLease(); if (!token) return { skipped: "lease_busy" };
   let leaseLost = false;
   const heartbeat = setInterval(() => { void renewPhaseDLease(token).then(ok => { if (!ok) leaseLost = true; }).catch(() => { leaseLost = true; }); }, 2 * 60_000); heartbeat.unref();

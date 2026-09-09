@@ -1,5 +1,6 @@
 import { pool } from "./db";
 import { createHash } from "crypto";
+import { denyKayWrite } from "./kayActionGateway";
 import { evaluateRescueWindow, recommendRescueEmployee } from "./kayAutoRescuePlanner";
 import { getKayScopeConfiguration, kayScopeSql } from "./kayLeadScopeService";
 
@@ -16,6 +17,7 @@ function requireTestScope(scope?: E22TestScope) {
 }
 
 export async function repairLegacyBaselineContinuityDuplicates(executor: {query:(sql:string, values?:any[])=>Promise<any>} = pool) {
+  if (executor === pool) await denyKayWrite("crm.write", undefined, "legacy_baseline", "repair");
   return executor.query(`UPDATE kay_legacy_rescue_baselines a
     SET state='SUPERSEDED',
       invalidated_at=COALESCE(a.invalidated_at,clock_timestamp()),
@@ -177,6 +179,7 @@ export async function previewLegacyBaselineInitialization(limit = 500, scope?: E
 }
 
 export async function initializeLegacyBaselines(adminId: number, token: string, limit = 500, expectedFingerprint?: string, snapshot?: Array<{id:number;status:string;trusted:boolean;existing:boolean}>, scope?: E22TestScope, options?: { failAuditInsertForTest?: boolean; expiresAt?: number; nowForTest?: number; afterAdminLockForTest?: (info:{backendPid:number;token:string}) => void | Promise<void>; beforeLeadLocksForTest?: (info:{backendPid:number;token:string}) => void | Promise<void> }) {
+  await denyKayWrite("crm.write", adminId, "legacy_baseline", "E.2.2");
   requireTestScope(scope);
   if (options?.failAuditInsertForTest && process.env.KAY_E22_POSTGRES_TESTS !== "true") throw new Error("E.2.2 test hook is disabled");
   if (options?.expiresAt !== undefined && (process.env.KAY_E22_POSTGRES_TESTS !== "true" || options.expiresAt < (options.nowForTest ?? Date.now()))) throw Object.assign(new Error("Preview confirmation expired."), { status: 409 });

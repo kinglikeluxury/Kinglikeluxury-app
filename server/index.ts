@@ -34,7 +34,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
 import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
-import { logDatabaseStatus, ensureCrmIndexes, ensureKayTables, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, enforceKayProductionSafetyFreeze, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables } from "./db";
 import { ensureMetaIntelligenceTables } from "./metaIntelligenceSyncService";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { ensureAssignmentCursor } from "./leadAssignmentService";
@@ -316,6 +316,9 @@ app.use((req, res, next) => {
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
+  // Kay's one-way production freeze must succeed before the process accepts
+  // traffic. A failure rejects startup instead of leaving old triggers active.
+  await enforceKayProductionSafetyFreeze();
   server.listen(
     {
       port,
@@ -367,7 +370,6 @@ app.use((req, res, next) => {
   const bootSteps: Array<{ name: string; run: () => Promise<void> }> = [
     { name: "logDatabaseStatus", run: () => logDatabaseStatus() },
     { name: "ensureCrmIndexes", run: () => ensureCrmIndexes() },
-    { name: "ensureKayTables", run: () => ensureKayTables() },
     { name: "ensureAssignmentCursor", run: () => ensureAssignmentCursor() },
     { name: "ensureCrmLeadEmailLogTable", run: () => ensureCrmLeadEmailLogTable() },
     {
@@ -482,16 +484,9 @@ app.use((req, res, next) => {
       console.error(`[DB] ${step.name} failed:`, err);
     }
   }
-  // Claims are persistent PostgreSQL SKIP LOCKED claims, so this is safe when
-  // multiple Autoscale instances run it. It remains behind the existing gate.
-  if (schedulersEnabled) {
-    startKayShadowEvaluator();
-    startKayMissionGenerator();
-    startPhaseDEvaluator();
-    // E.2 worker independently rechecks all execution gates; this scheduler
-    // gate merely prevents background activity when schedulers are disabled.
-    startKayAutoRescueWorker();
-  }
+  // Production incident containment: Kay analysis remains request-driven and
+  // read-only. No Kay evaluator, mission, Phase D, or rescue writer starts.
+  console.info("[Kay] production safety freeze active; all Kay schedulers disabled");
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];

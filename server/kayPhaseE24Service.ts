@@ -1,4 +1,5 @@
 import { pool } from "./db";
+import { denyKayWrite } from "./kayActionGateway";
 import { rescueSettingsSchema, defaultRescueSettings } from "./kayService";
 import { getKayScopeForLead } from "./kayLeadScopeService";
 import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
@@ -81,6 +82,7 @@ async function inspect(executor: any = pool) {
 export async function getE24FadiPrecheck() { return inspect(pool); }
 
 export async function activateE24Fadi(adminId: number, confirmFirstRealCanary = false) {
+  await denyKayWrite("settings.update", adminId, "kay_phase", "E.2.4");
   if (!confirmFirstRealCanary) throw Object.assign(new Error("Explicit first-real-canary confirmation is required"), { status: 400 });
   const client = await pool.connect();
   try {

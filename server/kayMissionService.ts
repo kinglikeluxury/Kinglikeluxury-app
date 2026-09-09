@@ -5,6 +5,8 @@ import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { getKayStatusIntelligence } from "./kayStatusClassification";
 import { sanitizeKayJson } from "./kayService";
 import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeService";
+import { assertKayProductionEntry } from "./kaySyntheticSafety";
+import { denyKayWrite } from "./kayActionGateway";
 
 export const PHASE_C_PRIORITY_FORMULA_VERSION = "phase_c_v1" as const;
 export const missionStatusSchema = z.enum(["NEW", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "DISMISSED", "STALE"]);
@@ -47,6 +49,7 @@ export async function getPhaseCSettings(): Promise<PhaseCSettings> {
 }
 
 export async function setPhaseCSettings(value: unknown, userId: number): Promise<PhaseCSettings> {
+  await denyKayWrite("settings.update", userId, "kay_setting", "phase_c");
   const settings = phaseCSettingsSchema.parse(value);
   await db.transaction(async tx => {
     await tx.insert(kaySettings).values({ key: "phase_c_workflow", value: defaultPhaseCSettings }).onConflictDoNothing();
@@ -63,6 +66,7 @@ export async function getKayAvailability(employeeId: number) {
   return { availability: availability.success ? availability.data : "AVAILABLE", updatedAt: row?.updatedAt ?? null };
 }
 export async function setKayAvailability(employeeId: number, availability: unknown, actorId: number, adminOverride = false) {
+  await denyKayWrite("settings.update", actorId, "kay_availability", employeeId);
   const parsed = kayAvailabilitySchema.parse(availability);
   const client = await pool.connect();
   try {
@@ -106,6 +110,7 @@ type Candidate = { lead_id: number; employee_id: number; status: string; name: s
 const activeStatuses = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 
 export async function acquireKayMissionGeneratorLease(): Promise<string | null> {
+  await denyKayWrite("missions.generate", undefined, "mission_lease", "acquire");
   const token = `${process.pid}:${Date.now()}:${Math.random()}`;
   await db.insert(kaySettings).values({
     key: "phase_c_generator_lease",
@@ -126,6 +131,7 @@ export async function acquireKayMissionGeneratorLease(): Promise<string | null> 
 }
 
 export async function renewKayMissionGeneratorLease(token: string): Promise<boolean> {
+  await denyKayWrite("missions.generate", undefined, "mission_lease", "renew");
   const rows = await db.update(kaySettings).set({
     value: { token, locked_until: new Date(Date.now() + 15 * 60_000).toISOString() },
     updatedAt: new Date(),
@@ -134,6 +140,7 @@ export async function renewKayMissionGeneratorLease(token: string): Promise<bool
 }
 
 export async function releaseKayMissionGeneratorLease(token: string): Promise<boolean> {
+  await denyKayWrite("missions.generate", undefined, "mission_lease", "release");
   const rows = await db.update(kaySettings).set({
     value: { released: true, released_at: new Date().toISOString() },
     updatedAt: new Date(),
@@ -146,6 +153,8 @@ export async function releaseKayMissionGeneratorLease(token: string): Promise<bo
 
 /** Retryable, bounded in-app delivery. The marker and notification commit together. */
 export async function deliverPendingKayMissionNotifications(settings?: PhaseCSettings, limit = 50): Promise<number> {
+  await denyKayWrite("tasks.create", undefined, "kay_notification", "pending");
+  assertKayProductionEntry();
   const effectiveSettings = settings ?? await getPhaseCSettings();
   if (!effectiveSettings.mission_notifications_enabled) return 0;
   const pending = await db.execute(sql`
@@ -173,6 +182,7 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
           WHERE m.id=${mission.id} AND l.assigned_to=m.employee_id AND u.role='sub_agent'
           FOR UPDATE OF m,l,u,a`);
         const current: any = locked.rows[0];
+         assertKayProductionEntry(current);
         if (!current || !["NEW","ACCEPTED","IN_PROGRESS"].includes(current.status) ||
             !["HIGH","CRITICAL"].includes(current.priority) ||
             (current.notification_sent_at && current.notification_level === current.priority)) return false;
@@ -234,6 +244,8 @@ export function isKayQuietHours(settings: PhaseCSettings, now: Date): boolean {
 
 /** Bounded, read-only CRM signal query. It only inserts/stales Kay-owned rows. */
 export async function generateKayMissions(limit = 200, runType: "manual" | "automatic" = "manual", actorId: number | null = null): Promise<{ created: number; staled: number; checked: number }> {
+  assertKayProductionEntry(undefined);
+  await denyKayWrite("missions.generate", actorId ?? undefined, "mission_generator", runType);
   let leaseToken: string | null;
   try {
     leaseToken = await acquireKayMissionGeneratorLease();
@@ -272,6 +284,7 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
     ORDER BY l.id ASC LIMIT ${Math.min(Math.max(limit, 1), 500)}`);
   let created = 0; let reconciled = 0; const current = new Map<number, string[]>(); const now = new Date();
   for (const row of rows.rows as unknown as Candidate[]) {
+    assertKayProductionEntry(row);
     const scope = await getKayScopeForLead(pool, Number(row.lead_id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     const info = getKayStatusIntelligence(row.status);
@@ -356,6 +369,7 @@ export async function getKayMission(id: number, actorId: number, admin: boolean)
   return result.rows[0] ?? null;
 }
 export async function transitionKayMission(id: number, actorId: number, admin: boolean, action: "accept" | "start" | "complete" | "dismiss", details: unknown) {
+  await denyKayWrite("workflow.transition", actorId, "kay_mission", id);
   const parsed: any = action === "complete" ? z.object({ resultCode: completionResultSchema, note: z.string().max(500).optional() }).strict().parse(details)
     : action === "dismiss" ? z.object({ reason: dismissalReasonSchema, note: z.string().max(500).optional() }).strict().parse(details) : {};
   const allowed: Record<string, string[]> = { accept: ["NEW"], start: ["ACCEPTED"], complete: ["ACCEPTED", "IN_PROGRESS"], dismiss: ["NEW", "ACCEPTED", "IN_PROGRESS"] };
@@ -423,6 +437,10 @@ export async function getKayMissionInspection() {
 
 /** Best-effort worker; it is deliberately behind the same scheduler gate. */
 export function startKayMissionGenerator(): void {
+  void denyKayWrite("missions.generate", undefined, "mission_generator", "start")
+    .catch(error => console.warn(`[Kay] mission generator start blocked: ${error instanceof Error ? error.message : "unknown"}`));
+  return;
+  /* istanbul ignore next -- permanently unreachable while write capabilities are off */
   let timer: NodeJS.Timeout | undefined;
   const schedule = async () => {
     const settings = await getPhaseCSettings().catch(() => defaultPhaseCSettings);

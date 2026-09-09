@@ -8,15 +8,17 @@ neonConfig.webSocketConstructor = ws;
 /**
  * Production database connection.
  *
- * Uses ONLY the NEON_DATABASE_URL secret — a custom name that Replit's
- * deployment platform never overrides. DATABASE_URL and PG* variables
- * injected by Replit are intentionally ignored.
+ * Production/development use NEON_DATABASE_URL. A test process can only use
+ * KAY_TEST_DATABASE_URL, so production credentials need not exist in its
+ * environment.
  */
-const neonDatabaseUrl = process.env.NEON_DATABASE_URL;
+const neonDatabaseUrl = process.env.NODE_ENV === "test"
+  ? process.env.KAY_TEST_DATABASE_URL
+  : process.env.NEON_DATABASE_URL;
 
 // Safe startup log — confirms var is set without exposing credentials
 {
-  const url = process.env.NEON_DATABASE_URL;
+  const url = neonDatabaseUrl;
   if (url) {
     try {
       const parsed = new URL(url);
@@ -33,9 +35,9 @@ const neonDatabaseUrl = process.env.NEON_DATABASE_URL;
 
 if (!neonDatabaseUrl) {
   throw new Error(
-    'NEON_DATABASE_URL is not set. ' +
-    'Add it to Replit Secrets with the full Neon connection string for ' +
-    'ep-winter-paper-a4q7e6vy.us-east-1.aws.neon.tech.'
+    process.env.NODE_ENV === "test"
+      ? "KAY_TEST_DATABASE_URL is required for test processes; production credentials are never a test fallback."
+      : "NEON_DATABASE_URL is not set."
   );
 }
 
@@ -51,6 +53,42 @@ pool.on('error', (err) => {
 });
 
 export const db = drizzle({ client: pool, schema });
+
+/**
+ * One-way production safety operation. It removes Kay triggers from real CRM
+ * tables and reasserts the frozen configuration without touching incident
+ * evidence or customer records.
+ */
+export async function enforceKayProductionSafetyFreeze(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:production-safety-freeze'))`);
+    await client.query(`DROP TRIGGER IF EXISTS kay_crm_lead_status_entry_trigger ON crm_leads`);
+    await client.query(`DROP TRIGGER IF EXISTS kay_crm_lead_owner_epoch_trigger ON crm_leads`);
+    await client.query(`DROP TRIGGER IF EXISTS kay_crm_task_e24_control_trigger ON crm_tasks`);
+    await client.query(`UPDATE kay_settings SET value='{"mode":"shadow"}'::jsonb,updated_at=NOW() WHERE key='mode'`);
+    await client.query(`UPDATE kay_settings SET value=value || '{
+      "rescue_enabled":false,
+      "auto_rescue_no_answer_1_enabled":false,
+      "auto_rescue_no_answer_2_enabled":false,
+      "auto_rescue_kill_switch":true,
+      "auto_rescue_canary_enabled":false,
+      "auto_rescue_canary_employee_ids":[]
+    }'::jsonb,updated_at=NOW() WHERE key='rescue_rules'`);
+    await client.query(`UPDATE phase_e24_first_canary_state
+      SET status='FROZEN_NO_EXECUTION',
+          freeze_reason=COALESCE(freeze_reason,'PRODUCTION_SAFETY_ARCHITECTURE_FREEZE'),
+          frozen_at=COALESCE(frozen_at,NOW())
+      WHERE id=1 AND status<>'FROZEN_NO_EXECUTION'`);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 /** Returns the active database host for logging. */
 export function getActiveDbHost(): string {

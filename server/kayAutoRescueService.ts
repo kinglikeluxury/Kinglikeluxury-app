@@ -1,10 +1,14 @@
 import { pool } from "./db";
-import { getRescueSettings, getKayMode } from "./kayService";
+import { getRescueSettings, getKayMode, rescueSettingsSchema } from "./kayService";
 import { rescueAttemptPredicate } from "./kayAutoRescuePlanner";
 import { executeAutomaticRescue, freezeE24NoExecution } from "./kayRescueService";
 import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
 import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeService";
 import { getE23CapacitySnapshot, selectE23Target } from "./kayPhaseE23Service";
+import { assertKayProductionEntry } from "./kaySyntheticSafety";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import { denyKayWrite } from "./kayActionGateway";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 type Queryable = { query: (sql: string, values?: any[]) => Promise<any> };
 type AutoRescueTestHook = (step: "before_execute" | "after_execute", queue: any) => void | Promise<void>;
@@ -83,8 +87,8 @@ async function reconcileUncertain(q: any, token: string, errorCode: string) {
   } catch { await client.query("ROLLBACK").catch(()=>{}); } finally { client.release(); }
 }
 export async function reconcileAutoRescueUncertainForTest(q: any, token: string, errorCode = "TEST_UNCERTAIN") {
-  if (process.env.KAY_E2_TEST_HOOKS !== "true") throw new Error("Automatic Rescue test hooks are disabled");
-  return reconcileUncertain(q,token,errorCode);
+  assertSafeKayMutationTestDatabase("reconcileAutoRescueUncertainForTest");
+  throw new Error("Automatic Rescue mutation helper is retired; use isolated fixture-level assertions");
 }
 
 export async function getAutoRescueHealth() {
@@ -122,33 +126,38 @@ async function releaseLease(token: string) {
 
 /** Read-only aggregate simulation. It performs no queue, history or CRM writes. */
 export async function getAutoRescueReadiness(limit = 500) {
-  const settings = await getRescueSettings();
-  const scopeConfig = await getKayScopeConfiguration();
+ return withKayReadonlyAnalysis(async analysis => {
+  const settingsRow = await analysis.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`);
+  const settings = rescueSettingsSchema.parse(settingsRow.rows[0]?.value);
+  const scopeConfig = await getKayScopeConfiguration(analysis);
   if (scopeConfig.status !== "OK") {
     return { checked: 0, wouldExecute: 0, wouldBlock: 0, managerReview: 0, noEligibleEmployee: 0, protected: 0, dailyLimitImpact: 0, blockedReason: scopeConfig.status };
   }
-  const rows = await pool.query(`SELECT l.id,l.status,l.assigned_to,h.entered_at,p.id protection_id,
+  const rows = await analysis.query(`SELECT l.id,l.status,l.assigned_to,h.entered_at,p.id protection_id,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.completed_at IS NULL) blocker
     FROM crm_leads l LEFT JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
     LEFT JOIN kay_lead_protection p ON p.lead_id=l.id AND p.removed_at IS NULL
     WHERE l.status IN ('no_answer_1','no_answer_2') ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 1000)]);
   const result = { checked: rows.rows.length, wouldExecute: 0, wouldBlock: 0, managerReview: 0, noEligibleEmployee: 0, protected: 0, dailyLimitImpact: 0 };
   for (const l of rows.rows as any[]) {
-    const scope = await getKayScopeForLead(pool, Number(l.id));
+    const scope = await getKayScopeForLead(analysis, Number(l.id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     const threshold = (l.status === "no_answer_2" ? settings.no_answer_2_threshold_hours : settings.no_answer_1_threshold_hours) * 3600000;
     if (!l.entered_at || Date.now() - new Date(l.entered_at).getTime() < threshold) continue;
     if (l.protection_id) { result.protected++; result.wouldBlock++; continue; }
     if (l.blocker) { result.wouldBlock++; continue; }
-    const eligible = await pool.query(`SELECT id FROM users WHERE role='sub_agent' AND is_active=true AND id<>$1
+    const eligible = await analysis.query(`SELECT id FROM users WHERE role='sub_agent' AND is_active=true AND id<>$1
       AND COALESCE((SELECT value->>'availability' FROM kay_settings WHERE key='phase_c_availability:'||users.id::text),'AVAILABLE')='AVAILABLE' LIMIT 1`, [l.assigned_to]);
     if (!eligible.rows[0]) { result.managerReview++; result.noEligibleEmployee++; } else result.wouldExecute++;
   }
   return result;
+ });
 }
 
 export type LastChanceAction = "CONTACT_NOW" | "NEED_30_MINUTES" | "CANNOT_HANDLE";
 export async function applyAutoRescueLastChance(queueId: number, userId: number, isAdmin: boolean, action: LastChanceAction) {
+  assertKayProductionEntry();
+  await denyKayWrite("workflow.transition", userId, "auto_rescue_queue", queueId);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -159,6 +168,7 @@ export async function applyAutoRescueLastChance(queueId: number, userId: number,
     if (!q || (!isAdmin && Number(q.current_owner_id)!==Number(userId))) {
       throw Object.assign(new Error("This Rescue window is not assigned to you."),{status:403,code:"NOT_OWNER"});
     }
+    assertKayProductionEntry(q);
     const scope = await getKayScopeForLead(client, Number(q.lead_id));
     if (scope.outcome !== "IN_KAY_SCOPE") {
       throw Object.assign(new Error("This Rescue window is outside Kay operational scope."), { status: 409, code: `KAY_SCOPE_${scope.outcome}` });
@@ -235,6 +245,7 @@ async function ensureWarningArtifacts(itemId: number, leadId: number, ownerId: n
 }
 
 async function evaluateIntoQueue(settings: any, limit: number) {
+  assertKayProductionEntry();
   const scopeConfig = await getKayScopeConfiguration();
   if (scopeConfig.status !== "OK") {
     await health({ halted: true, last_scope_failure: scopeConfig.status });
@@ -248,6 +259,7 @@ async function evaluateIntoQueue(settings: any, limit: number) {
      WHERE l.status IN ('no_answer_1','no_answer_2') AND owner.is_active=true AND owner.is_admin=false AND owner.role='sub_agent'
       ORDER BY CASE WHEN l.id=$2 THEN 0 ELSE 1 END,l.id LIMIT $1`, [clamp(limit, 1, 100),pinned]);
   for (const lead of candidates.rows as any[]) {
+    assertKayProductionEntry(lead);
     const scope = await getKayScopeForLead(pool, Number(lead.id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     // E.2.2 baselines are observation-only until a separately approved future
@@ -277,6 +289,8 @@ async function evaluateIntoQueue(settings: any, limit: number) {
 }
 
 export async function runKayAutoRescueWorker(limit = 25) {
+  assertKayProductionEntry();
+  await denyKayWrite("rescue.execute", undefined, "worker", "auto-rescue");
  try {
   const scopeConfig = await getKayScopeConfiguration();
   if (scopeConfig.status !== "OK") {
@@ -330,7 +344,9 @@ export async function runKayAutoRescueWorker(limit = 25) {
     let systemFailures = 0;
     for (const q of claimed.rows as any[]) {
       try {
+        assertKayProductionEntry(q);
         const lead = (await pool.query(`SELECT * FROM crm_leads WHERE id=$1`, [q.lead_id])).rows[0];
+        assertKayProductionEntry(lead);
         const scope = await getKayScopeForLead(pool, Number(q.lead_id));
         if (scope.outcome !== "IN_KAY_SCOPE") {
           await claimedTransition(q,token,"STALE",`KAY_SCOPE_${scope.outcome}`);

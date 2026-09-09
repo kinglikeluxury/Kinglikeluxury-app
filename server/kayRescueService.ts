@@ -2,6 +2,8 @@ import { pool } from "./db";
 import { getKayStatusIntelligence, isKayRescueEvaluatedStatus } from "./kayStatusClassification";
 import { getKayScopeForLead } from "./kayLeadScopeService";
 import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
+import { assertKayProductionEntry } from "./kaySyntheticSafety";
+import { denyKayWrite } from "./kayActionGateway";
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const openPromise = ["PENDING", "DUE_SOON", "OVERDUE", "OPEN"];
@@ -36,6 +38,8 @@ async function auditRejected(command: RescueCommand, adminId: number, code: stri
 
 /** The sole transactional ownership-transfer primitive for E.1 and E.2. */
 export async function executeRescueTransaction(command: RescueCommand, actorId: number | null, executionMode: "assisted" | "automatic" = "assisted") {
+  assertKayProductionEntry(command);
+  await denyKayWrite("rescue.execute", actorId ?? undefined, "crm_lead", command.leadId);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -70,6 +74,7 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
       FROM crm_leads l LEFT JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
       LEFT JOIN kay_lead_protection p ON p.lead_id=l.id AND p.removed_at IS NULL WHERE l.id=$1 FOR UPDATE OF l`, [command.leadId]);
     const lead: any = leadResult.rows[0]; if (!lead) throw reject("LEAD_MISSING");
+    assertKayProductionEntry(lead);
     // The lead row lock serializes confirms. A retry after a committed winner
     // returns that immutable result before re-evaluating now-stale eligibility.
     const prior = await client.query(`SELECT id,from_user_id,to_user_id,created_at FROM kay_rescue_executions WHERE decision_id=$1 AND outcome='SUCCESS' LIMIT 1`, [command.decisionId]);
@@ -231,6 +236,8 @@ export async function executeAutomaticRescue(command: AutomaticRescueCommand) {
 
 /** Permanently freezes an E.2.4 canary which cannot safely execute. */
 export async function freezeE24NoExecution(reason: string, candidateLeadId?: number, immediate = false) {
+  await denyKayWrite("settings.update", undefined, "kay_phase", "E.2.4");
+  assertKayProductionEntry();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -259,6 +266,7 @@ export async function freezeE24NoExecution(reason: string, candidateLeadId?: num
 
 /** Explicit reversal command; it is deliberately not callable by any scheduler. */
 export async function undoAssistedRescue(executionId: number, adminId: number, reason: string) {
+  await denyKayWrite("rescue.execute", adminId, "rescue_execution", executionId);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -316,6 +324,7 @@ export async function listPromiseHandoffs(employeeId: number, admin: boolean) {
   return (await pool.query(`SELECT h.*,p.promise_text,p.due_at,p.importance FROM kay_promise_handoffs h LEFT JOIN kay_promises p ON p.id=h.promise_id WHERE $2 OR (h.current_responsible_id=$1 AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=h.lead_id AND l.assigned_to=$1)) ORDER BY h.transferred_at DESC`, [employeeId, admin])).rows;
 }
 export async function acceptPromiseHandoff(id: number, employeeId: number, admin: boolean) {
+  await denyKayWrite("workflow.transition", employeeId, "promise_handoff", id);
   const result = await pool.query(`UPDATE kay_promise_handoffs h SET accepted_at=COALESCE(accepted_at,NOW()) WHERE h.id=$1 AND ($3 OR (h.current_responsible_id=$2 AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=h.lead_id AND l.assigned_to=$2))) RETURNING *`, [id, employeeId, admin]);
   if (!result.rows[0]) throw Object.assign(new Error("Promise handoff not found."), { status: 404 }); return result.rows[0];
 }

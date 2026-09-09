@@ -6,6 +6,7 @@ import { getKayStatusIntelligence, isKayOrphanEligibleStatus, isKayRescueEvaluat
 export { recommendRescueEmployee, evaluateRescueWindow } from "./kayAutoRescuePlanner";
 import { recommendRescueEmployee, evaluateRescueWindow } from "./kayAutoRescuePlanner";
 import type { RescueBlocker, RescueCandidate, RescueState } from "./kayAutoRescuePlanner";
+import { denyKayWrite } from "./kayActionGateway";
 
 /**
  * These are names reserved for later explicitly-approved phases.  They are
@@ -84,6 +85,7 @@ export type KayModeTransactionRunner = (
 ) => Promise<void>;
 
 const runKayModeTransaction: KayModeTransactionRunner = async (apply) => {
+  await denyKayWrite("settings.update", undefined, "kay_setting", "mode");
   await db.transaction(async (tx) => {
     // Create the singleton before locking so fresh installations and
     // concurrent first updates serialize on the same row.
@@ -186,6 +188,9 @@ const defaultKayObserverDependencies: KayObserverDependencies = {
 export function createKayLeadCreatedObserver(dependencies: KayObserverDependencies = defaultKayObserverDependencies) {
   return async (lead: KayLeadCreatedObservation, userId?: number): Promise<void> => {
     try {
+      if (dependencies === defaultKayObserverDependencies) {
+        await denyKayWrite("crm.write", userId, "crm_lead", lead.id);
+      }
       const mode = await dependencies.getMode();
       await dependencies.persistLeadCreated(lead, userId, mode);
     } catch (error) {
@@ -195,7 +200,13 @@ export function createKayLeadCreatedObserver(dependencies: KayObserverDependenci
   };
 }
 
-export const safelyObserveLeadCreated = createKayLeadCreatedObserver();
+export const safelyObserveLeadCreated = async (lead: KayLeadCreatedObservation, userId?: number): Promise<void> => {
+  try {
+    await denyKayWrite("crm.write", userId, "crm_lead", lead.id);
+  } catch (error) {
+    console.warn(`[Kay] Lead-created observation blocked: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
+};
 
 export const KAY_RESCUE_STATUSES = ["no_answer_1", "no_answer_2"] as const;
 export type { RescueState, RescueBlocker, RescueCandidate };
@@ -246,6 +257,7 @@ export async function getRescueSettings(): Promise<RescueSettings> {
 /** Post-commit only. It records each actual status-entry window without changing CRM state. */
 export async function observeLeadStatusAfterCommit(lead: { id: number; status: string; assignedTo?: number | null }, userId?: number): Promise<void> {
   try {
+    await denyKayWrite("crm.write", userId, "crm_lead", lead.id);
     const now = new Date();
     await db.transaction(async tx => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"kay-status:" + lead.id}))`);
@@ -271,6 +283,7 @@ export async function observeLeadStatusAfterCommit(lead: { id: number; status: s
 export async function observeLeadAssignmentAfterCommit(leadId: number, fromUserId: number | null, toUserId: number | null, userId?: number): Promise<void> {
   if (fromUserId === toUserId) return;
   try {
+    await denyKayWrite("crm.write", userId, "crm_lead", leadId);
     const now = new Date();
     await db.execute(sql`
       INSERT INTO lead_assignment_history (lead_id, from_user_id, to_user_id, reason, automatic, assigned_at)
@@ -285,6 +298,7 @@ export async function observeLeadAssignmentAfterCommit(leadId: number, fromUserI
 }
 
 export async function setLeadProtection(leadId: number, reason: string, note: string | null, userId: number, protect: boolean) {
+  await denyKayWrite("protection.update", userId, "crm_lead", leadId);
   const cleanReason = reason.trim().slice(0, 120);
   if (protect && !cleanReason) throw new Error("Protection reason is required");
   const now = new Date();
@@ -325,6 +339,7 @@ export async function setLeadProtection(leadId: number, reason: string, note: st
 type QueueLead = { id: number; lead_id: number | null };
 /** Database claim protocol; SKIP LOCKED makes multiple Autoscale instances safe. */
 export async function claimKayEvaluationQueue(limit = 50): Promise<QueueLead[]> {
+  await denyKayWrite("crm.write", undefined, "kay_evaluator_queue", "claim");
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -344,6 +359,7 @@ export async function claimKayEvaluationQueue(limit = 50): Promise<QueueLead[]> 
 
 /** Enqueues existing leads with a stable UTC 15-minute scan key; it never writes CRM rows. */
 export async function enqueueKayEvaluationScan(): Promise<void> {
+  await denyKayWrite("crm.write", undefined, "kay_evaluator_queue", "enqueue");
   await db.execute(sql`INSERT INTO kay_evaluator_queue (queue_key, lead_id)
     SELECT 'scan:' || id || ':' || to_char(date_trunc('hour', NOW()) + floor(date_part('minute', NOW()) / 15) * interval '15 minutes', 'YYYY-MM-DD"T"HH24:MI'), id FROM crm_leads
     ON CONFLICT (queue_key) DO NOTHING`);
@@ -357,6 +373,7 @@ export async function recordImmutableRescueEvaluation(input: {
   payload: Record<string, unknown>;
   fingerprint: string;
 }): Promise<boolean> {
+  await denyKayWrite("crm.write", undefined, "kay_decision", input.leadId);
   const status = String(input.payload.status ?? "");
   const statusEnteredAt = String(input.payload.status_entered_at ?? "");
   if (!status || !statusEnteredAt) throw new Error("Rescue evaluation requires a status-entry window");
@@ -386,6 +403,7 @@ export async function recordImmutableRescueEvaluation(input: {
 }
 
 export async function runKayShadowEvaluator(): Promise<{ checked: number; eligible: number; blocked: number; stale: number }> {
+  await denyKayWrite("crm.write", undefined, "kay_evaluator", "shadow");
   const claimed = await claimKayEvaluationQueue();
   let eligible = 0; let blocked = 0; let stale = 0;
   for (const job of claimed) {

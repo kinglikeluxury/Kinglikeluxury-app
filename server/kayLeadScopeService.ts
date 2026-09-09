@@ -1,4 +1,5 @@
 import { pool } from "./db";
+import { denyKayWrite } from "./kayActionGateway";
 
 /** Kay's fixed, non-rolling operational boundary. */
 export const KAY_OPERATIONAL_LAUNCH_AT = "2026-09-09T00:00:00+04:00";
@@ -162,6 +163,7 @@ export async function getKayScopeForLead(executor: KayScopeExecutor, leadId: num
 }
 
 export async function setKayOperationalLaunchAt(adminId: number, value: unknown, confirmChange = false) {
+  await denyKayWrite("settings.update", adminId, "kay_setting", KAY_OPERATIONAL_SETTING_KEY);
   const config = buildKayScopeConfig(value);
   if (!config) throw Object.assign(new Error("Launch date must be an ISO timestamp with the Asia/Tbilisi +04:00 offset."), { status: 400 });
   const client = await pool.connect();

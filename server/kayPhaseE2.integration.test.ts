@@ -19,7 +19,7 @@ import {
 import { activateE24Fadi } from "./kayPhaseE24Service";
 
 assertSafeKayMutationTestDatabase("kayPhaseE2.integration");
-const enabled = process.env.KAY_E2_POSTGRES_TESTS === "true" && process.env.KAY_E2_ALLOW_SHARED_DB_MUTATIONS === "true";
+const enabled = process.env.KAY_E2_POSTGRES_TESTS === "true";
 const marker = kaySyntheticMarker("KAY_E2_TEST");
 const leadIds: number[] = [];
 let adminId = 0;
@@ -200,7 +200,7 @@ after(async () => {
 
 test("E.2 PostgreSQL mutation suite requires its explicit synthetic-data gate", { skip:!enabled }, async () => {
   assert.equal(process.env.KAY_E2_POSTGRES_TESTS,"true");
-  assert.equal(process.env.KAY_E2_ALLOW_SHARED_DB_MUTATIONS,"true");
+  assert.notEqual(process.env.KAY_E2_ALLOW_SHARED_DB_MUTATIONS, "true");
   assert.ok(adminId && ownerId && targetId && otherId);
   assert.equal(new Set([adminId,ownerId,targetId,otherId]).size,4);
 });
