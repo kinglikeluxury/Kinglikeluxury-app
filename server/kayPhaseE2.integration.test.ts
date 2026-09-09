@@ -307,7 +307,7 @@ test("E.2 worker warning is one-cycle, deduplicated, canary-scoped, and disabled
   assert.equal(Number((await pool.query(`SELECT count(*)::int n FROM kay_auto_rescue_queue WHERE lead_id=$1`,[row.leadId])).rows[0].n),before);
   await settings();
   await pool.query(`UPDATE kay_settings SET value='{"released":true}'::jsonb WHERE key='phase_e2_auto_rescue_lease'`);
-  const warningRace=await Promise.all([runKayAutoRescueWorker(25),runKayAutoRescueWorker(25)]);
+  const warningRace=await Promise.all([runKayAutoRescueWorker(100),runKayAutoRescueWorker(100)]);
   assert.equal(warningRace.filter(result=>result.executed===0).length,1);
   assert.equal(warningRace.filter(result=>result.busy===true).length,1);
   const warning=(await pool.query(`SELECT id,status,warning_mission_id FROM kay_auto_rescue_queue WHERE lead_id=$1`,[row.leadId])).rows[0];

@@ -78,11 +78,12 @@ test("Kay routes remain admin gated for evaluator settings and protection", () =
   assert.match(source, /kay\/rescue\/evaluate", requireKayAdmin/);
   assert.match(source, /kay\/leads\/:leadId\/protection", requireKayAdmin/);
 });
-test("status history uses exception-isolated database trigger, not route observation", () => {
+test("status history uses an atomic database trigger, not route observation", () => {
   const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
   const routeSource = readFileSync(new URL("./routes.ts", import.meta.url), "utf8");
   assert.match(dbSource, /CREATE TRIGGER kay_crm_lead_status_entry_trigger/);
-  assert.match(dbSource, /EXCEPTION WHEN OTHERS/);
+  assert.doesNotMatch(dbSource, /EXCEPTION WHEN OTHERS/);
+  assert.match(dbSource, /UPDATE kay_legacy_rescue_baselines SET state='INVALIDATED'/);
   assert.match(dbSource, /payload->>'status' IS DISTINCT FROM NEW\.status/);
   assert.doesNotMatch(routeSource, /observeLeadStatusAfterCommit\(lead/);
 });

@@ -2,6 +2,7 @@ import { pool } from "./db";
 import { getRescueSettings, getKayMode } from "./kayService";
 import { recommendRescueEmployee, rescueAttemptPredicate, rescuePingPongPredicate } from "./kayAutoRescuePlanner";
 import { executeAutomaticRescue } from "./kayRescueService";
+import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
 
 type Queryable = { query: (sql: string, values?: any[]) => Promise<any> };
 type AutoRescueTestHook = (step: "before_execute" | "after_execute", queue: any) => void | Promise<void>;
@@ -216,6 +217,10 @@ async function evaluateIntoQueue(settings: any, limit: number) {
     JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
     WHERE l.status IN ('no_answer_1','no_answer_2') ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 100)]);
   for (const lead of candidates.rows as any[]) {
+    // E.2.2 baselines are observation-only until a separately approved future
+    // policy exists. They may appear in readiness, never in queue/mission paths.
+    const resolved = await resolveKayStatusWindow(pool, Number(lead.id), lead.status);
+    if (!resolved || resolved.source === "LEGACY_BASELINE") continue;
     const enabled = lead.status === "no_answer_1" ? settings.auto_rescue_no_answer_1_enabled : settings.auto_rescue_no_answer_2_enabled;
     const threshold = (lead.status === "no_answer_1" ? settings.no_answer_1_threshold_hours : settings.no_answer_2_threshold_hours) * 3_600_000;
     if (!enabled || !lead.entered_at || Date.now() - new Date(lead.entered_at).getTime() < threshold - settings.rescue_warning_minutes * 60_000) continue;

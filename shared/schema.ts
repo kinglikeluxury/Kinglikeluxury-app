@@ -8,7 +8,9 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql as schemaSql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -605,6 +607,43 @@ export const crmLeads = pgTable("crm_leads", {
 export const insertCrmLeadSchema = createInsertSchema(crmLeads).omit({ id: true, createdAt: true, updatedAt: true });
 export type CrmLead = typeof crmLeads.$inferSelect;
 export type InsertCrmLead = z.infer<typeof insertCrmLeadSchema>;
+
+// Kay E.2.2 observation ledger. These are additive, immutable-history tables;
+// baseline timestamps are observation clocks, never reconstructed CRM dates.
+export const kayLegacyRescueBaselines = pgTable("kay_legacy_rescue_baselines", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").references(() => crmLeads.id, { onDelete: "set null" }),
+  observedStatus: text("observed_status").notNull(),
+  observationStartedAt: timestamp("observation_started_at").default(schemaSql`clock_timestamp()`).notNull(),
+  source: text("source").notNull().default("LEGACY_BASELINE"),
+  trustedEntryTime: boolean("trusted_entry_time").notNull().default(false),
+  state: text("state").notNull().default("ACTIVE"),
+  invalidatedAt: timestamp("invalidated_at"),
+  invalidationReason: text("invalidation_reason"),
+  continuityEventKey: text("continuity_event_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  activeUnique: uniqueIndex("kay_legacy_baseline_one_active_idx").on(table.leadId, table.observedStatus).where(schemaSql`${table.state} = 'ACTIVE'`),
+  continuityUnique: uniqueIndex("kay_legacy_baseline_continuity_unique_idx").on(table.leadId, table.observedStatus, table.continuityEventKey),
+  observedStatusCheck: check("kay_legacy_baseline_observed_status_check", schemaSql`${table.observedStatus} in ('no_answer_1','no_answer_2')`),
+  sourceCheck: check("kay_legacy_baseline_source_check", schemaSql`${table.source} = 'LEGACY_BASELINE'`),
+  trustedCheck: check("kay_legacy_baseline_trusted_check", schemaSql`${table.trustedEntryTime} = false`),
+  stateCheck: check("kay_legacy_baseline_state_check", schemaSql`${table.state} in ('ACTIVE','INVALIDATED','SUPERSEDED')`),
+}));
+export const kayLegacyBaselineInitRuns = pgTable("kay_legacy_baseline_init_runs", {
+  id: serial("id").primaryKey(),
+  adminId: integer("admin_id").references(() => users.id, { onDelete: "set null" }),
+  confirmationToken: text("confirmation_token").notNull(),
+  inspected: integer("inspected").notNull(),
+  created: integer("created").notNull(),
+  skippedTrusted: integer("skipped_trusted").notNull(),
+  skippedChanged: integer("skipped_changed").notNull(),
+  skippedInvalid: integer("skipped_invalid").notNull(),
+  skippedExisting: integer("skipped_existing").notNull().default(0),
+  createdAt: timestamp("created_at").default(schemaSql`clock_timestamp()`).notNull(),
+});
+export type KayLegacyRescueBaseline = typeof kayLegacyRescueBaselines.$inferSelect;
+export type KayLegacyBaselineInitRun = typeof kayLegacyBaselineInitRuns.$inferSelect;
 
 export const crmNotes = pgTable("crm_notes", {
   id: serial("id").primaryKey(),

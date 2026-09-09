@@ -45,6 +45,8 @@ import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSett
 import { acceptPromiseHandoff, executeAssistedRescue, getAssistedRescuePreview, listPromiseHandoffs, undoAssistedRescue } from "./kayRescueService";
 import { applyAutoRescueLastChance, getAutoRescueHealth, getAutoRescueReadiness, runKayAutoRescueWorker } from "./kayAutoRescueService";
 import { requireKayAdmin } from "./kayAuth";
+import { getLegacyBaselineReadiness, getLegacyCapacitySensitivity, getLegacyLeadAgeBuckets, getLegacyOwnerDiagnostics, initializeLegacyBaselines, previewLegacyBaselineInitialization } from "./kayLegacyBaselineService";
+import { randomUUID } from "crypto";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
 
@@ -67,6 +69,7 @@ declare module "express-session" {
     userId: number;
     isAdmin: boolean;
     role: string;
+    kayLegacyBaselineConfirmation?: { token: string; adminId: number; fingerprint: string; limit: number; expiresAt: number; candidates: Array<{id:number;status:string;trusted:boolean;existing:boolean}> };
   }
 }
 
@@ -541,6 +544,35 @@ ${metaTags}
   });
   app.get("/api/admin/kay/auto-rescue/readiness", requireKayAdmin, async (req, res) => {
     res.json(await getAutoRescueReadiness(Number(req.query.limit) || 500));
+  });
+  // E.2.2 is deliberately a separate observation ledger. Preview issues a
+  // session-bound confirmation token; confirmation writes only baseline/audit
+  // rows and never touches CRM ownership, status, missions, or notifications.
+  app.get("/api/admin/kay/legacy-rescue-baselines/preview", requireKayAdmin, async (req: any, res) => {
+    const preview = await previewLegacyBaselineInitialization(Number(req.query.limit) || 500);
+    const token = randomUUID() + randomUUID();
+    req.session.kayLegacyBaselineConfirmation = { token, adminId: Number(req.session.userId), fingerprint: preview.fingerprint, limit: preview.limit, candidates: preview.candidates, expiresAt: Date.now() + 10 * 60_000 };
+    res.json({ ...preview, confirmationToken: token, warning: "Observation only. No ownership or status changes will be made." });
+  });
+  app.post("/api/admin/kay/legacy-rescue-baselines/initialize", requireKayAdmin, async (req: any, res) => {
+    const token = String(req.body?.confirmationToken || "");
+    const confirmation = req.session.kayLegacyBaselineConfirmation;
+    if (!confirmation || token !== confirmation.token || confirmation.adminId !== Number(req.session.userId) || confirmation.expiresAt < Date.now()) {
+      return res.status(409).json({ message: "Preview confirmation is missing or expired." });
+    }
+    try {
+      const result = await initializeLegacyBaselines(Number(req.session.userId), token, confirmation.limit, confirmation.fingerprint, confirmation.candidates);
+      req.session.kayLegacyBaselineConfirmation = undefined;
+      res.json({ ...result, observationOnly: true });
+    } catch (error: any) { res.status(error?.status || 500).json({ message: error?.message || "Baseline initialization failed closed." }); }
+  });
+  app.get("/api/admin/kay/legacy-rescue-baselines/readiness", requireKayAdmin, async (_req, res) => {
+    try { res.json({ ...(await getLegacyBaselineReadiness()), source: "LEGACY OBSERVATION BASELINE" }); }
+    catch { res.status(500).json({ message: "Legacy baseline readiness unavailable; eligibility is blocked." }); }
+  });
+  app.get("/api/admin/kay/legacy-rescue-baselines/diagnostics", requireKayAdmin, async (_req, res) => {
+    try { res.json({ owners: await getLegacyOwnerDiagnostics(), ageBuckets: await getLegacyLeadAgeBuckets(), capacitySensitivity: await getLegacyCapacitySensitivity(), recommendation: "No formula change: updated_at is reliable only as a touched-load diagnostic, never status-entry evidence. Compare all nonterminal with touched 30/60/90 cohorts before approval." }); }
+    catch { res.status(500).json({ message: "Legacy diagnostics unavailable." }); }
   });
   // Read-only CRM dry run: it intentionally shares the aggregate readiness
   // query and does not invoke the worker or claim queue work.

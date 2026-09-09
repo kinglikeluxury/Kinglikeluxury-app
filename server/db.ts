@@ -198,6 +198,61 @@ export async function ensureKayTables(): Promise<void> {
           transaction_id TEXT, undo_of_execution_id INTEGER, metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
           created_at TIMESTAMP NOT NULL DEFAULT NOW(), undone_at TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS kay_legacy_rescue_baselines (
+          id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+          observed_status TEXT NOT NULL CHECK (observed_status IN ('no_answer_1','no_answer_2')),
+          observation_started_at TIMESTAMP NOT NULL DEFAULT clock_timestamp(),
+          source TEXT NOT NULL DEFAULT 'LEGACY_BASELINE' CHECK (source='LEGACY_BASELINE'),
+          trusted_entry_time BOOLEAN NOT NULL DEFAULT false CHECK (trusted_entry_time=false),
+          state TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (state IN ('ACTIVE','INVALIDATED','SUPERSEDED')),
+          invalidated_at TIMESTAMP, invalidation_reason TEXT, continuity_event_key TEXT NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT clock_timestamp(),
+          UNIQUE (lead_id,observed_status,continuity_event_key)
+        );
+        ALTER TABLE kay_legacy_rescue_baselines ALTER COLUMN lead_id DROP NOT NULL;
+        DO $$ BEGIN
+          IF EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname='kay_legacy_rescue_baselines_lead_id_fkey' AND confdeltype<>'n'
+          ) THEN
+            ALTER TABLE kay_legacy_rescue_baselines DROP CONSTRAINT kay_legacy_rescue_baselines_lead_id_fkey;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname='kay_legacy_rescue_baselines_lead_id_fkey' AND confdeltype='n'
+          ) THEN
+            ALTER TABLE kay_legacy_rescue_baselines ADD CONSTRAINT kay_legacy_rescue_baselines_lead_id_fkey
+              FOREIGN KEY (lead_id) REFERENCES crm_leads(id) ON DELETE SET NULL;
+          END IF;
+        END $$;
+        ALTER TABLE kay_legacy_rescue_baselines ALTER COLUMN observation_started_at SET DEFAULT clock_timestamp();
+        UPDATE kay_legacy_rescue_baselines a SET state='SUPERSEDED', invalidated_at=COALESCE(a.invalidated_at,clock_timestamp()),
+          invalidation_reason='DUPLICATE_CONTINUITY_KEY_REPAIRED',
+          continuity_event_key=a.continuity_event_key||':superseded:'||a.id::text
+        WHERE EXISTS (SELECT 1 FROM kay_legacy_rescue_baselines b
+          WHERE b.lead_id=a.lead_id AND b.observed_status=a.observed_status
+            AND b.continuity_event_key=a.continuity_event_key AND b.id<a.id);
+        CREATE UNIQUE INDEX IF NOT EXISTS kay_legacy_baseline_continuity_unique_idx
+          ON kay_legacy_rescue_baselines(lead_id,observed_status,continuity_event_key);
+        DO $$ BEGIN
+          UPDATE kay_legacy_rescue_baselines a SET state='SUPERSEDED', invalidated_at=clock_timestamp(),
+            invalidation_reason='DUPLICATE_ACTIVE_REPAIRED'
+          WHERE a.state='ACTIVE' AND EXISTS (
+            SELECT 1 FROM kay_legacy_rescue_baselines b
+            WHERE b.lead_id=a.lead_id AND b.observed_status=a.observed_status AND b.state='ACTIVE' AND b.id<a.id);
+        END $$;
+        DROP INDEX IF EXISTS kay_legacy_baseline_one_active_idx;
+        CREATE UNIQUE INDEX kay_legacy_baseline_one_active_idx
+          ON kay_legacy_rescue_baselines(lead_id,observed_status) WHERE state='ACTIVE';
+        CREATE INDEX IF NOT EXISTS kay_legacy_baselines_lead_idx ON kay_legacy_rescue_baselines(lead_id,state);
+        CREATE TABLE IF NOT EXISTS kay_legacy_baseline_init_runs (
+          id SERIAL PRIMARY KEY, admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          confirmation_token TEXT NOT NULL, inspected INTEGER NOT NULL, created INTEGER NOT NULL,
+          skipped_trusted INTEGER NOT NULL, skipped_changed INTEGER NOT NULL, skipped_invalid INTEGER NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT clock_timestamp()
+        );
+        ALTER TABLE kay_legacy_baseline_init_runs ADD COLUMN IF NOT EXISTS skipped_existing INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE kay_legacy_baseline_init_runs ALTER COLUMN created_at SET DEFAULT clock_timestamp();
         CREATE INDEX IF NOT EXISTS kay_rescue_executions_lead_created_idx ON kay_rescue_executions(lead_id,created_at DESC);
          ALTER TABLE kay_rescue_executions ALTER COLUMN lead_id DROP NOT NULL;
          ALTER TABLE kay_rescue_executions ALTER COLUMN decision_id DROP NOT NULL;
@@ -210,8 +265,9 @@ export async function ensureKayTables(): Promise<void> {
          claimed_at TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW()
        );
        CREATE INDEX IF NOT EXISTS kay_evaluator_queue_claim_idx ON kay_evaluator_queue(status, available_at, id);
-       -- Exact status-entry observation is database-local, ordered with the CRM
-       -- write, and exception-isolated so Kay can never reject a CRM mutation.
+       -- Exact status-entry observation is database-local and atomic with the
+       -- CRM status write. E.2.2 fails closed rather than preserving a false
+       -- continuity window when observation capture cannot be recorded.
        CREATE OR REPLACE FUNCTION kay_capture_crm_lead_status_entry() RETURNS trigger AS $$
        DECLARE capture_time timestamp := clock_timestamp(); capture_key text;
        BEGIN
@@ -219,6 +275,9 @@ export async function ensureKayTables(): Promise<void> {
          capture_key := 'status_entry:' || NEW.id || ':' || NEW.status || ':' || txid_current() || ':' || extract(epoch FROM capture_time)::bigint || ':' || extract(microseconds FROM capture_time)::bigint;
          INSERT INTO kay_lead_status_history (lead_id, status, entered_at, event_key)
            VALUES (NEW.id, NEW.status, capture_time, capture_key) ON CONFLICT (event_key) DO NOTHING;
+          UPDATE kay_legacy_rescue_baselines SET state='INVALIDATED', invalidated_at=capture_time,
+            invalidation_reason='STATUS_CHANGED'
+            WHERE lead_id=NEW.id AND state='ACTIVE' AND observed_status IS DISTINCT FROM NEW.status;
           UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
             WHERE lead_id=NEW.id
               AND event_id IN (SELECT id FROM kay_events WHERE event_type='shadow_rescue_evaluated')
@@ -233,8 +292,6 @@ export async function ensureKayTables(): Promise<void> {
                AND payload->>'state'='ACTIVE'
                AND payload->>'status' IS DISTINCT FROM NEW.status;
           RETURN NEW;
-       EXCEPTION WHEN OTHERS THEN
-         RETURN NEW;
        END; $$ LANGUAGE plpgsql;
        DO $$ BEGIN
          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='kay_crm_lead_status_entry_trigger') THEN
