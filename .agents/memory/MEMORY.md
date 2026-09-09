@@ -17,3 +17,4 @@
 - [Kay assisted rescue safety](kay-assisted-rescue-safety.md) — real lead ownership changes are explicit admin commands only; production defaults to SHADOW and undo fails closed.
 - [Kay controlled auto-rescue safety](kay-controlled-auto-rescue-safety.md) — E.2 is a four-gate, canary-only worker; production stays fully disarmed pending explicit approval.
 - [Kay fixed scope policy](kay-fixed-scope-policy.md) — scope uses one non-rolling launch cohort; uncertain imported dates fail closed and excluded owners stay outside Kay.
+- [Kay settings test isolation](kay-settings-test-isolation.md) — setting-mutating integration tests must restore the full prior JSON or synthetic limits can leak into production.

@@ -154,15 +154,13 @@ after(async () => {
       ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by`, [JSON.stringify(priorLaunch.value),priorLaunch.updated_by]);
     else await pool.query(`DELETE FROM kay_settings WHERE key='kay_operational_launch_at'`);
   } finally {
-    // Keep evidence that setup preserved prior values, but always leave this
-    // shared database in the specification's stronger disarmed state.
+    // Integration fixtures must restore the shared database byte-for-byte.
+    // The suite verifies its own disarmed states without overwriting approved
+    // production limits after cleanup.
     assert.notEqual(priorMode, undefined);
     assert.notEqual(priorRules, undefined);
-    await pool.query(`INSERT INTO kay_settings(key,value) VALUES('mode','{"mode":"shadow"}'::jsonb)
-      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`);
-    await pool.query(`UPDATE kay_settings SET value=value ||
-      '{"auto_rescue_no_answer_1_enabled":false,"auto_rescue_no_answer_2_enabled":false,"auto_rescue_kill_switch":true,"auto_rescue_canary_employee_ids":[]}'::jsonb
-      WHERE key='rescue_rules'`);
+    await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='mode'`, [JSON.stringify(priorMode)]);
+    await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='rescue_rules'`, [JSON.stringify(priorRules)]);
     delete process.env.KAY_E2_TEST_HOOKS;
   }
 });

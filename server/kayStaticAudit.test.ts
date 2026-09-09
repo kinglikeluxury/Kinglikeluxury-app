@@ -40,7 +40,10 @@ test("Kay schema bootstrap is additive, shadow-defaulted, idempotent, and non-ca
   assert.match(kayBootstrap, /idempotency_key/);
   assert.doesNotMatch(kayBootstrap, /\b(DROP\s+(?:TABLE|COLUMN)|TRUNCATE|RENAME)\b/i);
   const droppedConstraints = [...kayBootstrap.matchAll(/DROP CONSTRAINT(?: IF EXISTS)? ([a-z0-9_]+)/gi)].map(match => match[1]);
-  assert.deepEqual(droppedConstraints, ["kay_legacy_rescue_baselines_lead_id_fkey"]);
+  assert.deepEqual(droppedConstraints, [
+    "crm_leads_business_received_at_provenance_chk",
+    "kay_legacy_rescue_baselines_lead_id_fkey",
+  ]);
   assert.match(kayBootstrap, /ADD CONSTRAINT kay_legacy_rescue_baselines_lead_id_fkey[\s\S]*ON DELETE SET NULL/);
   assert.doesNotMatch(kayBootstrap, /ON DELETE CASCADE/i);
   assert.match(kayBootstrap, /ON DELETE SET NULL/);
