@@ -47,6 +47,7 @@ import { applyAutoRescueLastChance, getAutoRescueHealth, getAutoRescueReadiness,
 import { requireKayAdmin } from "./kayAuth";
 import { getLegacyBaselineReadiness, getLegacyCapacitySensitivity, getLegacyLeadAgeBuckets, getLegacyOwnerDiagnostics, initializeLegacyBaselines, previewLegacyBaselineInitialization } from "./kayLegacyBaselineService";
 import { getKayPhaseE23Diagnostics } from "./kayPhaseE23Service";
+import { getKayOperationalScopeAdminView, getKayScopeConfiguration, getKayScopeForLead, setKayOperationalLaunchAt } from "./kayLeadScopeService";
 import { randomUUID } from "crypto";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
@@ -491,6 +492,24 @@ ${metaTags}
     }
   });
 
+  app.get("/api/admin/kay/settings/operational-scope", requireKayAdmin, async (_req, res) => {
+    try {
+      const view = await getKayOperationalScopeAdminView();
+      if (view.status !== "OK") return res.status(503).json({ ...view, message: "Kay operational scope is not configured; Kay remains fail-closed." });
+      return res.json(view);
+    } catch {
+      return res.status(503).json({ message: "Kay operational scope unavailable; Kay remains fail-closed." });
+    }
+  });
+  app.put("/api/admin/kay/settings/operational-scope", requireKayAdmin, async (req: any, res) => {
+    try {
+      const result = await setKayOperationalLaunchAt(Number(req.session.userId), req.body?.launchAt, req.body?.confirmChange === true);
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(error?.status || 500).json({ message: error?.message || "Unable to update Kay operational scope." });
+    }
+  });
+
   app.put("/api/admin/kay/settings/mode", requireKayAdmin, async (req: any, res) => {
     const validation = validateKayModeUpdate(req.body);
     if (!validation.ok) return res.status(400).json({ message: validation.message });
@@ -671,11 +690,19 @@ ${metaTags}
   app.get("/api/kay/missions", requireKayWorkspaceUser, async (req: any, res) => {
     try {
       const includeCompleted = req.query.completed === "true";
-      const missions = await listKayMissions(req.session.userId, !!req.kayIsAdmin, includeCompleted);
+      const rawMissions = await listKayMissions(req.session.userId, !!req.kayIsAdmin, includeCompleted);
+      // Historical/completed obligations remain visible; only current employee
+      // Kay work is constrained by the centralized operational scope.
+      const missions = await Promise.all(rawMissions.map(async (mission: any) => {
+        const scope = mission.leadId ? await getKayScopeForLead(pool, Number(mission.leadId)) : null;
+        const scopeOutcome = scope?.outcome ?? null;
+        const supervisionActive = !mission.leadId || scopeOutcome === "IN_KAY_SCOPE";
+        return { ...mission, scopeOutcome, supervisionActive, historicalObligation: !!mission.leadId && !supervisionActive };
+      }));
       const settings = await getPhaseCSettings();
       const nextHour = Date.now() + 60 * 60_000;
       const now = Date.now();
-      const next60Minutes = missions.filter((mission: any) => mission.dueAt && new Date(mission.dueAt).getTime() >= now && new Date(mission.dueAt).getTime() <= nextHour)
+      const next60Minutes = missions.filter((mission: any) => mission.supervisionActive !== false && mission.dueAt && new Date(mission.dueAt).getTime() >= now && new Date(mission.dueAt).getTime() <= nextHour)
         .slice(0, settings.max_next_60_minutes_items);
       res.json({ missions, next60Minutes, settings: { max_next_60_minutes_items: settings.max_next_60_minutes_items }, shadow: true });
     } catch { res.status(500).json({ message: "Unable to load Kay missions." }); }

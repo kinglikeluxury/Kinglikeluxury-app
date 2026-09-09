@@ -26,7 +26,7 @@ test("E23 source scenarios never treat unknown or system as employee failure", (
     { classification: "SYSTEM_OWNER" as const, thresholdQualified: true },
   ];
   assert.equal(simulateE23SourcePolicy(rows, "SALES_ONLY"), 1);
-  assert.equal(simulateE23SourcePolicy(rows, "SALES_AND_ADMIN_INTAKE"), 1);
+  assert.equal(simulateE23SourcePolicy(rows, "SALES_AND_ADMIN_INTAKE"), 0);
   assert.equal(simulateE23SourcePolicy(rows, "ALL_NON_SYSTEM"), 1);
 });
 test("E23 ten-lead simulation is pure, sequential, and deterministic", () => {

@@ -24,6 +24,7 @@ let targetId = 0;
 let otherId = 0;
 let priorMode: unknown;
 let priorRules: unknown;
+let priorLaunch: { value: unknown; updated_by: number | null } | null = null;
 
 const safeRules = {
   no_answer_1_threshold_hours: 1, no_answer_2_threshold_hours: 1,
@@ -91,12 +92,12 @@ async function isolateWorkerLead(leadId: number, allowTarget = true) {
   if (!allowTarget) {
     const users=await pool.query(`SELECT id FROM users WHERE role='sub_agent' AND is_active=true AND id<>$1`,[ownerId]);
     for (const user of users.rows) await pool.query(`INSERT INTO lead_assignment_history
-      (lead_id,from_user_id,to_user_id,reason,automatic,metadata) VALUES($1,$2,$3,'crm_assignment',false,'{}')`,
+       (lead_id,from_user_id,to_user_id,reason,automatic,metadata,assigned_at) VALUES($1,$2,$3,'crm_assignment',false,'{}',NOW()-interval '3 hours')`,
     [leadId,user.id,ownerId]);
   } else {
     const users=await pool.query(`SELECT id FROM users WHERE role='sub_agent' AND is_active=true AND id<>ALL($1::int[])`,[[ownerId,targetId]]);
     for (const user of users.rows) await pool.query(`INSERT INTO lead_assignment_history
-      (lead_id,from_user_id,to_user_id,reason,automatic,metadata) VALUES($1,$2,$3,'crm_assignment',false,'{}')`,
+       (lead_id,from_user_id,to_user_id,reason,automatic,metadata,assigned_at) VALUES($1,$2,$3,'crm_assignment',false,'{}',NOW()-interval '3 hours')`,
     [leadId,user.id,ownerId]);
   }
   await pool.query(`UPDATE kay_settings SET value='{"released":true}'::jsonb WHERE key='phase_e2_auto_rescue_lease'`);
@@ -105,9 +106,13 @@ async function isolateWorkerLead(leadId: number, allowTarget = true) {
 before(async () => {
   if (!enabled) return;
   process.env.KAY_E1_TEST_HOOKS = "true";
+  process.env.KAY_E2_TEST_HOOKS = "true";
   await ensureKayTables();
   priorMode=(await pool.query(`SELECT value FROM kay_settings WHERE key='mode'`)).rows[0]?.value;
   priorRules=(await pool.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`)).rows[0]?.value;
+  priorLaunch=(await pool.query(`SELECT value,updated_by FROM kay_settings WHERE key='kay_operational_launch_at'`)).rows[0] ?? null;
+  await pool.query(`INSERT INTO kay_settings(key,value) VALUES('kay_operational_launch_at',$1::jsonb)
+    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`, [JSON.stringify("2026-09-09T00:00:00+04:00")]);
   const users=await pool.query(`INSERT INTO users(username,password,is_admin,role,is_active) VALUES
     ($1,'x',true,'admin',true),($2,'x',false,'sub_agent',true),($3,'x',false,'sub_agent',true),($4,'x',false,'sub_agent',true)
     RETURNING id,username`,[`${marker}:admin`,`${marker}:owner`,`${marker}:target`,`${marker}:other`]);
@@ -145,6 +150,9 @@ after(async () => {
       await pool.query(`DELETE FROM crm_leads WHERE id=ANY($1::int[]) AND notes=$2`,[leadIds,marker]);
     }
     await pool.query(`DELETE FROM users WHERE username LIKE $1`,[`${marker}%`]);
+    if (priorLaunch) await pool.query(`INSERT INTO kay_settings(key,value,updated_by) VALUES('kay_operational_launch_at',$1::jsonb,$2)
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by`, [JSON.stringify(priorLaunch.value),priorLaunch.updated_by]);
+    else await pool.query(`DELETE FROM kay_settings WHERE key='kay_operational_launch_at'`);
   } finally {
     // Keep evidence that setup preserved prior values, but always leave this
     // shared database in the specification's stronger disarmed state.
@@ -155,6 +163,7 @@ after(async () => {
     await pool.query(`UPDATE kay_settings SET value=value ||
       '{"auto_rescue_no_answer_1_enabled":false,"auto_rescue_no_answer_2_enabled":false,"auto_rescue_kill_switch":true,"auto_rescue_canary_employee_ids":[]}'::jsonb
       WHERE key='rescue_rules'`);
+    delete process.env.KAY_E2_TEST_HOOKS;
   }
 });
 
@@ -390,6 +399,7 @@ test("E.2 worker completes WARNING to READY to one automatic transfer and create
   const first=await runKayAutoRescueWorker(100);
   assert.equal(first.executed,0);
   const warning=(await pool.query(`SELECT id,status FROM kay_auto_rescue_queue WHERE lead_id=$1`,[lifecycle.leadId])).rows[0];
+  assert.ok(warning, JSON.stringify(first));
   assert.equal(warning.status,"WARNING");
   await pool.query(`UPDATE kay_settings SET value='{"released":true}'::jsonb WHERE key='phase_e2_auto_rescue_lease'`);
   const second=await runKayAutoRescueWorker(100);

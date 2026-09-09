@@ -3,6 +3,7 @@ import { pool } from "./db";
 import { getLegacyBaselineReadiness, getLegacyOwnerDiagnostics, getLegacyCapacitySensitivity } from "./kayLegacyBaselineService";
 import { evaluateRescueWindow } from "./kayAutoRescuePlanner";
 import { defaultRescueSettings, resolveKayMode } from "./kayService";
+import { classifyKayLead, getKayScopeConfiguration, kayScopeSql } from "./kayLeadScopeService";
 
 export const E23_SOURCE_POLICIES = ["SALES_ONLY", "SALES_AND_ADMIN_INTAKE", "ALL_NON_SYSTEM"] as const;
 export type E23SourcePolicy = typeof E23_SOURCE_POLICIES[number];
@@ -82,11 +83,24 @@ async function e23SideEffectSnapshot(executor: E23Executor) {
   return out;
 }
 
-async function employees(executor: E23Executor = pool, scope?: E23TestScope) {
+async function employees(executor: E23Executor = pool, scope?: E23TestScope, cutoff?: Date) {
+  if (!cutoff) throw new Error("KAY_SCOPE_CONFIGURATION_MISSING");
+  const leadScope = kayScopeSql("l", "lu", "$2");
+  const taskScope = kayScopeSql("l", "lu", "$2");
+  const missionScope = kayScopeSql("ml", "mu", "$2");
+  const commitmentScope = kayScopeSql("cl", "cu", "$2");
+  const promiseScope = kayScopeSql("pl", "pu", "$2");
   const r = await executor.query(`WITH lead_stats AS (
-      SELECT assigned_to user_id, count(*)::int total,
+      SELECT l.assigned_to user_id, count(*)::int total,
         count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified'))::int nonterminal,
-        count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at>=NOW()-interval '30 days')::int active_operational,
+         count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at>=NOW()-interval '30 days'
+           AND (${leadScope.authoritativeDate})
+             >= $2::timestamptz)::int active_operational,
+         count(*) FILTER (WHERE (${leadScope.authoritativeDate})
+             >= $2::timestamptz)::int in_scope,
+         count(*) FILTER (WHERE (${leadScope.authoritativeDate})
+             < $2::timestamptz)::int out_scope,
+         count(*) FILTER (WHERE (${leadScope.authoritativeDate}) IS NULL)::int uncertain,
         count(*) FILTER (WHERE status IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified'))::int terminal,
         count(*) FILTER (WHERE status='no_answer_1')::int no_answer_1,count(*) FILTER (WHERE status='no_answer_2')::int no_answer_2,
         count(*) FILTER (WHERE status='no_answer_4')::int no_answer_4,count(*) FILTER (WHERE status='follow_up')::int follow_up,
@@ -97,28 +111,29 @@ async function employees(executor: E23Executor = pool, scope?: E23TestScope) {
         count(*) FILTER (WHERE updated_at>=NOW()-interval '60 days')::int updated_60,
         count(*) FILTER (WHERE updated_at>=NOW()-interval '90 days')::int updated_90,
         count(*) FILTER (WHERE updated_at<NOW()-interval '90 days')::int older_90,
-        count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at>=NOW()-interval '30 days')::int recent_0_30,
-        count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at< NOW()-interval '30 days' AND updated_at>=NOW()-interval '60 days')::int recent_31_60,
-        count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at< NOW()-interval '60 days' AND updated_at>=NOW()-interval '90 days')::int recent_61_90,
+         count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at>=NOW()-interval '30 days' AND (${leadScope.authoritativeDate}) >= $2::timestamptz)::int recent_0_30,
+         count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at< NOW()-interval '30 days' AND updated_at>=NOW()-interval '60 days' AND (${leadScope.authoritativeDate}) >= $2::timestamptz)::int recent_31_60,
+         count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at< NOW()-interval '60 days' AND updated_at>=NOW()-interval '90 days' AND (${leadScope.authoritativeDate}) >= $2::timestamptz)::int recent_61_90,
         count(*) FILTER (WHERE status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND updated_at<NOW()-interval '90 days')::int nonterminal_older_90,
         coalesce(sum(CASE WHEN status IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') THEN 0 WHEN updated_at>=NOW()-interval '30 days' THEN 1 WHEN updated_at>=NOW()-interval '60 days' THEN .5 WHEN updated_at>=NOW()-interval '90 days' THEN .25 ELSE 0 END),0)::numeric recency_weight
-       FROM crm_leads WHERE ($1::text IS NULL OR notes=$1) GROUP BY assigned_to
+       FROM crm_leads l LEFT JOIN users lu ON lu.id=l.assigned_to WHERE ($1::text IS NULL OR l.notes=$1) GROUP BY l.assigned_to
     ), task_stats AS (
       SELECT l.assigned_to user_id,count(*) FILTER (WHERE t.completed_at IS NULL)::int open_tasks,
         count(*) FILTER (WHERE t.completed_at IS NULL AND t.due_date~'^[0-9]{4}-[0-9]{2}-[0-9]{2}$' AND t.due_date::date<CURRENT_DATE)::int overdue_tasks,
         count(*) FILTER (WHERE t.completed_at IS NULL AND t.title~*'follow[ _-]?up' AND t.due_date~'^[0-9]{4}-[0-9]{2}-[0-9]{2}$' AND t.due_date::date<=CURRENT_DATE)::int due_followups
-       FROM crm_tasks t JOIN crm_leads l ON l.id=t.lead_id WHERE ($1::text IS NULL OR l.notes=$1) GROUP BY l.assigned_to
-    ), mission_stats AS (SELECT employee_id,count(*) FILTER (WHERE status IN ('NEW','ACCEPTED','IN_PROGRESS'))::int active_missions FROM kay_missions GROUP BY employee_id),
-    commitment_stats AS (SELECT employee_id,count(*) FILTER (WHERE status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE'))::int active_commitments FROM kay_commitments GROUP BY employee_id),
-    promise_stats AS (SELECT employee_id,count(*) FILTER (WHERE status IN ('PENDING','DUE_SOON','OVERDUE'))::int open_promises FROM kay_promises GROUP BY employee_id)
+        FROM crm_tasks t JOIN crm_leads l ON l.id=t.lead_id JOIN users lu ON lu.id=l.assigned_to WHERE ($1::text IS NULL OR l.notes=$1)
+          AND ${taskScope.outcomeCase}='IN_KAY_SCOPE' GROUP BY l.assigned_to
+     ), mission_stats AS (SELECT m.employee_id,count(*) FILTER (WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS'))::int active_missions FROM kay_missions m JOIN crm_leads ml ON ml.id=m.lead_id JOIN users mu ON mu.id=ml.assigned_to WHERE ${missionScope.outcomeCase}='IN_KAY_SCOPE' GROUP BY m.employee_id),
+     commitment_stats AS (SELECT c.employee_id,count(*) FILTER (WHERE c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE'))::int active_commitments FROM kay_commitments c JOIN crm_leads cl ON cl.id=c.lead_id JOIN users cu ON cu.id=cl.assigned_to WHERE ${commitmentScope.outcomeCase}='IN_KAY_SCOPE' GROUP BY c.employee_id),
+     promise_stats AS (SELECT p.employee_id,count(*) FILTER (WHERE p.status IN ('PENDING','DUE_SOON','OVERDUE'))::int open_promises FROM kay_promises p JOIN crm_leads pl ON pl.id=p.lead_id JOIN users pu ON pu.id=pl.assigned_to WHERE ${promiseScope.outcomeCase}='IN_KAY_SCOPE' GROUP BY p.employee_id)
     SELECT u.id,u.username,u.role,u.is_active,u.is_admin,COALESCE(a.value->>'availability','AVAILABLE') availability,
       COALESCE(ls.total,0)::int total_assigned,COALESCE(ls.nonterminal,0)::int nonterminal,COALESCE(ls.active_operational,0)::int active_operational,COALESCE(ls.terminal,0)::int terminal,
-      COALESCE(ls.no_answer_1,0)::int no_answer_1,COALESCE(ls.no_answer_2,0)::int no_answer_2,COALESCE(ls.no_answer_4,0)::int no_answer_4,COALESCE(ls.follow_up,0)::int follow_up,COALESCE(ls.interested,0)::int interested,COALESCE(ls.hot_buyer,0)::int hot_buyer,COALESCE(ls.deposited_reserved,0)::int deposited_reserved,
+       COALESCE(ls.no_answer_1,0)::int no_answer_1,COALESCE(ls.no_answer_2,0)::int no_answer_2,COALESCE(ls.no_answer_4,0)::int no_answer_4,COALESCE(ls.follow_up,0)::int follow_up,COALESCE(ls.interested,0)::int interested,COALESCE(ls.hot_buyer,0)::int hot_buyer,COALESCE(ls.deposited_reserved,0)::int deposited_reserved,COALESCE(ls.in_scope,0)::int in_scope,COALESCE(ls.out_scope,0)::int out_scope,COALESCE(ls.uncertain,0)::int uncertain,
       COALESCE(ls.updated_7,0)::int updated_7,COALESCE(ls.updated_30,0)::int updated_30,COALESCE(ls.updated_60,0)::int updated_60,COALESCE(ls.updated_90,0)::int updated_90,COALESCE(ls.older_90,0)::int older_90,COALESCE(ls.recent_0_30,0)::int recent_0_30,COALESCE(ls.recent_31_60,0)::int recent_31_60,COALESCE(ls.recent_61_90,0)::int recent_61_90,COALESCE(ls.nonterminal_older_90,0)::int nonterminal_older_90,COALESCE(ls.recency_weight,0)::numeric recency_weight,
       COALESCE(ts.open_tasks,0)::int open_tasks,COALESCE(ts.overdue_tasks,0)::int overdue_tasks,COALESCE(ts.due_followups,0)::int due_followups,COALESCE(ms.active_missions,0)::int active_missions,COALESCE(cs.active_commitments,0)::int active_commitments,COALESCE(ps.open_promises,0)::int open_promises
      FROM users u LEFT JOIN kay_settings a ON a.key='phase_c_availability:'||u.id::text LEFT JOIN lead_stats ls ON ls.user_id=u.id LEFT JOIN task_stats ts ON ts.user_id=u.id LEFT JOIN mission_stats ms ON ms.employee_id=u.id LEFT JOIN commitment_stats cs ON cs.employee_id=u.id LEFT JOIN promise_stats ps ON ps.employee_id=u.id
-     WHERE u.role='sub_agent' AND u.is_active=true AND u.is_admin=false AND ($1::text IS NULL OR u.username LIKE $1||':%') ORDER BY u.id`, [scope?.marker || null]);
-  return r.rows.map((x: any) => ({ ...x, classification: classifyE23Owner({ username: x.username, role: x.role, isActive: x.is_active, isAdmin: x.is_admin }), operationalLoad: Number(x.recency_weight) + 2 * Number(x.overdue_tasks) + Number(x.active_missions) + Number(x.active_commitments) + Number(x.open_promises), actionableWorkLoad: Number(x.active_missions) + 2 * Number(x.overdue_tasks) + Number(x.due_followups) + Number(x.hot_buyer) + Number(x.interested) + Number(x.no_answer_1) + Number(x.no_answer_2) }));
+      WHERE u.role='sub_agent' AND u.is_active=true AND u.is_admin=false AND lower(u.username)<>'kinglike_admin' AND ($1::text IS NULL OR u.username LIKE $1||':%') ORDER BY u.id`, [scope?.marker || null, cutoff]);
+   return r.rows.map((x: any) => ({ ...x, classification: classifyE23Owner({ username: x.username, role: x.role, isActive: x.is_active, isAdmin: x.is_admin }), operationalLoad: Number(x.recent_0_30) + .5 * Number(x.recent_31_60) + .25 * Number(x.recent_61_90) + 2 * Number(x.overdue_tasks) + Number(x.active_missions) + Number(x.active_commitments) + Number(x.open_promises), actionableWorkLoad: Number(x.in_scope) + 2 * Number(x.overdue_tasks) + Number(x.active_missions) + Number(x.active_commitments) + Number(x.open_promises) }));
 }
 
 /** Aggregate-only diagnostic. No INSERT/UPDATE/DELETE is present in this path. */
@@ -130,15 +145,17 @@ export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
   try {
   await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
   snapshotBefore = await e23SideEffectSnapshot(client);
-  const [owners, readiness, capacity, staff, settingsRow, modeRow] = await Promise.all([
-    getLegacyOwnerDiagnostics(scope, client), getLegacyBaselineReadiness(scope, client), getLegacyCapacitySensitivity(scope, client), employees(client, scope),
+  const scopeConfiguration = await getKayScopeConfiguration(client);
+  if (scopeConfiguration.status !== "OK") throw new Error(`KAY_SCOPE_${scopeConfiguration.status}`);
+   const [owners, readiness, capacity, staff, settingsRow, modeRow] = await Promise.all([
+    getLegacyOwnerDiagnostics(scope, client), getLegacyBaselineReadiness(scope, client), getLegacyCapacitySensitivity(scope, client), employees(client, scope, scopeConfiguration.config.cutoffAt),
     client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`),
     client.query(`SELECT value FROM kay_settings WHERE key='mode'`),
   ]);
   const rules: any = settingsRow.rows[0]?.value || {};
   const rescueSettings: any = { ...defaultRescueSettings, ...rules };
   const mode = resolveKayMode(modeRow.rows[0]?.value);
-  const noAnswer = await client.query(`SELECT l.id,l.status,l.assigned_to,COALESCE(u.username,'UNASSIGNED') account,u.role,u.is_active,u.is_admin,
+   const noAnswer = await client.query(`SELECT l.id,l.status,l.assigned_to,l.created_at,l.business_received_at,l.business_received_at_source,l.lead_source,COALESCE(u.username,'UNASSIGNED') account,u.role,u.is_active,u.is_admin,
     (SELECT max(assigned_at) FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.to_user_id=l.assigned_to) latest_owner_assigned_at,
     CASE WHEN h.status=l.status AND h.entered_at >= COALESCE((SELECT max(assigned_at) FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.to_user_id=l.assigned_to), '-infinity'::timestamp) THEN h.entered_at
       WHEN b.observation_started_at IS NOT NULL AND b.observation_started_at >= COALESCE((SELECT max(assigned_at) FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.to_user_id=l.assigned_to), '-infinity'::timestamp) THEN b.observation_started_at END entered_at,
@@ -153,16 +170,32 @@ export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
     LEFT JOIN LATERAL (SELECT observation_started_at FROM kay_legacy_rescue_baselines lb WHERE lb.lead_id=l.id AND lb.observed_status=l.status AND lb.state='ACTIVE'
       AND NOT EXISTS (SELECT 1 FROM kay_lead_status_history newer WHERE newer.lead_id=lb.lead_id AND (newer.entered_at>lb.observation_started_at OR (newer.entered_at=lb.observation_started_at AND newer.status<>lb.observed_status))) ORDER BY lb.id DESC LIMIT 1) b ON true
      WHERE l.status IN ('no_answer_1','no_answer_2') AND ($1::text IS NULL OR l.notes=$1) ORDER BY l.id`, [scope?.marker || null]);
+   const monitoringSql = kayScopeSql("l", "u", "$1");
+   const monitoringScope = await client.query(`SELECT
+      count(*)::int AS all_crm,
+       count(*) FILTER (WHERE ${monitoringSql.outcomeCase}='EXCLUDED_OWNER')::int AS excluded_admin,
+       count(*) FILTER (WHERE ${monitoringSql.outcomeCase}='OUT_OF_SCOPE_LEGACY')::int AS out_legacy,
+       count(*) FILTER (WHERE ${monitoringSql.outcomeCase}='LEGACY_DATE_UNCERTAIN')::int AS uncertain,
+       count(*) FILTER (WHERE ${monitoringSql.outcomeCase}='IN_KAY_SCOPE')::int AS in_scope
+       FROM crm_leads l LEFT JOIN users u ON u.id=l.assigned_to
+       WHERE ($2::text IS NULL OR l.notes=$2)`, [scopeConfiguration.config.cutoffAt, scope?.marker || null]);
   const now = new Date((await client.query(`SELECT clock_timestamp() AS now`)).rows[0].now);
   const sourceRows = noAnswer.rows.map((x: any) => {
     const classification = classifyE23Owner({ username: x.account === "UNASSIGNED" ? null : x.account, role: x.role, isActive: x.is_active, isAdmin: x.is_admin });
-    if (classification === "ADMIN_OWNER_EXCLUDED") return { ...x, classification, excludedOwner: true, thresholdQualified: false, eligibleAfterBlockers: false, state: "EXCLUDED_OWNER", blockers: [], baselineSource: x.window_source, historicalWarning: null };
+     const scopeOutcome = classifyKayLead({ createdAt: x.created_at, businessReceivedAt: x.business_received_at, businessReceivedAtSource: x.business_received_at_source, leadSource: x.lead_source, owner: { username: x.account === "UNASSIGNED" ? null : x.account, role: x.role, isActive: x.is_active, isAdmin: x.is_admin } }, scopeConfiguration.config);
+     if (classification === "ADMIN_OWNER_EXCLUDED") return { ...x, classification, scopeOutcome, excludedOwner: true, thresholdQualified: false, eligibleAfterBlockers: false, state: "EXCLUDED_OWNER", blockers: [], baselineSource: x.window_source, historicalWarning: null };
     const thresholdHours = Number(x.status === "no_answer_2" ? rules.no_answer_2_threshold_hours : rules.no_answer_1_threshold_hours) || 24;
     const decision = evaluateRescueWindow({ status: x.status, statusEnteredAt: x.entered_at ? new Date(x.entered_at) : null, now, thresholdHours, rescueAttempts: Number(x.attempts), maxAttempts: Number(rules.max_human_rescue_attempts || 2), blockers: [x.active_task ? "ACTIVE_TASK" : null, x.protected ? "PROTECTED_LEAD" : null].filter(Boolean) as any });
-    return { ...x, classification, thresholdHours, thresholdQualified: decision.state === "ACTIVE" || decision.state === "BLOCKED", eligibleAfterBlockers: decision.eligible && !x.promise_review, state: x.promise_review && decision.state === "ACTIVE" ? "BLOCKED" : decision.state, blockers: [...decision.blockers, ...(x.promise_review ? ["PROMISE_MANAGER_REVIEW"] : [])], baselineSource: x.window_source, historicalWarning: x.window_source === "LEGACY_BASELINE" ? "Actual historical status-entry time is unknown; eligibility is based on continuous observation since baseline." : null };
+     return { ...x, classification, scopeOutcome, thresholdHours, thresholdQualified: decision.state === "ACTIVE" || decision.state === "BLOCKED", eligibleAfterBlockers: decision.eligible && !x.promise_review && scopeOutcome === "IN_KAY_SCOPE", state: x.promise_review && decision.state === "ACTIVE" ? "BLOCKED" : decision.state, blockers: [...decision.blockers, ...(x.promise_review ? ["PROMISE_MANAGER_REVIEW"] : [])], baselineSource: x.window_source, historicalWarning: x.window_source === "LEGACY_BASELINE" ? "Actual historical status-entry time is unknown; eligibility is based on continuous observation since baseline." : null };
   });
-  const excludedAdminLegacyLeads = sourceRows.filter((r: any) => r.excludedOwner).map((r: any) => ({ id: r.id, status: r.status, account: r.account, classification: "EXCLUDED_FROM_KAY_RESCUE", baselineSource: r.baselineSource }));
-  const kayManagedSalesLeads = sourceRows.filter((r: any) => !r.excludedOwner && r.classification === "SALES_OWNER");
+   const noAnswerScope = {
+     managed: sourceRows.filter((r: any) => r.scopeOutcome === "IN_KAY_SCOPE" && r.classification === "SALES_OWNER").length,
+     adminOrOwnerExcluded: sourceRows.filter((r: any) => r.scopeOutcome === "EXCLUDED_OWNER").length,
+     outOfScopeOld: sourceRows.filter((r: any) => r.scopeOutcome === "OUT_OF_SCOPE_LEGACY").length,
+     dateUncertain: sourceRows.filter((r: any) => r.scopeOutcome === "LEGACY_DATE_UNCERTAIN").length,
+   };
+  const excludedAdminLegacyLeads = sourceRows.filter((r: any) => r.excludedOwner).map((r: any) => ({ status: r.status, account: r.account, classification: "EXCLUDED_FROM_KAY_RESCUE", baselineSource: r.baselineSource }));
+   const kayManagedSalesLeads = sourceRows.filter((r: any) => !r.excludedOwner && r.classification === "SALES_OWNER" && r.scopeOutcome === "IN_KAY_SCOPE");
   const aggregateRows = (rows: any[]) => Object.values(rows.reduce((acc: any, row: any) => {
     const key = `${row.account}|${row.classification}|${row.status}`;
     const item = acc[key] ||= { account: row.account, classification: row.classification, status: row.status, count: 0, baselineCount: 0, thresholdQualified: 0, blocked: 0, wouldRescue: 0 };
@@ -185,19 +218,27 @@ export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
     FROM users u LEFT JOIN lead_assignment_history h ON h.to_user_id=u.id GROUP BY u.id`);
   const historyByTarget = new Map(targetHistory.rows.map((x: any) => [Number(x.id), x]));
   const usedToday = Number((await client.query(`SELECT count(*)::int n FROM lead_assignment_history WHERE reason='kay_rescue_automatic' AND assigned_at>=CURRENT_DATE`)).rows[0]?.n || 0);
-  const matureSalesSources = sourceRows.filter((x: any) => x.classification === "SALES_OWNER" && x.thresholdQualified).map((x: any) => Number(x.assigned_to));
-  const simulationSourceId = matureSalesSources[0] ?? null;
+  const hypotheticalSources = staff.filter((x: any) => x.classification === "SALES_OWNER").map((x: any) => ({ id: Number(x.id), name: String(x.username) }));
   const routeTargets = staff.filter((x: any) => x.is_active && !x.is_admin && x.availability === "AVAILABLE").map((x: any) => {
     const history: any = historyByTarget.get(Number(x.id)) || {};
     return { id: Number(x.id), username: x.username, active: true, role: x.role, availability: x.availability, operationalLoad: x.operationalLoad, receivedToday: Number(history.received_today || 0), lastRescueAt: history.last_rescue_at || null };
   });
-  const routed = routeE23TenLeads(routeTargets, 10, simulationSourceId, {
-    dailyLimit: Number(rules.auto_rescue_per_employee_daily_limit || 3),
-    globalLimit: Number(rules.auto_rescue_daily_limit || 5),
-    globalUsed: usedToday,
-  });
+  const simulationTargets = routeTargets.map((x:any)=>({...x}));
+  const routed: any = { assignments: [], counts: {}, writes: 0 };
+  for (let index=0; index<10; index++) {
+    const source = hypotheticalSources[index % Math.max(1,hypotheticalSources.length)] ?? null;
+    const one = routeE23TenLeads(simulationTargets, 1, source?.id ?? null, { dailyLimit: Number(rules.auto_rescue_per_employee_daily_limit || 3), globalLimit: Number(rules.auto_rescue_daily_limit || 5), globalUsed: usedToday + routed.assignments.length });
+    if (!one.assignments.length) break;
+    const targetId = Number(one.assignments[0].id);
+    routed.assignments.push(targetId); routed.counts[String(targetId)] = (routed.counts[String(targetId)] || 0) + 1;
+    const target = simulationTargets.find((x:any)=>x.id===targetId); if (target) { target.receivedToday++; target.operationalLoad++; }
+  }
+  const simulatedMax = Math.max(0, ...Object.values(routed.counts).map(Number));
+  const concentrationThreshold = 6;
+  const concentrationRisk = simulatedMax >= concentrationThreshold;
+  const pingPongGuardPassed = !isE23TargetEligible({ id: 1, active: true, role: "sub_agent", availability: "AVAILABLE", operationalLoad: 0, receivedToday: 0, priorOwnerIds: [2] }, 2);
   for (const scenario of Object.values(policies) as any[]) {
-    const hasTarget = routeTargets.some((target: any) => target.id !== simulationSourceId);
+    const hasTarget = routeTargets.length > 1;
     scenario.targetAvailableWouldRescue = hasTarget ? scenario.afterBlockers : 0;
     scenario.managerReview += hasTarget ? 0 : scenario.afterBlockers;
   }
@@ -252,7 +293,16 @@ export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
       currentSnapshot: `Observed owner rows: ${owners.length}; current no-answer rows: ${sourceRows.length}.`,
     },
      ownershipPolicy: { kinglike_admin: { classification: "ADMIN_OWNER_EXCLUDED", label: "ADMIN OWNER — EXCLUDED FROM KAY SALES AUTOMATION", canReceiveRescue: false, canBeRescuedFrom: false, includedInCapacity: false, includedInCanary: false, policy: "RESOLVED" } },
-     ownerClassification: owners, currentNoAnswerSourceDistribution: managedDistribution, kayManagedSalesLeads: managedDistribution, excludedAdminLegacyLeads: aggregateRows(excludedAdminLegacyLeads),
+      monitoringScope: {
+        ...monitoringScope.rows[0],
+        launchAt: scopeConfiguration.config.launchAtIso,
+        fixedCutoffAt: scopeConfiguration.config.cutoffAtIso,
+        rollingWindow: false,
+        partition: "final outcome precedence: EXCLUDED_OWNER, then LEGACY_DATE_UNCERTAIN, OUT_OF_SCOPE_LEGACY, IN_KAY_SCOPE; time cohort dimensions are reported separately.",
+      },
+      noAnswerScope,
+      ownerClassification: owners, employeeOwnership: staff.map((x: any) => ({ employee: x.username, totalCrm: x.total_assigned, inScope: x.in_scope, outOfScopeLegacy: x.out_scope, uncertain: x.uncertain })),
+      currentNoAnswerSourceDistribution: managedDistribution, kayManagedSalesLeads: managedDistribution, excludedAdminLegacyLeads: aggregateRows(excludedAdminLegacyLeads),
      excludedAdminLegacyReadiness: Object.fromEntries(["no_answer_1","no_answer_2"].map(status => [status, { count: excludedAdminLegacyLeads.filter((r: any) => r.status === status).length, baselineCount: excludedAdminLegacyLeads.filter((r: any) => r.status === status && r.baselineSource === "LEGACY_BASELINE").length, classification: "EXCLUDED_OWNER", excludedOwner: excludedAdminLegacyLeads.filter((r: any) => r.status === status).length }])),
     readiness, employeeDeepWorkloadAudit: staff, workloadModels: {
       A: "nonterminal",
@@ -268,7 +318,7 @@ export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
        oldLeadsReported: Number(x.nonterminal_older_90),
     })),
      futureCeiling: { name: "rescue_target_max_operational_load", active: false, p75, p90, proposed: proposedCeiling, excludedCurrentTargets: staff.filter((x: any) => Number(x.operationalLoad) >= proposedCeiling).length, recommendation: "rounded max(p90,p75+2); manager review when exceeded" },
-     routingSimulation: { hypotheticalLeads: 10, requested: 10, assigned: routed.assignments.length, deferred: 10-routed.assignments.length, deferredReasons: routed.assignments.length < 10 ? ["GLOBAL_OR_PER_TARGET_DAILY_LIMIT_OR_NO_ELIGIBLE_TARGET"] : [], sourceOwnerId: simulationSourceId, ...routed, tieBreakers: ["operational_load", "receivedToday", "lastRescueAt", "employeeId"] },
+       routingSimulation: { hypotheticalLeads: 10, source: "NEW_HYPOTHETICAL_CASES", sourceOwners: hypotheticalSources.map((x: {name:string})=>x.name), requested: 10, assigned: routed.assignments.length, deferred: 10-routed.assignments.length, deferredReasons: routed.assignments.length < 10 ? ["GLOBAL_OR_PER_TARGET_DAILY_LIMIT_OR_NO_ELIGIBLE_TARGET"] : [], startingCapacity: Object.fromEntries(routeTargets.map((x:any) => [x.username, x.operationalLoad])), projectedCapacity: Object.fromEntries(routeTargets.map((x:any) => [x.username, x.operationalLoad + (routed.counts[String(x.id)] || 0)])), receivingByEmployee: Object.fromEntries(routeTargets.map((x:any) => [x.username, routed.counts[String(x.id)] || 0])), writes: 0, pingPongProtection: { applied: pingPongGuardPassed, priorOwnerAssumption: "NONE_FOR_NEW_HYPOTHETICALS", syntheticPriorOwnerGuardPassed: pingPongGuardPassed }, tieBreakers: ["operational_load", "receivedToday", "lastRescueAt", "employeeId"], concentrationRisk: concentrationRisk ? "LOAD_CONCENTRATION_RISK" : "NO", concentrationThreshold, concentrationExplanation: concentrationRisk ? `One target would receive at least ${concentrationThreshold} of 10 hypothetical leads.` : "No target receives the concentration threshold share." },
      sourcePolicyScenarios: policies, blockers: { needsReviewTaskOnly: kayManagedSalesLeads.filter((x: any) => x.thresholdQualified && x.active_task && !x.protected && !x.promise_review).length, contract: "NEEDS_REVIEW means an incomplete crm_tasks row; sole means no protection or promise-review blocker.", promiseManagerReview: kayManagedSalesLeads.filter((x: any) => x.thresholdQualified && x.promise_review).length, preserved: true },
      warningGraceReadiness: { finalWarningEligible: Math.max(0, warningEligible), graceAvailable: Number(queueReadiness.rows[0]?.grace_available || 0), graceConsumed: Number(queueReadiness.rows[0]?.grace_consumed || 0), managerReviewRequired: Number(queueReadiness.rows[0]?.manager_review || 0) },
      firstCanary: canary ? { recommendation: canary.account, active: false, relevantLeads: canary.rows.length, wouldRescue: canary.rescuable.length, wouldBlock: canary.rows.length-canary.rescuable.length, blockerRate: canary.blockerRate, risk: canary.blockerRate ? "LOW_WITH_EXISTING_BLOCKERS" : "LOW", expectedReceivingEmployees: canary.expectedTargets.map((x: any) => x.username), exercises: { sourceOwner: true, targetSelection: true, warning: true, grace: true, transaction: true, promiseHandoff: canary.rows.some((r: any) => r.promise_review === true) }, reason: "Database-derived SALES_OWNER with 1-10 rescuable leads, blocker rate <=50%, load <=p90, and an eligible target." } : { recommendation: "NO SAFE CANARY CANDIDATE YET", active: false, relevantLeads: 0, wouldRescue: 0, wouldBlock: 0, risk: "NO_CANDIDATE_MET_ALL_DATA_GATES", expectedReceivingEmployees: [], exercises: { sourceOwner: false, targetSelection: false, warning: false, grace: false, transaction: false, promiseHandoff: false }, reason: "No SALES_OWNER met all volume, blocker-rate, workload, and target-availability gates." },

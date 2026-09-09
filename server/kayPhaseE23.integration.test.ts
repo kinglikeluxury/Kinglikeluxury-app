@@ -8,27 +8,62 @@ const marker = `KAY_E23:${Date.now()}`;
 let fixtureUserIds: number[] = [];
 let fixtureLeadIds: number[] = [];
 let fixtureMissionIds: number[] = [];
+let priorLaunchSetting: any = undefined;
 before(async () => {
   if (!enabled) return;
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
+    await c.query(`DELETE FROM kay_internal_briefings WHERE employee_id=ANY($1::int[]) OR lead_id=ANY($2::int[])`, [fixtureUserIds, fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_manager_reviews WHERE employee_id=ANY($1::int[]) OR lead_id=ANY($2::int[])`, [fixtureUserIds, fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_events WHERE employee_id=ANY($1::int[]) OR user_id=ANY($1::int[]) OR lead_id=ANY($2::int[])`, [fixtureUserIds, fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_auto_rescue_queue WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_lead_protection WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
+    await c.query(`DELETE FROM lead_assignment_history WHERE lead_id=ANY($1::int[]) OR from_user_id=ANY($2::int[]) OR to_user_id=ANY($2::int[])`, [fixtureLeadIds, fixtureUserIds]);
+    const setting = await c.query(`SELECT value,updated_by FROM kay_settings WHERE key='kay_operational_launch_at'`);
+    priorLaunchSetting = setting.rows[0] ?? null;
+    await c.query(`INSERT INTO kay_settings(key,value) VALUES('kay_operational_launch_at',$1::jsonb)
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`, [JSON.stringify("2026-09-09T00:00:00+04:00")]);
     for (const [suffix, active, admin, role] of [["sales", true, false, "sub_agent"], ["leave", true, false, "sub_agent"], ["inactive", false, false, "sub_agent"], ["admin", true, true, "admin"]] as const) {
       const r = await c.query(`INSERT INTO users(username,is_active,is_admin,role) VALUES($1,$2,$3,$4) RETURNING id`, [`${marker}:${suffix}`, active, admin, role]);
       fixtureUserIds.push(Number(r.rows[0].id));
     }
     const [sales, , , admin] = fixtureUserIds;
+    const cohortDate = new Date("2026-07-01T00:00:00Z");
     const specs = [["no_answer_1", sales, new Date(Date.now()-48*3600000)], ["no_answer_2", sales, new Date(Date.now()-48*3600000)], ["no_answer_1", admin, new Date(Date.now()-72*3600000)]];
     for (const [status, owner, entered] of specs as any[]) {
-      const r = await c.query(`INSERT INTO crm_leads(lead_source,full_name,assigned_to,status,notes,created_at,updated_at) VALUES('manual',$1,$2,$3,$4,$5,$5) RETURNING id`, [`${marker}:fixture`, owner, status, marker, entered]);
+      const r = await c.query(`INSERT INTO crm_leads(lead_source,full_name,assigned_to,status,notes,created_at,updated_at) VALUES('manual',$1,$2,$3,$4,$5,$6) RETURNING id`, [`${marker}:fixture`, owner, status, marker, cohortDate, entered]);
       fixtureLeadIds.push(Number(r.rows[0].id));
       await c.query(`INSERT INTO kay_lead_status_history(lead_id,status,entered_at,event_key) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [r.rows[0].id, status, entered, `${marker}:history:${r.rows[0].id}`]);
       await c.query(`INSERT INTO kay_legacy_rescue_baselines(lead_id,observed_status,observation_started_at,continuity_event_key) VALUES($1,$2,$3,$4)`, [r.rows[0].id, status, entered, `${marker}:baseline:${r.rows[0].id}`]);
     }
+    const cutoff = new Date("2026-06-08T20:00:00.000Z");
+    const matrix = [
+      { source: "manual", created: cutoff, business: null, provenance: null, expected: "IN_KAY_SCOPE" },
+      { source: "manual", created: new Date(cutoff.getTime()-1), business: null, provenance: null, expected: "OUT_OF_SCOPE_LEGACY" },
+      { source: "manual", created: new Date("2026-09-09T00:00:00.000Z"), business: null, provenance: null, expected: "IN_KAY_SCOPE" },
+      { source: "excel_import", created: new Date(), business: null, provenance: null, expected: "LEGACY_DATE_UNCERTAIN" },
+      { source: "excel_import", created: new Date(), business: cutoff, provenance: "ORIGINAL_BUSINESS_TIMESTAMP", expected: "IN_KAY_SCOPE" },
+    ];
+    for (const [index, item] of matrix.entries()) {
+      const r = await c.query(`INSERT INTO crm_leads(lead_source,full_name,assigned_to,status,notes,created_at,updated_at,business_received_at,business_received_at_source)
+        VALUES($1,$2,$3,'interested',$4,$5,NOW(),$6,$7) RETURNING id`, [item.source,`${marker}:matrix:${index}`,sales,marker,item.created,item.business,item.provenance]);
+      fixtureLeadIds.push(Number(r.rows[0].id));
+      if (item.expected === "OUT_OF_SCOPE_LEGACY") {
+        await c.query(`INSERT INTO kay_lead_status_history(lead_id,status,entered_at,event_key) VALUES($1,'interested',NOW(),$2)`, [r.rows[0].id,`${marker}:old-recent-status`]);
+      }
+    }
+    const excludedArtifactLead = await c.query(`INSERT INTO crm_leads(lead_source,full_name,assigned_to,status,notes,created_at,updated_at)
+      VALUES('manual',$1,$2,'interested',$3,$4,NOW()) RETURNING id`, [`${marker}:excluded-artifact`,admin,marker,cutoff]);
+    fixtureLeadIds.push(Number(excludedArtifactLead.rows[0].id));
+    const excludedMission = await c.query(`INSERT INTO kay_missions(lead_id,employee_id,mission_type,priority,status,reason_code,objective,suggested_action,due_at,idempotency_key)
+      VALUES($1,$2,'FOLLOW_UP_DUE','LOW','NEW','E23_EXCLUDED_ARTIFACT','Fixture exclusion','No action',NOW()+interval '30 days',$3) RETURNING id`,
+      [excludedArtifactLead.rows[0].id,sales,`${marker}:excluded-artifact-mission`]);
+    fixtureMissionIds.push(Number(excludedMission.rows[0].id));
     await c.query(`INSERT INTO lead_assignment_history(lead_id,to_user_id,reason,assigned_at) SELECT $1,$2,'crm_assignment',$3`, [fixtureLeadIds[2], sales, new Date()]);
     await c.query(`INSERT INTO crm_tasks(lead_id,title,due_date) VALUES($1,'Follow-up fixture',$2)`, [fixtureLeadIds[0], new Date().toISOString().slice(0,10)]);
     const mission = await c.query(`INSERT INTO kay_missions(lead_id,employee_id,mission_type,priority,reason_code,objective,suggested_action,idempotency_key)
-      VALUES($1,$2,'E23_FIXTURE','LOW','E23_FIXTURE','Fixture audit only','No action',$3) RETURNING id`, [fixtureLeadIds[0], sales, `${marker}:mission`]);
+      VALUES($1,$2,'FOLLOW_UP_DUE','LOW','E23_FIXTURE','Fixture audit only','No action',$3) RETURNING id`, [fixtureLeadIds[0], sales, `${marker}:mission`]);
     fixtureMissionIds.push(Number(mission.rows[0].id));
     await c.query(`INSERT INTO kay_commitments(lead_id,mission_id,employee_id,action,status,due_at,idempotency_key)
       VALUES($1,$2,$3,'Fixture audit only','PENDING',NOW(),$4)`, [fixtureLeadIds[0], fixtureMissionIds[0], sales, `${marker}:commitment`]);
@@ -42,6 +77,12 @@ after(async () => {
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
+    await c.query(`DELETE FROM kay_internal_briefings WHERE employee_id=ANY($1::int[]) OR lead_id=ANY($2::int[])`, [fixtureUserIds, fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_manager_reviews WHERE employee_id=ANY($1::int[]) OR lead_id=ANY($2::int[])`, [fixtureUserIds, fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_events WHERE employee_id=ANY($1::int[]) OR user_id=ANY($1::int[]) OR lead_id=ANY($2::int[])`, [fixtureUserIds, fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_auto_rescue_queue WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
+    await c.query(`DELETE FROM kay_lead_protection WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
+    await c.query(`DELETE FROM lead_assignment_history WHERE lead_id=ANY($1::int[]) OR from_user_id=ANY($2::int[]) OR to_user_id=ANY($2::int[])`, [fixtureLeadIds, fixtureUserIds]);
     await c.query(`DELETE FROM crm_tasks WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
     await c.query(`DELETE FROM kay_promises WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
     await c.query(`DELETE FROM kay_commitments WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
@@ -50,6 +91,12 @@ after(async () => {
     await c.query(`DELETE FROM kay_lead_status_history WHERE lead_id=ANY($1::int[])`, [fixtureLeadIds]);
     await c.query(`DELETE FROM crm_leads WHERE id=ANY($1::int[])`, [fixtureLeadIds]);
     await c.query(`DELETE FROM users WHERE id=ANY($1::int[])`, [fixtureUserIds]);
+    const residue = await c.query(`SELECT
+      (SELECT count(*)::int FROM crm_leads WHERE notes=$1) leads,
+      (SELECT count(*)::int FROM users WHERE username LIKE $2) users`, [marker,`${marker}%`]);
+    assert.deepEqual(residue.rows[0], { leads: 0, users: 0 });
+    if (priorLaunchSetting) await c.query(`UPDATE kay_settings SET value=$1::jsonb,updated_by=$2 WHERE key='kay_operational_launch_at'`, [JSON.stringify(priorLaunchSetting.value), priorLaunchSetting.updated_by]);
+    else await c.query(`DELETE FROM kay_settings WHERE key='kay_operational_launch_at'`);
     await c.query("COMMIT");
   } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
 });
@@ -74,6 +121,16 @@ test("E23 fixture graph produces exact scoped managed/excluded readiness", { ski
   assert.equal(report.excludedAdminLegacyReadiness.no_answer_1.excludedOwner, 1);
   assert.equal(report.excludedAdminLegacyLeads[0].classification, "EXCLUDED_FROM_KAY_RESCUE");
   assert.equal(report.safety.autoReassignments, 0);
+  assert.deepEqual({
+    all: Number(report.monitoringScope.all_crm), inScope: Number(report.monitoringScope.in_scope),
+    legacy: Number(report.monitoringScope.out_legacy), uncertain: Number(report.monitoringScope.uncertain),
+    excluded: Number(report.monitoringScope.excluded_admin),
+  }, { all: 9, inScope: 5, legacy: 1, uncertain: 1, excluded: 2 });
+  const salesOwnership = report.employeeOwnership.find((x: any) => x.employee === `${marker}:sales`);
+  assert.deepEqual({ total: Number(salesOwnership.totalCrm), inScope: Number(salesOwnership.inScope), legacy: Number(salesOwnership.outOfScopeLegacy), uncertain: Number(salesOwnership.uncertain) },
+    { total: 7, inScope: 5, legacy: 1, uncertain: 1 });
+  const salesWorkload = report.employeeDeepWorkloadAudit.find((x: any) => x.username === `${marker}:sales`);
+  assert.equal(Number(salesWorkload.active_missions), 1, "admin-owned active artifact must not increase the one scoped fixture mission");
 });
 
 const gated = { skip: !enabled };
@@ -99,9 +156,9 @@ test("E23 source classification has exact scenario counts", gated, () => {
     { classification: "ADMIN_OWNER" as const, account: "kinglike_admin", thresholdQualified: true },
     { classification: "SYSTEM_OWNER" as const, thresholdQualified: true },
   ];
-  assert.deepEqual(E23SourceCounts(rows), { sales: 1, policyB: 1, all: 1 });
+  assert.deepEqual(E23SourceCounts(rows), { sales: 1, policyB: 0, all: 1 });
 });
-test("E23 Policy B admits only kinglike_admin as admin intake", gated, () => {
+test("E23 admin intake is excluded by final policy", gated, () => {
   assert.equal(simulateE23SourcePolicy([{ classification: "ADMIN_OWNER", account: "other", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0);
   assert.equal(simulateE23SourcePolicy([{ classification: "ADMIN_OWNER_EXCLUDED", account: "kinglike_admin", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0);
 });
@@ -190,7 +247,7 @@ test("E23 admin source is not employee failure", gated, () => {
   assert.equal(simulateE23SourcePolicy([row], "SALES_ONLY"), 0);
 });
 test("E23 intake source is not admitted by sales-only", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "INTAKE_OWNER", thresholdQualified: true }], "SALES_ONLY"), 0));
-test("E23 Policy B is rejected by final policy", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "INTAKE_OWNER", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0));
+test("E23 admin intake is rejected by final policy", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "INTAKE_OWNER", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0));
 test("E23 all non-system excludes inactive", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "INACTIVE_OWNER", thresholdQualified: true }], "ALL_NON_SYSTEM"), 0));
 test("E23 all non-system excludes unknown", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "UNKNOWN_OWNER", thresholdQualified: true }], "ALL_NON_SYSTEM"), 0));
 test("E23 non-qualified source does not count", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "SALES_OWNER", thresholdQualified: false }], "SALES_ONLY"), 0));
@@ -252,8 +309,8 @@ test("E23 target excludes current owner regardless of load", gated, () => assert
 test("E23 target max load is strict", gated, () => assert.equal(isE23TargetEligible({ id: 4, active: true, role: "sub_agent", operationalLoad: 10 }, 5, { maxLoad: 10 }), false));
 test("E23 target daily count is strict", gated, () => assert.equal(isE23TargetEligible({ id: 4, active: true, role: "sub_agent", receivedToday: 10 }, 5, { dailyLimit: 10 }), false));
 test("E23 target prior owner is strict", gated, () => assert.equal(isE23TargetEligible({ id: 4, active: true, role: "sub_agent", priorOwnerIds: [5] }, 5), false));
-test("E23 policy B excludes arbitrary admin", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "ADMIN_OWNER", account: "administrator", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0));
-test("E23 policy B excludes kinglike admin", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "ADMIN_OWNER_EXCLUDED", account: "kinglike_admin", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0));
+test("E23 admin intake excludes arbitrary admin", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "ADMIN_OWNER", account: "administrator", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0));
+test("E23 admin intake excludes kinglike admin", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "ADMIN_OWNER_EXCLUDED", account: "kinglike_admin", thresholdQualified: true }], "SALES_AND_ADMIN_INTAKE"), 0));
 test("E23 policy A includes no admin", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "ADMIN_OWNER", account: "kinglike_admin", thresholdQualified: true }], "SALES_ONLY"), 0));
 test("E23 policy C excludes unknown", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "UNKNOWN_OWNER", thresholdQualified: true }], "ALL_NON_SYSTEM"), 0));
 test("E23 policy C excludes system", gated, () => assert.equal(simulateE23SourcePolicy([{ classification: "SYSTEM_OWNER", thresholdQualified: true }], "ALL_NON_SYSTEM"), 0));
@@ -305,7 +362,18 @@ test("E23 report exposes policy scenarios", gated, async () => {
 test("E23 report exposes routing simulation", gated, async () => {
   if (!enabled) return;
   const report = await getKayPhaseE23Diagnostics({ marker });
-  assert.equal(report.routingSimulation.hypotheticalLeads, 10);
+  const simulation = report.routingSimulation;
+  assert.equal(simulation.hypotheticalLeads, 10);
+  assert.equal(Object.values(simulation.receivingByEmployee).reduce((n: number, v: any) => n + Number(v), 0), simulation.assigned);
+  for (const employee of Object.keys(simulation.startingCapacity)) {
+    assert.equal(simulation.projectedCapacity[employee], simulation.startingCapacity[employee] + simulation.receivingByEmployee[employee]);
+  }
+  assert.equal(Object.prototype.hasOwnProperty.call(simulation.receivingByEmployee, "NaN"), false);
+  assert.equal(simulation.pingPongProtection.applied, true);
+  assert.equal(simulation.pingPongProtection.syntheticPriorOwnerGuardPassed, true);
+  assert.equal(simulation.writes, 0);
+  assert.equal(typeof simulation.concentrationExplanation, "string");
+  assert.equal(simulation.deferredReasons.length > 0, simulation.deferred > 0);
 });
 test("E23 report has no ownership writes", gated, async () => {
   if (!enabled) return;
@@ -348,7 +416,7 @@ test("E23 report marks capacity non-performance", gated, async () => {
   const report = await getKayPhaseE23Diagnostics({ marker });
   assert.equal(report.recommendedCapacity.capacityIsPerformanceScore, false);
 });
-test("E23 report keeps policy pending", gated, async () => {
+test("E23 report keeps final admin exclusion resolved", gated, async () => {
   if (!enabled) return;
   const report = await getKayPhaseE23Diagnostics({ marker });
   assert.equal(report.ownershipPolicy.kinglike_admin.policy, "RESOLVED");

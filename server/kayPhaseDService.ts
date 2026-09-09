@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { crmLeads, kayCommitments, kayEvents, kayInternalBriefings, kayManagerReviews, kayMissions, kayPromises, kaySettings } from "@shared/schema";
 import { getKayAvailability, getPhaseCSettings, isKayQuietHours } from "./kayMissionService";
+import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeService";
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const phaseDStyleSchema = z.enum(["FRIENDLY", "PROFESSIONAL", "DIRECT", "FIRM", "SALES_COACH", "EXECUTIVE"]);
@@ -85,6 +86,10 @@ async function ownsLead(employeeId: number, leadId: number | null | undefined) {
 }
 export async function createCommitment(input: unknown, employeeId: number, admin = false) {
   const data = commitmentInput.parse(input);
+  if (data.leadId) {
+    const scope = await getKayScopeForLead(pool, data.leadId);
+    if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay commitments require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
+  }
   const settings = await getPhaseDSettings();
   return db.transaction(async tx => {
     // A mission is locked with its lead before a commitment can be created.
@@ -98,6 +103,10 @@ export async function createCommitment(input: unknown, employeeId: number, admin
         const e: any = new Error("Mission is not currently available to this employee."); e.status = 403; throw e;
       }
       leadId = mission.lead_id;
+    }
+    if (leadId) {
+      const scope = await getKayScopeForLead(pool, leadId);
+      if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay commitments require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
     }
     if (!admin && leadId) {
       const ownership = await tx.execute(sql`SELECT id FROM crm_leads WHERE id=${leadId} AND assigned_to=${employeeId} FOR UPDATE`);
@@ -113,6 +122,8 @@ export async function createCommitment(input: unknown, employeeId: number, admin
 }
 export async function createPromise(input: unknown, employeeId: number, admin = false) {
   const data = promiseInput.parse(input);
+  const scope = await getKayScopeForLead(pool, data.leadId);
+  if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay promises require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
   return db.transaction(async tx => {
     if (!admin) {
       const owned = await tx.execute(sql`SELECT id FROM crm_leads WHERE id=${data.leadId} AND assigned_to=${employeeId} FOR UPDATE`);
@@ -236,26 +247,46 @@ async function createManagerReviewWith(executor: any, reason: string, fields: an
 }
 export async function evaluatePhaseD(token: string, limit = 100) {
   const settings = await getPhaseDSettings(); if (!settings.enabled) return { checked: 0, briefings: 0, reviews: 0, disabled: true };
+  const scopeConfiguration = await getKayScopeConfiguration();
+  if (scopeConfiguration.status !== "OK") {
+    await db.insert(kaySettings).values({ key: "phase_d_health", value: { halted: true, halted_reason: scopeConfiguration.status, last_error: new Date().toISOString() } }).onConflictDoUpdate({ target: kaySettings.key, set: { value: { halted: true, halted_reason: scopeConfiguration.status, last_error: new Date().toISOString() }, updatedAt: new Date() } });
+    return { checked: 0, briefings: 0, reviews: 0, disabled: true, halted: scopeConfiguration.status };
+  }
   const phaseC = await getPhaseCSettings();
+  const cutoff = scopeConfiguration.config!.cutoffAt;
+  const leadScope = kayScopeSql("l", "su", `'${cutoff.toISOString()}'`);
   let briefings = 0, reviews = 0;
   try {
     // Promises are retained through reconciliation; owner changes request
     // manager review instead of deletion.
     await fencedEvaluatorWrite(token, async tx => {
+      // Preservation reconciliation is intentionally independent of current
+      // Kay scope: existing obligations survive ownership changes and are
+      // marked for human resolution, never routine automatic progression.
+      await tx.execute(sql`UPDATE kay_commitments c SET status='STALE',stale_at=COALESCE(stale_at,NOW()),updated_at=NOW()
+        WHERE c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.lead_id IS NOT NULL
+          AND NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id)`);
+      const preservedOwnerChanges = await tx.execute(sql`UPDATE kay_promises p SET owner_review_required_at=COALESCE(owner_review_required_at,NOW()),updated_at=NOW()
+        WHERE p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN')
+          AND NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id) RETURNING p.*`);
+      for (const p of preservedOwnerChanges.rows as any[]) {
+        if (await createManagerReviewWith(tx, "PROMISE_OWNER_REVIEW_REQUIRED", { promiseId: p.id, leadId: p.lead_id, employeeId: p.employee_id }, `review:promise-owner:${p.id}`)) reviews++;
+      }
       await tx.execute(sql`UPDATE kay_commitments c SET status='STALE',stale_at=NOW(),updated_at=NOW()
-        WHERE c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.lead_id IS NOT NULL AND (NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id)
+         WHERE c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.lead_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)}) AND (NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id)
           OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.status IN ('converted','lost','purchased','sold_by_kinglike_luxury','lost_competition','not_qualified','junk_lead')))`);
       const ownerChanged = await tx.execute(sql`UPDATE kay_promises p SET owner_review_required_at=COALESCE(owner_review_required_at,NOW()),updated_at=NOW()
-        WHERE p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND (NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id)
+         WHERE p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)}) AND (NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id)
           OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.status IN ('converted','lost','purchased','sold_by_kinglike_luxury','lost_competition','not_qualified','junk_lead'))) RETURNING p.*`);
       for (const p of ownerChanged.rows as any[]) {
         if (await createManagerReviewWith(tx, "PROMISE_OWNER_REVIEW_REQUIRED", { promiseId: p.id, leadId: p.lead_id, employeeId: p.employee_id }, `review:promise-owner:${p.id}`)) reviews++;
       }
-      await tx.execute(sql`UPDATE kay_commitments SET status='OVERDUE',updated_at=NOW() WHERE status IN ('PENDING','ACCEPTED','EXTENDED','ACTIVE') AND due_at<NOW()`);
-      await tx.execute(sql`UPDATE kay_promises SET status=CASE WHEN due_at<NOW() THEN 'OVERDUE' ELSE 'DUE_SOON' END,updated_at=NOW() WHERE status IN ('PENDING','OPEN') AND due_at<=NOW()+(${settings.reminder_minutes} * interval '1 minute')`);
+       await tx.execute(sql`UPDATE kay_commitments c SET status='OVERDUE',updated_at=NOW() WHERE status IN ('PENDING','ACCEPTED','EXTENDED','ACTIVE') AND due_at<NOW() AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)})`);
+       await tx.execute(sql`UPDATE kay_promises p SET status=CASE WHEN due_at<NOW() THEN 'OVERDUE' ELSE 'DUE_SOON' END,updated_at=NOW() WHERE status IN ('PENDING','OPEN') AND due_at<=NOW()+(${settings.reminder_minutes} * interval '1 minute') AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)})`);
     });
   const overdueCommitments = await db.select().from(kayCommitments).where(and(eq(kayCommitments.status, "OVERDUE"), sql`${kayCommitments.dueAt} < NOW()`)).limit(limit);
   for (const c of overdueCommitments) {
+    if (c.leadId && (await getKayScopeForLead(pool, c.leadId)).outcome !== "IN_KAY_SCOPE") continue;
     if (!settings.trigger_types.includes("COMMITMENT_OVERDUE") || (c.lastReminderAt && Date.now() - c.lastReminderAt.getTime() < settings.reminder_minutes * 60_000)) continue;
     const availability = await getKayAvailability(c.employeeId); if (availability.availability !== "AVAILABLE" || isKayQuietHours(phaseC, new Date())) continue;
     const key = `commitment-overdue:${c.id}:v${c.reminderVersion + 1}`;
@@ -268,6 +299,7 @@ export async function evaluatePhaseD(token: string, limit = 100) {
   }
   const promises = await db.select().from(kayPromises).where(and(eq(kayPromises.status, "OVERDUE"), eq(kayPromises.importance, "IMPORTANT"), sql`${kayPromises.dueAt} < NOW()`)).limit(limit);
   for (const p of promises) {
+    if ((await getKayScopeForLead(pool, p.leadId)).outcome !== "IN_KAY_SCOPE") continue;
     if (!settings.trigger_types.includes("IMPORTANT_PROMISE_OVERDUE") || (p.lastReminderAt && Date.now() - p.lastReminderAt.getTime() < settings.promise_escalation_minutes * 60_000)) continue;
     const availability = await getKayAvailability(p.employeeId); if (availability.availability !== "AVAILABLE" || isKayQuietHours(phaseC, new Date())) continue;
     const key = `important-promise-overdue:${p.id}:v${p.reminderVersion + 1}`;
@@ -281,6 +313,7 @@ export async function evaluatePhaseD(token: string, limit = 100) {
   if (settings.trigger_types.includes("CRITICAL_MISSION")) {
     const critical = await db.select().from(kayMissions).where(and(inArray(kayMissions.status, activeMission), eq(kayMissions.priority, "CRITICAL"))).limit(limit);
     for (const mission of critical) {
+      if (mission.leadId && (await getKayScopeForLead(pool, mission.leadId)).outcome !== "IN_KAY_SCOPE") continue;
       const availability = await getKayAvailability(mission.employeeId!);
       if (availability.availability !== "AVAILABLE" || (isKayQuietHours(phaseC, new Date()) && !settings.critical_bypass_quiet_hours)) continue;
       const context = employeeBriefingContext(settings, mission.employeeId!);
@@ -340,6 +373,7 @@ export async function runPhaseDEvaluator() {
   const assertLease = async () => !leaseLost && await ownsPhaseDLease(token);
   try {
     const result = await evaluatePhaseD(token, 100);
+    if ((result as any).halted) return result;
     if ((result as any).aborted || !(await assertLease())) return { ...result, aborted: "lease_lost" };
     const now = new Date().toISOString();
     await fencedEvaluatorWrite(token, async tx => {
@@ -361,7 +395,10 @@ export function startPhaseDEvaluator(): void {
   const cycle = async () => {
     try {
       const settings = await getPhaseDSettings();
-      if (settings.enabled) await runPhaseDEvaluator();
+       if (settings.enabled) {
+         const result: any = await runPhaseDEvaluator();
+         if (result?.halted) return;
+       }
       const delay = (await getPhaseDSettings()).evaluation_interval_minutes * 60_000;
       const timer = setTimeout(cycle, delay); timer.unref();
     } catch {

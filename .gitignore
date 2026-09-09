@@ -9,6 +9,7 @@ vite.config.ts.*
 *.zip
 *.tar.gz
 *.sql
+!server/migrations/2026-09-09-kay-operational-scope.sql
 *.sql.gz
 *.apk
 *.aab

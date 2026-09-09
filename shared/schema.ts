@@ -590,6 +590,8 @@ export const crmLeads = pgTable("crm_leads", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastContactAt: timestamp("last_contact_at"),
+  businessReceivedAt: timestamp("business_received_at", { withTimezone: true }),
+  businessReceivedAtSource: text("business_received_at_source"),
   waStage: text("wa_stage").default('new_lead'),
   metaCampaignId: text("meta_campaign_id"),
   metaAdId:       text("meta_ad_id"),

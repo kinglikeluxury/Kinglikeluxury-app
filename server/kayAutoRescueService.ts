@@ -3,6 +3,7 @@ import { getRescueSettings, getKayMode } from "./kayService";
 import { recommendRescueEmployee, rescueAttemptPredicate, rescuePingPongPredicate } from "./kayAutoRescuePlanner";
 import { executeAutomaticRescue } from "./kayRescueService";
 import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
+import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeService";
 
 type Queryable = { query: (sql: string, values?: any[]) => Promise<any> };
 type AutoRescueTestHook = (step: "before_execute" | "after_execute", queue: any) => void | Promise<void>;
@@ -113,6 +114,10 @@ async function releaseLease(token: string) {
 /** Read-only aggregate simulation. It performs no queue, history or CRM writes. */
 export async function getAutoRescueReadiness(limit = 500) {
   const settings = await getRescueSettings();
+  const scopeConfig = await getKayScopeConfiguration();
+  if (scopeConfig.status !== "OK") {
+    return { checked: 0, wouldExecute: 0, wouldBlock: 0, managerReview: 0, noEligibleEmployee: 0, protected: 0, dailyLimitImpact: 0, blockedReason: scopeConfig.status };
+  }
   const rows = await pool.query(`SELECT l.id,l.status,l.assigned_to,h.entered_at,p.id protection_id,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.completed_at IS NULL) blocker
     FROM crm_leads l LEFT JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
@@ -120,6 +125,8 @@ export async function getAutoRescueReadiness(limit = 500) {
     WHERE l.status IN ('no_answer_1','no_answer_2') ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 1000)]);
   const result = { checked: rows.rows.length, wouldExecute: 0, wouldBlock: 0, managerReview: 0, noEligibleEmployee: 0, protected: 0, dailyLimitImpact: 0 };
   for (const l of rows.rows as any[]) {
+    const scope = await getKayScopeForLead(pool, Number(l.id));
+    if (scope.outcome !== "IN_KAY_SCOPE") continue;
     const threshold = (l.status === "no_answer_2" ? settings.no_answer_2_threshold_hours : settings.no_answer_1_threshold_hours) * 3600000;
     if (!l.entered_at || Date.now() - new Date(l.entered_at).getTime() < threshold) continue;
     if (l.protection_id) { result.protected++; result.wouldBlock++; continue; }
@@ -141,6 +148,10 @@ export async function applyAutoRescueLastChance(queueId: number, userId: number,
       WHERE q.id=$1 FOR UPDATE OF q,l`,[queueId])).rows[0];
     if (!q || (!isAdmin && Number(q.current_owner_id)!==Number(userId))) {
       throw Object.assign(new Error("This Rescue window is not assigned to you."),{status:403,code:"NOT_OWNER"});
+    }
+    const scope = await getKayScopeForLead(client, Number(q.lead_id));
+    if (scope.outcome !== "IN_KAY_SCOPE") {
+      throw Object.assign(new Error("This Rescue window is outside Kay operational scope."), { status: 409, code: `KAY_SCOPE_${scope.outcome}` });
     }
     if (Number(q.current_owner_id)!==Number(q.expected_owner_id) ||
       !["WARNING","READY","PENDING"].includes(q.status)) {
@@ -211,6 +222,11 @@ async function ensureWarningArtifacts(itemId: number, leadId: number, ownerId: n
 }
 
 async function evaluateIntoQueue(settings: any, limit: number) {
+  const scopeConfig = await getKayScopeConfiguration();
+  if (scopeConfig.status !== "OK") {
+    await health({ halted: true, last_scope_failure: scopeConfig.status });
+    throw Object.assign(new Error(`KAY_SCOPE_${scopeConfig.status}`), { code: `KAY_SCOPE_${scopeConfig.status}` });
+  }
   const candidates = await pool.query(`SELECT l.id,l.status,l.assigned_to,h.entered_at,
     (SELECT count(*)::int FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ${rescueAttemptPredicate}) attempts
     FROM crm_leads l JOIN users owner ON owner.id=l.assigned_to
@@ -218,6 +234,8 @@ async function evaluateIntoQueue(settings: any, limit: number) {
      WHERE l.status IN ('no_answer_1','no_answer_2') AND owner.is_active=true AND owner.is_admin=false AND owner.role='sub_agent'
      ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 100)]);
   for (const lead of candidates.rows as any[]) {
+    const scope = await getKayScopeForLead(pool, Number(lead.id));
+    if (scope.outcome !== "IN_KAY_SCOPE") continue;
     // E.2.2 baselines are observation-only until a separately approved future
     // policy exists. They may appear in readiness, never in queue/mission paths.
     const resolved = await resolveKayStatusWindow(pool, Number(lead.id), lead.status);
@@ -249,7 +267,13 @@ async function evaluateIntoQueue(settings: any, limit: number) {
 }
 
 export async function runKayAutoRescueWorker(limit = 25) {
+  const scopeConfig = await getKayScopeConfiguration();
+  if (scopeConfig.status !== "OK") {
+    await health({ halted: true, last_scope_failure: scopeConfig.status });
+    return { disabled: true, processed: 0, blockedReason: scopeConfig.status };
+  }
   const settings = await getRescueSettings(); const mode = await getKayMode();
+  const scopeSql = kayScopeSql("l", "ou", "$3");
   // This is deliberately before lease/queue writes: the production defaults
   // leave no E.2 ownership or queue claim writes.
   if (mode !== "controlled_automation" || settings.auto_rescue_kill_switch || (!settings.auto_rescue_no_answer_1_enabled && !settings.auto_rescue_no_answer_2_enabled)) return { disabled: true, processed: 0 };
@@ -268,6 +292,11 @@ export async function runKayAutoRescueWorker(limit = 25) {
     for (const q of claimed.rows as any[]) {
       try {
         const lead = (await pool.query(`SELECT * FROM crm_leads WHERE id=$1`, [q.lead_id])).rows[0];
+        const scope = await getKayScopeForLead(pool, Number(q.lead_id));
+        if (scope.outcome !== "IN_KAY_SCOPE") {
+          await claimedTransition(q,token,"STALE",`KAY_SCOPE_${scope.outcome}`);
+          continue;
+        }
         const ownerCheck = lead ? (await pool.query(`SELECT is_active,role,is_admin FROM users WHERE id=$1`, [lead.assigned_to])).rows[0] : null;
         if (!lead || !ownerCheck || ownerCheck.is_active !== true || ownerCheck.is_admin === true || ownerCheck.role !== "sub_agent" ||
           lead.assigned_to !== q.expected_owner_id || lead.status !== q.rule_status || new Date(q.status_window).getTime() !== new Date((await pool.query(`SELECT entered_at FROM kay_lead_status_history WHERE lead_id=$1 AND status=$2 ORDER BY entered_at DESC LIMIT 1`, [q.lead_id,q.rule_status])).rows[0]?.entered_at).getTime()) {
@@ -275,15 +304,15 @@ export async function runKayAutoRescueWorker(limit = 25) {
         }
         const block = await pool.query(`SELECT EXISTS(SELECT 1 FROM kay_lead_protection WHERE lead_id=$1 AND removed_at IS NULL) protected, EXISTS(SELECT 1 FROM crm_tasks WHERE lead_id=$1 AND completed_at IS NULL) task`, [q.lead_id]);
         if (block.rows[0].protected || block.rows[0].task) { await claimedTransition(q,token,"BLOCKED",block.rows[0].protected?"PROTECTED":"BLOCKER_ADDED"); continue; }
-        const targets = await pool.query(`SELECT u.id,u.username name,COUNT(DISTINCT l.id)::int active_lead_count,
-          (SELECT count(*)::int FROM crm_tasks t JOIN crm_leads tl ON tl.id=t.lead_id
-            WHERE tl.assigned_to=u.id AND t.completed_at IS NULL
+        const targets = await pool.query(`SELECT u.id,u.username name,COUNT(DISTINCT l.id) FILTER (WHERE ${scopeSql.inScope})::int active_lead_count,
+          (SELECT count(*)::int FROM crm_tasks t JOIN crm_leads tl ON tl.id=t.lead_id JOIN users tu ON tu.id=tl.assigned_to
+            WHERE tl.assigned_to=u.id AND t.completed_at IS NULL AND ${kayScopeSql("tl","tu","$3").inScope}
               AND CASE WHEN t.due_date ~ '^\d{4}-\d{2}-\d{2}$' THEN t.due_date::date<CURRENT_DATE ELSE false END) overdue_task_count,
           EXISTS(SELECT 1 FROM lead_assignment_history h WHERE h.lead_id=$1 AND h.from_user_id=u.id AND h.assigned_at>NOW()-interval '30 days') recent_previous_owner
-           FROM users u LEFT JOIN crm_leads l ON l.assigned_to=u.id WHERE u.role='sub_agent' AND u.is_active=true AND u.is_admin=false
+           FROM users u LEFT JOIN crm_leads l ON l.assigned_to=u.id LEFT JOIN users ou ON ou.id=l.assigned_to WHERE u.role='sub_agent' AND u.is_active=true AND u.is_admin=false AND lower(u.username)<>'kinglike_admin'
           AND COALESCE((SELECT value->>'availability' FROM kay_settings WHERE key='phase_c_availability:'||u.id::text),'AVAILABLE')='AVAILABLE'
            AND NOT EXISTS(SELECT 1 FROM lead_assignment_history h WHERE h.lead_id=$1 AND ${rescuePingPongPredicate.replace("$1", "u.id").replace("$2", "$2")})
-          GROUP BY u.id,u.username`,[q.lead_id,lead.assigned_to]);
+           GROUP BY u.id,u.username`,[q.lead_id,lead.assigned_to,scopeConfig.config!.cutoffAt]);
         const pick = recommendRescueEmployee(targets.rows.map((x:any)=>({id:Number(x.id),name:x.name,activeLeadCount:Number(x.active_lead_count),overdueTaskCount:Number(x.overdue_task_count),recentPreviousOwner:x.recent_previous_owner})), lead.assigned_to);
         if (!pick.candidate) { if (await claimedTransition(q,token,"MANAGER_REVIEW","NO_ELIGIBLE_EMPLOYEE")) await managerReview(q,"NO_ELIGIBLE_EMPLOYEE"); continue; }
         const day = tbilisiDay();

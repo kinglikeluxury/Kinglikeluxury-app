@@ -24,8 +24,8 @@ test("E22 never uses CRM created/updated dates for status entry", () => {
   assert.doesNotMatch(baseline, /observation_started_at\s*[:=].*(created_at|updated_at)/);
   assert.doesNotMatch(baseline, /enteredAt['"]?\s*[:,].*(created_at|updated_at)/);
 });
-test("E22 worker excludes legacy baselines and admin endpoints are protected", () => {
-  assert.match(worker, /resolved\.source === "LEGACY_BASELINE"/);
+test("E22 worker uses central scope and admin endpoints are protected", () => {
+  assert.match(worker, /getKayScopeForLead/);
   for (const path of ["legacy-rescue-baselines/preview", "legacy-rescue-baselines/initialize", "legacy-rescue-baselines/readiness", "legacy-rescue-baselines/diagnostics"])
     assert.match(routes, new RegExp(path.replaceAll("/", "\\/") + '".*requireKayAdmin'));
 });
@@ -39,8 +39,8 @@ test("E22 readiness exposes threshold and safety dimensions", () => {
   for (const token of ["lackingTrusted", "trustedCurrentWindows", "dueWithin6", "dueWithin12", "dueWithin24", "statusChanged", "blocked", "wouldRescue", "invalidated"])
     assert.match(baseline, new RegExp(token));
 });
-test("E22 diagnostics classify owners and preserve unresolved kinglike policy", () => {
-  assert.match(baseline, /POLICY_UNRESOLVED/);
+test("E22 diagnostics classify owners and resolve final scope policy", () => {
+  assert.match(baseline, /scopeOutcome|IN_KAY_SCOPE/);
   assert.match(baseline, /statusMix/);
   assert.match(baseline, /INTAKE_OWNER/);
 });

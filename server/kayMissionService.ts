@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { kayEvents, kayMissions, kaySettings, userNotifications } from "@shared/schema";
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { getKayStatusIntelligence } from "./kayStatusClassification";
 import { sanitizeKayJson } from "./kayService";
+import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeService";
 
 export const PHASE_C_PRIORITY_FORMULA_VERSION = "phase_c_v1" as const;
 export const missionStatusSchema = z.enum(["NEW", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "DISMISSED", "STALE"]);
@@ -239,6 +240,11 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
   const heartbeat = setInterval(() => renewKayMissionGeneratorLease(leaseToken).catch(() => false), 2 * 60_000);
   heartbeat.unref();
   try {
+    const scopeConfiguration = await getKayScopeConfiguration();
+    if (scopeConfiguration.status !== "OK") {
+      await persistGeneratorHealth({ halted: true, last_scope_failure: scopeConfiguration.status, lease_state: "released" }).catch(() => {});
+      throw new Error(`KAY_SCOPE_${scopeConfiguration.status}`);
+    }
     await persistGeneratorHealth({ last_attempt: new Date().toISOString(), lease_state: "owned", lease_owner: leaseToken.split(":")[0], run_type: runType, ...(runType === "manual" ? { manual_actor_id: actorId } : {}) });
     const settings = await getPhaseCSettings();
     const rows = await db.execute(sql`
@@ -253,6 +259,8 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
     ORDER BY l.id ASC LIMIT ${Math.min(Math.max(limit, 1), 500)}`);
   let created = 0; let reconciled = 0; const current = new Map<number, string[]>(); const now = new Date();
   for (const row of rows.rows as unknown as Candidate[]) {
+    const scope = await getKayScopeForLead(pool, Number(row.lead_id));
+    if (scope.outcome !== "IN_KAY_SCOPE") continue;
     const info = getKayStatusIntelligence(row.status);
     if (info.terminal || info.classification === "NON_SALES" || info.classification === "UNKNOWN_REVIEW") continue;
     current.set(row.lead_id, []);
