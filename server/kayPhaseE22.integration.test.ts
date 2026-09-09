@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { pool } from "./db";
+import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
+assertSafeKayMutationTestDatabase("kayPhaseE22.integration");
 import {
   getLegacyBaselineReadiness,
   getLegacyCapacitySensitivity,
@@ -14,7 +16,7 @@ import {
 } from "./kayLegacyBaselineService";
 
 const enabled = process.env.KAY_E22_POSTGRES_TESTS === "true";
-const marker = `KAY_E22:${Date.now()}`;
+const marker = kaySyntheticMarker("KAY_E22_TEST");
 const scope = { marker };
 const leadIds: number[] = [];
 const userIds: number[] = [];

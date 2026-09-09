@@ -167,6 +167,7 @@ export async function setKayOperationalLaunchAt(adminId: number, value: unknown,
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
     const admin = await client.query(
       `SELECT id FROM users WHERE id=$1 AND is_admin=true AND is_active=true FOR SHARE`, [adminId],
     );

@@ -1,6 +1,8 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { ensureKayTables, pool } from "./db";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
+assertSafeKayMutationTestDatabase("kayPhaseD.integration");
 import { acquirePhaseDLease, acknowledgeBriefing, completeCommitment, evaluatePhaseD } from "./kayPhaseDService";
 
 before(async () => { await ensureKayTables(); });

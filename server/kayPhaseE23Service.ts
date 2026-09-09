@@ -136,6 +136,13 @@ async function employees(executor: E23Executor = pool, scope?: E23TestScope, cut
    return r.rows.map((x: any) => ({ ...x, classification: classifyE23Owner({ username: x.username, role: x.role, isActive: x.is_active, isAdmin: x.is_admin }), operationalLoad: Number(x.recent_0_30) + .5 * Number(x.recent_31_60) + .25 * Number(x.recent_61_90) + 2 * Number(x.overdue_tasks) + Number(x.active_missions) + Number(x.active_commitments) + Number(x.open_promises), actionableWorkLoad: Number(x.in_scope) + 2 * Number(x.overdue_tasks) + Number(x.active_missions) + Number(x.active_commitments) + Number(x.open_promises) }));
 }
 
+/** Read-only approved E.2.3 capacity formula snapshot for operational routing. */
+export async function getE23CapacitySnapshot(executor: E23Executor = pool) {
+  const scope = await getKayScopeConfiguration(executor);
+  if (scope.status !== "OK") throw Object.assign(new Error(`KAY_SCOPE_${scope.status}`), { code: `KAY_SCOPE_${scope.status}` });
+  return employees(executor, undefined, scope.config.cutoffAt);
+}
+
 /** Aggregate-only diagnostic. No INSERT/UPDATE/DELETE is present in this path. */
 export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
   requireE23Scope(scope);

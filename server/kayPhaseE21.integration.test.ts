@@ -1,12 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "./db";
+import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
 import { runKayE21ReadonlyAudit } from "./kayAutoRescueAuditService";
 
 // This suite is deliberately opt-in: it creates and removes only marked
 // synthetic rows, never changes rescue settings, and never runs a worker.
 const enabled = process.env.KAY_E21_POSTGRES_TESTS === "true";
-const marker = `KAY_E21:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+assertSafeKayMutationTestDatabase("kayPhaseE21.integration");
+const marker = kaySyntheticMarker("KAY_E21_TEST");
 let ids: number[] = [];
 
 test("E.2.1 read-only snapshot paginates and cannot mutate", { skip: !enabled }, async () => {

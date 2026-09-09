@@ -1,8 +1,10 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { ensureKayTables, pool } from "./db";
+import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
 import {
   executeAutomaticRescue,
+  freezeE24NoExecution,
   setAssistedRescueTestHook,
   undoAssistedRescue,
 } from "./kayRescueService";
@@ -14,9 +16,11 @@ import {
   runKayAutoRescueWorker,
   setAutoRescueTestHook,
 } from "./kayAutoRescueService";
+import { activateE24Fadi } from "./kayPhaseE24Service";
 
-const enabled = process.env.KAY_E2_POSTGRES_TESTS === "true";
-const marker = `KAY_E2_TEST:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+assertSafeKayMutationTestDatabase("kayPhaseE2.integration");
+const enabled = process.env.KAY_E2_POSTGRES_TESTS === "true" && process.env.KAY_E2_ALLOW_SHARED_DB_MUTATIONS === "true";
+const marker = kaySyntheticMarker("KAY_E2_TEST");
 const leadIds: number[] = [];
 let adminId = 0;
 let ownerId = 0;
@@ -25,6 +29,9 @@ let otherId = 0;
 let priorMode: unknown;
 let priorRules: unknown;
 let priorLaunch: { value: unknown; updated_by: number | null } | null = null;
+let priorHealth: unknown;
+let priorLease: unknown;
+let priorE24State: Record<string, unknown> | null = null;
 
 const safeRules = {
   no_answer_1_threshold_hours: 1, no_answer_2_threshold_hours: 1,
@@ -32,7 +39,7 @@ const safeRules = {
   protected_review_after_days: 7, assisted_rescue_undo_minutes: 15,
   auto_rescue_no_answer_1_enabled: true, auto_rescue_no_answer_2_enabled: true,
   auto_rescue_kill_switch: false, auto_rescue_canary_enabled: true,
-  auto_rescue_canary_employee_ids: [] as number[], auto_rescue_daily_limit: 50,
+  auto_rescue_canary_employee_ids: [] as number[], auto_rescue_canary_daily_limit: 5, auto_rescue_daily_limit: 50,
   auto_rescue_per_employee_daily_limit: 50, rescue_grace_minutes: 30,
   rescue_grace_max_count: 1, auto_rescue_rule_version: "phase_e2_test_v1",
   rescue_enabled: false,
@@ -54,6 +61,9 @@ async function fixture(status: "no_answer_1" | "no_answer_2" = "no_answer_1", ag
   await pool.query(`DELETE FROM kay_lead_status_history WHERE lead_id=$1`, [leadId]);
   const entered = (await pool.query(`INSERT INTO kay_lead_status_history(lead_id,status,entered_at,event_key)
     VALUES($1,$2,NOW()-$3::interval,$4) RETURNING entered_at`, [leadId,status,age,`${marker}:window:${leadId}`])).rows[0].entered_at;
+  await pool.query(`UPDATE lead_assignment_history
+    SET assigned_at=$2::timestamptz-interval '1 minute'
+    WHERE lead_id=$1 AND to_user_id=$3`,[leadId,entered,ownerId]);
   const event = await pool.query(`INSERT INTO kay_events(lead_id,event_type,event_source,metadata,kay_generated,idempotency_key)
     VALUES($1,'shadow_rescue_evaluated','test',$2::jsonb,false,$3) RETURNING id`,
   [leadId,JSON.stringify({marker}),`${marker}:event:${leadId}`]);
@@ -67,9 +77,14 @@ async function fixture(status: "no_answer_1" | "no_answer_2" = "no_answer_1", ag
     ]);
   const queue = await pool.query(`INSERT INTO kay_auto_rescue_queue
     (lead_id,status,rule_status,status_window,rescue_attempt,rule_version,expected_owner_id,target_employee_id,
-     lease_token,lease_expires_at,fencing_token,next_run_at)
-    VALUES($1,'CLAIMED',$2,$3,0,'phase_e2_test_v1',$4,$5,$6,NOW()+interval '10 minutes',1,NOW()) RETURNING id`,
+     lease_token,lease_expires_at,fencing_token,next_run_at,warning_at)
+     VALUES($1,'CLAIMED',$2,$3,0,'phase_e2_test_v1',$4,$5,$6,NOW()+interval '10 minutes',1,NOW(),NOW()-interval '1 hour') RETURNING id`,
   [leadId,status,entered,ownerId,targetId,`${marker}:lease:${leadId}`]);
+  const warningMission=(await pool.query(`INSERT INTO kay_missions
+    (lead_id,employee_id,mission_type,priority,reason_code,objective,suggested_action,idempotency_key)
+    VALUES($1,$2,'RESCUE_RISK','HIGH','FINAL_RESCUE_WARNING','Synthetic final warning','Synthetic action',$3)
+    RETURNING id`,[leadId,ownerId,`${marker}:warning:${leadId}`])).rows[0];
+  await pool.query(`UPDATE kay_auto_rescue_queue SET warning_mission_id=$2 WHERE id=$1`,[queue.rows[0].id,warningMission.id]);
   await pool.query(`UPDATE kay_decisions SET payload=jsonb_set(payload,'{automaticQueueId}',$2::text::jsonb) WHERE id=$1`,
     [decision.rows[0].id,queue.rows[0].id]);
   const leaseToken = `${marker}:lease:${leadId}`;
@@ -111,6 +126,10 @@ before(async () => {
   priorMode=(await pool.query(`SELECT value FROM kay_settings WHERE key='mode'`)).rows[0]?.value;
   priorRules=(await pool.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`)).rows[0]?.value;
   priorLaunch=(await pool.query(`SELECT value,updated_by FROM kay_settings WHERE key='kay_operational_launch_at'`)).rows[0] ?? null;
+  priorHealth=(await pool.query(`SELECT value FROM kay_settings WHERE key='phase_e2_auto_rescue_health'`)).rows[0]?.value;
+  priorLease=(await pool.query(`SELECT value FROM kay_settings WHERE key='phase_e2_auto_rescue_lease'`)).rows[0]?.value;
+  priorE24State=(await pool.query(`SELECT * FROM phase_e24_first_canary_state WHERE id=1`)).rows[0] ?? null;
+  if (priorE24State) throw new Error("E.2 shared-database tests refuse to run after E.2.4 activation");
   await pool.query(`INSERT INTO kay_settings(key,value) VALUES('kay_operational_launch_at',$1::jsonb)
     ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`, [JSON.stringify("2026-09-09T00:00:00+04:00")]);
   const users=await pool.query(`INSERT INTO users(username,password,is_admin,role,is_active) VALUES
@@ -134,6 +153,10 @@ after(async () => {
       const p=[leadIds];
       await pool.query(`DELETE FROM kay_promise_handoffs WHERE lead_id=ANY($1::int[])`,p);
       await pool.query(`DELETE FROM kay_manager_reviews WHERE lead_id=ANY($1::int[])`,p);
+      await pool.query(`DELETE FROM kay_events
+        WHERE metadata->>'executionId' IN (
+          SELECT id::text FROM kay_rescue_executions WHERE lead_id=ANY($1::int[])
+        )`,p);
       await pool.query(`DELETE FROM kay_rescue_executions WHERE lead_id=ANY($1::int[])`,p);
       await pool.query(`DELETE FROM lead_assignment_history WHERE lead_id=ANY($1::int[])`,p);
       await pool.query(`DELETE FROM kay_internal_briefings WHERE lead_id=ANY($1::int[])`,p);
@@ -146,6 +169,10 @@ after(async () => {
       await pool.query(`DELETE FROM kay_lead_protection WHERE lead_id=ANY($1::int[])`,p);
       await pool.query(`DELETE FROM kay_decisions WHERE lead_id=ANY($1::int[])`,p);
       await pool.query(`DELETE FROM kay_events WHERE lead_id=ANY($1::int[])`,p);
+      await pool.query(`DELETE FROM kay_events
+        WHERE metadata->>'canaryPeriod' LIKE 'phase_e24_test:%'
+           OR (metadata->>'phase'='E.2.4' AND metadata->>'candidateLeadId'=ANY($1::text[]))`,
+        [leadIds.map(String)]);
       await pool.query(`DELETE FROM kay_lead_status_history WHERE lead_id=ANY($1::int[])`,p);
       await pool.query(`DELETE FROM crm_leads WHERE id=ANY($1::int[]) AND notes=$2`,[leadIds,marker]);
     }
@@ -161,14 +188,25 @@ after(async () => {
     assert.notEqual(priorRules, undefined);
     await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='mode'`, [JSON.stringify(priorMode)]);
     await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='rescue_rules'`, [JSON.stringify(priorRules)]);
+    if (priorHealth === undefined) await pool.query(`DELETE FROM kay_settings WHERE key='phase_e2_auto_rescue_health'`);
+    else await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='phase_e2_auto_rescue_health'`,[JSON.stringify(priorHealth)]);
+    if (priorLease === undefined) await pool.query(`DELETE FROM kay_settings WHERE key='phase_e2_auto_rescue_lease'`);
+    else await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='phase_e2_auto_rescue_lease'`,[JSON.stringify(priorLease)]);
+    const currentE24=(await pool.query(`SELECT * FROM phase_e24_first_canary_state WHERE id=1`)).rows[0]??null;
+    assert.deepEqual(currentE24,priorE24State,"E.2 tests must not mutate the production E.2.4 singleton");
     delete process.env.KAY_E2_TEST_HOOKS;
   }
 });
 
 test("E.2 PostgreSQL mutation suite requires its explicit synthetic-data gate", { skip:!enabled }, async () => {
   assert.equal(process.env.KAY_E2_POSTGRES_TESTS,"true");
+  assert.equal(process.env.KAY_E2_ALLOW_SHARED_DB_MUTATIONS,"true");
   assert.ok(adminId && ownerId && targetId && otherId);
   assert.equal(new Set([adminId,ownerId,targetId,otherId]).size,4);
+});
+
+test("E.2.4 activation requires explicit first-real-canary confirmation", async () => {
+  await assert.rejects(() => activateE24Fadi(0, false), (error:any) => error?.status === 400);
 });
 
 test("E.2 three independent gates, exact statuses, boundaries, and races fail closed", { skip:!enabled }, async () => {
@@ -250,8 +288,8 @@ test("E.2 rollback, attempt limit, ping-pong and dry-run zero-write invariants",
   await pool.query(`UPDATE kay_auto_rescue_queue SET rescue_attempt=2 WHERE id=$1`,[limit.queueId]);
   await expectCode(limit,"LIMIT_REACHED");
   const ping=await fixture();
-  await pool.query(`INSERT INTO lead_assignment_history(lead_id,from_user_id,to_user_id,reason,automatic,metadata)
-    VALUES($1,$2,$3,'crm_assignment',false,'{}')`,[ping.leadId,targetId,ownerId]);
+  await pool.query(`INSERT INTO lead_assignment_history(lead_id,from_user_id,to_user_id,reason,automatic,metadata,assigned_at)
+    VALUES($1,$2,$3,'crm_assignment',false,'{}',$4::timestamptz-interval '1 minute')`,[ping.leadId,targetId,ownerId,ping.entered]);
   await expectCode(ping,"PING_PONG_PREVENTED");
   const before=(await pool.query(`SELECT assigned_to,status FROM crm_leads WHERE id=$1`,[ping.leadId])).rows[0];
   const queueCount=Number((await pool.query(`SELECT count(*)::int n FROM kay_auto_rescue_queue`)).rows[0].n);
@@ -287,9 +325,9 @@ test("E.2 PostgreSQL concurrency fence, business limits, promise review, and uns
   await settings({auto_rescue_daily_limit:50,auto_rescue_per_employee_daily_limit:1});
   const employee=await fixture();
   await pool.query(`INSERT INTO lead_assignment_history(lead_id,from_user_id,to_user_id,reason,automatic,assigned_at,metadata)
-    VALUES($1,$2,$3,'kay_rescue_automatic',true,NOW(),'{}')`,[employee.leadId,ownerId,otherId]);
+    VALUES($1,$2,$3,'kay_rescue_automatic',true,NOW(),'{}')`,[employee.leadId,otherId,targetId]);
   await expectCode(employee,"EMPLOYEE_LIMIT_REACHED");
-  await pool.query(`DELETE FROM lead_assignment_history WHERE lead_id=$1 AND from_user_id=$2 AND to_user_id=$3 AND reason='kay_rescue_automatic'`,[employee.leadId,ownerId,otherId]);
+  await pool.query(`DELETE FROM lead_assignment_history WHERE lead_id=$1 AND from_user_id=$2 AND to_user_id=$3 AND reason='kay_rescue_automatic'`,[employee.leadId,otherId,targetId]);
 
   await settings();
   const promiseReview=await fixture();
@@ -303,6 +341,101 @@ test("E.2 PostgreSQL concurrency fence, business limits, promise review, and uns
     VALUES($1,$2,'new owner activity',NOW()+interval '1 day',$3)`,[unsafe.leadId,targetId,`${marker}:unsafe:${unsafe.leadId}`]);
   await assert.rejects(()=>undoAssistedRescue(execution.executionId,adminId,"unsafe"),(e:any)=>e?.code==="MANUAL_REVIEW_REQUIRED");
   assert.equal(Number((await pool.query(`SELECT assigned_to FROM crm_leads WHERE id=$1`,[unsafe.leadId])).rows[0].assigned_to),targetId);
+});
+
+test("E.2.4 first-real-canary caps one success and freezes atomically", { skip:!enabled }, async () => {
+  const version=`phase_e24_test:${Date.now()}`;
+  await settings({auto_rescue_canary_daily_limit:1,auto_rescue_rule_version:version});
+  const first=await fixture();
+  const done=await executeAutomaticRescue(first.command);
+  const second=await fixture();
+  await assert.rejects(()=>executeAutomaticRescue(second.command),(e:any)=>["CANARY_LIMIT_REACHED","AUTOMATION_GATE_CLOSED"].includes(e?.code));
+  const evidence=(await pool.query(`SELECT
+    (SELECT count(*)::int FROM kay_rescue_executions WHERE outcome='SUCCESS' AND metadata->>'canaryPeriod'=$1) successes,
+    (SELECT count(*)::int FROM lead_assignment_history WHERE lead_id=ANY($2::int[]) AND reason='kay_rescue_automatic') histories,
+    (SELECT count(*)::int FROM kay_missions WHERE lead_id=ANY($2::int[]) AND reason_code='RESCUE_LEAD_ASSIGNED') missions,
+    (SELECT count(*)::int FROM kay_internal_briefings WHERE lead_id=ANY($2::int[])) briefings,
+    (SELECT count(*)::int FROM user_notifications WHERE data->>'executionId'=$3) notices,
+    (SELECT count(*)::int FROM kay_events WHERE event_type='kay_rule_changed' AND metadata->>'change'='canary-frozen' AND metadata->>'canaryPeriod'=$1) freezes,
+    (SELECT (value->>'auto_rescue_kill_switch')::boolean FROM kay_settings WHERE key='rescue_rules') frozen`,
+  [version,[first.leadId,second.leadId],String(done.executionId)])).rows[0];
+  assert.deepEqual(evidence,{successes:1,histories:1,missions:1,briefings:2,notices:2,freezes:1,frozen:true});
+  assert.equal(Number((await pool.query(`SELECT assigned_to FROM crm_leads WHERE id=$1`,[first.leadId])).rows[0].assigned_to),targetId);
+  assert.equal(Number((await pool.query(`SELECT assigned_to FROM crm_leads WHERE id=$1`,[second.leadId])).rows[0].assigned_to),ownerId);
+});
+
+test("E.2.4 lifetime state cannot reset by business day or rule version", { skip:!enabled }, async () => {
+  assert.equal((await pool.query(`SELECT count(*)::int n FROM phase_e24_first_canary_state WHERE id=1`)).rows[0].n,0);
+  await settings({auto_rescue_rule_version:"phase_e24_first_fadi_canary"});
+  const first=await fixture();
+  try {
+    await pool.query(`INSERT INTO phase_e24_first_canary_state
+      (id,period,status,source_employee_id,candidate_lead_id,admin_id,successful_executions,source_owner_epoch,activated_at)
+      VALUES(1,'phase_e24_first_fadi_canary','ACTIVE',$1,$2,$3,0,
+        (SELECT kay_owner_epoch FROM crm_leads WHERE id=$2),NOW())`,
+      [ownerId,first.leadId,adminId]);
+    const done=await executeAutomaticRescue(first.command);
+    const state=(await pool.query(`SELECT status,successful_executions,execution_id FROM phase_e24_first_canary_state WHERE id=1`)).rows[0];
+    assert.deepEqual(state,{status:"FROZEN_SUCCESS",successful_executions:1,execution_id:done.executionId});
+
+    await settings({auto_rescue_rule_version:"phase_e2_after_day_boundary",auto_rescue_kill_switch:false});
+    const second=await fixture();
+    await assert.rejects(()=>executeAutomaticRescue(second.command),(e:any)=>e?.code==="CANARY_LIMIT_REACHED");
+    assert.equal(Number((await pool.query(`SELECT assigned_to FROM crm_leads WHERE id=$1`,[second.leadId])).rows[0].assigned_to),ownerId);
+  } finally {
+    await pool.query(`DELETE FROM phase_e24_first_canary_state WHERE id=1 AND admin_id=$1`,[adminId]);
+  }
+});
+
+test("E.2.4 immediate technical failure freezes despite warning wait", { skip:!enabled }, async () => {
+  await settings({auto_rescue_rule_version:"phase_e24_first_fadi_canary"});
+  const row=await fixture();
+  await pool.query(`UPDATE kay_auto_rescue_queue SET warning_at=NOW() WHERE id=$1`,[row.queueId]);
+  try {
+    await pool.query(`INSERT INTO phase_e24_first_canary_state
+      (id,period,status,source_employee_id,candidate_lead_id,admin_id,successful_executions,source_owner_epoch,activated_at)
+      VALUES(1,'phase_e24_first_fadi_canary','ACTIVE',$1,$2,$3,0,
+        (SELECT kay_owner_epoch FROM crm_leads WHERE id=$2),NOW())`,[ownerId,row.leadId,adminId]);
+    assert.equal(await freezeE24NoExecution("TEST_TECHNICAL_FAILURE",row.leadId,true),true);
+    assert.deepEqual((await pool.query(`SELECT status,freeze_reason FROM phase_e24_first_canary_state WHERE id=1`)).rows[0],
+      {status:"FROZEN_NO_EXECUTION",freeze_reason:"TEST_TECHNICAL_FAILURE"});
+    assert.equal((await pool.query(`SELECT (value->>'auto_rescue_kill_switch')::boolean frozen FROM kay_settings WHERE key='rescue_rules'`)).rows[0].frozen,true);
+  } finally {
+    await pool.query(`DELETE FROM phase_e24_first_canary_state WHERE id=1 AND admin_id=$1 AND candidate_lead_id=$2`,[adminId,row.leadId]);
+  }
+});
+
+test("E.2.4 final warning interval and target receiving limit fail closed", { skip:!enabled }, async () => {
+  await settings({auto_rescue_rule_version:`phase_e24_warning:${Date.now()}`});
+  const warning=await fixture();
+  await pool.query(`UPDATE kay_auto_rescue_queue SET warning_at=NOW() WHERE id=$1`,[warning.queueId]);
+  await expectCode(warning,"WARNING_GRACE_GATE");
+
+  await settings({auto_rescue_rule_version:`phase_e24_target:${Date.now()}`,auto_rescue_per_employee_daily_limit:1});
+  const receiving=await fixture();
+  await pool.query(`INSERT INTO lead_assignment_history(lead_id,from_user_id,to_user_id,reason,automatic,assigned_at,metadata)
+    VALUES($1,$2,$3,'kay_rescue_automatic',true,NOW(),'{}')`,[receiving.leadId,otherId,targetId]);
+  await expectCode(receiving,"EMPLOYEE_LIMIT_REACHED");
+});
+
+test("E.2.4 owner epoch rejects a round trip even when assignment observation is missing", { skip:!enabled }, async () => {
+  await settings({auto_rescue_rule_version:"phase_e24_first_fadi_canary"});
+  const roundTrip=await fixture();
+  try {
+    const before=Number((await pool.query(`SELECT kay_owner_epoch FROM crm_leads WHERE id=$1`,[roundTrip.leadId])).rows[0].kay_owner_epoch);
+    await pool.query(`INSERT INTO phase_e24_first_canary_state
+      (id,period,status,source_employee_id,candidate_lead_id,admin_id,successful_executions,source_owner_epoch,activated_at)
+      VALUES(1,'phase_e24_first_fadi_canary','ACTIVE',$1,$2,$3,0,$4,NOW())`,
+      [ownerId,roundTrip.leadId,adminId,before]);
+    await pool.query(`UPDATE crm_leads SET assigned_to=$2 WHERE id=$1`,[roundTrip.leadId,otherId]);
+    await pool.query(`UPDATE crm_leads SET assigned_to=$2 WHERE id=$1`,[roundTrip.leadId,ownerId]);
+    assert.equal(Number((await pool.query(`SELECT kay_owner_epoch FROM crm_leads WHERE id=$1`,[roundTrip.leadId])).rows[0].kay_owner_epoch),before+2);
+    await expectCode(roundTrip,"CANARY_LIMIT_REACHED");
+    assert.equal(Number((await pool.query(`SELECT count(*)::int n FROM lead_assignment_history
+      WHERE lead_id=$1 AND reason='kay_rescue_automatic'`,[roundTrip.leadId])).rows[0].n),0);
+  } finally {
+    await pool.query(`DELETE FROM phase_e24_first_canary_state WHERE id=1 AND admin_id=$1 AND candidate_lead_id=$2`,[adminId,roundTrip.leadId]);
+  }
 });
 
 test("E.2 worker warning is one-cycle, deduplicated, canary-scoped, and disabled gates write no queue", { skip:!enabled }, async () => {
@@ -399,6 +532,9 @@ test("E.2 worker completes WARNING to READY to one automatic transfer and create
   const warning=(await pool.query(`SELECT id,status FROM kay_auto_rescue_queue WHERE lead_id=$1`,[lifecycle.leadId])).rows[0];
   assert.ok(warning, JSON.stringify(first));
   assert.equal(warning.status,"WARNING");
+  await pool.query(`UPDATE kay_auto_rescue_queue
+    SET warning_at=NOW()-interval '31 minutes',next_run_at=NOW()
+    WHERE id=$1`,[warning.id]);
   await pool.query(`UPDATE kay_settings SET value='{"released":true}'::jsonb WHERE key='phase_e2_auto_rescue_lease'`);
   const second=await runKayAutoRescueWorker(100);
   assert.equal(second.executed,1);

@@ -1,5 +1,7 @@
 import { pool } from "./db";
 import { getKayStatusIntelligence, isKayRescueEvaluatedStatus } from "./kayStatusClassification";
+import { getKayScopeForLead } from "./kayLeadScopeService";
+import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const openPromise = ["PENDING", "DUE_SOON", "OVERDUE", "OPEN"];
@@ -37,7 +39,11 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (executionMode === "automatic") {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
+    }
     let automaticQueue: any = null;
+    let e24State: any = null;
     // Automatic callers must prove that the exact durable work item is still
     // theirs *inside the same transaction* that changes CRM ownership.  A
     // stale worker can therefore never write after its lease was fenced.
@@ -64,15 +70,26 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
       FROM crm_leads l LEFT JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
       LEFT JOIN kay_lead_protection p ON p.lead_id=l.id AND p.removed_at IS NULL WHERE l.id=$1 FOR UPDATE OF l`, [command.leadId]);
     const lead: any = leadResult.rows[0]; if (!lead) throw reject("LEAD_MISSING");
-    if (automaticQueue && (automaticQueue.rule_status !== lead.status ||
-      new Date(automaticQueue.status_window).getTime() !== new Date(lead.entered_at).getTime())) throw reject("FENCE_LOST");
-    // The lead row lock serializes confirms. A browser retry observes the
-    // immutable winner and is idempotent rather than attempting a second move.
+    // The lead row lock serializes confirms. A retry after a committed winner
+    // returns that immutable result before re-evaluating now-stale eligibility.
     const prior = await client.query(`SELECT id,from_user_id,to_user_id,created_at FROM kay_rescue_executions WHERE decision_id=$1 AND outcome='SUCCESS' LIMIT 1`, [command.decisionId]);
     if (prior.rows[0]) {
       await client.query("COMMIT");
       return { executionId: Number(prior.rows[0].id), leadId: command.leadId, fromUserId: prior.rows[0].from_user_id, toUserId: prior.rows[0].to_user_id, idempotent: true };
     }
+    if (executionMode === "automatic") {
+      const scope = await getKayScopeForLead(client, Number(command.leadId));
+      if (scope.outcome !== "IN_KAY_SCOPE") throw reject(`KAY_SCOPE_${scope.outcome}`);
+      const trustedWindow = await resolveKayStatusWindow(client, Number(command.leadId), lead.status);
+      if (!trustedWindow || trustedWindow.source !== "STATUS_TRANSITION" ||
+        new Date(trustedWindow.enteredAt).getTime() !== new Date(lead.entered_at).getTime()) {
+        throw reject("UNTRUSTED_STATUS_WINDOW");
+      }
+      const source = (await client.query(`SELECT role,is_active,is_admin FROM users WHERE id=$1 FOR UPDATE`,[lead.assigned_to])).rows[0];
+      if (!source || source.role !== "sub_agent" || source.is_active !== true || source.is_admin === true) throw reject("SOURCE_UNAVAILABLE");
+    }
+    if (automaticQueue && (automaticQueue.rule_status !== lead.status ||
+      new Date(automaticQueue.status_window).getTime() !== new Date(lead.entered_at).getTime())) throw reject("FENCE_LOST");
     const decisionResult = await client.query(`SELECT d.*, e.event_type FROM kay_decisions d JOIN kay_events e ON e.id=d.event_id WHERE d.id=$1 AND d.lead_id=$2 FOR UPDATE`, [command.decisionId, command.leadId]);
     const decision: any = decisionResult.rows[0]; const payload: any = decision?.payload || {};
     const mode = (await client.query(`SELECT value->>'mode' mode FROM kay_settings WHERE key='mode' FOR UPDATE`)).rows[0]?.mode;
@@ -82,7 +99,7 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
     if (executionMode === "automatic") {
       const rules: any = (await client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules' FOR UPDATE`)).rows[0]?.value || {};
       const enabled = lead.status === "no_answer_1" ? rules.auto_rescue_no_answer_1_enabled : lead.status === "no_answer_2" ? rules.auto_rescue_no_answer_2_enabled : false;
-      if (!enabled || rules.auto_rescue_kill_switch !== false) throw reject("AUTOMATION_GATE_CLOSED");
+      if (!enabled) throw reject("AUTOMATION_GATE_CLOSED");
       const canary: number[] = Array.isArray(rules.auto_rescue_canary_employee_ids) ? rules.auto_rescue_canary_employee_ids.map(Number) : [];
       if (rules.auto_rescue_canary_enabled !== true || !canary.includes(Number(lead.assigned_to))) throw reject("CANARY_DENIED");
       if (!["no_answer_1", "no_answer_2"].includes(lead.status)) throw reject("RULE_STATUS_NOT_ALLOWED");
@@ -97,10 +114,33 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
       // is explicitly Asia/Tbilisi rather than server-local time.
       const businessDate = (await client.query(`SELECT to_char(NOW() AT TIME ZONE 'Asia/Tbilisi','YYYY-MM-DD') AS business_date`)).rows[0].business_date;
       await client.query(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, [`kay-auto-limit:${businessDate}`]);
+      const lifetimeState = (await client.query(`SELECT * FROM phase_e24_first_canary_state WHERE id=1 FOR UPDATE`)).rows[0];
+      if (lifetimeState && ["FROZEN_SUCCESS","SUCCESS","FROZEN_NO_EXECUTION"].includes(lifetimeState.status)) throw reject("CANARY_LIMIT_REACHED");
+      if (lifetimeState?.status === "ACTIVE") {
+        e24State = lifetimeState;
+        if (!e24State || e24State.status !== "ACTIVE" || Number(e24State.successful_executions) !== 0 ||
+          Number(e24State.source_employee_id) !== Number(lead.assigned_to) ||
+          Number(e24State.candidate_lead_id) !== Number(command.leadId) ||
+          e24State.source_owner_epoch == null ||
+          Number(e24State.source_owner_epoch) !== Number(lead.kay_owner_epoch)) throw reject("CANARY_LIMIT_REACHED");
+      }
+      if (String(rules.auto_rescue_rule_version) === "phase_e24_first_fadi_canary" && !lifetimeState) throw reject("CANARY_LIMIT_REACHED");
+      if (!automaticQueue.warning_at || !automaticQueue.warning_mission_id ||
+        new Date(automaticQueue.warning_at).getTime() + Number(rules.rescue_warning_minutes ?? 30) * 60000 > now.getTime() ||
+        (automaticQueue.grace_until && new Date(automaticQueue.grace_until).getTime() > now.getTime())) {
+        throw reject("WARNING_GRACE_GATE");
+      }
+      const canaryPeriod = String(rules.auto_rescue_rule_version || "phase_e2_v1");
+      const canaryUsage = await client.query(`SELECT count(*)::int total
+        FROM kay_rescue_executions
+        WHERE outcome='SUCCESS' AND metadata->>'executionMode'='automatic'
+          AND metadata->>'canaryPeriod'=$1 AND metadata->>'businessDate'=$2`, [canaryPeriod, businessDate]);
+      if (Number(canaryUsage.rows[0]?.total || 0) >= Number(rules.auto_rescue_canary_daily_limit ?? 1)) throw reject("CANARY_LIMIT_REACHED");
+      if (rules.auto_rescue_kill_switch !== false) throw reject("AUTOMATION_GATE_CLOSED");
       const usage = await client.query(`SELECT
         count(*) FILTER (WHERE ((assigned_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Tbilisi')::date=$1::date)::int total,
-        count(*) FILTER (WHERE from_user_id=$2 AND ((assigned_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Tbilisi')::date=$1::date)::int owner_total
-        FROM lead_assignment_history WHERE reason='kay_rescue_automatic'`, [businessDate, lead.assigned_to]);
+        count(*) FILTER (WHERE to_user_id=$2 AND ((assigned_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Tbilisi')::date=$1::date)::int owner_total
+        FROM lead_assignment_history WHERE reason='kay_rescue_automatic'`, [businessDate, Number(command.targetEmployeeId ?? payload.recommended_employee_id)]);
       if (Number(usage.rows[0].total) >= Number(rules.auto_rescue_daily_limit)) throw reject("DAILY_LIMIT_REACHED");
       if (Number(usage.rows[0].owner_total) >= Number(rules.auto_rescue_per_employee_daily_limit)) throw reject("EMPLOYEE_LIMIT_REACHED");
     }
@@ -118,22 +158,41 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
     const targetId = command.targetEmployeeId ?? Number(payload.recommended_employee_id);
     const isOverride = targetId !== Number(payload.recommended_employee_id);
     if (isOverride && (!overrideReasons.includes(command.overrideReason || "") || (command.overrideReason === "OTHER" && !command.overrideNote?.trim()))) throw reject("OVERRIDE_REASON_REQUIRED");
-    const target = await client.query(`SELECT u.id,u.role,u.is_active,COALESCE(a.value->>'availability','AVAILABLE') availability FROM users u
+    const target = await client.query(`SELECT u.id,u.role,u.is_active,u.is_admin,COALESCE(a.value->>'availability','AVAILABLE') availability FROM users u
       LEFT JOIN kay_settings a ON a.key='phase_c_availability:'||u.id::text WHERE u.id=$1 AND u.role='sub_agent' FOR UPDATE OF u`, [targetId]);
-    if (!target.rows[0] || targetId === lead.assigned_to || target.rows[0].role !== "sub_agent" || target.rows[0].is_active !== true || target.rows[0].availability !== "AVAILABLE") throw reject("TARGET_UNAVAILABLE");
+    if (!target.rows[0] || targetId === lead.assigned_to || target.rows[0].role !== "sub_agent" || target.rows[0].is_active !== true || target.rows[0].is_admin === true || target.rows[0].availability !== "AVAILABLE") throw reject("TARGET_UNAVAILABLE");
     if (executionMode === "automatic" && (await client.query(`SELECT 1 FROM lead_assignment_history WHERE lead_id=$1 AND from_user_id=$2 AND to_user_id=$3 AND assigned_at>NOW()-interval '30 days' LIMIT 1`, [command.leadId, targetId, lead.assigned_to])).rows[0]) throw reject("PING_PONG_PREVENTED");
     const txid = (await client.query("SELECT txid_current()::text id")).rows[0].id;
     const updated = await client.query(`UPDATE crm_leads SET assigned_to=$1,updated_at=NOW() WHERE id=$2 AND assigned_to=$3 RETURNING id`, [targetId, command.leadId, command.expectedOwnerId]);
     if (!updated.rows[0]) throw reject("OWNER_CHANGED");
     await rescueTestHook?.("after_owner_update");
     const eventType = executionMode === "automatic" ? "automatic_rescue_executed" : "assisted_rescue_executed";
+    const businessDate = executionMode === "automatic"
+      ? (await client.query(`SELECT to_char(NOW() AT TIME ZONE 'Asia/Tbilisi','YYYY-MM-DD') business_date`)).rows[0].business_date
+      : null;
+    const canaryPeriod = executionMode === "automatic" ? String((await client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`)).rows[0]?.value?.auto_rescue_rule_version || "phase_e2_v1") : null;
+    const artifactMetadata = { decisionId: command.decisionId, transactionId: txid, executionMode, ...(executionMode === "automatic" ? { canary: true, canaryPeriod, businessDate } : {}) };
     const event = await client.query(`INSERT INTO kay_events(lead_id,user_id,employee_id,event_type,event_source,metadata,kay_generated) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7) RETURNING id`,
-      [command.leadId, actorId, targetId, eventType, executionMode === "automatic" ? "kay" : "admin", JSON.stringify({ decisionId: command.decisionId, transactionId: txid, executionMode }), executionMode === "automatic"]);
+      [command.leadId, actorId, targetId, eventType, executionMode === "automatic" ? "kay" : "admin", JSON.stringify(artifactMetadata), executionMode === "automatic"]);
     await rescueTestHook?.("after_audit_event");
     const execution = await client.query(`INSERT INTO kay_rescue_executions(lead_id,decision_id,from_user_id,to_user_id,approved_by,outcome,transaction_id,metadata) VALUES($1,$2,$3,$4,$5,'SUCCESS',$6,$7::jsonb) RETURNING id`,
-      [command.leadId, command.decisionId, lead.assigned_to, targetId, actorId, txid, JSON.stringify({ override: isOverride, overrideReason: command.overrideReason || null, overrideNote: command.overrideNote || null, eventId: event.rows[0].id, executionMode, automaticQueueId: automaticQueue?.id ?? null })]);
+      [command.leadId, command.decisionId, lead.assigned_to, targetId, actorId, txid, JSON.stringify({ override: isOverride, overrideReason: command.overrideReason || null, overrideNote: command.overrideNote || null, eventId: event.rows[0].id, executionMode, automaticQueueId: automaticQueue?.id ?? null, ...(executionMode === "automatic" ? { canary: true, canaryPeriod, businessDate } : {}) })]);
     await client.query(`INSERT INTO lead_assignment_history(lead_id,from_user_id,to_user_id,reason,automatic,kay_decision_id,metadata) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)`,
-      [command.leadId, lead.assigned_to, targetId, executionMode === "automatic" ? "kay_rescue_automatic" : "kay_rescue", executionMode === "automatic", command.decisionId, JSON.stringify({ mode: executionMode, rescueReason: executionMode === "automatic" ? "kay_rescue_automatic" : "kay_rescue_assisted", adminId: actorId, decisionId: command.decisionId, automaticQueueId: automaticQueue?.id ?? null, statusWindow: payload.status_entered_at, thresholdMinutes: threshold, transactionId: txid })]);
+      [command.leadId, lead.assigned_to, targetId, executionMode === "automatic" ? "kay_rescue_automatic" : "kay_rescue", executionMode === "automatic", command.decisionId, JSON.stringify({ mode: executionMode, rescueReason: executionMode === "automatic" ? "kay_rescue_automatic" : "kay_rescue_assisted", adminId: actorId, decisionId: command.decisionId, automaticQueueId: automaticQueue?.id ?? null, statusWindow: payload.status_entered_at, thresholdMinutes: threshold, transactionId: txid, ...(executionMode === "automatic" ? { canary: true, canaryPeriod, businessDate } : {}) })]);
+    if (executionMode === "automatic") {
+      const currentRules: any = (await client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`)).rows[0]?.value || {};
+      const frozenRules = { ...currentRules, auto_rescue_kill_switch: true };
+      await client.query(`UPDATE kay_settings SET value=jsonb_set(value,'{auto_rescue_kill_switch}','true'::jsonb),updated_at=NOW() WHERE key='rescue_rules'`);
+      await client.query(`INSERT INTO kay_events(event_type,event_source,metadata,previous_value,new_value,kay_generated)
+        VALUES('kay_rule_changed','kay',$1::jsonb,$2::jsonb,$3::jsonb,true)`,
+        [JSON.stringify({ setting:"rescue_rules", change:"canary-frozen", canaryPeriod, businessDate, executionId: execution.rows[0].id, actorAdminId:null }),
+         JSON.stringify(currentRules), JSON.stringify(frozenRules)]);
+      if (e24State) {
+        await client.query(`UPDATE phase_e24_first_canary_state SET successful_executions=1,status='FROZEN_SUCCESS',
+          execution_id=$2,frozen_at=NOW() WHERE id=$1 AND status='ACTIVE' AND successful_executions=0`,
+          [e24State.id, execution.rows[0].id]);
+      }
+    }
     await client.query(`UPDATE kay_missions SET status='STALE',updated_at=NOW(),result_details=COALESCE(result_details,'{}'::jsonb)||'{"stale_reason":"LEAD_REASSIGNED"}'::jsonb WHERE lead_id=$1 AND employee_id=$2 AND status=ANY($3)`, [command.leadId, lead.assigned_to, activeMission]);
     await client.query(`UPDATE kay_commitments SET status='STALE',stale_at=NOW(),updated_at=NOW(),details=details||'{"stale_reason":"LEAD_REASSIGNED"}'::jsonb WHERE lead_id=$1 AND employee_id=$2 AND status=ANY($3)`, [command.leadId, lead.assigned_to, openCommitment]);
     const promises = await client.query(`SELECT id,employee_id FROM kay_promises WHERE lead_id=$1 AND status=ANY($2) FOR UPDATE`, [command.leadId, openPromise]);
@@ -143,11 +202,12 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
     const safeName = String(lead.first_name || lead.full_name || `Lead #${lead.id}`).slice(0,80);
     await client.query(`INSERT INTO kay_internal_briefings(employee_id,lead_id,mission_id,trigger_type,severity,text,idempotency_key) VALUES($1,$2,$3,'RESCUE_LEAD_ASSIGNED','HIGH',$4,$5),($6,$2,NULL,'RESCUE_LEAD_MOVED','NORMAL',$7,$8) ON CONFLICT(idempotency_key) DO NOTHING`,
       [targetId, command.leadId, mission.rows[0]?.id ?? null, `You have received ${safeName} as a Rescue Lead. Please review the Lead and decide the next contact action.`, `assisted-rescue:${execution.rows[0].id}:new-brief`, lead.assigned_to, `${safeName} has moved to Rescue handling so the team can continue trying to reach the customer.`, `assisted-rescue:${execution.rows[0].id}:old-brief`]);
-    await client.query(`INSERT INTO user_notifications(user_id,type,title,message,data) VALUES
-      ($1,'kay_rescue','Kay Rescue Lead Assigned',$2,$3::jsonb),
-      ($4,'kay_rescue','Kay Rescue Update',$5,$6::jsonb)`,
-      [targetId, `You have received ${safeName} as a Rescue Lead.`, JSON.stringify({ leadId: command.leadId, executionId: execution.rows[0].id, priority:"HIGH" }),
-       lead.assigned_to, `${safeName} moved to Rescue handling so the team can continue trying to reach the customer.`, JSON.stringify({ leadId: command.leadId, executionId: execution.rows[0].id, priority:"NORMAL" })]);
+    await client.query(`INSERT INTO user_notifications(user_id,type,title,message,data,idempotency_key) VALUES
+      ($1,'kay_rescue','Kay Rescue Lead Assigned',$2,$3::jsonb,$4),
+      ($5,'kay_rescue','Kay Rescue Update',$6,$7::jsonb,$8)
+      ON CONFLICT(idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
+      [targetId, `You have received ${safeName} as a Rescue Lead.`, JSON.stringify({ leadId: command.leadId, executionId: execution.rows[0].id, priority:"HIGH" }), `kay-rescue:${execution.rows[0].id}:target`,
+       lead.assigned_to, `${safeName} moved to Rescue handling so the team can continue trying to reach the customer.`, JSON.stringify({ leadId: command.leadId, executionId: execution.rows[0].id, priority:"NORMAL" }), `kay-rescue:${execution.rows[0].id}:source`]);
     await client.query("COMMIT"); return { executionId: Number(execution.rows[0].id), leadId: command.leadId, fromUserId: lead.assigned_to, toUserId: targetId, undoUntil: new Date(now.getTime() + Number(payload.settings_snapshot?.assisted_rescue_undo_minutes ?? 15) * 60000).toISOString() };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -167,6 +227,34 @@ export async function executeAssistedRescue(command: RescueCommand, adminId: num
 /** E.2 worker wrapper. Automatic gates are revalidated by the common core. */
 export async function executeAutomaticRescue(command: AutomaticRescueCommand) {
   return executeRescueTransaction(command, null, "automatic");
+}
+
+/** Permanently freezes an E.2.4 canary which cannot safely execute. */
+export async function freezeE24NoExecution(reason: string, candidateLeadId?: number, immediate = false) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
+    const state: any = (await client.query(`SELECT * FROM phase_e24_first_canary_state WHERE id=1 FOR UPDATE`)).rows[0];
+    if (!state || state.status !== "ACTIVE" || (candidateLeadId != null && Number(state.candidate_lead_id) !== Number(candidateLeadId))) {
+      await client.query("COMMIT"); return false;
+    }
+    const guardedLeadId = candidateLeadId ?? Number(state.candidate_lead_id);
+    const q: any = (await client.query(`SELECT id FROM kay_auto_rescue_queue
+      WHERE lead_id=$1 AND status IN ('PENDING','WARNING','READY','CLAIMED')
+      ORDER BY id DESC LIMIT 1 FOR UPDATE`, [guardedLeadId])).rows[0];
+    // An actionable queue item is not evidence of "no safe execution", even
+    // when its warning boundary passes during this scheduler cycle.
+    if (q && !immediate) { await client.query("COMMIT"); return false; }
+    await client.query(`UPDATE phase_e24_first_canary_state SET status='FROZEN_NO_EXECUTION',freeze_reason=$1,frozen_at=NOW() WHERE id=1`, [reason]);
+    const oldRules: any = (await client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules' FOR UPDATE`)).rows[0]?.value || {};
+    const next = { ...oldRules, auto_rescue_kill_switch: true };
+    await client.query(`UPDATE kay_settings SET value=jsonb_set(value,'{auto_rescue_kill_switch}','true'::jsonb),updated_at=NOW() WHERE key='rescue_rules'`);
+    await client.query(`INSERT INTO kay_events(event_type,event_source,metadata,previous_value,new_value,kay_generated)
+      VALUES('kay_rule_changed','kay',$1::jsonb,$2::jsonb,$3::jsonb,true)`,
+      [JSON.stringify({phase:"E.2.4",change:"canary-frozen-no-execution",reason,candidateLeadId:guardedLeadId}),JSON.stringify(oldRules),JSON.stringify(next)]);
+    await client.query("COMMIT"); return true;
+  } catch (e) { await client.query("ROLLBACK").catch(()=>{}); throw e; } finally { client.release(); }
 }
 
 /** Explicit reversal command; it is deliberately not callable by any scheduler. */

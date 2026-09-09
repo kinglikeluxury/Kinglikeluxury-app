@@ -1,6 +1,8 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "./db";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
+assertSafeKayMutationTestDatabase("kayPhaseB.integration");
 import { claimKayEvaluationQueue, recordImmutableRescueEvaluation } from "./kayService";
 
 after(async () => {

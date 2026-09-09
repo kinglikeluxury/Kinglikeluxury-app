@@ -47,6 +47,7 @@ import { applyAutoRescueLastChance, getAutoRescueHealth, getAutoRescueReadiness,
 import { requireKayAdmin } from "./kayAuth";
 import { getLegacyBaselineReadiness, getLegacyCapacitySensitivity, getLegacyLeadAgeBuckets, getLegacyOwnerDiagnostics, initializeLegacyBaselines, previewLegacyBaselineInitialization } from "./kayLegacyBaselineService";
 import { getKayPhaseE23Diagnostics } from "./kayPhaseE23Service";
+import { activateE24Fadi, getE24FadiPrecheck } from "./kayPhaseE24Service";
 import { getKayOperationalScopeAdminView, getKayScopeConfiguration, getKayScopeForLead, setKayOperationalLaunchAt } from "./kayLeadScopeService";
 import { randomUUID } from "crypto";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
@@ -513,12 +514,26 @@ ${metaTags}
   app.put("/api/admin/kay/settings/mode", requireKayAdmin, async (req: any, res) => {
     const validation = validateKayModeUpdate(req.body);
     if (!validation.ok) return res.status(400).json({ message: validation.message });
+    const client = await pool.connect();
     try {
-      await setKayMode(validation.mode, req.session.userId);
+      await client.query("BEGIN");
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
+      const state = (await client.query(`SELECT status FROM phase_e24_first_canary_state WHERE id=1 FOR UPDATE`)).rows[0];
+      const current = (await client.query(`SELECT value FROM kay_settings WHERE key='mode' FOR UPDATE`)).rows[0]?.value || {mode:"shadow"};
+      if (validation.mode === "controlled_automation" || (state && validation.mode !== "shadow")) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "Generic mode changes cannot open E.2.4 automation.", state:state?.status||null });
+      }
+      await client.query(`UPDATE kay_settings SET value=$1::jsonb,updated_by=$2,updated_at=NOW() WHERE key='mode'`,[JSON.stringify({mode:validation.mode}),req.session.userId]);
+      await client.query(`INSERT INTO kay_events(user_id,event_type,event_source,previous_value,new_value,metadata,kay_generated)
+        VALUES($1,'kay_rule_changed','admin',$2::jsonb,$3::jsonb,'{"setting":"mode"}'::jsonb,false)`,
+        [req.session.userId,JSON.stringify(current),JSON.stringify({mode:validation.mode})]);
+      await client.query("COMMIT");
       res.json({ mode: validation.mode });
     } catch (_err) {
+      await client.query("ROLLBACK").catch(()=>{});
       res.status(500).json({ message: "Unable to update Kay mode." });
-    }
+    } finally { client.release(); }
   });
 
   // Phase B is an admin-only, bounded shadow configuration. There is no rescue
@@ -529,38 +544,45 @@ ${metaTags}
   app.put("/api/admin/kay/settings/rescue", requireKayAdmin, async (req: any, res) => {
     const parsed = rescueSettingsSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid shadow rescue settings." });
+    const client = await pool.connect();
     try {
+      await client.query("BEGIN");
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
+      const state = (await client.query(`SELECT status FROM phase_e24_first_canary_state WHERE id=1 FOR UPDATE`)).rows[0];
+      const current = (await client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules' FOR UPDATE`)).rows[0]?.value || {};
+      const exact = (await client.query(`SELECT $1::jsonb=$2::jsonb same`,[JSON.stringify(parsed.data),JSON.stringify(current)])).rows[0]?.same === true;
+      const saferOnly = current.auto_rescue_kill_switch === false && parsed.data.auto_rescue_kill_switch === true &&
+        Object.entries(parsed.data).every(([k,v]) => k === "auto_rescue_kill_switch" || JSON.stringify(current[k]) === JSON.stringify(v));
+      if (state && !exact && !saferOnly) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "E.2.4 canary state is immutable; only enabling the kill switch is allowed." });
+      }
       if (parsed.data.auto_rescue_canary_employee_ids.length) {
-        const valid = await pool.query(`SELECT count(*)::int n FROM users
+        const valid = await client.query(`SELECT count(*)::int n FROM users
           WHERE id=ANY($1::int[]) AND role='sub_agent'`, [parsed.data.auto_rescue_canary_employee_ids]);
         if (Number(valid.rows[0]?.n) !== new Set(parsed.data.auto_rescue_canary_employee_ids).size) {
+          await client.query("ROLLBACK");
           return res.status(400).json({ message: "Canary list contains an invalid sales employee." });
         }
       }
-      await db.transaction(async tx => {
-        await tx.insert(kaySettings).values({ key: "rescue_rules", value: {
-          no_answer_1_threshold_hours: 24, no_answer_2_threshold_hours: 24,
-          max_human_rescue_attempts: 2, rescue_warning_minutes: 30,
-          protected_review_after_days: 7, assisted_rescue_undo_minutes: 15,
-          auto_rescue_no_answer_1_enabled: false, auto_rescue_no_answer_2_enabled: false,
-          auto_rescue_kill_switch: true, auto_rescue_canary_enabled: true,
-          auto_rescue_canary_employee_ids: [], auto_rescue_daily_limit: 5,
-          auto_rescue_per_employee_daily_limit: 3, rescue_grace_minutes: 30,
-          rescue_grace_max_count: 1, auto_rescue_rule_version: "phase_e2_v1",
-          rescue_enabled: false,
-        }, updatedBy: null }).onConflictDoNothing();
-        const [current] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).for("update").limit(1);
-        const before = rescueSettingsSchema.safeParse(current?.value).data ?? null;
-        await tx.insert(kaySettings).values({ key: "rescue_rules", value: parsed.data, updatedBy: req.session.userId, updatedAt: new Date() })
-          .onConflictDoUpdate({ target: kaySettings.key, set: { value: parsed.data, updatedBy: req.session.userId, updatedAt: new Date() } });
-        await tx.insert(kayEvents).values({ userId: req.session.userId, eventType: "kay_rule_changed", eventSource: "admin",
-          previousValue: before, newValue: parsed.data, metadata: { setting: "rescue_rules", phase: "B", shadow: true }, kayGenerated: false });
-      });
+      await client.query(`UPDATE kay_settings SET value=$1::jsonb,updated_by=$2,updated_at=NOW() WHERE key='rescue_rules'`,[JSON.stringify(parsed.data),req.session.userId]);
+      await client.query(`INSERT INTO kay_events(user_id,event_type,event_source,previous_value,new_value,metadata,kay_generated)
+        VALUES($1,'kay_rule_changed','admin',$2::jsonb,$3::jsonb,'{"setting":"rescue_rules","phase":"B"}'::jsonb,false)`,
+        [req.session.userId,JSON.stringify(current),JSON.stringify(parsed.data)]);
+      await client.query("COMMIT");
       res.json(parsed.data);
-    } catch { res.status(500).json({ message: "Unable to update rescue settings." }); }
+    } catch { await client.query("ROLLBACK").catch(()=>{}); res.status(500).json({ message: "Unable to update rescue settings." }); }
+    finally { client.release(); }
   });
   app.get("/api/admin/kay/auto-rescue/health", requireKayAdmin, async (_req, res) => {
     res.json(await getAutoRescueHealth());
+  });
+  app.get("/api/admin/kay/e2.4/fadi/precheck", requireKayAdmin, async (_req, res) => {
+    res.json(await getE24FadiPrecheck());
+  });
+  app.post("/api/admin/kay/e2.4/fadi/activate", requireKayAdmin, async (req: any, res) => {
+    try { res.json(await activateE24Fadi(Number(req.session.userId), req.body?.confirmFirstRealCanary === true)); }
+    catch (e: any) { res.status(e?.status || 409).json({ message: e?.message || "E.2.4 activation refused", details: e?.details }); }
   });
   app.get("/api/admin/kay/auto-rescue/readiness", requireKayAdmin, async (req, res) => {
     res.json(await getAutoRescueReadiness(Number(req.query.limit) || 500));

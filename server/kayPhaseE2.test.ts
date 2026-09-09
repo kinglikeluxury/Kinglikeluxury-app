@@ -1,13 +1,15 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { ensureKayTables, pool } from "./db";
+import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
 import { getRescueSettings, rescueSettingsSchema, validateKayModeUpdate } from "./kayService";
 import { getAutoRescueReadiness, runKayAutoRescueWorker } from "./kayAutoRescueService";
 
 // This suite intentionally uses PostgreSQL only when a maintainer explicitly
 // opts in. It never creates data on an ordinary developer/production run.
 const enabled = process.env.KAY_E2_POSTGRES_TESTS === "true";
-const marker = `KAY_E2_TEST:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+if (enabled) assertSafeKayMutationTestDatabase("kayPhaseE2.test");
+const marker = enabled ? kaySyntheticMarker("KAY_E2_TEST") : "KAY_E2_TEST:disabled";
 let priorMode: any; let priorRules: any; const ids: number[] = [];
 
 before(async () => {

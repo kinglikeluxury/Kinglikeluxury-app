@@ -155,6 +155,19 @@ export async function ensureKayTables(): Promise<void> {
       CREATE INDEX IF NOT EXISTS crm_leads_business_received_at_idx ON crm_leads(business_received_at);
       CREATE INDEX IF NOT EXISTS crm_leads_scope_owner_status_created_idx ON crm_leads(assigned_to,status,created_at);
       CREATE INDEX IF NOT EXISTS crm_leads_scope_owner_business_received_idx ON crm_leads(assigned_to,business_received_at);
+      ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS kay_owner_epoch BIGINT NOT NULL DEFAULT 0;
+      CREATE OR REPLACE FUNCTION kay_bump_owner_epoch() RETURNS trigger AS $$
+      BEGIN
+        IF TG_OP = 'UPDATE' AND NEW.assigned_to IS DISTINCT FROM OLD.assigned_to THEN
+          NEW.kay_owner_epoch := COALESCE(OLD.kay_owner_epoch,0) + 1;
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+      DROP TRIGGER IF EXISTS kay_crm_lead_owner_epoch_trigger ON crm_leads;
+      CREATE TRIGGER kay_crm_lead_owner_epoch_trigger
+        BEFORE UPDATE OF assigned_to ON crm_leads
+        FOR EACH ROW EXECUTE FUNCTION kay_bump_owner_epoch();
       CREATE TABLE IF NOT EXISTS kay_events (
         id SERIAL PRIMARY KEY, idempotency_key TEXT,
         lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
@@ -176,6 +189,17 @@ export async function ensureKayTables(): Promise<void> {
         updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS phase_e24_first_canary_state (
+        id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id=1), period TEXT NOT NULL,
+        status TEXT NOT NULL, source_employee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        candidate_lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+        admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        successful_executions INTEGER NOT NULL DEFAULT 0,
+        source_owner_epoch BIGINT,
+        activated_at TIMESTAMPTZ, execution_id INTEGER, frozen_at TIMESTAMPTZ,
+        freeze_reason TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE phase_e24_first_canary_state ADD COLUMN IF NOT EXISTS source_owner_epoch BIGINT;
       CREATE TABLE IF NOT EXISTS kay_operational_launch_audit (
         id SERIAL PRIMARY KEY,
         actor_admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -220,6 +244,17 @@ export async function ensureKayTables(): Promise<void> {
          protected_at TIMESTAMP NOT NULL DEFAULT NOW(), removed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
          removed_at TIMESTAMP
        );
+        CREATE OR REPLACE FUNCTION kay_serialize_crm_task_mutation() RETURNS trigger AS $$
+        BEGIN
+          PERFORM pg_advisory_xact_lock(hashtext('kay:e24-control'));
+          IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        DROP TRIGGER IF EXISTS kay_crm_task_e24_control_trigger ON crm_tasks;
+        CREATE TRIGGER kay_crm_task_e24_control_trigger
+          BEFORE INSERT OR UPDATE OR DELETE ON crm_tasks
+          FOR EACH ROW EXECUTE FUNCTION kay_serialize_crm_task_mutation();
        CREATE TABLE IF NOT EXISTS lead_assignment_history (
          id SERIAL PRIMARY KEY, lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
          from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, to_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -352,6 +387,7 @@ export async function ensureKayTables(): Promise<void> {
           'auto_rescue_kill_switch', CASE WHEN value ? 'auto_rescue_kill_switch' THEN NULL ELSE true END,
           'auto_rescue_canary_enabled', CASE WHEN value ? 'auto_rescue_canary_enabled' THEN NULL ELSE true END,
           'auto_rescue_canary_employee_ids', CASE WHEN value ? 'auto_rescue_canary_employee_ids' THEN NULL ELSE '[]'::jsonb END,
+           'auto_rescue_canary_daily_limit', CASE WHEN value ? 'auto_rescue_canary_daily_limit' THEN NULL ELSE 1 END,
           'auto_rescue_daily_limit', CASE WHEN value ? 'auto_rescue_daily_limit' THEN NULL ELSE 5 END,
           'auto_rescue_per_employee_daily_limit', CASE WHEN value ? 'auto_rescue_per_employee_daily_limit' THEN NULL ELSE 3 END,
           'rescue_grace_minutes', CASE WHEN value ? 'rescue_grace_minutes' THEN NULL ELSE 30 END,

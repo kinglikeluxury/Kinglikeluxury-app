@@ -1,6 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { ensureKayTables, pool } from "./db";
+import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
 import {
   acceptPromiseHandoff,
   executeAssistedRescue,
@@ -9,7 +10,8 @@ import {
   undoAssistedRescue,
 } from "./kayRescueService";
 
-const marker = `KAY_E1_TEST:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+assertSafeKayMutationTestDatabase("kayPhaseE1.integration");
+const marker = kaySyntheticMarker("KAY_E1_TEST");
 const leadIds: number[] = [];
 let adminId = 0;
 let ownerId = 0;

@@ -64,13 +64,26 @@ export async function getKayAvailability(employeeId: number) {
 }
 export async function setKayAvailability(employeeId: number, availability: unknown, actorId: number, adminOverride = false) {
   const parsed = kayAvailabilitySchema.parse(availability);
-  await db.transaction(async tx => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
     const key = `phase_c_availability:${employeeId}`;
-    const [before] = await tx.select().from(kaySettings).where(eq(kaySettings.key, key)).for("update").limit(1);
-    await tx.insert(kaySettings).values({ key, value: { availability: parsed }, updatedBy: actorId, updatedAt: new Date() })
-      .onConflictDoUpdate({ target: kaySettings.key, set: { value: { availability: parsed }, updatedBy: actorId, updatedAt: new Date() } });
-    await tx.insert(kayEvents).values({ userId: actorId, employeeId, eventType: "mission_availability_changed", eventSource: adminOverride ? "admin" : "employee", previousValue: sanitizeKayJson(before?.value), newValue: { availability: parsed }, metadata: { adminOverride, shadow: true }, kayGenerated: false });
-  });
+    const before = (await client.query(`SELECT value FROM kay_settings WHERE key=$1 FOR UPDATE`,[key])).rows[0];
+    await client.query(`INSERT INTO kay_settings(key,value,updated_by,updated_at) VALUES($1,$2::jsonb,$3,NOW())
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=NOW()`,
+      [key,JSON.stringify({availability:parsed}),actorId]);
+    await client.query(`INSERT INTO kay_events(user_id,employee_id,event_type,event_source,previous_value,new_value,metadata,kay_generated)
+      VALUES($1,$2,'mission_availability_changed',$3,$4::jsonb,$5::jsonb,$6::jsonb,false)`,
+      [actorId,employeeId,adminOverride?"admin":"employee",JSON.stringify(sanitizeKayJson(before?.value ?? null)),
+       JSON.stringify({availability:parsed}),JSON.stringify({adminOverride,shadow:true})]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(()=>{});
+    throw error;
+  } finally {
+    client.release();
+  }
   return getKayAvailability(employeeId);
 }
 
@@ -307,7 +320,9 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
   for (const [leadId, keys] of Array.from(current.entries())) {
     const changed = await db.transaction(async tx => {
       const rows = await tx.update(kayMissions).set({ status: "STALE", updatedAt: now })
-        .where(and(eq(kayMissions.leadId, leadId), inArray(kayMissions.status, activeStatuses), ...(keys.length ? [notInArray(kayMissions.idempotencyKey, keys)] : []))).returning({ id: kayMissions.id });
+        .where(and(eq(kayMissions.leadId, leadId), inArray(kayMissions.status, activeStatuses),
+          sql`${kayMissions.idempotencyKey} LIKE 'phase-c:%'`,
+          ...(keys.length ? [notInArray(kayMissions.idempotencyKey, keys)] : []))).returning({ id: kayMissions.id });
       for (const mission of rows) await tx.insert(kayEvents).values({ eventType:"mission_staled",eventSource:"kay",metadata:{missionId:mission.id,reason:"condition_obsolete",shadow:true},kayGenerated:true });
       return rows;
     });
@@ -315,7 +330,7 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
   }
   const stale = await db.transaction(async tx => {
     const rows = await tx.execute(sql`UPDATE kay_missions m SET status='STALE', updated_at=NOW()
-      WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS') AND (
+      WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS') AND m.idempotency_key LIKE 'phase-c:%' AND (
         NOT EXISTS (SELECT 1 FROM crm_leads l WHERE l.id=m.lead_id AND l.assigned_to=m.employee_id)
         OR NOT EXISTS (SELECT 1 FROM users u WHERE u.id=m.employee_id AND u.role='sub_agent')
         OR EXISTS (SELECT 1 FROM crm_leads l WHERE l.id=m.lead_id AND l.status IN
