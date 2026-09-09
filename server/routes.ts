@@ -46,6 +46,7 @@ import { acceptPromiseHandoff, executeAssistedRescue, getAssistedRescuePreview, 
 import { applyAutoRescueLastChance, getAutoRescueHealth, getAutoRescueReadiness, runKayAutoRescueWorker } from "./kayAutoRescueService";
 import { requireKayAdmin } from "./kayAuth";
 import { getLegacyBaselineReadiness, getLegacyCapacitySensitivity, getLegacyLeadAgeBuckets, getLegacyOwnerDiagnostics, initializeLegacyBaselines, previewLegacyBaselineInitialization } from "./kayLegacyBaselineService";
+import { getKayPhaseE23Diagnostics } from "./kayPhaseE23Service";
 import { randomUUID } from "crypto";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
@@ -573,6 +574,10 @@ ${metaTags}
   app.get("/api/admin/kay/legacy-rescue-baselines/diagnostics", requireKayAdmin, async (_req, res) => {
     try { res.json({ owners: await getLegacyOwnerDiagnostics(), ageBuckets: await getLegacyLeadAgeBuckets(), capacitySensitivity: await getLegacyCapacitySensitivity(), recommendation: "No formula change: updated_at is reliable only as a touched-load diagnostic, never status-entry evidence. Compare all nonterminal with touched 30/60/90 cohorts before approval." }); }
     catch { res.status(500).json({ message: "Legacy diagnostics unavailable." }); }
+  });
+  app.get("/api/admin/kay/legacy-rescue-baselines/e23-diagnostics", requireKayAdmin, async (_req, res) => {
+    try { res.json(await getKayPhaseE23Diagnostics()); }
+    catch { res.status(500).json({ message: "E.2.3 diagnostics unavailable; no policy or routing action was taken." }); }
   });
   // Read-only CRM dry run: it intentionally shares the aggregate readiness
   // query and does not invoke the worker or claim queue work.

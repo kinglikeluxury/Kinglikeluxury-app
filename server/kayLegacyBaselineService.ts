@@ -6,8 +6,12 @@ export const LEGACY_STATUSES = ["no_answer_1", "no_answer_2"] as const;
 export const LEGACY_BASELINE_WARNING =
   "Actual historical status-entry time is unknown. Eligibility is based only on continuous observation since the recorded baseline timestamp.";
 export type E22TestScope = { marker: string };
+type E22Queryable = { query: (sql: string, values?: any[]) => Promise<any> };
 function requireTestScope(scope?: E22TestScope) {
-  if (scope && (process.env.KAY_E22_POSTGRES_TESTS !== "true" || !scope.marker.startsWith("KAY_E22:"))) throw new Error("E.2.2 test scope is disabled");
+  if (!scope) return;
+  const e22 = scope.marker.startsWith("KAY_E22:") && process.env.KAY_E22_POSTGRES_TESTS === "true";
+  const e23 = scope.marker.startsWith("KAY_E23:") && process.env.KAY_E23_POSTGRES_TESTS === "true";
+  if (!e22 && !e23) throw new Error("Kay legacy diagnostic test scope is disabled");
 }
 
 export async function repairLegacyBaselineContinuityDuplicates(executor: {query:(sql:string, values?:any[])=>Promise<any>} = pool) {
@@ -24,6 +28,7 @@ export async function repairLegacyBaselineContinuityDuplicates(executor: {query:
 
 export async function resolveKayStatusWindow(executor: { query: (sql: string, values?: any[]) => Promise<any> }, leadId: number, status?: string) {
   const row = (await executor.query(`SELECT l.status,
+    (SELECT max(assigned_at) FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.to_user_id=l.assigned_to) latest_owner_assigned_at,
     (SELECT CASE WHEN h.status=l.status THEN jsonb_build_object('enteredAt',h.entered_at,'source','STATUS_TRANSITION','trusted',true,'warning',null) END
        FROM kay_lead_status_history h WHERE h.lead_id=l.id
        ORDER BY h.entered_at DESC,h.id DESC LIMIT 1) history,
@@ -36,14 +41,17 @@ export async function resolveKayStatusWindow(executor: { query: (sql: string, va
        ORDER BY b.observation_started_at DESC,b.id DESC LIMIT 1) baseline
     FROM crm_leads l WHERE l.id=$1`, [leadId, LEGACY_BASELINE_WARNING])).rows[0];
   if (!row || (status && row.status !== status)) return null;
+  if (row.latest_owner_assigned_at && row.history?.enteredAt && new Date(row.history.enteredAt) < new Date(row.latest_owner_assigned_at)) return null;
+  if (row.latest_owner_assigned_at && row.baseline?.enteredAt && new Date(row.baseline.enteredAt) < new Date(row.latest_owner_assigned_at)) return null;
   return row.history || row.baseline || null;
 }
 
-export async function getLegacyBaselineReadiness(scope?: E22TestScope) {
+export async function getLegacyBaselineReadiness(scope?: E22TestScope, executor?: E22Queryable) {
   requireTestScope(scope);
-  const client = await pool.connect();
+  const client = executor || await pool.connect();
+  const ownsTransaction = !executor;
   try {
-  await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+  if (ownsTransaction) await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   const asOf = new Date((await client.query("SELECT clock_timestamp() as now")).rows[0].now);
   const [ruleResult, rows] = await Promise.all([
     client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`),
@@ -56,7 +64,8 @@ export async function getLegacyBaselineReadiness(scope?: E22TestScope) {
       ,l.assigned_to,owner.role owner_role,owner.is_active owner_active
       FROM kay_legacy_rescue_baselines b LEFT JOIN crm_leads l ON l.id=b.lead_id
       LEFT JOIN users owner ON owner.id=l.assigned_to
-      WHERE b.observed_status=ANY($1::text[]) AND ($2::text IS NULL OR l.notes=$2) ORDER BY b.id`, [LEGACY_STATUSES, scope?.marker || null]),
+      WHERE b.observed_status=ANY($1::text[]) AND ($2::text IS NULL OR l.notes=$2)
+        AND ($3::boolean IS FALSE OR (owner.role='sub_agent' AND owner.is_admin=false AND owner.is_active=true)) ORDER BY b.id`, [LEGACY_STATUSES, scope?.marker || null, Boolean(scope?.marker.startsWith("KAY_E23:"))]),
   ]);
   const rules: any = ruleResult.rows[0]?.value || {};
   const out: any = Object.fromEntries(LEGACY_STATUSES.map(status => [status, { active: 0, lackingTrusted: 0, trustedCurrentWindows: 0, underThreshold: 0, reachedThreshold: 0, dueWithin6: 0, dueWithin12: 0, dueWithin24: 0, statusChanged: 0, blocked: 0, wouldRescue: 0, invalidated: 0, noEligible: 0, managerReview: 0 }]));
@@ -89,38 +98,40 @@ export async function getLegacyBaselineReadiness(scope?: E22TestScope) {
   }
   for (const status of LEGACY_STATUSES) {
     const trusted = await client.query(`SELECT count(*)::int n FROM kay_lead_status_history h JOIN crm_leads l ON l.id=h.lead_id AND l.status=h.status
-      WHERE h.status=$1 AND ($2::text IS NULL OR l.notes=$2) AND h.id=(SELECT h2.id FROM kay_lead_status_history h2 WHERE h2.lead_id=h.lead_id ORDER BY h2.entered_at DESC,h2.id DESC LIMIT 1)`, [status, scope?.marker || null]);
+      WHERE h.status=$1 AND ($2::text IS NULL OR l.notes=$2) AND h.id=(SELECT h2.id FROM kay_lead_status_history h2 WHERE h2.lead_id=h.lead_id ORDER BY h2.entered_at DESC,h2.id DESC LIMIT 1)
+        AND ($3::boolean IS FALSE OR (l.assigned_to IS NOT NULL AND EXISTS (SELECT 1 FROM users u WHERE u.id=l.assigned_to AND u.role='sub_agent' AND u.is_admin=false AND u.is_active=true)))`, [status, scope?.marker || null, Boolean(scope?.marker?.startsWith("KAY_E23:"))]);
     out[status].trustedCurrentWindows = Number(trusted.rows[0].n);
     const lacking = await client.query(`SELECT count(*)::int n FROM crm_leads l WHERE l.status=$1 AND NOT EXISTS
       (SELECT 1 FROM kay_lead_status_history h WHERE h.lead_id=l.id AND h.status=l.status AND h.id=(SELECT h2.id FROM kay_lead_status_history h2 WHERE h2.lead_id=l.id ORDER BY h2.entered_at DESC,h2.id DESC LIMIT 1))
-      AND ($2::text IS NULL OR l.notes=$2)`, [status, scope?.marker || null]);
+       AND ($2::text IS NULL OR l.notes=$2)
+       AND ($3::boolean IS FALSE OR (l.assigned_to IS NOT NULL AND EXISTS (SELECT 1 FROM users u WHERE u.id=l.assigned_to AND u.role='sub_agent' AND u.is_admin=false AND u.is_active=true)))`, [status, scope?.marker || null, Boolean(scope?.marker?.startsWith("KAY_E23:"))]);
     out[status].lackingTrusted = Number(lacking.rows[0].n);
   }
-  await client.query("COMMIT");
+  if (ownsTransaction) await client.query("COMMIT");
   return { asOf: asOf.toISOString(), statuses: out };
-  } catch (error) { await client.query("ROLLBACK").catch(() => {}); throw error; } finally { client.release(); }
+  } catch (error) { if (ownsTransaction) await client.query("ROLLBACK").catch(() => {}); throw error; } finally { if (ownsTransaction) (client as any).release(); }
 }
 
-export async function getLegacyOwnerDiagnostics(scope?: E22TestScope) {
+export async function getLegacyOwnerDiagnostics(scope?: E22TestScope, executor: E22Queryable = pool) {
   requireTestScope(scope);
-  const owners = await pool.query(`SELECT COALESCE(u.username,'UNASSIGNED') account,u.role,u.is_active,u.is_admin,
+  const owners = await executor.query(`SELECT COALESCE(u.username,'UNASSIGNED') account,u.role,u.is_active,u.is_admin,
     count(l.id) FILTER (WHERE l.status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified'))::int active_leads,
     count(l.id) FILTER (WHERE l.status='no_answer_1')::int no_answer_1,
     count(l.id) FILTER (WHERE l.status='no_answer_2')::int no_answer_2
     FROM crm_leads l LEFT JOIN users u ON u.id=l.assigned_to
     WHERE ($1::text IS NULL OR l.notes=$1)
     GROUP BY u.id,u.username,u.role,u.is_active,u.is_admin ORDER BY active_leads DESC`, [scope?.marker || null]);
-  const mixes = await pool.query(`SELECT COALESCE(u.username,'UNASSIGNED') account,l.status,count(*)::int count
+  const mixes = await executor.query(`SELECT COALESCE(u.username,'UNASSIGNED') account,l.status,count(*)::int count
     FROM crm_leads l LEFT JOIN users u ON u.id=l.assigned_to WHERE ($1::text IS NULL OR l.notes=$1) GROUP BY 1,2 ORDER BY 1,2`, [scope?.marker || null]);
   return owners.rows.map((r: any) => {
-    const classification = r.account === "UNASSIGNED" ? "INTAKE_OWNER" : r.account === "kinglike_admin" ? "ADMIN_OWNER" : !r.is_active ? "INACTIVE_OWNER" : r.role === "sub_agent" ? "SALES_OWNER" : "INVALID_OWNER";
+    const classification = r.account === "UNASSIGNED" ? "INTAKE_OWNER" : (r.account === "kinglike_admin" || r.is_admin === true) ? "ADMIN_OWNER_EXCLUDED" : !r.is_active ? "INACTIVE_OWNER" : r.role === "sub_agent" ? "SALES_OWNER" : "INVALID_OWNER";
     const evidence = r.account === "kinglike_admin" ? [
       `Database account: role=${r.role}, is_admin=${r.is_admin === true}, is_active=${r.is_active === true}`,
       `Current assigned active=${r.active_leads}, no_answer_1=${r.no_answer_1}, no_answer_2=${r.no_answer_2}`,
       "server/routes.ts admin-alias import resolver prefers kinglike_admin",
       "server/routes.ts maps info/admin/kinglike_admin import aliases to the admin destination",
     ] : [`Database role=${r.role || "none"}, active=${r.is_active === true}`];
-    return { ...r, classification, evidence, conclusion: classification === "ADMIN_OWNER" ? "CONFIRMED_ADMIN_IMPORT_INTAKE_DESTINATION; admin selling, redistribution, and Auto Rescue policy remain POLICY_UNRESOLVED." : null, reason: classification === "ADMIN_OWNER" ? "POLICY_UNRESOLVED: receiving/rescue policy is not proven." : evidence[0] };
+    return { ...r, classification, evidence, conclusion: classification === "ADMIN_OWNER_EXCLUDED" ? "ADMIN_OWNER_EXCLUDED_FROM_KAY_SALES_AUTOMATION." : null, reason: classification === "ADMIN_OWNER_EXCLUDED" ? "EXCLUDED_OWNER: Kay does not manage this portfolio." : evidence[0] };
   }).map((r: any) => ({ ...r, statusMix: mixes.rows.filter((m: any) => m.account === r.account) }));
 }
 
@@ -133,9 +144,9 @@ export async function getLegacyLeadAgeBuckets(scope?: E22TestScope) {
   return Object.fromEntries(["0-7","8-30","31-90","91-180","180+"].map(k => [k, Number(r.rows.find((x: any) => x.bucket === k)?.count || 0)]));
 }
 
-export async function getLegacyCapacitySensitivity(scope?: E22TestScope) {
+export async function getLegacyCapacitySensitivity(scope?: E22TestScope, executor: E22Queryable = pool) {
   requireTestScope(scope);
-  return (await pool.query(`SELECT u.username employee,
+  return (await executor.query(`SELECT u.username employee,
     count(l.id) FILTER(WHERE l.status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified'))::int all_nonterminal,
     count(l.id) FILTER(WHERE l.status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND l.updated_at>=NOW()-interval '30 days')::int touched30,
     count(l.id) FILTER(WHERE l.status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified') AND l.updated_at>=NOW()-interval '60 days')::int touched60,

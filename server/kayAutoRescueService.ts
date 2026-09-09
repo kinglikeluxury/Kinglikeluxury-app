@@ -215,12 +215,13 @@ async function evaluateIntoQueue(settings: any, limit: number) {
     (SELECT count(*)::int FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ${rescueAttemptPredicate}) attempts
     FROM crm_leads l JOIN users owner ON owner.id=l.assigned_to
     JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
-    WHERE l.status IN ('no_answer_1','no_answer_2') ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 100)]);
+     WHERE l.status IN ('no_answer_1','no_answer_2') AND owner.is_active=true AND owner.is_admin=false AND owner.role='sub_agent'
+     ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 100)]);
   for (const lead of candidates.rows as any[]) {
     // E.2.2 baselines are observation-only until a separately approved future
     // policy exists. They may appear in readiness, never in queue/mission paths.
     const resolved = await resolveKayStatusWindow(pool, Number(lead.id), lead.status);
-    if (!resolved || resolved.source === "LEGACY_BASELINE") continue;
+    if (!resolved || resolved.source !== "STATUS_TRANSITION") continue;
     const enabled = lead.status === "no_answer_1" ? settings.auto_rescue_no_answer_1_enabled : settings.auto_rescue_no_answer_2_enabled;
     const threshold = (lead.status === "no_answer_1" ? settings.no_answer_1_threshold_hours : settings.no_answer_2_threshold_hours) * 3_600_000;
     if (!enabled || !lead.entered_at || Date.now() - new Date(lead.entered_at).getTime() < threshold - settings.rescue_warning_minutes * 60_000) continue;
@@ -267,7 +268,9 @@ export async function runKayAutoRescueWorker(limit = 25) {
     for (const q of claimed.rows as any[]) {
       try {
         const lead = (await pool.query(`SELECT * FROM crm_leads WHERE id=$1`, [q.lead_id])).rows[0];
-        if (!lead || lead.assigned_to !== q.expected_owner_id || lead.status !== q.rule_status || new Date(q.status_window).getTime() !== new Date((await pool.query(`SELECT entered_at FROM kay_lead_status_history WHERE lead_id=$1 AND status=$2 ORDER BY entered_at DESC LIMIT 1`, [q.lead_id,q.rule_status])).rows[0]?.entered_at).getTime()) {
+        const ownerCheck = lead ? (await pool.query(`SELECT is_active,role,is_admin FROM users WHERE id=$1`, [lead.assigned_to])).rows[0] : null;
+        if (!lead || !ownerCheck || ownerCheck.is_active !== true || ownerCheck.is_admin === true || ownerCheck.role !== "sub_agent" ||
+          lead.assigned_to !== q.expected_owner_id || lead.status !== q.rule_status || new Date(q.status_window).getTime() !== new Date((await pool.query(`SELECT entered_at FROM kay_lead_status_history WHERE lead_id=$1 AND status=$2 ORDER BY entered_at DESC LIMIT 1`, [q.lead_id,q.rule_status])).rows[0]?.entered_at).getTime()) {
           await claimedTransition(q,token,"STALE","STATE_CHANGED"); continue;
         }
         const block = await pool.query(`SELECT EXISTS(SELECT 1 FROM kay_lead_protection WHERE lead_id=$1 AND removed_at IS NULL) protected, EXISTS(SELECT 1 FROM crm_tasks WHERE lead_id=$1 AND completed_at IS NULL) task`, [q.lead_id]);
@@ -277,7 +280,7 @@ export async function runKayAutoRescueWorker(limit = 25) {
             WHERE tl.assigned_to=u.id AND t.completed_at IS NULL
               AND CASE WHEN t.due_date ~ '^\d{4}-\d{2}-\d{2}$' THEN t.due_date::date<CURRENT_DATE ELSE false END) overdue_task_count,
           EXISTS(SELECT 1 FROM lead_assignment_history h WHERE h.lead_id=$1 AND h.from_user_id=u.id AND h.assigned_at>NOW()-interval '30 days') recent_previous_owner
-          FROM users u LEFT JOIN crm_leads l ON l.assigned_to=u.id WHERE u.role='sub_agent' AND u.is_active=true
+           FROM users u LEFT JOIN crm_leads l ON l.assigned_to=u.id WHERE u.role='sub_agent' AND u.is_active=true AND u.is_admin=false
           AND COALESCE((SELECT value->>'availability' FROM kay_settings WHERE key='phase_c_availability:'||u.id::text),'AVAILABLE')='AVAILABLE'
            AND NOT EXISTS(SELECT 1 FROM lead_assignment_history h WHERE h.lead_id=$1 AND ${rescuePingPongPredicate.replace("$1", "u.id").replace("$2", "$2")})
           GROUP BY u.id,u.username`,[q.lead_id,lead.assigned_to]);
