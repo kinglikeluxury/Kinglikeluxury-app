@@ -1,76 +1,752 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { Bell, CalendarClock, ExternalLink, Flag, Headphones, ShieldAlert, Target, Timer, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Badge } from "@/components/ui/badge";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bot, CheckCircle2, Clock, ExternalLink, Plus, Volume2, ArrowRight, ShieldAlert } from "lucide-react";
+import { KayEmpty, KayWorkspace } from "@/components/kay/KayWorkspace";
+import {
+  adaptAvailability,
+  adaptBriefingsPayload,
+  adaptCommitmentsPayload,
+  adaptHandoffsPayload,
+  adaptMissionData,
+  adaptPromisesPayload,
+  adaptVoiceSettings,
+  completedToday,
+  groupPromises,
+  type KayAvailability,
+  type KayBriefing,
+  type KayCommitment,
+  type KayHandoff,
+  type KayMission,
+  type KayMissionData,
+  type KayPromise,
+  type KayVoiceSettings,
+} from "@/components/kay/kaySalesAdapters";
 
- type Mission = { id:number; leadId:number|null; missionType:string; priority:string; priorityScore:number; status:string; objective:string; suggestedAction:string; scopeOutcome?:string|null; supervisionActive?:boolean; historicalObligation?:boolean; reasonCode?:string; reasonDetails?: { explanation?:string; factors?: { label:string; points:number }[]; queueId?:number }; dueAt?:string|null };
-type Data = { missions: Mission[]; next60Minutes: Mission[]; settings:{max_next_60_minutes_items:number} };
-type Briefing = { id:number;text:string;acknowledgedAt?:string|null;deepLink?:string|null;severity:string };
-type Commitment = { id:number;action:string;status:string;dueAt:string; missionId?:number };
-type PromiseItem = { id:number;promiseText:string;status:string;importance:string;dueAt:string };
-type Handoff = { id:number; promise_text:string; promiseText?:string; due_at:string; dueAt?:string; original_owner_id:number; accepted_at?:string|null; importance?:string };
-const colors: Record<string,string> = { CRITICAL:"bg-red-100 text-red-700", HIGH:"bg-orange-100 text-orange-700", NORMAL:"bg-amber-100 text-amber-700", LOW:"bg-slate-100 text-slate-700" };
-const localDate = (value?:string|null) => value ? new Date(value).toLocaleString([], { dateStyle:"medium", timeStyle:"short" }) : "No due date";
-const dueBucket = (p: PromiseItem) => p.status === "COMPLETED" ? "Completed Today" : new Date(p.dueAt) < new Date() ? "Overdue" : new Date(p.dueAt).getTime() < Date.now()+86400000*2 ? "Due Soon" : "Upcoming";
+type QueryState = {
+  isLoading: boolean;
+  isError: boolean;
+  isFetching?: boolean;
+  refetch: () => unknown;
+};
+
+type DataQuery<T> = QueryState & {
+  data?: T;
+};
+
+const read = <T,>(path: string, adapt: (raw: unknown) => T) => async (): Promise<T> => {
+  const response = await apiRequest("GET", path);
+  return adapt(await response.json());
+};
+
+const displayDate = (value?: string | null) =>
+  value
+    ? new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+    : "No due time reported";
+
+const titleFor = (mission: KayMission) =>
+  mission.missionType.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 
 export default function KayMySalesPage() {
-  const { user, isLoading: authLoading } = useAuth(); const [, navigate] = useLocation();
+  const { user, isLoading: authLoading } = useAuth();
+  const [, navigate] = useLocation();
   const allowed = !!user && (!!user.isAdmin || user.role === "sub_agent");
-  useEffect(() => { if (!authLoading && !allowed) navigate("/"); }, [allowed, authLoading, navigate]);
-  const query = useQuery<Data>({ queryKey:["/api/kay/missions"], queryFn: async () => (await apiRequest("GET","/api/kay/missions")).json(), enabled: allowed });
-  const completed = useQuery<Data>({ queryKey:["/api/kay/missions","completed"], queryFn: async () => (await apiRequest("GET","/api/kay/missions?completed=true")).json(), enabled: allowed });
-  const availability = useQuery<{availability:string}>({ queryKey:["/api/kay/availability"], queryFn: async () => (await apiRequest("GET","/api/kay/availability")).json(), enabled: allowed });
-  const briefings = useQuery<{briefings:Briefing[]}>({ queryKey:["/api/kay/briefings"], queryFn:async()=> (await apiRequest("GET","/api/kay/briefings")).json(), enabled:allowed });
-  const commitments = useQuery<{commitments:Commitment[]}>({ queryKey:["/api/kay/commitments"], queryFn:async()=> (await apiRequest("GET","/api/kay/commitments")).json(), enabled:allowed });
-  const promises = useQuery<{promises:PromiseItem[]}>({ queryKey:["/api/kay/promises"], queryFn:async()=> (await apiRequest("GET","/api/kay/promises")).json(), enabled:allowed });
-  const handoffs = useQuery<{handoffs:Handoff[]}>({ queryKey:["/api/kay/promise-handoffs"], queryFn:async()=> (await apiRequest("GET","/api/kay/promise-handoffs")).json(), enabled:allowed });
-  const voice = useQuery<any>({ queryKey:["/api/kay/settings/phase-d"], queryFn:async()=> (await apiRequest("GET","/api/kay/settings/phase-d")).json(), enabled:allowed });
+
   useEffect(() => {
-    const refresh = () => {
-      query.refetch();
-      commitments.refetch();
-      promises.refetch();
-      briefings.refetch();
-      handoffs.refetch();
-    };
-    window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
-  }, [query.refetch, commitments.refetch, promises.refetch, briefings.refetch, handoffs.refetch]);
-  const updateAvailability = useMutation({ mutationFn: async (value:string) => (await apiRequest("PUT","/api/kay/availability",{availability:value})).json(), onSuccess: () => queryClient.invalidateQueries({queryKey:["/api/kay/availability"]}) });
-  const action = useMutation({ mutationFn: async ({id, action, payload}:{id:number; action:string; payload?:any}) => (await apiRequest("POST",`/api/kay/missions/${id}/${action}`, payload ?? {})).json(), onSuccess: () => { queryClient.invalidateQueries({queryKey:["/api/kay/missions"]}); queryClient.invalidateQueries({queryKey:["/api/kay/commitments"]}); } });
-  const briefingAction = useMutation({mutationFn:async(id:number)=>(await apiRequest("POST",`/api/kay/briefings/${id}/acknowledge`,{})).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/kay/briefings"]})});
-  const commitmentAction = useMutation({mutationFn:async({id,action,dueAt}:{id:number;action:"accept"|"complete"|"extend";dueAt?:string})=>(await apiRequest("POST",`/api/kay/commitments/${id}/${action}`,dueAt?{dueAt}:{})).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/kay/commitments"]})});
-  const promiseAction = useMutation({mutationFn:async({id,action}:{id:number;action:"complete"|"cancel"})=>(await apiRequest("POST",`/api/kay/promises/${id}/${action}`,{})).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/kay/promises"]})});
-  const handoffAction = useMutation({mutationFn:async(id:number)=>(await apiRequest("POST",`/api/kay/promise-handoffs/${id}/accept`,{})).json(),onSuccess:()=>queryClient.invalidateQueries({queryKey:["/api/kay/promise-handoffs"]})});
-  const [promiseOpen,setPromiseOpen] = useState(false);
+    if (!authLoading && !allowed) navigate("/");
+  }, [allowed, authLoading, navigate]);
+
+  const missions = useQuery<KayMissionData>({
+    queryKey: ["/api/kay/missions"],
+    queryFn: read("/api/kay/missions", adaptMissionData),
+    enabled: allowed,
+  });
+  const completed = useQuery<KayMissionData>({
+    queryKey: ["/api/kay/missions", "completed"],
+    queryFn: read("/api/kay/missions?completed=true", adaptMissionData),
+    enabled: allowed,
+  });
+  const briefings = useQuery<{ briefings: KayBriefing[] }>({
+    queryKey: ["/api/kay/briefings"],
+    queryFn: read("/api/kay/briefings", adaptBriefingsPayload),
+    enabled: allowed,
+  });
+  const commitments = useQuery<{ commitments: KayCommitment[] }>({
+    queryKey: ["/api/kay/commitments"],
+    queryFn: read("/api/kay/commitments", adaptCommitmentsPayload),
+    enabled: allowed,
+  });
+  const promises = useQuery<{ promises: KayPromise[] }>({
+    queryKey: ["/api/kay/promises"],
+    queryFn: read("/api/kay/promises", adaptPromisesPayload),
+    enabled: allowed,
+  });
+  const handoffs = useQuery<{ handoffs: KayHandoff[] }>({
+    queryKey: ["/api/kay/promise-handoffs"],
+    queryFn: read("/api/kay/promise-handoffs", adaptHandoffsPayload),
+    enabled: allowed,
+  });
+  const availability = useQuery<KayAvailability>({
+    queryKey: ["/api/kay/availability"],
+    queryFn: read("/api/kay/availability", adaptAvailability),
+    enabled: allowed,
+  });
+  const voice = useQuery<KayVoiceSettings>({
+    queryKey: ["/api/kay/settings/phase-d"],
+    queryFn: read("/api/kay/settings/phase-d", adaptVoiceSettings),
+    enabled: allowed,
+  });
+
+  const all = missions.data?.missions ?? [];
+  const focus = missions.data?.next60Minutes ?? [];
+  const priority = all.filter((item) => item.priority === "CRITICAL" || item.priority === "HIGH");
+  const followUps = all.filter((item) => item.missionType === "FOLLOW_UP_DUE");
+  const rescue = all.filter((item) => item.missionType === "RESCUE_RISK");
+  const unprotected = all.filter((item) => item.missionType === "UNPROTECTED_LEAD");
+  const completedMissions = completed.data?.missions ?? [];
+  const completedTodayMissions = completedToday(completedMissions);
+  const groups = useMemo(
+    () => groupPromises(promises.data?.promises ?? []),
+    [promises.data?.promises],
+  );
+
   if (authLoading || !allowed) return null;
-  const missions = query.data?.missions ?? [];
-  const today = new Date().toDateString();
-  const sections:[string,Mission[]][] = [["Priority Queue",missions],["Rescue Risk",missions.filter(m=>m.missionType==="RESCUE_RISK")],["Follow-ups",missions.filter(m=>m.missionType==="FOLLOW_UP_DUE")],["Unprotected Opportunities",missions.filter(m=>m.missionType==="UNPROTECTED_LEAD")],["Completed Today",(completed.data?.missions ?? []).filter((m:any)=>m.status==="COMPLETED" && m.completedAt && new Date(m.completedAt).toDateString()===today)]];
-  const speak = (text:string) => { if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); const language=voice.data?.profile?.language??voice.data?.default_language; u.lang=language==="ar"?"ar-SA":"en-US"; u.rate=Number(voice.data?.speech_rate??1); u.pitch=Number(voice.data?.speech_pitch??1); const preferred=voice.data?.profile?.preferred_voice_name??voice.data?.preferred_voice_name; if(preferred){const selected=window.speechSynthesis.getVoices().find(v=>v.name===preferred);if(selected)u.voice=selected;} window.speechSynthesis.speak(u); } };
-  return <div className="min-h-[100dvh] max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
-     <header className="rounded-2xl bg-gradient-to-r from-[#005476] to-[#3bcac4] text-white p-5"><div className="flex gap-3"><Bot/><div><h1 className="text-xl font-bold">Kay — My Sales</h1><p className="text-sm text-white/85">Kay Missions protect the deal with clear next steps. CRM stays unchanged.</p><p className="mt-2 text-xs text-white/90"><strong>Permanent Kay rule:</strong> Kay is recommendation-only and never changes CRM owner or status. Use <strong>Open lead</strong> to review and take any permitted action manually in the normal CRM.</p></div></div></header>
-    <Card><CardHeader><CardTitle className="text-[#005476]">Internal Kay briefings</CardTitle></CardHeader><CardContent className="space-y-2">{(briefings.data?.briefings??[]).filter(b=>!b.acknowledgedAt).length===0?<p className="text-sm text-muted-foreground">No new internal briefings.</p>:(briefings.data?.briefings??[]).filter(b=>!b.acknowledgedAt).map(b=><div className="border rounded p-3 text-sm" key={b.id}><Badge>{b.severity}</Badge><p className="my-2">{b.text}</p><div className="flex gap-2 flex-wrap"><Button size="sm" onClick={()=>briefingAction.mutate(b.id)}>Accept</Button>{voice.data?.voice_enabled!==false&&<Button size="sm" variant="outline" onClick={()=>speak(b.text)}><Volume2 className="mr-1 h-3 w-3"/>Play locally</Button>}{b.deepLink&&<Button size="sm" variant="ghost" asChild><Link href={b.deepLink}>Open item</Link></Button>}</div></div>)}</CardContent></Card>
-    <div className="grid md:grid-cols-2 gap-4"><CommitmentPanel items={commitments.data?.commitments??[]} onAction={(id,a,dueAt)=>commitmentAction.mutate({id,action:a,dueAt})}/><PromisePanel items={promises.data?.promises??[]} onAdd={()=>setPromiseOpen(true)} onAction={(id,a)=>promiseAction.mutate({id,action:a})}/></div>
-     <HandoffPanel items={handoffs.data?.handoffs??[]} onAccept={(id)=>handoffAction.mutate(id)} loading={handoffs.isLoading} error={handoffs.isError}/>
-    {promiseOpen&&<PromiseForm missions={missions} onClose={()=>setPromiseOpen(false)} onSaved={()=>{setPromiseOpen(false);queryClient.invalidateQueries({queryKey:["/api/kay/promises"]})}}/>}
-    <Card><CardHeader><CardTitle className="flex gap-2 text-[#005476]"><Clock/>Your Next 60 Minutes <Badge>{query.data?.settings.max_next_60_minutes_items ?? 6} max</Badge></CardTitle></CardHeader><CardContent><div className="flex gap-2 items-center mb-3 text-sm flex-wrap">Kay availability: <select aria-label="Kay availability" className="border rounded px-2 py-1" value={availability.data?.availability || "AVAILABLE"} onChange={e=>updateAvailability.mutate(e.target.value)}><option>AVAILABLE</option><option>BUSY</option><option>DO_NOT_ASSIGN</option><option>LEAVE</option></select><Button size="sm" variant="outline" onClick={()=>query.refetch()}>Refresh</Button></div>{(query.data?.next60Minutes ?? []).length ? <div className="space-y-2">{query.data!.next60Minutes.map(m=><MissionCard key={m.id} mission={m} action={action}/>)}</div> : <p className="text-muted-foreground text-sm py-3">You are clear for the next hour.</p>}</CardContent></Card>
-    {sections.map(([title,items])=><Card key={title}><CardHeader className="py-4"><CardTitle className="text-base text-[#005476]">{title} <Badge variant="secondary">{items.length}</Badge></CardTitle></CardHeader><CardContent>{items.length?<div className="space-y-2">{items.slice(0,20).map(m=><MissionCard key={m.id} mission={m} action={action}/>)}</div>:<p className="text-sm text-muted-foreground">Nothing needs attention here right now.</p>}</CardContent></Card>)}
-  </div>;
+
+  const initial =
+    (user as { firstName?: string; name?: string })?.firstName ||
+    (user as { name?: string })?.name;
+  const heading = missions.isLoading
+    ? "Preparing your sales view"
+    : missions.isError
+      ? "Your pipeline view is unavailable"
+      : priority.length
+        ? `${priority.length} ${priority.length === 1 ? "priority needs" : "priorities need"} your attention`
+        : "You’re clear right now";
+
+  const aside = (
+    <KayTodayPanel
+      priority={priority}
+      rescueCount={rescue.length}
+      promiseGroups={groups}
+      missionsQuery={missions}
+      promisesQuery={promises}
+      availabilityQuery={availability}
+    />
+  );
+
+  return (
+    <KayWorkspace
+      title="My Sales"
+      subtitle="A focused view of the work Kay has surfaced. Recommendations are read-only; CRM changes stay in the normal CRM."
+      aside={aside}
+    >
+      <section className="kay-appear mb-6 rounded-2xl bg-[#005476] px-5 py-6 text-white sm:px-7">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-[#a8e7e3]">
+              {initial ? `Good to see you, ${initial}.` : "Your personal sales workspace."}
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+              {heading}
+            </h2>
+            <p className="mt-2 max-w-xl text-sm text-white/75">
+              Kay is monitoring your active pipeline. CRM remains unchanged.
+            </p>
+            <p className="mt-3 text-xs text-[#bcefeb]">
+              <b>Permanent Kay rule:</b> Kay is recommendation-only and never changes CRM owner or status.
+            </p>
+          </div>
+          <div className="hidden rounded-2xl border border-white/15 bg-white/10 p-3 sm:block">
+            <Target className="h-6 w-6 text-[#78e0db]" />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(
+          [
+            {
+              value: missions.isLoading || missions.isError ? null : priority.length,
+              label: "Priority now",
+              Icon: Flag,
+            },
+            {
+              value: missions.isLoading || missions.isError ? null : followUps.length,
+              label: "Follow-ups",
+              Icon: Timer,
+            },
+            {
+              value: missions.isLoading || missions.isError ? null : rescue.length,
+              label: "Rescue risk",
+              Icon: ShieldAlert,
+            },
+            {
+              value: promises.isLoading || promises.isError
+                ? null
+                : groups[0][1].length + groups[1][1].length,
+              label: "Promises due",
+              Icon: CalendarClock,
+            },
+          ] as { value: number | null; label: string; Icon: LucideIcon }[]
+        ).map(({ value, label, Icon }) => (
+          <div key={label} className="kay-surface rounded-xl p-4">
+            <Icon className="h-4 w-4 text-[#168c8a]" />
+            <p className="mt-3 text-2xl font-extrabold text-[#005476]">{value ?? "—"}</p>
+            <p className="text-xs font-semibold text-[#67848a]">{label}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="kay-appear mt-6 rounded-2xl border border-[#b9e4e0] bg-[#edfafa] p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#267c7d]">Focus now</p>
+            <h2 className="mt-1 text-xl font-extrabold text-[#005476]">Your next 60 minutes</h2>
+          </div>
+          <span className="kay-mono text-xs text-[#568087]">
+            MAX {missions.data?.maxNext60MinutesItems ?? "—"}
+          </span>
+        </div>
+        {missions.isLoading ? (
+          <Skeleton lines={3} />
+        ) : missions.isError ? (
+          <ErrorRead retry={() => void missions.refetch()} label="Focus recommendations are temporarily unavailable." />
+        ) : focus.length ? (
+          <div className="mt-4 divide-y divide-[#cbe9e6]">
+            {focus.slice(0, 3).map((mission, index) => (
+              <MissionItem key={mission.id} mission={mission} index={index + 1} featured />
+            ))}
+          </div>
+        ) : (
+          <KayEmpty title="You’re clear for the next hour" detail="Kay will surface anything that needs attention." />
+        )}
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Feed
+          id="priority"
+          title="Priority queue"
+          eyebrow="Ranked by Kay"
+          icon={<Flag className="h-4 w-4" />}
+          items={priority}
+          loading={missions.isLoading}
+          error={missions.isError}
+          retry={() => void missions.refetch()}
+          empty={["All clear — no urgent priorities.", "The pipeline has no high-priority review waiting."]}
+        />
+        <Feed
+          id="rescue"
+          title="Rescue watch"
+          eyebrow="Human review only"
+          icon={<ShieldAlert className="h-4 w-4" />}
+          items={rescue}
+          loading={missions.isLoading}
+          error={missions.isError}
+          retry={() => void missions.refetch()}
+          empty={["No rescue risks detected.", "Kay has no rescue recommendation for you right now."]}
+        />
+      </section>
+
+      <section id="follow-ups" className="mt-6">
+        <Feed
+          title="Follow-ups"
+          eyebrow="Timing-sensitive work"
+          icon={<Timer className="h-4 w-4" />}
+          items={followUps}
+          loading={missions.isLoading}
+          error={missions.isError}
+          retry={() => void missions.refetch()}
+          empty={["No follow-ups due right now.", "New timing-sensitive recommendations will appear here."]}
+        />
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Feed
+          title="Unprotected opportunities"
+          eyebrow="Needs review"
+          icon={<ShieldAlert className="h-4 w-4" />}
+          items={unprotected}
+          loading={missions.isLoading}
+          error={missions.isError}
+          retry={() => void missions.refetch()}
+          empty={["No unprotected opportunities.", "Kay has no unprotected lead recommendation right now."]}
+        />
+        <Feed
+          title="Completed today"
+          eyebrow="History"
+          icon={<Target className="h-4 w-4" />}
+          items={completedTodayMissions}
+          loading={completed.isLoading}
+          error={completed.isError}
+          retry={() => void completed.refetch()}
+          empty={["No completed actions yet today.", "Completed mission history will appear here."]}
+        />
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Commitments query={commitments} />
+        <Promises groups={groups} query={promises} />
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Briefings query={briefings} voiceQuery={voice} />
+        <Handoffs query={handoffs} />
+      </section>
+    </KayWorkspace>
+  );
 }
 
-function CommitmentPanel({items,onAction}:{items:Commitment[];onAction:(id:number,a:"accept"|"complete"|"extend",dueAt?:string)=>void}) { const [extendId,setExtendId]=useState<number|null>(null);const [due,setDue]=useState(""); return <Card><CardHeader><CardTitle className="text-base text-[#005476]">My commitments</CardTitle></CardHeader><CardContent className="space-y-2">{items.length?items.slice().sort((a,b)=>+new Date(a.dueAt)-+new Date(b.dueAt)).map(c=>{const status=c.status.toUpperCase();const canComplete=["ACCEPTED","EXTENDED","OVERDUE"].includes(status);return <div className="border rounded p-2 text-sm" key={c.id}><b>{c.action}</b><div className="text-muted-foreground">Status: {status} · Due {localDate(c.dueAt)}</div><div className="flex gap-2 mt-2 flex-wrap">{status==="PENDING"&&<Button size="sm" onClick={()=>onAction(c.id,"accept")}>Accept</Button>}{canComplete&&<Button size="sm" onClick={()=>onAction(c.id,"complete")}><CheckCircle2 className="mr-1 h-3 w-3"/>Complete</Button>}{canComplete&&<Button size="sm" variant="outline" onClick={()=>setExtendId(c.id)}>Extend</Button>}</div>{extendId===c.id&&<div className="flex gap-2 mt-2"><label className="text-xs">New due time<input aria-label="New commitment due time" type="datetime-local" className="block border rounded p-1 mt-1" value={due} onChange={e=>setDue(e.target.value)}/></label><Button size="sm" disabled={!due} onClick={()=>{onAction(c.id,"extend",new Date(due).toISOString());setExtendId(null)}}>Save due time</Button></div>}</div>}):<p className="text-sm text-muted-foreground">No commitments yet. Create one from a mission.</p>}</CardContent></Card>; }
-function PromisePanel({items,onAdd,onAction}:{items:PromiseItem[];onAdd:()=>void;onAction:(id:number,a:"complete"|"cancel")=>void}) { const groups=useMemo(()=>["Overdue","Due Soon","Completed Today","Upcoming"].map(name=>[name,items.filter(p=>dueBucket(p)===name)] as [string,PromiseItem[]]),[items]); return <Card><CardHeader><CardTitle className="flex justify-between items-center text-base text-[#005476]">Customer promises<Button size="sm" onClick={onAdd}><Plus className="mr-1 h-3 w-3"/>Quick promise</Button></CardTitle></CardHeader><CardContent className="space-y-3">{groups.map(([name,list])=><div key={name}><h3 className="text-xs uppercase tracking-wide text-muted-foreground">{name} · {list.length}</h3>{list.sort((a,b)=>+new Date(a.dueAt)-+new Date(b.dueAt)).map(p=>{const actionable=["PENDING","DUE_SOON","OVERDUE"].includes(p.status.toUpperCase());return <div className="border rounded p-2 mt-1 text-sm" key={p.id}><b>{p.promiseText}</b><div className="text-muted-foreground">Status: {p.status} · {p.importance} · {localDate(p.dueAt)}</div>{actionable&&<div className="flex gap-2 mt-2"><Button size="sm" onClick={()=>onAction(p.id,"complete")}>Mark complete</Button><Button size="sm" variant="ghost" onClick={()=>onAction(p.id,"cancel")}>Cancel</Button></div>}</div>})}</div>)}</CardContent></Card>; }
-function HandoffPanel({items,onAccept,loading,error}:{items:Handoff[];onAccept:(id:number)=>void;loading:boolean;error:boolean}) {
-  return <Card className="border-[#d39b45]"><CardHeader><CardTitle className="flex items-center gap-2 text-base text-[#005476]"><ArrowRight className="h-4 w-4"/>Promise handoffs</CardTitle></CardHeader><CardContent className="space-y-2">{loading?<p className="text-sm text-muted-foreground">Loading handoffs…</p>:error?<p className="text-sm text-red-700"><ShieldAlert className="mr-1 inline h-4 w-4"/>Unable to load promise handoffs. Retry by refreshing the page.</p>:items.length===0?<p className="text-sm text-muted-foreground">No promise handoffs are waiting for you.</p>:items.map(item=><div className="rounded-lg border border-[#ead5ad] bg-[#fffaf0] p-3 text-sm" key={item.id}><p className="font-medium">Promise from the original owner</p><p className="mt-1">{item.promise_text ?? item.promiseText}</p><p className="mt-1 text-xs text-slate-600">Originally owned by employee #{item.original_owner_id}. You are responsible for this handoff; this does not mean you made the original promise.</p><p className="text-xs text-slate-600">Due {localDate(item.due_at ?? item.dueAt)} · {item.importance ?? "NORMAL"}</p>{item.accepted_at?<Badge className="mt-2">Accepted</Badge>:<Button size="sm" className="mt-2" onClick={()=>onAccept(item.id)}>Accept handoff</Button>}</div>)}</CardContent></Card>;
-}
-function PromiseForm({missions,onClose,onSaved}:{missions:Mission[];onClose:()=>void;onSaved:()=>void}) { const owned=missions.filter(m=>m.leadId);const [leadId,setLeadId]=useState("");const [text,setText]=useState("");const [type,setType]=useState("CALL");const [importance,setImportance]=useState("NORMAL");const [due,setDue]=useState("");const save=useMutation({mutationFn:()=>apiRequest("POST","/api/kay/promises",{leadId:Number(leadId),promiseText:text,dueAt:new Date(due).toISOString(),importance,idempotencyKey:`promise-${leadId}-${Date.now()}`}),onSuccess:onSaved});const applyType=(value:string)=>{setType(value);if(value!=="CUSTOM")setText({CALL:"Call the customer",EMAIL:"Send the customer an update",QUOTE:"Send the requested quote",VIEWING:"Confirm the viewing details"}[value]||"");};return <div className="fixed inset-0 z-50 bg-black/30 p-4 flex items-center justify-center" role="dialog" aria-modal="true"><Card className="w-full max-w-md"><CardHeader><CardTitle>New customer promise</CardTitle></CardHeader><CardContent className="space-y-3">{owned.length===0?<p className="text-sm text-muted-foreground">A customer promise must be attached to one of your current mission leads.</p>:<><label className="block text-sm">Lead<select required className="w-full border rounded p-2 mt-1" value={leadId} onChange={e=>setLeadId(e.target.value)}><option value="">Select a mission lead</option>{owned.map(m=><option key={m.id} value={m.leadId!}>Lead #{m.leadId} · {m.objective}</option>)}</select></label><label className="block text-sm">Quick type<select className="w-full border rounded p-2 mt-1" value={type} onChange={e=>applyType(e.target.value)}><option>CALL</option><option>EMAIL</option><option>QUOTE</option><option>VIEWING</option><option>CUSTOM</option></select></label><label className="block text-sm">Promise<textarea autoFocus className="w-full border rounded p-2 mt-1" rows={3} value={text} onChange={e=>setText(e.target.value)} placeholder="What will you do for this customer?"/></label><label className="block text-sm">Importance<select className="w-full border rounded p-2 mt-1" value={importance} onChange={e=>setImportance(e.target.value)}><option value="NORMAL">Normal</option><option value="IMPORTANT">Important</option></select></label><label className="block text-sm">Due (your local time)<input required type="datetime-local" className="w-full border rounded p-2 mt-1" value={due} onChange={e=>setDue(e.target.value)}/></label></>}<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button disabled={!leadId||!text.trim()||!due||save.isPending} onClick={()=>save.mutate()}>Create promise</Button></div></CardContent></Card></div>; }
+function KayTodayPanel({
+  priority,
+  rescueCount,
+  promiseGroups,
+  missionsQuery,
+  promisesQuery,
+  availabilityQuery,
+}: {
+  priority: KayMission[];
+  rescueCount: number;
+  promiseGroups: ReadonlyArray<readonly [string, KayPromise[]]>;
+  missionsQuery: QueryState;
+  promisesQuery: QueryState;
+  availabilityQuery: DataQuery<KayAvailability>;
+}) {
+  const promisesDue =
+    promiseGroups[0][1].length + promiseGroups[1][1].length;
 
-function MissionCard({mission,action}:{mission:Mission;action:any}) { const [open,setOpen]=useState(false);const complete=()=>action.mutate({id:mission.id,action:"complete",payload:{resultCode:"CONTACTED_OTHER",note:window.prompt("What happened? Optional.")?.slice(0,500)||""}});const finalWarning=mission.reasonCode==="FINAL_RESCUE_WARNING";const title=finalWarning?"FINAL RESCUE WARNING":mission.missionType==="RESCUE_LEAD_ASSIGNED"?"RESCUE LEAD ASSIGNED":mission.missionType==="RESCUE_RISK"?"RESCUE REVIEW PENDING":mission.missionType.replaceAll("_"," ");return <div id={`kay-mission-${mission.id}`} className={`border rounded-xl p-3 space-y-2 ${finalWarning?"border-[#d39b45] bg-[#fffaf0]":""}`}><div className="flex items-center justify-between gap-2"><b className="text-sm text-[#005476]">{title}</b><Badge className={colors[mission.priority]||""}>{mission.priority} · {mission.priorityScore}</Badge></div>{mission.historicalObligation&&<div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs font-medium text-amber-800">Historical obligation — Kay supervision inactive</div>}<p className="text-sm">{mission.reasonDetails?.explanation||mission.objective}</p><details className="text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">WHY THIS IS PRIORITY</summary>{mission.reasonDetails?.factors?.map(f=><div key={f.label}>{f.label} +{f.points}</div>)}</details><p className="text-xs text-muted-foreground">{mission.suggestedAction}</p>{finalWarning&&<LastChancePanel leadId={mission.leadId}/>}<div className="flex flex-wrap gap-2">{mission.leadId&&<Button size="sm" variant="outline" asChild><Link href={`/admin/crm/${mission.leadId}`}>Open Lead in CRM <ExternalLink className="ml-1 h-3 w-3"/></Link></Button>}{mission.status==="NEW"&&<Button size="sm" onClick={()=>action.mutate({id:mission.id,action:"accept"})}>Accept</Button>}{mission.status==="ACCEPTED"&&<Button size="sm" onClick={()=>action.mutate({id:mission.id,action:"start"})}>Start</Button>}{["ACCEPTED","IN_PROGRESS"].includes(mission.status)&&<><Button size="sm" variant="outline" onClick={()=>setOpen(!open)}>Commit</Button><Button size="sm" variant="secondary" onClick={complete}><CheckCircle2 className="mr-1 h-3 w-3"/>Complete</Button></>}</div>{open&&<CommitmentForm mission={mission} onDone={()=>setOpen(false)}/>}</div>; }
-function LastChancePanel({leadId}:{leadId?:number|null}) { return <div className="rounded-lg border border-[#e3c783] bg-[#fffdf7] p-3"><div className="flex items-center gap-2 text-sm font-semibold text-[#765016]"><ShieldAlert className="h-4 w-4"/>FINAL RESCUE RECOMMENDATION</div><p className="mt-1 text-xs text-slate-600">Kay cannot execute a rescue, contact a customer, change CRM ownership, or change CRM status. Review the recommendation and use the normal CRM as an authorized human.</p>{leadId&&<Button size="sm" variant="outline" className="mt-3" asChild><Link href={`/admin/crm/${leadId}`}>Open lead in CRM <ExternalLink className="ml-1 h-3 w-3"/></Link></Button>}</div>; }
-function CommitmentForm({mission,onDone}:{mission:Mission;onDone:()=>void}) { const [choice,setChoice]=useState("15");const [custom,setCustom]=useState("");const [laterDue,setLaterDue]=useState("");const [actionText,setActionText]=useState(mission.suggestedAction);const dueAt=choice==="later"?(laterDue?new Date(laterDue).toISOString():null):new Date(Date.now()+(choice==="custom"?Number(custom||15):Number(choice))*60000).toISOString();const save=useMutation({mutationFn:()=>apiRequest("POST","/api/kay/commitments",{missionId:mission.id,leadId:mission.leadId,action:actionText.trim(),dueAt,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,idempotencyKey:`mission-${mission.id}-${Date.now()}`}),onSuccess:()=>{queryClient.invalidateQueries({queryKey:["/api/kay/commitments"]});onDone();}});return <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded"><input aria-label="Commitment action" className="border rounded px-2 py-1 text-sm flex-1 min-w-48" value={actionText} onChange={e=>setActionText(e.target.value)} /><span className="text-xs text-muted-foreground">Due ({Intl.DateTimeFormat().resolvedOptions().timeZone})</span>{["10","15","30","60","later","custom"].map(v=><Button key={v} size="sm" variant={choice===v?"default":"outline"} onClick={()=>setChoice(v)}>{v==="later"?"Later":v==="custom"?"Custom":`${v}m`}</Button>)}{choice==="custom"&&<input aria-label="Custom minutes" className="w-20 border rounded px-2 py-1 text-sm" type="number" min="1" value={custom} onChange={e=>setCustom(e.target.value)}/>} {choice==="later"&&<input aria-label="Choose later due date" type="datetime-local" className="border rounded px-2 py-1 text-sm" value={laterDue} onChange={e=>setLaterDue(e.target.value)}/>}<Button size="sm" onClick={()=>save.mutate()} disabled={save.isPending||choice==="custom"&&!custom||choice==="later"&&!laterDue||!actionText.trim()}>Save</Button></div>; }
+  return (
+    <div className="sticky top-24 space-y-4">
+      <div className="kay-surface rounded-2xl p-4">
+        <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#64878d]">Kay today</p>
+        <dl className="mt-4 space-y-3 text-sm">
+          <Insight
+            label="Top priority"
+            value={priority[0]?.objective ?? "No urgent priority"}
+            query={missionsQuery}
+          />
+          <Insight label="Rescue risk" value={`${rescueCount} identified`} query={missionsQuery} />
+          <Insight label="Promises due" value={`${promisesDue} due or overdue`} query={promisesQuery} />
+          <Insight
+            label="Availability"
+            value={availabilityQuery.data?.availability || "Not reported"}
+            query={availabilityQuery}
+          />
+        </dl>
+      </div>
+      <div className="rounded-2xl bg-[#005476] p-4 text-white">
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-[#91dcd8]">Kay insight</p>
+        <p className="mt-2 text-sm leading-6 text-white/90">
+          {missionsQuery.isLoading
+            ? "Kay is loading your ranked recommendations."
+            : missionsQuery.isError
+              ? "Kay recommendations are temporarily unavailable."
+              : priority.length
+                ? "Start with the first ranked recommendation; Kay has surfaced it because it needs a human review."
+                : "No urgent recommendation is currently waiting. Kay will surface changes in your pipeline."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Insight({
+  label,
+  value,
+  query,
+}: {
+  label: string;
+  value: string;
+  query: QueryState;
+}) {
+  return (
+    <div>
+      <dt className="text-xs text-[#6b898f]">{label}</dt>
+      <dd className="mt-0.5 font-semibold text-[#164f66]">
+        <QueryValue query={query} value={value} />
+      </dd>
+    </div>
+  );
+}
+
+function QueryValue({ query, value }: { query: QueryState; value: string }) {
+  if (query.isLoading) return <span className="text-[#6b898f]">Loading…</span>;
+  if (query.isError) {
+    return (
+      <button
+        type="button"
+        className="font-semibold text-[#8a5b40] underline decoration-dotted underline-offset-2"
+        onClick={() => void query.refetch()}
+      >
+        Unavailable · Retry
+      </button>
+    );
+  }
+  return (
+    <>
+      {value}
+      {query.isFetching && <span className="ml-1 text-xs font-normal text-[#6b898f]">Refreshing…</span>}
+    </>
+  );
+}
+
+function Skeleton({ lines }: { lines: number }) {
+  return (
+    <div className="mt-4 space-y-3 animate-pulse" aria-label="Loading">
+      {Array.from({ length: lines }, (_, index) => (
+        <div key={index} className="h-12 rounded-lg bg-[#e2eeee]" />
+      ))}
+    </div>
+  );
+}
+
+function MissionItem({
+  mission,
+  index,
+  featured = false,
+}: {
+  mission: KayMission;
+  index?: number;
+  featured?: boolean;
+}) {
+  return (
+    <article className={`py-4 ${featured ? "first:pt-0" : ""}`}>
+      <div className="flex gap-3">
+        <span className="kay-mono grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#d6f1ef] text-[10px] font-bold text-[#006b71]">
+          {index ?? "•"}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#087b7b]">
+              {mission.priority}
+            </span>
+            <span className="text-xs text-[#718a90]">
+              {mission.dueAt ? displayDate(mission.dueAt) : "Review timing not reported"}
+            </span>
+          </div>
+          <h3 className="mt-1 text-sm font-extrabold text-[#005476]">{titleFor(mission)}</h3>
+          <p className="mt-1 text-sm text-[#52727b]">
+            {mission.reasonDetails?.explanation || mission.objective}
+          </p>
+          <p className="mt-2 text-xs font-semibold text-[#176c74]">{mission.suggestedAction}</p>
+          {mission.reasonDetails?.factors?.length ? (
+            <details className="mt-2 text-xs text-[#668188]">
+              <summary className="cursor-pointer font-semibold">Why this is priority</summary>
+              {mission.reasonDetails.factors.map((factor) => (
+                <p key={factor.label}>
+                  {factor.label} +{factor.points}
+                </p>
+              ))}
+            </details>
+          ) : null}
+          {mission.historicalObligation && (
+            <p className="mt-2 text-xs text-[#745f35]">Historical obligation · supervision inactive</p>
+          )}
+        </div>
+        {mission.leadId && (
+          <Link
+            href={`/admin/crm/${mission.leadId}`}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[#bedbd9] px-2 text-xs font-bold text-[#00636c]"
+          >
+            Open <ExternalLink className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function Feed({
+  id,
+  title,
+  eyebrow,
+  icon,
+  items,
+  loading,
+  error,
+  retry,
+  empty,
+}: {
+  id?: string;
+  title: string;
+  eyebrow: string;
+  icon: ReactNode;
+  items: KayMission[];
+  loading: boolean;
+  error: boolean;
+  retry: () => void;
+  empty: [string, string];
+}) {
+  return (
+    <section id={id} className="kay-surface rounded-2xl p-5">
+      <div className="flex items-center gap-2 text-[#168c8a]">
+        {icon}
+        <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#61878c]">{eyebrow}</p>
+      </div>
+      <div className="mt-1 flex items-center justify-between">
+        <h2 className="text-lg font-extrabold text-[#005476]">{title}</h2>
+        <span className="kay-mono text-xs text-[#638188]">{loading || error ? "—" : items.length}</span>
+      </div>
+      {loading ? (
+        <Skeleton lines={3} />
+      ) : error ? (
+        <ErrorRead retry={retry} label={`${title} is temporarily unavailable.`} />
+      ) : items.length ? (
+        <div className="mt-3 divide-y divide-[#e0ebea]">
+          {items.slice(0, 6).map((mission, index) => (
+            <MissionItem key={mission.id} mission={mission} index={index + 1} />
+          ))}
+        </div>
+      ) : (
+        <KayEmpty title={empty[0]} detail={empty[1]} />
+      )}
+    </section>
+  );
+}
+
+function ErrorRead({ retry, label }: { retry: () => void; label: string }) {
+  return (
+    <div className="mt-4 rounded-xl bg-[#f1f6f6] p-3 text-sm text-[#4e6f78]">
+      <ShieldAlert className="mr-2 inline h-4 w-4 text-[#168c8a]" />
+      {label}
+      <Button
+        size="sm"
+        variant="link"
+        className="ml-1 h-auto p-0 text-[#00666e]"
+        onClick={retry}
+      >
+        Retry
+      </Button>
+    </div>
+  );
+}
+
+function Commitments({ query }: { query: DataQuery<{ commitments: KayCommitment[] }> }) {
+  const items = query.data?.commitments ?? [];
+  return (
+    <section className="kay-surface rounded-2xl p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#64878d]">Your workflow</p>
+          <h2 className="mt-1 text-lg font-extrabold text-[#005476]">Commitments</h2>
+        </div>
+        <Users className="h-5 w-5 text-[#1c9390]" />
+      </div>
+      {query.isLoading ? (
+        <Skeleton lines={3} />
+      ) : query.isError ? (
+        <ErrorRead retry={() => void query.refetch()} label="Commitments are temporarily unavailable." />
+      ) : items.length ? (
+        <div className="mt-3 divide-y divide-[#e0ebea]">
+          {items.slice(0, 4).map((item) => (
+            <div className="py-3 text-sm" key={item.id}>
+              <b className="block text-[#164f66]">{item.action}</b>
+              <span className="text-xs text-[#6a868c]">
+                {item.status} · {displayDate(item.dueAt)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <KayEmpty
+          title="No commitments yet"
+          detail="Commitments you create in an authorized workflow will appear here."
+        />
+      )}
+      {!query.isError && !query.isLoading && query.isFetching && (
+        <p className="mt-2 text-xs text-[#6a868c]">Refreshing commitments…</p>
+      )}
+    </section>
+  );
+}
+
+function Briefings({
+  query,
+  voiceQuery,
+}: {
+  query: DataQuery<{ briefings: KayBriefing[] }>;
+  voiceQuery: DataQuery<KayVoiceSettings>;
+}) {
+  const current = (query.data?.briefings ?? []).filter((item) => !item.acknowledgedAt);
+  const speak = (text: string) => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const language = voiceQuery.data?.profile?.language ?? voiceQuery.data?.defaultLanguage;
+    utterance.lang = language === "ar" ? "ar-SA" : "en-US";
+    utterance.rate = Number(voiceQuery.data?.speechRate ?? 1);
+    utterance.pitch = Number(voiceQuery.data?.speechPitch ?? 1);
+    const preferred = voiceQuery.data?.profile?.preferredVoiceName ?? voiceQuery.data?.preferredVoiceName;
+    if (preferred) {
+      const selected = window.speechSynthesis.getVoices().find((item) => item.name === preferred);
+      if (selected) utterance.voice = selected;
+    }
+    window.speechSynthesis.speak(utterance);
+  };
+
+  return (
+    <section className="rounded-2xl bg-[#e9f7f6] p-5">
+      <div className="flex items-center gap-2">
+        <Bell className="h-4 w-4 text-[#157b7d]" />
+        <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#548487]">From Kay</p>
+      </div>
+      <h2 className="mt-1 text-lg font-extrabold text-[#005476]">Internal briefing</h2>
+      {!current.length && voiceQuery.isLoading && (
+        <p className="mt-3 text-xs text-[#638188]">Voice settings loading…</p>
+      )}
+      {!current.length && voiceQuery.isError && (
+        <p className="mt-3 text-xs text-[#8a5b40]">
+          Voice settings unavailable.{" "}
+          <button
+            type="button"
+            className="font-bold underline decoration-dotted underline-offset-2"
+            onClick={() => void voiceQuery.refetch()}
+          >
+            Retry
+          </button>
+        </p>
+      )}
+      {query.isLoading ? (
+        <Skeleton lines={2} />
+      ) : query.isError ? (
+        <ErrorRead retry={() => void query.refetch()} label="Briefings are temporarily unavailable." />
+      ) : current.length ? (
+        <>
+          <p className="mt-3 text-sm leading-6 text-[#1e5569]">{current[0].text}</p>
+          <div className="mt-3 flex items-center gap-2">
+            <span className="rounded-full bg-white/70 px-2 py-1 text-[10px] font-bold text-[#197476]">
+              {current[0].severity}
+            </span>
+            {voiceQuery.isLoading ? (
+              <span className="text-xs text-[#638188]">Voice settings loading…</span>
+            ) : voiceQuery.isError ? (
+              <span className="text-xs text-[#8a5b40]">
+                Voice settings unavailable.{" "}
+                <button
+                  type="button"
+                  className="font-bold underline decoration-dotted underline-offset-2"
+                  onClick={() => void voiceQuery.refetch()}
+                >
+                  Retry
+                </button>
+              </span>
+            ) : voiceQuery.data?.voiceEnabled !== false ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-[#a9dcd8] bg-transparent text-[#00646b]"
+                onClick={() => speak(current[0].text)}
+              >
+                <Headphones className="mr-1 h-3.5 w-3.5" />
+                Listen
+              </Button>
+            ) : null}
+          </div>
+          {current[0].deepLink && (
+            <Link href={current[0].deepLink} className="mt-3 inline-flex text-xs font-bold text-[#00666e]">
+              Open item
+            </Link>
+          )}
+          {current.length > 1 && (
+            <details className="mt-3 text-xs text-[#638188]">
+              <summary>
+                {current.length - 1} earlier briefing{current.length === 2 ? "" : "s"} in history
+              </summary>
+              {current.slice(1).map((item) => (
+                <p key={item.id} className="mt-2">
+                  {item.text}
+                </p>
+              ))}
+            </details>
+          )}
+        </>
+      ) : (
+        <KayEmpty title="No new briefings" detail="Kay’s next internal update will appear here." />
+      )}
+    </section>
+  );
+}
+
+function Promises({
+  groups,
+  query,
+}: {
+  groups: ReadonlyArray<readonly [string, KayPromise[]]>;
+  query: DataQuery<{ promises: KayPromise[] }>;
+}) {
+  const items = groups.flatMap(([, list]) => list);
+  return (
+    <section className="kay-surface rounded-2xl p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#64878d]">Customer care</p>
+          <h2 className="mt-1 text-lg font-extrabold text-[#005476]">Customer promises</h2>
+        </div>
+        <span className="text-xs font-semibold text-[#69868d]">Read-only view</span>
+      </div>
+      {query.isLoading ? (
+        <Skeleton lines={3} />
+      ) : query.isError ? (
+        <ErrorRead retry={() => void query.refetch()} label="Promises are temporarily unavailable." />
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {groups.map(([name, list]) => (
+              <span key={name} className="rounded-full bg-[#edf5f4] px-2.5 py-1 text-xs font-semibold text-[#326a72]">
+                {name} {list.length}
+              </span>
+            ))}
+          </div>
+          {items.length ? (
+            <div className="mt-3 divide-y divide-[#e0ebea]">
+              {items.slice(0, 5).map((item) => (
+                <div className="py-3 text-sm" key={item.id}>
+                  <b className="block text-[#164f66]">{item.promiseText}</b>
+                  <span className="text-xs text-[#6a868c]">
+                    {item.status} · {displayDate(item.dueAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <KayEmpty title="No promises due" detail="Current and completed promise timing will appear here." />
+          )}
+          {query.isFetching && <p className="mt-2 text-xs text-[#6a868c]">Refreshing promises…</p>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function Handoffs({ query }: { query: DataQuery<{ handoffs: KayHandoff[] }> }) {
+  const items = query.data?.handoffs ?? [];
+  return (
+    <section className="kay-surface rounded-2xl p-5">
+      <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#64878d]">Continuity</p>
+      <h2 className="mt-1 text-lg font-extrabold text-[#005476]">Promise handoffs</h2>
+      {query.isLoading ? (
+        <Skeleton lines={2} />
+      ) : query.isError ? (
+        <ErrorRead retry={() => void query.refetch()} label="Promise handoffs are temporarily unavailable." />
+      ) : items.length ? (
+        <div className="mt-3 space-y-2">
+          {items.slice(0, 3).map((item) => (
+            <div className="rounded-xl bg-[#f5f9f8] p-3 text-sm" key={item.id}>
+              <b className="block text-[#164f66]">{item.promiseText || "Promise text not reported"}</b>
+              <span className="text-xs text-[#6a868c]">
+                {item.acceptedAt ? "Accepted" : "Awaiting review"} · Owner #
+                {item.originalOwnerId ?? "not reported"} · {item.importance ?? "NORMAL"} ·{" "}
+                {displayDate(item.dueAt)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <KayEmpty title="No handoffs waiting" detail="There are no customer promises waiting for your review." />
+      )}
+    </section>
+  );
+}

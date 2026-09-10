@@ -73,11 +73,12 @@ import { getLanguageDirection } from "./lib/i18n";
 
 function Router() {
   const [location] = useLocation();
+  const isKayWorkspace = location === "/admin/kay/my-sales" || location === "/admin/kay-control-center";
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
-      <main className="flex-grow pb-16 md:pb-0 page-transition">
+      {!isKayWorkspace && <Navbar />}
+      <main className={`flex-grow ${isKayWorkspace ? "" : "pb-16 md:pb-0"} page-transition`}>
         <Switch key={location}>
           <Route path="/" component={Home} />
           <Route path="/properties" component={Properties} />
@@ -138,11 +139,11 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </main>
-      <div className="hidden md:block">
+      {!isKayWorkspace && <div className="hidden md:block">
         <Footer />
-      </div>
-      <BottomNav />
-      <FloatingAIButton />
+      </div>}
+      {!isKayWorkspace && <BottomNav />}
+      {!isKayWorkspace && <FloatingAIButton />}
     </div>
   );
 }

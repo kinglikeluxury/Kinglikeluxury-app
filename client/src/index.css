@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 /* Import Google Fonts - Best Arabic fonts for websites */
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@100;200;300;400;500;600;700;800;900&display=swap');
@@ -322,5 +323,28 @@ button:active {
 /* Bottom navigation buttons for image modal */
 .image-nav-button {
   @apply bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition-all duration-200 backdrop-blur-sm;
+}
+
+/* Kay workspace: a deliberately quiet executive layer, scoped away from the public site. */
+.kay-workspace {
+  --kay-ink: #005476;
+  --kay-teal: #3bcac4;
+  --kay-paper: #f4f8f8;
+  --kay-line: #d9e7e6;
+  font-family: 'Manrope', 'Cairo', sans-serif;
+  background: var(--kay-paper);
+  color: var(--kay-ink);
+}
+.kay-workspace :is(h1,h2,h3,p,span) { font-family: inherit; }
+.kay-workspace .kay-mono { font-family: 'DM Mono', monospace; }
+.kay-workspace .kay-surface { background: #fbfdfd; border: 1px solid var(--kay-line); box-shadow: 0 10px 28px rgba(0,84,118,.055); }
+.kay-workspace .kay-nav-link { color:#52727c; transition:background .18s ease,color .18s ease; }
+.kay-workspace .kay-nav-link:hover { background:#e8f6f5; color:var(--kay-ink); }
+.kay-workspace .kay-nav-link[data-active="true"] { background:#dff4f2; color:var(--kay-ink); font-weight:700; }
+.kay-workspace .kay-dot { width:8px; height:8px; border-radius:999px; background:var(--kay-teal); box-shadow:0 0 0 4px rgba(59,202,196,.14); }
+.kay-workspace .kay-appear { animation:kayAppear .38s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes kayAppear { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+@media (max-width: 767px) {
+  .kay-workspace .kay-desktop-sidebar { display:none; }
 }
 

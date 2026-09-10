@@ -10,7 +10,7 @@ test("Kay control center exposes the permanent read-only CRM boundary", () => {
   assert.match(ui, /FROZEN_NO_EXECUTION/);
   assert.match(ui, /authorized human.*normal CRM/i);
   assert.match(ui, /Open Lead in CRM/);
-  assert.match(ui, /`\/admin\/crm\/\$\{p\.lead\.id\}`/);
+  assert.match(ui, /`\/admin\/crm\/\$\{rescuePreview\.lead\.id\}`/);
 });
 
 test("Kay control center cannot send a CRM-changing request", () => {
