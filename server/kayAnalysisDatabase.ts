@@ -30,10 +30,11 @@ export async function withKayReadonlyAnalysis<T>(read: (client: PoolClient) => P
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const safety = await client.query(`SELECT
       current_setting('transaction_read_only') = 'on' AS transaction_read_only,
-      has_table_privilege(current_user,'crm_leads','INSERT') AS can_insert,
-      has_table_privilege(current_user,'crm_leads','UPDATE') AS can_update,
-      has_table_privilege(current_user,'crm_leads','DELETE') AS can_delete,
-      has_table_privilege(current_user,'crm_leads','TRUNCATE') AS can_truncate`);
+      COALESCE(bool_or(has_table_privilege(current_user,table_name,'INSERT')),false) AS can_insert,
+      COALESCE(bool_or(has_table_privilege(current_user,table_name,'UPDATE')),false) AS can_update,
+      COALESCE(bool_or(has_table_privilege(current_user,table_name,'DELETE')),false) AS can_delete,
+      COALESCE(bool_or(has_table_privilege(current_user,table_name,'TRUNCATE')),false) AS can_truncate
+      FROM unnest(ARRAY['crm_leads','crm_tasks','crm_notes','crm_projects','lead_assignment_history']::text[]) AS tables(table_name)`);
     const row = safety.rows[0];
     if (row?.transaction_read_only !== true || row?.can_insert === true ||
         row?.can_update === true || row?.can_delete === true || row?.can_truncate === true) {

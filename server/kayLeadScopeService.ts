@@ -1,5 +1,6 @@
 import { pool } from "./db";
 import { denyKayWrite } from "./kayActionGateway";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 /** Kay's fixed, non-rolling operational boundary. */
 export const KAY_OPERATIONAL_LAUNCH_AT = "2026-09-09T00:00:00+04:00";
@@ -97,7 +98,7 @@ export function classifyKayLead(lead: KayLeadForScope, config: KayScopeConfig | 
 
 export type KayScopeExecutor = { query: (sql: string, values?: unknown[]) => Promise<any> };
 
-export async function getKayScopeConfig(executor: KayScopeExecutor = pool): Promise<KayScopeConfig | null> {
+async function readKayScopeConfig(executor: KayScopeExecutor): Promise<KayScopeConfig | null> {
   const result = await executor.query(
     `SELECT value FROM kay_settings WHERE key=$1`,
     [KAY_OPERATIONAL_SETTING_KEY],
@@ -105,7 +106,12 @@ export async function getKayScopeConfig(executor: KayScopeExecutor = pool): Prom
   return buildKayScopeConfig(result.rows[0]?.value);
 }
 
-export async function getKayScopeConfiguration(executor: KayScopeExecutor = pool) {
+export async function getKayScopeConfig(executor?: KayScopeExecutor): Promise<KayScopeConfig | null> {
+  if (executor) return readKayScopeConfig(executor);
+  return withKayReadonlyAnalysis(readKayScopeConfig);
+}
+
+async function readKayScopeConfiguration(executor: KayScopeExecutor) {
   const result = await executor.query(`SELECT value FROM kay_settings WHERE key=$1`, [KAY_OPERATIONAL_SETTING_KEY]);
   if (!result.rows[0]) return { status: "CONFIGURATION_MISSING" as const, config: null };
   const config = buildKayScopeConfig(result.rows[0].value);
@@ -114,8 +120,13 @@ export async function getKayScopeConfiguration(executor: KayScopeExecutor = pool
     : { status: "CONFIGURATION_INVALID" as const, config: null };
 }
 
-export async function getKayOperationalScopeAdminView(executor: KayScopeExecutor = pool) {
-  const configuration = await getKayScopeConfiguration(executor);
+export async function getKayScopeConfiguration(executor?: KayScopeExecutor) {
+  if (executor) return readKayScopeConfiguration(executor);
+  return withKayReadonlyAnalysis(readKayScopeConfiguration);
+}
+
+async function readKayOperationalScopeAdminView(executor: KayScopeExecutor) {
+  const configuration = await readKayScopeConfiguration(executor);
   const audit = await executor.query(`SELECT a.id,a.old_value,a.new_value,a.launch_at,a.timezone,a.cutoff_at,a.created_at,
       u.username AS actor_username
     FROM kay_operational_launch_audit a LEFT JOIN users u ON u.id=a.actor_admin_id
@@ -131,20 +142,15 @@ export async function getKayOperationalScopeAdminView(executor: KayScopeExecutor
   };
 }
 
-/** SQL fragments used by every Kay lead query. Never replace this with NOW()-90 days. */
-export function kayScopeSql(alias = "l", ownerAlias = "owner", launchParam = "$1") {
-  const date = `(CASE WHEN ${alias}.business_received_at IS NOT NULL AND ${alias}.business_received_at_source IN ('ORIGINAL_BUSINESS_TIMESTAMP','TRUSTED_SOURCE_CREATED_AT') THEN ${alias}.business_received_at WHEN COALESCE(lower(${alias}.lead_source),'') !~ '(excel|csv|import|migration|admin|legacy|backfill|seed|system)' THEN (${alias}.created_at AT TIME ZONE 'UTC') ELSE NULL END)`;
-  const owner = `${ownerAlias}.is_active=true AND ${ownerAlias}.is_admin=false AND ${ownerAlias}.role='sub_agent' AND lower(${ownerAlias}.username) <> 'kinglike_admin'`;
-  return {
-    ownerEligible: owner, authoritativeDate: date,
-    inScope: `(${date} >= ${launchParam}::timestamptz)`,
-    outcomeCase: `(CASE WHEN NOT (${owner}) THEN 'EXCLUDED_OWNER' WHEN ${date} IS NULL THEN 'LEGACY_DATE_UNCERTAIN' WHEN ${date} < ${launchParam}::timestamptz THEN 'OUT_OF_SCOPE_LEGACY' ELSE 'IN_KAY_SCOPE' END)`,
-    terminal: TERMINAL,
-  };
+export async function getKayOperationalScopeAdminView(executor?: KayScopeExecutor) {
+  if (executor) return readKayOperationalScopeAdminView(executor);
+  return withKayReadonlyAnalysis(readKayOperationalScopeAdminView);
 }
 
-export async function getKayScopeForLead(executor: KayScopeExecutor, leadId: number): Promise<{ outcome: KayScopeOutcome; config: KayScopeConfig | null }> {
-  const configuration = await getKayScopeConfiguration(executor);
+/** Lead scope always reads through the dedicated SELECT-only analysis role. */
+export async function getKayScopeForLead(leadId: number): Promise<{ outcome: KayScopeOutcome; config: KayScopeConfig | null }> {
+  return withKayReadonlyAnalysis(async executor => {
+  const configuration = await readKayScopeConfiguration(executor);
   const config = configuration.config;
   const result = await executor.query(`SELECT l.created_at,l.business_received_at,l.business_received_at_source,l.lead_source,
       u.username,u.role,u.is_active,u.is_admin
@@ -159,6 +165,19 @@ export async function getKayScopeForLead(executor: KayScopeExecutor, leadId: num
       businessReceivedAtSource: row.business_received_at_source, leadSource: row.lead_source,
       owner: { username: row.username, role: row.role, isActive: row.is_active, isAdmin: row.is_admin },
     }, config),
+  };
+  });
+}
+
+/** SQL fragments used by every Kay lead query. Never replace this with NOW()-90 days. */
+export function kayScopeSql(alias = "l", ownerAlias = "owner", launchParam = "$1") {
+  const date = `(CASE WHEN ${alias}.business_received_at IS NOT NULL AND ${alias}.business_received_at_source IN ('ORIGINAL_BUSINESS_TIMESTAMP','TRUSTED_SOURCE_CREATED_AT') THEN ${alias}.business_received_at WHEN COALESCE(lower(${alias}.lead_source),'') !~ '(excel|csv|import|migration|admin|legacy|backfill|seed|system)' THEN (${alias}.created_at AT TIME ZONE 'UTC') ELSE NULL END)`;
+  const owner = `${ownerAlias}.is_active=true AND ${ownerAlias}.is_admin=false AND ${ownerAlias}.role='sub_agent' AND lower(${ownerAlias}.username) <> 'kinglike_admin'`;
+  return {
+    ownerEligible: owner, authoritativeDate: date,
+    inScope: `(${date} >= ${launchParam}::timestamptz)`,
+    outcomeCase: `(CASE WHEN NOT (${owner}) THEN 'EXCLUDED_OWNER' WHEN ${date} IS NULL THEN 'LEGACY_DATE_UNCERTAIN' WHEN ${date} < ${launchParam}::timestamptz THEN 'OUT_OF_SCOPE_LEGACY' ELSE 'IN_KAY_SCOPE' END)`,
+    terminal: TERMINAL,
   };
 }
 

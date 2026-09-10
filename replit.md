@@ -21,6 +21,20 @@ Preferred communication style: Simple, everyday language.
 
 # System Architecture
 
+## Permanent Kay CRM Immutability Policy
+Kay is an intelligence and supervision layer, never a CRM writer. All current
+and future CRM fields and tables (including lead ownership/status and CRM tasks)
+are read-only to Kay. No mode, admin approval, canary, kill-switch setting, or
+internal Kay write may authorize a direct or indirect CRM mutation. CRM changes
+must be performed by authorized humans through normal CRM functionality.
+Assisted and automatic rescue are recommendation-only; historical execution
+records must be preserved. The real reassignment Canary is cancelled and E.2.4
+remains FROZEN_NO_EXECUTION. Customer communication is not authorized.
+Kay CRM reads must use the dedicated least-privilege analysis connection with
+no generic production connection fallback. Kay-internal writes require separate
+approval and do not lift the current freeze. Missing dedicated connections fail
+closed. See docs/kay-permanent-crm-immutability.md for policy scope.
+
 ## Frontend Architecture
 **Web Application**: Built with React and TypeScript, utilizing TailwindCSS for styling and Shadcn UI for component library. The frontend uses Vite as the build tool and implements client-side routing with Wouter. Internationalization is handled through react-i18next supporting 9 languages with RTL support for Arabic and Hebrew.
 

@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { pool } from "./db";
 import { getLegacyBaselineReadiness, getLegacyOwnerDiagnostics, getLegacyCapacitySensitivity } from "./kayLegacyBaselineService";
 import { evaluateRescueWindow } from "./kayAutoRescuePlanner";
 import { defaultRescueSettings, resolveKayMode } from "./kayService";
 import { classifyKayLead, getKayScopeConfiguration, kayScopeSql } from "./kayLeadScopeService";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 export const E23_SOURCE_POLICIES = ["SALES_ONLY", "SALES_AND_ADMIN_INTAKE", "ALL_NON_SYSTEM"] as const;
 export type E23SourcePolicy = typeof E23_SOURCE_POLICIES[number];
@@ -83,7 +83,7 @@ async function e23SideEffectSnapshot(executor: E23Executor) {
   return out;
 }
 
-async function employees(executor: E23Executor = pool, scope?: E23TestScope, cutoff?: Date) {
+async function employees(executor: E23Executor, scope?: E23TestScope, cutoff?: Date) {
   if (!cutoff) throw new Error("KAY_SCOPE_CONFIGURATION_MISSING");
   const leadScope = kayScopeSql("l", "lu", "$2");
   const taskScope = kayScopeSql("l", "lu", "$2");
@@ -137,28 +137,32 @@ async function employees(executor: E23Executor = pool, scope?: E23TestScope, cut
 }
 
 /** Read-only approved E.2.3 capacity formula snapshot for operational routing. */
-export async function getE23CapacitySnapshot(executor: E23Executor = pool) {
+async function readE23CapacitySnapshot(executor: E23Executor): Promise<any> {
   const scope = await getKayScopeConfiguration(executor);
   if (scope.status !== "OK") throw Object.assign(new Error(`KAY_SCOPE_${scope.status}`), { code: `KAY_SCOPE_${scope.status}` });
   return employees(executor, undefined, scope.config.cutoffAt);
 }
 
+export async function getE23CapacitySnapshot(): Promise<any> {
+  return withKayReadonlyAnalysis(client => readE23CapacitySnapshot(client));
+}
+
 /** Aggregate-only diagnostic. No INSERT/UPDATE/DELETE is present in this path. */
-export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
+async function readKayPhaseE23Diagnostics(scope: E23TestScope | undefined, client: E23Executor) {
   requireE23Scope(scope);
-  const client = await pool.connect();
   let snapshotBefore: Record<string, string> = {};
   let snapshotAfter: Record<string, string> = {};
-  try {
-  await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
   snapshotBefore = await e23SideEffectSnapshot(client);
   const scopeConfiguration = await getKayScopeConfiguration(client);
   if (scopeConfiguration.status !== "OK") throw new Error(`KAY_SCOPE_${scopeConfiguration.status}`);
-   const [owners, readiness, capacity, staff, settingsRow, modeRow] = await Promise.all([
-    getLegacyOwnerDiagnostics(scope, client), getLegacyBaselineReadiness(scope, client), getLegacyCapacitySensitivity(scope, client), employees(client, scope, scopeConfiguration.config.cutoffAt),
-    client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`),
-    client.query(`SELECT value FROM kay_settings WHERE key='mode'`),
-  ]);
+   const owners = await getLegacyOwnerDiagnostics(scope);
+   const readiness = await getLegacyBaselineReadiness(scope);
+   const capacity = await getLegacyCapacitySensitivity(scope);
+   const [staff, settingsRow, modeRow] = await Promise.all([
+     employees(client, scope, scopeConfiguration.config.cutoffAt),
+     client.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`),
+     client.query(`SELECT value FROM kay_settings WHERE key='mode'`),
+   ]);
   const rules: any = settingsRow.rows[0]?.value || {};
   const rescueSettings: any = { ...defaultRescueSettings, ...rules };
   const mode = resolveKayMode(modeRow.rows[0]?.value);
@@ -337,14 +341,9 @@ export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
          missions: changed("kay_missions"), commitments: changed("kay_commitments"), promises: changed("kay_promises"),
          notifications: changed("user_notifications"), autoRescues: changed("kay_auto_rescue_queue") || changed("kay_rescue_executions") };
      })(),
-  };
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw error;
-  } finally {
-    // READ ONLY diagnostics must never leave an open transaction, even on a
-    // query failure. ROLLBACK is intentional after a successful report too.
-    await client.query("ROLLBACK").catch(() => {});
-    client.release();
-  }
+   };
+}
+
+export async function getKayPhaseE23Diagnostics(scope?: E23TestScope) {
+  return withKayReadonlyAnalysis(client => readKayPhaseE23Diagnostics(scope, client));
 }

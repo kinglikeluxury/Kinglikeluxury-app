@@ -391,7 +391,7 @@ test("E22 PostgreSQL service integration", { skip: !enabled }, async t => {
         FROM kay_legacy_rescue_baselines
         WHERE lead_id=$1`, [lead])).rows[0].state, "INVALIDATED");
       await pool.query(`UPDATE crm_leads SET status='no_answer_1' WHERE id=$1`, [lead]);
-      const resolved = await resolveKayStatusWindow(pool, lead, "no_answer_1");
+      const resolved = await resolveKayStatusWindow(lead, "no_answer_1");
       assert.equal(resolved?.source, "STATUS_TRANSITION");
       assert.equal(resolved?.trusted, true);
     });
@@ -459,38 +459,11 @@ test("E22 PostgreSQL service integration", { skip: !enabled }, async t => {
       assert.ok(capacity.some((x: any) => x.employee === `${marker}:owner`));
     });
 
-    await t.test("duplicate continuity repair preserves both ledger rows", async () => {
-      const lead = await addLead("no_answer_1");
-      await clearHistory(lead);
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
-        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`${marker}:migration`]);
-        await client.query(`DROP INDEX IF EXISTS kay_legacy_baseline_continuity_unique_idx`);
-        await client.query(`ALTER TABLE kay_legacy_rescue_baselines
-          DROP CONSTRAINT IF EXISTS kay_legacy_rescue_baselines_lead_id_observed_status_continuity_event_key_key`);
-        await client.query(`ALTER TABLE kay_legacy_rescue_baselines
-          DROP CONSTRAINT IF EXISTS kay_legacy_rescue_baselines_lead_id_observed_status_continu_key`);
-        await client.query(`DROP INDEX IF EXISTS kay_legacy_baseline_one_active_idx`);
-        await client.query(`INSERT INTO kay_legacy_rescue_baselines
-          (lead_id,observed_status,state,continuity_event_key)
-          VALUES($1,'no_answer_1','ACTIVE',$2),
-            ($1,'no_answer_1','SUPERSEDED',$2)`, [lead, `${marker}:duplicate`]);
-        await repairLegacyBaselineContinuityDuplicates(client);
-        const repaired = await client.query(`SELECT id,state,continuity_event_key
-          FROM kay_legacy_rescue_baselines
-          WHERE lead_id=$1 ORDER BY id`, [lead]);
-        assert.equal(repaired.rows.length, 2);
-        assert.equal(repaired.rows[0].continuity_event_key, `${marker}:duplicate`);
-        assert.equal(repaired.rows[1].state, "SUPERSEDED");
-        assert.equal(repaired.rows[1].continuity_event_key, `${marker}:duplicate:superseded:${repaired.rows[1].id}`);
-        await client.query(`CREATE UNIQUE INDEX kay_e22_test_continuity_unique
-          ON kay_legacy_rescue_baselines(lead_id,observed_status,continuity_event_key)`);
-        await client.query("ROLLBACK");
-      } finally {
-        await client.query("ROLLBACK").catch(() => {});
-        client.release();
-      }
+    await t.test("duplicate continuity repair is permanently denied", async () => {
+      await assert.rejects(
+        () => repairLegacyBaselineContinuityDuplicates(),
+        (error: any) => error?.code === "KAY_CRM_MUTATION_DENIED",
+      );
     });
 
     await t.test("production status trigger propagates baseline update failure atomically", async () => {

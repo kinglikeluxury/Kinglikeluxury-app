@@ -1,6 +1,6 @@
-import { pool } from "./db";
 import { defaultRescueSettings, rescueSettingsSchema } from "./kayService";
 import { evaluateRescueWindow, recommendRescueEmployee, simulateDailyLimits, rescueAttemptPredicate, type RescueBlocker } from "./kayAutoRescuePlanner";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 type Queryable = { query(sql: string, values?: unknown[]): Promise<{ rows: any[] }> };
 const terminalStatuses = ["lost", "converted", "purchased", "sold_by_kinglike_luxury", "junk_lead", "not_qualified"];
@@ -77,10 +77,8 @@ async function fingerprints(q: Queryable) {
 }
 
 export async function runKayE21ReadonlyAudit(options: { verifyWriteRejectionForTest?: boolean } = {}): Promise<KayE21AuditReport> {
-  const externalBefore=await fingerprints(pool);
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+  const externalBefore=await withKayReadonlyAnalysis(fingerprints);
+  return withKayReadonlyAnalysis(async client => {
     const tx = await client.query("SHOW transaction_read_only");
     if (String(tx.rows[0]?.transaction_read_only).toLowerCase() !== "on") throw new Error("Database does not support enforced read-only transactions");
     let readOnlyWriteRejectionProven: boolean | undefined;
@@ -190,8 +188,7 @@ export async function runKayE21ReadonlyAudit(options: { verifyWriteRejectionForT
     ];
     const after = await fingerprints(client); const deltas: Record<string,number> = {}; for (const key of Array.from(new Set([...Object.keys(before),...Object.keys(after)]))) deltas[key] = (after[key]?.count||0)-(before[key]?.count||0);
     const automaticHistoryTotal = n((await client.query(`SELECT count(*)::int n FROM lead_assignment_history WHERE reason='kay_rescue_automatic'`)).rows[0].n);
-    await client.query("COMMIT");
-    const externalAfter=await fingerprints(pool);
+     const externalAfter=await withKayReadonlyAnalysis(fingerprints);
     const employeeLoad = people.filter(p=>p.valid).map(p=>({employeeId:p.id,employee:p.name,currentActive:p.activeLeadCount,currentCapacity:p.activeLeadCount+2*p.overdueTaskCount,wouldLose:ownerStats[p.id]?.lose||0,wouldReceive:ownerStats[p.id]?.receive||0,projectedCapacity:p.activeLeadCount+2*p.overdueTaskCount+(ownerStats[p.id]?.receive||0)-(ownerStats[p.id]?.lose||0),availability:p.availability}));
     const canaryEvaluation=selectCanaryCandidate(employeeLoad,ownerMetrics,Object.fromEntries(Object.entries(ownerStats).map(([id,value])=>[id,value.receive])));
     const canaryOwner=canaryEvaluation.safe;
@@ -205,5 +202,5 @@ export async function runKayE21ReadonlyAudit(options: { verifyWriteRejectionForT
     const communicationEvidence=communicationKeys.length?`Observed non-PII state columns in ${communicationKeys.length} communication table(s).`:"No reliable communication state table was discoverable; audit dependency path contains zero communication calls and the transaction is read-only.";
     const canaryRejectedRisks=Array.from(new Set(canaryEvaluation.evaluated.flatMap(x=>x.riskFlags)));
     return { asOf:asOf.toISOString(),readOnly:true,fullPopulation:{totalCrmLeads:n(totals.total),activeStatusLeads:n(totals.active),activeSalesLeads:n(totals.active_sales),noAnswer1:n(totals.no_answer_1),noAnswer2:n(totals.no_answer_2),noAnswer3Compatibility:n(totals.no_answer_3),noAnswer4:n(totals.no_answer_4),unknownReview:n(totals.unknown_review),relevantEvaluated:evaluated},simulations,blockerAnalysis:blockers,noEligibleReasons,employeeLoad,transferMatrix:matrix,pingPongPrevented,attempts,dailyLimitSimulation:{rawEligible:raw.length,executable:daily.executable.length,deferredGlobal:daily.deferredGlobal,deferredEmployee:daily.deferredEmployee,managerReview:daily.deferredGlobal+daily.deferredEmployee},protectedLeadAudit:{total:n(protectedAudit.total),over7Days:n(protectedAudit.over7),reviewDue:n(protectedAudit.review_due),relevant:n(protectedAudit.relevant)},availabilityAudit:availability,historicalReplay:{status:"INSUFFICIENT_RELIABLE_HISTORY",reasons:replayReasons},canary:canaryOwner?{employee:canaryOwner.employee,reason:`volume=${canaryOwner.estimatedRescueVolume}, blockerRate=${canaryOwner.blockerRate.toFixed(2)}, complexHistoryRate=${canaryOwner.complexHistoryRate.toFixed(2)}, projectedCapacity=${canaryOwner.projectedCapacity}, receiverShare=${canaryOwner.receivingConcentration.toFixed(2)}`,estimatedRescueVolume:canaryOwner.wouldLose,receivingEmployees:employeeLoad.filter(x=>x.wouldReceive>0).map(x=>x.employee),riskFlags:canaryOwner.riskFlags,metrics:canaryMetrics}:{employee:null,reason:"NO MEANINGFUL CANARY CANDIDATE CURRENTLY EXISTS",estimatedRescueVolume:0,receivingEmployees:[],riskFlags:canaryRejectedRisks,metrics:null},examples,integrity:{before,after,deltas,changed,externalConcurrentChanges,integrityFailed:Object.values(changed).some(Boolean),ownershipWrites:changedTable("crm_leads"),crmStatusWrites:changedTable("crm_leads"),crmTaskWrites:changedTable("crm_tasks"),promiseWrites:changedTable("kay_promises"),commitmentWrites:changedTable("kay_commitments"),customerCommunicationWrites:communicationChanged?1:0,customerCommunicationEvidence:communicationEvidence,notifications:changedTable("user_notifications"),queueExecutedWrites:changedTable("kay_auto_rescue_queue"),auditPathCommunicationCalls:0,readOnlyWriteRejectionProven,automaticHistoryTotal},safetyState };
-  } catch (error) { await client.query("ROLLBACK").catch(()=>{}); throw error; } finally { client.release(); }
+  });
 }

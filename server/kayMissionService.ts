@@ -7,6 +7,7 @@ import { sanitizeKayJson } from "./kayService";
 import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeService";
 import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 export const PHASE_C_PRIORITY_FORMULA_VERSION = "phase_c_v1" as const;
 export const missionStatusSchema = z.enum(["NEW", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "DISMISSED", "STALE"]);
@@ -285,7 +286,7 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
   let created = 0; let reconciled = 0; const current = new Map<number, string[]>(); const now = new Date();
   for (const row of rows.rows as unknown as Candidate[]) {
     assertKayProductionEntry(row);
-    const scope = await getKayScopeForLead(pool, Number(row.lead_id));
+    const scope = await getKayScopeForLead(Number(row.lead_id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     const info = getKayStatusIntelligence(row.status);
     if (info.terminal || info.classification === "NON_SALES" || info.classification === "UNKNOWN_REVIEW") continue;
@@ -363,10 +364,12 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
 }
 
 export async function getKayMission(id: number, actorId: number, admin: boolean) {
-  const result = await db.execute(sql`SELECT m.* FROM kay_missions m
-    LEFT JOIN crm_leads l ON l.id=m.lead_id LEFT JOIN users u ON u.id=m.employee_id
-    WHERE m.id=${id} AND (${admin} OR (m.employee_id=${actorId} AND l.assigned_to=${actorId} AND u.role='sub_agent')) LIMIT 1`);
-  return result.rows[0] ?? null;
+  return withKayReadonlyAnalysis(async client => {
+    const result = await client.query(`SELECT m.* FROM kay_missions m
+      LEFT JOIN crm_leads l ON l.id=m.lead_id LEFT JOIN users u ON u.id=m.employee_id
+      WHERE m.id=$1 AND ($2 OR (m.employee_id=$3 AND l.assigned_to=$3 AND u.role='sub_agent')) LIMIT 1`, [id, admin, actorId]);
+    return result.rows[0] ?? null;
+  });
 }
 export async function transitionKayMission(id: number, actorId: number, admin: boolean, action: "accept" | "start" | "complete" | "dismiss", details: unknown) {
   await denyKayWrite("workflow.transition", actorId, "kay_mission", id);
@@ -428,17 +431,22 @@ export async function getKayEmployeeWorkflowSnapshot() {
   return result.rows;
 }
 export async function getKayMissionInspection() {
-  const result = await db.execute(sql`SELECT m.id,m.mission_type,m.priority,m.status,m.reason_code,m.created_at,m.accepted_at,m.completed_at,m.result_code,
-    m.lead_id,COALESCE(l.full_name,l.first_name,'Deleted lead') lead_name,m.employee_id,u.username employee_name
-    FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id LEFT JOIN users u ON u.id=m.employee_id
-    ORDER BY m.created_at DESC,m.id DESC LIMIT 50`);
-  return result.rows;
+  return withKayReadonlyAnalysis(async client => {
+    const result = await client.query(`SELECT m.id,m.mission_type,m.priority,m.status,m.reason_code,m.created_at,m.accepted_at,m.completed_at,m.result_code,
+      m.lead_id,COALESCE(l.full_name,l.first_name,'Deleted lead') lead_name,m.employee_id,u.username employee_name
+      FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id LEFT JOIN users u ON u.id=m.employee_id
+      ORDER BY m.created_at DESC,m.id DESC LIMIT 50`);
+    return result.rows;
+  });
 }
 
 /** Best-effort worker; it is deliberately behind the same scheduler gate. */
 export function startKayMissionGenerator(): void {
-  void denyKayWrite("missions.generate", undefined, "mission_generator", "start")
-    .catch(error => console.warn(`[Kay] mission generator start blocked: ${error instanceof Error ? error.message : "unknown"}`));
+  try {
+    denyKayWrite("missions.generate", undefined, "mission_generator", "start");
+  } catch (error) {
+    console.warn(`[Kay] mission generator start blocked: ${error instanceof Error ? error.message : "unknown"}`);
+  }
   return;
   /* istanbul ignore next -- permanently unreachable while write capabilities are off */
   let timer: NodeJS.Timeout | undefined;

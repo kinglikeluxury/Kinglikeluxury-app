@@ -1,10 +1,14 @@
 ---
-name: Kay assisted rescue safety
-description: Durable safety boundaries for admin-confirmed lead rescue and reversal.
+name: Kay assisted rescue policy supersession
+description: Previous admin-confirmed execution authorization is withdrawn.
 ---
 
-Kay may recommend rescues in SHADOW and may execute one only through the standalone ASSISTED admin command. Evaluators and schedulers must never call ownership execution or undo. Controlled and full automation modes remain rejected.
+The previous permission for admin-confirmed Kay reassignment and undo is
+superseded by the permanent CRM read-only directive in replit.md.
 
-**Why:** Lead ownership is a high-consequence CRM mutation. Confirmation must use live authoritative state, preserve promises through handoffs, reconcile Kay-owned work atomically, and retain a complete audit trail.
+**Why:** On 2026-09-10 the business owner explicitly withdrew every Kay CRM-write
+plan, including assisted execution. Old audit records and implementation notes
+must not be mistaken for current authorization.
 
-**How to apply:** Lock and revalidate the lead inside one transaction, require an eligible active target, record every accepted or rejected attempt, and provide a bounded transactional undo that returns `MANUAL_REVIEW_REQUIRED` whenever later work makes reversal unsafe. Keep production mode SHADOW unless the user explicitly authorizes otherwise.
+**How to apply:** Treat historical execution designs as historical only. Never
+restore them merely because older documentation describes admin confirmation.

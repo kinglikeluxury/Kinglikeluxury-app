@@ -1,6 +1,9 @@
 import {
   createKayAuditEnvelope,
   evaluateKayPolicy,
+  KAY_CRM_MUTATION_ACTIONS,
+  KAY_IMMUTABLE_IDENTITY_FIELDS,
+  KAY_CRM_MUTATION_DENIED,
   type KayAuditEnvelope,
   type KayPolicyRequest,
 } from "./kayActionPolicy";
@@ -14,6 +17,88 @@ export interface KayGatewayResult {
 
 let auditPool: Pool | null = null;
 let auditVerified: Promise<void> | null = null;
+
+const AUDIT_ACTIONS = new Set([
+  "crm.read", "crm.get", "crm.list", "crm.search", "crm.analyze", "crm.score", "crm.inspect",
+  "crm.write", "crm.update", "crm.insert", "crm.delete", "crm.truncate", "crm.alter",
+  "tasks.create", "tasks.update", "tasks.complete", "tasks.delete",
+  "leads.reassign", "leads.update", "rescue.execute", "protection.update",
+  "missions.generate", "settings.update", "whatsapp.send", "workflow.transition",
+  "audit.write", "http.write",
+  ...Array.from(KAY_CRM_MUTATION_ACTIONS),
+]);
+
+const AUDIT_TARGET_TYPES = new Set([
+  "crm_lead", "crm_leads", "crm_task", "crm_tasks", "lead_assignment",
+  "lead_assignment_history", "http_route", "auto_rescue_queue", "rescue_execution",
+  "kay_availability", "kay_briefing", "kay_commitment", "kay_decision", "kay_evaluator",
+  "kay_evaluator_queue", "kay_mission", "kay_notification", "kay_phase", "kay_promise",
+  "kay_setting", "legacy_baseline", "manager_review", "mission_generator", "mission_lease",
+  "phase", "phase_d_lease", "promise_handoff", "worker",
+]);
+
+const AUDIT_SAFE_IDS = new Set([
+  "E.2.4", "new", "acquire", "renew", "release", "claim", "enqueue", "shadow", "start",
+  "pending", "automatic", "manual", "repair", "activate",
+]);
+
+function boundedAction(action: unknown): string {
+  const value = String(action || "").trim().toLowerCase();
+  if (value === "crm_mutation_blocked") return "CRM_MUTATION_BLOCKED";
+  return AUDIT_ACTIONS.has(value) ? value : "unknown_action";
+}
+
+function boundedTargetType(targetType: unknown): string | null {
+  const value = String(targetType || "").trim().toLowerCase();
+  return AUDIT_TARGET_TYPES.has(value) ? value : null;
+}
+
+function boundedTargetId(targetType: unknown, targetId: unknown): string | null {
+  const type = boundedTargetType(targetType);
+  if (!type || targetId == null) return null;
+  if (typeof targetId === "number" && Number.isSafeInteger(targetId) && targetId >= 0) return String(targetId);
+  const value = String(targetId);
+  if (type === "http_route") return "kay_http_route";
+  return AUDIT_SAFE_IDS.has(value) ? value : null;
+}
+
+function boundedActorId(actorId: unknown): string | null {
+  return typeof actorId === "number" && Number.isSafeInteger(actorId) && actorId >= 0
+    ? String(actorId)
+    : null;
+}
+
+function normalizeAuditField(field: unknown): string {
+  const value = String(field || "").split(".").pop()?.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase() || "";
+  return KAY_IMMUTABLE_IDENTITY_FIELDS.includes(value) ? value : "unknown_field";
+}
+
+function boundedFields(fields: readonly unknown[] | undefined): string[] {
+  return Array.from(new Set((fields || []).slice(0, 20).map(normalizeAuditField))).slice(0, 20);
+}
+
+export function sanitizeKayAuditRecord(result: KayGatewayResult, request: KayPolicyRequest) {
+  return {
+    action: boundedAction(result.audit.action),
+    actorId: boundedActorId(result.audit.actorId),
+    targetType: boundedTargetType(result.audit.target.type),
+    targetId: boundedTargetId(result.audit.target.type, result.audit.target.id),
+    requestSnapshot: {
+      attemptedAction: boundedAction(request.action),
+      capability: request.capability && [
+        "kay.crm.read", "kay.crm.analyze", "kay.tasks.create", "kay.leads.reassign",
+        "kay.crm.write", "kay.whatsapp.send", "kay.rescue.execute",
+      ].includes(request.capability) ? request.capability : null,
+      actionKind: request.actionKind === "read" || request.actionKind === "analyze" || request.actionKind === "write" ? request.actionKind : null,
+      environment: request.environment === "development" || request.environment === "test" || request.environment === "production" ? request.environment : null,
+      mode: request.mode === "shadow" || request.mode === "assisted" || request.mode === "controlled_automation" ? request.mode : null,
+      killSwitch: request.killSwitch !== false,
+      fields: boundedFields(request.fields),
+      canary: request.canary === true,
+    },
+  };
+}
 
 function getAuditPool(): Pool {
   const connectionString = process.env.KAY_AUDIT_DATABASE_URL;
@@ -53,6 +138,22 @@ async function verifyAuditWriter(): Promise<void> {
   return auditVerified;
 }
 
+async function persistAuditDecision(
+  result: KayGatewayResult,
+  request: KayPolicyRequest,
+): Promise<void> {
+  await verifyAuditWriter();
+  const safe = sanitizeKayAuditRecord(result, request);
+  await getAuditPool().query(`INSERT INTO kay_action_audit
+    (run_id,action_id,action,actor_id,target_type,target_id,policy_decision,policy_reason,policy_version,dry_run,request_snapshot)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)`, [
+    result.audit.runId, result.audit.actionId, safe.action,
+    safe.actorId, safe.targetType, safe.targetId,
+    result.audit.policy.decision, result.audit.policy.reason, result.audit.policy.policyVersion,
+    result.audit.dryRun, JSON.stringify(safe.requestSnapshot),
+  ]);
+}
+
 /**
  * The only supported entry point for Kay actions. It authorizes and returns
  * an audit envelope; it deliberately accepts no executor and performs no
@@ -74,35 +175,23 @@ export async function authorizeKayAction(
   ids?: Partial<Pick<KayAuditEnvelope, "runId" | "actionId">>,
 ): Promise<KayGatewayResult> {
   const result = evaluateKayAction(request, ids);
-  await verifyAuditWriter();
-  await getAuditPool().query(`INSERT INTO kay_action_audit
-    (run_id,action_id,action,actor_id,target_type,target_id,policy_decision,policy_reason,policy_version,dry_run,request_snapshot)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)`, [
-      result.audit.runId, result.audit.actionId, result.audit.action,
-      result.audit.actorId == null ? null : String(result.audit.actorId),
-      result.audit.target.type, result.audit.target.id == null ? null : String(result.audit.target.id),
-      result.audit.policy.decision, result.audit.policy.reason, result.audit.policy.policyVersion,
-      result.audit.dryRun, JSON.stringify({
-        capability: request.capability ?? null,
-        actionKind: request.actionKind ?? null,
-        environment: request.environment ?? null,
-        mode: request.mode ?? null,
-        killSwitch: request.killSwitch !== false,
-        fields: request.fields ?? [],
-        canary: request.canary === true,
-      }),
-    ]);
+  await persistAuditDecision(result, request);
   return result;
 }
 
-/** Current production writes are deliberately impossible, but attempts remain auditable. */
-export async function denyKayWrite(
+/**
+ * Synchronous, permanent mutation boundary.  Keeping the throw synchronous
+ * protects direct service calls that forget to await a guard: no transaction
+ * can be opened after this function returns.  Audit persistence is best effort
+ * and never receives secrets or customer payloads.
+ */
+export function denyKayWrite(
   action: KayPolicyRequest["action"],
   actorId?: string | number,
   targetType?: string,
   targetId?: string | number,
-): Promise<never> {
-  const result = await authorizeKayAction({
+): never {
+  const request: KayPolicyRequest = {
     action,
     actionKind: "write",
     actorId,
@@ -113,10 +202,21 @@ export async function denyKayWrite(
     killSwitch: true,
     dryRun: false,
     actorCapabilities: [],
+  };
+  const result = evaluateKayAction(request);
+  // Every blocked guard is audited. Persistence is deliberately not awaited:
+  // this function must throw synchronously so a forgotten await cannot reach a
+  // transaction. Audit failure never changes the deny result.
+  void persistAuditDecision(result, request).catch(error => {
+    // Missing/revoked dedicated audit credentials are a deployment
+    // availability issue, never a reason to let the mutation continue.
+    console.warn(`[Kay] blocked Kay action audit unavailable: ${error instanceof Error ? error.message : "unknown"}`);
   });
-  throw Object.assign(new Error("KAY_WRITES_DISABLED"), {
-    code: "KAY_WRITES_DISABLED",
+  throw Object.assign(new Error(KAY_CRM_MUTATION_DENIED), {
+    code: KAY_CRM_MUTATION_DENIED,
+    reason: result.audit.policy.reason,
     status: 423,
     actionId: result.audit.actionId,
+    legacyCode: "KAY_WRITES_DISABLED",
   });
 }

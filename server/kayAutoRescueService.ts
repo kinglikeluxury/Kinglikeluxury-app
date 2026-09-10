@@ -92,16 +92,20 @@ export async function reconcileAutoRescueUncertainForTest(q: any, token: string,
 }
 
 export async function getAutoRescueHealth() {
-  const [settings, h, counts, today, canary] = await Promise.all([
-    getRescueSettings(), pool.query(`SELECT value FROM kay_settings WHERE key='phase_e2_auto_rescue_health'`),
-    pool.query(`SELECT status,count(*)::int count FROM kay_auto_rescue_queue GROUP BY status`),
-    pool.query(`SELECT count(*)::int count FROM lead_assignment_history WHERE reason='kay_rescue_automatic'
-      AND ((assigned_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Tbilisi')::date=(NOW() AT TIME ZONE 'Asia/Tbilisi')::date`),
-    pool.query(`SELECT count(*)::int count FROM kay_rescue_executions
-      WHERE outcome='SUCCESS' AND metadata->>'executionMode'='automatic'
-        AND metadata->>'businessDate'=to_char(NOW() AT TIME ZONE 'Asia/Tbilisi','YYYY-MM-DD')
-        AND metadata->>'canaryPeriod'=COALESCE((SELECT value->>'auto_rescue_rule_version' FROM kay_settings WHERE key='rescue_rules'),'phase_e2_v1')`),
+  const [settings, readonly] = await Promise.all([
+    getRescueSettings(),
+    withKayReadonlyAnalysis(async analysis => Promise.all([
+      analysis.query(`SELECT value FROM kay_settings WHERE key='phase_e2_auto_rescue_health'`),
+      analysis.query(`SELECT status,count(*)::int count FROM kay_auto_rescue_queue GROUP BY status`),
+      analysis.query(`SELECT count(*)::int count FROM lead_assignment_history WHERE reason='kay_rescue_automatic'
+        AND ((assigned_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Tbilisi')::date=(NOW() AT TIME ZONE 'Asia/Tbilisi')::date`),
+      analysis.query(`SELECT count(*)::int count FROM kay_rescue_executions
+        WHERE outcome='SUCCESS' AND metadata->>'executionMode'='automatic'
+          AND metadata->>'businessDate'=to_char(NOW() AT TIME ZONE 'Asia/Tbilisi','YYYY-MM-DD')
+          AND metadata->>'canaryPeriod'=COALESCE((SELECT value->>'auto_rescue_rule_version' FROM kay_settings WHERE key='rescue_rules'),'phase_e2_v1')`),
+    ])),
   ]);
+  const [h, counts, today, canary] = readonly;
   const state: any = h.rows[0]?.value || {}; const by = Object.fromEntries(counts.rows.map((r: any) => [r.status, r.count]));
   return { enabled: process.env.ENABLE_BACKGROUND_SCHEDULERS === "true", mode: await getKayMode(), killSwitch: settings.auto_rescue_kill_switch,
     canaryEnabled: settings.auto_rescue_canary_enabled, canaryEmployees: settings.auto_rescue_canary_employee_ids.length,
@@ -140,7 +144,7 @@ export async function getAutoRescueReadiness(limit = 500) {
     WHERE l.status IN ('no_answer_1','no_answer_2') ORDER BY l.id LIMIT $1`, [clamp(limit, 1, 1000)]);
   const result = { checked: rows.rows.length, wouldExecute: 0, wouldBlock: 0, managerReview: 0, noEligibleEmployee: 0, protected: 0, dailyLimitImpact: 0 };
   for (const l of rows.rows as any[]) {
-    const scope = await getKayScopeForLead(analysis, Number(l.id));
+    const scope = await getKayScopeForLead(Number(l.id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     const threshold = (l.status === "no_answer_2" ? settings.no_answer_2_threshold_hours : settings.no_answer_1_threshold_hours) * 3600000;
     if (!l.entered_at || Date.now() - new Date(l.entered_at).getTime() < threshold) continue;
@@ -169,7 +173,7 @@ export async function applyAutoRescueLastChance(queueId: number, userId: number,
       throw Object.assign(new Error("This Rescue window is not assigned to you."),{status:403,code:"NOT_OWNER"});
     }
     assertKayProductionEntry(q);
-    const scope = await getKayScopeForLead(client, Number(q.lead_id));
+    const scope = await getKayScopeForLead(Number(q.lead_id));
     if (scope.outcome !== "IN_KAY_SCOPE") {
       throw Object.assign(new Error("This Rescue window is outside Kay operational scope."), { status: 409, code: `KAY_SCOPE_${scope.outcome}` });
     }
@@ -260,11 +264,11 @@ async function evaluateIntoQueue(settings: any, limit: number) {
       ORDER BY CASE WHEN l.id=$2 THEN 0 ELSE 1 END,l.id LIMIT $1`, [clamp(limit, 1, 100),pinned]);
   for (const lead of candidates.rows as any[]) {
     assertKayProductionEntry(lead);
-    const scope = await getKayScopeForLead(pool, Number(lead.id));
+      const scope = await getKayScopeForLead(Number(lead.id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     // E.2.2 baselines are observation-only until a separately approved future
     // policy exists. They may appear in readiness, never in queue/mission paths.
-    const resolved = await resolveKayStatusWindow(pool, Number(lead.id), lead.status);
+    const resolved = await resolveKayStatusWindow(Number(lead.id), lead.status);
     if (!resolved || resolved.source !== "STATUS_TRANSITION") continue;
     const enabled = lead.status === "no_answer_1" ? settings.auto_rescue_no_answer_1_enabled : settings.auto_rescue_no_answer_2_enabled;
     const threshold = (lead.status === "no_answer_1" ? settings.no_answer_1_threshold_hours : settings.no_answer_2_threshold_hours) * 3_600_000;
@@ -319,7 +323,7 @@ export async function runKayAutoRescueWorker(limit = 25) {
       LEFT JOIN users u ON u.id=l.assigned_to
       WHERE s.id=1 AND s.status='ACTIVE'`)).rows[0];
     if (activeCanary) {
-      const scope = await getKayScopeForLead(pool, Number(activeCanary.candidate_lead_id));
+      const scope = await getKayScopeForLead(Number(activeCanary.candidate_lead_id));
       const blockers = await pool.query(`SELECT
         EXISTS(SELECT 1 FROM kay_lead_protection WHERE lead_id=$1 AND removed_at IS NULL) protected,
         EXISTS(SELECT 1 FROM crm_tasks WHERE lead_id=$1 AND completed_at IS NULL) task`,
@@ -347,7 +351,7 @@ export async function runKayAutoRescueWorker(limit = 25) {
         assertKayProductionEntry(q);
         const lead = (await pool.query(`SELECT * FROM crm_leads WHERE id=$1`, [q.lead_id])).rows[0];
         assertKayProductionEntry(lead);
-        const scope = await getKayScopeForLead(pool, Number(q.lead_id));
+      const scope = await getKayScopeForLead(Number(q.lead_id));
         if (scope.outcome !== "IN_KAY_SCOPE") {
           await claimedTransition(q,token,"STALE",`KAY_SCOPE_${scope.outcome}`);
           if (await freezeE24NoExecution(`KAY_SCOPE_${scope.outcome}`, q.lead_id, true)) break;
@@ -368,7 +372,7 @@ export async function runKayAutoRescueWorker(limit = 25) {
           continue;
         }
         const [capacity, received] = await Promise.all([
-          getE23CapacitySnapshot(pool),
+          getE23CapacitySnapshot(),
           pool.query(`SELECT u.id,count(h.id) FILTER (WHERE h.reason='kay_rescue_automatic'
               AND ((h.assigned_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Tbilisi')::date=(NOW() AT TIME ZONE 'Asia/Tbilisi')::date)::int received_today,
             max(h.assigned_at) FILTER (WHERE h.reason='kay_rescue_automatic') last_rescue_at

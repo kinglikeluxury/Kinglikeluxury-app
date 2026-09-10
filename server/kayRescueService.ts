@@ -4,6 +4,7 @@ import { getKayScopeForLead } from "./kayLeadScopeService";
 import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
 import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const openPromise = ["PENDING", "DUE_SOON", "OVERDUE", "OPEN"];
@@ -83,9 +84,9 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
       return { executionId: Number(prior.rows[0].id), leadId: command.leadId, fromUserId: prior.rows[0].from_user_id, toUserId: prior.rows[0].to_user_id, idempotent: true };
     }
     if (executionMode === "automatic") {
-      const scope = await getKayScopeForLead(client, Number(command.leadId));
+      const scope = await getKayScopeForLead(Number(command.leadId));
       if (scope.outcome !== "IN_KAY_SCOPE") throw reject(`KAY_SCOPE_${scope.outcome}`);
-      const trustedWindow = await resolveKayStatusWindow(client, Number(command.leadId), lead.status);
+      const trustedWindow = await resolveKayStatusWindow(Number(command.leadId), lead.status);
       if (!trustedWindow || trustedWindow.source !== "STATUS_TRANSITION" ||
         new Date(trustedWindow.enteredAt).getTime() !== new Date(lead.entered_at).getTime()) {
         throw reject("UNTRUSTED_STATUS_WINDOW");
@@ -300,7 +301,7 @@ export async function undoAssistedRescue(executionId: number, adminId: number, r
 }
 
 export async function getAssistedRescuePreview(leadId: number, decisionId: number) {
-  const result = await pool.query(`SELECT l.id,l.status,l.assigned_to,l.wa_stage,h.entered_at,d.payload,u.username owner_name,r.username recommended_name,
+  const result = await withKayReadonlyAnalysis(client => client.query(`SELECT l.id,l.status,l.assigned_to,l.wa_stage,h.entered_at,d.payload,u.username owner_name,r.username recommended_name,
     p.id IS NOT NULL protected,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',t.id,'title',t.title,'dueDate',t.due_date,'dueTime',t.due_time)) FROM crm_tasks t WHERE t.lead_id=l.id AND t.completed_at IS NULL),'[]'::jsonb) blockers,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'type',m.mission_type,'status',m.status,'priority',m.priority) ORDER BY m.created_at DESC) FROM (SELECT * FROM kay_missions WHERE lead_id=l.id ORDER BY created_at DESC LIMIT 1) m),'[]'::jsonb) last_mission,
@@ -310,7 +311,7 @@ export async function getAssistedRescuePreview(leadId: number, decisionId: numbe
     FROM crm_leads l JOIN kay_decisions d ON d.id=$2 AND d.lead_id=l.id LEFT JOIN kay_lead_status_history h ON h.lead_id=l.id AND h.status=l.status
     LEFT JOIN kay_lead_protection p ON p.lead_id=l.id AND p.removed_at IS NULL LEFT JOIN users u ON u.id=l.assigned_to
     LEFT JOIN users r ON r.id=(d.payload->>'recommended_employee_id')::int LEFT JOIN kay_settings a ON a.key='phase_c_availability:'||(d.payload->>'recommended_employee_id')
-    WHERE l.id=$1 ORDER BY h.entered_at DESC LIMIT 1`, [leadId, decisionId]);
+    WHERE l.id=$1 ORDER BY h.entered_at DESC LIMIT 1`, [leadId, decisionId]));
   const row: any = result.rows[0]; if (!row) return null;
   const thresholdMinutes = Number(row.payload?.threshold_minutes ?? 0);
   const elapsedMinutes = row.entered_at ? Math.max(0, Math.floor((Date.now() - new Date(row.entered_at).getTime()) / 60000)) : 0;
@@ -321,7 +322,7 @@ export async function getAssistedRescuePreview(leadId: number, decisionId: numbe
 }
 
 export async function listPromiseHandoffs(employeeId: number, admin: boolean) {
-  return (await pool.query(`SELECT h.*,p.promise_text,p.due_at,p.importance FROM kay_promise_handoffs h LEFT JOIN kay_promises p ON p.id=h.promise_id WHERE $2 OR (h.current_responsible_id=$1 AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=h.lead_id AND l.assigned_to=$1)) ORDER BY h.transferred_at DESC`, [employeeId, admin])).rows;
+  return (await withKayReadonlyAnalysis(client => client.query(`SELECT h.*,p.promise_text,p.due_at,p.importance FROM kay_promise_handoffs h LEFT JOIN kay_promises p ON p.id=h.promise_id WHERE $2 OR (h.current_responsible_id=$1 AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=h.lead_id AND l.assigned_to=$1)) ORDER BY h.transferred_at DESC`, [employeeId, admin]))).rows;
 }
 export async function acceptPromiseHandoff(id: number, employeeId: number, admin: boolean) {
   await denyKayWrite("workflow.transition", employeeId, "promise_handoff", id);

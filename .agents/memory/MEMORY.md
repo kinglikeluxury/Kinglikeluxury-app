@@ -14,8 +14,8 @@
 - [Replit secrets vs stale autoscale deploys](secrets-vs-stale-deploy.md) — a secret existing in Replit Secrets doesn't mean a running autoscale instance has it; only a fresh deploy/restart picks up newly-added secrets.
 - [Kay ordered shadow observations](kay-ordered-shadow-observations.md) — exact CRM transition timing must be DB-local and exception-isolated; one current decision per event requires DB uniqueness and atomic upsert.
 - [Neon advisory locks](neon-advisory-locks.md) — pooled background generators need expiring row leases; session advisory locks can remain attached to pooled DB sessions.
-- [Kay assisted rescue safety](kay-assisted-rescue-safety.md) — real lead ownership changes are explicit admin commands only; production defaults to SHADOW and undo fails closed.
-- [Kay controlled auto-rescue safety](kay-controlled-auto-rescue-safety.md) — E.2 is a four-gate, canary-only worker; production stays fully disarmed pending explicit approval.
+- [Kay assisted policy supersession](kay-assisted-rescue-safety.md) — prior admin-execution approval is withdrawn; consult the permanent policy in replit.md.
+- [Kay automatic policy supersession](kay-controlled-auto-rescue-safety.md) — prior four-gate execution plan is withdrawn, not merely awaiting activation.
 - [Kay fixed scope policy](kay-fixed-scope-policy.md) — scope uses one non-rolling launch cohort; uncertain imported dates fail closed and excluded owners stay outside Kay.
 - [Kay settings test isolation](kay-settings-test-isolation.md) — setting-mutating integration tests must restore the full prior JSON or synthetic limits can leak into production.
 - [Kay destructive test database isolation](kay-test-db-isolation.md) — mutation-capable Kay suites must hard-fail unless connected to an explicitly named dedicated test DB with a run ID.

@@ -519,8 +519,11 @@ ${metaTags}
       await denyKayWrite("http.write", req.session?.userId, "http_route", route);
     } catch (error: any) {
       return res.status(423).json({
-        message: "KAY_WRITES_DISABLED",
-        code: "KAY_WRITES_DISABLED",
+        message: error?.reason === "KAY_CRM_READ_ONLY_POLICY"
+          ? "KAY_CRM_MUTATION_DENIED"
+          : "KAY_WRITES_DISABLED",
+        code: error?.code || "KAY_WRITES_DISABLED",
+        reason: error?.reason || "KAY_CRM_READ_ONLY_POLICY",
         actionId: error?.actionId,
       });
     }
@@ -760,7 +763,7 @@ ${metaTags}
       // Historical/completed obligations remain visible; only current employee
       // Kay work is constrained by the centralized operational scope.
       const missions = await Promise.all(rawMissions.map(async (mission: any) => {
-        const scope = mission.leadId ? await getKayScopeForLead(pool, Number(mission.leadId)) : null;
+        const scope = mission.leadId ? await getKayScopeForLead(Number(mission.leadId)) : null;
         const scopeOutcome = scope?.outcome ?? null;
         const supervisionActive = !mission.leadId || scopeOutcome === "IN_KAY_SCOPE";
         return { ...mission, scopeOutcome, supervisionActive, historicalObligation: !!mission.leadId && !supervisionActive };

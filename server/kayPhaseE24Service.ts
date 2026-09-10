@@ -4,11 +4,12 @@ import { rescueSettingsSchema, defaultRescueSettings } from "./kayService";
 import { getKayScopeForLead } from "./kayLeadScopeService";
 import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
 import { getE23CapacitySnapshot, selectE23Target } from "./kayPhaseE23Service";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 type Check = { ok: boolean; reason?: string };
 const PERIOD = "phase_e24_first_fadi_canary";
 
-async function inspect(executor: any = pool) {
+async function inspect(executor: any) {
   const fadi = await executor.query(`SELECT id,username,role,is_active,is_admin FROM users WHERE lower(username)=lower($1)`, ["Fadi al-Mofti"]);
   const rulesRow = await executor.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`);
   const modeRow = await executor.query(`SELECT value FROM kay_settings WHERE key='mode'`);
@@ -41,8 +42,8 @@ async function inspect(executor: any = pool) {
       FROM crm_leads l LEFT JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
       WHERE l.assigned_to=$1 AND l.status IN ('no_answer_1','no_answer_2')`, [fadi.rows[0].id, ["PENDING","DUE_SOON","OVERDUE","OPEN"]]);
     for (const row of raw.rows) {
-      const scope = await getKayScopeForLead(executor, Number(row.id));
-      const window = await resolveKayStatusWindow(executor, Number(row.id), row.status);
+      const scope = await getKayScopeForLead(Number(row.id));
+      const window = await resolveKayStatusWindow(Number(row.id), row.status);
       const threshold = Number(row.status === "no_answer_1" ? rules.no_answer_1_threshold_hours : rules.no_answer_2_threshold_hours) * 60;
       const elapsed = row.entered_at ? Math.max(0, Math.floor((Date.now() - new Date(row.entered_at).getTime()) / 60000)) : 0;
       const blockers = [scope.outcome !== "IN_KAY_SCOPE" ? `SCOPE_${scope.outcome}` : null, window?.source !== "STATUS_TRANSITION" ? "UNTRUSTED_STATUS_WINDOW" : null,
@@ -58,7 +59,7 @@ async function inspect(executor: any = pool) {
   if (eligible.length) {
     const owner = Number(fadi.rows[0].id);
     const [capacity, history] = await Promise.all([
-      getE23CapacitySnapshot(executor),
+      getE23CapacitySnapshot(),
       executor.query(`SELECT u.id,count(h.id) FILTER (WHERE h.reason='kay_rescue_automatic'
           AND ((h.assigned_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Tbilisi')::date=(NOW() AT TIME ZONE 'Asia/Tbilisi')::date)::int received_today,
         max(h.assigned_at) FILTER (WHERE h.reason='kay_rescue_automatic') last_rescue_at
@@ -79,7 +80,9 @@ async function inspect(executor: any = pool) {
   return { ready, fadi: fadi.rows[0] || null, candidates, candidate: eligible[0] || null, target, checks, mode: modeRow.rows[0]?.value?.mode || "shadow", period: PERIOD };
 }
 
-export async function getE24FadiPrecheck() { return inspect(pool); }
+export async function getE24FadiPrecheck() {
+  return withKayReadonlyAnalysis(client => inspect(client));
+}
 
 export async function activateE24Fadi(adminId: number, confirmFirstRealCanary = false) {
   await denyKayWrite("settings.update", adminId, "kay_phase", "E.2.4");

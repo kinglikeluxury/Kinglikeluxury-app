@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, pool } from "./db";
-import { crmLeads, kayCommitments, kayEvents, kayInternalBriefings, kayManagerReviews, kayMissions, kayPromises, kaySettings } from "@shared/schema";
+import { kayCommitments, kayEvents, kayInternalBriefings, kayManagerReviews, kayMissions, kayPromises, kaySettings } from "@shared/schema";
 import { getKayAvailability, getPhaseCSettings, isKayQuietHours } from "./kayMissionService";
 import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeService";
 import { denyKayWrite } from "./kayActionGateway";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const phaseDStyleSchema = z.enum(["FRIENDLY", "PROFESSIONAL", "DIRECT", "FIRM", "SALES_COACH", "EXECUTIVE"]);
@@ -81,16 +82,11 @@ export async function setPhaseDSettings(value: unknown, actorId: number) {
   });
   return parsed;
 }
-async function ownsLead(employeeId: number, leadId: number | null | undefined) {
-  if (!leadId) return true;
-  const [lead] = await db.select({ id: crmLeads.id }).from(crmLeads).where(and(eq(crmLeads.id, leadId), eq(crmLeads.assignedTo, employeeId))).limit(1);
-  return !!lead;
-}
 export async function createCommitment(input: unknown, employeeId: number, admin = false) {
   await denyKayWrite("tasks.create", employeeId, "kay_commitment", "new");
   const data = commitmentInput.parse(input);
   if (data.leadId) {
-    const scope = await getKayScopeForLead(pool, data.leadId);
+    const scope = await getKayScopeForLead(data.leadId);
     if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay commitments require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
   }
   const settings = await getPhaseDSettings();
@@ -108,7 +104,7 @@ export async function createCommitment(input: unknown, employeeId: number, admin
       leadId = mission.lead_id;
     }
     if (leadId) {
-      const scope = await getKayScopeForLead(pool, leadId);
+    const scope = await getKayScopeForLead(leadId);
       if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay commitments require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
     }
     if (!admin && leadId) {
@@ -126,7 +122,7 @@ export async function createCommitment(input: unknown, employeeId: number, admin
 export async function createPromise(input: unknown, employeeId: number, admin = false) {
   await denyKayWrite("tasks.create", employeeId, "kay_promise", "new");
   const data = promiseInput.parse(input);
-  const scope = await getKayScopeForLead(pool, data.leadId);
+  const scope = await getKayScopeForLead(data.leadId);
   if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay promises require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
   return db.transaction(async tx => {
     if (!admin) {
@@ -142,11 +138,11 @@ export async function createPromise(input: unknown, employeeId: number, admin = 
   });
 }
 export async function listCommitments(employeeId: number, admin: boolean) {
-  const result = await db.execute(sql`SELECT c.* FROM kay_commitments c WHERE (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) ORDER BY c.created_at DESC LIMIT 100`);
+  const result = await withKayReadonlyAnalysis(client => client.query(`SELECT c.* FROM kay_commitments c WHERE ($2 OR (c.employee_id=$1 AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=$1)))) ORDER BY c.created_at DESC LIMIT 100`, [employeeId, admin]));
   return result.rows;
 }
 export async function listPromises(employeeId: number, admin: boolean) {
-  const result = await db.execute(sql`SELECT p.* FROM kay_promises p WHERE (${admin} OR (p.employee_id=${employeeId} AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=${employeeId}))) ORDER BY p.created_at DESC LIMIT 100`);
+  const result = await withKayReadonlyAnalysis(client => client.query(`SELECT p.* FROM kay_promises p WHERE ($2 OR (p.employee_id=$1 AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=$1))) ORDER BY p.created_at DESC LIMIT 100`, [employeeId, admin]));
   return result.rows;
 }
 export async function completeCommitment(id: number, employeeId: number, admin: boolean) {
@@ -299,7 +295,7 @@ export async function evaluatePhaseD(token: string, limit = 100) {
     });
   const overdueCommitments = await db.select().from(kayCommitments).where(and(eq(kayCommitments.status, "OVERDUE"), sql`${kayCommitments.dueAt} < NOW()`)).limit(limit);
   for (const c of overdueCommitments) {
-    if (c.leadId && (await getKayScopeForLead(pool, c.leadId)).outcome !== "IN_KAY_SCOPE") continue;
+    if (c.leadId && (await getKayScopeForLead(c.leadId)).outcome !== "IN_KAY_SCOPE") continue;
     if (!settings.trigger_types.includes("COMMITMENT_OVERDUE") || (c.lastReminderAt && Date.now() - c.lastReminderAt.getTime() < settings.reminder_minutes * 60_000)) continue;
     const availability = await getKayAvailability(c.employeeId); if (availability.availability !== "AVAILABLE" || isKayQuietHours(phaseC, new Date())) continue;
     const key = `commitment-overdue:${c.id}:v${c.reminderVersion + 1}`;
@@ -312,7 +308,7 @@ export async function evaluatePhaseD(token: string, limit = 100) {
   }
   const promises = await db.select().from(kayPromises).where(and(eq(kayPromises.status, "OVERDUE"), eq(kayPromises.importance, "IMPORTANT"), sql`${kayPromises.dueAt} < NOW()`)).limit(limit);
   for (const p of promises) {
-    if ((await getKayScopeForLead(pool, p.leadId)).outcome !== "IN_KAY_SCOPE") continue;
+    if ((await getKayScopeForLead(p.leadId)).outcome !== "IN_KAY_SCOPE") continue;
     if (!settings.trigger_types.includes("IMPORTANT_PROMISE_OVERDUE") || (p.lastReminderAt && Date.now() - p.lastReminderAt.getTime() < settings.promise_escalation_minutes * 60_000)) continue;
     const availability = await getKayAvailability(p.employeeId); if (availability.availability !== "AVAILABLE" || isKayQuietHours(phaseC, new Date())) continue;
     const key = `important-promise-overdue:${p.id}:v${p.reminderVersion + 1}`;
@@ -326,7 +322,7 @@ export async function evaluatePhaseD(token: string, limit = 100) {
   if (settings.trigger_types.includes("CRITICAL_MISSION")) {
     const critical = await db.select().from(kayMissions).where(and(inArray(kayMissions.status, activeMission), eq(kayMissions.priority, "CRITICAL"))).limit(limit);
     for (const mission of critical) {
-      if (mission.leadId && (await getKayScopeForLead(pool, mission.leadId)).outcome !== "IN_KAY_SCOPE") continue;
+      if (mission.leadId && (await getKayScopeForLead(mission.leadId)).outcome !== "IN_KAY_SCOPE") continue;
       const availability = await getKayAvailability(mission.employeeId!);
       if (availability.availability !== "AVAILABLE" || (isKayQuietHours(phaseC, new Date()) && !settings.critical_bypass_quiet_hours)) continue;
       const context = employeeBriefingContext(settings, mission.employeeId!);

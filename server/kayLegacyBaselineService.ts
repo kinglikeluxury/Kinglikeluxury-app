@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { denyKayWrite } from "./kayActionGateway";
 import { evaluateRescueWindow, recommendRescueEmployee } from "./kayAutoRescuePlanner";
 import { getKayScopeConfiguration, kayScopeSql } from "./kayLeadScopeService";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 export const LEGACY_STATUSES = ["no_answer_1", "no_answer_2"] as const;
 export const LEGACY_BASELINE_WARNING =
@@ -16,20 +17,12 @@ function requireTestScope(scope?: E22TestScope) {
   if (!e22 && !e23) throw new Error("Kay legacy diagnostic test scope is disabled");
 }
 
-export async function repairLegacyBaselineContinuityDuplicates(executor: {query:(sql:string, values?:any[])=>Promise<any>} = pool) {
-  if (executor === pool) await denyKayWrite("crm.write", undefined, "legacy_baseline", "repair");
-  return executor.query(`UPDATE kay_legacy_rescue_baselines a
-    SET state='SUPERSEDED',
-      invalidated_at=COALESCE(a.invalidated_at,clock_timestamp()),
-      invalidation_reason='DUPLICATE_CONTINUITY_KEY_REPAIRED',
-      continuity_event_key=a.continuity_event_key||':superseded:'||a.id::text
-    WHERE EXISTS (SELECT 1 FROM kay_legacy_rescue_baselines b
-      WHERE b.lead_id=a.lead_id AND b.observed_status=a.observed_status
-        AND b.continuity_event_key=a.continuity_event_key AND b.id<a.id)
-    RETURNING id`);
+export async function repairLegacyBaselineContinuityDuplicates(): Promise<never> {
+  await denyKayWrite("crm.write", undefined, "legacy_baseline", "repair");
+  throw new Error("Unreachable: Kay CRM mutation gateway did not deny repair.");
 }
 
-export async function resolveKayStatusWindow(executor: { query: (sql: string, values?: any[]) => Promise<any> }, leadId: number, status?: string) {
+async function readKayStatusWindow(executor: E22Queryable, leadId: number, status?: string) {
   const row = (await executor.query(`SELECT l.status,
     (SELECT max(assigned_at) FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.to_user_id=l.assigned_to) latest_owner_assigned_at,
     (SELECT CASE WHEN h.status=l.status THEN jsonb_build_object('enteredAt',h.entered_at,'source','STATUS_TRANSITION','trusted',true,'warning',null) END
@@ -49,12 +42,12 @@ export async function resolveKayStatusWindow(executor: { query: (sql: string, va
   return row.history || row.baseline || null;
 }
 
-export async function getLegacyBaselineReadiness(scope?: E22TestScope, executor?: E22Queryable) {
+export async function resolveKayStatusWindow(leadId: number, status?: string) {
+  return withKayReadonlyAnalysis(client => readKayStatusWindow(client, leadId, status));
+}
+
+async function readLegacyBaselineReadiness(scope: E22TestScope | undefined, client: E22Queryable) {
   requireTestScope(scope);
-  const client = executor || await pool.connect();
-  const ownsTransaction = !executor;
-  try {
-  if (ownsTransaction) await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   const scopeConfiguration = await getKayScopeConfiguration(client);
   if (scopeConfiguration.status !== "OK") throw new Error(`KAY_SCOPE_${scopeConfiguration.status}`);
   const leadScope = kayScopeSql("l", "owner", "$4");
@@ -113,12 +106,14 @@ export async function getLegacyBaselineReadiness(scope?: E22TestScope, executor?
        AND ($3::boolean IS FALSE OR TRUE)`, [status, scope?.marker || null, Boolean(scope?.marker?.startsWith("KAY_E23:")), scopeConfiguration.config.cutoffAt]);
     out[status].lackingTrusted = Number(lacking.rows[0].n);
   }
-  if (ownsTransaction) await client.query("COMMIT");
-  return { asOf: asOf.toISOString(), statuses: out };
-  } catch (error) { if (ownsTransaction) await client.query("ROLLBACK").catch(() => {}); throw error; } finally { if (ownsTransaction) (client as any).release(); }
+   return { asOf: asOf.toISOString(), statuses: out };
 }
 
-export async function getLegacyOwnerDiagnostics(scope?: E22TestScope, executor: E22Queryable = pool) {
+export async function getLegacyBaselineReadiness(scope?: E22TestScope) {
+  return withKayReadonlyAnalysis(client => readLegacyBaselineReadiness(scope, client));
+}
+
+async function readLegacyOwnerDiagnostics(scope: E22TestScope | undefined, executor: E22Queryable) {
   requireTestScope(scope);
   const owners = await executor.query(`SELECT COALESCE(u.username,'UNASSIGNED') account,u.role,u.is_active,u.is_admin,
     count(l.id) FILTER (WHERE l.status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified'))::int active_leads,
@@ -141,16 +136,22 @@ export async function getLegacyOwnerDiagnostics(scope?: E22TestScope, executor: 
   }).map((r: any) => ({ ...r, statusMix: mixes.rows.filter((m: any) => m.account === r.account) }));
 }
 
-export async function getLegacyLeadAgeBuckets(scope?: E22TestScope) {
-  requireTestScope(scope);
-  const r = await pool.query(`SELECT CASE WHEN NOW()-created_at<interval '7 days' THEN '0-7'
-    WHEN NOW()-created_at<interval '30 days' THEN '8-30' WHEN NOW()-created_at<interval '90 days' THEN '31-90'
-    WHEN NOW()-created_at<interval '180 days' THEN '91-180' ELSE '180+' END bucket,count(*)::int count
-    FROM crm_leads WHERE status=ANY($1::text[]) AND ($2::text IS NULL OR notes=$2) GROUP BY bucket`, [LEGACY_STATUSES, scope?.marker || null]);
-  return Object.fromEntries(["0-7","8-30","31-90","91-180","180+"].map(k => [k, Number(r.rows.find((x: any) => x.bucket === k)?.count || 0)]));
+export async function getLegacyOwnerDiagnostics(scope?: E22TestScope) {
+  return withKayReadonlyAnalysis(client => readLegacyOwnerDiagnostics(scope, client));
 }
 
-export async function getLegacyCapacitySensitivity(scope?: E22TestScope, executor: E22Queryable = pool) {
+export async function getLegacyLeadAgeBuckets(scope?: E22TestScope) {
+  requireTestScope(scope);
+  return withKayReadonlyAnalysis(async client => {
+    const r = await client.query(`SELECT CASE WHEN NOW()-created_at<interval '7 days' THEN '0-7'
+      WHEN NOW()-created_at<interval '30 days' THEN '8-30' WHEN NOW()-created_at<interval '90 days' THEN '31-90'
+      WHEN NOW()-created_at<interval '180 days' THEN '91-180' ELSE '180+' END bucket,count(*)::int count
+      FROM crm_leads WHERE status=ANY($1::text[]) AND ($2::text IS NULL OR notes=$2) GROUP BY bucket`, [LEGACY_STATUSES, scope?.marker || null]);
+    return Object.fromEntries(["0-7","8-30","31-90","91-180","180+"].map(k => [k, Number(r.rows.find((x: any) => x.bucket === k)?.count || 0)]));
+  });
+}
+
+async function readLegacyCapacitySensitivity(scope: E22TestScope | undefined, executor: E22Queryable) {
   requireTestScope(scope);
   const config = await getKayScopeConfiguration(executor);
   if (config.status !== "OK") throw new Error(`KAY_SCOPE_${config.status}`);
@@ -166,16 +167,22 @@ export async function getLegacyCapacitySensitivity(scope?: E22TestScope, executo
      GROUP BY u.id,u.username ORDER BY u.username`, [scope?.marker || null, config.config.cutoffAt])).rows;
 }
 
+export async function getLegacyCapacitySensitivity(scope?: E22TestScope) {
+  return withKayReadonlyAnalysis(client => readLegacyCapacitySensitivity(scope, client));
+}
+
 export async function previewLegacyBaselineInitialization(limit = 500, scope?: E22TestScope) {
   requireTestScope(scope);
-  const r = await pool.query(`SELECT l.id,l.status,
-    (SELECT h.status=l.status FROM kay_lead_status_history h WHERE h.lead_id=l.id ORDER BY h.entered_at DESC,h.id DESC LIMIT 1) trusted,
-    EXISTS(SELECT 1 FROM kay_legacy_rescue_baselines b WHERE b.lead_id=l.id AND b.observed_status=l.status AND b.state='ACTIVE') existing
-    FROM crm_leads l WHERE l.status=ANY($1::text[]) AND ($3::text IS NULL OR l.notes=$3) ORDER BY l.id LIMIT $2`, [LEGACY_STATUSES, Math.min(1000, Math.max(1, limit)), scope?.marker || null]);
-  const candidates = r.rows.map((x: any) => ({ id: Number(x.id), status: String(x.status), trusted: x.trusted === true, existing: x.existing === true }));
-  const fingerprint = createHash("sha256").update(JSON.stringify(candidates)).digest("hex");
-  return { inspected: r.rows.length, eligible: candidates.filter(x => !x.trusted && !x.existing).length, fingerprint, limit, candidates,
-    counts: { inspected: r.rows.length, created: 0, skippedTrusted: r.rows.filter((x: any) => x.trusted).length, skippedChanged: 0, skippedInvalid: 0, skippedExisting: r.rows.filter((x: any) => x.existing).length } };
+  return withKayReadonlyAnalysis(async client => {
+    const r = await client.query(`SELECT l.id,l.status,
+      (SELECT h.status=l.status FROM kay_lead_status_history h WHERE h.lead_id=l.id ORDER BY h.entered_at DESC,h.id DESC LIMIT 1) trusted,
+      EXISTS(SELECT 1 FROM kay_legacy_rescue_baselines b WHERE b.lead_id=l.id AND b.observed_status=l.status AND b.state='ACTIVE') existing
+      FROM crm_leads l WHERE l.status=ANY($1::text[]) AND ($3::text IS NULL OR l.notes=$3) ORDER BY l.id LIMIT $2`, [LEGACY_STATUSES, Math.min(1000, Math.max(1, limit)), scope?.marker || null]);
+    const candidates = r.rows.map((x: any) => ({ id: Number(x.id), status: String(x.status), trusted: x.trusted === true, existing: x.existing === true }));
+    const fingerprint = createHash("sha256").update(JSON.stringify(candidates)).digest("hex");
+    return { inspected: r.rows.length, eligible: candidates.filter(x => !x.trusted && !x.existing).length, fingerprint, limit, candidates,
+      counts: { inspected: r.rows.length, created: 0, skippedTrusted: r.rows.filter((x: any) => x.trusted).length, skippedChanged: 0, skippedInvalid: 0, skippedExisting: r.rows.filter((x: any) => x.existing).length } };
+  });
 }
 
 export async function initializeLegacyBaselines(adminId: number, token: string, limit = 500, expectedFingerprint?: string, snapshot?: Array<{id:number;status:string;trusted:boolean;existing:boolean}>, scope?: E22TestScope, options?: { failAuditInsertForTest?: boolean; expiresAt?: number; nowForTest?: number; afterAdminLockForTest?: (info:{backendPid:number;token:string}) => void | Promise<void>; beforeLeadLocksForTest?: (info:{backendPid:number;token:string}) => void | Promise<void> }) {
