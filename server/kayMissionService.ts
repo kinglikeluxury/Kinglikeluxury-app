@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { db, pool } from "./db";
+import { kayInternalDb } from "./kayInternalDatabase";
 import { kayEvents, kayMissions, kaySettings, userNotifications } from "@shared/schema";
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { getKayStatusIntelligence } from "./kayStatusClassification";
@@ -8,6 +8,8 @@ import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeServ
 import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+
+const db = kayInternalDb;
 
 export const PHASE_C_PRIORITY_FORMULA_VERSION = "phase_c_v1" as const;
 export const missionStatusSchema = z.enum(["NEW", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "DISMISSED", "STALE"]);
@@ -51,50 +53,37 @@ export async function getPhaseCSettings(): Promise<PhaseCSettings> {
 
 export async function setPhaseCSettings(value: unknown, userId: number): Promise<PhaseCSettings> {
   await denyKayWrite("settings.update", userId, "kay_setting", "phase_c");
-  const settings = phaseCSettingsSchema.parse(value);
-  await db.transaction(async tx => {
-    await tx.insert(kaySettings).values({ key: "phase_c_workflow", value: defaultPhaseCSettings }).onConflictDoNothing();
-    const [before] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "phase_c_workflow")).for("update").limit(1);
-    await tx.update(kaySettings).set({ value: settings, updatedBy: userId, updatedAt: new Date() }).where(eq(kaySettings.key, "phase_c_workflow"));
-    await tx.insert(kayEvents).values({ userId, eventType: "kay_rule_changed", eventSource: "admin", previousValue: sanitizeKayJson(before?.value), newValue: settings, metadata: { setting: "phase_c_workflow", phase: "C", shadow: true }, kayGenerated: false });
-  });
-  return settings;
+  throw new Error("KAY settings writes are permanently disabled.");
 }
 
 export async function getKayAvailability(employeeId: number) {
-  const [row] = await db.select().from(kaySettings).where(eq(kaySettings.key, `phase_c_availability:${employeeId}`)).limit(1);
+  const result = await db.execute(sql`SELECT value,updated_at FROM kay_runtime_state WHERE key=${`phase_c_availability:${employeeId}`} LIMIT 1`);
+  const row: any = result.rows[0];
   const availability = kayAvailabilitySchema.safeParse((row?.value as any)?.availability);
-  return { availability: availability.success ? availability.data : "AVAILABLE", updatedAt: row?.updatedAt ?? null };
+  return { availability: availability.success ? availability.data : "AVAILABLE", updatedAt: row?.updated_at ?? null };
 }
 export async function setKayAvailability(employeeId: number, availability: unknown, actorId: number, adminOverride = false) {
   await denyKayWrite("settings.update", actorId, "kay_availability", employeeId);
   const parsed = kayAvailabilitySchema.parse(availability);
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
+  await kayInternalDb.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('kay:e24-control'))`);
     const key = `phase_c_availability:${employeeId}`;
-    const before = (await client.query(`SELECT value FROM kay_settings WHERE key=$1 FOR UPDATE`,[key])).rows[0];
-    await client.query(`INSERT INTO kay_settings(key,value,updated_by,updated_at) VALUES($1,$2::jsonb,$3,NOW())
-      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=NOW()`,
-      [key,JSON.stringify({availability:parsed}),actorId]);
-    await client.query(`INSERT INTO kay_events(user_id,employee_id,event_type,event_source,previous_value,new_value,metadata,kay_generated)
-      VALUES($1,$2,'mission_availability_changed',$3,$4::jsonb,$5::jsonb,$6::jsonb,false)`,
-      [actorId,employeeId,adminOverride?"admin":"employee",JSON.stringify(sanitizeKayJson(before?.value ?? null)),
-       JSON.stringify({availability:parsed}),JSON.stringify({adminOverride,shadow:true})]);
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK").catch(()=>{});
-    throw error;
-  } finally {
-    client.release();
-  }
+    const before = (await tx.execute(sql`SELECT value FROM kay_runtime_state WHERE key=${key} FOR UPDATE`)).rows[0] as any;
+    await tx.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+      VALUES(${key},${JSON.stringify({availability:parsed})}::jsonb,NOW())
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`);
+    await tx.execute(sql`INSERT INTO kay_events(user_id,employee_id,event_type,event_source,previous_value,new_value,metadata,kay_generated)
+      VALUES(${actorId},${employeeId},'mission_availability_changed',${adminOverride ? "admin" : "employee"},
+        ${JSON.stringify(sanitizeKayJson(before?.value ?? null))}::jsonb,
+        ${JSON.stringify({availability:parsed})}::jsonb,
+        ${JSON.stringify({adminOverride,shadow:true})}::jsonb,false)`);
+  });
   return getKayAvailability(employeeId);
 }
 
 export async function getKayOperationsHealth() {
-  const [row] = await db.select().from(kaySettings).where(eq(kaySettings.key, "phase_c_generator_health")).limit(1);
-  const health: any = row?.value || {};
+  const healthResult = await db.execute(sql`SELECT value FROM kay_runtime_state WHERE key='phase_c_generator_health' LIMIT 1`);
+  const health: any = (healthResult.rows[0] as any)?.value || {};
   const settings = await getPhaseCSettings();
   const lastSuccess = health.last_successful_cycle ? new Date(health.last_successful_cycle).getTime() : 0;
   const stale = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true" && (!lastSuccess || Date.now() - lastSuccess > settings.mission_generation_interval_minutes * 3 * 60_000);
@@ -103,8 +92,9 @@ export async function getKayOperationsHealth() {
 }
 
 async function persistGeneratorHealth(patch: Record<string, unknown>) {
-  await db.insert(kaySettings).values({ key: "phase_c_generator_health", value: patch, updatedAt: new Date() })
-    .onConflictDoUpdate({ target: kaySettings.key, set: { value: sql`${kaySettings.value} || ${JSON.stringify(patch)}::jsonb`, updatedAt: new Date() } });
+  await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+    VALUES('phase_c_generator_health',${JSON.stringify(patch)}::jsonb,NOW())
+    ON CONFLICT(key) DO UPDATE SET value=kay_runtime_state.value || EXCLUDED.value,updated_at=NOW()`);
 }
 
 type Candidate = { lead_id: number; employee_id: number; status: string; name: string | null; protected: boolean; due_date: string | null; due_time: string | null; task_id: number | null; entered_at: Date | null; decision_id: number | null; decision_type: string | null; decision_payload: any };
@@ -113,43 +103,26 @@ const activeStatuses = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 export async function acquireKayMissionGeneratorLease(): Promise<string | null> {
   await denyKayWrite("missions.generate", undefined, "mission_lease", "acquire");
   const token = `${process.pid}:${Date.now()}:${Math.random()}`;
-  await db.insert(kaySettings).values({
-    key: "phase_c_generator_lease",
-    value: { released: true },
-  }).onConflictDoNothing();
-  const [lease] = await db.update(kaySettings).set({
-    value: { token, locked_until: new Date(Date.now() + 15 * 60_000).toISOString() },
-    updatedAt: new Date(),
-  }).where(and(
-    eq(kaySettings.key, "phase_c_generator_lease"),
-    sql`CASE
-      WHEN (${kaySettings.value}->>'locked_until') ~ '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$'
-      THEN (${kaySettings.value}->>'locked_until')::timestamptz
-      ELSE to_timestamp(0)
-    END < NOW()`,
-  )).returning({ key: kaySettings.key });
-  return lease ? token : null;
+  const lease = await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+    VALUES('phase_c_generator_lease',jsonb_build_object('released',true),NOW())
+    ON CONFLICT(key) DO UPDATE SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 15 * 60_000).toISOString()}),updated_at=NOW()
+      WHERE COALESCE((kay_runtime_state.value->>'locked_until')::timestamptz,to_timestamp(0)) < NOW()
+    RETURNING key`);
+  return lease.rows[0] ? token : null;
 }
 
 export async function renewKayMissionGeneratorLease(token: string): Promise<boolean> {
   await denyKayWrite("missions.generate", undefined, "mission_lease", "renew");
-  const rows = await db.update(kaySettings).set({
-    value: { token, locked_until: new Date(Date.now() + 15 * 60_000).toISOString() },
-    updatedAt: new Date(),
-  }).where(and(eq(kaySettings.key, "phase_c_generator_lease"), sql`${kaySettings.value}->>'token' = ${token}`)).returning({ key: kaySettings.key });
-  return rows.length === 1;
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 15 * 60_000).toISOString()}),updated_at=NOW()
+    WHERE key='phase_c_generator_lease' AND value->>'token'=${token} RETURNING key`);
+  return rows.rows.length === 1;
 }
 
 export async function releaseKayMissionGeneratorLease(token: string): Promise<boolean> {
   await denyKayWrite("missions.generate", undefined, "mission_lease", "release");
-  const rows = await db.update(kaySettings).set({
-    value: { released: true, released_at: new Date().toISOString() },
-    updatedAt: new Date(),
-  }).where(and(
-    eq(kaySettings.key, "phase_c_generator_lease"),
-    sql`${kaySettings.value}->>'token' = ${token}`,
-  )).returning({ key: kaySettings.key });
-  return rows.length === 1;
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('released',true,'released_at',${new Date().toISOString()}),updated_at=NOW()
+    WHERE key='phase_c_generator_lease' AND value->>'token'=${token} RETURNING key`);
+  return rows.rows.length === 1;
 }
 
 /** Retryable, bounded in-app delivery. The marker and notification commit together. */
@@ -172,14 +145,16 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
   for (const mission of pending.rows as any[]) {
     try {
       const didDeliver = await db.transaction(async tx => {
-        await tx.insert(kaySettings).values({ key: `phase_c_availability:${mission.employee_id}`, value: { availability: "AVAILABLE" } }).onConflictDoNothing();
+        await tx.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+          VALUES(${`phase_c_availability:${mission.employee_id}`},'{"availability":"AVAILABLE"}'::jsonb,NOW())
+          ON CONFLICT(key) DO NOTHING`);
         // Lock and re-read every policy input. The initial bounded query is
         // merely a candidate list and is never trusted for delivery.
         const locked = await tx.execute(sql`SELECT m.*,
           COALESCE(NULLIF(split_part(COALESCE(l.first_name,l.full_name,''), ' ', 1),''), 'Lead #' || m.lead_id::text) AS safe_name,
           COALESCE(a.value->>'availability','AVAILABLE') AS availability
           FROM kay_missions m JOIN crm_leads l ON l.id=m.lead_id JOIN users u ON u.id=m.employee_id
-          JOIN kay_settings a ON a.key='phase_c_availability:' || m.employee_id::text
+          JOIN kay_runtime_state a ON a.key='phase_c_availability:' || m.employee_id::text
           WHERE m.id=${mission.id} AND l.assigned_to=m.employee_id AND u.role='sub_agent'
           FOR UPDATE OF m,l,u,a`);
         const current: any = locked.rows[0];
@@ -251,8 +226,8 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
   try {
     leaseToken = await acquireKayMissionGeneratorLease();
   } catch (error) {
-    const [row] = await db.select().from(kaySettings).where(eq(kaySettings.key, "phase_c_generator_health")).limit(1).catch(() => [] as any[]);
-    const old: any = row?.value || {};
+    const healthResult = await db.execute(sql`SELECT value FROM kay_runtime_state WHERE key='phase_c_generator_health' LIMIT 1`).catch(() => ({ rows: [] } as any));
+    const old: any = (healthResult.rows[0] as any)?.value || {};
     const failures = Number(old.consecutive_failures || 0) + 1;
     const settings = await getPhaseCSettings().catch(() => defaultPhaseCSettings);
     await persistGeneratorHealth({ last_attempt: new Date().toISOString(), errors: Number(old.errors || 0) + 1, consecutive_failures: failures, degraded: failures >= 3, lease_state: "acquire_error", run_type: runType, ...(failures >= 3 ? { circuit_open_until: new Date(Date.now() + settings.mission_generation_interval_minutes * 3 * 60_000).toISOString() } : {}), ...(runType === "manual" ? { manual_actor_id: actorId } : {}) }).catch(() => {});

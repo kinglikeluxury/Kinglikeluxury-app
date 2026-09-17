@@ -35,7 +35,7 @@ cloudinary.config({
   secure:     true,
 });
 
-console.log(`[Cloudinary] Configured → cloud: ${cloudName}, key: ${apiKey.substring(0, 6)}***`);
+console.log(`[Cloudinary] Configured → cloud: ${cloudName}`);
 
 export interface CloudinaryUploadResult {
   url:          string;

@@ -1,6 +1,5 @@
 import dotenv from "dotenv";
 dotenv.config();
-console.log("[Startup] RESEND_API_KEY:", process.env.RESEND_API_KEY ? `SET (len=${process.env.RESEND_API_KEY.length})` : "NOT SET");
 
 // ── Neon WebSocket crash guard ────────────────────────────────────────────────
 // @neondatabase/serverless has a known bug where it tries to set ErrorEvent.message

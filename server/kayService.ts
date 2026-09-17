@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { db, pool } from "./db";
+import { kayInternalDb, withKayInternalClient } from "./kayInternalDatabase";
 import { kayDecisions, kayEvents, kaySettings, kayLeadProtection } from "@shared/schema";
 import { desc, eq, and, isNull, sql } from "drizzle-orm";
 import { getKayStatusIntelligence, isKayOrphanEligibleStatus, isKayRescueEvaluatedStatus, KAY_STATUS_INTELLIGENCE } from "./kayStatusClassification";
@@ -7,6 +7,7 @@ export { recommendRescueEmployee, evaluateRescueWindow } from "./kayAutoRescuePl
 import { recommendRescueEmployee, evaluateRescueWindow } from "./kayAutoRescuePlanner";
 import type { RescueBlocker, RescueCandidate, RescueState } from "./kayAutoRescuePlanner";
 import { denyKayWrite } from "./kayActionGateway";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 /**
  * These are names reserved for later explicitly-approved phases.  They are
@@ -69,8 +70,10 @@ function sanitizeKayJsonValue(value: unknown, seen: WeakSet<object>, depth: numb
 }
 
 export async function getKayMode(): Promise<KayMode> {
-  const [setting] = await db.select().from(kaySettings).where(eq(kaySettings.key, "mode")).limit(1);
-  return resolveKayMode(setting?.value);
+  return withKayReadonlyAnalysis(async client => {
+    const result = await client.query("SELECT value FROM kay_settings WHERE key='mode' LIMIT 1");
+    return resolveKayMode(result.rows[0]?.value);
+  });
 }
 
 export type KayModeTransition = {
@@ -86,7 +89,7 @@ export type KayModeTransactionRunner = (
 
 const runKayModeTransaction: KayModeTransactionRunner = async (apply) => {
   await denyKayWrite("settings.update", undefined, "kay_setting", "mode");
-  await db.transaction(async (tx) => {
+  await kayInternalDb.transaction(async (tx) => {
     // Create the singleton before locking so fresh installations and
     // concurrent first updates serialize on the same row.
     await tx.insert(kaySettings).values({
@@ -155,7 +158,7 @@ export type KayObserverDependencies = {
 const defaultKayObserverDependencies: KayObserverDependencies = {
   getMode: getKayMode,
   async persistLeadCreated(lead, userId, mode) {
-    return db.transaction(async (tx) => {
+    return kayInternalDb.transaction(async (tx) => {
       // The partial unique index created with the Kay tables makes retries
       // idempotent without affecting any CRM write.
       const inserted = await tx.insert(kayEvents).values({
@@ -249,33 +252,17 @@ export const defaultRescueSettings: RescueSettings = {
 };
 
 export async function getRescueSettings(): Promise<RescueSettings> {
-  const [setting] = await db.select().from(kaySettings).where(eq(kaySettings.key, "rescue_rules")).limit(1);
-  const parsed = rescueSettingsSchema.safeParse(setting?.value);
-  return parsed.success ? parsed.data : defaultRescueSettings;
+  return withKayReadonlyAnalysis(async client => {
+    const result = await client.query("SELECT value FROM kay_settings WHERE key='rescue_rules' LIMIT 1");
+    const parsed = rescueSettingsSchema.safeParse(result.rows[0]?.value);
+    return parsed.success ? parsed.data : defaultRescueSettings;
+  });
 }
 
 /** Post-commit only. It records each actual status-entry window without changing CRM state. */
 export async function observeLeadStatusAfterCommit(lead: { id: number; status: string; assignedTo?: number | null }, userId?: number): Promise<void> {
   try {
     await denyKayWrite("crm.write", userId, "crm_lead", lead.id);
-    const now = new Date();
-    await db.transaction(async tx => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"kay-status:" + lead.id}))`);
-      const latest = await tx.execute(sql`SELECT status FROM kay_lead_status_history WHERE lead_id=${lead.id} ORDER BY entered_at DESC, id DESC LIMIT 1`);
-      // A retry or an unrelated CRM PATCH must never reset this timer. A
-      // status flap is intentionally different because the latest status differs.
-      if ((latest.rows[0] as { status?: string } | undefined)?.status === lead.status) return;
-      const key = `status_entry:${lead.id}:${lead.status}:${now.getTime()}`;
-      await tx.insert(kayEvents).values({
-        idempotencyKey: key, leadId: lead.id, userId: userId ?? null, employeeId: lead.assignedTo ?? null,
-        eventType: "lead_status_entered", eventSource: "crm", newValue: sanitizeKayJson({ status: lead.status }),
-        metadata: { observation: "phase_b", mode: "shadow" }, kayGenerated: false, createdAt: now,
-      }).onConflictDoNothing();
-      await tx.execute(sql`
-        INSERT INTO kay_lead_status_history (lead_id, status, entered_at, observed_by, event_key)
-        VALUES (${lead.id}, ${lead.status}, ${now}, ${userId ?? null}, ${key})
-        ON CONFLICT (event_key) DO NOTHING`);
-    });
   } catch (error) { console.warn(`[Kay] Status observation skipped: ${error instanceof Error ? error.message : "unknown error"}`); }
 }
 
@@ -284,85 +271,55 @@ export async function observeLeadAssignmentAfterCommit(leadId: number, fromUserI
   if (fromUserId === toUserId) return;
   try {
     await denyKayWrite("crm.write", userId, "crm_lead", leadId);
-    const now = new Date();
-    await db.execute(sql`
-      INSERT INTO lead_assignment_history (lead_id, from_user_id, to_user_id, reason, automatic, assigned_at)
-      SELECT ${leadId}, ${fromUserId}, ${toUserId}, 'crm_assignment', false, ${now}
-      WHERE NOT EXISTS (SELECT 1 FROM lead_assignment_history WHERE lead_id=${leadId}
-        AND from_user_id IS NOT DISTINCT FROM ${fromUserId} AND to_user_id IS NOT DISTINCT FROM ${toUserId}
-        AND assigned_at > ${new Date(now.getTime() - 1000)})`);
-    await db.insert(kayEvents).values({ idempotencyKey: `assignment_observed:${leadId}:${now.getTime()}`, leadId, userId: userId ?? null,
-      employeeId: toUserId, eventType: "lead_assignment_observed", eventSource: "crm",
-      previousValue: { assignedTo: fromUserId }, newValue: { assignedTo: toUserId }, metadata: { observation: "phase_b" } }).onConflictDoNothing();
   } catch (error) { console.warn(`[Kay] Assignment observation skipped: ${error instanceof Error ? error.message : "unknown error"}`); }
 }
 
 export async function setLeadProtection(leadId: number, reason: string, note: string | null, userId: number, protect: boolean) {
   await denyKayWrite("protection.update", userId, "crm_lead", leadId);
-  const cleanReason = reason.trim().slice(0, 120);
-  if (protect && !cleanReason) throw new Error("Protection reason is required");
-  const now = new Date();
-  await db.transaction(async tx => {
-    if (protect) await tx.insert(kayLeadProtection).values({ leadId, reason: cleanReason, note: note?.trim().slice(0, 1000) || null, protectedBy: userId, protectedAt: now })
-      .onConflictDoUpdate({ target: kayLeadProtection.leadId, set: { reason: cleanReason, note: note?.trim().slice(0, 1000) || null, protectedBy: userId, protectedAt: now, removedAt: null, removedBy: null } });
-    else await tx.update(kayLeadProtection).set({ removedAt: now, removedBy: userId }).where(and(eq(kayLeadProtection.leadId, leadId), isNull(kayLeadProtection.removedAt)));
-    if (protect) {
-      await tx.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(
-        jsonb_set(payload, '{state}', '"BLOCKED"'::jsonb, true),
-        '{blockers}',
-        CASE WHEN COALESCE(payload->'blockers', '[]'::jsonb) ? 'PROTECTED_LEAD'
-          THEN COALESCE(payload->'blockers', '[]'::jsonb)
-          ELSE COALESCE(payload->'blockers', '[]'::jsonb) || '["PROTECTED_LEAD"]'::jsonb END,
-        true)
-        WHERE lead_id=${leadId}
-          AND event_id IN (SELECT id FROM kay_events WHERE event_type='shadow_rescue_evaluated')
-          AND payload->>'state' IN ('ACTIVE','BLOCKED')`);
-      await tx.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
-        WHERE lead_id=${leadId} AND decision_type='protection_recommended' AND payload->>'state'='ACTIVE'`);
-      await tx.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
-        WHERE lead_id=${leadId} AND decision_type='unprotected_opportunity' AND payload->>'state'='ACTIVE'`);
-    } else {
-      // Conservative until the next read-only evaluation recalculates every
-      // blocker: never expose the previously blocked decision as actionable.
-      await tx.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
-        WHERE lead_id=${leadId}
-          AND event_id IN (SELECT id FROM kay_events WHERE event_type='shadow_rescue_evaluated')
-          AND payload->>'state'='BLOCKED'`);
-      await tx.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
-        WHERE lead_id=${leadId} AND decision_type='protected_lead_review_due' AND payload->>'state'='ACTIVE'`);
-    }
-    await tx.insert(kayEvents).values({ idempotencyKey: `protection:${leadId}:${protect}:${now.getTime()}`, leadId, userId,
-      eventType: protect ? "lead_protected" : "lead_unprotected", eventSource: "admin", metadata: sanitizeKayJson({ reason: cleanReason, note: note?.slice(0, 1000) }), kayGenerated: false });
-  });
 }
 
 type QueueLead = { id: number; lead_id: number | null };
 /** Database claim protocol; SKIP LOCKED makes multiple Autoscale instances safe. */
 export async function claimKayEvaluationQueue(limit = 50): Promise<QueueLead[]> {
   await denyKayWrite("crm.write", undefined, "kay_evaluator_queue", "claim");
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(`UPDATE kay_evaluator_queue SET status='pending', attempts=attempts+1, available_at=NOW(), updated_at=NOW()
-      WHERE status='processing' AND claimed_at < NOW() - interval '20 minutes' AND attempts < 3`);
-    await client.query(`UPDATE kay_evaluator_queue SET status='failed', updated_at=NOW()
-      WHERE status='processing' AND claimed_at < NOW() - interval '20 minutes' AND attempts >= 3`);
-    const result = await client.query(`
-      WITH picked AS (SELECT id FROM kay_evaluator_queue
-        WHERE status='pending' AND available_at <= NOW() ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $1)
-      UPDATE kay_evaluator_queue q SET status='processing', claimed_at=NOW(), updated_at=NOW()
-      FROM picked WHERE q.id=picked.id RETURNING q.id, q.lead_id`, [Math.min(Math.max(limit, 1), 100)]);
-    await client.query("COMMIT");
-    return result.rows.map((r: any) => ({ id: Number(r.id), lead_id: r.lead_id == null ? null : Number(r.lead_id) }));
-  } catch (error) { await client.query("ROLLBACK").catch(() => {}); throw error; } finally { client.release(); }
+  return withKayInternalClient(async client => {
+    try {
+      await client.query("BEGIN");
+      await client.query(`UPDATE kay_evaluator_queue SET status='pending', attempts=attempts+1, available_at=NOW(), updated_at=NOW()
+        WHERE status='processing' AND claimed_at < NOW() - interval '20 minutes' AND attempts < 3`);
+      await client.query(`UPDATE kay_evaluator_queue SET status='failed', updated_at=NOW()
+        WHERE status='processing' AND claimed_at < NOW() - interval '20 minutes' AND attempts >= 3`);
+      const result = await client.query(`
+        WITH picked AS (SELECT id FROM kay_evaluator_queue
+          WHERE status='pending' AND available_at <= NOW() ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $1)
+        UPDATE kay_evaluator_queue q SET status='processing', claimed_at=NOW(), updated_at=NOW()
+        FROM picked WHERE q.id=picked.id RETURNING q.id, q.lead_id`, [Math.min(Math.max(limit, 1), 100)]);
+      await client.query("COMMIT");
+      return result.rows.map((r: any) => ({ id: Number(r.id), lead_id: r.lead_id == null ? null : Number(r.lead_id) }));
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 /** Enqueues existing leads with a stable UTC 15-minute scan key; it never writes CRM rows. */
 export async function enqueueKayEvaluationScan(): Promise<void> {
   await denyKayWrite("crm.write", undefined, "kay_evaluator_queue", "enqueue");
-  await db.execute(sql`INSERT INTO kay_evaluator_queue (queue_key, lead_id)
-    SELECT 'scan:' || id || ':' || to_char(date_trunc('hour', NOW()) + floor(date_part('minute', NOW()) / 15) * interval '15 minutes', 'YYYY-MM-DD"T"HH24:MI'), id FROM crm_leads
-    ON CONFLICT (queue_key) DO NOTHING`);
+  const leads = await withKayReadonlyAnalysis(async client => {
+    const result = await client.query("SELECT id FROM crm_leads");
+    return result.rows.map(row => Number(row.id));
+  });
+  await kayInternalDb.transaction(async tx => {
+    const bucket = new Date();
+    bucket.setUTCMinutes(Math.floor(bucket.getUTCMinutes() / 15) * 15, 0, 0);
+    const bucketKey = bucket.toISOString().slice(0, 16);
+    for (const leadId of leads) {
+      await tx.execute(sql`INSERT INTO kay_evaluator_queue (queue_key, lead_id)
+        VALUES (${`scan:${leadId}:${bucketKey}`}, ${leadId})
+        ON CONFLICT (queue_key) DO NOTHING`);
+    }
+  });
 }
 
 export async function recordImmutableRescueEvaluation(input: {
@@ -377,7 +334,7 @@ export async function recordImmutableRescueEvaluation(input: {
   const status = String(input.payload.status ?? "");
   const statusEnteredAt = String(input.payload.status_entered_at ?? "");
   if (!status || !statusEnteredAt) throw new Error("Rescue evaluation requires a status-entry window");
-  return db.transaction(async tx => {
+  return kayInternalDb.transaction(async tx => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`kay-rescue:${input.leadId}:${status}:${statusEnteredAt}`}))`);
     const inserted = await tx.insert(kayEvents).values({
       idempotencyKey: input.evaluationKey, leadId: input.leadId, employeeId: input.employeeId,
@@ -409,10 +366,10 @@ export async function runKayShadowEvaluator(): Promise<{ checked: number; eligib
   for (const job of claimed) {
     try {
       if (!job.lead_id) {
-        await db.execute(sql`UPDATE kay_evaluator_queue SET status='completed', updated_at=NOW() WHERE id=${job.id} AND status='processing'`);
+        await kayInternalDb.execute(sql`UPDATE kay_evaluator_queue SET status='completed', updated_at=NOW() WHERE id=${job.id} AND status='processing'`);
         continue;
       }
-      const result = await db.execute(sql`
+      const result = await withKayReadonlyAnalysis(client => client.query(`
         SELECT l.id, l.status, l.assigned_to, owner.role AS owner_role, h.entered_at, p.id AS protection_id, p.protected_at,
            (SELECT COUNT(*)::int FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.reason='kay_rescue' AND (ah.automatic=true OR (ah.automatic=false AND ah.metadata->>'mode'='assisted'))) AS rescue_attempts,
           task.id AS incomplete_task_id, task.title AS incomplete_task_title, task.due_date AS incomplete_task_due_date,
@@ -427,9 +384,9 @@ export async function runKayShadowEvaluator(): Promise<{ checked: number; eligib
           SELECT t.id, t.title, t.due_date, t.due_time, t.created_by FROM crm_tasks t
           WHERE t.lead_id=l.id AND t.completed_at IS NULL
           ORDER BY NULLIF(t.due_date, '') ASC NULLS LAST, NULLIF(t.due_time, '') ASC NULLS LAST, t.created_at ASC, t.id ASC LIMIT 1
-        ) task ON true WHERE l.id=${job.lead_id}`);
+         ) task ON true WHERE l.id=$1`, [job.lead_id]));
       const lead: any = result.rows[0];
-      if (!lead) { await db.execute(sql`UPDATE kay_evaluator_queue SET status='completed', updated_at=NOW() WHERE id=${job.id} AND status='processing'`); continue; }
+      if (!lead) { await kayInternalDb.execute(sql`UPDATE kay_evaluator_queue SET status='completed', updated_at=NOW() WHERE id=${job.id} AND status='processing'`); continue; }
       const settings = await getRescueSettings();
        const threshold = lead.status === "no_answer_2" ? settings.no_answer_2_threshold_hours : settings.no_answer_1_threshold_hours;
       const blockers: RescueBlocker[] = [];
@@ -449,14 +406,14 @@ export async function runKayShadowEvaluator(): Promise<{ checked: number; eligib
          rule: "schema_has_no_task_type",
        } : null;
        const ownerUnavailable = !lead.assigned_to || lead.owner_role !== "sub_agent";
-      const candidatesResult = await db.execute(sql`
+       const candidatesResult = await withKayReadonlyAnalysis(client => client.query(`
         SELECT u.id, u.username AS name,
           COUNT(DISTINCT l.id) FILTER (WHERE l.status NOT IN ('lost','converted','purchased','sold_by_kinglike_luxury','junk_lead','not_qualified'))::int AS active_lead_count,
           COUNT(DISTINCT t.id) FILTER (WHERE t.completed_at IS NULL AND t.due_date <> '' AND t.due_date < to_char(CURRENT_DATE, 'YYYY-MM-DD'))::int AS overdue_task_count,
-          EXISTS(SELECT 1 FROM lead_assignment_history ah WHERE ah.lead_id=${lead.id} AND ah.from_user_id=u.id AND ah.assigned_at > NOW() - interval '30 days') AS recent_previous_owner
+          EXISTS(SELECT 1 FROM lead_assignment_history ah WHERE ah.lead_id=$1 AND ah.from_user_id=u.id AND ah.assigned_at > NOW() - interval '30 days') AS recent_previous_owner
         FROM users u LEFT JOIN crm_leads l ON l.assigned_to=u.id
         LEFT JOIN crm_tasks t ON t.lead_id=l.id
-        WHERE u.role='sub_agent' GROUP BY u.id, u.username`);
+         WHERE u.role='sub_agent' GROUP BY u.id, u.username`, [lead.id]));
       const recommendation = recommendRescueEmployee(candidatesResult.rows.map((row: any) => ({
         id: Number(row.id), name: String(row.name), activeLeadCount: Number(row.active_lead_count), overdueTaskCount: Number(row.overdue_task_count),
         recentPreviousOwner: row.recent_previous_owner === true,
@@ -471,12 +428,12 @@ export async function runKayShadowEvaluator(): Promise<{ checked: number; eligib
         maxAttempts: settings.max_human_rescue_attempts,
       });
       // Preserve historical rows but make obsolete active states un-actionable.
-      const staleRescues = await db.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
+       const staleRescues = await kayInternalDb.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
         WHERE lead_id=${lead.id} AND event_id IN (SELECT id FROM kay_events WHERE event_type='shadow_rescue_evaluated') AND payload->>'state' IN ('ACTIVE','BLOCKED')
           AND (payload->>'status' IS DISTINCT FROM ${lead.status} OR payload->>'status_entered_at' IS DISTINCT FROM ${lead.entered_at ? new Date(lead.entered_at).toISOString() : null})`);
       stale += staleRescues.rowCount ?? 0;
        if (hasIncompleteTask || lead.protection_id || !isKayOrphanEligibleStatus(lead.status)) {
-        const staleOrphans = await db.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
+         const staleOrphans = await kayInternalDb.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
           WHERE lead_id=${lead.id} AND decision_type='unprotected_opportunity' AND payload->>'state'='ACTIVE'`);
         stale += staleOrphans.rowCount ?? 0;
       }
@@ -506,36 +463,36 @@ export async function runKayShadowEvaluator(): Promise<{ checked: number; eligib
       // non-terminal lead without an active task is an observable orphan only.
         if (isKayOrphanEligibleStatus(lead.status) && !hasIncompleteTask && !lead.protection_id) {
         const orphanKey = `orphan:${lead.id}:${lead.status}:${lead.action_marker}`;
-        const orphanEvent = await db.insert(kayEvents).values({ idempotencyKey: orphanKey, leadId: lead.id, employeeId: lead.assigned_to,
+         const orphanEvent = await kayInternalDb.insert(kayEvents).values({ idempotencyKey: orphanKey, leadId: lead.id, employeeId: lead.assigned_to,
           eventType: "unprotected_opportunity_observed", eventSource: "kay", metadata: { status: lead.status }, kayGenerated: true }).onConflictDoNothing().returning({ id: kayEvents.id });
-        if (orphanEvent[0]) await db.insert(kayDecisions).values({ leadId: lead.id, eventId: orphanEvent[0].id, decisionType: "unprotected_opportunity",
+        if (orphanEvent[0]) await kayInternalDb.insert(kayDecisions).values({ leadId: lead.id, eventId: orphanEvent[0].id, decisionType: "unprotected_opportunity",
           mode: "shadow", rationale: "No active CRM task and no terminal CRM status were found; Kay did not create a task.", payload: { state: "ACTIVE", status: lead.status, shadow: true } });
       }
        const statusInfo = getKayStatusIntelligence(lead.status);
        if (!statusInfo.protectedCandidate || lead.protection_id) {
-         await db.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
+         await kayInternalDb.execute(sql`UPDATE kay_decisions SET payload=jsonb_set(payload, '{state}', '"STALE"'::jsonb, true)
            WHERE lead_id=${lead.id} AND decision_type='protection_recommended' AND payload->>'state'='ACTIVE'`);
        }
        if (statusInfo.protectedCandidate && !lead.protection_id) {
          const key = `protection-recommended:${lead.id}:${lead.status}`;
-         const event = await db.insert(kayEvents).values({ idempotencyKey: key, leadId: lead.id, employeeId: lead.assigned_to,
+          const event = await kayInternalDb.insert(kayEvents).values({ idempotencyKey: key, leadId: lead.id, employeeId: lead.assigned_to,
            eventType: "protection_recommended", eventSource: "kay", metadata: { status: lead.status, shadow: true }, kayGenerated: true }).onConflictDoNothing().returning({ id: kayEvents.id });
-         if (event[0]) await db.insert(kayDecisions).values({ leadId: lead.id, eventId: event[0].id, decisionType: "protection_recommended",
+          if (event[0]) await kayInternalDb.insert(kayDecisions).values({ leadId: lead.id, eventId: event[0].id, decisionType: "protection_recommended",
            mode: "shadow", rationale: "Commercially sensitive status merits an administrator protection review; Kay made no protection change.",
            payload: { state: "ACTIVE", status: lead.status, protected_candidate: true, shadow: true } });
        }
        if (lead.protection_id && lead.protected_at && new Date(lead.protected_at).getTime() <= Date.now() - settings.protected_review_after_days * 86_400_000) {
          const key = `protected-review:${lead.id}:${new Date(lead.protected_at).toISOString()}:${settings.protected_review_after_days}`;
-         const event = await db.insert(kayEvents).values({ idempotencyKey: key, leadId: lead.id, employeeId: lead.assigned_to,
+          const event = await kayInternalDb.insert(kayEvents).values({ idempotencyKey: key, leadId: lead.id, employeeId: lead.assigned_to,
            eventType: "protected_lead_review_due", eventSource: "kay", metadata: { shadow: true }, kayGenerated: true }).onConflictDoNothing().returning({ id: kayEvents.id });
-         if (event[0]) await db.insert(kayDecisions).values({ leadId: lead.id, eventId: event[0].id, decisionType: "protected_lead_review_due",
+          if (event[0]) await kayInternalDb.insert(kayDecisions).values({ leadId: lead.id, eventId: event[0].id, decisionType: "protected_lead_review_due",
            mode: "shadow", rationale: "Protection has exceeded the informational review threshold; Kay did not remove it.",
            payload: { state: "ACTIVE", protected_at: lead.protected_at, protected_review_after_days: settings.protected_review_after_days, shadow: true } });
        }
-      await db.execute(sql`UPDATE kay_evaluator_queue SET status='completed', updated_at=NOW() WHERE id=${job.id} AND status='processing'`);
+       await kayInternalDb.execute(sql`UPDATE kay_evaluator_queue SET status='completed', updated_at=NOW() WHERE id=${job.id} AND status='processing'`);
     } catch (error) {
       console.warn(`[Kay] evaluator job failed id=${job.id}: ${error instanceof Error ? error.message : "unknown"}`);
-      await db.execute(sql`UPDATE kay_evaluator_queue SET status=CASE WHEN attempts >= 2 THEN 'failed' ELSE 'pending' END, attempts=attempts+1, available_at=NOW() + interval '5 minutes', updated_at=NOW() WHERE id=${job.id} AND status='processing'`).catch(() => {});
+       await kayInternalDb.execute(sql`UPDATE kay_evaluator_queue SET status=CASE WHEN attempts >= 2 THEN 'failed' ELSE 'pending' END, attempts=attempts+1, available_at=NOW() + interval '5 minutes', updated_at=NOW() WHERE id=${job.id} AND status='processing'`).catch(() => {});
     }
   }
   console.info(`[Kay] shadow evaluator checked=${claimed.length} eligible=${eligible} blocked=${blocked} stale=${stale}`);
@@ -568,14 +525,12 @@ export function createSafeKayEvaluatorRunner(dependencies: {
 }
 
 export async function getKayControlSnapshot() {
-  const [mode, events, decisions] = await Promise.all([
+  const [mode, events, decisions, settings, protections] = await Promise.all([
     getKayMode(),
-    db.select().from(kayEvents).orderBy(desc(kayEvents.createdAt), desc(kayEvents.id)).limit(30),
-    db.select().from(kayDecisions).orderBy(desc(kayDecisions.createdAt), desc(kayDecisions.id)).limit(30),
-  ]);
-  const [settings, protections] = await Promise.all([
+    kayInternalDb.select().from(kayEvents).orderBy(desc(kayEvents.createdAt), desc(kayEvents.id)).limit(30),
+    kayInternalDb.select().from(kayDecisions).orderBy(desc(kayDecisions.createdAt), desc(kayDecisions.id)).limit(30),
     getRescueSettings(),
-    db.select().from(kayLeadProtection).where(isNull(kayLeadProtection.removedAt)).limit(100),
+    withKayReadonlyAnalysis(async client => (await client.query("SELECT * FROM kay_lead_protection WHERE removed_at IS NULL LIMIT 100")).rows),
   ]);
   return {
     mode,

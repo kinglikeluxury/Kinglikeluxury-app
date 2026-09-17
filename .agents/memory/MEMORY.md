@@ -21,3 +21,4 @@
 - [Kay destructive test database isolation](kay-test-db-isolation.md) — mutation-capable Kay suites must hard-fail unless connected to an explicitly named dedicated test DB with a run ID.
 - [Kay audit privilege separation](kay-audit-privilege-separation.md) — authorization audit uses an independently owned append-only ledger and a verified INSERT-only runtime login.
 - [Kay UI verification](kay-ui-verification.md) — frozen reads mean unknown, not zero; unauthenticated captures cannot validate the workspace.
+- [Kay runtime state isolation](kay-runtime-state-isolation.md) — policy settings stay read-only; worker leases, health, and availability use a separate least-privilege store.

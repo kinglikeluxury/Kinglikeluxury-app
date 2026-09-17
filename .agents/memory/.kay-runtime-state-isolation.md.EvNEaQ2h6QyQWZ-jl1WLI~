@@ -1,0 +1,10 @@
+---
+name: Kay runtime state isolation
+description: Durable persistence boundary between Kay policy configuration and mutable worker runtime coordination.
+---
+
+Kay runtime workers must never use the policy/settings store for leases, health, or employee availability. Keep policy settings read-only to the internal writer and use a separate Kay-owned runtime-state store with narrowly scoped privileges.
+
+**Why:** Granting UPDATE on the shared Kay settings store would let a worker alter mode, kill-switch, canary, or rescue policy while trying to maintain ordinary runtime coordination.
+
+**How to apply:** New worker coordination state belongs in the runtime-state domain. Do not expand internal-writer permissions on policy settings to make a worker start.

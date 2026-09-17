@@ -319,7 +319,7 @@ export function registerMetaLeadsRoutes(app: Express): void {
             const { leadgen_id, form_id, page_id, ad_id, adgroup_id, campaign_id } = cv;
 
             console.log(
-              `[MetaLeads][POST] leadgen event — leadgen_id=${leadgen_id ?? "missing"} | form_id=${form_id ?? "—"} | page_id=${page_id ?? "—"} | ad_id=${ad_id ?? "—"} | token_present=${!!process.env.META_ACCESS_TOKEN}`
+              `[MetaLeads][POST] leadgen event — leadgen_id=${leadgen_id ?? "missing"} | form_id=${form_id ?? "—"} | page_id=${page_id ?? "—"} | ad_id=${ad_id ?? "—"}`
             );
 
             if (!leadgen_id) {
@@ -488,7 +488,6 @@ export function registerMetaLeadsRoutes(app: Express): void {
     if (meRes.data?.error) {
       console.warn(
         `[MetaLeads][token-test] /me failed — ` +
-        `token_present=true | token_length=${tokenLen} | ` +
         `error_code=${meRes.data.error.code} | error_type=${meRes.data.error.type}`
       );
       return res.json({
@@ -545,7 +544,6 @@ export function registerMetaLeadsRoutes(app: Express): void {
 
     console.log(
       `[MetaLeads][token-test] ` +
-      `token_present=true | token_length=${tokenLen} | token_type_guess=${tokenTypeGuess} | ` +
       `page_id=${meId ?? "unknown"} | forms_count=${formsData.length} | ` +
       `forms_access_granted=${formsAccessGranted} | ` +
       `is_page_token=${isPageToken} | ` +

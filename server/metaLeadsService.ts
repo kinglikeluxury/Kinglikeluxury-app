@@ -69,12 +69,8 @@ export async function fetchLeadFromGraph(
   timeoutMs = META_QUEUE_GRAPH_TIMEOUT_MS,
 ): Promise<any> {
   const accessToken = process.env.META_ACCESS_TOKEN;
-  const tokenLen    = accessToken?.length ?? 0;
-  console.log(
-    `[MetaLeads][Graph] fetchLeadFromGraph called — leadgen_id=${leadgenId} | ` +
-    `token_present=${!!accessToken} | token_length=${tokenLen}`
-  );
   if (!accessToken) throw new Error("META_ACCESS_TOKEN is not configured");
+  console.log(`[MetaLeads][Graph] fetchLeadFromGraph called — leadgen_id=${leadgenId}`);
 
   const fields = [
     "id", "created_time", "field_data",
@@ -82,12 +78,7 @@ export async function fetchLeadFromGraph(
     "campaign_id", "campaign_name", "adset_name", "ad_name",
   ].join(",");
 
-  // Log sanitised URL (token replaced with length marker so we can verify construction)
-  const sanitisedUrl =
-    `${META_GRAPH_BASE}/${leadgenId}` +
-    `?access_token=[len=${tokenLen}]` +
-    `&fields=${fields}`;
-  console.log(`[MetaLeads][Graph] GET ${sanitisedUrl}`);
+  console.log(`[MetaLeads][Graph] GET /${leadgenId}?fields=${fields}`);
 
   const url = `${META_GRAPH_BASE}/${leadgenId}?access_token=${encodeURIComponent(accessToken)}&fields=${fields}`;
 
@@ -1151,8 +1142,6 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token) throw new Error("META_ACCESS_TOKEN is not configured");
 
-  const tokenLen = token.length;
-  const tokenType = "SYSTEM_USER";
   const pageId = META_PAGE_ID;
   const formsEndpoint = `/${pageId}/leadgen_forms`;
   const result: PullSyncResult = {
@@ -1160,7 +1149,6 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
   };
 
   console.log("[MetaLeads][PullSync] start");
-  console.log(`[MetaLeads][PullSync] system token valid | token_len=${tokenLen} | token_type=${tokenType}`);
 
   // Step A: exchange SYSTEM_USER token for the Page Access Token via /me/accounts
   // /{page_id}/leadgen_forms requires a Page Access Token (Meta error #190 with system user token).
@@ -1232,8 +1220,8 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
         `?access_token=${encodeURIComponent(pageToken)}` +
         `&fields=id,created_time,field_data,ad_id,form_id,campaign_id&limit=25`;
       console.log(
-        `[MetaLeads][PullSync] GET /${form.id}/leads?access_token=[page_token_len=${pageToken.length}]` +
-        `&fields=id,created_time,field_data,ad_id,form_id,campaign_id&limit=25`
+        `[MetaLeads][PullSync] GET /${form.id}/leads` +
+        `?fields=id,created_time,field_data,ad_id,form_id,campaign_id&limit=25`
       );
 
       const leadsData = await graphGetPull(leadsUrl);

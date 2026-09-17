@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db, pool } from "./db";
+import { kayInternalDb } from "./kayInternalDatabase";
 import { kayCommitments, kayEvents, kayInternalBriefings, kayManagerReviews, kayMissions, kayPromises, kaySettings } from "@shared/schema";
 import { getKayAvailability, getPhaseCSettings, isKayQuietHours } from "./kayMissionService";
 import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeService";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+
+const db = kayInternalDb;
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const phaseDStyleSchema = z.enum(["FRIENDLY", "PROFESSIONAL", "DIRECT", "FIRM", "SALES_COACH", "EXECUTIVE"]);
@@ -74,13 +76,7 @@ export function employeeSafePhaseDSettings(settings: PhaseDSettings, employeeId:
 }
 export async function setPhaseDSettings(value: unknown, actorId: number) {
   await denyKayWrite("settings.update", actorId, "kay_setting", "phase_d");
-  const parsed = phaseDSettingsSchema.parse(value);
-  await db.transaction(async tx => {
-    const [before] = await tx.select().from(kaySettings).where(eq(kaySettings.key, "phase_d_workflow")).for("update").limit(1);
-    await tx.insert(kaySettings).values({ key: "phase_d_workflow", value: parsed, updatedBy: actorId, updatedAt: new Date() }).onConflictDoUpdate({ target: kaySettings.key, set: { value: parsed, updatedBy: actorId, updatedAt: new Date() } });
-    await tx.insert(kayEvents).values({ userId: actorId, eventType: "phase_d_settings_changed", eventSource: "admin", previousValue: before?.value, newValue: parsed, metadata: { phase: "D", internalOnly: true }, kayGenerated: false });
-  });
-  return parsed;
+  throw new Error("KAY settings writes are permanently disabled.");
 }
 export async function createCommitment(input: unknown, employeeId: number, admin = false) {
   await denyKayWrite("tasks.create", employeeId, "kay_commitment", "new");
@@ -96,7 +92,7 @@ export async function createCommitment(input: unknown, employeeId: number, admin
     // reassigned mission/lead.
     let leadId = data.leadId ?? null;
     if (data.missionId) {
-      const locked = await tx.execute(sql`SELECT m.lead_id,m.employee_id,l.assigned_to FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id WHERE m.id=${data.missionId} FOR UPDATE OF m,l`);
+      const locked = await withKayReadonlyAnalysis(client => client.query(`SELECT m.lead_id,m.employee_id,l.assigned_to FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id WHERE m.id=$1`, [data.missionId]));
       const mission: any = locked.rows[0];
       if (!mission || (!admin && (mission.employee_id !== employeeId || mission.assigned_to !== employeeId)) || (leadId !== null && leadId !== mission.lead_id)) {
         const e: any = new Error("Mission is not currently available to this employee."); e.status = 403; throw e;
@@ -108,7 +104,7 @@ export async function createCommitment(input: unknown, employeeId: number, admin
       if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay commitments require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
     }
     if (!admin && leadId) {
-      const ownership = await tx.execute(sql`SELECT id FROM crm_leads WHERE id=${leadId} AND assigned_to=${employeeId} FOR UPDATE`);
+      const ownership = await withKayReadonlyAnalysis(client => client.query(`SELECT id FROM crm_leads WHERE id=$1 AND assigned_to=$2`, [leadId, employeeId]));
       if (!ownership.rows[0]) { const e: any = new Error("Lead is no longer assigned to you."); e.status = 403; throw e; }
     }
     const scopedKey = `${employeeId}:${data.idempotencyKey}`;
@@ -126,7 +122,7 @@ export async function createPromise(input: unknown, employeeId: number, admin = 
   if (scope.outcome !== "IN_KAY_SCOPE") { const e: any = new Error("New Kay promises require an in-scope lead."); e.status = 409; e.code = `KAY_SCOPE_${scope.outcome}`; throw e; }
   return db.transaction(async tx => {
     if (!admin) {
-      const owned = await tx.execute(sql`SELECT id FROM crm_leads WHERE id=${data.leadId} AND assigned_to=${employeeId} FOR UPDATE`);
+      const owned = await withKayReadonlyAnalysis(client => client.query(`SELECT id FROM crm_leads WHERE id=$1 AND assigned_to=$2`, [data.leadId, employeeId]));
       if (!owned.rows[0]) { const e: any = new Error("Lead is no longer assigned to you."); e.status = 403; throw e; }
     }
     const scopedKey = `${employeeId}:${data.idempotencyKey}`;
@@ -241,9 +237,8 @@ class PhaseDLeaseLostError extends Error {
 }
 async function fencedEvaluatorWrite<T>(token: string, write: (tx: any) => Promise<T>): Promise<T> {
   return db.transaction(async tx => {
-    const [lease] = await tx.select({ value: kaySettings.value }).from(kaySettings)
-      .where(eq(kaySettings.key, "phase_d_evaluator_lease")).for("update").limit(1);
-    const value: any = lease?.value;
+    const lease = await tx.execute(sql`SELECT value FROM kay_runtime_state WHERE key='phase_d_evaluator_lease' FOR UPDATE`);
+    const value: any = (lease.rows[0] as any)?.value;
     const expiry = typeof value?.locked_until === "string" ? Date.parse(value.locked_until) : NaN;
     if (value?.token !== token || !Number.isFinite(expiry) || expiry <= Date.now()) throw new PhaseDLeaseLostError();
     return write(tx);
@@ -258,7 +253,9 @@ export async function evaluatePhaseD(token: string, limit = 100) {
   const settings = await getPhaseDSettings(); if (!settings.enabled) return { checked: 0, briefings: 0, reviews: 0, disabled: true };
   const scopeConfiguration = await getKayScopeConfiguration();
   if (scopeConfiguration.status !== "OK") {
-    await db.insert(kaySettings).values({ key: "phase_d_health", value: { halted: true, halted_reason: scopeConfiguration.status, last_error: new Date().toISOString() } }).onConflictDoUpdate({ target: kaySettings.key, set: { value: { halted: true, halted_reason: scopeConfiguration.status, last_error: new Date().toISOString() }, updatedAt: new Date() } });
+    await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+      VALUES('phase_d_health',${JSON.stringify({ halted: true, halted_reason: scopeConfiguration.status, last_error: new Date().toISOString() })}::jsonb,NOW())
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`);
     return { checked: 0, briefings: 0, reviews: 0, disabled: true, halted: scopeConfiguration.status };
   }
   const phaseC = await getPhaseCSettings();
@@ -362,22 +359,27 @@ export async function resolveManagerReview(id: number, actorId: number, note: st
 }
 export async function acquirePhaseDLease() {
   await denyKayWrite("missions.generate", undefined, "phase_d_lease", "acquire");
-  const token = `${process.pid}:${Date.now()}:${Math.random()}`; await db.insert(kaySettings).values({ key: "phase_d_evaluator_lease", value: { released: true } }).onConflictDoNothing();
-  const rows = await db.update(kaySettings).set({ value: { token, locked_until: new Date(Date.now() + 10 * 60_000).toISOString() }, updatedAt: new Date() }).where(and(eq(kaySettings.key, "phase_d_evaluator_lease"), sql`CASE WHEN (${kaySettings.value}->>'locked_until') ~ '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$' THEN (${kaySettings.value}->>'locked_until')::timestamptz ELSE to_timestamp(0) END < NOW()`)).returning(); return rows[0] ? token : null;
+  const token = `${process.pid}:${Date.now()}:${Math.random()}`;
+  const rows = await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+    VALUES('phase_d_evaluator_lease',jsonb_build_object('released',true),NOW())
+    ON CONFLICT(key) DO UPDATE SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 10 * 60_000).toISOString()}),updated_at=NOW()
+      WHERE COALESCE((kay_runtime_state.value->>'locked_until')::timestamptz,to_timestamp(0)) < NOW()
+    RETURNING key`);
+  return rows.rows[0] ? token : null;
 }
 export async function renewPhaseDLease(token: string): Promise<boolean> {
   await denyKayWrite("missions.generate", undefined, "phase_d_lease", "renew");
-  const rows = await db.update(kaySettings).set({ value: { token, locked_until: new Date(Date.now() + 10 * 60_000).toISOString() }, updatedAt: new Date() }).where(and(eq(kaySettings.key, "phase_d_evaluator_lease"), sql`${kaySettings.value}->>'token'=${token}`)).returning();
-  return rows.length === 1;
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 10 * 60_000).toISOString()}),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token} RETURNING key`);
+  return rows.rows.length === 1;
 }
 export async function releasePhaseDLease(token: string): Promise<boolean> {
   await denyKayWrite("missions.generate", undefined, "phase_d_lease", "release");
-  const rows = await db.update(kaySettings).set({ value: { released: true, released_at: new Date().toISOString() }, updatedAt: new Date() }).where(and(eq(kaySettings.key, "phase_d_evaluator_lease"), sql`${kaySettings.value}->>'token'=${token}`)).returning();
-  return rows.length === 1;
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('released',true,'released_at',${new Date().toISOString()}),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token} RETURNING key`);
+  return rows.rows.length === 1;
 }
 export async function ownsPhaseDLease(token: string): Promise<boolean> {
-  const [row] = await db.select({ value: kaySettings.value }).from(kaySettings).where(eq(kaySettings.key, "phase_d_evaluator_lease")).limit(1);
-  return (row?.value as any)?.token === token;
+  const result = await db.execute(sql`SELECT value FROM kay_runtime_state WHERE key='phase_d_evaluator_lease' LIMIT 1`);
+  return ((result.rows[0] as any)?.value as any)?.token === token;
 }
 export async function runPhaseDEvaluator() {
   await denyKayWrite("missions.generate", undefined, "phase", "D");
@@ -391,14 +393,18 @@ export async function runPhaseDEvaluator() {
     if ((result as any).aborted || !(await assertLease())) return { ...result, aborted: "lease_lost" };
     const now = new Date().toISOString();
     await fencedEvaluatorWrite(token, async tx => {
-      await tx.insert(kaySettings).values({ key: "phase_d_health", value: { last_successful_cycle: now, next_expected_run: new Date(Date.now() + (await getPhaseDSettings()).evaluation_interval_minutes * 60_000).toISOString(), errors: 0, degraded: false, lease_token: token, ...result } }).onConflictDoUpdate({ target: kaySettings.key, set: { value: { last_successful_cycle: now, errors: 0, degraded: false, lease_token: token, ...result }, updatedAt: new Date() } });
+      await tx.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+        VALUES('phase_d_health',${JSON.stringify({ last_successful_cycle: now, next_expected_run: new Date(Date.now() + (await getPhaseDSettings()).evaluation_interval_minutes * 60_000).toISOString(), errors: 0, degraded: false, lease_token: token, ...result })}::jsonb,NOW())
+        ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`);
     });
     return result;
   }
   catch (error) {
     if (error instanceof PhaseDLeaseLostError || !(await assertLease())) return { aborted: "lease_lost" };
     await fencedEvaluatorWrite(token, async tx => {
-      await tx.insert(kaySettings).values({ key: "phase_d_health", value: { last_error: new Date().toISOString(), lease_token: token } }).onConflictDoUpdate({ target: kaySettings.key, set: { value: { last_error: new Date().toISOString(), lease_token: token }, updatedAt: new Date() } });
+      await tx.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
+        VALUES('phase_d_health',${JSON.stringify({ last_error: new Date().toISOString(), lease_token: token })}::jsonb,NOW())
+        ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`);
     });
     throw error;
   }

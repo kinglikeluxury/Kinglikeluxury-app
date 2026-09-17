@@ -42,10 +42,7 @@ export function validateMetaWhatsAppConfig(): void {
     );
     return;
   }
-  console.log(
-    `[MetaWhatsApp] Configured ✓ — Phone ID: ${PHONE_NUMBER_ID} | ` +
-    `token_len=${token.length}`
-  );
+  console.log(`[MetaWhatsApp] Configured ✓ — Phone ID: ${PHONE_NUMBER_ID}`);
 }
 
 /** Strip everything except digits — Meta requires no + prefix. */

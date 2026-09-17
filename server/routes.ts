@@ -485,11 +485,29 @@ ${metaTags}
 
   // Production hardening: all Kay mutations are centrally denied and audited.
   // GET inspection and the aggregate-only dry-run remain available.
+  //
+  // Only routes backed end-to-end by the dedicated analysis/internal modules
+  // are admitted. Legacy, rescue-execution, and generic-pool modules fail closed.
+  const kayDedicatedReadRoutes = new Set([
+    "/api/admin/kay/control",
+    "/api/admin/kay/settings/rescue",
+    "/api/kay/missions",
+    "/api/kay/availability",
+    "/api/admin/kay/settings/workflow",
+    "/api/kay/commitments",
+    "/api/kay/promises",
+    "/api/kay/briefings",
+    "/api/kay/settings/phase-d",
+    "/api/admin/kay/settings/phase-d",
+    "/api/admin/kay/owner-brief",
+    "/api/admin/kay/reviews",
+  ]);
   app.use(["/api/kay", "/api/admin/kay"], async (req: any, res, next) => {
     const route = req.originalUrl.split("?")[0];
     const dryRun = req.method === "POST" && route === "/api/admin/kay/auto-rescue/dry-run";
+    const parameterizedDedicatedRead = /^\/api\/kay\/missions\/[1-9]\d*$/.test(route);
     const readonlyAnalysis = dryRun ||
-      (req.method === "GET" && route === "/api/admin/kay/auto-rescue/readiness");
+      (req.method === "GET" && (kayDedicatedReadRoutes.has(route) || parameterizedDedicatedRead));
     if (req.method === "GET" || dryRun) {
       try {
         const capability = dryRun ? "kay.crm.analyze" : "kay.crm.read";
@@ -3291,7 +3309,6 @@ ${metaTags}
         if (r.rows.length > 0) RESEND_KEY = r.rows[0].value;
       } catch {}
     }
-    console.log(`[EmailCampaign] RESEND_API_KEY available: ${!!RESEND_KEY} (len=${(RESEND_KEY||'').length})`);
     if (!RESEND_KEY) {
       return res.status(503).json({ message: "RESEND_API_KEY not configured" });
     }

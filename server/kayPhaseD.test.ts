@@ -196,8 +196,9 @@ test("Phase D owner brief counts current and compatibility lifecycle statuses", 
 
 test("Phase D evaluator has an expiring singleton lease and always releases its token", () => {
   assert.match(service, /phase_d_evaluator_lease/);
+  assert.match(service, /kay_runtime_state/);
   assert.match(service, /locked_until/);
-  assert.match(service, /CASE WHEN \(\$\{kaySettings\.value\}->>'locked_until'\)/);
+  assert.doesNotMatch(service, /UPDATE kay_settings SET value=.*phase_d_evaluator_lease/);
   assert.match(service, /finally \{ clearInterval\(heartbeat\); await releasePhaseDLease\(token\);/);
 });
 
