@@ -155,8 +155,9 @@ async function logQueueAudit(
   metaLeadId: string,
   action: string,
   details: any,
+  auditPool: MetaQueuePoolLike = pool,
 ): Promise<void> {
-  const client = await pool.connect();
+  const client = await auditPool.connect();
   let transactionOpen = false;
   try {
     await client.query("BEGIN");
@@ -234,6 +235,10 @@ export async function createOrFindMetaLead(
   payload: MetaCrmPayload,
   assignmentSource: "Meta Webhook" | "Meta Pull Sync",
   queueContext: MetaQueueContext,
+  dependencies: {
+    database?: any;
+    pickNextSubAgentIdForTx?: typeof pickNextSubAgentIdForTx;
+  } = {},
 ): Promise<MetaLeadDecision> {
   const normalizedPhone = normalizeMetaLeadPhone(payload.phone);
   const externalLeadId = payload.externalLeadId?.trim() || null;
@@ -241,7 +246,9 @@ export async function createOrFindMetaLead(
     throw new Error("Meta duplicate/create decision requires externalLeadId");
   }
 
-  return db.transaction(async (tx) => {
+  const database = dependencies.database ?? db;
+  const pickAssignment = dependencies.pickNextSubAgentIdForTx ?? pickNextSubAgentIdForTx;
+  return database.transaction(async (tx: any) => {
     if (queueContext.queueEntryId) {
       await tx.execute(sql`SELECT set_config('statement_timeout', ${`${META_QUEUE_DB_STATEMENT_TIMEOUT_MS}ms`}, true)`);
       await tx.execute(sql`SELECT set_config('lock_timeout', ${`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`}, true)`);
@@ -364,7 +371,7 @@ export async function createOrFindMetaLead(
       }
     }
 
-    const assignedTo = await pickNextSubAgentIdForTx(tx, assignmentSource);
+    const assignedTo = await pickAssignment(tx, assignmentSource);
     const [lead] = await tx
       .insert(crmLeads)
       .values({
@@ -385,6 +392,19 @@ export async function createOrFindMetaLead(
       queueEntryId,
     };
   });
+}
+
+/** Test-only entry point for the real duplicate/create transaction. */
+export async function createOrFindMetaLeadForTest(
+  payload: any,
+  assignmentSource: "Meta Webhook" | "Meta Pull Sync",
+  queueContext: MetaQueueContext,
+  dependencies: { database: any; pickNextSubAgentIdForTx?: typeof pickNextSubAgentIdForTx },
+): Promise<any> {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("createOrFindMetaLeadForTest is available only in NODE_ENV=test");
+  }
+  return createOrFindMetaLead(payload, assignmentSource, queueContext, dependencies);
 }
 
 function escapeHtml(value: string | null | undefined): string {
@@ -495,7 +515,10 @@ async function notifyOwnerOfDuplicateMetaLead(
 }
 
 // ── Entry processor ───────────────────────────────────────────────────────────
-type MetaQueueEntry = typeof leadImportQueue.$inferSelect;
+type MetaQueueEntry = typeof leadImportQueue.$inferSelect & {
+  /** The exact database-generated version assigned to this processing claim. */
+  claimUpdatedAt: string;
+};
 interface MetaQueuePoolLike {
   connect(): Promise<{
     query(text: string, params?: any[]): Promise<any>;
@@ -504,6 +527,7 @@ interface MetaQueuePoolLike {
 }
 
 function mapQueueRow(row: any): MetaQueueEntry {
+  const claimUpdatedAt = String(row.claim_updated_at);
   return {
     id: Number(row.id),
     metaLeadId: row.meta_lead_id,
@@ -525,6 +549,7 @@ function mapQueueRow(row: any): MetaQueueEntry {
     processedAt: row.processed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    claimUpdatedAt,
   };
 }
 
@@ -539,8 +564,9 @@ async function updateClaimedQueueEntry(
     nextRetryAt?: Date | null;
     errorMessage?: string | null;
   },
+  queuePool: MetaQueuePoolLike = pool,
 ): Promise<boolean> {
-  const client = await pool.connect();
+  const client = await queuePool.connect();
   let transactionOpen = false;
   try {
     await client.query("BEGIN");
@@ -556,10 +582,13 @@ async function updateClaimedQueueEntry(
            retry_count = COALESCE($5, retry_count),
            next_retry_at = $6,
            error_message = $7,
-           updated_at = date_trunc('milliseconds', NOW())
+            updated_at = GREATEST(
+              date_trunc('milliseconds', clock_timestamp()),
+             updated_at + interval '1 millisecond'
+            )
        WHERE id = $8
          AND status = 'processing'
-         AND updated_at = $9
+         AND updated_at = $9::timestamp without time zone
        RETURNING id`,
       [
         values.status,
@@ -570,7 +599,7 @@ async function updateClaimedQueueEntry(
         values.nextRetryAt ?? null,
         values.errorMessage ?? null,
         entry.id,
-        entry.updatedAt,
+        entry.claimUpdatedAt,
       ],
     );
     await client.query("COMMIT");
@@ -586,7 +615,28 @@ async function updateClaimedQueueEntry(
   }
 }
 
-async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise<void> {
+/**
+ * Integration-test hook for the real fenced terminal UPDATE. It intentionally
+ * exposes only the row id, DB-issued token, and allowed terminal status; tests
+ * cannot bypass the production status/token predicate.
+ */
+export async function fencedQueueTransitionForTest(
+  queuePool: MetaQueuePoolLike,
+  id: number,
+  claimUpdatedAt: string,
+  status: "completed" | "retry" | "needs_review",
+): Promise<boolean> {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("fencedQueueTransitionForTest is available only in NODE_ENV=test");
+  }
+  return updateClaimedQueueEntry(
+    { id, claimUpdatedAt } as MetaQueueEntry,
+    { status },
+    queuePool,
+  );
+}
+
+async function processEntry(entry: MetaQueueEntry): Promise<void> {
   const now = new Date();
 
   console.log(
@@ -886,7 +936,6 @@ async function processEntry(entry: typeof leadImportQueue.$inferSelect): Promise
 // ── Queue processor ───────────────────────────────────────────────────────────
 export async function claimQueueEntries(
   queuePool: MetaQueuePoolLike = pool,
-  currentTimeMs = Date.now(),
 ): Promise<MetaQueueEntry[]> {
   const client = await queuePool.connect();
   let transactionOpen = false;
@@ -897,17 +946,16 @@ export async function claimQueueEntries(
     await client.query("SELECT set_config('lock_timeout', $1, true)", [`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`]);
     await client.query("SELECT set_config('idle_in_transaction_session_timeout', $1, true)", [`${META_QUEUE_DB_STATEMENT_TIMEOUT_MS}ms`]);
 
-    const staleCutoff = new Date(currentTimeMs - META_QUEUE_STALE_AFTER_MS);
-
     const exhausted = await client.query(
       `WITH candidates AS (
          SELECT id
          FROM lead_import_queue
          WHERE status = 'processing'
-           AND updated_at <= $1
+            AND processed_at IS NULL
+            AND updated_at < clock_timestamp() - interval '15 minutes'
            AND retry_count + 1 >= max_retries
          ORDER BY updated_at ASC, id ASC
-         LIMIT $2
+         LIMIT $1
          FOR UPDATE SKIP LOCKED
        )
        UPDATE lead_import_queue AS q
@@ -915,24 +963,15 @@ export async function claimQueueEntries(
            retry_count = q.retry_count + 1,
            error_message = 'Recovered stale processing row after worker termination; retry limit reached',
            next_retry_at = NULL,
-           updated_at = date_trunc('milliseconds', NOW())
+          updated_at = GREATEST(
+            date_trunc('milliseconds', clock_timestamp()),
+            q.updated_at + interval '1 millisecond'
+          )
        FROM candidates
        WHERE q.id = candidates.id
        RETURNING q.id, q.meta_lead_id`,
-      [staleCutoff, META_QUEUE_RETRY_BATCH_SIZE],
+      [META_QUEUE_RETRY_BATCH_SIZE],
     );
-
-    for (const row of exhausted.rows) {
-      await client.query(
-        `INSERT INTO lead_import_audit_log (queue_entry_id, meta_lead_id, action, details)
-         VALUES ($1, $2, 'stale_processing_needs_review', $3::jsonb)`,
-        [
-          row.id,
-          row.meta_lead_id,
-          JSON.stringify({ staleAfterMs: META_QUEUE_STALE_AFTER_MS }),
-        ],
-      );
-    }
 
     const pending = await client.query(
       `WITH candidates AS (
@@ -945,10 +984,14 @@ export async function claimQueueEntries(
        )
        UPDATE lead_import_queue AS q
        SET status = 'processing',
-           updated_at = date_trunc('milliseconds', NOW())
+            updated_at = GREATEST(
+              date_trunc('milliseconds', clock_timestamp()),
+              q.updated_at + interval '1 millisecond'
+            )
        FROM candidates
        WHERE q.id = candidates.id
-       RETURNING q.*`,
+       RETURNING q.*,
+         to_char(q.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS claim_updated_at`,
       [META_QUEUE_PENDING_BATCH_SIZE],
     );
 
@@ -958,11 +1001,12 @@ export async function claimQueueEntries(
          FROM lead_import_queue
          WHERE (
              status = 'retry'
-             AND next_retry_at <= NOW()
+             AND next_retry_at <= clock_timestamp()
            )
            OR (
              status = 'processing'
-             AND updated_at <= $1
+              AND processed_at IS NULL
+             AND updated_at < clock_timestamp() - interval '15 minutes'
              AND retry_count + 1 < max_retries
            )
          ORDER BY
@@ -970,7 +1014,7 @@ export async function claimQueueEntries(
            COALESCE(next_retry_at, updated_at) ASC,
            received_at ASC,
            id ASC
-         LIMIT $2
+         LIMIT $1
          FOR UPDATE SKIP LOCKED
        )
        UPDATE lead_import_queue AS q
@@ -985,21 +1029,72 @@ export async function claimQueueEntries(
                THEN 'Recovered stale processing row after worker termination'
              ELSE q.error_message
            END,
-           updated_at = date_trunc('milliseconds', NOW())
+            updated_at = GREATEST(
+              date_trunc('milliseconds', clock_timestamp()),
+              q.updated_at + interval '1 millisecond'
+            )
        FROM candidates
        WHERE q.id = candidates.id
-       RETURNING q.*`,
-      [staleCutoff, META_QUEUE_RETRY_BATCH_SIZE],
+       RETURNING q.*, candidates.recovered_stale,
+         to_char(q.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS claim_updated_at`,
+      [META_QUEUE_RETRY_BATCH_SIZE],
     );
 
     await client.query("COMMIT");
     transactionOpen = false;
+
+    // Keep audit writes outside the short row-locking claim transaction.
+    for (const row of exhausted.rows) {
+      await logQueueAudit(row.id, row.meta_lead_id, "stale_processing_needs_review", {
+        staleAfterMs: META_QUEUE_STALE_AFTER_MS,
+      }, queuePool);
+    }
+    for (const row of retries.rows.filter((item: any) => item.recovered_stale)) {
+      await logQueueAudit(row.id, row.meta_lead_id, "recovered_stale", {
+        staleAfterMs: META_QUEUE_STALE_AFTER_MS,
+        retryConsumed: true,
+      }, queuePool);
+    }
 
     return [...pending.rows, ...retries.rows].map(mapQueueRow);
   } catch (err) {
     if (transactionOpen) {
       await client.query("ROLLBACK").catch(() => {});
     }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Claim a pull-sync-created row before its terminal transition.  Pull sync
+ * has already done network work, so it must still acquire the same fenced
+ * processing token rather than writing a status directly. */
+async function claimPullSyncEntry(id: number): Promise<MetaQueueEntry | null> {
+  const client = await pool.connect();
+  let transactionOpen = false;
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    await client.query("SELECT set_config('statement_timeout', $1, true)", [`${META_QUEUE_DB_STATEMENT_TIMEOUT_MS}ms`]);
+    await client.query("SELECT set_config('lock_timeout', $1, true)", [`${META_QUEUE_DB_LOCK_TIMEOUT_MS}ms`]);
+    const result = await client.query(
+      `UPDATE lead_import_queue
+       SET status = 'processing',
+           updated_at = GREATEST(
+             date_trunc('milliseconds', clock_timestamp()),
+             updated_at + interval '1 millisecond'
+           )
+       WHERE id = $1 AND status = 'pending'
+       RETURNING *,
+         to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS claim_updated_at`,
+      [id],
+    );
+    await client.query("COMMIT");
+    transactionOpen = false;
+    return result.rowCount === 1 ? mapQueueRow(result.rows[0]) : null;
+  } catch (err) {
+    if (transactionOpen) await client.query("ROLLBACK").catch(() => {});
     throw err;
   } finally {
     client.release();
@@ -1228,15 +1323,23 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
             },
           });
           const crmLead = decision.lead;
+          const claimedPullEntry = await claimPullSyncEntry(decision.queueEntryId);
+          if (!claimedPullEntry) {
+            await logAudit(decision.queueEntryId, leadId, "pull_sync_claim_lost", {
+              reason: "queue row was claimed by another worker",
+            });
+            continue;
+          }
 
           if (decision.kind === "duplicate") {
-            await db.update(leadImportQueue).set({
+            const completed = await updateClaimedQueueEntry(claimedPullEntry, {
               status:            "completed",
+              leadData:         lead,
               crmLeadId:         crmLead.id,
               processedAt:       now,
               errorMessage:      null,
-              updatedAt:         now,
-            }).where(eq(leadImportQueue.id, decision.queueEntryId));
+            });
+            if (!completed) continue;
 
             let notification: DuplicateNotificationResult = {
               ownerUserId: crmLead.assignedTo ?? null,
@@ -1344,13 +1447,14 @@ export async function pullSyncFromMeta(): Promise<PullSyncResult> {
           );
 
           // Queue entry was created in the same transaction as the CRM decision.
-          await db.update(leadImportQueue).set({
+          const completed = await updateClaimedQueueEntry(claimedPullEntry, {
             status:            "completed",
+            leadData:         lead,
             crmLeadId:         crmLead.id,
             processedAt:       now,
             errorMessage:      null,
-            updatedAt:         now,
-          }).where(eq(leadImportQueue.id, decision.queueEntryId));
+          });
+          if (!completed) continue;
 
           await logAudit(decision.queueEntryId, leadId, "pull_sync_inserted", {
             formId:    form.id,
