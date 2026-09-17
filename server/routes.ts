@@ -42,13 +42,13 @@ import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
-import { acceptPromiseHandoff, executeAssistedRescue, getAssistedRescuePreview, listPromiseHandoffs, undoAssistedRescue } from "./kayRescueService";
-import { applyAutoRescueLastChance, getAutoRescueHealth, getAutoRescueReadiness, runKayAutoRescueWorker } from "./kayAutoRescueService";
+import { getAssistedRescuePreview, listPromiseHandoffs } from "./kayRescueReadService";
+import { getAutoRescueHealth, getAutoRescueReadiness } from "./kayAutoRescueReadService";
 import { requireKayAdmin } from "./kayAuth";
-import { getLegacyBaselineReadiness, getLegacyCapacitySensitivity, getLegacyLeadAgeBuckets, getLegacyOwnerDiagnostics, initializeLegacyBaselines, previewLegacyBaselineInitialization } from "./kayLegacyBaselineService";
+import { getLegacyBaselineReadiness, getLegacyCapacitySensitivity, getLegacyLeadAgeBuckets, getLegacyOwnerDiagnostics, previewLegacyBaselineInitialization } from "./kayLegacyBaselineReadService";
 import { getKayPhaseE23Diagnostics } from "./kayPhaseE23Service";
-import { activateE24Fadi, getE24FadiPrecheck } from "./kayPhaseE24Service";
-import { getKayOperationalScopeAdminView, getKayScopeConfiguration, getKayScopeForLead, setKayOperationalLaunchAt } from "./kayLeadScopeService";
+import { getE24FadiPrecheck } from "./kayPhaseE24ReadService";
+import { getKayOperationalScopeAdminView, getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeReadService";
 import { randomUUID } from "crypto";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
@@ -714,7 +714,7 @@ ${metaTags}
   // Manually running a cycle is admin-only. It remains fail-closed unless all
   // server gates are deliberately enabled, and is useful for synthetic tests.
   app.post("/api/admin/kay/auto-rescue/run", requireKayAdmin, async (_req, res) => {
-    try { res.json(await runKayAutoRescueWorker()); } catch { res.status(500).json({ message:"Automatic Rescue worker failed; CRM was not retried blindly." }); }
+    res.status(403).json({ message:"Automatic Rescue execution is permanently disabled." });
   });
   app.put("/api/admin/kay/leads/:leadId/protection", requireKayAdmin, async (req: any, res) => {
     const leadId = Number(req.params.leadId);
@@ -791,7 +791,7 @@ ${metaTags}
   });
   app.post("/api/kay/promise-handoffs/:id/accept", requireKayWorkspaceUser, async (req: any, res) => {
     const id = Number(req.params.id); if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid handoff id." });
-    try { res.json({ handoff: await acceptPromiseHandoff(id, req.session.userId, !!req.kayIsAdmin) }); } catch (error: any) { res.status(error.status || 500).json({ message: error.message || "Unable to accept handoff." }); }
+    res.status(403).json({ message: "Promise handoff execution is permanently disabled." });
   });
   app.get("/api/kay/missions", requireKayWorkspaceUser, async (req: any, res) => {
     try {

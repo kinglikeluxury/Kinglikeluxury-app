@@ -1,14 +1,12 @@
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
-import { getKayMode } from "./kayService";
 import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeReadService";
-import { rescueSettingsSchema } from "./kayService";
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo));
 
 export async function getAutoRescueReadiness(limit = 500) {
   return withKayReadonlyAnalysis(async analysis => {
     const settingsRow = await analysis.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`);
-    const settings = rescueSettingsSchema.parse(settingsRow.rows[0]?.value || {});
+    const settings: any = settingsRow.rows[0]?.value || {};
     const scopeConfig = await getKayScopeConfiguration(analysis as any);
     if (scopeConfig.status !== "OK") return { checked: 0, wouldExecute: 0, wouldBlock: 0, managerReview: 0, noEligibleEmployee: 0, protected: 0, dailyLimitImpact: 0, blockedReason: scopeConfig.status };
     const rows = await analysis.query(`SELECT l.id,l.status,l.assigned_to,h.entered_at,p.id protection_id,

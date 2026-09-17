@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { kayInternalDb } from "./kayInternalDatabase";
 import { kayCommitments, kayEvents, kayInternalBriefings, kayManagerReviews, kayMissions, kayPromises, kaySettings } from "@shared/schema";
 import { getKayAvailability, getPhaseCSettings, isKayQuietHours } from "./kayMissionService";
-import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeService";
+import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeReadService";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 

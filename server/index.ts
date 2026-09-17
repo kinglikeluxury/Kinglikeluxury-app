@@ -54,10 +54,6 @@ import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
-import { startKayShadowEvaluator } from "./kayService";
-import { startKayMissionGenerator } from "./kayMissionService";
-import { startPhaseDEvaluator } from "./kayPhaseDService";
-import { startKayAutoRescueWorker } from "./kayAutoRescueService";
 
 const app = express();
 

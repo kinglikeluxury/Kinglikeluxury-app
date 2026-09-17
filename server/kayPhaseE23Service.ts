@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
-import { getLegacyBaselineReadiness, getLegacyOwnerDiagnostics, getLegacyCapacitySensitivity } from "./kayLegacyBaselineService";
+import { getLegacyBaselineReadiness, getLegacyOwnerDiagnostics, getLegacyCapacitySensitivity } from "./kayLegacyBaselineReadService";
 import { evaluateRescueWindow } from "./kayAutoRescuePlanner";
-import { defaultRescueSettings, resolveKayMode } from "./kayService";
-import { classifyKayLead, getKayScopeConfiguration, kayScopeSql } from "./kayLeadScopeService";
+import { classifyKayLead, getKayScopeConfiguration, kayScopeSql } from "./kayLeadScopeReadService";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 export const E23_SOURCE_POLICIES = ["SALES_ONLY", "SALES_AND_ADMIN_INTAKE", "ALL_NON_SYSTEM"] as const;
@@ -164,8 +163,8 @@ async function readKayPhaseE23Diagnostics(scope: E23TestScope | undefined, clien
      client.query(`SELECT value FROM kay_settings WHERE key='mode'`),
    ]);
   const rules: any = settingsRow.rows[0]?.value || {};
-  const rescueSettings: any = { ...defaultRescueSettings, ...rules };
-  const mode = resolveKayMode(modeRow.rows[0]?.value);
+   const rescueSettings: any = { auto_rescue_kill_switch: true, ...rules };
+   const mode = String(modeRow.rows[0]?.value?.mode || "shadow").toUpperCase();
    const noAnswer = await client.query(`SELECT l.id,l.status,l.assigned_to,l.created_at,l.business_received_at,l.business_received_at_source,l.lead_source,COALESCE(u.username,'UNASSIGNED') account,u.role,u.is_active,u.is_admin,
     (SELECT max(assigned_at) FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.to_user_id=l.assigned_to) latest_owner_assigned_at,
     CASE WHEN h.status=l.status AND h.entered_at >= COALESCE((SELECT max(assigned_at) FROM lead_assignment_history ah WHERE ah.lead_id=l.id AND ah.to_user_id=l.assigned_to), '-infinity'::timestamp) THEN h.entered_at

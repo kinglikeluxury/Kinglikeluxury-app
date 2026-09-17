@@ -4,7 +4,7 @@ import { kayEvents, kayMissions, kaySettings, userNotifications } from "@shared/
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { getKayStatusIntelligence } from "./kayStatusClassification";
 import { sanitizeKayJson } from "./kayService";
-import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeService";
+import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeReadService";
 import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
