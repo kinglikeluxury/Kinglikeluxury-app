@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 
 /**
  * Kay inspection/configuration is deliberately gated by the application's
@@ -8,7 +7,9 @@ import { sql } from "drizzle-orm";
  */
 type AdminLookup = (userId: number) => Promise<boolean>;
 const liveAdminLookup: AdminLookup = async userId => {
-  const result = await db.execute(sql`SELECT is_admin FROM users WHERE id=${userId} LIMIT 1`).catch(() => null);
+  const result = await withKayReadonlyAnalysis(client =>
+    client.query(`SELECT is_admin FROM users WHERE id=$1 LIMIT 1`, [userId])
+  ).catch(() => null);
   return result?.rows[0]?.is_admin === true;
 };
 

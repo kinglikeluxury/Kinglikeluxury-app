@@ -53,6 +53,8 @@ import { randomUUID } from "crypto";
 import { generateKayMissions, getKayEmployeeWorkflowSnapshot, getKayMissionInspection, getKayMission, getKayOperationsHealth, getKayAvailability, getPhaseCSettings, kayAvailabilitySchema, listKayMissions, phaseCSettingsSchema, setKayAvailability, setPhaseCSettings, transitionKayMission } from "./kayMissionService";
 import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise, commitmentInput, completeCommitment, completePromise, createCommitment, createManagerReview, createPromise, extendCommitment, getEmployeePhaseDVoiceSettings, getOwnerBrief, getPhaseDSettings, listBriefings, listCommitments, listPromises, phaseDSettingsSchema, resolveManagerReview, runPhaseDEvaluator, setPhaseDSettings } from "./kayPhaseDService";
 import { authorizeKayAction, denyKayWrite } from "./kayActionGateway";
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import { withKayInternalClient } from "./kayInternalDatabase";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -490,7 +492,17 @@ ${metaTags}
   // are admitted. Legacy, rescue-execution, and generic-pool modules fail closed.
   const kayDedicatedReadRoutes = new Set([
     "/api/admin/kay/control",
+    "/api/admin/kay/settings/operational-scope",
     "/api/admin/kay/settings/rescue",
+    "/api/admin/kay/auto-rescue/health",
+    "/api/admin/kay/auto-rescue/readiness",
+    "/api/admin/kay/e2.4/fadi/precheck",
+    "/api/admin/kay/legacy-rescue-baselines/preview",
+    "/api/admin/kay/legacy-rescue-baselines/readiness",
+    "/api/admin/kay/legacy-rescue-baselines/diagnostics",
+    "/api/admin/kay/legacy-rescue-baselines/e23-diagnostics",
+    "/api/admin/kay/auto-rescue/history",
+    "/api/kay/promise-handoffs",
     "/api/kay/missions",
     "/api/kay/availability",
     "/api/admin/kay/settings/workflow",
@@ -505,7 +517,10 @@ ${metaTags}
   app.use(["/api/kay", "/api/admin/kay"], async (req: any, res, next) => {
     const route = req.originalUrl.split("?")[0];
     const dryRun = req.method === "POST" && route === "/api/admin/kay/auto-rescue/dry-run";
-    const parameterizedDedicatedRead = /^\/api\/kay\/missions\/[1-9]\d*$/.test(route);
+    const parameterizedDedicatedRead =
+      /^\/api\/kay\/missions\/[1-9]\d*$/.test(route) ||
+      /^\/api\/admin\/kay\/leads\/[1-9]\d*\/protection$/.test(route) ||
+      /^\/api\/admin\/kay\/rescue\/[1-9]\d*\/[1-9]\d*\/preview$/.test(route);
     const readonlyAnalysis = dryRun ||
       (req.method === "GET" && (kayDedicatedReadRoutes.has(route) || parameterizedDedicatedRead));
     if (req.method === "GET" || dryRun) {
@@ -691,11 +706,11 @@ ${metaTags}
     res.json({ ...(await getAutoRescueReadiness(Number(req.body?.limit) || 500)), dryRun: true, aggregateOnly: true });
   });
   app.get("/api/admin/kay/auto-rescue/history", requireKayAdmin, async (_req, res) => {
-    const rows = await pool.query(`SELECT x.id,x.lead_id,x.from_user_id,x.to_user_id,x.outcome,x.rejection_reason,x.created_at,x.undone_at,
+    const rows = await withKayReadonlyAnalysis(client => client.query(`SELECT x.id,x.lead_id,x.from_user_id,x.to_user_id,x.outcome,x.rejection_reason,x.created_at,x.undone_at,
       x.metadata->>'executionMode' execution_mode,h.rule_version,q.rule_status,q.status queue_status
       FROM kay_rescue_executions x LEFT JOIN kay_auto_rescue_queue q ON q.execution_id=x.id
       LEFT JOIN LATERAL (SELECT rule_version FROM kay_auto_rescue_queue qq WHERE qq.execution_id=x.id LIMIT 1) h ON true
-      WHERE x.metadata->>'executionMode'='automatic' ORDER BY x.created_at DESC LIMIT 200`);
+      WHERE x.metadata->>'executionMode'='automatic' ORDER BY x.created_at DESC LIMIT 200`));
     res.json({ history: rows.rows });
   });
   // Manually running a cycle is admin-only. It remains fail-closed unless all
@@ -717,7 +732,12 @@ ${metaTags}
   app.get("/api/admin/kay/leads/:leadId/protection", requireKayAdmin, async (req, res) => {
     const leadId = Number(req.params.leadId);
     if (!Number.isInteger(leadId) || leadId < 1) return res.status(400).json({ message: "Invalid lead id." });
-    const result = await db.execute(drizzleSql`SELECT p.*, u.username AS protected_by_name FROM kay_lead_protection p LEFT JOIN users u ON u.id=p.protected_by WHERE p.lead_id=${leadId} AND p.removed_at IS NULL LIMIT 1`);
+    const result = await withKayReadonlyAnalysis(client => client.query(
+      `SELECT p.*,u.username AS protected_by_name
+       FROM kay_lead_protection p LEFT JOIN users u ON u.id=p.protected_by
+       WHERE p.lead_id=$1 AND p.removed_at IS NULL LIMIT 1`,
+      [leadId],
+    ));
     res.json({ protection: result.rows[0] ?? null });
   });
   app.post("/api/admin/kay/rescue/evaluate", requireKayAdmin, async (_req, res) => {
@@ -761,7 +781,9 @@ ${metaTags}
   // not accept employee IDs from non-admin callers and never write CRM tables.
   const requireKayWorkspaceUser = async (req: any, res: Response, next: Function) => {
     if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    const result = await db.execute(drizzleSql`SELECT role,is_admin FROM users WHERE id=${req.session.userId} LIMIT 1`);
+    const result = await withKayReadonlyAnalysis(client =>
+      client.query(`SELECT role,is_admin FROM users WHERE id=$1 LIMIT 1`, [req.session.userId])
+    );
     if (result.rows[0]?.is_admin) { req.kayIsAdmin = true; return next(); }
     if (result.rows[0]?.role !== "sub_agent") return res.status(403).json({ message: "Kay My Sales is available to eligible sales employees only." });
     req.kayIsAdmin = false;
@@ -897,7 +919,9 @@ ${metaTags}
   });
   app.get("/api/admin/kay/owner-brief", requireKayAdmin, async (_req, res) => res.json(await getOwnerBrief()));
   app.get("/api/admin/kay/reviews", requireKayAdmin, async (_req, res) => {
-    const reviews = await db.execute(drizzleSql`SELECT * FROM kay_manager_reviews ORDER BY created_at DESC LIMIT 100`);
+    const reviews = await withKayInternalClient(client =>
+      client.query(`SELECT * FROM kay_manager_reviews ORDER BY created_at DESC LIMIT 100`)
+    );
     res.json({ reviews: reviews.rows, shadow: true });
   });
   app.post("/api/admin/kay/reviews/:id/resolve", requireKayAdmin, async (req: any, res) => {
