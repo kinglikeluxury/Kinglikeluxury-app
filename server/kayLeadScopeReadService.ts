@@ -1,0 +1,11 @@
+import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+export const KAY_OPERATIONAL_LAUNCH_AT="2026-09-09T00:00:00+04:00";
+export const KAY_OPERATIONAL_TIMEZONE="Asia/Tbilisi";
+export const KAY_OPERATIONAL_SETTING_KEY="kay_operational_launch_at";
+export type KayScopeConfig={launchAt:Date;launchAtIso:string;cutoffAt:Date;cutoffAtIso:string;timezone:typeof KAY_OPERATIONAL_TIMEZONE};
+const build=(v:any):KayScopeConfig|null=>{if(typeof v!=="string")return null;const d=new Date(v);if(isNaN(d.getTime()))return null;const c=new Date(d);c.setUTCMonth(c.getUTCMonth()-3);return{launchAt:d,launchAtIso:d.toISOString(),cutoffAt:c,cutoffAtIso:c.toISOString(),timezone:KAY_OPERATIONAL_TIMEZONE};};
+export function classifyKayLead(r:any,c:KayScopeConfig|null){if(!c)return"CONFIGURATION_MISSING";const o=r.owner;if(!o||o.isActive===false||o.isAdmin===true||o.role!=="sub_agent")return"EXCLUDED_OWNER";const d=new Date(r.businessReceivedAt||r.createdAt);return isNaN(d.getTime())?"LEGACY_DATE_UNCERTAIN":d>=c.cutoffAt?"IN_KAY_SCOPE":"OUT_OF_SCOPE_LEGACY";}
+async function cfg(c:any){const r=await c.query(`SELECT value FROM kay_settings WHERE key=$1`,[KAY_OPERATIONAL_SETTING_KEY]);return build(r.rows[0]?.value);}
+export async function getKayScopeConfiguration(){return withKayReadonlyAnalysis(async c=>{const config=await cfg(c);return config?{status:"OK" as const,config}:{status:"CONFIGURATION_MISSING" as const,config:null};});}
+export async function getKayScopeForLead(id:number){return withKayReadonlyAnalysis(async c=>{const config=await cfg(c);const r=await c.query(`SELECT l.created_at,l.business_received_at,u.username,u.role,u.is_active,u.is_admin FROM crm_leads l LEFT JOIN users u ON u.id=l.assigned_to WHERE l.id=$1`,[id]);if(!r.rows[0])return{outcome:"LEGACY_DATE_UNCERTAIN" as const,config};const x=r.rows[0];return{outcome:classifyKayLead({createdAt:x.created_at,businessReceivedAt:x.business_received_at,owner:{username:x.username,role:x.role,isActive:x.is_active,isAdmin:x.is_admin}},config),config};});}
+export async function getKayOperationalScopeAdminView(){return withKayReadonlyAnalysis(async c=>{const config=await cfg(c);const audit=await c.query(`SELECT * FROM kay_operational_launch_audit ORDER BY created_at DESC LIMIT 100`);return{status:config?"OK":"CONFIGURATION_MISSING",config,audit:audit.rows};});}

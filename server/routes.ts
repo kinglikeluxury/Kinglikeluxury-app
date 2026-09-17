@@ -584,8 +584,8 @@ ${metaTags}
   });
   app.put("/api/admin/kay/settings/operational-scope", requireKayAdmin, async (req: any, res) => {
     try {
-      const result = await setKayOperationalLaunchAt(Number(req.session.userId), req.body?.launchAt, req.body?.confirmChange === true);
-      return res.json(result);
+      await denyKayWrite("settings.update", Number(req.session.userId), "kay_setting", "kay_operational_launch_at");
+      return res.status(403).json({ message: "Kay operational scope changes are permanently disabled." });
     } catch (error: any) {
       return res.status(error?.status || 500).json({ message: error?.message || "Unable to update Kay operational scope." });
     }
@@ -660,9 +660,8 @@ ${metaTags}
   app.get("/api/admin/kay/e2.4/fadi/precheck", requireKayAdmin, async (_req, res) => {
     res.json(await getE24FadiPrecheck());
   });
-  app.post("/api/admin/kay/e2.4/fadi/activate", requireKayAdmin, async (req: any, res) => {
-    try { res.json(await activateE24Fadi(Number(req.session.userId), req.body?.confirmFirstRealCanary === true)); }
-    catch (e: any) { res.status(e?.status || 409).json({ message: e?.message || "E.2.4 activation refused", details: e?.details }); }
+  app.post("/api/admin/kay/e2.4/fadi/activate", requireKayAdmin, async (_req, res) => {
+    res.status(403).json({ message: "E.2.4 activation is permanently disabled." });
   });
   app.get("/api/admin/kay/auto-rescue/readiness", requireKayAdmin, async (req, res) => {
     res.json(await getAutoRescueReadiness(Number(req.query.limit) || 500));
@@ -683,9 +682,8 @@ ${metaTags}
       return res.status(409).json({ message: "Preview confirmation is missing or expired." });
     }
     try {
-      const result = await initializeLegacyBaselines(Number(req.session.userId), token, confirmation.limit, confirmation.fingerprint, confirmation.candidates);
-      req.session.kayLegacyBaselineConfirmation = undefined;
-      res.json({ ...result, observationOnly: true });
+      await denyKayWrite("crm.write", Number(req.session.userId), "legacy_baseline", "E.2.2");
+      res.status(403).json({ message: "Legacy baseline initialization is permanently disabled." });
     } catch (error: any) { res.status(error?.status || 500).json({ message: error?.message || "Baseline initialization failed closed." }); }
   });
   app.get("/api/admin/kay/legacy-rescue-baselines/readiness", requireKayAdmin, async (_req, res) => {
@@ -757,14 +755,14 @@ ${metaTags}
   app.post("/api/admin/kay/rescue/execute", requireKayAdmin, async (req: any, res) => {
     const parsed = z.object({ leadId:z.number().int().positive(), decisionId:z.number().int().positive(), expectedOwnerId:z.number().int().positive(), targetEmployeeId:z.number().int().positive().optional(), overrideReason:z.enum(["EMPLOYEE_LANGUAGE","EMPLOYEE_AVAILABILITY","WORKLOAD","MANAGER_DECISION","OTHER"]).optional(), overrideNote:z.string().trim().max(1000).optional() }).strict().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid rescue confirmation." });
-    try { res.status(201).json(await executeAssistedRescue(parsed.data, req.session.userId)); }
-    catch (error: any) { res.status(error.status || 500).json({ message: error.message || "Rescue execution failed.", code: error.code }); }
+     await denyKayWrite("crm.write", req.session.userId, "assisted_rescue", parsed.data.leadId);
+     res.status(403).json({ message: "Assisted Rescue is permanently disabled." });
   });
   app.post("/api/admin/kay/rescue/:executionId/undo", requireKayAdmin, async (req: any, res) => {
     const id = Number(req.params.executionId); const parsed = z.object({ reason: z.string().trim().min(2).max(500) }).strict().safeParse(req.body);
     if (!Number.isInteger(id) || id < 1 || !parsed.success) return res.status(400).json({ message: "Undo reason is required." });
-    try { res.json(await undoAssistedRescue(id, req.session.userId, parsed.data.reason)); }
-    catch (error: any) { res.status(error.status || 500).json({ message: error.code === "MANUAL_REVIEW_REQUIRED" ? "MANUAL REVIEW REQUIRED" : (error.message || "Undo failed."), code: error.code }); }
+     await denyKayWrite("crm.write", req.session.userId, "rescue_undo", id);
+     res.status(403).json({ message: "Rescue undo is permanently disabled." });
   });
   // E.2 last-chance actions are scoped to the current lead owner.  They only
   // create Kay-owned work/grace state and never alter CRM status or contact a
@@ -773,9 +771,8 @@ ${metaTags}
     const queueId = Number(req.params.queueId);
     const parsed = z.object({ action: z.enum(["CONTACT_NOW", "NEED_30_MINUTES", "CANNOT_HANDLE"]) }).strict().safeParse(req.body);
     if (!Number.isInteger(queueId) || !parsed.success) return res.status(400).json({ message:"Invalid last-chance action." });
-    try {
-      res.json(await applyAutoRescueLastChance(queueId,req.session.userId,!!req.session.isAdmin,parsed.data.action));
-    } catch (error:any) { res.status(error?.status||500).json({message:error?.message||"Unable to apply last-chance action.",code:error?.code}); }
+     await denyKayWrite("crm.write", req.session.userId, "auto_rescue_queue", queueId);
+     res.status(403).json({message:"Auto Rescue actions are permanently disabled."});
   });
   // Phase C remains an internal, shadow-mode workflow layer. These routes do
   // not accept employee IDs from non-admin callers and never write CRM tables.
