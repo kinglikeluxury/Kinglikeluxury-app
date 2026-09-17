@@ -8,6 +8,7 @@ import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeRead
 import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import { assertKayInternalWriteAllowed } from "./kayInternalWriteGate";
 
 const db = kayInternalDb;
 
@@ -92,6 +93,7 @@ export async function getKayOperationsHealth() {
 }
 
 async function persistGeneratorHealth(patch: Record<string, unknown>) {
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
     VALUES('phase_c_generator_health',${JSON.stringify(patch)}::jsonb,NOW())
     ON CONFLICT(key) DO UPDATE SET value=kay_runtime_state.value || EXCLUDED.value,updated_at=NOW()`);
@@ -101,7 +103,7 @@ type Candidate = { lead_id: number; employee_id: number; status: string; name: s
 const activeStatuses = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 
 export async function acquireKayMissionGeneratorLease(): Promise<string | null> {
-  await denyKayWrite("missions.generate", undefined, "mission_lease", "acquire");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const token = `${process.pid}:${Date.now()}:${Math.random()}`;
   const lease = await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
     VALUES('phase_c_generator_lease',jsonb_build_object('released',true),NOW())
@@ -112,14 +114,14 @@ export async function acquireKayMissionGeneratorLease(): Promise<string | null> 
 }
 
 export async function renewKayMissionGeneratorLease(token: string): Promise<boolean> {
-  await denyKayWrite("missions.generate", undefined, "mission_lease", "renew");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 15 * 60_000).toISOString()}),updated_at=NOW()
     WHERE key='phase_c_generator_lease' AND value->>'token'=${token} RETURNING key`);
   return rows.rows.length === 1;
 }
 
 export async function releaseKayMissionGeneratorLease(token: string): Promise<boolean> {
-  await denyKayWrite("missions.generate", undefined, "mission_lease", "release");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('released',true,'released_at',${new Date().toISOString()}),updated_at=NOW()
     WHERE key='phase_c_generator_lease' AND value->>'token'=${token} RETURNING key`);
   return rows.rows.length === 1;
@@ -221,7 +223,9 @@ export function isKayQuietHours(settings: PhaseCSettings, now: Date): boolean {
 /** Bounded, read-only CRM signal query. It only inserts/stales Kay-owned rows. */
 export async function generateKayMissions(limit = 200, runType: "manual" | "automatic" = "manual", actorId: number | null = null): Promise<{ created: number; staled: number; checked: number }> {
   assertKayProductionEntry(undefined);
-  await denyKayWrite("missions.generate", actorId ?? undefined, "mission_generator", runType);
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_missions" });
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_events" });
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   let leaseToken: string | null;
   try {
     leaseToken = await acquireKayMissionGeneratorLease();
@@ -328,7 +332,7 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
     for (const mission of rows.rows as any[]) await tx.insert(kayEvents).values({ leadId:mission.lead_id,employeeId:mission.employee_id,eventType:"mission_staled",eventSource:"kay",metadata:{missionId:mission.id,reason:"owner_or_status_obsolete",shadow:true},kayGenerated:true });
     return rows;
   });
-    await deliverPendingKayMissionNotifications(settings);
+    // Shared user_notifications is EXTERNAL_SYSTEM and never a worker target.
     const result = { created, staled: reconciled + (stale.rowCount ?? 0), checked: rows.rows.length };
     await persistGeneratorHealth({ last_generation: new Date().toISOString(), ...(runType === "automatic" ? { last_automatic_run: new Date().toISOString() } : { last_manual_run: new Date().toISOString() }), last_successful_cycle: new Date().toISOString(), checked: result.checked, created: result.created, staled: result.staled, errors: 0, consecutive_failures: 0, degraded: false, circuit_open_until: null, half_open: false, lease_state: "released" });
     return result;
@@ -417,13 +421,6 @@ export async function getKayMissionInspection() {
 
 /** Best-effort worker; it is deliberately behind the same scheduler gate. */
 export function startKayMissionGenerator(): void {
-  try {
-    denyKayWrite("missions.generate", undefined, "mission_generator", "start");
-  } catch (error) {
-    console.warn(`[Kay] mission generator start blocked: ${error instanceof Error ? error.message : "unknown"}`);
-  }
-  return;
-  /* istanbul ignore next -- permanently unreachable while write capabilities are off */
   let timer: NodeJS.Timeout | undefined;
   const schedule = async () => {
     const settings = await getPhaseCSettings().catch(() => defaultPhaseCSettings);

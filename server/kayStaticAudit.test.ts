@@ -54,7 +54,7 @@ test("Kay mode changes use one transaction and lock the authoritative setting ro
   const start = source.indexOf("const runKayModeTransaction");
   const end = source.indexOf("export function createKayModeUpdater", start);
   const updater = source.slice(start, end);
-  assert.match(updater, /db\.transaction/);
+  assert.match(updater, /kayInternalDb\.transaction/);
   assert.match(updater, /\.for\("update"\)/);
   assert.match(updater, /previousValue/);
   assert.match(updater, /newValue/);

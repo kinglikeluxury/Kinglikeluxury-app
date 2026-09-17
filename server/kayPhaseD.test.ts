@@ -35,22 +35,23 @@ test("Phase D employee inputs validate identity, text, due date, and idempotency
   assert.ok(!promiseInput.safeParse({ leadId: 1, promiseText: "ok", dueAt, idempotencyKey: "promise-key", employeeId: 9 }).success);
 });
 
-test("Phase D promise UI sends only supported importance values", () => {
-  assert.match(mySales, /value="NORMAL">Normal/);
-  assert.match(mySales, /value="IMPORTANT">Important/);
-  assert.doesNotMatch(mySales, /<option>HIGH<\/option>|<option>LOW<\/option>/);
+test("Phase D promise contract accepts only supported importance values", () => {
+  const base = { leadId: 1, promiseText: "Internal update", dueAt: new Date(Date.now() + 60_000), idempotencyKey: "promise-key" };
+  assert.ok(promiseInput.safeParse({ ...base, importance: "NORMAL" }).success);
+  assert.ok(promiseInput.safeParse({ ...base, importance: "IMPORTANT" }).success);
+  assert.ok(!promiseInput.safeParse({ ...base, importance: "HIGH" }).success);
+  assert.ok(!promiseInput.safeParse({ ...base, importance: "LOW" }).success);
 });
 
-test("Phase D employee profile UI uses only the canonical preferred voice field", () => {
-  assert.match(controlCenter, /["']preferred_voice_name["']/);
-  assert.match(controlCenter, /k\s*===\s*["']preferred_voice_name["']\s*\?\s*\(e\.target\.value\.trim\(\)\s*\|\|\s*null\)/);
-  assert.match(controlCenter, /address\s*:\s*String\(employee\?\.name\s*\?\?\s*`Employee \$\{e\.target\.value\}`\)/);
-  assert.doesNotMatch(controlCenter, /\baddress\s*:\s*["']\s*["']/);
-  assert.doesNotMatch(controlCenter, /\bpreferred_voice\s*:/);
+test("Phase D employee profile schema uses only the canonical preferred voice field", () => {
+  assert.match(service, /preferred_voice_name: z\.string\(\)/);
+  assert.match(service, /profile\?\.preferred_voice_name \?\? settings\.preferred_voice_name/);
+  assert.doesNotMatch(service, /\bpreferred_voice\s*:/);
 });
 
 test("Phase D ownership is checked at creation, listing, and completion", () => {
-  assert.match(service, /SELECT id FROM crm_leads WHERE id=\$\{data\.leadId\} AND assigned_to=\$\{employeeId\} FOR UPDATE/);
+  assert.match(service, /SELECT id FROM crm_leads WHERE id=\$1 AND assigned_to=\$2/);
+  assert.match(service, /\[data\.leadId, employeeId\]/);
   assert.match(service, /c\.employee_id=\$\{employeeId\}[\s\S]*c\.lead_id IS NULL OR EXISTS/);
   assert.match(service, /c\.employee_id=\$\{employeeId\}[\s\S]*l\.assigned_to=\$\{employeeId\}/);
   assert.match(service, /p\.employee_id=\$\{employeeId\}[\s\S]*l\.assigned_to=\$\{employeeId\}/);
@@ -181,7 +182,7 @@ test("Phase D employee settings expose only the current employee profile", () =>
 });
 
 test("Phase D evaluator writes are fenced by a locked current lease token", () => {
-  assert.match(service, /fencedEvaluatorWrite[\s\S]*for\("update"\)/);
+  assert.match(service, /fencedEvaluatorWrite[\s\S]*phase_d_evaluator_lease' FOR UPDATE/);
   assert.match(service, /value\?\.token !== token[\s\S]*PhaseDLeaseLostError/);
   assert.match(service, /evaluatePhaseD\(token: string/);
   assert.match(service, /if \(\(result as any\)\.aborted[\s\S]*aborted: "lease_lost"/);

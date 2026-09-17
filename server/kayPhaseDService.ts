@@ -6,6 +6,7 @@ import { getKayAvailability, getPhaseCSettings, isKayQuietHours } from "./kayMis
 import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kayLeadScopeReadService";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import { assertKayInternalWriteAllowed } from "./kayInternalWriteGate";
 
 const db = kayInternalDb;
 
@@ -249,7 +250,14 @@ async function createManagerReviewWith(executor: any, reason: string, fields: an
   return row ?? (await executor.select().from(kayManagerReviews).where(eq(kayManagerReviews.idempotencyKey, key)).limit(1))[0];
 }
 export async function evaluatePhaseD(token: string, limit = 100) {
-  await denyKayWrite("missions.generate", undefined, "phase", "D");
+  await Promise.all([
+    assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_events" }),
+    assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_commitments" }),
+    assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_promises" }),
+    assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_internal_briefings" }),
+    assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_manager_reviews" }),
+    assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" }),
+  ]);
   const settings = await getPhaseDSettings(); if (!settings.enabled) return { checked: 0, briefings: 0, reviews: 0, disabled: true };
   const scopeConfiguration = await getKayScopeConfiguration();
   if (scopeConfiguration.status !== "OK") {
@@ -358,7 +366,7 @@ export async function resolveManagerReview(id: number, actorId: number, note: st
   return row;
 }
 export async function acquirePhaseDLease() {
-  await denyKayWrite("missions.generate", undefined, "phase_d_lease", "acquire");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const token = `${process.pid}:${Date.now()}:${Math.random()}`;
   const rows = await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
     VALUES('phase_d_evaluator_lease',jsonb_build_object('released',true),NOW())
@@ -368,12 +376,12 @@ export async function acquirePhaseDLease() {
   return rows.rows[0] ? token : null;
 }
 export async function renewPhaseDLease(token: string): Promise<boolean> {
-  await denyKayWrite("missions.generate", undefined, "phase_d_lease", "renew");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 10 * 60_000).toISOString()}),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token} RETURNING key`);
   return rows.rows.length === 1;
 }
 export async function releasePhaseDLease(token: string): Promise<boolean> {
-  await denyKayWrite("missions.generate", undefined, "phase_d_lease", "release");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('released',true,'released_at',${new Date().toISOString()}),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token} RETURNING key`);
   return rows.rows.length === 1;
 }
@@ -382,7 +390,7 @@ export async function ownsPhaseDLease(token: string): Promise<boolean> {
   return ((result.rows[0] as any)?.value as any)?.token === token;
 }
 export async function runPhaseDEvaluator() {
-  await denyKayWrite("missions.generate", undefined, "phase", "D");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const token = await acquirePhaseDLease(); if (!token) return { skipped: "lease_busy" };
   let leaseLost = false;
   const heartbeat = setInterval(() => { void renewPhaseDLease(token).then(ok => { if (!ok) leaseLost = true; }).catch(() => { leaseLost = true; }); }, 2 * 60_000); heartbeat.unref();

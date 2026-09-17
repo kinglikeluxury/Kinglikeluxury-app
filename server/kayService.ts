@@ -8,6 +8,7 @@ import { recommendRescueEmployee, evaluateRescueWindow } from "./kayAutoRescuePl
 import type { RescueBlocker, RescueCandidate, RescueState } from "./kayAutoRescuePlanner";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import { assertKayInternalWriteAllowed } from "./kayInternalWriteGate";
 
 /**
  * These are names reserved for later explicitly-approved phases.  They are
@@ -158,6 +159,8 @@ export type KayObserverDependencies = {
 const defaultKayObserverDependencies: KayObserverDependencies = {
   getMode: getKayMode,
   async persistLeadCreated(lead, userId, mode) {
+    await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_events" });
+    await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_decisions" });
     return kayInternalDb.transaction(async (tx) => {
       // The partial unique index created with the Kay tables makes retries
       // idempotent without affecting any CRM write.
@@ -192,7 +195,8 @@ export function createKayLeadCreatedObserver(dependencies: KayObserverDependenci
   return async (lead: KayLeadCreatedObservation, userId?: number): Promise<void> => {
     try {
       if (dependencies === defaultKayObserverDependencies) {
-        await denyKayWrite("crm.write", userId, "crm_lead", lead.id);
+        await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_events" });
+        await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_decisions" });
       }
       const mode = await dependencies.getMode();
       await dependencies.persistLeadCreated(lead, userId, mode);
@@ -281,7 +285,7 @@ export async function setLeadProtection(leadId: number, reason: string, note: st
 type QueueLead = { id: number; lead_id: number | null };
 /** Database claim protocol; SKIP LOCKED makes multiple Autoscale instances safe. */
 export async function claimKayEvaluationQueue(limit = 50): Promise<QueueLead[]> {
-  await denyKayWrite("crm.write", undefined, "kay_evaluator_queue", "claim");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_evaluator_queue" });
   return withKayInternalClient(async client => {
     try {
       await client.query("BEGIN");
@@ -305,7 +309,7 @@ export async function claimKayEvaluationQueue(limit = 50): Promise<QueueLead[]> 
 
 /** Enqueues existing leads with a stable UTC 15-minute scan key; it never writes CRM rows. */
 export async function enqueueKayEvaluationScan(): Promise<void> {
-  await denyKayWrite("crm.write", undefined, "kay_evaluator_queue", "enqueue");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_evaluator_queue" });
   const leads = await withKayReadonlyAnalysis(async client => {
     const result = await client.query("SELECT id FROM crm_leads");
     return result.rows.map(row => Number(row.id));
@@ -330,7 +334,8 @@ export async function recordImmutableRescueEvaluation(input: {
   payload: Record<string, unknown>;
   fingerprint: string;
 }): Promise<boolean> {
-  await denyKayWrite("crm.write", undefined, "kay_decision", input.leadId);
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_events" });
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_decisions" });
   const status = String(input.payload.status ?? "");
   const statusEnteredAt = String(input.payload.status_entered_at ?? "");
   if (!status || !statusEnteredAt) throw new Error("Rescue evaluation requires a status-entry window");
@@ -360,7 +365,9 @@ export async function recordImmutableRescueEvaluation(input: {
 }
 
 export async function runKayShadowEvaluator(): Promise<{ checked: number; eligible: number; blocked: number; stale: number }> {
-  await denyKayWrite("crm.write", undefined, "kay_evaluator", "shadow");
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_evaluator_queue" });
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_events" });
+  await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_decisions" });
   const claimed = await claimKayEvaluationQueue();
   let eligible = 0; let blocked = 0; let stale = 0;
   for (const job of claimed) {

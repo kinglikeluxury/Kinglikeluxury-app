@@ -26,12 +26,15 @@ test("legacy Kay execution entry points cannot bypass the Action Gateway", () =>
   const expectations: Array<[string, RegExp]> = [
     ["kayRescueService.ts", /executeRescueTransaction[\s\S]{0,500}denyKayWrite\("rescue\.execute"/],
     ["kayAutoRescueService.ts", /runKayAutoRescueWorker[\s\S]{0,250}denyKayWrite\("rescue\.execute"/],
-    ["kayMissionService.ts", /generateKayMissions[\s\S]{0,350}denyKayWrite\("missions\.generate"/],
     ["kayPhaseE24Service.ts", /activateE24Fadi[\s\S]{0,250}denyKayWrite\("settings\.update"/],
-    ["kayPhaseDService.ts", /evaluatePhaseD[\s\S]{0,250}denyKayWrite\("missions\.generate"/],
     ["kayLegacyBaselineService.ts", /initializeLegacyBaselines[\s\S]{0,500}denyKayWrite\("crm\.write"/],
   ];
   for (const [file, pattern] of expectations) assert.match(read(file), pattern, file);
+  assert.match(read("kayMissionService.ts"), /generateKayMissions[\s\S]{0,500}assertKayInternalWriteAllowed/);
+  assert.match(read("kayPhaseDService.ts"), /evaluatePhaseD[\s\S]{0,500}assertKayInternalWriteAllowed/);
+  const gate = read("kayInternalWriteGate.ts");
+  assert.match(gate, /KAY_INTERNAL_WRITE_TARGETS/);
+  assert.doesNotMatch(gate, /\bcrm_(?:leads|tasks|notes|projects)\b/);
 });
 
 test("read-only analysis has no production writer-pool fallback", () => {
