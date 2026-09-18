@@ -9,6 +9,10 @@ Never run a mutation-capable Kay integration suite against a shared, development
 
 **How to apply:** Every current and future Kay DB-writing suite must call the centralized preflight before setup or schema mutation. Synthetic markers include the run ID; fixtures only INSERT new rows; every mutation and cleanup is constrained to IDs registered by that run plus its exact marker. Never repurpose an existing lead as a fixture.
 
+Each suite must create every synthetic principal and lead it needs instead of selecting a row created by another suite. Cleanup must cover partial setup failures, and every imported pool or client must be closed from an unconditional suite-level teardown.
+
+**Why:** Order-dependent fixtures made individually correct suites fail when run alone, and a setup failure before test-level cleanup left a PostgreSQL pool alive until the outer timeout.
+
 The dedicated environment is a separate Neon project named
 `kinglike-kay-testing`, with database `kay_testing` owned by `kay_test_owner`.
 Keep production connection variables out of the test child process even when

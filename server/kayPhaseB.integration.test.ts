@@ -37,20 +37,24 @@ test("concurrent queue claims cannot claim the same Kay job", async () => {
 });
 
 test("24h to 12h rule change preserves history and one current recommendation", async () => {
-  const leadResult = await pool.query(`SELECT id FROM crm_leads ORDER BY id LIMIT 1`);
-  assert.ok(leadResult.rows[0]?.id, "integration test requires one existing lead");
-  const leadId = Number(leadResult.rows[0].id);
-  const marker = `2099-01-01T00:00:${String(Date.now() % 60).padStart(2, "0")}.000Z`;
-  const keys = [`integration-rule-24:${leadId}:${marker}`, `integration-rule-12:${leadId}:${marker}`];
+  const marker = `KAY_PHASE_B_TEST:run:${process.env.KAY_TEST_RUN_ID}:${Date.now()}`;
+  const statusEnteredAt = `2099-01-01T00:00:${String(Date.now() % 60).padStart(2, "0")}.000Z`;
+  let leadId = 0;
+  let keys: string[] = [];
   try {
+    const lead = await pool.query(`INSERT INTO crm_leads
+      (lead_source,full_name,status,notes)
+      VALUES('manual',$1,'no_answer_1',$1) RETURNING id`, [marker]);
+    leadId = Number(lead.rows[0].id);
+    keys = [`integration-rule-24:${leadId}:${marker}`, `integration-rule-12:${leadId}:${marker}`];
     await recordImmutableRescueEvaluation({
       leadId, employeeId: null, evaluationKey: keys[0], decisionType: "no_answer_1_rescue_eligible", fingerprint: "integration-24",
-      payload: { state: "ACTIVE", evaluation_state: "ACTIVE", status: "no_answer_1", status_entered_at: marker,
+      payload: { state: "ACTIVE", evaluation_state: "ACTIVE", status: "no_answer_1", status_entered_at: statusEnteredAt,
         threshold_minutes: 1440, rescue_rule_version: "phase_b_1", settings_snapshot: { no_answer_1_threshold_hours: 24 }, shadow: true },
     });
     await recordImmutableRescueEvaluation({
       leadId, employeeId: null, evaluationKey: keys[1], decisionType: "no_answer_1_rescue_eligible", fingerprint: "integration-12",
-      payload: { state: "ACTIVE", evaluation_state: "ACTIVE", status: "no_answer_1", status_entered_at: marker,
+      payload: { state: "ACTIVE", evaluation_state: "ACTIVE", status: "no_answer_1", status_entered_at: statusEnteredAt,
         threshold_minutes: 720, rescue_rule_version: "phase_b_1", settings_snapshot: { no_answer_1_threshold_hours: 12 }, shadow: true },
     });
     const result = await pool.query(`
@@ -65,7 +69,13 @@ test("24h to 12h rule change preserves history and one current recommendation", 
     assert.equal(result.rows[1].payload.threshold_minutes, 720);
     assert.equal(result.rows[1].payload.state, "ACTIVE");
   } finally {
-    await pool.query(`DELETE FROM kay_decisions WHERE event_id IN (SELECT id FROM kay_events WHERE idempotency_key = ANY($1::text[]))`, [keys]);
-    await pool.query(`DELETE FROM kay_events WHERE idempotency_key = ANY($1::text[])`, [keys]);
+    if (keys.length) {
+      await pool.query(`DELETE FROM kay_decisions WHERE event_id IN (SELECT id FROM kay_events WHERE idempotency_key = ANY($1::text[]))`, [keys]);
+      await pool.query(`DELETE FROM kay_events WHERE idempotency_key = ANY($1::text[])`, [keys]);
+    }
+    if (leadId) {
+      await pool.query(`DELETE FROM kay_lead_status_history WHERE lead_id=$1`, [leadId]);
+      await pool.query(`DELETE FROM crm_leads WHERE id=$1 AND notes=$2`, [leadId, marker]);
+    }
   }
 });

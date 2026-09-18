@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "./db";
 import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
@@ -10,14 +10,21 @@ const enabled = process.env.KAY_E21_POSTGRES_TESTS === "true";
 assertSafeKayMutationTestDatabase("kayPhaseE21.integration");
 const marker = kaySyntheticMarker("KAY_E21_TEST");
 let ids: number[] = [];
+let ownerId = 0;
+
+after(async () => {
+  await pool.end();
+});
 
 test("E.2.1 read-only snapshot paginates and cannot mutate", { skip: !enabled }, async () => {
-  const owner = (await pool.query(`SELECT id FROM users WHERE role='sub_agent' AND is_active=true ORDER BY id LIMIT 1`)).rows[0];
-  if (!owner) return assert.fail("E.2.1 integration requires an existing active synthetic sales user");
-  const safetyBefore = await pool.query(`SELECT key,value FROM kay_settings WHERE key IN ('mode','rescue_rules') ORDER BY key`);
   try {
+    const owner = await pool.query(`INSERT INTO users
+      (username,password,role,is_admin,is_active)
+      VALUES($1,'x','sub_agent',false,true) RETURNING id`, [`${marker}:owner`]);
+    ownerId = Number(owner.rows[0].id);
+    const safetyBefore = await pool.query(`SELECT key,value FROM kay_settings WHERE key IN ('mode','rescue_rules') ORDER BY key`);
     const inserted = await pool.query(`INSERT INTO crm_leads(lead_source,full_name,status,assigned_to,notes)
-      SELECT 'manual',$1||':'||g,'no_answer_1',$2,$1 FROM generate_series(1,251) g RETURNING id`, [marker, owner.id]);
+      SELECT 'manual',$1||':'||g,'no_answer_1',$2,$1 FROM generate_series(1,251) g RETURNING id`, [marker, ownerId]);
     ids = inserted.rows.map(r => Number(r.id));
     await pool.query(`INSERT INTO kay_lead_status_history(lead_id,status,entered_at,event_key)
       SELECT id,'no_answer_1',NOW()-interval '48 hours',$1||':window:'||id FROM crm_leads WHERE id=ANY($2::int[])`, [marker, ids]);
@@ -41,6 +48,9 @@ test("E.2.1 read-only snapshot paginates and cannot mutate", { skip: !enabled },
     if (ids.length) {
       await pool.query(`DELETE FROM kay_lead_status_history WHERE lead_id=ANY($1::int[])`, [ids]);
       await pool.query(`DELETE FROM crm_leads WHERE id=ANY($1::int[]) AND notes=$2`, [ids, marker]);
+    }
+    if (ownerId) {
+      await pool.query(`DELETE FROM users WHERE id=$1 AND username=$2`, [ownerId, `${marker}:owner`]);
     }
   }
 });

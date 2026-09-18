@@ -6,7 +6,7 @@ assertSafeKayMutationTestDatabase("kayPhaseE23.integration");
 import { getKayPhaseE23Diagnostics, classifyE23Owner, isE23TargetEligible, routeE23TenLeads, simulateE23SourcePolicy } from "./kayPhaseE23Service";
 
 const enabled = process.env.KAY_E23_POSTGRES_TESTS === "true";
-const marker = kaySyntheticMarker("KAY_E23_TEST");
+const marker = kaySyntheticMarker("KAY_E23");
 let fixtureUserIds: number[] = [];
 let fixtureLeadIds: number[] = [];
 let fixtureMissionIds: number[] = [];
