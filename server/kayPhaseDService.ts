@@ -152,39 +152,45 @@ export async function listPromises(employeeId: number, admin: boolean) {
 }
 export async function completeCommitment(id: number, employeeId: number, admin: boolean) {
   assertPhaseDIntegrationMutation("workflow.transition", employeeId, "kay_commitment", id);
-  const rows = await db.execute(sql`UPDATE kay_commitments c SET status='COMPLETED',completed_at=NOW(),updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
+  const owned = admin || await kayCommitmentLeadIsCurrentlyOwned(id, employeeId);
+  const rows = await db.execute(sql`UPDATE kay_commitments c SET status='COMPLETED',completed_at=NOW(),updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND ${owned})) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment not found or no longer available."); e.status = 404; throw e; }
   const c: any = rows.rows[0]; await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_completed", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function acceptCommitment(id: number, employeeId: number, admin: boolean) {
   await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
-  const rows = await db.execute(sql`UPDATE kay_commitments c SET status='ACCEPTED',updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
+  const owned = admin || await kayCommitmentLeadIsCurrentlyOwned(id, employeeId);
+  const rows = await db.execute(sql`UPDATE kay_commitments c SET status='ACCEPTED',updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND ${owned})) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment cannot be accepted."); e.status = 409; throw e; } const c: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_accepted", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function cancelCommitment(id: number, employeeId: number, admin: boolean) {
   await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
-  const rows = await db.execute(sql`UPDATE kay_commitments c SET status='CANCELLED',updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
+  const owned = admin || await kayCommitmentLeadIsCurrentlyOwned(id, employeeId);
+  const rows = await db.execute(sql`UPDATE kay_commitments c SET status='CANCELLED',updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND ${owned})) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment cannot be cancelled."); e.status =409; throw e; } const c: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_cancelled", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function extendCommitment(id: number, employeeId: number, admin: boolean, dueAt: Date) {
   await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
   if (dueAt.getTime() <= Date.now()) { const e: any = new Error("Extension deadline must be in the future."); e.status = 400; throw e; }
+  const owned = admin || await kayCommitmentLeadIsCurrentlyOwned(id, employeeId);
   const rows = await db.execute(sql`UPDATE kay_commitments c SET status='EXTENDED',due_at=${dueAt},extension_count=extension_count+1,reminder_version=0,last_reminder_at=NULL,updated_at=NOW()
-    WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.extension_count<c.max_extensions AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
+    WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.extension_count<c.max_extensions AND (${admin} OR (c.employee_id=${employeeId} AND ${owned})) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment cannot be extended."); e.status = 409; throw e; }
   const c: any = rows.rows[0]; await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_extended", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
 }
 export async function completePromise(id: number, employeeId: number, admin: boolean) {
   await denyKayWrite("workflow.transition", employeeId, "kay_promise", id);
-  const rows = await db.execute(sql`UPDATE kay_promises p SET status='COMPLETED',completed_at=NOW(),updated_at=NOW() WHERE p.id=${id} AND p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND (${admin} OR (p.employee_id=${employeeId} AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=${employeeId}))) RETURNING p.*`);
+  const owned = admin || await kayPromiseLeadIsCurrentlyOwned(id, employeeId);
+  const rows = await db.execute(sql`UPDATE kay_promises p SET status='COMPLETED',completed_at=NOW(),updated_at=NOW() WHERE p.id=${id} AND p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND (${admin} OR (p.employee_id=${employeeId} AND ${owned})) RETURNING p.*`);
   if (!rows.rows[0]) { const e: any = new Error("Promise not found or no longer available."); e.status = 404; throw e; } const p: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: p.lead_id, employeeId: p.employee_id, userId: employeeId, eventType: "promise_completed", eventSource: admin ? "admin" : "employee", metadata: { promiseId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return p;
 }
 export async function cancelPromise(id: number, employeeId: number, admin: boolean) {
   await denyKayWrite("workflow.transition", employeeId, "kay_promise", id);
-  const rows = await db.execute(sql`UPDATE kay_promises p SET status='CANCELLED',cancelled_at=NOW(),updated_at=NOW() WHERE p.id=${id} AND p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND (${admin} OR (p.employee_id=${employeeId} AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=${employeeId}))) RETURNING p.*`);
+  const owned = admin || await kayPromiseLeadIsCurrentlyOwned(id, employeeId);
+  const rows = await db.execute(sql`UPDATE kay_promises p SET status='CANCELLED',cancelled_at=NOW(),updated_at=NOW() WHERE p.id=${id} AND p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND (${admin} OR (p.employee_id=${employeeId} AND ${owned})) RETURNING p.*`);
   if (!rows.rows[0]) { const e: any = new Error("Promise cannot be cancelled."); e.status = 409; throw e; } const p: any = rows.rows[0];
   await db.insert(kayEvents).values({ leadId: p.lead_id, employeeId: p.employee_id, userId: employeeId, eventType: "promise_cancelled", eventSource: admin ? "admin" : "employee", metadata: { promiseId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return p;
 }
@@ -257,6 +263,85 @@ async function createManagerReviewWith(executor: any, reason: string, fields: an
   const [row] = await executor.insert(kayManagerReviews).values({ ...fields, reason, idempotencyKey: key, details: { internalOnly: true } }).onConflictDoNothing().returning();
   return row ?? (await executor.select().from(kayManagerReviews).where(eq(kayManagerReviews.idempotencyKey, key)).limit(1))[0];
 }
+
+async function kayCommitmentLeadIsCurrentlyOwned(id: number, employeeId: number) {
+  // Split form of the original predicate: c.employee_id=${employeeId} AND
+  // (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})).
+  const result = await db.execute(sql`SELECT lead_id,employee_id FROM kay_commitments WHERE id=${id} LIMIT 1`);
+  const row: any = result.rows[0];
+  if (!row || Number(row.employee_id) !== employeeId || row.lead_id == null) return !!row && Number(row.employee_id) === employeeId;
+  const ownership = await withKayReadonlyAnalysis(client => client.query(
+    "SELECT id FROM crm_leads WHERE id=$1 AND assigned_to=$2",
+    [Number(row.lead_id), employeeId],
+  ));
+  return !!ownership.rows[0];
+}
+
+async function kayPromiseLeadIsCurrentlyOwned(id: number, employeeId: number) {
+  const result = await db.execute(sql`SELECT lead_id,employee_id FROM kay_promises WHERE id=${id} LIMIT 1`);
+  const row: any = result.rows[0];
+  if (!row || Number(row.employee_id) !== employeeId) return false;
+  const ownership = await withKayReadonlyAnalysis(client => client.query(
+    "SELECT id FROM crm_leads WHERE id=$1 AND assigned_to=$2",
+    [Number(row.lead_id), employeeId],
+  ));
+  return !!ownership.rows[0];
+}
+
+type KayLeadCandidate = { id: number; leadId: number; employeeId: number };
+
+function sqlIntArray(values: number[]) {
+  return sql`ARRAY[${sql.join(values.map(value => sql`${value}`), sql`, `)}]::int[]`;
+}
+
+async function readCommitmentCandidates(statuses: string[], duePredicate?: string) {
+  const result = await db.execute(sql`
+    SELECT id,lead_id,employee_id
+    FROM kay_commitments
+    WHERE status = ANY(ARRAY[${sql.join(statuses.map(status => sql`${status}`), sql`, `)}]::text[])
+      AND lead_id IS NOT NULL
+      ${sql.raw(duePredicate ?? "")}
+  `);
+  return result.rows.map((row: any): KayLeadCandidate => ({
+    id: Number(row.id), leadId: Number(row.lead_id), employeeId: Number(row.employee_id),
+  }));
+}
+
+async function readPromiseCandidates(statuses: string[], duePredicate?: string) {
+  const result = await db.execute(sql`
+    SELECT id,lead_id,employee_id
+    FROM kay_promises
+    WHERE status = ANY(ARRAY[${sql.join(statuses.map(status => sql`${status}`), sql`, `)}]::text[])
+      ${sql.raw(duePredicate ?? "")}
+  `);
+  return result.rows.map((row: any): KayLeadCandidate => ({
+    id: Number(row.id), leadId: Number(row.lead_id), employeeId: Number(row.employee_id),
+  }));
+}
+
+async function readCrmCandidateIds(
+  candidates: KayLeadCandidate[],
+  predicate: string,
+  joins = "JOIN crm_leads l ON l.id=c.lead_id JOIN users su ON su.id=l.assigned_to",
+  candidateAlias = "c",
+) {
+  if (!candidates.length) return [];
+  const result = await withKayReadonlyAnalysis(client => client.query(`
+    WITH candidates(id,lead_id,employee_id) AS (
+      SELECT * FROM unnest($1::int[],$2::int[],$3::int[])
+    )
+    SELECT ${candidateAlias}.id
+    FROM candidates ${candidateAlias}
+    ${joins}
+    WHERE ${predicate}
+  `, [
+    candidates.map(candidate => candidate.id),
+    candidates.map(candidate => candidate.leadId),
+    candidates.map(candidate => candidate.employeeId),
+  ]));
+  return result.rows.map((row: any) => Number(row.id));
+}
+
 export async function evaluatePhaseD(token: string, limit = 100) {
   await Promise.all([
     assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_events" }),
@@ -279,35 +364,81 @@ export async function evaluatePhaseD(token: string, limit = 100) {
   const leadScope = kayScopeSql("l", "su", `'${cutoff.toISOString()}'`);
   let briefings = 0, reviews = 0;
   try {
+    const activeCommitments = await readCommitmentCandidates(["PENDING", "ACCEPTED", "EXTENDED", "OVERDUE", "ACTIVE"]);
+    const activePromises = await readPromiseCandidates(["PENDING", "DUE_SOON", "OVERDUE", "OPEN"]);
+    const staleCommitmentIds = await readCrmCandidateIds(
+      activeCommitments,
+      "l.id IS NULL",
+      "LEFT JOIN crm_leads l ON l.id=c.lead_id AND l.assigned_to=c.employee_id",
+    );
+    const preservedPromiseIds = await readCrmCandidateIds(
+      activePromises,
+      "l.id IS NULL",
+      "LEFT JOIN crm_leads l ON l.id=c.lead_id AND l.assigned_to=c.employee_id",
+    );
+    const scopedCommitmentPredicate = `l.assigned_to=c.employee_id AND ${leadScope.ownerEligible} AND ${leadScope.inScope}
+      AND (NOT EXISTS(SELECT 1 FROM crm_leads l2 WHERE l2.id=c.lead_id AND l2.assigned_to=c.employee_id)
+        OR EXISTS(SELECT 1 FROM crm_leads l3 WHERE l3.id=c.lead_id AND l3.status IN ('converted','lost','purchased','sold_by_kinglike_luxury','lost_competition','not_qualified','junk_lead')))`;
+    const scopedPromisePredicate = `l.assigned_to=c.employee_id AND ${leadScope.ownerEligible} AND ${leadScope.inScope}
+      AND (NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id)
+        OR EXISTS(SELECT 1 FROM crm_leads l3 WHERE l3.id=p.lead_id AND l3.status IN ('converted','lost','purchased','sold_by_kinglike_luxury','lost_competition','not_qualified','junk_lead')))`;
+    const ownerChangedCommitmentIds = await readCrmCandidateIds(activeCommitments, scopedCommitmentPredicate);
+    const ownerChangedPromiseIds = await readCrmCandidateIds(
+      activePromises,
+      scopedPromisePredicate.replaceAll("c.", "p."),
+      "JOIN crm_leads l ON l.id=p.lead_id JOIN users su ON su.id=l.assigned_to",
+      "p",
+    );
+    const overdueCommitments = await readCommitmentCandidates(["PENDING", "ACCEPTED", "EXTENDED", "ACTIVE"], "AND due_at<NOW()");
+    const duePromises = await readPromiseCandidates(["PENDING", "OPEN"], "AND due_at<=NOW()+(" + settings.reminder_minutes + " * interval '1 minute')");
+    const overdueCommitmentIds = await readCrmCandidateIds(
+      overdueCommitments,
+      `l.assigned_to=c.employee_id AND ${leadScope.ownerEligible} AND ${leadScope.inScope}`,
+    );
+    const duePromiseIds = await readCrmCandidateIds(
+      duePromises,
+      `l.assigned_to=c.employee_id AND ${leadScope.ownerEligible} AND ${leadScope.inScope}`,
+    );
+
     // Promises are retained through reconciliation; owner changes request
     // manager review instead of deletion.
     await fencedEvaluatorWrite(token, async tx => {
       // Preservation reconciliation is intentionally independent of current
       // Kay scope: existing obligations survive ownership changes and are
       // marked for human resolution, never routine automatic progression.
-      await tx.execute(sql`UPDATE kay_commitments c SET status='STALE',stale_at=COALESCE(stale_at,NOW()),updated_at=NOW()
-        WHERE c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.lead_id IS NOT NULL
-          AND NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id)`);
-      const preservedOwnerChanges = await tx.execute(sql`UPDATE kay_promises p SET owner_review_required_at=COALESCE(owner_review_required_at,NOW()),updated_at=NOW()
-        WHERE p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN')
-          AND NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id) RETURNING p.*`);
+      const preservedOwnerChanges = preservedPromiseIds.length
+        ? await tx.execute(sql`UPDATE kay_promises SET owner_review_required_at=COALESCE(owner_review_required_at,NOW()),updated_at=NOW()
+            WHERE id=ANY(${sqlIntArray(preservedPromiseIds)}) AND status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') RETURNING *`)
+        : { rows: [] };
       for (const p of preservedOwnerChanges.rows as any[]) {
         if (await createManagerReviewWith(tx, "PROMISE_OWNER_REVIEW_REQUIRED", { promiseId: p.id, leadId: p.lead_id, employeeId: p.employee_id }, `review:promise-owner:${p.id}`)) reviews++;
       }
-      await tx.execute(sql`UPDATE kay_commitments c SET status='STALE',stale_at=NOW(),updated_at=NOW()
-         WHERE c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND c.lead_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)}) AND (NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id)
-          OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.status IN ('converted','lost','purchased','sold_by_kinglike_luxury','lost_competition','not_qualified','junk_lead')))`);
-      const ownerChanged = await tx.execute(sql`UPDATE kay_promises p SET owner_review_required_at=COALESCE(owner_review_required_at,NOW()),updated_at=NOW()
-         WHERE p.status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)}) AND (NOT EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id)
-          OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=p.lead_id AND l.status IN ('converted','lost','purchased','sold_by_kinglike_luxury','lost_competition','not_qualified','junk_lead'))) RETURNING p.*`);
+      if (staleCommitmentIds.length) {
+        await tx.execute(sql`UPDATE kay_commitments c SET status='STALE',stale_at=COALESCE(stale_at,NOW()),updated_at=NOW()
+          WHERE id=ANY(${sqlIntArray(staleCommitmentIds)}) AND status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE')`);
+      }
+      const ownerChanged = ownerChangedPromiseIds.length
+        ? await tx.execute(sql`UPDATE kay_promises SET owner_review_required_at=COALESCE(owner_review_required_at,NOW()),updated_at=NOW()
+            WHERE id=ANY(${sqlIntArray(ownerChangedPromiseIds)}) AND status IN ('PENDING','DUE_SOON','OVERDUE','OPEN') RETURNING *`)
+        : { rows: [] };
       for (const p of ownerChanged.rows as any[]) {
         if (await createManagerReviewWith(tx, "PROMISE_OWNER_REVIEW_REQUIRED", { promiseId: p.id, leadId: p.lead_id, employeeId: p.employee_id }, `review:promise-owner:${p.id}`)) reviews++;
       }
-       await tx.execute(sql`UPDATE kay_commitments c SET status='OVERDUE',updated_at=NOW() WHERE status IN ('PENDING','ACCEPTED','EXTENDED','ACTIVE') AND due_at<NOW() AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=c.lead_id AND l.assigned_to=c.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)})`);
-       await tx.execute(sql`UPDATE kay_promises p SET status=CASE WHEN due_at<NOW() THEN 'OVERDUE' ELSE 'DUE_SOON' END,updated_at=NOW() WHERE status IN ('PENDING','OPEN') AND due_at<=NOW()+(${settings.reminder_minutes} * interval '1 minute') AND EXISTS(SELECT 1 FROM crm_leads l JOIN users su ON su.id=l.assigned_to WHERE l.id=p.lead_id AND l.assigned_to=p.employee_id AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.ownerEligible)} AND ${sql.raw(leadScope.inScope)})`);
+      if (ownerChangedCommitmentIds.length) {
+        await tx.execute(sql`UPDATE kay_commitments c SET status='STALE',stale_at=NOW(),updated_at=NOW()
+          WHERE id=ANY(${sqlIntArray(ownerChangedCommitmentIds)}) AND status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE')`);
+      }
+      if (overdueCommitmentIds.length) {
+        await tx.execute(sql`UPDATE kay_commitments SET status='OVERDUE',updated_at=NOW()
+          WHERE id=ANY(${sqlIntArray(overdueCommitmentIds)}) AND status IN ('PENDING','ACCEPTED','EXTENDED','ACTIVE') AND due_at<NOW()`);
+      }
+      if (duePromiseIds.length) {
+        await tx.execute(sql`UPDATE kay_promises SET status=CASE WHEN due_at<NOW() THEN 'OVERDUE' ELSE 'DUE_SOON' END,updated_at=NOW()
+          WHERE id=ANY(${sqlIntArray(duePromiseIds)}) AND status IN ('PENDING','OPEN') AND due_at<=NOW()+(${settings.reminder_minutes} * interval '1 minute')`);
+      }
     });
-  const overdueCommitments = await db.select().from(kayCommitments).where(and(eq(kayCommitments.status, "OVERDUE"), sql`${kayCommitments.dueAt} < NOW()`)).limit(limit);
-  for (const c of overdueCommitments) {
+  const overdueCommitmentRows = await db.select().from(kayCommitments).where(and(eq(kayCommitments.status, "OVERDUE"), sql`${kayCommitments.dueAt} < NOW()`)).limit(limit);
+  for (const c of overdueCommitmentRows) {
     if (c.leadId && (await getKayScopeForLead(c.leadId)).outcome !== "IN_KAY_SCOPE") continue;
     if (!settings.trigger_types.includes("COMMITMENT_OVERDUE") || (c.lastReminderAt && Date.now() - c.lastReminderAt.getTime() < settings.reminder_minutes * 60_000)) continue;
     const availability = await getKayAvailability(c.employeeId); if (availability.availability !== "AVAILABLE" || isKayQuietHours(phaseC, new Date())) continue;
