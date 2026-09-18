@@ -56,6 +56,7 @@ import { authorizeKayAction, denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 import { withKayInternalClient } from "./kayInternalDatabase";
 import { registerKayInternalCallRoutes } from "./kayInternalCallService";
+import { getSupervisorSnapshot } from "./kaySupervisorIntelligenceService";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -514,6 +515,7 @@ ${metaTags}
     "/api/admin/kay/settings/phase-d",
     "/api/admin/kay/owner-brief",
     "/api/admin/kay/reviews",
+    "/api/admin/kay/supervisor/snapshot",
   ]);
   app.use(["/api/kay", "/api/admin/kay"], async (req: any, res, next) => {
     const route = req.originalUrl.split("?")[0];
@@ -571,6 +573,18 @@ ${metaTags}
       res.json({ ...control, employeeWorkflow, missionInspection, operationsHealth, availability });
     } catch (err: any) {
       res.status(500).json({ message: "Unable to load Kay control data." });
+    }
+  });
+
+  app.get("/api/admin/kay/supervisor/snapshot", requireKayAdmin, async (req, res) => {
+    try {
+      const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
+      if (employeeId !== undefined && (!Number.isInteger(employeeId) || employeeId < 1)) {
+        return res.status(400).json({ message: "employeeId must be a positive integer." });
+      }
+      res.json(await getSupervisorSnapshot(employeeId));
+    } catch (err: any) {
+      res.status(500).json({ message: "Unable to load Kay supervisor snapshot." });
     }
   });
 

@@ -5,6 +5,12 @@ import { WebSocketServer, WebSocket } from "ws";
 import { sendPushNotification } from "./notificationService";
 import { withKayInternalClient } from "./kayInternalDatabase";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import {
+  assertKayCallWindow,
+  callAntiSpamDecision,
+  createCommitmentFromCallOutcome,
+  getMeaningfulEmployeeActionItems,
+} from "./kaySupervisorIntelligenceService";
 
 const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 const KAY_INTERNAL_CALL_EVENTS = new Set([
@@ -235,6 +241,9 @@ export async function createKayInternalCall(input: {
   idempotencyKey?: string;
 }) {
   requireEnabled();
+  assertKayCallWindow(new Date());
+  const idempotencyKey = String(input.idempotencyKey || "").trim();
+  if (!idempotencyKey) throw httpError(400, "KAY_INTERNAL_CALL_IDEMPOTENCY_KEY_REQUIRED");
   const initiator = await loadAuthorizedUser(input.initiatorUserId);
   if (!initiator.isAdmin) throw httpError(403, "KAY_INTERNAL_CALL_ADMIN_REQUIRED");
   const target = await loadAuthorizedUser(input.targetUserId);
@@ -252,15 +261,65 @@ export async function createKayInternalCall(input: {
       throw httpError(409, "KAY_INTERNAL_CALL_SELF_TARGET_REQUIRES_SECOND_SESSION");
     }
   }
-  const idempotencyKey = input.idempotencyKey || randomUUID();
-  const reasonCode = String(input.reasonCode || "MANUAL_INTERNAL_TEST").trim().slice(0, 80);
-  if (!reasonCode) throw httpError(400, "KAY_INTERNAL_CALL_REASON_REQUIRED");
+  const reasonCode = String(input.reasonCode || "MANUAL_INTERNAL_TEST").trim().toUpperCase().slice(0, 80);
+  if (!/^[A-Z0-9_]+$/.test(reasonCode)) throw httpError(400, "KAY_INTERNAL_CALL_REASON_REQUIRED");
   const title = sanitizeTitle(input.title);
 
-  const result = await withKayInternalClient(client =>
-    createIdempotentCall(client, target.id, initiator.id, reasonCode, idempotencyKey)
-  );
+  const meaningfulActionItems = await getMeaningfulEmployeeActionItems(target.id);
+  const transaction = await withKayInternalClient(async client => {
+    await client.query("BEGIN");
+    try {
+      await client.query("SELECT pg_advisory_xact_lock($1,$2)", [126322, target.id]);
+      const existing = await client.query(
+        `SELECT id,caller,target_user_id,initiated_by_user_id,status,reason_code,idempotency_key,created_at
+           FROM kay_internal_call_sessions WHERE idempotency_key=$1 LIMIT 1`,
+        [idempotencyKey],
+      );
+      if (existing.rows[0]) {
+        const call = existing.rows[0];
+        if (Number(call.target_user_id) !== target.id ||
+            Number(call.initiated_by_user_id) !== initiator.id ||
+            call.reason_code !== reasonCode) {
+          throw httpError(409, "KAY_INTERNAL_CALL_IDEMPOTENCY_CONFLICT");
+        }
+        await client.query("COMMIT");
+        return { result: existing, created: false };
+      }
+      const history = await client.query(
+        `SELECT status,reason_code,created_at FROM kay_internal_call_sessions
+          WHERE target_user_id=$1
+            AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
+          ORDER BY created_at DESC LIMIT 20`,
+        [target.id],
+      );
+      const overdueCommitment = await client.query(
+        `SELECT EXISTS(SELECT 1 FROM kay_commitments
+          WHERE employee_id=$1 AND status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE')
+            AND (due_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Istanbul')::date = (NOW() AT TIME ZONE 'Europe/Istanbul')::date
+            AND due_at < (NOW() AT TIME ZONE 'UTC')) AS materially_overdue`,
+        [target.id],
+      );
+      const spam = callAntiSpamDecision({
+        now: new Date(),
+        sessions: history.rows.map(row => ({ status: row.status, reasonCode: row.reason_code, createdAt: row.created_at })),
+        meaningfulActionItems,
+        materiallyOverdueSameDayCommitment: overdueCommitment.rows[0]?.materially_overdue === true,
+        reasonCode,
+      });
+      if (!spam.allowed) throw httpError(429, `KAY_INTERNAL_CALL_${spam.reason}`);
+      const inserted = await createIdempotentCall(client, target.id, initiator.id, reasonCode, idempotencyKey);
+      await client.query("COMMIT");
+      return { result: inserted, created: true };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    }
+  });
+  const result = transaction.result;
   const call = result.rows[0];
+  if (!transaction.created) {
+    return { ...call, callId: call.id, targetName: target.username, replayed: true };
+  }
   initiatingConnectionByCall.set(Number(call.id), input.initiatorConnectionId);
   if (title) {
     pendingOffersByCall.set(Number(call.id), {
@@ -569,6 +628,35 @@ export function registerKayInternalCallRoutes(
       return res.status(201).json(call);
     } catch (error: any) {
       return res.status(error?.status || 500).json({ message: error?.message || "Unable to create Kay internal call." });
+    }
+  });
+
+  app.post("/api/admin/kay/internal-calls/:callId/commitments", async (req: any, res: Response) => {
+    try {
+      requireEnabled();
+      const actor = await loadAuthorizedUser(Number(req.session?.userId));
+      if (!actor.isAdmin || actor.id !== 1) throw httpError(403, "KAY_INTERNAL_CALL_ADMIN_REQUIRED");
+      const sourceCallSessionId = Number(req.params.callId);
+      const employeeId = Number(req.body?.employeeId);
+      const leadRef = req.body?.leadRef == null ? null : Number(req.body.leadRef);
+      const actionType = String(req.body?.actionType || "").trim().slice(0, 120);
+      const dueAt = new Date(req.body?.dueAt);
+      if (!Number.isInteger(sourceCallSessionId) || sourceCallSessionId < 1 ||
+          !Number.isInteger(employeeId) || employeeId < 1 ||
+          (leadRef !== null && (!Number.isInteger(leadRef) || leadRef < 1)) ||
+          !actionType || Number.isNaN(dueAt.getTime())) {
+        throw httpError(400, "KAY_INTERNAL_CALL_COMMITMENT_INVALID");
+      }
+      const result = await createCommitmentFromCallOutcome({
+        sourceCallSessionId,
+        employeeId,
+        leadRef,
+        actionType,
+        dueAt,
+      });
+      return res.status(result.rowCount ? 201 : 200).json(result.rows[0] || { existing: true });
+    } catch (error: any) {
+      return res.status(error?.status || 500).json({ message: error?.message || "Unable to save Kay call commitment." });
     }
   });
 

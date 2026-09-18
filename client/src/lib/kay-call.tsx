@@ -350,6 +350,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
           initiatorConnectionId: connectionIdRef.current,
           reasonCode: safeBriefing(reasonCode),
           title: title ? safeBriefing(title) : undefined,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       const payload = await response.json().catch(() => ({}));

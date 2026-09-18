@@ -1,15 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   AlertTriangle,
+  CalendarClock,
   CheckCircle2,
   ClipboardCheck,
   Copy,
+  Eye,
   ExternalLink,
   History,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -157,6 +161,44 @@ type QueryState<T> = {
   refetch: () => Promise<unknown>;
 };
 
+type SupervisorSnapshot = {
+  generatedAt?: string;
+  timeZone?: string;
+  callWindowOpen?: boolean;
+  dailyBriefDue?: boolean;
+  employees?: SupervisorEmployee[];
+};
+type SupervisorEmployee = {
+  employeeId?: number | string;
+  employeeName?: string;
+  taskCounts?: Record<string, number>;
+  tasksWithoutMeaningfulRecentFollowUp?: any[];
+  visitors?: any[];
+  noteFollowUpsDueToday?: any[];
+  ambiguousNotes?: any[];
+  commitmentsDueToday?: any[];
+  overdueCommitments?: any[];
+  promisesDueToday?: any[];
+  importantPromises?: any[];
+  newLeadsToday?: any[];
+  firstMeaningfulFollowUpNeeded?: any[];
+  yesterdayNoAnswer?: any[];
+  callHistory?: any[];
+  dailyBriefGeneratedToday?: boolean;
+  meaningfulActionItems?: boolean;
+  plannedCallCandidate?: boolean;
+  callEligibleNow?: boolean;
+  callEligibilityReason?: string;
+  humanCallBrief?: {
+    opening?: string;
+    topPriorities?: any[];
+    questions?: any[];
+    commitmentFollowups?: any[];
+    closing?: string;
+  };
+  rescueRecommendations?: { leadId?: number | string; text?: string; recommendationOnly?: boolean }[];
+};
+
 function SectionSkeleton({ title, rows = 3 }: { title: string; rows?: number }) {
   return (
     <Card aria-label={`${title} loading`}>
@@ -207,6 +249,11 @@ export default function KayControlCenterPage() {
   const control = useQuery<Control>({
     queryKey: ["/api/admin/kay/control"],
     queryFn: async () => (await apiRequest("GET", "/api/admin/kay/control")).json(),
+  });
+  const supervisor = useQuery<SupervisorSnapshot>({
+    queryKey: ["/api/admin/kay/supervisor/snapshot"],
+    queryFn: async () =>
+      (await apiRequest("GET", "/api/admin/kay/supervisor/snapshot")).json(),
   });
   const [selected, setSelected] = useState<Decision | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
@@ -358,8 +405,8 @@ export default function KayControlCenterPage() {
         <Button
           variant="outline"
           className="border-[#b9d9d6] bg-[#fbfdfd] text-[#005476]"
-          onClick={() => control.refetch()}
-          disabled={control.isFetching}
+          onClick={() => void Promise.all([control.refetch(), supervisor.refetch()])}
+          disabled={control.isFetching || supervisor.isFetching}
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
@@ -410,6 +457,7 @@ export default function KayControlCenterPage() {
             {notice}
           </div>
         )}
+        <SupervisorIntelligence query={supervisor} />
         <section>
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
@@ -502,6 +550,244 @@ export default function KayControlCenterPage() {
     </KayWorkspace>
   );
 }
+
+function SupervisorIntelligence({ query }: { query: QueryState<SupervisorSnapshot> }) {
+  if (query.isLoading) {
+    return <SectionSkeleton title="Supervisor intelligence" rows={6} />;
+  }
+  if (query.isError || !query.data) {
+    return (
+      <SectionError
+        title="Supervisor intelligence unavailable"
+        detail="Work-pressure evidence could not be loaded. No employee is inferred to have zero work."
+        retry={() => query.refetch()}
+        isFetching={query.isFetching}
+      />
+    );
+  }
+  const snapshot = query.data;
+  const employees = snapshot.employees;
+  if (!Array.isArray(employees)) {
+    return (
+      <SectionError
+        title="Supervisor intelligence incomplete"
+        detail="The snapshot did not include an employee collection. No empty team state is inferred."
+        retry={() => query.refetch()}
+        isFetching={query.isFetching}
+      />
+    );
+  }
+  const total = (key: string) =>
+    employees.reduce((sum, employee) => sum + Number(employee.taskCounts?.[key] ?? 0), 0);
+  const pressure = employees.reduce(
+    (sum, employee) =>
+      sum +
+      ["OVERDUE", "DUE_TODAY"].reduce(
+        (inner, key) => inner + Number(employee.taskCounts?.[key] ?? 0),
+        0,
+      ),
+    0,
+  );
+  const generatedBriefs = employees.filter((employee) => employee.dailyBriefGeneratedToday).length;
+  return (
+    <section className="kay-appear space-y-3" aria-labelledby="supervisor-intelligence-title">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#57756e]">
+            Supervisor view · human workload
+          </p>
+          <h2 id="supervisor-intelligence-title" className="mt-1 text-2xl font-semibold">
+            Sales pressure, in context
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-slate-600">
+            A read-only brief for deciding where a human manager should look next. It does not
+            schedule, place, or record calls.
+          </p>
+        </div>
+        <div className="text-right text-xs text-slate-500">
+          <div>Generated {date(snapshot.generatedAt)}</div>
+          <div>Timezone: {label(snapshot.timeZone)}</div>
+        </div>
+      </div>
+      <Card className="overflow-hidden border-[#8dbeb5] bg-[#f8fdfb]">
+        <CardContent className="p-4">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <SupervisorMetric icon={<Users />} title="Salespeople" value={String(employees.length)} />
+            <SupervisorMetric icon={<AlertTriangle />} title="Due pressure" value={String(pressure)} tone="amber" />
+            <SupervisorMetric icon={<CalendarClock />} title="Overdue" value={String(total("OVERDUE"))} tone="red" />
+            <SupervisorMetric icon={<CheckCircle2 />} title="Completed" value={String(total("COMPLETED"))} tone="teal" />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#d7e9e4] pt-3 text-xs">
+            <Badge className={snapshot.callWindowOpen ? "bg-[#d9efe8] text-[#205c52]" : "bg-[#edf0ef] text-[#61716f]"}>
+              Call window {snapshot.callWindowOpen ? "open" : "closed"}
+            </Badge>
+            <Badge variant="outline" className="border-[#c6dcd7]">
+              Daily Brief {snapshot.dailyBriefDue ? "eligible now" : "not due"}
+            </Badge>
+            <Badge variant="outline" className="border-[#c6dcd7]">
+              Generated today {generatedBriefs}/{employees.length}
+            </Badge>
+            <span className="text-slate-600">
+              Eligibility only; no scheduler is started here. Calls remain governed by the current
+              window and feature flag.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+      {employees.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center text-sm text-slate-600">
+            The snapshot contains no employee records. This is not interpreted as zero workload.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {employees.map((employee, index) => (
+            <SupervisorEmployeeRow key={String(employee.employeeId ?? index)} employee={employee} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SupervisorMetric({
+  icon,
+  title,
+  value,
+  tone = "navy",
+}: {
+  icon: ReactNode;
+  title: string;
+  value: string;
+  tone?: "navy" | "amber" | "red" | "teal";
+}) {
+  const colors = {
+    navy: "text-[#005476]",
+    amber: "text-[#9b691e]",
+    red: "text-[#a5443f]",
+    teal: "text-[#287567]",
+  };
+  return (
+    <div className="rounded-xl border border-[#d7e9e4] bg-[#fbfefd] p-3">
+      <div className={`flex items-center gap-2 text-xs font-semibold ${colors[tone]}`}>
+        {icon}
+        {title}
+      </div>
+      <div className="mt-1 text-2xl font-extrabold tracking-tight text-[#163b3b]">{value}</div>
+    </div>
+  );
+}
+
+function SupervisorEmployeeRow({ employee }: { employee: SupervisorEmployee }) {
+  const counts = employee.taskCounts ?? {};
+  const list = (value: any[] | undefined) => (Array.isArray(value) ? value : []);
+  const actionable = [
+    ["Visitors", employee.visitors],
+    ["Tasks without recent follow-up", employee.tasksWithoutMeaningfulRecentFollowUp],
+    ["Notes to follow up", employee.noteFollowUpsDueToday],
+    ["Ambiguous notes", employee.ambiguousNotes],
+    ["Commitments due", employee.commitmentsDueToday],
+    ["Overdue commitments", employee.overdueCommitments],
+    ["Promises due", employee.promisesDueToday],
+    ["Important promises", employee.importantPromises],
+    ["New leads", employee.newLeadsToday],
+    ["First meaningful follow-up", employee.firstMeaningfulFollowUpNeeded],
+    ["Yesterday no-answer", employee.yesterdayNoAnswer],
+    ["Call history", employee.callHistory],
+  ] as [string, any[] | undefined][];
+  const itemText = (item: any) => {
+    if (typeof item === "string" || typeof item === "number") return String(item);
+    if (!item || typeof item !== "object") return "Record available";
+    return item.text ?? item.title ?? item.name ?? item.full_name ?? item.promise_text ??
+      item.action ?? item.subject ?? item.reason_code ?? item.leadName ?? item.leadId ?? "Record available";
+  };
+  const brief = employee.humanCallBrief;
+  return (
+    <details className="group rounded-xl border border-[#cbded9] bg-[#fbfdfd] shadow-[0_5px_18px_rgba(0,84,118,.035)]">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 p-4 outline-none transition-colors hover:bg-[#f4fbf9] focus-visible:ring-2 focus-visible:ring-[#3bcac4]">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#dff4f2] text-sm font-bold text-[#005476]">
+          {String(employee.employeeName ?? "?").trim().slice(0, 1).toUpperCase()}
+        </span>
+        <span className="min-w-[170px] flex-1">
+          <span className="block font-bold text-[#163b3b]">{label(employee.employeeName)}</span>
+          <span className="text-xs text-slate-500">ID {label(employee.employeeId)}</span>
+        </span>
+        <div className="flex flex-wrap gap-1.5 text-xs">
+          {["OVERDUE", "DUE_TODAY", "DUE_TOMORROW", "UPCOMING", "COMPLETED"].map((key) => (
+            <span key={key} className="rounded-md border border-[#d9e7e6] bg-[#f7fbfa] px-2 py-1 text-[#486a70]">
+              {key.replace("_", " ").toLowerCase()} <b className="text-[#163b3b]">{label(counts[key])}</b>
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <Badge className={employee.callEligibleNow ? "bg-[#d9efe8] text-[#205c52]" : "bg-[#edf0ef] text-[#61716f]"}>
+            {employee.callEligibleNow ? "Call eligible" : "Call not eligible"}
+          </Badge>
+          {employee.plannedCallCandidate && (
+            <Badge variant="outline" className="border-[#c6dcd7]">Planned candidate</Badge>
+          )}
+          <Eye className="h-4 w-4 text-[#6a8989] transition-transform group-open:rotate-180" />
+        </div>
+      </summary>
+      <div className="border-t border-[#d9e7e6] bg-[#f7fbfa] p-4">
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#57756e]">Evidence queue</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {actionable.map(([title, values]) => (
+                <div key={title} className="rounded-lg border border-[#d9e7e6] bg-[#fbfdfd] p-3">
+                  <div className="flex justify-between gap-2 text-xs font-semibold text-[#486a70]">
+                    <span>{title}</span><b className="text-[#163b3b]">{list(values).length}</b>
+                  </div>
+                  {list(values).length > 0 ? (
+                    <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                      {list(values).slice(0, 3).map((item, i) => <li key={i} className="truncate">{itemText(item)}</li>)}
+                    </ul>
+                  ) : <p className="mt-2 text-xs text-slate-400">No records in snapshot</p>}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">
+              Meaningful action items: <b>{employee.meaningfulActionItems ? "present" : "not present"}</b>
+              {" · "}Call gate: <b>{label(employee.callEligibilityReason)}</b>
+            </p>
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#57756e]">Human call brief</p>
+            <div className="rounded-lg border border-[#d6b36a] bg-[#fffdf7] p-3 text-sm">
+              {!brief ? <p className="text-slate-500">Call brief unavailable for this salesperson.</p> : (
+                <div className="space-y-3">
+                  <p><b>Opening:</b> {label(brief.opening)}</p>
+                  <BriefList title="Top priorities" values={brief.topPriorities} itemText={itemText} />
+                  <BriefList title="Questions" values={brief.questions} itemText={itemText} />
+                  <BriefList title="Commitment follow-ups" values={brief.commitmentFollowups} itemText={itemText} />
+                  <p><b>Closing:</b> {label(brief.closing)}</p>
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-[#cbded9] bg-[#fbfdfd] p-3">
+              <p className="text-xs font-bold uppercase tracking-[.14em] text-[#57756e]">Rescue recommendations</p>
+              {list(employee.rescueRecommendations).length ? (
+                <ul className="mt-2 space-y-2 text-xs text-slate-600">
+                  {list(employee.rescueRecommendations).map((recommendation, i) => (
+                    <li key={i}><b>Lead {label(recommendation.leadId)}:</b> {label(recommendation.text)} <span className="text-[#287567]">Recommendation only</span></li>
+                  ))}
+                </ul>
+              ) : <p className="mt-2 text-xs text-slate-500">No rescue recommendations in snapshot.</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function BriefList({ title, values, itemText }: { title: string; values?: any[]; itemText: (item: any) => string }) {
+  if (!Array.isArray(values) || values.length === 0) return <p><b>{title}:</b> None in snapshot</p>;
+  return <div><b>{title}:</b><ul className="mt-1 list-disc space-y-1 pl-5">{values.slice(0, 4).map((value, i) => <li key={i}>{itemText(value)}</li>)}</ul></div>;
+}
+
 function OperationalScopeCard({ query }: { query: QueryState<any> }) {
   if (query.isLoading) {
     return <SectionSkeleton title="Kay monitoring scope · read only" rows={4} />;

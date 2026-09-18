@@ -28,3 +28,4 @@
 - [PostgreSQL non-throwing timestamp validation](postgres-input-validation.md) — use pg_input_is_valid(text, text) with the real target type name before casting stored JSON timestamps.
 - [Kay isolated analysis reads](kay-isolated-analysis-reads.md) — mutation suites must route analysis reads to the guarded test database or fixtures become invisible.
 - [Kay WebRTC endpoint binding](kay-webrtc-endpoint-binding.md) — call roles and lifecycle belong to exact authenticated sockets, not merely user IDs.
+- [Kay call anti-spam atomicity](kay-call-anti-spam-atomicity.md) — evaluate limits and insert under one employee transaction lock; idempotent replay must never re-ring.
