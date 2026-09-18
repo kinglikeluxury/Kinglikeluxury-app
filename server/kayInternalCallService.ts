@@ -790,7 +790,9 @@ export function registerKayInternalCallRoutes(
         started <= now && expires > now && expires.getTime() - started.getTime() <= 15 * 60 * 1000;
       if (testMode && !overrideActive) throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_OVERRIDE_INACTIVE");
       if (!overrideActive) assertKayCallWindow(now);
-      const meaningfulActionItems = await getMeaningfulEmployeeActionItems(target.id);
+      const meaningfulActionItems = testMode
+        ? true
+        : await getMeaningfulEmployeeActionItems(target.id);
       const idempotencyKey = `DIRECT_${testMode ? "ADMIN_TEST" : "MANUAL"}_${randomUUID()}`;
       const result = await withKayInternalClient(async client => {
         await client.query("BEGIN");
@@ -824,21 +826,23 @@ export function registerKayInternalCallRoutes(
             [target.id],
           );
           if (activeDirect.rows[0]) throw httpError(409, "KAY_DIRECT_CALL_ALREADY_ACTIVE");
-          const history = await client.query(
-            `SELECT status,reason_code,created_at FROM kay_internal_call_sessions
-              WHERE target_user_id=$1
-                AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
-              ORDER BY created_at DESC LIMIT 20`,
-            [target.id],
-          );
-          const spam = callAntiSpamDecision({
-            now,
-            sessions: history.rows.map(row => ({ status: row.status, reasonCode: row.reason_code, createdAt: row.created_at })),
-            meaningfulActionItems,
-            materiallyOverdueSameDayCommitment: false,
-            reasonCode,
-          });
-          if (!spam.allowed) throw httpError(429, `KAY_INTERNAL_CALL_${spam.reason}`);
+          if (!testMode) {
+            const history = await client.query(
+              `SELECT status,reason_code,created_at FROM kay_internal_call_sessions
+                WHERE target_user_id=$1
+                  AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
+                ORDER BY created_at DESC LIMIT 20`,
+              [target.id],
+            );
+            const spam = callAntiSpamDecision({
+              now,
+              sessions: history.rows.map(row => ({ status: row.status, reasonCode: row.reason_code, createdAt: row.created_at })),
+              meaningfulActionItems,
+              materiallyOverdueSameDayCommitment: false,
+              reasonCode,
+            });
+            if (!spam.allowed) throw httpError(429, `KAY_INTERNAL_CALL_${spam.reason}`);
+          }
           const inserted = await createIdempotentCall(client, target.id, admin.id, reasonCode, idempotencyKey);
           await client.query("COMMIT");
           return inserted.rows[0];

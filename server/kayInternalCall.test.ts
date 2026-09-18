@@ -137,6 +137,8 @@ test("direct Kay caller has no caller socket and exposes target lifecycle", () =
   assert.match(service, /reason_code/);
   assert.match(service, /test_mode/);
   assert.match(service, /KAY_DIRECT_CALL_TARGET_MUST_BE_TAREK/);
+  assert.match(service, /const meaningfulActionItems = testMode\s*\?\s*true/);
+  assert.match(service, /if \(!testMode\) \{/);
   assert.match(service, /type: "KAY_CALL_INCOMING"/);
   assert.match(service, /call_session_id/);
   assert.match(service, /display_title/);
