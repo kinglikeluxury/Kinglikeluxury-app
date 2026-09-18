@@ -32,7 +32,7 @@ test("Kay call controller exposes signaling, controls, and cleanup", () => {
     "cleanup()",
     "call_socket_ready",
     "initiatorConnectionId",
-    "canAnswer={offerReady}",
+     "canAnswer={offerReady || incomingCall.direct === true}",
     "/api/admin/kay/internal-calls",
     "startCall",
     "targetUserId",
@@ -46,4 +46,18 @@ test("Kay call controller exposes signaling, controls, and cleanup", () => {
   assert.match(source, /if \(incomingCall\) send\(\{ type: "call_reject"/);
   assert.match(source, /send\(\{ type: "call_end"[\s\S]*cleanup\(\)/);
   assert.doesNotMatch(source, /senderUserId|fromUserId/);
+});
+
+test("direct Kay caller uses local voice and microphone without a peer", () => {
+  const source = readFileSync(new URL("./kay-call.tsx", import.meta.url), "utf8");
+  assert.match(source, /KAY_CALL_INCOMING/);
+  assert.match(source, /answerDirect/);
+  assert.match(source, /speechSynthesis\.speak/);
+  assert.match(source, /AudioContext/);
+  assert.match(source, /\/answer/);
+  assert.match(source, /\/reject/);
+  assert.match(source, /\/end/);
+  assert.match(source, /micLevel/);
+  assert.match(source, /Kay call was not ended on the server/);
+  assert.match(source, /KAY_CALL_ENDED/);
 });

@@ -41,6 +41,7 @@ const MAX_RAW_MESSAGE_BYTES = 64 * 1024;
 const MAX_SDP_BYTES = 32 * 1024;
 const MAX_CANDIDATE_BYTES = 16 * 1024;
 let afterHoursTarekTestTimer: NodeJS.Timeout | null = null;
+const directExpiryTimers = new Map<number, NodeJS.Timeout>();
 
 type CallUser = { id: number; username: string; isAdmin: boolean; role: string; isActive: boolean };
 type CallSocket = WebSocket & { kayUserId?: number; kayRequest?: IncomingMessage; kayConnectionId?: string };
@@ -93,6 +94,27 @@ function disableAfterHoursTarekTestRuntime() {
   afterHoursTarekTestTimer = null;
 }
 
+function scheduleDirectExpiry(callId: number, expiresAt: Date) {
+  const existing = directExpiryTimers.get(callId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    void withKayInternalClient(async client => {
+      const result = await client.query(
+        `UPDATE kay_internal_call_sessions SET status='ENDED',ended_at=COALESCE(ended_at,NOW())
+          WHERE id=$1 AND status IN ('RINGING','ACTIVE') RETURNING id,target_user_id`,
+        [callId],
+      );
+      directExpiryTimers.delete(callId);
+      if (result.rowCount) {
+        await deliverToConnectedSockets(Number(result.rows[0].target_user_id), {
+          type: "KAY_CALL_ENDED", call_session_id: callId,
+        });
+      }
+    }).catch(() => {});
+  }, Math.max(0, expiresAt.getTime() - Date.now()));
+  directExpiryTimers.set(callId, timer);
+}
+
 function armAfterHoursTarekTestExpiry(expiresAt: Date) {
   if (afterHoursTarekTestTimer) clearTimeout(afterHoursTarekTestTimer);
   afterHoursTarekTestTimer = setTimeout(() => {
@@ -119,7 +141,7 @@ function armAfterHoursTarekTestExpiry(expiresAt: Date) {
 async function getCall(callId: number) {
   const result = await withKayInternalClient(client =>
     client.query(
-      `SELECT id,caller,target_user_id,initiated_by_user_id,status,reason_code
+      `SELECT id,caller,target_user_id,initiated_by_user_id,status,reason_code,idempotency_key,created_at
          FROM kay_internal_call_sessions WHERE id=$1 LIMIT 1`,
       [callId],
     )
@@ -131,15 +153,29 @@ async function getCall(callId: number) {
     initiated_by_user_id: number;
     status: string;
     reason_code: string;
+    idempotency_key: string;
+    created_at: Date;
   } | undefined;
+}
+
+function isDirectCall(call: { idempotency_key?: string | null }) {
+  return typeof call.idempotency_key === "string" && call.idempotency_key.startsWith("DIRECT_");
+}
+
+function directExpiry(call: { reason_code: string; created_at: Date }) {
+  if (call.reason_code === "ADMIN_TEST") {
+    const configured = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
+    if (!Number.isNaN(configured.getTime())) return configured;
+  }
+  return new Date(new Date(call.created_at).getTime() + 2 * 60 * 1000);
 }
 
 async function getLatestRingingCall(targetUserId: number) {
   const result = await withKayInternalClient(client =>
     client.query(
-      `SELECT id,caller,target_user_id,status,reason_code
+      `SELECT id,caller,target_user_id,status,reason_code,idempotency_key,created_at
          FROM kay_internal_call_sessions
-        WHERE target_user_id=$1 AND status='RINGING'
+         WHERE target_user_id=$1 AND status='RINGING'
         ORDER BY created_at DESC LIMIT 1`,
       [targetUserId],
     )
@@ -292,6 +328,9 @@ export async function createKayInternalCall(input: {
   const now = new Date();
   const idempotencyKey = String(input.idempotencyKey || "").trim();
   if (!idempotencyKey) throw httpError(400, "KAY_INTERNAL_CALL_IDEMPOTENCY_KEY_REQUIRED");
+  if (/^DIRECT_/i.test(idempotencyKey)) {
+    throw httpError(400, "KAY_INTERNAL_CALL_RESERVED_IDEMPOTENCY_KEY");
+  }
   const initiator = await loadAuthorizedUser(input.initiatorUserId);
   if (!initiator.isAdmin) throw httpError(403, "KAY_INTERNAL_CALL_ADMIN_REQUIRED");
   const target = await loadAuthorizedUser(input.targetUserId);
@@ -697,6 +736,150 @@ export function registerKayInternalCallRoutes(
   httpServer: Server,
   sessionMiddleware: RequestHandler,
 ) {
+  // Direct virtual-caller path: KAY has no browser/WebSocket peer. The target
+  // socket is only used as the authenticated delivery channel for the ring.
+  app.post("/api/admin/kay/internal-calls/start", async (req: any, res: Response) => {
+    try {
+      requireEnabled();
+      const admin = await loadAuthorizedUser(Number(req.session?.userId));
+      if (!admin.isAdmin || admin.id !== 1) throw httpError(403, "KAY_INTERNAL_CALL_ADMIN_REQUIRED");
+      const targetUserId = Number(req.body?.target_user_id);
+      const testMode = req.body?.test_mode === true;
+      if (targetUserId !== 1) throw httpError(403, "KAY_DIRECT_CALL_TARGET_MUST_BE_TAREK");
+      const target = await loadAuthorizedUser(targetUserId);
+      const reasonCode = String(req.body?.reason_code || (testMode ? "ADMIN_TEST" : "MANUAL_INTERNAL_TEST"))
+        .trim().toUpperCase().slice(0, 80);
+      if (!/^[A-Z0-9_]+$/.test(reasonCode)) throw httpError(400, "KAY_INTERNAL_CALL_REASON_REQUIRED");
+      if ((testMode === true) !== (reasonCode === "ADMIN_TEST")) {
+        throw httpError(400, "KAY_DIRECT_CALL_TEST_MODE_REASON_MISMATCH");
+      }
+      const now = new Date();
+      const started = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT || "");
+      const expires = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
+      const overrideActive = testMode && reasonCode === "ADMIN_TEST" &&
+        process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
+        !Number.isNaN(started.getTime()) && !Number.isNaN(expires.getTime()) &&
+        started <= now && expires > now && expires.getTime() - started.getTime() <= 15 * 60 * 1000;
+      if (testMode && !overrideActive) throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_OVERRIDE_INACTIVE");
+      if (!overrideActive) assertKayCallWindow(now);
+      const meaningfulActionItems = await getMeaningfulEmployeeActionItems(target.id);
+      const idempotencyKey = `DIRECT_${testMode ? "ADMIN_TEST" : "MANUAL"}_${randomUUID()}`;
+      const result = await withKayInternalClient(async client => {
+        await client.query("BEGIN");
+        try {
+          await client.query("SELECT pg_advisory_xact_lock($1,$2)", [126322, target.id]);
+          if (testMode) {
+            const consumed = await client.query(
+              `SELECT EXISTS(SELECT 1 FROM kay_internal_call_sessions WHERE reason_code='ADMIN_TEST') AS consumed`,
+            );
+            if (consumed.rows[0]?.consumed === true) throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED");
+          }
+          const ringingDirect = await client.query(
+            `SELECT id,reason_code,created_at FROM kay_internal_call_sessions
+              WHERE target_user_id=$1 AND status='RINGING' AND idempotency_key LIKE 'DIRECT_%'`,
+            [target.id],
+          );
+          for (const stale of ringingDirect.rows) {
+            const staleExpiry = directExpiry(stale);
+            if (staleExpiry.getTime() <= now.getTime()) {
+              await client.query(
+                `UPDATE kay_internal_call_sessions SET status='ENDED',ended_at=COALESCE(ended_at,NOW())
+                  WHERE id=$1 AND status='RINGING'`,
+                [stale.id],
+              );
+            }
+          }
+          const activeDirect = await client.query(
+            `SELECT id FROM kay_internal_call_sessions
+              WHERE target_user_id=$1 AND idempotency_key LIKE 'DIRECT_%'
+                AND status IN ('RINGING','ACTIVE') LIMIT 1`,
+            [target.id],
+          );
+          if (activeDirect.rows[0]) throw httpError(409, "KAY_DIRECT_CALL_ALREADY_ACTIVE");
+          const history = await client.query(
+            `SELECT status,reason_code,created_at FROM kay_internal_call_sessions
+              WHERE target_user_id=$1
+                AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
+              ORDER BY created_at DESC LIMIT 20`,
+            [target.id],
+          );
+          const spam = callAntiSpamDecision({
+            now,
+            sessions: history.rows.map(row => ({ status: row.status, reasonCode: row.reason_code, createdAt: row.created_at })),
+            meaningfulActionItems,
+            materiallyOverdueSameDayCommitment: false,
+            reasonCode,
+          });
+          if (!spam.allowed) throw httpError(429, `KAY_INTERNAL_CALL_${spam.reason}`);
+          const inserted = await createIdempotentCall(client, target.id, admin.id, reasonCode, idempotencyKey);
+          await client.query("COMMIT");
+          return inserted.rows[0];
+        } catch (error) {
+          await client.query("ROLLBACK").catch(() => {});
+          throw error;
+        }
+      });
+      const callId = Number(result.id);
+      const expiry = overrideActive ? expires : new Date(now.getTime() + 2 * 60 * 1000);
+      if (overrideActive) armAfterHoursTarekTestExpiry(expires);
+      scheduleDirectExpiry(callId, expiry);
+      await deliverToConnectedSockets(target.id, {
+        type: "KAY_CALL_INCOMING",
+        call_session_id: callId,
+        reason_code: reasonCode,
+        display_title: "Kay is calling",
+        expiry: expiry.toISOString(),
+      });
+      return res.status(201).json({ call_session_id: callId, expiry: expiry.toISOString() });
+    } catch (error: any) {
+      return res.status(error?.status || 500).json({ message: error?.message || "Unable to start direct Kay call." });
+    }
+  });
+
+  for (const [action, nextStatus, allowed] of [
+    ["answer", "ACTIVE", ["RINGING"]],
+    ["reject", "REJECTED", ["RINGING"]],
+    ["end", "ENDED", ["RINGING", "ACTIVE"]],
+  ] as const) {
+    app.post(`/api/admin/kay/internal-calls/:callId/${action}`, async (req: any, res: Response) => {
+      try {
+        requireEnabled();
+        const target = await loadAuthorizedUser(Number(req.session?.userId));
+        if (target.id !== 1) throw httpError(403, "KAY_DIRECT_CALL_TARGET_REQUIRED");
+        const callId = Number(req.params.callId);
+        if (!Number.isInteger(callId) || callId < 1) throw httpError(400, "KAY_INTERNAL_CALL_ID_REQUIRED");
+        const call = await getCall(callId);
+        if (!call || !isDirectCall(call) || call.caller !== "KAY" || Number(call.target_user_id) !== target.id) {
+          throw httpError(404, "KAY_INTERNAL_CALL_NOT_FOUND");
+        }
+        const expiry = directExpiry(call);
+        if (expiry.getTime() <= Date.now()) {
+          if (action !== "end") {
+            await updateCallStatus(callId, "ENDED", ["RINGING", "ACTIVE"]);
+            throw httpError(410, "KAY_DIRECT_CALL_EXPIRED");
+          }
+          await updateCallStatus(callId, "ENDED", ["RINGING", "ACTIVE"]);
+          directExpiryTimers.get(callId) && clearTimeout(directExpiryTimers.get(callId));
+          directExpiryTimers.delete(callId);
+          await deliverToConnectedSockets(target.id, { type: "KAY_CALL_ENDED", call_session_id: callId });
+          return res.status(200).json({ call_session_id: callId, status: "ENDED" });
+        }
+        await updateCallStatus(callId, nextStatus, [...allowed]);
+        if (nextStatus !== "ACTIVE") {
+          directExpiryTimers.get(callId) && clearTimeout(directExpiryTimers.get(callId));
+          directExpiryTimers.delete(callId);
+        }
+        if (action !== "answer") {
+          await deliverToConnectedSockets(target.id, { type: "KAY_CALL_ENDED", call_session_id: callId });
+          if (call.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
+        }
+        return res.status(200).json({ call_session_id: callId, status: nextStatus });
+      } catch (error: any) {
+        return res.status(error?.status || 500).json({ message: error?.message || "Unable to update Kay call." });
+      }
+    });
+  }
+
   app.post("/api/admin/kay/internal-calls", async (req: any, res: Response) => {
     try {
       const call = await createKayInternalCall({
@@ -770,6 +953,21 @@ export function registerKayInternalCallRoutes(
               return;
             }
             const target = await loadAuthorizedUser(Number(call.target_user_id));
+            if (isDirectCall(call)) {
+              const expiry = directExpiry(call);
+              if (expiry.getTime() <= Date.now()) {
+                await updateCallStatus(Number(call.id), "ENDED", ["RINGING"]);
+                return;
+              }
+              await sendToSocketIfAuthorized(client, {
+                type: "KAY_CALL_INCOMING",
+                call_session_id: Number(call.id),
+                reason_code: call.reason_code,
+                display_title: "Kay is calling",
+                expiry: expiry.toISOString(),
+              });
+              return;
+            }
             const pendingOffer = pendingOffersByCall.get(Number(call.id));
             await sendToSocketIfAuthorized(client, {
               type: "incoming_call",

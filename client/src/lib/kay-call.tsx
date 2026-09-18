@@ -16,6 +16,8 @@ export type KayIncomingCall = {
   targetName: string;
   reasonCode?: string;
   title?: string;
+  direct?: boolean;
+  expiry?: string;
 };
 
 export function kayCallUrl(pathname: string = window.location.pathname): string {
@@ -93,7 +95,7 @@ export function IncomingKayCall({
         </span>
       </div>
       <div className="mt-5 flex gap-3">
-        <Button className="flex-1 bg-[#16736e] hover:bg-[#125e5a]" onClick={onAnswer} disabled={!canAnswer}>
+          <Button className="flex-1 bg-[#16736e] hover:bg-[#125e5a]" onClick={onAnswer} disabled={!canAnswer}>
           <Phone className="h-4 w-4" /> {canAnswer ? "Answer" : "Preparing…"}
         </Button>
         <Button className="flex-1" variant="outline" onClick={onReject}>
@@ -111,6 +113,7 @@ export function KayActiveCall({
   title,
   onMute,
   onEnd,
+  micLevel = 0,
 }: {
   status: Exclude<KayCallStatus, "idle" | "incoming">;
   duration: string;
@@ -118,6 +121,7 @@ export function KayActiveCall({
   title: string;
   onMute: () => void;
   onEnd: () => void;
+  micLevel?: number;
 }) {
   return (
     <section className="fixed inset-x-4 bottom-4 z-[100] mx-auto max-w-md rounded-2xl border border-[#b9d9d6] bg-[#fbfdfd] p-5 shadow-2xl" role="dialog" aria-label="Active Kay call">
@@ -132,6 +136,9 @@ export function KayActiveCall({
         <span className="font-mono text-sm text-slate-600">{status === "connected" ? duration : "Connecting…"}</span>
       </div>
       <p className="mt-3 text-sm text-slate-600">{status === "connected" ? "Connected" : status === "error" ? "Call unavailable" : "Connecting securely…"}</p>
+      {status === "connected" && <div className="mt-3 flex items-end gap-1" aria-label="Microphone activity">
+        {[0, 1, 2, 3, 4].map((bar) => <span key={bar} className="w-1 rounded-full bg-[#16736e]" style={{ height: `${6 + Math.min(18, micLevel * (bar + 1) * 3)}px` }} />)}
+      </div>}
       <div className="mt-5 flex gap-3">
         <Button variant="outline" onClick={onMute} disabled={status !== "connected"} aria-label={muted ? "Unmute" : "Mute"}>
           {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />} {muted ? "Unmute" : "Mute"}
@@ -210,6 +217,8 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const connectionIdRef = useRef<string | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const micAnimationRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
@@ -220,12 +229,15 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const peerDisconnectRef = useRef<number | null>(null);
   const initiatedCallIdsRef = useRef<Set<number>>(new Set());
   const spokenTestCallIdsRef = useRef<Set<number>>(new Set());
+  const directExpiryTimerRef = useRef<number | null>(null);
   const [status, setStatus] = useState<KayCallStatus>("idle");
   const [incomingCall, setIncomingCall] = useState<KayIncomingCall | null>(null);
   const [muted, setMuted] = useState(false);
   const [offerReady, setOfferReady] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [micLevel, setMicLevel] = useState(0);
+  const [callError, setCallError] = useState("");
 
   useEffect(() => {
     statusRef.current = status;
@@ -263,8 +275,16 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       window.clearTimeout(peerDisconnectRef.current);
       peerDisconnectRef.current = null;
     }
+    if (directExpiryTimerRef.current !== null) {
+      window.clearTimeout(directExpiryTimerRef.current);
+      directExpiryTimerRef.current = null;
+    }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    if (micAnimationRef.current !== null) cancelAnimationFrame(micAnimationRef.current);
+    micAnimationRef.current = null;
+    if (audioContextRef.current) void audioContextRef.current.close();
+    audioContextRef.current = null;
     if (peerRef.current) {
       peerRef.current.onconnectionstatechange = null;
       peerRef.current.close();
@@ -275,11 +295,43 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     setOfferReady(false);
     if (audioRef.current) audioRef.current.srcObject = null;
     window.speechSynthesis?.cancel();
+    setMicLevel(0);
     setIncomingCall(null);
     incomingCallRef.current = null;
     setMuted(false);
     setStartedAt(null);
     setStatus("idle");
+    setCallError("");
+  }, []);
+
+  const answerDirect = useCallback(async (call: KayIncomingCall) => {
+    const stream = await navigator.mediaDevices.getUserMedia(KAY_AUDIO_CONSTRAINTS);
+    streamRef.current = stream;
+    const context = new AudioContext();
+    audioContextRef.current = context;
+    const analyser = context.createAnalyser();
+    const source = context.createMediaStreamSource(stream);
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const tick = () => {
+      if (!streamRef.current) return;
+      analyser.getByteTimeDomainData(data);
+      setMicLevel(Math.abs(data.reduce((sum, value) => sum + value - 128, 0)) / data.length);
+      micAnimationRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+    const response = await fetch(`/api/admin/kay/internal-calls/${call.callId}/answer`, { method: "POST", credentials: "include" });
+    if (!response.ok) throw new Error("Unable to answer Kay call.");
+    setStatus("connected");
+    setStartedAt(Date.now());
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(KAY_TAREK_TEST_MESSAGE);
+      utterance.lang = "ar";
+      const voices = window.speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith("ar"));
+      utterance.voice = voices.find((voice) => /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)) || voices[0] || null;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    }
   }, []);
 
   const playTarekTestVoice = useCallback((callId: number) => {
@@ -327,6 +379,10 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     if (!incomingCall) return;
     try {
       setStatus("connecting");
+      if (incomingCall.direct) {
+        await answerDirect(incomingCall);
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia(KAY_AUDIO_CONSTRAINTS);
       streamRef.current = stream;
       const peer = new RTCPeerConnection();
@@ -353,7 +409,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       cleanup();
       setStatus("error");
     }
-  }, [cleanup, incomingCall, monitorPeer, send]);
+  }, [answerDirect, cleanup, incomingCall, monitorPeer, send]);
 
   const startCall = useCallback(async (targetUserId: number, reasonCode: string, title?: string, initiationType = "MANUAL") => {
     if (!user?.isAdmin || user.id !== 1 || !KAY_INTERNAL_CALL_USER_IDS.has(targetUserId)) {
@@ -362,6 +418,17 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     let createdCallId: number | null = null;
     try {
       setStatus("connecting");
+      if (targetUserId === 1 && initiationType === "ADMIN_TEST") {
+        const response = await fetch("/api/admin/kay/internal-calls/start", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target_user_id: 1, reason_code: "ADMIN_TEST", test_mode: true }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.call_session_id) throw new Error(payload.message || "Kay direct calls are unavailable.");
+        return;
+      }
       await waitForSocket();
       const response = await fetch("/api/admin/kay/internal-calls", {
         method: "POST",
@@ -419,14 +486,30 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cleanup, monitorPeer, send, user, waitForSocket]);
 
-  const reject = useCallback(() => {
-    if (incomingCall) send({ type: "call_reject", callId: incomingCall.callId });
-    cleanup();
+  const reject = useCallback(async () => {
+    try {
+      if (incomingCall?.direct) {
+        const response = await fetch(`/api/admin/kay/internal-calls/${incomingCall.callId}/reject`, { method: "POST", credentials: "include" });
+        if (!response.ok) throw new Error("Unable to reject Kay call.");
+      } else if (incomingCall) send({ type: "call_reject", callId: incomingCall.callId });
+      cleanup();
+    } catch {
+      cleanup();
+      setCallError("Kay call was not rejected on the server.");
+    }
   }, [cleanup, incomingCall, send]);
 
-  const end = useCallback(() => {
-    if (incomingCall) send({ type: "call_end", callId: incomingCall.callId });
-    cleanup();
+  const end = useCallback(async () => {
+    try {
+      if (incomingCall?.direct) {
+        const response = await fetch(`/api/admin/kay/internal-calls/${incomingCall.callId}/end`, { method: "POST", credentials: "include" });
+        if (!response.ok) throw new Error("Unable to end Kay call.");
+      } else if (incomingCall) send({ type: "call_end", callId: incomingCall.callId });
+      cleanup();
+    } catch {
+      cleanup();
+      setCallError("Kay call was not ended on the server.");
+    }
   }, [cleanup, incomingCall, send]);
 
   const toggleMute = useCallback(() => {
@@ -460,8 +543,43 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
           setStatus("error");
           return;
         }
-        if (!message?.callId && message?.type !== "incoming_call") return;
-        if (message.type === "incoming_call") {
+        if (message?.type === "KAY_CALL_ENDED") {
+          if (Number(message.call_session_id) === incomingCallRef.current?.callId) cleanup();
+          return;
+        }
+        if (!message?.callId && message?.type !== "incoming_call" && message?.type !== "KAY_CALL_INCOMING") return;
+        if (message.type === "KAY_CALL_INCOMING") {
+          const callId = Number(message.call_session_id);
+          if (Number.isInteger(callId) && callId > 0 && !incomingCallRef.current) {
+            const directCall: KayIncomingCall = {
+              callId, caller: "KAY", targetUserId: user?.id || 1, targetName: "Kay",
+              reasonCode: safeBriefing(String(message.reason_code || "")),
+              title: safeBriefing(String(message.display_title || "Kay is calling")),
+              direct: true, expiry: String(message.expiry || ""),
+            };
+            incomingCallRef.current = directCall;
+            setIncomingCall(directCall);
+            setOfferReady(true);
+            setStatus("incoming");
+            const expiresAt = Date.parse(directCall.expiry || "");
+            if (Number.isFinite(expiresAt)) {
+              const expire = () => {
+                if (incomingCallRef.current?.callId !== callId) return;
+                void fetch(`/api/admin/kay/internal-calls/${callId}/end`, { method: "POST", credentials: "include" })
+                  .then((response) => {
+                    if (!response.ok) throw new Error("expiry persistence failed");
+                    cleanup();
+                  })
+                  .catch(() => {
+                    cleanup();
+                    setCallError("Kay call expired; server cleanup is pending.");
+                  });
+              };
+              if (expiresAt <= Date.now()) expire();
+              else directExpiryTimerRef.current = window.setTimeout(expire, expiresAt - Date.now());
+            }
+          }
+        } else if (message.type === "incoming_call") {
           if (Number(message.targetUserId) !== user?.id || message.caller !== "KAY") return;
           const incomingCallId = Number(message.callId);
           if (!Number.isInteger(incomingCallId) || incomingCallId < 1) return;
@@ -532,10 +650,11 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   return (
     <KayCallContext.Provider value={value}>
       {children}
+      {callError && <div className="fixed bottom-4 left-4 z-[110] rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 shadow" role="alert">{callError}</div>}
       <audio ref={audioRef} autoPlay aria-hidden="true" />
-      {status === "incoming" && incomingCall && <IncomingKayCall call={incomingCall} canAnswer={offerReady} onAnswer={answer} onReject={reject} />}
+      {status === "incoming" && incomingCall && <IncomingKayCall call={incomingCall} canAnswer={offerReady || incomingCall.direct === true} onAnswer={answer} onReject={reject} />}
       {(status === "connecting" || status === "connected" || status === "error") && (
-        <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} onMute={toggleMute} onEnd={end} />
+        <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} micLevel={micLevel} onMute={toggleMute} onEnd={end} />
       )}
     </KayCallContext.Provider>
   );

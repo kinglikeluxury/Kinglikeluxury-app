@@ -128,3 +128,26 @@ test("after-hours Tarek test override is narrow, expiring, and single-use", () =
   assert.match(service, /KAY_AFTER_HOURS_TAREK_TEST_OVERRIDE_INACTIVE/);
   assert.match(service, /disableAfterHoursTarekTestRuntime/);
 });
+
+test("direct Kay caller has no caller socket and exposes target lifecycle", () => {
+  assert.match(service, /\/api\/admin\/kay\/internal-calls\/start/);
+  assert.match(service, /target_user_id/);
+  assert.match(service, /reason_code/);
+  assert.match(service, /test_mode/);
+  assert.match(service, /KAY_DIRECT_CALL_TARGET_MUST_BE_TAREK/);
+  assert.match(service, /type: "KAY_CALL_INCOMING"/);
+  assert.match(service, /call_session_id/);
+  assert.match(service, /display_title/);
+  assert.match(service, /for \(const \[action, nextStatus, allowed\]/);
+  assert.match(service, /action !== "answer"/);
+  assert.match(service, /nextStatus, \[\.\.\.allowed\]/);
+  assert.match(service, /KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED/);
+  assert.match(service, /KAY_INTERNAL_CALL_RESERVED_IDEMPOTENCY_KEY/);
+  assert.match(service, /\/\^DIRECT_\/i/);
+  assert.match(service, /KAY_DIRECT_CALL_TEST_MODE_REASON_MISMATCH/);
+  assert.match(service, /status IN \('RINGING','ACTIVE'\)/);
+  assert.match(service, /KAY_DIRECT_CALL_EXPIRED/);
+  assert.match(service, /getLatestRingingCall\(userId\)/);
+  assert.match(service, /if \(isDirectCall\(call\)\)/);
+  assert.match(service, /type: "incoming_call"/);
+});
