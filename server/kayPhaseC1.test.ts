@@ -7,6 +7,7 @@ const service = readFileSync(new URL("./kayMissionService.ts", import.meta.url),
 const routes = readFileSync(new URL("./routes.ts", import.meta.url), "utf8");
 const index = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const scopeFence = readFileSync(new URL("./kayMissionScopeFenceSql.ts", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../shared/schema.ts", import.meta.url), "utf8");
 const client = readFileSync(new URL("../client/src/pages/admin/kay-my-sales.tsx", import.meta.url), "utf8");
 
@@ -29,6 +30,11 @@ test("C1 scheduler start is delayed", () => assert.match(service, /setTimeout\(r
 test("C1 scheduler uses configured cadence", () => assert.match(service, /mission_generation_interval_minutes \* 60_000/));
 test("C1 automatic cycles have a bounded batch", () => assert.match(service, /generateKayMissions\(200, "automatic"\)/));
 test("C1 generator keeps expiring singleton lease", () => assert.match(service, /locked_until/));
+test("C1 lease JSON parameters have deterministic PostgreSQL types", () => {
+  assert.match(service, /'token',\$\{token\}::text/);
+  assert.match(service, /'locked_until',\$\{lockedUntil\}::timestamptz/);
+  assert.match(service, /'released_at',\$\{new Date\(\)\.toISOString\(\)\}::timestamptz/);
+});
 test("C1 lease is released safely", () => assert.match(service, /finally \{[\s\S]*releaseKayMissionGeneratorLease/));
 test("C1 lease safely validates malformed timestamps before cast", () => { assert.match(service, /CASE[\s\S]*locked_until[\s\S]*~[\s\S]*timestamptz[\s\S]*ELSE to_timestamp\(0\)/); });
 test("C1 circuit opens after repeated failures", () => assert.match(service, /failures >= 3/));
@@ -44,6 +50,19 @@ test("C1 health reads scheduler gate", () => assert.match(service, /ENABLE_BACKG
 test("C1 only high critical enter notification query", () => assert.match(service, /priority IN \('CRITICAL','HIGH'\)/));
 test("C1 notifications claim version before marker and in-app insert", () => assert.match(service, /const claimed = await tx\.update[\s\S]*if \(!claimed\[0\]\)[\s\S]*tx\.insert\(kayEvents\)[\s\S]*tx\.insert\(userNotifications\)/));
 test("C1 notification version is persisted", () => assert.match(schema, /notificationVersion/));
+test("C1 operational mission paths share fail-closed assignment scope", () => {
+  assert.match(service, /getKayMissionScope/);
+  assert.match(service, /candidateScope\.outcome !== "IN_KAY_SCOPE"/);
+  assert.match(service, /holdsKayMissionScopeFence/);
+  assert.match(service, /scope === "IN_KAY_SCOPE"/);
+});
+test("C1 generation, notification, and transition hold the database scope fence", () => {
+  assert.match(service, /holdsKayMissionScopeFence/);
+  assert.equal((service.match(/await holdsKayMissionScopeFence\(tx/g) || []).length, 3);
+  assert.match(scopeFence, /kay_lock_mission_scope[\s\S]*FOR SHARE[\s\S]*assigned_to IS DISTINCT FROM p_employee_id/);
+  assert.match(scopeFence, /REVOKE ALL ON FUNCTION public\.kay_lock_mission_scope[\s\S]*GRANT EXECUTE[\s\S]*kay_internal_writer/);
+  assert.match(db, /client\.query\(KAY_MISSION_SCOPE_FENCE_SQL\)/);
+});
 test("C1 notification deep link targets mission workspace", () => assert.match(service, /deepLink: `\/admin\/kay\/my-sales\?mission=/));
 test("C1 repeated notification dedupe tracks sent level", () => assert.match(service, /notification_level IS DISTINCT FROM m\.priority/));
 test("C1 quiet hours defer instead of deleting missions", () => { assert.match(service, /isKayQuietHours/); assert.doesNotMatch(service, /DELETE FROM kay_missions/); });

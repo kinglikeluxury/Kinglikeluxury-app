@@ -32,6 +32,8 @@ export type KayLeadForScope = {
   owner?: { username?: string | null; role?: string | null; isActive?: boolean | null; isAdmin?: boolean | null } | null;
 };
 
+export type KayMissionScopeOutcome = KayScopeOutcome | "WRONG_EMPLOYEE" | "UNKNOWN_IDENTITY";
+
 const ISO_WITH_TBILISI_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?\+04:00$/;
 const TRUSTED_DIRECT_SOURCES = new Set(["meta", "website", "whatsapp", "manual", "phone", "referral"]);
 const IMPORT_LIKE = /(?:^|[_\-\s])(excel|csv|import|migration|admin|legacy|backfill|seed|system)(?:$|[_\-\s])/i;
@@ -96,6 +98,17 @@ export function classifyKayLead(lead: KayLeadForScope, config: KayScopeConfig | 
   return received >= config.cutoffAt ? "IN_KAY_SCOPE" : "OUT_OF_SCOPE_LEGACY";
 }
 
+export function classifyKayMissionAssignment(
+  lead: KayLeadForScope | null,
+  config: KayScopeConfig | null,
+  missionEmployeeId: number | null,
+  currentAssignedTo: number | null,
+): KayMissionScopeOutcome {
+  if (!lead || !Number.isInteger(missionEmployeeId) || !Number.isInteger(currentAssignedTo)) return "UNKNOWN_IDENTITY";
+  if (missionEmployeeId !== currentAssignedTo) return "WRONG_EMPLOYEE";
+  return classifyKayLead(lead, config);
+}
+
 export type KayScopeExecutor = { query: (sql: string, values?: unknown[]) => Promise<any> };
 
 async function readKayScopeConfig(executor: KayScopeExecutor): Promise<KayScopeConfig | null> {
@@ -148,8 +161,10 @@ export async function getKayOperationalScopeAdminView(executor?: KayScopeExecuto
 }
 
 /** Lead scope always reads through the dedicated SELECT-only analysis role. */
-export async function getKayScopeForLead(leadId: number): Promise<{ outcome: KayScopeOutcome; config: KayScopeConfig | null }> {
-  return withKayReadonlyAnalysis(async executor => {
+export async function getKayScopeForLead(leadId: number): Promise<{ outcome: KayScopeOutcome; config: KayScopeConfig | null }>;
+export async function getKayScopeForLead(leadId: number, executor: KayScopeExecutor): Promise<{ outcome: KayScopeOutcome; config: KayScopeConfig | null }>;
+export async function getKayScopeForLead(leadId: number, executor?: KayScopeExecutor): Promise<{ outcome: KayScopeOutcome; config: KayScopeConfig | null }> {
+  const read = async (executor: KayScopeExecutor): Promise<{ outcome: KayScopeOutcome; config: KayScopeConfig | null }> => {
   const configuration = await readKayScopeConfiguration(executor);
   const config = configuration.config;
   const result = await executor.query(`SELECT l.created_at,l.business_received_at,l.business_received_at_source,l.lead_source,
@@ -166,7 +181,35 @@ export async function getKayScopeForLead(leadId: number): Promise<{ outcome: Kay
       owner: { username: row.username, role: row.role, isActive: row.is_active, isAdmin: row.is_admin },
     }, config),
   };
-  });
+  };
+  return executor ? read(executor) : withKayReadonlyAnalysis(read);
+}
+
+export async function getKayMissionScope(
+  leadId: number,
+  employeeId: number | null,
+  executor?: KayScopeExecutor,
+): Promise<{ outcome: KayMissionScopeOutcome; config: KayScopeConfig | null }> {
+  const read = async (client: KayScopeExecutor) => {
+    const configuration = await readKayScopeConfiguration(client);
+    const result = await client.query(`SELECT l.created_at,l.business_received_at,l.business_received_at_source,l.lead_source,l.assigned_to,
+        u.username,u.role,u.is_active,u.is_admin
+      FROM crm_leads l LEFT JOIN users u ON u.id=l.assigned_to WHERE l.id=$1`, [leadId]);
+    const row = result.rows[0];
+    return {
+      config: configuration.config,
+      outcome: classifyKayMissionAssignment(row ? {
+        createdAt: row.created_at,
+        businessReceivedAt: row.business_received_at,
+        businessReceivedAtSource: row.business_received_at_source,
+        leadSource: row.lead_source,
+        owner: row.username == null ? null : {
+          username: row.username, role: row.role, isActive: row.is_active, isAdmin: row.is_admin,
+        },
+      } : null, configuration.config, employeeId, row?.assigned_to ?? null),
+    };
+  };
+  return executor ? read(executor) : withKayReadonlyAnalysis(read);
 }
 
 /** SQL fragments used by every Kay lead query. Never replace this with NOW()-90 days. */

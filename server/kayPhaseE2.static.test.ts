@@ -66,3 +66,11 @@ test("E.2 static safety contract covers the non-runtime portions of the 62-item 
   assert.match(schema,/fencingToken/,"queue schema persists fencing token");
   assert.match(routes,/aggregateOnly: true/,"dry-run returns aggregates only");
 });
+
+test("E.2 warning mission revalidates current owner and shared scope under lock", () => {
+  const warning = auto.slice(auto.indexOf("async function ensureWarningArtifacts"), auto.indexOf("async function evaluateIntoQueue"));
+  assert.match(warning, /JOIN crm_leads l ON l\.id=q\.lead_id[\s\S]*FOR UPDATE OF q,l/);
+  assert.match(warning, /getKayScopeForLead\(leadId, client\)/);
+  assert.match(warning, /scope\.outcome !== "IN_KAY_SCOPE"[\s\S]*item\.assigned_to[\s\S]*ownerId/);
+  assert.ok(warning.indexOf("getKayScopeForLead(leadId, client)") < warning.indexOf("INSERT INTO kay_missions"));
+});

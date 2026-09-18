@@ -2,6 +2,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
+import { KAY_MISSION_SCOPE_FENCE_SQL } from "./kayMissionScopeFenceSql";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -585,6 +586,7 @@ export async function ensureKayTables(): Promise<void> {
             (value - 'voice_profile_map' - 'voice_toggles' - 'personality' - 'tone' - 'address_style' - 'preferred_language' - 'language' - 'voice_name' - 'voice_rate' - 'rate' - 'voice_pitch' - 'pitch' - 'escalation_style' - 'max_brief_words' - 'employee_overrides' - 'employeeOverrides')
           WHERE key='phase_d_workflow';
     `);
+    await client.query(KAY_MISSION_SCOPE_FENCE_SQL);
     console.log("[DB] Kay Phase A tables ensured");
   } catch (err: any) {
     console.warn("[DB] Could not create Kay Phase A tables:", err.message);

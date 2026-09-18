@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   KAY_OPERATIONAL_LAUNCH_AT, buildKayScopeConfig, classifyKayLead,
-  kayCalendarMonthsBefore,
+  classifyKayMissionAssignment, kayCalendarMonthsBefore,
 } from "./kayLeadScopeService";
 
 const config = buildKayScopeConfig(KAY_OPERATIONAL_LAUNCH_AT)!;
@@ -61,6 +61,30 @@ test("inactive, admin, and non-sales owners are excluded", () => {
   for (const owner of [
     { ...sales, isActive: false }, { ...sales, isAdmin: true }, { ...sales, role: "admin" },
   ]) assert.equal(classifyKayLead(lead("2026-08-01T00:00:00Z", owner), config), "EXCLUDED_OWNER");
+});
+test("mission assignment scope allows only a proven eligible current employee", () => {
+  const current = lead("2026-08-01T00:00:00Z");
+  assert.equal(classifyKayMissionAssignment(current, config, 17, 17), "IN_KAY_SCOPE");
+  assert.equal(classifyKayMissionAssignment(current, config, 17, 18), "WRONG_EMPLOYEE");
+  assert.equal(classifyKayMissionAssignment(null, config, 17, 17), "UNKNOWN_IDENTITY");
+  assert.equal(classifyKayMissionAssignment(current, config, null, 17), "UNKNOWN_IDENTITY");
+  assert.equal(classifyKayMissionAssignment(lead("2026-05-01T00:00:00Z"), config, 17, 17), "OUT_OF_SCOPE_LEGACY");
+  assert.equal(classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z", sales, { leadSource: "excel_import" }), config, 17, 17), "LEGACY_DATE_UNCERTAIN");
+  assert.equal(classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z", { ...sales, username: "kinglike_admin" }), config, 17, 17), "EXCLUDED_OWNER");
+  assert.equal(classifyKayMissionAssignment(current, null, 17, 17), "CONFIGURATION_MISSING");
+});
+test("full mission-scope policy audit reports zero decision violations", () => {
+  const cases = [
+    { actual: classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z"), config, 17, 17), expected: "IN_KAY_SCOPE" },
+    { actual: classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z"), config, 17, 18), expected: "WRONG_EMPLOYEE" },
+    { actual: classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z", { ...sales, username: "kinglike_admin" }), config, 17, 17), expected: "EXCLUDED_OWNER" },
+    { actual: classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z", sales, { leadSource: "excel_import" }), config, 17, 17), expected: "LEGACY_DATE_UNCERTAIN" },
+    { actual: classifyKayMissionAssignment(lead("2026-05-01T00:00:00Z"), config, 17, 17), expected: "OUT_OF_SCOPE_LEGACY" },
+    { actual: classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z", { ...sales, role: "viewer" }), config, 17, 17), expected: "EXCLUDED_OWNER" },
+    { actual: classifyKayMissionAssignment(null, config, 17, 17), expected: "UNKNOWN_IDENTITY" },
+    { actual: classifyKayMissionAssignment(lead("2026-08-01T00:00:00Z"), null, 17, 17), expected: "CONFIGURATION_MISSING" },
+  ];
+  assert.equal(cases.filter(item => item.actual !== item.expected).length, 0);
 });
 test("admin mutation is explicitly confirmed and protected by Kay admin middleware", () => {
   const routes = readFileSync(new URL("./routes.ts", import.meta.url), "utf8");

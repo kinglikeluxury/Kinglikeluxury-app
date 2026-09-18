@@ -219,8 +219,15 @@ async function ensureWarningArtifacts(itemId: number, leadId: number, ownerId: n
   const client=await pool.connect();
   try {
     await client.query("BEGIN");
-    const item:any=(await client.query(`SELECT id,status,warning_mission_id FROM kay_auto_rescue_queue WHERE id=$1 FOR UPDATE`,[itemId])).rows[0];
+    const item:any=(await client.query(`SELECT q.id,q.status,q.warning_mission_id,l.assigned_to
+      FROM kay_auto_rescue_queue q JOIN crm_leads l ON l.id=q.lead_id
+      WHERE q.id=$1 AND q.lead_id=$2 FOR UPDATE OF q,l`,[itemId,leadId])).rows[0];
     if (!item || !["PENDING","WARNING"].includes(item.status)) { await client.query("COMMIT"); return; }
+    const scope = await getKayScopeForLead(leadId, client);
+    if (scope.outcome !== "IN_KAY_SCOPE" || Number(item.assigned_to) !== Number(ownerId)) {
+      await client.query("COMMIT");
+      return;
+    }
     const mission=await client.query(`INSERT INTO kay_missions
       (lead_id,employee_id,mission_type,priority,priority_score,reason_code,reason_details,objective,suggested_action,idempotency_key)
       VALUES($1,$2,'RESCUE_RISK','HIGH',50,'FINAL_RESCUE_WARNING',$4::jsonb,'Final Rescue warning.',

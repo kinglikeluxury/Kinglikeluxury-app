@@ -1,11 +1,17 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { ensureKayTables, pool } from "./db";
+import { pool } from "./db";
 import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 assertSafeKayMutationTestDatabase("kayPhaseC1.integration");
 import { acquireKayMissionGeneratorLease, defaultPhaseCSettings, deliverPendingKayMissionNotifications, releaseKayMissionGeneratorLease, renewKayMissionGeneratorLease } from "./kayMissionService";
 
-before(async () => { await ensureKayTables(); });
+before(async () => {
+  await pool.query(`CREATE TABLE IF NOT EXISTS kay_runtime_state (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+});
 after(async () => { await pool.end(); });
 
 test("C1 database persists notification state needed for atomic severity-version dedupe", async () => {
@@ -17,19 +23,28 @@ test("C1 database persists notification state needed for atomic severity-version
 });
 
 test("C1 lease is singleton, token guarded, expires, and malformed values recover", async () => {
-  await pool.query(`INSERT INTO kay_settings(key,value) VALUES ('phase_c_generator_lease','{"locked_until":"malformed"}')
-    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`);
-  const [a,b] = await Promise.all([acquireKayMissionGeneratorLease(), acquireKayMissionGeneratorLease()]);
-  assert.equal([a,b].filter(Boolean).length, 1);
-  const token = (a || b)!;
-  assert.equal(await renewKayMissionGeneratorLease("wrong-token"), false);
-  assert.equal(await releaseKayMissionGeneratorLease("wrong-token"), false);
-  assert.equal(await renewKayMissionGeneratorLease(token), true);
-  assert.equal(await releaseKayMissionGeneratorLease(token), true);
-  await pool.query(`UPDATE kay_settings SET value='{"token":"crashed","locked_until":"2000-01-01T00:00:00.000Z"}' WHERE key='phase_c_generator_lease'`);
-  const recovered = await acquireKayMissionGeneratorLease();
-  assert.ok(recovered);
-  assert.equal(await releaseKayMissionGeneratorLease(recovered!), true);
+  try {
+    await pool.query(`DELETE FROM kay_runtime_state WHERE key='phase_c_generator_lease'`);
+    const fresh = await acquireKayMissionGeneratorLease();
+    assert.ok(fresh);
+    assert.equal(await acquireKayMissionGeneratorLease(), null);
+    assert.equal(await releaseKayMissionGeneratorLease(fresh!), true);
+    await pool.query(`INSERT INTO kay_runtime_state(key,value) VALUES ('phase_c_generator_lease','{"locked_until":"malformed"}')
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`);
+    const [a,b] = await Promise.all([acquireKayMissionGeneratorLease(), acquireKayMissionGeneratorLease()]);
+    assert.equal([a,b].filter(Boolean).length, 1);
+    const token = (a || b)!;
+    assert.equal(await renewKayMissionGeneratorLease("wrong-token"), false);
+    assert.equal(await releaseKayMissionGeneratorLease("wrong-token"), false);
+    assert.equal(await renewKayMissionGeneratorLease(token), true);
+    assert.equal(await releaseKayMissionGeneratorLease(token), true);
+    await pool.query(`UPDATE kay_runtime_state SET value='{"token":"crashed","locked_until":"2000-01-01T00:00:00.000Z"}' WHERE key='phase_c_generator_lease'`);
+    const recovered = await acquireKayMissionGeneratorLease();
+    assert.ok(recovered);
+    assert.equal(await releaseKayMissionGeneratorLease(recovered!), true);
+  } finally {
+    await pool.query(`DELETE FROM kay_runtime_state WHERE key='phase_c_generator_lease'`);
+  }
 });
 
 test("C1 concurrent notification delivery is exactly once and severity escalation creates one version", async () => {

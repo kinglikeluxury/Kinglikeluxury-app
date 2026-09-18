@@ -16,6 +16,7 @@ test("internal persistence verifies its boundary", () => {
   assert.match(source, /current_database\(\)\s*=\s*'neondb'/);
   assert.match(source, /crm_(?:select|insert|update|delete|truncate)_denied/);
   assert.match(source, /create_denied/);
+  assert.match(source, /mission_scope_fence/);
 });
 
 test("unknown and execution-linked objects fail closed", () => {

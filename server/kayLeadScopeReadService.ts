@@ -1,25 +1,15 @@
-import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
-export const KAY_OPERATIONAL_LAUNCH_AT="2026-09-09T00:00:00+04:00";
-export const KAY_OPERATIONAL_TIMEZONE="Asia/Tbilisi";
-export const KAY_OPERATIONAL_SETTING_KEY="kay_operational_launch_at";
-export type KayScopeConfig={launchAt:Date;launchAtIso:string;cutoffAt:Date;cutoffAtIso:string;timezone:typeof KAY_OPERATIONAL_TIMEZONE};
-const build=(v:any):KayScopeConfig|null=>{if(typeof v!=="string")return null;const d=new Date(v);if(isNaN(d.getTime()))return null;const c=new Date(d);c.setUTCMonth(c.getUTCMonth()-3);return{launchAt:d,launchAtIso:d.toISOString(),cutoffAt:c,cutoffAtIso:c.toISOString(),timezone:KAY_OPERATIONAL_TIMEZONE};};
-export function classifyKayLead(r:any,c:KayScopeConfig|null){if(!c)return"CONFIGURATION_MISSING";const o=r.owner;if(!o||o.isActive===false||o.isAdmin===true||o.role!=="sub_agent")return"EXCLUDED_OWNER";const d=new Date(r.businessReceivedAt||r.createdAt);return isNaN(d.getTime())?"LEGACY_DATE_UNCERTAIN":d>=c.cutoffAt?"IN_KAY_SCOPE":"OUT_OF_SCOPE_LEGACY";}
-type Queryable = { query: (sql: string, values?: any[]) => Promise<any> };
-async function cfg(c: Queryable){const r=await c.query(`SELECT value FROM kay_settings WHERE key=$1`,[KAY_OPERATIONAL_SETTING_KEY]);return build(r.rows[0]?.value);}
-export async function getKayScopeConfiguration(client?: Queryable): Promise<{status:"OK";config:KayScopeConfig}|{status:"CONFIGURATION_MISSING";config:null}>{
-  if (client) { const config=await cfg(client); return config?{status:"OK" as const,config}:{status:"CONFIGURATION_MISSING" as const,config:null}; }
-  return withKayReadonlyAnalysis(async c=>getKayScopeConfiguration(c));
-}
-export async function getKayScopeForLead(id:number, client?: Queryable){
-  const read = async (c: Queryable) => { const config=await cfg(c);const r=await c.query(`SELECT l.created_at,l.business_received_at,u.username,u.role,u.is_active,u.is_admin FROM crm_leads l LEFT JOIN users u ON u.id=l.assigned_to WHERE l.id=$1`,[id]);if(!r.rows[0])return{outcome:"LEGACY_DATE_UNCERTAIN" as const,config};const x=r.rows[0];return{outcome:classifyKayLead({createdAt:x.created_at,businessReceivedAt:x.business_received_at,owner:{username:x.username,role:x.role,isActive:x.is_active,isAdmin:x.is_admin}},config),config}; };
-  return client ? read(client) : withKayReadonlyAnalysis(read);
-}
-export function kayScopeSql(leadAlias = "l", ownerAlias = "u", parameter = "$1") {
-  const authoritativeDate = `COALESCE(${leadAlias}.business_received_at,${leadAlias}.created_at)`;
-  const ownerEligible = `(${ownerAlias}.id IS NOT NULL AND ${ownerAlias}.is_active=true AND ${ownerAlias}.is_admin=false AND ${ownerAlias}.role='sub_agent')`;
-  const inScope = `(${authoritativeDate} >= ${parameter}::timestamptz)`;
-  const outcomeCase = `(CASE WHEN NOT ${ownerEligible} THEN 'EXCLUDED_OWNER' WHEN ${authoritativeDate} IS NULL THEN 'LEGACY_DATE_UNCERTAIN' WHEN ${inScope} THEN 'IN_KAY_SCOPE' ELSE 'OUT_OF_SCOPE_LEGACY' END)`;
-  return { authoritativeDate, ownerEligible, inScope, outcomeCase };
-}
-export async function getKayOperationalScopeAdminView(){return withKayReadonlyAnalysis(async c=>{const config=await cfg(c);const audit=await c.query(`SELECT * FROM kay_operational_launch_audit ORDER BY created_at DESC LIMIT 100`);return{status:config?"OK":"CONFIGURATION_MISSING",config,audit:audit.rows};});}
+// The mission service keeps this import boundary so loading its pure helpers
+// does not initialize the CRM pool. All policy decisions remain canonical.
+export {
+  KAY_OPERATIONAL_LAUNCH_AT,
+  KAY_OPERATIONAL_SETTING_KEY,
+  KAY_OPERATIONAL_TIMEZONE,
+  classifyKayLead,
+  classifyKayMissionAssignment,
+  getKayMissionScope,
+  getKayOperationalScopeAdminView,
+  getKayScopeConfiguration,
+  getKayScopeForLead,
+  kayScopeSql,
+} from "./kayLeadScopeService";
+export type { KayMissionScopeOutcome, KayScopeConfig, KayScopeOutcome } from "./kayLeadScopeService";

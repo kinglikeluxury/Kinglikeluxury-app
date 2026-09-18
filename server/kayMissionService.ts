@@ -4,7 +4,7 @@ import { kayEvents, kayMissions, kaySettings, userNotifications } from "@shared/
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { getKayStatusIntelligence } from "./kayStatusClassification";
 import { sanitizeKayJson } from "./kayService";
-import { getKayScopeConfiguration, getKayScopeForLead } from "./kayLeadScopeReadService";
+import { getKayMissionScope, getKayScopeConfiguration } from "./kayLeadScopeReadService";
 import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
@@ -102,28 +102,50 @@ async function persistGeneratorHealth(patch: Record<string, unknown>) {
 type Candidate = { lead_id: number; employee_id: number; status: string; name: string | null; protected: boolean; due_date: string | null; due_time: string | null; task_id: number | null; entered_at: Date | null; decision_id: number | null; decision_type: string | null; decision_payload: any };
 const activeStatuses = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 
+async function holdsKayMissionScopeFence(tx: any, leadId: number, employeeId: number): Promise<boolean> {
+  const result = await tx.execute(sql`SELECT public.kay_lock_mission_scope(${leadId}::integer,${employeeId}::integer) AS allowed`);
+  return result.rows[0]?.allowed === true;
+}
+
 export async function acquireKayMissionGeneratorLease(): Promise<string | null> {
   await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
   const token = `${process.pid}:${Date.now()}:${Math.random()}`;
+  const lockedUntil = new Date(Date.now() + 15 * 60_000).toISOString();
   const lease = await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
-    VALUES('phase_c_generator_lease',jsonb_build_object('released',true),NOW())
-    ON CONFLICT(key) DO UPDATE SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 15 * 60_000).toISOString()}),updated_at=NOW()
-      WHERE COALESCE((kay_runtime_state.value->>'locked_until')::timestamptz,to_timestamp(0)) < NOW()
+    VALUES('phase_c_generator_lease',jsonb_build_object(
+      'token',${token}::text,
+      'locked_until',${lockedUntil}::timestamptz
+    ),NOW())
+    ON CONFLICT(key) DO UPDATE SET value=jsonb_build_object(
+        'token',${token}::text,
+        'locked_until',${lockedUntil}::timestamptz
+      ),updated_at=NOW()
+      WHERE CASE
+        WHEN kay_runtime_state.value->>'locked_until' ~ '^\\d{4}-\\d{2}-\\d{2}T'
+          THEN (kay_runtime_state.value->>'locked_until')::timestamptz
+        ELSE to_timestamp(0)
+      END < NOW()
     RETURNING key`);
   return lease.rows[0] ? token : null;
 }
 
 export async function renewKayMissionGeneratorLease(token: string): Promise<boolean> {
   await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
-  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 15 * 60_000).toISOString()}),updated_at=NOW()
-    WHERE key='phase_c_generator_lease' AND value->>'token'=${token} RETURNING key`);
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object(
+      'token',${token}::text,
+      'locked_until',${new Date(Date.now() + 15 * 60_000).toISOString()}::timestamptz
+    ),updated_at=NOW()
+    WHERE key='phase_c_generator_lease' AND value->>'token'=${token}::text RETURNING key`);
   return rows.rows.length === 1;
 }
 
 export async function releaseKayMissionGeneratorLease(token: string): Promise<boolean> {
   await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
-  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('released',true,'released_at',${new Date().toISOString()}),updated_at=NOW()
-    WHERE key='phase_c_generator_lease' AND value->>'token'=${token} RETURNING key`);
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object(
+      'released',true,
+      'released_at',${new Date().toISOString()}::timestamptz
+    ),updated_at=NOW()
+    WHERE key='phase_c_generator_lease' AND value->>'token'=${token}::text RETURNING key`);
   return rows.rows.length === 1;
 }
 
@@ -134,9 +156,8 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
   const effectiveSettings = settings ?? await getPhaseCSettings();
   if (!effectiveSettings.mission_notifications_enabled) return 0;
   const pending = await db.execute(sql`
-    SELECT m.id, m.idempotency_key, m.lead_id, m.employee_id, m.priority, m.notification_version,
-      COALESCE(NULLIF(split_part(COALESCE(l.first_name,l.full_name,''), ' ', 1),''), 'Lead #' || m.lead_id::text) AS safe_name
-    FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id
+    SELECT m.id, m.idempotency_key, m.lead_id, m.employee_id, m.priority, m.notification_version
+    FROM kay_missions m
     WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS')
       AND m.priority IN ('CRITICAL','HIGH')
       AND m.employee_id IS NOT NULL
@@ -146,6 +167,8 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
   let delivered = 0;
   for (const mission of pending.rows as any[]) {
     try {
+      const candidateScope = await getKayMissionScope(Number(mission.lead_id), Number(mission.employee_id));
+      if (candidateScope.outcome !== "IN_KAY_SCOPE") continue;
       const didDeliver = await db.transaction(async tx => {
         await tx.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
           VALUES(${`phase_c_availability:${mission.employee_id}`},'{"availability":"AVAILABLE"}'::jsonb,NOW())
@@ -153,17 +176,18 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
         // Lock and re-read every policy input. The initial bounded query is
         // merely a candidate list and is never trusted for delivery.
         const locked = await tx.execute(sql`SELECT m.*,
-          COALESCE(NULLIF(split_part(COALESCE(l.first_name,l.full_name,''), ' ', 1),''), 'Lead #' || m.lead_id::text) AS safe_name,
+          'Lead #' || m.lead_id::text AS safe_name,
           COALESCE(a.value->>'availability','AVAILABLE') AS availability
-          FROM kay_missions m JOIN crm_leads l ON l.id=m.lead_id JOIN users u ON u.id=m.employee_id
+          FROM kay_missions m
           JOIN kay_runtime_state a ON a.key='phase_c_availability:' || m.employee_id::text
-          WHERE m.id=${mission.id} AND l.assigned_to=m.employee_id AND u.role='sub_agent'
-          FOR UPDATE OF m,l,u,a`);
+          WHERE m.id=${mission.id}
+          FOR UPDATE OF m,a`);
         const current: any = locked.rows[0];
-         assertKayProductionEntry(current);
+        assertKayProductionEntry(current);
         if (!current || !["NEW","ACCEPTED","IN_PROGRESS"].includes(current.status) ||
             !["HIGH","CRITICAL"].includes(current.priority) ||
             (current.notification_sent_at && current.notification_level === current.priority)) return false;
+        if (!await holdsKayMissionScopeFence(tx, Number(current.lead_id), Number(current.employee_id))) return false;
         const quiet = isKayQuietHours(effectiveSettings, new Date());
         const unavailable = current.availability !== "AVAILABLE";
         if (quiet || unavailable) {
@@ -252,7 +276,7 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
     }
     await persistGeneratorHealth({ last_attempt: new Date().toISOString(), lease_state: "owned", lease_owner: leaseToken.split(":")[0], run_type: runType, ...(runType === "manual" ? { manual_actor_id: actorId } : {}) });
     const settings = await getPhaseCSettings();
-    const rows = await db.execute(sql`
+    const rows = await withKayReadonlyAnalysis(client => client.query(`
     SELECT l.id lead_id, l.assigned_to employee_id, l.status, COALESCE(l.full_name, l.first_name, 'Lead') name,
       p.id IS NOT NULL protected, t.id task_id, t.due_date, t.due_time, h.entered_at,
       d.id decision_id, d.decision_type, d.payload decision_payload
@@ -261,11 +285,11 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
     LEFT JOIN LATERAL (SELECT id,due_date,due_time FROM crm_tasks WHERE lead_id=l.id AND completed_at IS NULL ORDER BY created_at DESC,id DESC LIMIT 1) t ON true
     LEFT JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
     LEFT JOIN LATERAL (SELECT id,decision_type,payload FROM kay_decisions WHERE lead_id=l.id AND payload->>'state'='ACTIVE' ORDER BY created_at DESC,id DESC LIMIT 1) d ON true
-    ORDER BY l.id ASC LIMIT ${Math.min(Math.max(limit, 1), 500)}`);
+    ORDER BY l.id ASC LIMIT $1`, [Math.min(Math.max(limit, 1), 500)]));
   let created = 0; let reconciled = 0; const current = new Map<number, string[]>(); const now = new Date();
   for (const row of rows.rows as unknown as Candidate[]) {
     assertKayProductionEntry(row);
-    const scope = await getKayScopeForLead(Number(row.lead_id));
+    const scope = await getKayMissionScope(Number(row.lead_id), Number(row.employee_id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     const info = getKayStatusIntelligence(row.status);
     if (info.terminal || info.classification === "NON_SALES" || info.classification === "UNKNOWN_REVIEW") continue;
@@ -291,6 +315,7 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
       const key = `phase-c:${row.lead_id}:${row.employee_id}:${spec.type}:${window}`;
       current.set(row.lead_id, [...(current.get(row.lead_id) ?? []), key]);
       const inserted = await db.transaction(async tx => {
+        if (!await holdsKayMissionScopeFence(tx, Number(row.lead_id), Number(row.employee_id))) return null;
         const mission = await tx.insert(kayMissions).values({ leadId: row.lead_id, employeeId: row.employee_id, missionType: spec.type, priority: priority.priority, priorityScore: priority.score, priorityFormulaVersion: priority.version, reasonCode: spec.type, reasonDetails: sanitizeKayJson({ explanation: spec.reason, factors: priority.factors, task_classification: spec.type === "FOLLOW_UP_DUE" ? "NEEDS_REVIEW" : undefined, shadow: true }), objective: "Support the next appropriate employee action while keeping CRM status unchanged.", suggestedAction: "Open the existing CRM lead and use the established workflow.", dueAt: spec.dueAt ?? null, sourceDecisionId: row.decision_id, idempotencyKey: key }).onConflictDoNothing().returning({ id: kayMissions.id });
          if (!mission[0]) {
            // The same mission can gain stronger signals while remaining the
@@ -321,19 +346,28 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
     });
     reconciled += changed.length;
   }
+  const staleCandidates = await withKayReadonlyAnalysis(client => client.query(`SELECT m.id,m.lead_id,m.employee_id,l.status
+    FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id
+    WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS') AND m.idempotency_key LIKE 'phase-c:%'`));
+  const staleIds: number[] = [];
+  for (const mission of staleCandidates.rows as any[]) {
+    const scope = await getKayMissionScope(Number(mission.lead_id), Number(mission.employee_id));
+    if (scope.outcome !== "IN_KAY_SCOPE" ||
+        ['purchased','converted','sold_by_kinglike_luxury','lost','lost_competition','no_answer_converted','not_qualified','junk_lead','broker','agency','second_hand','re_sale'].includes(String(mission.status))) {
+      staleIds.push(Number(mission.id));
+    }
+  }
   const stale = await db.transaction(async tx => {
-    const rows = await tx.execute(sql`UPDATE kay_missions m SET status='STALE', updated_at=NOW()
-      WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS') AND m.idempotency_key LIKE 'phase-c:%' AND (
-        NOT EXISTS (SELECT 1 FROM crm_leads l WHERE l.id=m.lead_id AND l.assigned_to=m.employee_id)
-        OR NOT EXISTS (SELECT 1 FROM users u WHERE u.id=m.employee_id AND u.role='sub_agent')
-        OR EXISTS (SELECT 1 FROM crm_leads l WHERE l.id=m.lead_id AND l.status IN
-          ('purchased','converted','sold_by_kinglike_luxury','lost','lost_competition','no_answer_converted','not_qualified','junk_lead','broker','agency','second_hand','re_sale'))
-      ) RETURNING m.id, m.lead_id, m.employee_id`);
-    for (const mission of rows.rows as any[]) await tx.insert(kayEvents).values({ leadId:mission.lead_id,employeeId:mission.employee_id,eventType:"mission_staled",eventSource:"kay",metadata:{missionId:mission.id,reason:"owner_or_status_obsolete",shadow:true},kayGenerated:true });
+    const rows = staleIds.length
+      ? await tx.update(kayMissions).set({ status: "STALE", updatedAt: now })
+          .where(and(inArray(kayMissions.id, staleIds), inArray(kayMissions.status, activeStatuses)))
+          .returning({ id: kayMissions.id, leadId: kayMissions.leadId, employeeId: kayMissions.employeeId })
+      : [];
+    for (const mission of rows) await tx.insert(kayEvents).values({ leadId:mission.leadId,employeeId:mission.employeeId,eventType:"mission_staled",eventSource:"kay",metadata:{missionId:mission.id,reason:"owner_status_or_scope_obsolete",shadow:true},kayGenerated:true });
     return rows;
   });
     // Shared user_notifications is EXTERNAL_SYSTEM and never a worker target.
-    const result = { created, staled: reconciled + (stale.rowCount ?? 0), checked: rows.rows.length };
+    const result = { created, staled: reconciled + stale.length, checked: rows.rows.length };
     await persistGeneratorHealth({ last_generation: new Date().toISOString(), ...(runType === "automatic" ? { last_automatic_run: new Date().toISOString() } : { last_manual_run: new Date().toISOString() }), last_successful_cycle: new Date().toISOString(), checked: result.checked, created: result.created, staled: result.staled, errors: 0, consecutive_failures: 0, degraded: false, circuit_open_until: null, half_open: false, lease_state: "released" });
     return result;
   } finally {
@@ -347,26 +381,33 @@ export async function getKayMission(id: number, actorId: number, admin: boolean)
     const result = await client.query(`SELECT m.* FROM kay_missions m
       LEFT JOIN crm_leads l ON l.id=m.lead_id LEFT JOIN users u ON u.id=m.employee_id
       WHERE m.id=$1 AND ($2 OR (m.employee_id=$3 AND l.assigned_to=$3 AND u.role='sub_agent')) LIMIT 1`, [id, admin, actorId]);
-    return result.rows[0] ?? null;
+    const mission = result.rows[0] ?? null;
+    if (!mission || admin) return mission;
+    const scope = await getKayMissionScope(Number(mission.lead_id), Number(mission.employee_id), client);
+    return scope.outcome === "IN_KAY_SCOPE" ? mission : null;
   });
 }
 export async function transitionKayMission(id: number, actorId: number, admin: boolean, action: "accept" | "start" | "complete" | "dismiss", details: unknown) {
   await denyKayWrite("workflow.transition", actorId, "kay_mission", id);
   const parsed: any = action === "complete" ? z.object({ resultCode: completionResultSchema, note: z.string().max(500).optional() }).strict().parse(details)
     : action === "dismiss" ? z.object({ reason: dismissalReasonSchema, note: z.string().max(500).optional() }).strict().parse(details) : {};
+  const candidate = await withKayReadonlyAnalysis(client =>
+    client.query(`SELECT lead_id,employee_id FROM kay_missions WHERE id=$1 LIMIT 1`, [id])
+  );
+  const candidateMission = candidate.rows[0];
+  if (!candidateMission) throw Object.assign(new Error("Mission not found."), { status: 404 });
+  const candidateScope = await getKayMissionScope(Number(candidateMission.lead_id), Number(candidateMission.employee_id));
+  if (candidateScope.outcome !== "IN_KAY_SCOPE") {
+    throw Object.assign(new Error("Mission is outside Kay operational scope."), { status: 409, code: `KAY_SCOPE_${candidateScope.outcome}` });
+  }
   const allowed: Record<string, string[]> = { accept: ["NEW"], start: ["ACCEPTED"], complete: ["ACCEPTED", "IN_PROGRESS"], dismiss: ["NEW", "ACCEPTED", "IN_PROGRESS"] };
   const outcome = await db.transaction(async tx => {
-    // Lock both records so an ownership change cannot race a mission action.
-    const locked = await tx.execute(sql`SELECT m.*, l.assigned_to current_assigned_to, u.role employee_role FROM kay_missions m
-      LEFT JOIN crm_leads l ON l.id=m.lead_id LEFT JOIN users u ON u.id=m.employee_id WHERE m.id=${id} FOR UPDATE OF m,l`);
+    const locked = await tx.execute(sql`SELECT m.* FROM kay_missions m WHERE m.id=${id} FOR UPDATE OF m`);
     const mission: any = locked.rows[0];
-    if (!mission || (!admin && (mission.employee_id !== actorId || mission.current_assigned_to !== actorId || mission.employee_role !== "sub_agent"))) {
-      if (mission && !admin) {
-        await tx.update(kayMissions).set({ status:"STALE", updatedAt:new Date() }).where(eq(kayMissions.id,id));
-        await tx.insert(kayEvents).values({leadId:mission.lead_id,employeeId:mission.employee_id,userId:actorId,eventType:"mission_staled",eventSource:"kay",metadata:{missionId:id,reason:"owner_or_role_changed",shadow:true},kayGenerated:true});
-      }
+    if (!mission || (!admin && mission.employee_id !== actorId)) {
       return null;
     }
+    if (!await holdsKayMissionScopeFence(tx, Number(mission.lead_id), Number(mission.employee_id))) return null;
     if (!allowed[action].includes(mission.status)) { const error: any = new Error("Invalid mission transition."); error.status = 409; throw error; }
     const now = new Date(); const patch: any = { updatedAt: now, status: action === "accept" ? "ACCEPTED" : action === "start" ? "IN_PROGRESS" : action === "complete" ? "COMPLETED" : "DISMISSED" };
     if (action === "accept") patch.acceptedAt = now; if (action === "start") patch.startedAt = now;
@@ -383,7 +424,14 @@ export async function transitionKayMission(id: number, actorId: number, admin: b
 
 export async function listKayMissions(employeeId: number | null, admin: boolean, includeCompleted = false) {
   const filters: any[] = []; if (!admin) filters.push(eq(kayMissions.employeeId, employeeId!)); if (!includeCompleted) filters.push(inArray(kayMissions.status, activeStatuses));
-  return db.select().from(kayMissions).where(filters.length ? and(...filters) : undefined).orderBy(desc(kayMissions.priorityScore), desc(kayMissions.dueAt), desc(kayMissions.id)).limit(100);
+  const missions = await db.select().from(kayMissions).where(filters.length ? and(...filters) : undefined).orderBy(desc(kayMissions.priorityScore), desc(kayMissions.dueAt), desc(kayMissions.id)).limit(100);
+  const checked = await Promise.all(missions.map(async mission => ({
+    mission,
+    scope: mission.leadId == null ? "UNKNOWN_IDENTITY" : (await getKayMissionScope(Number(mission.leadId), mission.employeeId)).outcome,
+  })));
+  return checked
+    .filter(({ mission, scope }) => !activeStatuses.includes(mission.status) || scope === "IN_KAY_SCOPE")
+    .map(({ mission }) => mission);
 }
 
 /** Bounded operational counts, not a ranking or employee-performance score. */

@@ -23,3 +23,5 @@
 - [Kay UI verification](kay-ui-verification.md) — frozen reads mean unknown, not zero; unauthenticated captures cannot validate the workspace.
 - [Kay runtime state isolation](kay-runtime-state-isolation.md) — policy settings stay read-only; worker leases, health, and availability use a separate least-privilege store.
 - [Kay isolated gate work](kay-isolated-gate-work.md) — authorization-boundary changes should be verified in an isolated task before applying to main.
+- [PostgreSQL JSON constructor typing](postgres-json-constructor-typing.md) — cast bound values passed to polymorphic JSON builders; untyped placeholders can fail with 42P18.
+- [Cross-role mission scope fencing](cross-role-mission-scope-fencing.md) — use a narrowly granted definer function that locks CRM policy rows for the full Kay writer transaction.
