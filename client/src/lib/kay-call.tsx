@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 
 export const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 export const KAY_AUDIO_CONSTRAINTS: MediaStreamConstraints = { audio: true, video: false };
+export const KAY_TAREK_TEST_MESSAGE =
+  "مساء الخير أستاذ طارق، معك كاي. هذه مكالمة تجريبية داخلية للتأكد من أن نظام الاتصال يعمل بشكل صحيح.";
 
 export type KayCallStatus = "idle" | "incoming" | "connecting" | "connected" | "ended" | "error";
 export type KayIncomingCall = {
@@ -52,7 +54,7 @@ type KayCallContextValue = {
   muted: boolean;
   duration: string;
   answer: () => Promise<void>;
-  startCall: (targetUserId: number, reasonCode: string, title?: string) => Promise<void>;
+  startCall: (targetUserId: number, reasonCode: string, title?: string, initiationType?: string) => Promise<void>;
   reject: () => void;
   end: () => void;
   toggleMute: () => void;
@@ -164,7 +166,12 @@ export function KayCallInitiator() {
   const initiate = async () => {
     setError("");
     try {
-      await startCall(targetUserId, "manual_internal_test", title);
+      await startCall(
+        targetUserId,
+        targetUserId === 1 ? "ADMIN_TEST" : "MANUAL_INTERNAL_TEST",
+        targetUserId === 1 ? KAY_TAREK_TEST_MESSAGE : title,
+        targetUserId === 1 ? "ADMIN_TEST" : "MANUAL",
+      );
     } catch (callError) {
       setError(callError instanceof Error ? callError.message : "Internal Kay calling is unavailable.");
     }
@@ -211,6 +218,8 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const socketReadyRef = useRef<Promise<void> | null>(null);
   const reconnectRef = useRef<number | null>(null);
   const peerDisconnectRef = useRef<number | null>(null);
+  const initiatedCallIdsRef = useRef<Set<number>>(new Set());
+  const spokenTestCallIdsRef = useRef<Set<number>>(new Set());
   const [status, setStatus] = useState<KayCallStatus>("idle");
   const [incomingCall, setIncomingCall] = useState<KayIncomingCall | null>(null);
   const [muted, setMuted] = useState(false);
@@ -273,11 +282,28 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     setStatus("idle");
   }, []);
 
+  const playTarekTestVoice = useCallback((callId: number) => {
+    if (initiatedCallIdsRef.current.has(callId) || spokenTestCallIdsRef.current.has(callId)) return;
+    if (incomingCallRef.current?.reasonCode !== "ADMIN_TEST" || !("speechSynthesis" in window)) return;
+    const utterance = new SpeechSynthesisUtterance(KAY_TAREK_TEST_MESSAGE);
+    utterance.lang = "ar";
+    const arabicVoices = window.speechSynthesis.getVoices()
+      .filter((voice) => voice.lang.toLowerCase().startsWith("ar"));
+    utterance.voice = arabicVoices.find((voice) =>
+      /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)
+    ) || arabicVoices[0] || null;
+    spokenTestCallIdsRef.current.add(callId);
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
   const monitorPeer = useCallback((peer: RTCPeerConnection, callId: number) => {
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === "connected") {
         if (peerDisconnectRef.current) window.clearTimeout(peerDisconnectRef.current);
         peerDisconnectRef.current = null;
+        setStatus("connected");
+        setStartedAt(current => current || Date.now());
+        playTarekTestVoice(callId);
         return;
       }
       if (peer.connectionState === "failed" || peer.connectionState === "closed") {
@@ -295,7 +321,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
         }, 8000);
       }
     };
-  }, [cleanup, send]);
+  }, [cleanup, playTarekTestVoice, send]);
 
   const answer = useCallback(async () => {
     if (!incomingCall) return;
@@ -322,18 +348,14 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       const answerDescription = await peer.createAnswer();
       await peer.setLocalDescription(answerDescription);
       send({ type: "call_answer", callId: incomingCall.callId, sdp: answerDescription });
-      setStatus("connected");
-      setStartedAt(Date.now());
-      const briefing = safeBriefing([callTitle, callReason].filter(Boolean).join(". "));
-      if (briefing && "speechSynthesis" in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(briefing));
     } catch {
       if (incomingCall) send({ type: "call_reject", callId: incomingCall.callId });
       cleanup();
       setStatus("error");
     }
-  }, [callReason, callTitle, cleanup, incomingCall, monitorPeer, send]);
+  }, [cleanup, incomingCall, monitorPeer, send]);
 
-  const startCall = useCallback(async (targetUserId: number, reasonCode: string, title?: string) => {
+  const startCall = useCallback(async (targetUserId: number, reasonCode: string, title?: string, initiationType = "MANUAL") => {
     if (!user?.isAdmin || user.id !== 1 || !KAY_INTERNAL_CALL_USER_IDS.has(targetUserId)) {
       throw new Error("Only the Kay administrator may start an internal call.");
     }
@@ -348,6 +370,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           targetUserId,
           initiatorConnectionId: connectionIdRef.current,
+          initiationType,
           reasonCode: safeBriefing(reasonCode),
           title: title ? safeBriefing(title) : undefined,
           idempotencyKey: crypto.randomUUID(),
@@ -359,6 +382,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       if (!Number.isInteger(createdCallId) || createdCallId < 1) {
         throw new Error("Kay internal call returned an invalid session.");
       }
+      initiatedCallIdsRef.current.add(createdCallId);
       const call: KayIncomingCall = {
         callId: createdCallId,
         caller: "KAY",

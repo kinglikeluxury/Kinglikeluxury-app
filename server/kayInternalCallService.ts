@@ -21,10 +21,26 @@ const KAY_INTERNAL_CALL_EVENTS = new Set([
   "call_end",
   "call_busy",
 ]);
-const KAY_INTERNAL_CALLS_ENABLED = () => process.env.KAY_INTERNAL_CALLS_ENABLED === "true";
+const KAY_INTERNAL_CALLS_ENABLED = () => {
+  if (process.env.KAY_INTERNAL_CALLS_ENABLED !== "true") return false;
+  const startedRaw = process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT;
+  const expiresRaw = process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT;
+  if (!startedRaw && !expiresRaw) return true;
+  if (!startedRaw || !expiresRaw) return false;
+  const startedAt = new Date(startedRaw);
+  const expiresAt = new Date(expiresRaw);
+  const now = Date.now();
+  return process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
+    !Number.isNaN(startedAt.getTime()) &&
+    !Number.isNaN(expiresAt.getTime()) &&
+    startedAt.getTime() <= now &&
+    expiresAt.getTime() > now &&
+    expiresAt.getTime() - startedAt.getTime() <= 15 * 60 * 1000;
+};
 const MAX_RAW_MESSAGE_BYTES = 64 * 1024;
 const MAX_SDP_BYTES = 32 * 1024;
 const MAX_CANDIDATE_BYTES = 16 * 1024;
+let afterHoursTarekTestTimer: NodeJS.Timeout | null = null;
 
 type CallUser = { id: number; username: string; isAdmin: boolean; role: string; isActive: boolean };
 type CallSocket = WebSocket & { kayUserId?: number; kayRequest?: IncomingMessage; kayConnectionId?: string };
@@ -67,6 +83,37 @@ async function loadAuthorizedUser(userId: number): Promise<CallUser> {
 
 function requireEnabled() {
   if (!KAY_INTERNAL_CALLS_ENABLED()) throw httpError(423, "KAY_INTERNAL_CALLS_DISABLED");
+}
+
+function disableAfterHoursTarekTestRuntime() {
+  process.env.KAY_INTERNAL_CALLS_ENABLED = "false";
+  delete process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT;
+  delete process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT;
+  if (afterHoursTarekTestTimer) clearTimeout(afterHoursTarekTestTimer);
+  afterHoursTarekTestTimer = null;
+}
+
+function armAfterHoursTarekTestExpiry(expiresAt: Date) {
+  if (afterHoursTarekTestTimer) clearTimeout(afterHoursTarekTestTimer);
+  afterHoursTarekTestTimer = setTimeout(() => {
+    void withKayInternalClient(async client => {
+      const result = await client.query(
+        `UPDATE kay_internal_call_sessions
+            SET status='ENDED',ended_at=COALESCE(ended_at,NOW())
+          WHERE reason_code='ADMIN_TEST' AND status IN ('RINGING','ACTIVE')
+          RETURNING id`,
+      );
+      for (const row of result.rows) {
+        const callId = Number(row.id);
+        await deliverToConnectedSockets(1, { type: "call_end", callId });
+        dropQueuedCallSignals(callId);
+        clearEphemeralCallState(callId);
+        initiatingConnectionByCall.delete(callId);
+        answeringConnectionByCall.delete(callId);
+      }
+      disableAfterHoursTarekTestRuntime();
+    }).catch(() => disableAfterHoursTarekTestRuntime());
+  }, Math.max(0, expiresAt.getTime() - Date.now()));
 }
 
 async function getCall(callId: number) {
@@ -236,12 +283,13 @@ export async function createKayInternalCall(input: {
   initiatorUserId: number;
   targetUserId: number;
   initiatorConnectionId: string;
+  initiationType?: string;
   reasonCode?: string;
   title?: string;
   idempotencyKey?: string;
 }) {
   requireEnabled();
-  assertKayCallWindow(new Date());
+  const now = new Date();
   const idempotencyKey = String(input.idempotencyKey || "").trim();
   if (!idempotencyKey) throw httpError(400, "KAY_INTERNAL_CALL_IDEMPOTENCY_KEY_REQUIRED");
   const initiator = await loadAuthorizedUser(input.initiatorUserId);
@@ -263,9 +311,30 @@ export async function createKayInternalCall(input: {
   }
   const reasonCode = String(input.reasonCode || "MANUAL_INTERNAL_TEST").trim().toUpperCase().slice(0, 80);
   if (!/^[A-Z0-9_]+$/.test(reasonCode)) throw httpError(400, "KAY_INTERNAL_CALL_REASON_REQUIRED");
+  const initiationType = String(input.initiationType || "MANUAL").trim().toUpperCase();
+  const requestedAdminTest = initiationType === "ADMIN_TEST" || reasonCode === "ADMIN_TEST";
+  const testStartedAt = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT || "");
+  const testExpiresAt = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
+  const testOverrideActive =
+    initiationType === "ADMIN_TEST" &&
+    reasonCode === "ADMIN_TEST" &&
+    initiator.id === 1 &&
+    target.id === 1 &&
+    process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
+    !Number.isNaN(testStartedAt.getTime()) &&
+    !Number.isNaN(testExpiresAt.getTime()) &&
+    testStartedAt.getTime() <= now.getTime() &&
+    testExpiresAt.getTime() > now.getTime() &&
+    testExpiresAt.getTime() - testStartedAt.getTime() <= 15 * 60 * 1000;
+  if (requestedAdminTest && !testOverrideActive) {
+    throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_OVERRIDE_INACTIVE");
+  }
+  if (!testOverrideActive) assertKayCallWindow(now);
   const title = sanitizeTitle(input.title);
 
-  const meaningfulActionItems = await getMeaningfulEmployeeActionItems(target.id);
+  const meaningfulActionItems = testOverrideActive
+    ? true
+    : await getMeaningfulEmployeeActionItems(target.id);
   const transaction = await withKayInternalClient(async client => {
     await client.query("BEGIN");
     try {
@@ -285,6 +354,14 @@ export async function createKayInternalCall(input: {
         await client.query("COMMIT");
         return { result: existing, created: false };
       }
+      if (requestedAdminTest) {
+        const consumed = await client.query(
+          `SELECT EXISTS(SELECT 1 FROM kay_internal_call_sessions WHERE reason_code='ADMIN_TEST') AS consumed`,
+        );
+        if (consumed.rows[0]?.consumed === true) {
+          throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED");
+        }
+      }
       const history = await client.query(
         `SELECT status,reason_code,created_at FROM kay_internal_call_sessions
           WHERE target_user_id=$1
@@ -299,14 +376,16 @@ export async function createKayInternalCall(input: {
             AND due_at < (NOW() AT TIME ZONE 'UTC')) AS materially_overdue`,
         [target.id],
       );
-      const spam = callAntiSpamDecision({
-        now: new Date(),
-        sessions: history.rows.map(row => ({ status: row.status, reasonCode: row.reason_code, createdAt: row.created_at })),
-        meaningfulActionItems,
-        materiallyOverdueSameDayCommitment: overdueCommitment.rows[0]?.materially_overdue === true,
-        reasonCode,
-      });
-      if (!spam.allowed) throw httpError(429, `KAY_INTERNAL_CALL_${spam.reason}`);
+      if (!testOverrideActive) {
+        const spam = callAntiSpamDecision({
+          now,
+          sessions: history.rows.map(row => ({ status: row.status, reasonCode: row.reason_code, createdAt: row.created_at })),
+          meaningfulActionItems,
+          materiallyOverdueSameDayCommitment: overdueCommitment.rows[0]?.materially_overdue === true,
+          reasonCode,
+        });
+        if (!spam.allowed) throw httpError(429, `KAY_INTERNAL_CALL_${spam.reason}`);
+      }
       const inserted = await createIdempotentCall(client, target.id, initiator.id, reasonCode, idempotencyKey);
       await client.query("COMMIT");
       return { result: inserted, created: true };
@@ -320,6 +399,7 @@ export async function createKayInternalCall(input: {
   if (!transaction.created) {
     return { ...call, callId: call.id, targetName: target.username, replayed: true };
   }
+  if (testOverrideActive) armAfterHoursTarekTestExpiry(testExpiresAt);
   initiatingConnectionByCall.set(Number(call.id), input.initiatorConnectionId);
   if (title) {
     pendingOffersByCall.set(Number(call.id), {
@@ -514,7 +594,7 @@ async function endCallsForDisconnectedUser(userId: number) {
           SET status='ENDED',ended_at=COALESCE(ended_at,NOW())
         WHERE status IN ('RINGING','ACTIVE')
           AND (target_user_id=$1 OR initiated_by_user_id=$1)
-        RETURNING id,target_user_id,initiated_by_user_id`,
+        RETURNING id,target_user_id,initiated_by_user_id,reason_code`,
       [userId],
     )
   );
@@ -528,6 +608,7 @@ async function endCallsForDisconnectedUser(userId: number) {
     initiatingConnectionByCall.delete(callId);
     answeringConnectionByCall.delete(callId);
     await deliverOrQueueSignal(peerId, { type: "call_end", callId });
+    if (row.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
   }
 }
 
@@ -568,7 +649,7 @@ async function endCallsForDisconnectedSocket(userId: number, connectionId: strin
       `UPDATE kay_internal_call_sessions
           SET status='ENDED',ended_at=COALESCE(ended_at,NOW())
         WHERE id=ANY($1::int[]) AND status IN ('RINGING','ACTIVE')
-        RETURNING id,target_user_id,initiated_by_user_id`,
+        RETURNING id,target_user_id,initiated_by_user_id,reason_code`,
       [boundCallIds],
     )
   );
@@ -590,6 +671,7 @@ async function endCallsForDisconnectedSocket(userId: number, connectionId: strin
     initiatingConnectionByCall.delete(callId);
     answeringConnectionByCall.delete(callId);
     await deliverOrQueueSignal(peerId, { type: "call_end", callId }, deliveryOptions);
+    if (row.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
   }
 }
 
@@ -621,6 +703,7 @@ export function registerKayInternalCallRoutes(
         initiatorUserId: Number(req.session?.userId),
         targetUserId: Number(req.body?.targetUserId),
         initiatorConnectionId: String(req.body?.initiatorConnectionId || ""),
+        initiationType: req.body?.initiationType,
         reasonCode: req.body?.reasonCode,
         title: req.body?.title,
         idempotencyKey: req.body?.idempotencyKey,
@@ -758,6 +841,7 @@ export function registerKayInternalCallRoutes(
               if (type === "call_reject" || type === "call_busy" || type === "call_end") {
                 initiatingConnectionByCall.delete(callId);
                 answeringConnectionByCall.delete(callId);
+                if (call.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
               }
               void call;
             } catch (error: any) {

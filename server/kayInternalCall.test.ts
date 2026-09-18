@@ -12,7 +12,7 @@ const internalDatabase = readFileSync(new URL("./kayInternalDatabase.ts", import
 const migration = readFileSync(new URL("../artifacts/kay-internal-call-v1-migration.sql", import.meta.url), "utf8");
 
 test("Kay internal calls are disabled by default and never use telephony", () => {
-  assert.match(service, /KAY_INTERNAL_CALLS_ENABLED.*=== "true"/);
+  assert.match(service, /KAY_INTERNAL_CALLS_ENABLED !== "true"/);
   assert.doesNotMatch(service, /calls\.create|Twilio|PSTN|phone_number|crm_leads/);
 });
 
@@ -111,4 +111,20 @@ test("call persistence has no CRM/customer fields or audio recording", () => {
   assert.match(callSchema, /targetUserId: integer\("target_user_id"\)/);
   assert.match(callSchema, /reasonCode: text\("reason_code"\)/);
   assert.doesNotMatch(callSchema, /leadId|phone|audio|record/);
+});
+
+test("after-hours Tarek test override is narrow, expiring, and single-use", () => {
+  assert.match(service, /initiationType === "ADMIN_TEST"/);
+  assert.match(service, /reasonCode === "ADMIN_TEST"/);
+  assert.match(service, /initiator\.id === 1/);
+  assert.match(service, /target\.id === 1/);
+  assert.match(service, /KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false"/);
+  assert.match(service, /KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT/);
+  assert.match(service, /if \(!startedRaw \|\| !expiresRaw\) return false/);
+  assert.match(service, /15 \* 60 \* 1000/);
+  assert.match(service, /status IN \('RINGING','ACTIVE'\)/);
+  assert.match(service, /reason_code='ADMIN_TEST'/);
+  assert.match(service, /KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED/);
+  assert.match(service, /KAY_AFTER_HOURS_TAREK_TEST_OVERRIDE_INACTIVE/);
+  assert.match(service, /disableAfterHoursTarekTestRuntime/);
 });
