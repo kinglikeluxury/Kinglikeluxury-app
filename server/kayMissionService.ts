@@ -479,7 +479,7 @@ export async function listKayMissions(employeeId: number | null, admin: boolean,
 
 /** Bounded operational counts, not a ranking or employee-performance score. */
 export async function getKayEmployeeWorkflowSnapshot() {
-  const result = await db.execute(sql`
+  const result = await withKayReadonlyAnalysis(client => client.query(`
     SELECT u.id AS employee_id, u.username AS employee_name,
       COUNT(m.id)::int AS missions_total,
       COUNT(m.id) FILTER (WHERE m.status IN ('NEW','ACCEPTED','IN_PROGRESS'))::int AS active_missions,
@@ -497,7 +497,7 @@ export async function getKayEmployeeWorkflowSnapshot() {
        COALESCE((SELECT jsonb_object_agg(q.result_code, q.total) FROM (SELECT result_code, COUNT(*)::int AS total FROM kay_missions x WHERE x.employee_id=u.id AND x.result_code IS NOT NULL GROUP BY result_code) q), '{}'::jsonb) AS results
     FROM users u LEFT JOIN kay_missions m ON m.employee_id=u.id
     WHERE u.role='sub_agent'
-    GROUP BY u.id,u.username LIMIT 100`);
+     GROUP BY u.id,u.username LIMIT 100`));
   return result.rows;
 }
 export async function getKayMissionInspection() {
