@@ -62,7 +62,14 @@ async function verifyBoundary(): Promise<void> {
           FILTER (WHERE t=ANY($2::text[])),false) AS internal_update,
         COALESCE(bool_and(NOT has_table_privilege(current_user,t,'DELETE')),false) AS internal_delete_denied,
         COALESCE(bool_and(NOT has_table_privilege(current_user,t,'TRUNCATE')),false) AS internal_truncate_denied,
-        has_function_privilege(current_user,'public.kay_lock_mission_scope(integer,integer)','EXECUTE') AS mission_scope_fence,
+        COALESCE(
+          has_function_privilege(
+            current_user,
+            to_regprocedure('public.kay_lock_mission_scope(integer,integer)'),
+            'EXECUTE'
+          ),
+          false
+        ) AS mission_scope_fence,
         NOT EXISTS (
           SELECT 1 FROM pg_class c
           JOIN pg_namespace n ON n.oid=c.relnamespace

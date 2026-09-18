@@ -916,10 +916,14 @@ ${metaTags}
   });
   app.get("/api/admin/kay/owner-brief", requireKayAdmin, async (_req, res) => res.json(await getOwnerBrief()));
   app.get("/api/admin/kay/reviews", requireKayAdmin, async (_req, res) => {
-    const reviews = await withKayInternalClient(client =>
-      client.query(`SELECT * FROM kay_manager_reviews ORDER BY created_at DESC LIMIT 100`)
-    );
-    res.json({ reviews: reviews.rows, shadow: true });
+    try {
+      const reviews = await withKayInternalClient(client =>
+        client.query(`SELECT * FROM kay_manager_reviews ORDER BY created_at DESC LIMIT 100`)
+      );
+      res.json({ reviews: reviews.rows, shadow: true });
+    } catch {
+      res.status(503).json({ message: "Kay internal services are currently unavailable.", code: "KAY_INTERNAL_UNAVAILABLE" });
+    }
   });
   app.post("/api/admin/kay/reviews/:id/resolve", requireKayAdmin, async (req: any, res) => {
     const id = Number(req.params.id); const note = z.string().trim().min(1).max(1000).safeParse(req.body?.note);
