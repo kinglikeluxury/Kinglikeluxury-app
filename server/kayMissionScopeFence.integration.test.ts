@@ -15,6 +15,7 @@ const newEmployeeId = oldEmployeeId + 1;
 const leadId = oldEmployeeId + 2;
 let priorSetting: unknown = undefined;
 let hadPriorSetting = false;
+const staleTable = `kay_scope_fence_stale_${suffix}`;
 
 before(async () => {
   await pool.query(`
@@ -40,6 +41,9 @@ before(async () => {
   await pool.query(`INSERT INTO crm_leads(id,assigned_to,created_at,lead_source)
     VALUES ($1,$2,'2026-08-01T00:00:00','manual')`, [leadId, oldEmployeeId]);
   await pool.query(KAY_MISSION_SCOPE_FENCE_SQL);
+  await pool.query(`CREATE TABLE ${staleTable} (
+    id INTEGER PRIMARY KEY, lead_id INTEGER NOT NULL, employee_id INTEGER NOT NULL, status TEXT NOT NULL
+  )`);
 });
 
 after(async () => {
@@ -51,6 +55,7 @@ after(async () => {
   } else {
     await pool.query(`DELETE FROM kay_settings WHERE key='kay_operational_launch_at'`);
   }
+  await pool.query(`DROP TABLE IF EXISTS ${staleTable}`);
   await pool.end();
 });
 
@@ -96,4 +101,42 @@ test("mission scope fence serializes reassignment and rejects the former employe
     crm.release();
     observer.release();
   }
+});
+
+test("STALE candidate fails closed when assignment, eligibility, role, or cohort changes before mutation", async () => {
+  const reset = async () => {
+    await pool.query(`UPDATE crm_leads SET assigned_to=$1,created_at='2026-08-01T00:00:00',
+      business_received_at=NULL,business_received_at_source=NULL,lead_source='manual' WHERE id=$2`,
+    [oldEmployeeId, leadId]);
+    await pool.query(`UPDATE users SET role='sub_agent',is_active=true,is_admin=false,
+      username='scope_fence_old' WHERE id=$1`, [oldEmployeeId]);
+  };
+  const attempt = async (id: number) => {
+    await pool.query(`INSERT INTO ${staleTable}(id,lead_id,employee_id,status)
+      VALUES($1,$2,$3,'NEW')`, [id, leadId, oldEmployeeId]);
+    const changed = await pool.query(`UPDATE ${staleTable} m SET status='STALE'
+      WHERE id=$1 AND status='NEW'
+        AND public.kay_lock_mission_scope(m.lead_id,m.employee_id)
+      RETURNING id`, [id]);
+    assert.equal(changed.rowCount, 0);
+    assert.equal((await pool.query(`SELECT status FROM ${staleTable} WHERE id=$1`, [id])).rows[0].status, "NEW");
+  };
+
+  await reset();
+  await pool.query(`UPDATE crm_leads SET assigned_to=$1 WHERE id=$2`, [newEmployeeId, leadId]);
+  await attempt(1);
+
+  await reset();
+  await pool.query(`UPDATE users SET is_active=false WHERE id=$1`, [oldEmployeeId]);
+  await attempt(2);
+
+  await reset();
+  await pool.query(`UPDATE users SET role='viewer' WHERE id=$1`, [oldEmployeeId]);
+  await attempt(3);
+
+  await reset();
+  await pool.query(`UPDATE crm_leads SET created_at='2020-01-01T00:00:00' WHERE id=$1`, [leadId]);
+  await attempt(4);
+
+  await reset();
 });

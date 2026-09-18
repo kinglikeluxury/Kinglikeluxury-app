@@ -219,12 +219,23 @@ async function ensureWarningArtifacts(itemId: number, leadId: number, ownerId: n
   const client=await pool.connect();
   try {
     await client.query("BEGIN");
-    const item:any=(await client.query(`SELECT q.id,q.status,q.warning_mission_id,l.assigned_to
+    const item:any=(await client.query(`SELECT q.id,q.status,q.warning_mission_id,q.expected_owner_id,
+        l.assigned_to,u.id employee_id,u.username employee_username,u.role employee_role,
+        u.is_active employee_active,u.is_admin employee_admin
       FROM kay_auto_rescue_queue q JOIN crm_leads l ON l.id=q.lead_id
-      WHERE q.id=$1 AND q.lead_id=$2 FOR UPDATE OF q,l`,[itemId,leadId])).rows[0];
+      JOIN users u ON u.id=l.assigned_to
+      WHERE q.id=$1 AND q.lead_id=$2
+      FOR UPDATE OF q,l FOR SHARE OF u`,[itemId,leadId])).rows[0];
     if (!item || !["PENDING","WARNING"].includes(item.status)) { await client.query("COMMIT"); return; }
     const scope = await getKayScopeForLead(leadId, client);
-    if (scope.outcome !== "IN_KAY_SCOPE" || Number(item.assigned_to) !== Number(ownerId)) {
+    if (scope.outcome !== "IN_KAY_SCOPE" ||
+      Number(item.expected_owner_id) !== Number(ownerId) ||
+      Number(item.assigned_to) !== Number(ownerId) ||
+      Number(item.employee_id) !== Number(ownerId) ||
+      item.employee_active !== true ||
+      item.employee_admin === true ||
+      item.employee_role !== "sub_agent" ||
+      String(item.employee_username || "").toLowerCase() === "kinglike_admin") {
       await client.query("COMMIT");
       return;
     }
@@ -253,6 +264,14 @@ async function ensureWarningArtifacts(itemId: number, leadId: number, ownerId: n
     await client.query("ROLLBACK").catch(()=>{});
     throw error;
   } finally { client.release(); }
+}
+
+export async function ensureWarningArtifactsForTest(itemId: number, leadId: number, ownerId: number) {
+  assertSafeKayMutationTestDatabase("ensureWarningArtifactsForTest");
+  if (process.env.KAY_E2_POSTGRES_TESTS !== "true") {
+    throw new Error("Automatic Rescue warning test helper is disabled");
+  }
+  return ensureWarningArtifacts(itemId, leadId, ownerId);
 }
 
 async function evaluateIntoQueue(settings: any, limit: number) {

@@ -9,6 +9,7 @@ import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 import { assertKayInternalWriteAllowed } from "./kayInternalWriteGate";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 const db = kayInternalDb;
 
@@ -121,12 +122,57 @@ export async function acquireKayMissionGeneratorLease(): Promise<string | null> 
         'locked_until',${lockedUntil}::timestamptz
       ),updated_at=NOW()
       WHERE CASE
-        WHEN kay_runtime_state.value->>'locked_until' ~ '^\\d{4}-\\d{2}-\\d{2}T'
+        WHEN pg_input_is_valid(kay_runtime_state.value->>'locked_until', 'timestamptz')
           THEN (kay_runtime_state.value->>'locked_until')::timestamptz
         ELSE to_timestamp(0)
       END < NOW()
     RETURNING key`);
   return lease.rows[0] ? token : null;
+}
+
+async function staleKayMissionIfStillScoped(
+  missionId: number,
+  now: Date,
+  reason: "condition_obsolete" | "owner_status_or_scope_obsolete",
+): Promise<boolean> {
+  return db.transaction(async tx => {
+    const candidate = await tx.execute(sql`SELECT id,lead_id,employee_id
+      FROM kay_missions
+      WHERE id=${missionId} AND status IN ('NEW','ACCEPTED','IN_PROGRESS')
+      FOR UPDATE`);
+    const mission: any = candidate.rows[0];
+    if (!mission || !Number.isInteger(Number(mission.lead_id)) ||
+        !Number.isInteger(Number(mission.employee_id))) return false;
+    if (!await holdsKayMissionScopeFence(
+      tx,
+      Number(mission.lead_id),
+      Number(mission.employee_id),
+    )) return false;
+    const changed = await tx.update(kayMissions).set({ status: "STALE", updatedAt: now })
+      .where(and(eq(kayMissions.id, missionId), inArray(kayMissions.status, activeStatuses)))
+      .returning({ id: kayMissions.id });
+    if (!changed[0]) return false;
+    await tx.insert(kayEvents).values({
+      leadId: mission.lead_id,
+      employeeId: mission.employee_id,
+      eventType: "mission_staled",
+      eventSource: "kay",
+      metadata: { missionId, reason, shadow: true },
+      kayGenerated: true,
+    });
+    return true;
+  });
+}
+
+export async function staleKayMissionIfStillScopedForTest(
+  missionId: number,
+  reason: "condition_obsolete" | "owner_status_or_scope_obsolete" = "condition_obsolete",
+) {
+  assertSafeKayMutationTestDatabase("staleKayMissionIfStillScopedForTest");
+  if (process.env.KAY_C1_POSTGRES_TESTS !== "true") {
+    throw new Error("Mission STALE test helper is disabled");
+  }
+  return staleKayMissionIfStillScoped(missionId, new Date(), reason);
 }
 
 export async function renewKayMissionGeneratorLease(token: string): Promise<boolean> {
@@ -336,15 +382,13 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
   // A status/decision/task window that disappeared is no longer employee work.
   // Preserve it as STALE rather than deleting its auditable history.
   for (const [leadId, keys] of Array.from(current.entries())) {
-    const changed = await db.transaction(async tx => {
-      const rows = await tx.update(kayMissions).set({ status: "STALE", updatedAt: now })
-        .where(and(eq(kayMissions.leadId, leadId), inArray(kayMissions.status, activeStatuses),
-          sql`${kayMissions.idempotencyKey} LIKE 'phase-c:%'`,
-          ...(keys.length ? [notInArray(kayMissions.idempotencyKey, keys)] : []))).returning({ id: kayMissions.id });
-      for (const mission of rows) await tx.insert(kayEvents).values({ eventType:"mission_staled",eventSource:"kay",metadata:{missionId:mission.id,reason:"condition_obsolete",shadow:true},kayGenerated:true });
-      return rows;
-    });
-    reconciled += changed.length;
+    const candidates = await db.select({ id: kayMissions.id }).from(kayMissions)
+      .where(and(eq(kayMissions.leadId, leadId), inArray(kayMissions.status, activeStatuses),
+        sql`${kayMissions.idempotencyKey} LIKE 'phase-c:%'`,
+        ...(keys.length ? [notInArray(kayMissions.idempotencyKey, keys)] : [])));
+    for (const mission of candidates) {
+      if (await staleKayMissionIfStillScoped(mission.id, now, "condition_obsolete")) reconciled++;
+    }
   }
   const staleCandidates = await withKayReadonlyAnalysis(client => client.query(`SELECT m.id,m.lead_id,m.employee_id,l.status
     FROM kay_missions m LEFT JOIN crm_leads l ON l.id=m.lead_id
@@ -357,17 +401,12 @@ export async function generateKayMissions(limit = 200, runType: "manual" | "auto
       staleIds.push(Number(mission.id));
     }
   }
-  const stale = await db.transaction(async tx => {
-    const rows = staleIds.length
-      ? await tx.update(kayMissions).set({ status: "STALE", updatedAt: now })
-          .where(and(inArray(kayMissions.id, staleIds), inArray(kayMissions.status, activeStatuses)))
-          .returning({ id: kayMissions.id, leadId: kayMissions.leadId, employeeId: kayMissions.employeeId })
-      : [];
-    for (const mission of rows) await tx.insert(kayEvents).values({ leadId:mission.leadId,employeeId:mission.employeeId,eventType:"mission_staled",eventSource:"kay",metadata:{missionId:mission.id,reason:"owner_status_or_scope_obsolete",shadow:true},kayGenerated:true });
-    return rows;
-  });
+  let staleCount = 0;
+  for (const missionId of staleIds) {
+    if (await staleKayMissionIfStillScoped(missionId, now, "owner_status_or_scope_obsolete")) staleCount++;
+  }
     // Shared user_notifications is EXTERNAL_SYSTEM and never a worker target.
-    const result = { created, staled: reconciled + stale.length, checked: rows.rows.length };
+    const result = { created, staled: reconciled + staleCount, checked: rows.rows.length };
     await persistGeneratorHealth({ last_generation: new Date().toISOString(), ...(runType === "automatic" ? { last_automatic_run: new Date().toISOString() } : { last_manual_run: new Date().toISOString() }), last_successful_cycle: new Date().toISOString(), checked: result.checked, created: result.created, staled: result.staled, errors: 0, consecutive_failures: 0, degraded: false, circuit_open_until: null, half_open: false, lease_state: "released" });
     return result;
   } finally {

@@ -69,8 +69,10 @@ test("E.2 static safety contract covers the non-runtime portions of the 62-item 
 
 test("E.2 warning mission revalidates current owner and shared scope under lock", () => {
   const warning = auto.slice(auto.indexOf("async function ensureWarningArtifacts"), auto.indexOf("async function evaluateIntoQueue"));
-  assert.match(warning, /JOIN crm_leads l ON l\.id=q\.lead_id[\s\S]*FOR UPDATE OF q,l/);
+  assert.match(warning, /JOIN crm_leads l ON l\.id=q\.lead_id[\s\S]*JOIN users u ON u\.id=l\.assigned_to[\s\S]*FOR UPDATE OF q,l FOR SHARE OF u/);
   assert.match(warning, /getKayScopeForLead\(leadId, client\)/);
-  assert.match(warning, /scope\.outcome !== "IN_KAY_SCOPE"[\s\S]*item\.assigned_to[\s\S]*ownerId/);
+  assert.match(warning, /item\.expected_owner_id[\s\S]*ownerId/);
+  assert.match(warning, /item\.assigned_to[\s\S]*ownerId/);
+  assert.match(warning, /item\.employee_active !== true[\s\S]*item\.employee_role !== "sub_agent"[\s\S]*kinglike_admin/);
   assert.ok(warning.indexOf("getKayScopeForLead(leadId, client)") < warning.indexOf("INSERT INTO kay_missions"));
 });

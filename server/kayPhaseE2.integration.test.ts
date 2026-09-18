@@ -10,6 +10,7 @@ import {
 } from "./kayRescueService";
 import {
   applyAutoRescueLastChance,
+  ensureWarningArtifactsForTest,
   getAutoRescueHealth,
   getAutoRescueReadiness,
   reconcileAutoRescueUncertainForTest,
@@ -456,6 +457,50 @@ test("E.2 worker warning is one-cycle, deduplicated, canary-scoped, and disabled
   await pool.query(`UPDATE kay_settings SET value=jsonb_set(value,'{auto_rescue_kill_switch}','true') WHERE key='rescue_rules'`);
   assert.equal((await runKayAutoRescueWorker()).disabled,true);
   assert.equal(Number((await pool.query(`SELECT count(*)::int n FROM user_notifications WHERE type='kay_rescue_warning' AND data->>'queueId'=$1`,[String(warning.id)])).rows[0].n),1);
+});
+
+test("E.2 warning artifacts fail closed on expected-owner and employee eligibility changes", { skip:!enabled }, async () => {
+  const assertNoWarningArtifacts = async (row: Awaited<ReturnType<typeof fixture>>) => {
+    await ensureWarningArtifactsForTest(row.queueId, row.leadId, ownerId);
+    const evidence = (await pool.query(`SELECT
+      (SELECT count(*)::int FROM kay_missions WHERE idempotency_key=$1) missions,
+      (SELECT count(*)::int FROM kay_internal_briefings WHERE idempotency_key=$2) briefings,
+      (SELECT count(*)::int FROM user_notifications WHERE idempotency_key=$3) notifications,
+      (SELECT status FROM kay_auto_rescue_queue WHERE id=$4) status`,
+    [`e2:warning:${row.queueId}`, `e2:warning-brief:${row.queueId}`,
+      `e2:warning-notification:${row.queueId}`, row.queueId])).rows[0];
+    assert.deepEqual(evidence, { missions: 0, briefings: 0, notifications: 0, status: "PENDING" });
+  };
+
+  const expectedOwner = await fixture();
+  const expectedOwnerWarning = (await pool.query(`SELECT warning_mission_id FROM kay_auto_rescue_queue WHERE id=$1`,
+    [expectedOwner.queueId])).rows[0].warning_mission_id;
+  await pool.query(`UPDATE kay_auto_rescue_queue SET status='PENDING',warning_mission_id=NULL,
+    expected_owner_id=$2 WHERE id=$1`, [expectedOwner.queueId, otherId]);
+  await pool.query(`DELETE FROM kay_missions WHERE id=$1`, [expectedOwnerWarning]);
+  await assertNoWarningArtifacts(expectedOwner);
+
+  const inactive = await fixture();
+  const inactiveWarning = (await pool.query(`SELECT warning_mission_id FROM kay_auto_rescue_queue WHERE id=$1`, [inactive.queueId])).rows[0].warning_mission_id;
+  await pool.query(`UPDATE kay_auto_rescue_queue SET status='PENDING',warning_mission_id=NULL WHERE id=$1`, [inactive.queueId]);
+  await pool.query(`DELETE FROM kay_missions WHERE id=$1`, [inactiveWarning]);
+  await pool.query(`UPDATE users SET is_active=false WHERE id=$1`, [ownerId]);
+  try {
+    await assertNoWarningArtifacts(inactive);
+  } finally {
+    await pool.query(`UPDATE users SET is_active=true WHERE id=$1`, [ownerId]);
+  }
+
+  const role = await fixture();
+  const roleWarning = (await pool.query(`SELECT warning_mission_id FROM kay_auto_rescue_queue WHERE id=$1`, [role.queueId])).rows[0].warning_mission_id;
+  await pool.query(`UPDATE kay_auto_rescue_queue SET status='PENDING',warning_mission_id=NULL WHERE id=$1`, [role.queueId]);
+  await pool.query(`DELETE FROM kay_missions WHERE id=$1`, [roleWarning]);
+  await pool.query(`UPDATE users SET role='viewer' WHERE id=$1`, [ownerId]);
+  try {
+    await assertNoWarningArtifacts(role);
+  } finally {
+    await pool.query(`UPDATE users SET role='sub_agent' WHERE id=$1`, [ownerId]);
+  }
 });
 
 test("E.2 last-chance actions are atomic, grace has one winner, and CONTACT NOW is not a CRM blocker", { skip:!enabled }, async () => {

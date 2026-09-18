@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { pool } from "./db";
 import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 assertSafeKayMutationTestDatabase("kayPhaseC1.integration");
-import { acquireKayMissionGeneratorLease, defaultPhaseCSettings, deliverPendingKayMissionNotifications, releaseKayMissionGeneratorLease, renewKayMissionGeneratorLease } from "./kayMissionService";
+import { acquireKayMissionGeneratorLease, defaultPhaseCSettings, deliverPendingKayMissionNotifications, releaseKayMissionGeneratorLease, renewKayMissionGeneratorLease, staleKayMissionIfStillScopedForTest } from "./kayMissionService";
+
+const enabled = process.env.KAY_C1_POSTGRES_TESTS === "true";
+let priorLaunch: unknown;
+let hadPriorLaunch = false;
 
 before(async () => {
   await pool.query(`CREATE TABLE IF NOT EXISTS kay_runtime_state (
@@ -11,8 +15,22 @@ before(async () => {
     value JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  const launch = await pool.query(`SELECT value FROM kay_settings WHERE key='kay_operational_launch_at'`);
+  hadPriorLaunch = launch.rowCount === 1;
+  priorLaunch = launch.rows[0]?.value;
+  await pool.query(`INSERT INTO kay_settings(key,value) VALUES('kay_operational_launch_at',$1::jsonb)
+    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`,
+  [JSON.stringify("2026-09-09T00:00:00+04:00")]);
 });
-after(async () => { await pool.end(); });
+after(async () => {
+  if (hadPriorLaunch) {
+    await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='kay_operational_launch_at'`,
+      [JSON.stringify(priorLaunch)]);
+  } else {
+    await pool.query(`DELETE FROM kay_settings WHERE key='kay_operational_launch_at'`);
+  }
+  await pool.end();
+});
 
 test("C1 database persists notification state needed for atomic severity-version dedupe", async () => {
   const result = await pool.query(`SELECT
@@ -29,15 +47,18 @@ test("C1 lease is singleton, token guarded, expires, and malformed values recove
     assert.ok(fresh);
     assert.equal(await acquireKayMissionGeneratorLease(), null);
     assert.equal(await releaseKayMissionGeneratorLease(fresh!), true);
-    await pool.query(`INSERT INTO kay_runtime_state(key,value) VALUES ('phase_c_generator_lease','{"locked_until":"malformed"}')
-      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`);
-    const [a,b] = await Promise.all([acquireKayMissionGeneratorLease(), acquireKayMissionGeneratorLease()]);
-    assert.equal([a,b].filter(Boolean).length, 1);
-    const token = (a || b)!;
-    assert.equal(await renewKayMissionGeneratorLease("wrong-token"), false);
-    assert.equal(await releaseKayMissionGeneratorLease("wrong-token"), false);
-    assert.equal(await renewKayMissionGeneratorLease(token), true);
-    assert.equal(await releaseKayMissionGeneratorLease(token), true);
+    for (const malformed of ["malformed", "2026-99-99Tbad"]) {
+      await pool.query(`INSERT INTO kay_runtime_state(key,value)
+        VALUES ('phase_c_generator_lease',jsonb_build_object('locked_until',$1::text))
+        ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`, [malformed]);
+      const [a,b] = await Promise.all([acquireKayMissionGeneratorLease(), acquireKayMissionGeneratorLease()]);
+      assert.equal([a,b].filter(Boolean).length, 1);
+      const token = (a || b)!;
+      assert.equal(await renewKayMissionGeneratorLease("wrong-token"), false);
+      assert.equal(await releaseKayMissionGeneratorLease("wrong-token"), false);
+      assert.equal(await renewKayMissionGeneratorLease(token), true);
+      assert.equal(await releaseKayMissionGeneratorLease(token), true);
+    }
     await pool.query(`UPDATE kay_runtime_state SET value='{"token":"crashed","locked_until":"2000-01-01T00:00:00.000Z"}' WHERE key='phase_c_generator_lease'`);
     const recovered = await acquireKayMissionGeneratorLease();
     assert.ok(recovered);
@@ -80,5 +101,62 @@ test("C1 concurrent notification delivery is exactly once and severity escalatio
     await pool.query(`DELETE FROM kay_missions WHERE id=$1`,[mid]);
     await pool.query(`DELETE FROM crm_leads WHERE id=$1`,[lid]);
     await pool.query(`DELETE FROM users WHERE id=$1`,[uid]);
+  }
+});
+
+test("C1 STALE mutation rechecks assignment, employee eligibility, and cohort after discovery", { skip: !enabled }, async () => {
+  const suffix = `${Date.now()}-${Math.random()}`;
+  const idBase = 3_000_000 + Math.floor(Date.now() % 100_000) * 3;
+  const users = await pool.query(`INSERT INTO users(id,username,role,is_admin,is_active) VALUES
+    ($1,$3,'sub_agent',false,true),($2,$4,'sub_agent',false,true) RETURNING id`,
+  [idBase, idBase + 1, `c1-stale-owner-${suffix}`, `c1-stale-other-${suffix}`]);
+  const ownerId = Number(users.rows[0].id);
+  const otherId = Number(users.rows[1].id);
+  const leadIds: number[] = [];
+  const missionIds: number[] = [];
+  const makeCandidate = async () => {
+    const lead = await pool.query(`INSERT INTO crm_leads(first_name,status,assigned_to,lead_source,created_at)
+      VALUES('Synthetic','new',$1,'manual','2026-08-01T00:00:00') RETURNING id`, [ownerId]);
+    const leadId = Number(lead.rows[0].id);
+    leadIds.push(leadId);
+    const mission = await pool.query(`INSERT INTO kay_missions
+      (lead_id,employee_id,mission_type,priority,priority_score,reason_code,objective,suggested_action,idempotency_key)
+      VALUES($1,$2,'FOLLOW_UP_DUE','HIGH',50,'FOLLOW_UP_DUE','test','test',$3) RETURNING id`,
+    [leadId, ownerId, `phase-c:stale-race:${suffix}:${leadId}`]);
+    const missionId = Number(mission.rows[0].id);
+    missionIds.push(missionId);
+    return { leadId, missionId };
+  };
+  const assertDenied = async (missionId: number) => {
+    assert.equal(await staleKayMissionIfStillScopedForTest(missionId), false);
+    assert.equal((await pool.query(`SELECT status FROM kay_missions WHERE id=$1`, [missionId])).rows[0].status, "NEW");
+    assert.equal(Number((await pool.query(`SELECT count(*)::int n FROM kay_events
+      WHERE event_type='mission_staled' AND metadata->>'missionId'=$1`, [String(missionId)])).rows[0].n), 0);
+  };
+  try {
+    const assignment = await makeCandidate();
+    await pool.query(`UPDATE crm_leads SET assigned_to=$1 WHERE id=$2`, [otherId, assignment.leadId]);
+    await assertDenied(assignment.missionId);
+
+    const inactive = await makeCandidate();
+    await pool.query(`UPDATE users SET is_active=false WHERE id=$1`, [ownerId]);
+    await assertDenied(inactive.missionId);
+    await pool.query(`UPDATE users SET is_active=true WHERE id=$1`, [ownerId]);
+
+    const role = await makeCandidate();
+    await pool.query(`UPDATE users SET role='viewer' WHERE id=$1`, [ownerId]);
+    await assertDenied(role.missionId);
+    await pool.query(`UPDATE users SET role='sub_agent' WHERE id=$1`, [ownerId]);
+
+    const cohort = await makeCandidate();
+    await pool.query(`UPDATE crm_leads SET created_at='2020-01-01T00:00:00' WHERE id=$1`, [cohort.leadId]);
+    await assertDenied(cohort.missionId);
+  } finally {
+    if (missionIds.length) {
+      await pool.query(`DELETE FROM kay_events WHERE metadata->>'missionId'=ANY($1::text[])`, [missionIds.map(String)]);
+      await pool.query(`DELETE FROM kay_missions WHERE id=ANY($1::int[])`, [missionIds]);
+    }
+    if (leadIds.length) await pool.query(`DELETE FROM crm_leads WHERE id=ANY($1::int[])`, [leadIds]);
+    await pool.query(`DELETE FROM users WHERE id=ANY($1::int[])`, [[ownerId, otherId]]);
   }
 });

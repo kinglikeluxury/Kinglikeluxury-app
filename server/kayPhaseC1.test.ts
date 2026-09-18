@@ -36,7 +36,9 @@ test("C1 lease JSON parameters have deterministic PostgreSQL types", () => {
   assert.match(service, /'released_at',\$\{new Date\(\)\.toISOString\(\)\}::timestamptz/);
 });
 test("C1 lease is released safely", () => assert.match(service, /finally \{[\s\S]*releaseKayMissionGeneratorLease/));
-test("C1 lease safely validates malformed timestamps before cast", () => { assert.match(service, /CASE[\s\S]*locked_until[\s\S]*~[\s\S]*timestamptz[\s\S]*ELSE to_timestamp\(0\)/); });
+test("C1 lease safely validates malformed timestamps against the real type before cast", () => {
+  assert.match(service, /pg_input_is_valid\(kay_runtime_state\.value->>'locked_until', 'timestamptz'\)[\s\S]*THEN \(kay_runtime_state\.value->>'locked_until'\)::timestamptz[\s\S]*ELSE to_timestamp\(0\)/);
+});
 test("C1 circuit opens after repeated failures", () => assert.match(service, /failures >= 3/));
 test("C1 circuit-open path schedules only through finally", () => {
   assert.doesNotMatch(service, /circuit_open" \}\); return schedule\(\)/);
@@ -58,7 +60,8 @@ test("C1 operational mission paths share fail-closed assignment scope", () => {
 });
 test("C1 generation, notification, and transition hold the database scope fence", () => {
   assert.match(service, /holdsKayMissionScopeFence/);
-  assert.equal((service.match(/await holdsKayMissionScopeFence\(tx/g) || []).length, 3);
+  assert.equal((service.match(/await holdsKayMissionScopeFence\(/g) || []).length, 4);
+  assert.match(service, /staleKayMissionIfStillScoped[\s\S]*FOR UPDATE[\s\S]*holdsKayMissionScopeFence[\s\S]*status: "STALE"/);
   assert.match(scopeFence, /kay_lock_mission_scope[\s\S]*FOR SHARE[\s\S]*assigned_to IS DISTINCT FROM p_employee_id/);
   assert.match(scopeFence, /REVOKE ALL ON FUNCTION public\.kay_lock_mission_scope[\s\S]*GRANT EXECUTE[\s\S]*kay_internal_writer/);
   assert.match(db, /client\.query\(KAY_MISSION_SCOPE_FENCE_SQL\)/);
