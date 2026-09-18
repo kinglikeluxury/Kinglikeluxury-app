@@ -96,7 +96,9 @@ self.addEventListener('notificationclick', (event) => {
   var notifData = event.notification.data || {};
   var targetUrl = '/notifications';
 
-  if (event.action === 'open' && notifData.meetingLink) {
+  if (notifData.kayCall === true) {
+    targetUrl = '/admin/kay/call';
+  } else if (event.action === 'open' && notifData.meetingLink) {
     targetUrl = notifData.meetingLink;
   }
 

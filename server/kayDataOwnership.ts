@@ -23,6 +23,7 @@ export const KAY_DATA_OWNERSHIP: readonly KayDataObject[] = Object.freeze([
   { name: "kay_commitments", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal workflow commitments." },
   { name: "kay_promises", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal promise tracking." },
   { name: "kay_internal_briefings", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal employee briefings." },
+  { name: "kay_internal_call_sessions", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal Kay browser call sessions only; no audio or customer data." },
   { name: "kay_manager_reviews", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal manager review queue." },
   { name: "kay_runtime_state", owner: "KAY_OWNED", runtimeWrite: true, note: "Worker leases, health, and availability only." },
 
@@ -44,9 +45,24 @@ export const KAY_DATA_OWNERSHIP: readonly KayDataObject[] = Object.freeze([
 
 const ownershipByName = new Map(KAY_DATA_OWNERSHIP.map(item => [item.name, item]));
 
+export const KAY_INTERNAL_OPTIONAL_WRITABLE_TABLES: readonly string[] = Object.freeze([
+  "kay_internal_call_sessions",
+]);
+
 export const KAY_INTERNAL_WRITABLE_TABLES = Object.freeze(
-  KAY_DATA_OWNERSHIP.filter(item => item.owner === "KAY_OWNED" && item.runtimeWrite).map(item => item.name),
+  KAY_DATA_OWNERSHIP
+    .filter(item =>
+      item.owner === "KAY_OWNED" &&
+      item.runtimeWrite &&
+      !KAY_INTERNAL_OPTIONAL_WRITABLE_TABLES.includes(item.name)
+    )
+    .map(item => item.name),
 );
+
+export const KAY_INTERNAL_APPROVED_WRITABLE_TABLES = Object.freeze([
+  ...KAY_INTERNAL_WRITABLE_TABLES,
+  ...KAY_INTERNAL_OPTIONAL_WRITABLE_TABLES,
+]);
 
 export function getKayDataOwnership(name: string): KayDataObject {
   return ownershipByName.get(String(name).trim().toLowerCase()) ?? {

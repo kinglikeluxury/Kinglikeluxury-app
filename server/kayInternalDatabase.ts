@@ -1,7 +1,10 @@
 import { Pool, type PoolClient } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "@shared/schema";
-import { KAY_INTERNAL_WRITABLE_TABLES } from "./kayDataOwnership";
+import {
+  KAY_INTERNAL_APPROVED_WRITABLE_TABLES,
+  KAY_INTERNAL_WRITABLE_TABLES,
+} from "./kayDataOwnership";
 import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 export class KayInternalPersistenceUnavailableError extends Error {
@@ -12,7 +15,11 @@ export class KayInternalPersistenceUnavailableError extends Error {
 
 let pool: Pool | null = null;
 let verified: Promise<void> | null = null;
-const KAY_INTERNAL_UPDATE_TABLES = KAY_INTERNAL_WRITABLE_TABLES.filter(table => table !== "kay_events");
+function requiredWritableTables(): readonly string[] {
+  return process.env.KAY_INTERNAL_CALLS_ENABLED === "true"
+    ? KAY_INTERNAL_APPROVED_WRITABLE_TABLES
+    : KAY_INTERNAL_WRITABLE_TABLES;
+}
 
 function getPool(): Pool {
   const testMode = process.env.NODE_ENV === "test";
@@ -36,6 +43,8 @@ export const kayInternalDb = drizzle({ client: lazyPool, schema });
 
 async function verifyBoundary(): Promise<void> {
   verified ||= (async () => {
+    const requiredTables = requiredWritableTables();
+    const updateTables = requiredTables.filter(table => table !== "kay_events");
     const client = await getPool().connect();
     try {
       if (process.env.NODE_ENV === "test") {
@@ -74,7 +83,7 @@ async function verifyBoundary(): Promise<void> {
           SELECT 1 FROM pg_class c
           JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='public' AND c.relkind IN ('r','p')
-            AND c.relname <> ALL($1::text[])
+            AND c.relname <> ALL($3::text[])
             AND (
               has_table_privilege(current_user,c.oid,'INSERT') OR
               has_table_privilege(current_user,c.oid,'UPDATE') OR
@@ -82,7 +91,11 @@ async function verifyBoundary(): Promise<void> {
               has_table_privilege(current_user,c.oid,'TRUNCATE')
             )
         ) AS unapproved_writes_denied
-        FROM unnest($1::text[]) AS approved(t)`, [KAY_INTERNAL_WRITABLE_TABLES, KAY_INTERNAL_UPDATE_TABLES]);
+        FROM unnest($1::text[]) AS approved(t)`, [
+          requiredTables,
+          updateTables,
+          KAY_INTERNAL_APPROVED_WRITABLE_TABLES,
+        ]);
       const row = result.rows[0];
       if (!row?.correct_user || !row?.correct_database || !row?.create_denied ||
           !row?.crm_select_denied || !row?.crm_insert_denied || !row?.crm_update_denied ||

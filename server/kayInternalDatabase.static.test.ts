@@ -1,7 +1,12 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { getKayDataOwnership, KAY_INTERNAL_WRITABLE_TABLES } from "./kayDataOwnership";
+import {
+  getKayDataOwnership,
+  KAY_INTERNAL_APPROVED_WRITABLE_TABLES,
+  KAY_INTERNAL_OPTIONAL_WRITABLE_TABLES,
+  KAY_INTERNAL_WRITABLE_TABLES,
+} from "./kayDataOwnership";
 
 const source = readFileSync(new URL("./kayInternalDatabase.ts", import.meta.url), "utf8");
 
@@ -24,4 +29,6 @@ test("unknown and execution-linked objects fail closed", () => {
   assert.equal(getKayDataOwnership("kay_auto_rescue_queue").runtimeWrite, false);
   assert.equal(getKayDataOwnership("kay_rescue_executions").runtimeWrite, false);
   assert.equal(KAY_INTERNAL_WRITABLE_TABLES.length, 9);
+  assert.deepEqual(KAY_INTERNAL_OPTIONAL_WRITABLE_TABLES, ["kay_internal_call_sessions"]);
+  assert.equal(KAY_INTERNAL_APPROVED_WRITABLE_TABLES.length, 10);
 });

@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, RequestHandler } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
@@ -55,6 +55,7 @@ import { acceptCommitment, acknowledgeBriefing, cancelCommitment, cancelPromise,
 import { authorizeKayAction, denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 import { withKayInternalClient } from "./kayInternalDatabase";
+import { registerKayInternalCallRoutes } from "./kayInternalCallService";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -435,8 +436,7 @@ ${metaTags}
   // Configure sessions with PostgreSQL store
   const isProduction = process.env.NODE_ENV === "production";
 
-  app.use(
-    session({
+  const sessionMiddleware: RequestHandler = session({
       cookie: {
         maxAge: 86400000, // 24 hours
         httpOnly: true,
@@ -466,8 +466,9 @@ ${metaTags}
           ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
           : "dev-only-insecure-fallback-do-not-use-in-production");
       })(),
-    })
-  );
+    });
+  app.use(sessionMiddleware);
+  registerKayInternalCallRoutes(app, httpServer, sessionMiddleware);
 
   // Middleware to check if user is authenticated
   const isAuthenticated = (req: Request, res: Response, next: Function) => {

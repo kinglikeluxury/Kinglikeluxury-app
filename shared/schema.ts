@@ -926,6 +926,23 @@ export const kayInternalBriefings = pgTable("kay_internal_briefings", {
 }));
 export type KayInternalBriefing = typeof kayInternalBriefings.$inferSelect;
 
+export const kayInternalCallSessions = pgTable("kay_internal_call_sessions", {
+  id: serial("id").primaryKey(),
+  caller: text("caller").notNull().default("KAY"),
+  targetUserId: integer("target_user_id").references(() => users.id, { onDelete: "restrict" }).notNull(),
+  initiatedByUserId: integer("initiated_by_user_id").references(() => users.id, { onDelete: "restrict" }).notNull(),
+  status: text("status").notNull().default("RINGING"),
+  reasonCode: text("reason_code").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  answeredAt: timestamp("answered_at"),
+  endedAt: timestamp("ended_at"),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("kay_internal_call_sessions_idempotency_key_unique_idx").on(table.idempotencyKey),
+  targetCreatedIdx: index("kay_internal_call_sessions_target_created_idx").on(table.targetUserId, table.createdAt),
+}));
+export type KayInternalCallSession = typeof kayInternalCallSessions.$inferSelect;
+
 // ── Kay Phase B — shadow-only lead safety ledger ────────────────────────────
 // These tables deliberately have no FK-triggered CRM writes.  They are an
 // append-only observation/control plane beside the CRM.

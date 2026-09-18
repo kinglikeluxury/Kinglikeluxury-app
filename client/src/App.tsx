@@ -70,6 +70,7 @@ import SplashScreen from "@/components/SplashScreen";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useCallback } from "react";
 import { getLanguageDirection } from "./lib/i18n";
+import { KayCallInitiator, KayCallProvider } from "./lib/kay-call";
 
 function Router() {
   const [location] = useLocation();
@@ -123,6 +124,11 @@ function Router() {
           <Route path="/admin/competitor-intelligence" component={CompetitorIntelligencePage} />
           <Route path="/admin/kay-control-center" component={KayControlCenterPage} />
            <Route path="/admin/kay/my-sales" component={KayMySalesPage} />
+          <Route path="/admin/kay/call">
+            <main className="min-h-[100dvh] bg-[#f4f8f8] p-6">
+              <KayCallInitiator />
+            </main>
+          </Route>
           <Route path="/live-projects" component={LiveProjects} />
           <Route path="/ai-advisor" component={AiAdvisorPage} />
           <Route path="/consultation" component={ConsultationBooking} />
@@ -185,20 +191,22 @@ function App() {
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <InstallPWA />
-            {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
-            <div
-              style={{
-                opacity: splashDone ? 1 : 0,
-                transition: "opacity 0.5s ease-in-out",
-                pointerEvents: splashDone ? "auto" : "none",
-              }}
-            >
-              <Router />
-            </div>
-          </TooltipProvider>
+          <KayCallProvider>
+            <TooltipProvider>
+              <Toaster />
+              <InstallPWA />
+              {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+              <div
+                style={{
+                  opacity: splashDone ? 1 : 0,
+                  transition: "opacity 0.5s ease-in-out",
+                  pointerEvents: splashDone ? "auto" : "none",
+                }}
+              >
+                <Router />
+              </div>
+            </TooltipProvider>
+          </KayCallProvider>
         </AuthProvider>
       </QueryClientProvider>
     </HelmetProvider>
