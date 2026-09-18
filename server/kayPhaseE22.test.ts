@@ -70,8 +70,8 @@ test("E22 unavailable LEAVE alternative yields no eligible target", () => {
 test("E22 production routes cannot pass the synthetic scope and UI renders evidence", () => {
   assert.doesNotMatch(routes, /getLegacyBaselineReadiness\(\s*\{/);
   assert.doesNotMatch(routes, /previewLegacyBaselineInitialization\([^)]*,\s*\{/);
-  assert.match(ui, /o\.evidence/);
-  assert.match(ui, /o\.conclusion/);
+  assert.match(ui, /\(owner\.evidence \?\? \[\]\)\.map/);
+  assert.match(ui, /owner\.conclusion/);
   assert.match(ui, /capacitySensitivity/);
 });
 test("E22 audit failure hook is gated and transaction precedes baseline insert", () => {
