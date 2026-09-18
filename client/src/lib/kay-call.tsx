@@ -238,6 +238,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const [now, setNow] = useState(Date.now());
   const [micLevel, setMicLevel] = useState(0);
   const [callError, setCallError] = useState("");
+  const [directTestReady, setDirectTestReady] = useState(false);
 
   useEffect(() => {
     statusRef.current = status;
@@ -525,6 +526,25 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   }, [startedAt]);
 
   useEffect(() => {
+    if (!authorized || user?.id !== 1 || !user.isAdmin || status !== "idle") {
+      setDirectTestReady(false);
+      return;
+    }
+    let disposed = false;
+    const check = async () => {
+      const response = await fetch("/api/admin/kay/internal-calls/test-readiness", { credentials: "include" }).catch(() => null);
+      const payload = await response?.json().catch(() => ({}));
+      if (!disposed) setDirectTestReady(response?.ok === true && payload?.ready === true);
+    };
+    void check();
+    const interval = window.setInterval(check, 2000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [authorized, status, user?.id, user?.isAdmin]);
+
+  useEffect(() => {
     if (isLoading || !authorized) return;
     let disposed = false;
     const connect = () => {
@@ -652,6 +672,20 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       {children}
       {callError && <div className="fixed bottom-4 left-4 z-[110] rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 shadow" role="alert">{callError}</div>}
       <audio ref={audioRef} autoPlay aria-hidden="true" />
+      {directTestReady && status === "idle" && (
+        <Button
+          className="fixed bottom-5 right-5 z-[120] bg-[#005476] shadow-2xl hover:bg-[#003f59]"
+          onClick={() => {
+            setDirectTestReady(false);
+            void startCall(1, "ADMIN_TEST", "Kay is calling", "ADMIN_TEST").catch((error) => {
+              setCallError(error instanceof Error ? error.message : "Kay direct test call could not start.");
+              setStatus("idle");
+            });
+          }}
+        >
+          <Phone className="h-4 w-4" /> اتصل بي من KAY الآن
+        </Button>
+      )}
       {status === "incoming" && incomingCall && <IncomingKayCall call={incomingCall} canAnswer={offerReady || incomingCall.direct === true} onAnswer={answer} onReject={reject} />}
       {(status === "connecting" || status === "connected" || status === "error") && (
         <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} micLevel={micLevel} onMute={toggleMute} onEnd={end} />

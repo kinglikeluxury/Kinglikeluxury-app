@@ -50,6 +50,9 @@ test("Kay call controller exposes signaling, controls, and cleanup", () => {
 
 test("direct Kay caller uses local voice and microphone without a peer", () => {
   const source = readFileSync(new URL("./kay-call.tsx", import.meta.url), "utf8");
+  assert.match(source, /هذه أول مكالمة تجريبية مباشرة بيني وبينك داخل تطبيق كينغ لايك/);
+  assert.match(source, /\/api\/admin\/kay\/internal-calls\/test-readiness/);
+  assert.match(source, /اتصل بي من KAY الآن/);
   assert.match(source, /KAY_CALL_INCOMING/);
   assert.match(source, /answerDirect/);
   assert.match(source, /speechSynthesis\.speak/);

@@ -736,6 +736,34 @@ export function registerKayInternalCallRoutes(
   httpServer: Server,
   sessionMiddleware: RequestHandler,
 ) {
+  app.get("/api/admin/kay/internal-calls/test-readiness", async (req: any, res: Response) => {
+    try {
+      const admin = await loadAuthorizedUser(Number(req.session?.userId));
+      if (!admin.isAdmin || admin.id !== 1) throw httpError(403, "KAY_INTERNAL_CALL_ADMIN_REQUIRED");
+      const started = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT || "");
+      const expires = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
+      const now = new Date();
+      const overrideActive =
+        KAY_INTERNAL_CALLS_ENABLED() &&
+        process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
+        !Number.isNaN(started.getTime()) &&
+        !Number.isNaN(expires.getTime()) &&
+        started <= now &&
+        expires > now &&
+        expires.getTime() - started.getTime() <= 15 * 60 * 1000;
+      if (!overrideActive) return res.status(200).json({ ready: false });
+      const consumed = await withKayInternalClient(client =>
+        client.query(`SELECT EXISTS(SELECT 1 FROM kay_internal_call_sessions WHERE reason_code='ADMIN_TEST') AS consumed`)
+      );
+      return res.status(200).json({
+        ready: consumed.rows[0]?.consumed !== true,
+        expiry: expires.toISOString(),
+      });
+    } catch (error: any) {
+      return res.status(error?.status || 500).json({ ready: false });
+    }
+  });
+
   // Direct virtual-caller path: KAY has no browser/WebSocket peer. The target
   // socket is only used as the authenticated delivery channel for the ring.
   app.post("/api/admin/kay/internal-calls/start", async (req: any, res: Response) => {

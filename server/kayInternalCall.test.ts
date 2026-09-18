@@ -130,6 +130,8 @@ test("after-hours Tarek test override is narrow, expiring, and single-use", () =
 });
 
 test("direct Kay caller has no caller socket and exposes target lifecycle", () => {
+  assert.match(service, /\/api\/admin\/kay\/internal-calls\/test-readiness/);
+  assert.match(service, /ready: consumed\.rows\[0\]\?\.consumed !== true/);
   assert.match(service, /\/api\/admin\/kay\/internal-calls\/start/);
   assert.match(service, /target_user_id/);
   assert.match(service, /reason_code/);
