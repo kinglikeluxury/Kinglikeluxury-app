@@ -3,6 +3,7 @@ import { generateKayMissions } from "../server/kayMissionService";
 import { runPhaseDEvaluator } from "../server/kayPhaseDService";
 import { withKayReadonlyAnalysis } from "../server/kayAnalysisDatabase";
 import { verifyKayInternalDatabase, withKayInternalClient } from "../server/kayInternalDatabase";
+import { assertKayProductionEntry } from "../server/kaySyntheticSafety";
 
 const CRM_FINGERPRINTS = {
   crm_leads: ["id", "lead_source", "assigned_to", "lead_score", "status", "created_at", "updated_at", "last_contact_at", "business_received_at", "business_received_at_source", "wa_stage"],
@@ -89,6 +90,7 @@ function diagnosticErrors(values: unknown[]) {
 
 async function main() {
   requireConfiguration();
+  assertKayProductionEntry(undefined);
   await verifyKayInternalDatabase();
 
   const before = await captureCrmFingerprints();
