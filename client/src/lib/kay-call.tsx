@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 export const KAY_AUDIO_CONSTRAINTS: MediaStreamConstraints = { audio: true, video: false };
 export const KAY_TAREK_TEST_MESSAGE =
-  "مساء الخير أستاذ طارق، معك كاي. هذه مكالمة تجريبية داخلية للتأكد من أن نظام الاتصال يعمل بشكل صحيح.";
+  "مساء الخير أستاذ طارق، معك كاي. هذه أول مكالمة تجريبية مباشرة بيني وبينك داخل تطبيق كينغ لايك. إذا كنت تسمعني بشكل واضح، فالاتصال يعمل بشكل صحيح.";
 
 export type KayCallStatus = "idle" | "incoming" | "connecting" | "connected" | "ended" | "error";
 export type KayIncomingCall = {
