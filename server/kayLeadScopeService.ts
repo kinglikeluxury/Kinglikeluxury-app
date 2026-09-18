@@ -206,7 +206,7 @@ export async function getKayMissionScope(
         owner: row.username == null ? null : {
           username: row.username, role: row.role, isActive: row.is_active, isAdmin: row.is_admin,
         },
-      } : null, configuration.config, employeeId, row?.assigned_to ?? null),
+      } : null, configuration.config, employeeId, row?.assigned_to == null ? null : Number(row.assigned_to)),
     };
   };
   return executor ? read(executor) : withKayReadonlyAnalysis(read);

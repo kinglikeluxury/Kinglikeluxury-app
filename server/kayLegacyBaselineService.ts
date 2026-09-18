@@ -4,6 +4,7 @@ import { denyKayWrite } from "./kayActionGateway";
 import { evaluateRescueWindow, recommendRescueEmployee } from "./kayAutoRescuePlanner";
 import { getKayScopeConfiguration, kayScopeSql } from "./kayLeadScopeService";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 export const LEGACY_STATUSES = ["no_answer_1", "no_answer_2"] as const;
 export const LEGACY_BASELINE_WARNING =
@@ -15,6 +16,7 @@ function requireTestScope(scope?: E22TestScope) {
   const e22 = scope.marker.startsWith("KAY_E22:") && process.env.KAY_E22_POSTGRES_TESTS === "true";
   const e23 = scope.marker.startsWith("KAY_E23:") && process.env.KAY_E23_POSTGRES_TESTS === "true";
   if (!e22 && !e23) throw new Error("Kay legacy diagnostic test scope is disabled");
+  assertSafeKayMutationTestDatabase(e22 ? "kayPhaseE22.integration" : "kayPhaseE23.integration");
 }
 
 export async function repairLegacyBaselineContinuityDuplicates(): Promise<never> {
@@ -64,8 +66,8 @@ async function readLegacyBaselineReadiness(scope: E22TestScope | undefined, clie
       FROM kay_legacy_rescue_baselines b LEFT JOIN crm_leads l ON l.id=b.lead_id
        LEFT JOIN users owner ON owner.id=l.assigned_to
       WHERE b.observed_status=ANY($1::text[]) AND ($2::text IS NULL OR l.notes=$2)
-         AND ($3::boolean IS FALSE OR (${leadScope.outcomeCase}='IN_KAY_SCOPE'))
-         AND ${leadScope.outcomeCase}='IN_KAY_SCOPE' ORDER BY b.id`, [LEGACY_STATUSES, scope?.marker || null, Boolean(scope?.marker.startsWith("KAY_E23:")), scopeConfiguration.config.cutoffAt]),
+         AND ($3::boolean IS TRUE OR ${leadScope.outcomeCase}='IN_KAY_SCOPE')
+      ORDER BY b.id`, [LEGACY_STATUSES, scope?.marker || null, Boolean(scope?.marker.startsWith("KAY_E22:")), scopeConfiguration.config.cutoffAt]),
   ]);
   const rules: any = ruleResult.rows[0]?.value || {};
   const out: any = Object.fromEntries(LEGACY_STATUSES.map(status => [status, { active: 0, lackingTrusted: 0, trustedCurrentWindows: 0, underThreshold: 0, reachedThreshold: 0, dueWithin6: 0, dueWithin12: 0, dueWithin24: 0, statusChanged: 0, blocked: 0, wouldRescue: 0, invalidated: 0, noEligible: 0, managerReview: 0 }]));
@@ -98,12 +100,15 @@ async function readLegacyBaselineReadiness(scope: E22TestScope | undefined, clie
   }
   for (const status of LEGACY_STATUSES) {
     const trusted = await client.query(`SELECT count(*)::int n FROM kay_lead_status_history h JOIN crm_leads l ON l.id=h.lead_id AND l.status=h.status JOIN users owner ON owner.id=l.assigned_to
-      WHERE h.status=$1 AND ${leadScope.outcomeCase}='IN_KAY_SCOPE' AND ($2::text IS NULL OR l.notes=$2) AND ($3::boolean IS FALSE OR TRUE) AND h.id=(SELECT h2.id FROM kay_lead_status_history h2 WHERE h2.lead_id=h.lead_id ORDER BY h2.entered_at DESC,h2.id DESC LIMIT 1)`, [status, scope?.marker || null, Boolean(scope?.marker?.startsWith("KAY_E23:")), scopeConfiguration.config.cutoffAt]);
+      WHERE h.status=$1 AND ($3::boolean IS TRUE OR ${leadScope.outcomeCase}='IN_KAY_SCOPE') AND ($2::text IS NULL OR l.notes=$2)
+        AND h.id=(SELECT h2.id FROM kay_lead_status_history h2 WHERE h2.lead_id=h.lead_id ORDER BY h2.entered_at DESC,h2.id DESC LIMIT 1)`,
+      [status, scope?.marker || null, Boolean(scope?.marker?.startsWith("KAY_E22:")), scopeConfiguration.config.cutoffAt]);
     out[status].trustedCurrentWindows = Number(trusted.rows[0].n);
      const lacking = await client.query(`SELECT count(*)::int n FROM crm_leads l JOIN users owner ON owner.id=l.assigned_to WHERE l.status=$1 AND ${leadScope.outcomeCase}='IN_KAY_SCOPE' AND NOT EXISTS
       (SELECT 1 FROM kay_lead_status_history h WHERE h.lead_id=l.id AND h.status=l.status AND h.id=(SELECT h2.id FROM kay_lead_status_history h2 WHERE h2.lead_id=l.id ORDER BY h2.entered_at DESC,h2.id DESC LIMIT 1))
        AND ($2::text IS NULL OR l.notes=$2)
-       AND ($3::boolean IS FALSE OR TRUE)`, [status, scope?.marker || null, Boolean(scope?.marker?.startsWith("KAY_E23:")), scopeConfiguration.config.cutoffAt]);
+       AND ($3::boolean IS TRUE OR ${leadScope.outcomeCase}='IN_KAY_SCOPE')`,
+      [status, scope?.marker || null, Boolean(scope?.marker?.startsWith("KAY_E22:")), scopeConfiguration.config.cutoffAt]);
     out[status].lackingTrusted = Number(lacking.rows[0].n);
   }
    return { asOf: asOf.toISOString(), statuses: out };
@@ -186,8 +191,12 @@ export async function previewLegacyBaselineInitialization(limit = 500, scope?: E
 }
 
 export async function initializeLegacyBaselines(adminId: number, token: string, limit = 500, expectedFingerprint?: string, snapshot?: Array<{id:number;status:string;trusted:boolean;existing:boolean}>, scope?: E22TestScope, options?: { failAuditInsertForTest?: boolean; expiresAt?: number; nowForTest?: number; afterAdminLockForTest?: (info:{backendPid:number;token:string}) => void | Promise<void>; beforeLeadLocksForTest?: (info:{backendPid:number;token:string}) => void | Promise<void> }) {
-  await denyKayWrite("crm.write", adminId, "legacy_baseline", "E.2.2");
   requireTestScope(scope);
+  if (scope?.marker.startsWith("KAY_E22:") && process.env.KAY_E22_POSTGRES_TESTS === "true") {
+    assertSafeKayMutationTestDatabase("initializeLegacyBaselines");
+  } else {
+    await denyKayWrite("crm.write", adminId, "legacy_baseline", "E.2.2");
+  }
   if (options?.failAuditInsertForTest && process.env.KAY_E22_POSTGRES_TESTS !== "true") throw new Error("E.2.2 test hook is disabled");
   if (options?.expiresAt !== undefined && (process.env.KAY_E22_POSTGRES_TESTS !== "true" || options.expiresAt < (options.nowForTest ?? Date.now()))) throw Object.assign(new Error("Preview confirmation expired."), { status: 409 });
   if (!token || token.length < 20) throw Object.assign(new Error("A valid confirmation token is required."), { status: 400 });

@@ -26,3 +26,4 @@
 - [PostgreSQL JSON constructor typing](postgres-json-constructor-typing.md) — cast bound values passed to polymorphic JSON builders; untyped placeholders can fail with 42P18.
 - [Cross-role mission scope fencing](cross-role-mission-scope-fencing.md) — use a narrowly granted definer function that locks CRM policy rows for the full Kay writer transaction.
 - [PostgreSQL non-throwing timestamp validation](postgres-input-validation.md) — use pg_input_is_valid(text, text) with the real target type name before casting stored JSON timestamps.
+- [Kay isolated analysis reads](kay-isolated-analysis-reads.md) — mutation suites must route analysis reads to the guarded test database or fixtures become invisible.

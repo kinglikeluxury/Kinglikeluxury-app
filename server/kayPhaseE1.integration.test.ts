@@ -1,6 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { ensureKayTables, pool } from "./db";
+import { pool } from "./db";
 import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
 import {
   acceptPromiseHandoff,
@@ -11,6 +11,9 @@ import {
 } from "./kayRescueService";
 
 assertSafeKayMutationTestDatabase("kayPhaseE1.integration");
+if (process.env.KAY_E1_POSTGRES_TESTS !== "true") {
+  throw new Error("KAY_E1_POSTGRES_TESTS=true is required for the E.1 mutation suite");
+}
 const marker = kaySyntheticMarker("KAY_E1_TEST");
 const leadIds: number[] = [];
 let adminId = 0;
@@ -58,11 +61,10 @@ async function rejected(command: any, actor: number, code: string) {
 
 before(async () => {
   process.env.KAY_E1_TEST_HOOKS = "true";
-  await ensureKayTables();
   await pool.query(`SELECT value FROM kay_settings WHERE key='mode'`);
-  const users = await pool.query(`INSERT INTO users(username,password,is_admin,role) VALUES
-    ($1,'x',true,'admin'),($2,'x',false,'sub_agent'),($3,'x',false,'sub_agent'),
-    ($4,'x',false,'sub_agent'),($5,'x',false,'user') RETURNING id,username`,
+  const users = await pool.query(`INSERT INTO users(username,password,is_admin,role,is_active) VALUES
+    ($1,'x',true,'admin',true),($2,'x',false,'sub_agent',true),($3,'x',false,'sub_agent',true),
+    ($4,'x',false,'sub_agent',true),($5,'x',false,'user',true) RETURNING id,username`,
     [`${marker}:admin`, `${marker}:owner`, `${marker}:target`, `${marker}:other`, `${marker}:nonadmin`]);
   const ids = Object.fromEntries(users.rows.map((row: any) => [row.username.split(":").pop(), Number(row.id)]));
   adminId = ids.admin; ownerId = ids.owner; targetId = ids.target; otherTargetId = ids.other; nonAdminId = ids.nonadmin;

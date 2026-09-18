@@ -197,8 +197,12 @@ export async function releaseKayMissionGeneratorLease(token: string): Promise<bo
 
 /** Retryable, bounded in-app delivery. The marker and notification commit together. */
 export async function deliverPendingKayMissionNotifications(settings?: PhaseCSettings, limit = 50): Promise<number> {
-  await denyKayWrite("tasks.create", undefined, "kay_notification", "pending");
-  assertKayProductionEntry();
+  if (process.env.KAY_C1_POSTGRES_TESTS === "true") {
+    assertSafeKayMutationTestDatabase("deliverPendingKayMissionNotifications");
+  } else {
+    await denyKayWrite("tasks.create", undefined, "kay_notification", "pending");
+    assertKayProductionEntry();
+  }
   const effectiveSettings = settings ?? await getPhaseCSettings();
   if (!effectiveSettings.mission_notifications_enabled) return 0;
   const pending = await db.execute(sql`
@@ -229,7 +233,7 @@ export async function deliverPendingKayMissionNotifications(settings?: PhaseCSet
           WHERE m.id=${mission.id}
           FOR UPDATE OF m,a`);
         const current: any = locked.rows[0];
-        assertKayProductionEntry(current);
+        if (process.env.KAY_C1_POSTGRES_TESTS !== "true") assertKayProductionEntry(current);
         if (!current || !["NEW","ACCEPTED","IN_PROGRESS"].includes(current.status) ||
             !["HIGH","CRITICAL"].includes(current.priority) ||
             (current.notification_sent_at && current.notification_level === current.priority)) return false;

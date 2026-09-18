@@ -85,8 +85,8 @@ export async function getE24FadiPrecheck() {
 }
 
 export async function activateE24Fadi(adminId: number, confirmFirstRealCanary = false) {
-  await denyKayWrite("settings.update", adminId, "kay_phase", "E.2.4");
   if (!confirmFirstRealCanary) throw Object.assign(new Error("Explicit first-real-canary confirmation is required"), { status: 400 });
+  await denyKayWrite("settings.update", adminId, "kay_phase", "E.2.4");
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

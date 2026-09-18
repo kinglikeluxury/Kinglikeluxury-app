@@ -16,7 +16,7 @@ import {
 } from "./kayLegacyBaselineService";
 
 const enabled = process.env.KAY_E22_POSTGRES_TESTS === "true";
-const marker = kaySyntheticMarker("KAY_E22_TEST");
+const marker = kaySyntheticMarker("KAY_E22");
 const scope = { marker };
 const leadIds: number[] = [];
 const userIds: number[] = [];
@@ -187,6 +187,24 @@ test("E22 PostgreSQL service integration", { skip: !enabled }, async t => {
   }
 
   try {
+    await t.test("production readiness excludes leads outside the fixed Kay cohort", async () => {
+      const before = await getLegacyBaselineReadiness();
+      const outOfScope = await addLead("no_answer_1", true);
+      try {
+        await clearHistory(outOfScope);
+        await pool.query(`INSERT INTO kay_legacy_rescue_baselines
+          (lead_id,observed_status,observation_started_at,continuity_event_key)
+          VALUES($1,'no_answer_1',clock_timestamp()-interval '48 hours',$2)`,
+        [outOfScope, `${marker}:production-scope-regression:${outOfScope}`]);
+        const after = await getLegacyBaselineReadiness();
+        assert.deepEqual(after.statuses, before.statuses);
+      } finally {
+        await pool.query(`DELETE FROM kay_legacy_rescue_baselines WHERE lead_id=$1`, [outOfScope]);
+        await pool.query(`DELETE FROM kay_lead_status_history WHERE lead_id=$1`, [outOfScope]);
+        await pool.query(`DELETE FROM crm_leads WHERE id=$1 AND notes=$2`, [outOfScope, marker]);
+      }
+    });
+
     await t.test("preview and confirm create only NA1 and NA2 with DB clock", async () => {
       const before = new Date((await pool.query(`SELECT clock_timestamp() now`)).rows[0].now);
       const na1 = await addLead("no_answer_1", true);

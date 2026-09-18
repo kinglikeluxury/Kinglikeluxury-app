@@ -1,6 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { ensureKayTables, pool } from "./db";
+import { pool } from "./db";
 import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
 import {
   executeAutomaticRescue,
@@ -123,7 +123,6 @@ before(async () => {
   if (!enabled) return;
   process.env.KAY_E1_TEST_HOOKS = "true";
   process.env.KAY_E2_TEST_HOOKS = "true";
-  await ensureKayTables();
   priorMode=(await pool.query(`SELECT value FROM kay_settings WHERE key='mode'`)).rows[0]?.value;
   priorRules=(await pool.query(`SELECT value FROM kay_settings WHERE key='rescue_rules'`)).rows[0]?.value;
   priorLaunch=(await pool.query(`SELECT value,updated_by FROM kay_settings WHERE key='kay_operational_launch_at'`)).rows[0] ?? null;

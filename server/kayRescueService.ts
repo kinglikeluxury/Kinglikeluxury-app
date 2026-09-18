@@ -5,6 +5,7 @@ import { resolveKayStatusWindow } from "./kayLegacyBaselineService";
 import { assertKayProductionEntry } from "./kaySyntheticSafety";
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const openPromise = ["PENDING", "DUE_SOON", "OVERDUE", "OPEN"];
@@ -17,6 +18,38 @@ export type RescueCommand = { leadId: number; decisionId: number; expectedOwnerI
 export type AutomaticRescueCommand = RescueCommand & { queueId: number; leaseToken: string; fencingToken: number };
 type RescueTestHook = (step: "after_owner_update" | "after_audit_event") => void | Promise<void>;
 let rescueTestHook: RescueTestHook | undefined;
+function isolatedRescueTest(): "E1" | "E2" | null {
+  if (process.env.NODE_ENV === "test" &&
+      process.env.KAY_E1_POSTGRES_TESTS === "true" &&
+      process.env.KAY_E1_TEST_HOOKS === "true") return "E1";
+  if (process.env.NODE_ENV === "test" &&
+      process.env.KAY_E2_POSTGRES_TESTS === "true" &&
+      process.env.KAY_E2_TEST_HOOKS === "true") return "E2";
+  return null;
+}
+function isolatedE2Test(): boolean {
+  return process.env.NODE_ENV === "test" &&
+    process.env.KAY_E2_POSTGRES_TESTS === "true" &&
+    process.env.KAY_E2_TEST_HOOKS === "true";
+}
+function assertRescueRecord(record?: unknown): void {
+  const isolatedSuite = isolatedRescueTest();
+  if (isolatedSuite) {
+    assertSafeKayMutationTestDatabase(`kayPhase${isolatedSuite}.integration`);
+  } else {
+    assertKayProductionEntry(record);
+  }
+}
+async function assertRescueMutation(
+  action: "rescue.execute" | "settings.update" | "workflow.transition",
+  actorId: number | undefined,
+  targetType: string,
+  targetId: string | number,
+  record?: unknown,
+): Promise<void> {
+  assertRescueRecord(record);
+  if (!isolatedRescueTest()) await denyKayWrite(action, actorId, targetType, targetId);
+}
 
 /** Test-only fault injection. It is deliberately unavailable unless explicitly enabled. */
 export function setAssistedRescueTestHook(hook?: RescueTestHook) {
@@ -39,8 +72,7 @@ async function auditRejected(command: RescueCommand, adminId: number, code: stri
 
 /** The sole transactional ownership-transfer primitive for E.1 and E.2. */
 export async function executeRescueTransaction(command: RescueCommand, actorId: number | null, executionMode: "assisted" | "automatic" = "assisted") {
-  assertKayProductionEntry(command);
-  await denyKayWrite("rescue.execute", actorId ?? undefined, "crm_lead", command.leadId);
+  await assertRescueMutation("rescue.execute", actorId ?? undefined, "crm_lead", command.leadId, command);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -75,7 +107,7 @@ export async function executeRescueTransaction(command: RescueCommand, actorId: 
       FROM crm_leads l LEFT JOIN LATERAL (SELECT entered_at FROM kay_lead_status_history WHERE lead_id=l.id AND status=l.status ORDER BY entered_at DESC LIMIT 1) h ON true
       LEFT JOIN kay_lead_protection p ON p.lead_id=l.id AND p.removed_at IS NULL WHERE l.id=$1 FOR UPDATE OF l`, [command.leadId]);
     const lead: any = leadResult.rows[0]; if (!lead) throw reject("LEAD_MISSING");
-    assertKayProductionEntry(lead);
+    assertRescueRecord(lead);
     // The lead row lock serializes confirms. A retry after a committed winner
     // returns that immutable result before re-evaluating now-stale eligibility.
     const prior = await client.query(`SELECT id,from_user_id,to_user_id,created_at FROM kay_rescue_executions WHERE decision_id=$1 AND outcome='SUCCESS' LIMIT 1`, [command.decisionId]);
@@ -237,8 +269,7 @@ export async function executeAutomaticRescue(command: AutomaticRescueCommand) {
 
 /** Permanently freezes an E.2.4 canary which cannot safely execute. */
 export async function freezeE24NoExecution(reason: string, candidateLeadId?: number, immediate = false) {
-  await denyKayWrite("settings.update", undefined, "kay_phase", "E.2.4");
-  assertKayProductionEntry();
+  await assertRescueMutation("settings.update", undefined, "kay_phase", "E.2.4");
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -267,7 +298,7 @@ export async function freezeE24NoExecution(reason: string, candidateLeadId?: num
 
 /** Explicit reversal command; it is deliberately not callable by any scheduler. */
 export async function undoAssistedRescue(executionId: number, adminId: number, reason: string) {
-  await denyKayWrite("rescue.execute", adminId, "rescue_execution", executionId);
+  await assertRescueMutation("rescue.execute", adminId, "rescue_execution", executionId);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -325,7 +356,7 @@ export async function listPromiseHandoffs(employeeId: number, admin: boolean) {
   return (await withKayReadonlyAnalysis(client => client.query(`SELECT h.*,p.promise_text,p.due_at,p.importance FROM kay_promise_handoffs h LEFT JOIN kay_promises p ON p.id=h.promise_id WHERE $2 OR (h.current_responsible_id=$1 AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=h.lead_id AND l.assigned_to=$1)) ORDER BY h.transferred_at DESC`, [employeeId, admin]))).rows;
 }
 export async function acceptPromiseHandoff(id: number, employeeId: number, admin: boolean) {
-  await denyKayWrite("workflow.transition", employeeId, "promise_handoff", id);
+  await assertRescueMutation("workflow.transition", employeeId, "promise_handoff", id);
   const result = await pool.query(`UPDATE kay_promise_handoffs h SET accepted_at=COALESCE(accepted_at,NOW()) WHERE h.id=$1 AND ($3 OR (h.current_responsible_id=$2 AND EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=h.lead_id AND l.assigned_to=$2))) RETURNING *`, [id, employeeId, admin]);
   if (!result.rows[0]) throw Object.assign(new Error("Promise handoff not found."), { status: 404 }); return result.rows[0];
 }

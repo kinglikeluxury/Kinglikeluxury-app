@@ -24,12 +24,15 @@ test("all Kay HTTP mutations pass through the centralized denial middleware", ()
 
 test("legacy Kay execution entry points cannot bypass the Action Gateway", () => {
   const expectations: Array<[string, RegExp]> = [
-    ["kayRescueService.ts", /executeRescueTransaction[\s\S]{0,500}denyKayWrite\("rescue\.execute"/],
-    ["kayAutoRescueService.ts", /runKayAutoRescueWorker[\s\S]{0,250}denyKayWrite\("rescue\.execute"/],
+    ["kayRescueService.ts", /executeRescueTransaction[\s\S]{0,500}assertRescueMutation\("rescue\.execute"/],
+    ["kayAutoRescueService.ts", /runKayAutoRescueWorker[\s\S]{0,250}assertAutoRescueMutation\("rescue\.execute"/],
     ["kayPhaseE24Service.ts", /activateE24Fadi[\s\S]{0,250}denyKayWrite\("settings\.update"/],
     ["kayLegacyBaselineService.ts", /initializeLegacyBaselines[\s\S]{0,500}denyKayWrite\("crm\.write"/],
   ];
   for (const [file, pattern] of expectations) assert.match(read(file), pattern, file);
+  assert.match(read("kayRescueService.ts"), /assertRescueMutation[\s\S]{0,800}denyKayWrite\(action/);
+  assert.match(read("kayRescueService.ts"), /KAY_E1_POSTGRES_TESTS[\s\S]*KAY_E1_TEST_HOOKS[\s\S]*assertSafeKayMutationTestDatabase/);
+  assert.match(read("kayAutoRescueService.ts"), /assertAutoRescueMutation[\s\S]{0,800}denyKayWrite\(action/);
   assert.match(read("kayMissionService.ts"), /generateKayMissions[\s\S]{0,500}assertKayInternalWriteAllowed/);
   assert.match(read("kayPhaseDService.ts"), /evaluatePhaseD[\s\S]{0,500}assertKayInternalWriteAllowed/);
   const gate = read("kayInternalWriteGate.ts");
@@ -53,8 +56,10 @@ test("audit runtime uses a non-owner insert-only connection and performs no DDL"
   assert.doesNotMatch(source, /\b(?:CREATE|ALTER|DROP)\s+(?:TABLE|ROLE|TRIGGER|FUNCTION)/i);
 });
 
-test("dangerous uncertain-reconciliation test helper is retired behind full DB preflight", () => {
+test("uncertain-reconciliation helper requires full DB preflight and the isolated E2 gate", () => {
   const source = read("kayAutoRescueService.ts");
-  assert.match(source, /reconcileAutoRescueUncertainForTest[\s\S]{0,300}assertSafeKayMutationTestDatabase/);
-  assert.match(source, /mutation helper is retired/);
+  const helper = source.slice(source.indexOf("export async function reconcileAutoRescueUncertainForTest"), source.indexOf("export async function getAutoRescueHealth"));
+  assert.match(helper, /assertSafeKayMutationTestDatabase/);
+  assert.match(helper, /isolatedE2Test\(\)/);
+  assert.match(helper, /return reconcileUncertain/);
 });

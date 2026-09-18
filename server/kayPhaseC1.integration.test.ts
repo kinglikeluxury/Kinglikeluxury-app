@@ -1,20 +1,21 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "./db";
-import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
+import { assertSafeKayMutationTestDatabase, kaySyntheticMarker } from "./kayTestDatabaseSafety";
 assertSafeKayMutationTestDatabase("kayPhaseC1.integration");
 import { acquireKayMissionGeneratorLease, defaultPhaseCSettings, deliverPendingKayMissionNotifications, releaseKayMissionGeneratorLease, renewKayMissionGeneratorLease, staleKayMissionIfStillScopedForTest } from "./kayMissionService";
 
 const enabled = process.env.KAY_C1_POSTGRES_TESTS === "true";
+const marker = kaySyntheticMarker("KAY_C1_TEST");
 let priorLaunch: unknown;
 let hadPriorLaunch = false;
 
 before(async () => {
-  await pool.query(`CREATE TABLE IF NOT EXISTS kay_runtime_state (
-    key TEXT PRIMARY KEY,
-    value JSONB NOT NULL DEFAULT '{}'::jsonb,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
+  if (!enabled) return;
+  const schema = await pool.query(`SELECT
+    to_regclass('public.kay_runtime_state') IS NOT NULL runtime_state,
+    to_regclass('public.kay_missions') IS NOT NULL missions`);
+  assert.deepEqual(schema.rows[0], { runtime_state: true, missions: true }, "C1 schema must be pre-provisioned");
   const launch = await pool.query(`SELECT value FROM kay_settings WHERE key='kay_operational_launch_at'`);
   hadPriorLaunch = launch.rowCount === 1;
   priorLaunch = launch.rows[0]?.value;
@@ -23,6 +24,10 @@ before(async () => {
   [JSON.stringify("2026-09-09T00:00:00+04:00")]);
 });
 after(async () => {
+  if (!enabled) {
+    await pool.end();
+    return;
+  }
   if (hadPriorLaunch) {
     await pool.query(`UPDATE kay_settings SET value=$1::jsonb WHERE key='kay_operational_launch_at'`,
       [JSON.stringify(priorLaunch)]);
@@ -32,7 +37,7 @@ after(async () => {
   await pool.end();
 });
 
-test("C1 database persists notification state needed for atomic severity-version dedupe", async () => {
+test("C1 database persists notification state needed for atomic severity-version dedupe", { skip: !enabled }, async () => {
   const result = await pool.query(`SELECT
     EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='kay_missions' AND column_name='notification_sent_at') AS sent,
     EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='kay_missions' AND column_name='notification_level') AS level,
@@ -40,7 +45,7 @@ test("C1 database persists notification state needed for atomic severity-version
   assert.deepEqual(result.rows[0], { sent:true, level:true, version:true });
 });
 
-test("C1 lease is singleton, token guarded, expires, and malformed values recover", async () => {
+test("C1 lease is singleton, token guarded, expires, and malformed values recover", { skip: !enabled }, async () => {
   try {
     await pool.query(`DELETE FROM kay_runtime_state WHERE key='phase_c_generator_lease'`);
     const fresh = await acquireKayMissionGeneratorLease();
@@ -68,11 +73,15 @@ test("C1 lease is singleton, token guarded, expires, and malformed values recove
   }
 });
 
-test("C1 concurrent notification delivery is exactly once and severity escalation creates one version", async () => {
-  const suffix = `${Date.now()}-${Math.random()}`;
-  const user = await pool.query(`INSERT INTO users(username,role,is_admin) VALUES ($1,'sub_agent',false) RETURNING id`, [`c1-${suffix}`]);
+test("C1 concurrent notification delivery is exactly once and severity escalation creates one version", { skip: !enabled }, async () => {
+  const suffix = `${marker}:${Date.now()}-${Math.random()}`;
+  const user = await pool.query(`INSERT INTO users(username,role,is_admin,is_active)
+    VALUES ($1,'sub_agent',false,true) RETURNING id`, [suffix]);
   const uid = user.rows[0].id;
-  const lead = await pool.query(`INSERT INTO crm_leads(first_name,status,assigned_to) VALUES ('SafeName','new',$1) RETURNING id`, [uid]);
+  await pool.query(`INSERT INTO kay_runtime_state(key,value)
+    VALUES($1,'{"availability":"AVAILABLE"}'::jsonb)
+    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`, [`phase_c_availability:${uid}`]);
+  const lead = await pool.query(`INSERT INTO crm_leads(first_name,status,assigned_to,notes) VALUES ('Synthetic','new',$1,$2) RETURNING id`, [uid, marker]);
   const lid = lead.rows[0].id;
   const mission = await pool.query(`INSERT INTO kay_missions
     (lead_id,employee_id,mission_type,priority,priority_score,reason_code,objective,suggested_action,idempotency_key)
@@ -100,12 +109,13 @@ test("C1 concurrent notification delivery is exactly once and severity escalatio
     await pool.query(`DELETE FROM kay_events WHERE metadata->>'missionId'=$1`,[String(mid)]);
     await pool.query(`DELETE FROM kay_missions WHERE id=$1`,[mid]);
     await pool.query(`DELETE FROM crm_leads WHERE id=$1`,[lid]);
+    await pool.query(`DELETE FROM kay_runtime_state WHERE key=$1`, [`phase_c_availability:${uid}`]);
     await pool.query(`DELETE FROM users WHERE id=$1`,[uid]);
   }
 });
 
 test("C1 STALE mutation rechecks assignment, employee eligibility, and cohort after discovery", { skip: !enabled }, async () => {
-  const suffix = `${Date.now()}-${Math.random()}`;
+  const suffix = `${marker}:${Date.now()}-${Math.random()}`;
   const idBase = 3_000_000 + Math.floor(Date.now() % 100_000) * 3;
   const users = await pool.query(`INSERT INTO users(id,username,role,is_admin,is_active) VALUES
     ($1,$3,'sub_agent',false,true),($2,$4,'sub_agent',false,true) RETURNING id`,
@@ -115,8 +125,8 @@ test("C1 STALE mutation rechecks assignment, employee eligibility, and cohort af
   const leadIds: number[] = [];
   const missionIds: number[] = [];
   const makeCandidate = async () => {
-    const lead = await pool.query(`INSERT INTO crm_leads(first_name,status,assigned_to,lead_source,created_at)
-      VALUES('Synthetic','new',$1,'manual','2026-08-01T00:00:00') RETURNING id`, [ownerId]);
+    const lead = await pool.query(`INSERT INTO crm_leads(first_name,status,assigned_to,lead_source,created_at,notes)
+      VALUES('Synthetic','new',$1,'manual','2026-08-01T00:00:00',$2) RETURNING id`, [ownerId, marker]);
     const leadId = Number(lead.rows[0].id);
     leadIds.push(leadId);
     const mission = await pool.query(`INSERT INTO kay_missions

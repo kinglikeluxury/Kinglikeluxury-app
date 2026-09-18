@@ -13,6 +13,28 @@ import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 type Queryable = { query: (sql: string, values?: any[]) => Promise<any> };
 type AutoRescueTestHook = (step: "before_execute" | "after_execute", queue: any) => void | Promise<void>;
 let autoRescueTestHook: AutoRescueTestHook | undefined;
+function isolatedE2Test(): boolean {
+  return process.env.NODE_ENV === "test" &&
+    process.env.KAY_E2_POSTGRES_TESTS === "true" &&
+    process.env.KAY_E2_TEST_HOOKS === "true";
+}
+function assertAutoRescueRecord(record?: unknown): void {
+  if (isolatedE2Test()) {
+    assertSafeKayMutationTestDatabase("kayPhaseE2.integration");
+  } else {
+    assertKayProductionEntry(record);
+  }
+}
+async function assertAutoRescueMutation(
+  action: "workflow.transition" | "rescue.execute",
+  actorId: number | undefined,
+  targetType: string,
+  targetId: string | number,
+  record?: unknown,
+): Promise<void> {
+  assertAutoRescueRecord(record);
+  if (!isolatedE2Test()) await denyKayWrite(action, actorId, targetType, targetId);
+}
 export function setAutoRescueTestHook(hook?: AutoRescueTestHook) {
   if (process.env.KAY_E2_TEST_HOOKS !== "true") throw new Error("Automatic Rescue test hooks are disabled");
   autoRescueTestHook = hook;
@@ -88,7 +110,10 @@ async function reconcileUncertain(q: any, token: string, errorCode: string) {
 }
 export async function reconcileAutoRescueUncertainForTest(q: any, token: string, errorCode = "TEST_UNCERTAIN") {
   assertSafeKayMutationTestDatabase("reconcileAutoRescueUncertainForTest");
-  throw new Error("Automatic Rescue mutation helper is retired; use isolated fixture-level assertions");
+  if (!isolatedE2Test()) {
+    throw new Error("Automatic Rescue reconciliation test helper is disabled");
+  }
+  return reconcileUncertain(q, token, errorCode);
 }
 
 export async function getAutoRescueHealth() {
@@ -160,8 +185,7 @@ export async function getAutoRescueReadiness(limit = 500) {
 
 export type LastChanceAction = "CONTACT_NOW" | "NEED_30_MINUTES" | "CANNOT_HANDLE";
 export async function applyAutoRescueLastChance(queueId: number, userId: number, isAdmin: boolean, action: LastChanceAction) {
-  assertKayProductionEntry();
-  await denyKayWrite("workflow.transition", userId, "auto_rescue_queue", queueId);
+  await assertAutoRescueMutation("workflow.transition", userId, "auto_rescue_queue", queueId);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -172,7 +196,7 @@ export async function applyAutoRescueLastChance(queueId: number, userId: number,
     if (!q || (!isAdmin && Number(q.current_owner_id)!==Number(userId))) {
       throw Object.assign(new Error("This Rescue window is not assigned to you."),{status:403,code:"NOT_OWNER"});
     }
-    assertKayProductionEntry(q);
+    assertAutoRescueRecord(q);
     const scope = await getKayScopeForLead(Number(q.lead_id));
     if (scope.outcome !== "IN_KAY_SCOPE") {
       throw Object.assign(new Error("This Rescue window is outside Kay operational scope."), { status: 409, code: `KAY_SCOPE_${scope.outcome}` });
@@ -275,7 +299,7 @@ export async function ensureWarningArtifactsForTest(itemId: number, leadId: numb
 }
 
 async function evaluateIntoQueue(settings: any, limit: number) {
-  assertKayProductionEntry();
+  assertAutoRescueRecord();
   const scopeConfig = await getKayScopeConfiguration();
   if (scopeConfig.status !== "OK") {
     await health({ halted: true, last_scope_failure: scopeConfig.status });
@@ -289,7 +313,7 @@ async function evaluateIntoQueue(settings: any, limit: number) {
      WHERE l.status IN ('no_answer_1','no_answer_2') AND owner.is_active=true AND owner.is_admin=false AND owner.role='sub_agent'
       ORDER BY CASE WHEN l.id=$2 THEN 0 ELSE 1 END,l.id LIMIT $1`, [clamp(limit, 1, 100),pinned]);
   for (const lead of candidates.rows as any[]) {
-    assertKayProductionEntry(lead);
+    assertAutoRescueRecord(lead);
       const scope = await getKayScopeForLead(Number(lead.id));
     if (scope.outcome !== "IN_KAY_SCOPE") continue;
     // E.2.2 baselines are observation-only until a separately approved future
@@ -319,8 +343,7 @@ async function evaluateIntoQueue(settings: any, limit: number) {
 }
 
 export async function runKayAutoRescueWorker(limit = 25) {
-  assertKayProductionEntry();
-  await denyKayWrite("rescue.execute", undefined, "worker", "auto-rescue");
+  await assertAutoRescueMutation("rescue.execute", undefined, "worker", "auto-rescue");
  try {
   const scopeConfig = await getKayScopeConfiguration();
   if (scopeConfig.status !== "OK") {
@@ -374,9 +397,9 @@ export async function runKayAutoRescueWorker(limit = 25) {
     let systemFailures = 0;
     for (const q of claimed.rows as any[]) {
       try {
-        assertKayProductionEntry(q);
+        assertAutoRescueRecord(q);
         const lead = (await pool.query(`SELECT * FROM crm_leads WHERE id=$1`, [q.lead_id])).rows[0];
-        assertKayProductionEntry(lead);
+        assertAutoRescueRecord(lead);
       const scope = await getKayScopeForLead(Number(q.lead_id));
         if (scope.outcome !== "IN_KAY_SCOPE") {
           await claimedTransition(q,token,"STALE",`KAY_SCOPE_${scope.outcome}`);

@@ -25,7 +25,10 @@ test("C1 quiet hour invalid time rejected", () => assert.ok(!phaseCSettingsSchem
 test("C1 availability values are explicit", () => ["AVAILABLE","BUSY","DO_NOT_ASSIGN","LEAVE"].forEach(x=>assert.ok(kayAvailabilitySchema.safeParse(x).success)));
 test("C1 arbitrary availability rejected", () => assert.ok(!kayAvailabilitySchema.safeParse("OFFLINE").success));
 test("C1 priority enum retains high and critical", () => ["HIGH","CRITICAL"].forEach(x=>assert.ok(missionPrioritySchema.safeParse(x).success)));
-test("C1 scheduler is gated by environment", () => assert.match(index, /if \(schedulersEnabled\)[\s\S]*startKayMissionGenerator/));
+test("C1 scheduler remains disabled by the production safety freeze", () => {
+  assert.match(index, /all Kay schedulers disabled/);
+  assert.doesNotMatch(index, /startKayMissionGenerator\(\)/);
+});
 test("C1 scheduler start is delayed", () => assert.match(service, /setTimeout\(run, 10_000\)/));
 test("C1 scheduler uses configured cadence", () => assert.match(service, /mission_generation_interval_minutes \* 60_000/));
 test("C1 automatic cycles have a bounded batch", () => assert.match(service, /generateKayMissions\(200, "automatic"\)/));

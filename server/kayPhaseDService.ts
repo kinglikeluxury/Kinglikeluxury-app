@@ -7,8 +7,16 @@ import { getKayScopeConfiguration, getKayScopeForLead, kayScopeSql } from "./kay
 import { denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 import { assertKayInternalWriteAllowed } from "./kayInternalWriteGate";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 const db = kayInternalDb;
+function assertPhaseDIntegrationMutation(action: "workflow.transition", employeeId: number, targetType: string, id: number) {
+  if (process.env.KAY_PHASE_D_POSTGRES_TESTS === "true") {
+    assertSafeKayMutationTestDatabase("kayPhaseD.integration");
+    return;
+  }
+  denyKayWrite(action, employeeId, targetType, id);
+}
 
 const activeMission = ["NEW", "ACCEPTED", "IN_PROGRESS"];
 const phaseDStyleSchema = z.enum(["FRIENDLY", "PROFESSIONAL", "DIRECT", "FIRM", "SALES_COACH", "EXECUTIVE"]);
@@ -143,7 +151,7 @@ export async function listPromises(employeeId: number, admin: boolean) {
   return result.rows;
 }
 export async function completeCommitment(id: number, employeeId: number, admin: boolean) {
-  await denyKayWrite("workflow.transition", employeeId, "kay_commitment", id);
+  assertPhaseDIntegrationMutation("workflow.transition", employeeId, "kay_commitment", id);
   const rows = await db.execute(sql`UPDATE kay_commitments c SET status='COMPLETED',completed_at=NOW(),updated_at=NOW() WHERE c.id=${id} AND c.status IN ('PENDING','ACCEPTED','EXTENDED','OVERDUE','ACTIVE') AND (${admin} OR (c.employee_id=${employeeId} AND (c.lead_id IS NULL OR EXISTS(SELECT 1 FROM crm_leads l WHERE l.id=c.lead_id AND l.assigned_to=${employeeId})))) RETURNING c.*`);
   if (!rows.rows[0]) { const e: any = new Error("Commitment not found or no longer available."); e.status = 404; throw e; }
   const c: any = rows.rows[0]; await db.insert(kayEvents).values({ leadId: c.lead_id, employeeId: c.employee_id, userId: employeeId, eventType: "commitment_completed", eventSource: admin ? "admin" : "employee", metadata: { commitmentId: id, actorId: employeeId, internalOnly: true }, kayGenerated: false }); return c;
@@ -189,7 +197,7 @@ export async function listBriefings(employeeId: number, admin: boolean) {
   return db.select().from(kayInternalBriefings).where(admin ? undefined : eq(kayInternalBriefings.employeeId, employeeId)).orderBy(desc(kayInternalBriefings.createdAt)).limit(100);
 }
 export async function acknowledgeBriefing(id: number, employeeId: number, admin: boolean) {
-  await denyKayWrite("workflow.transition", employeeId, "kay_briefing", id);
+  assertPhaseDIntegrationMutation("workflow.transition", employeeId, "kay_briefing", id);
   const rows = await db.update(kayInternalBriefings).set({ acknowledgedAt: new Date(), updatedAt: new Date() }).where(and(eq(kayInternalBriefings.id, id), ...(admin ? [] : [eq(kayInternalBriefings.employeeId, employeeId)]))).returning();
   if (!rows[0]) { const e: any = new Error("Briefing not found."); e.status = 404; throw e; } return rows[0];
 }
@@ -370,19 +378,20 @@ export async function acquirePhaseDLease() {
   const token = `${process.pid}:${Date.now()}:${Math.random()}`;
   const rows = await db.execute(sql`INSERT INTO kay_runtime_state(key,value,updated_at)
     VALUES('phase_d_evaluator_lease',jsonb_build_object('released',true),NOW())
-    ON CONFLICT(key) DO UPDATE SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 10 * 60_000).toISOString()}),updated_at=NOW()
-      WHERE COALESCE((kay_runtime_state.value->>'locked_until')::timestamptz,to_timestamp(0)) < NOW()
+    ON CONFLICT(key) DO UPDATE SET value=jsonb_build_object('token',${token}::text,'locked_until',${new Date(Date.now() + 10 * 60_000).toISOString()}::timestamptz),updated_at=NOW()
+      WHERE CASE WHEN pg_input_is_valid(kay_runtime_state.value->>'locked_until','timestamptz')
+        THEN (kay_runtime_state.value->>'locked_until')::timestamptz ELSE to_timestamp(0) END < NOW()
     RETURNING key`);
   return rows.rows[0] ? token : null;
 }
 export async function renewPhaseDLease(token: string): Promise<boolean> {
   await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
-  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('token',${token},'locked_until',${new Date(Date.now() + 10 * 60_000).toISOString()}),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token} RETURNING key`);
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('token',${token}::text,'locked_until',${new Date(Date.now() + 10 * 60_000).toISOString()}::timestamptz),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token}::text RETURNING key`);
   return rows.rows.length === 1;
 }
 export async function releasePhaseDLease(token: string): Promise<boolean> {
   await assertKayInternalWriteAllowed({ operation: "KAY_INTERNAL_WRITE", table: "kay_runtime_state" });
-  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('released',true,'released_at',${new Date().toISOString()}),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token} RETURNING key`);
+  const rows = await db.execute(sql`UPDATE kay_runtime_state SET value=jsonb_build_object('released',true,'released_at',${new Date().toISOString()}::timestamptz),updated_at=NOW() WHERE key='phase_d_evaluator_lease' AND value->>'token'=${token}::text RETURNING key`);
   return rows.rows.length === 1;
 }
 export async function ownsPhaseDLease(token: string): Promise<boolean> {

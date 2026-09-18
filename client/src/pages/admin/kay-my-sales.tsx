@@ -101,6 +101,24 @@ export default function KayMySalesPage() {
     enabled: allowed,
   });
 
+  useEffect(() => {
+    const refresh = () => {
+      void Promise.all([
+        missions.refetch(),
+        completed.refetch(),
+        briefings.refetch(),
+        commitments.refetch(),
+        promises.refetch(),
+        handoffs.refetch(),
+        availability.refetch(),
+        voice.refetch(),
+      ]);
+    };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [missions.refetch, completed.refetch, briefings.refetch, commitments.refetch,
+    promises.refetch, handoffs.refetch, availability.refetch, voice.refetch]);
+
   const all = missions.data?.missions ?? [];
   const focus = missions.data?.next60Minutes ?? [];
   const priority = all.filter((item) => item.priority === "CRITICAL" || item.priority === "HIGH");

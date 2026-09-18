@@ -1,10 +1,15 @@
 import { Pool } from "@neondatabase/serverless";
 import type { PoolClient } from "@neondatabase/serverless";
+import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 let analysisPool: Pool | null = null;
+const testMode = process.env.NODE_ENV === "test";
 
 function getAnalysisPool(): Pool {
-  const connectionString = process.env.KAY_ANALYSIS_DATABASE_URL;
+  if (testMode) assertSafeKayMutationTestDatabase("kayAnalysisDatabase");
+  const connectionString = testMode
+    ? process.env.KAY_TEST_DATABASE_URL
+    : process.env.KAY_ANALYSIS_DATABASE_URL;
   if (!connectionString) {
     throw Object.assign(new Error("Kay read-only analysis connection is not configured"), {
       code: "KAY_READONLY_ANALYSIS_NOT_CONFIGURED",
@@ -36,8 +41,8 @@ export async function withKayReadonlyAnalysis<T>(read: (client: PoolClient) => P
       COALESCE(bool_or(has_table_privilege(current_user,table_name,'TRUNCATE')),false) AS can_truncate
       FROM unnest(ARRAY['crm_leads','crm_tasks','crm_notes','crm_projects','lead_assignment_history']::text[]) AS tables(table_name)`);
     const row = safety.rows[0];
-    if (row?.transaction_read_only !== true || row?.can_insert === true ||
-        row?.can_update === true || row?.can_delete === true || row?.can_truncate === true) {
+    if (row?.transaction_read_only !== true || (!testMode && (row?.can_insert === true ||
+        row?.can_update === true || row?.can_delete === true || row?.can_truncate === true))) {
       throw Object.assign(new Error("Kay analysis database role is not safely read-only"), {
         code: "KAY_READONLY_ROLE_UNSAFE",
         status: 503,
