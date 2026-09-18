@@ -13,6 +13,15 @@ import { assertSafeKayMutationTestDatabase } from "./kayTestDatabaseSafety";
 
 const db = kayInternalDb;
 
+export function deriveKayMissionGeneratorStatus(
+  globalSchedulersEnabled: boolean,
+  generatorActive: boolean,
+  degraded: boolean,
+) {
+  if (!generatorActive) return globalSchedulersEnabled ? "NOT RUNNING" : "MANUAL MODE";
+  return degraded ? "DEGRADED" : "RUNNING";
+}
+
 export const PHASE_C_PRIORITY_FORMULA_VERSION = "phase_c_v1" as const;
 export const missionStatusSchema = z.enum(["NEW", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "DISMISSED", "STALE"]);
 export const missionTypeSchema = z.enum(["FOLLOW_UP_DUE", "RESCUE_RISK", "RESCUE_ELIGIBLE", "UNPROTECTED_LEAD", "PROTECTED_LEAD_REVIEW", "CLOSING_ATTENTION", "MANAGER_REVIEW_REQUIRED", "RESCUE_LEAD_ASSIGNED"]);
@@ -84,13 +93,18 @@ export async function setKayAvailability(employeeId: number, availability: unkno
 }
 
 export async function getKayOperationsHealth() {
-  const healthResult = await db.execute(sql`SELECT value FROM kay_runtime_state WHERE key='phase_c_generator_health' LIMIT 1`);
-  const health: any = (healthResult.rows[0] as any)?.value || {};
+  const runtimeResult = await db.execute(sql`SELECT key,value FROM kay_runtime_state WHERE key IN ('phase_c_generator_health','phase_c_generator_lease')`);
+  const runtime = new Map(runtimeResult.rows.map((row: any) => [row.key, row.value]));
+  const health: any = runtime.get("phase_c_generator_health") || {};
+  const lease: any = runtime.get("phase_c_generator_lease") || {};
   const settings = await getPhaseCSettings();
+  const globalSchedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
+  const leaseExpiry = typeof lease.locked_until === "string" ? new Date(lease.locked_until).getTime() : 0;
+  const generatorActive = Number.isFinite(leaseExpiry) && leaseExpiry > Date.now();
   const lastSuccess = health.last_successful_cycle ? new Date(health.last_successful_cycle).getTime() : 0;
-  const stale = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true" && (!lastSuccess || Date.now() - lastSuccess > settings.mission_generation_interval_minutes * 3 * 60_000);
+  const stale = generatorActive && (!lastSuccess || Date.now() - lastSuccess > settings.mission_generation_interval_minutes * 3 * 60_000);
   const pending = await db.execute(sql`SELECT COUNT(*)::int AS count FROM kay_missions WHERE status='NEW' AND priority IN ('HIGH','CRITICAL')`);
-  return { scheduler: process.env.ENABLE_BACKGROUND_SCHEDULERS === "true" ? (health.degraded ? "DEGRADED" : "RUNNING") : "DISABLED", stale, warning: stale ? "KAY MISSION GENERATOR MAY BE STALE." : null, lastGeneration: health.last_generation ?? null, lastSuccessfulCycle: health.last_successful_cycle ?? null, lastAutomaticRun: health.last_automatic_run ?? null, lastManualRun: health.last_manual_run ?? null, nextExpectedRun: health.next_expected_run ?? null, checked: health.checked ?? 0, created: health.created ?? 0, staled: health.staled ?? 0, errors: health.errors ?? 0, consecutiveFailures: health.consecutive_failures ?? 0, circuitOpenUntil: health.circuit_open_until ?? null, leaseState: health.lease_state ?? "unknown", notifications: settings.mission_notifications_enabled ? "ENABLED" : "DISABLED", pendingHighCritical: pending.rows[0]?.count ?? 0 };
+  return { scheduler: deriveKayMissionGeneratorStatus(globalSchedulersEnabled, generatorActive, health.degraded === true), globalSchedulersEnabled, generatorActive, stale, warning: stale ? "KAY MISSION GENERATOR MAY BE STALE." : null, lastGeneration: health.last_generation ?? null, lastSuccessfulCycle: health.last_successful_cycle ?? null, lastAutomaticRun: health.last_automatic_run ?? null, lastManualRun: health.last_manual_run ?? null, nextExpectedRun: health.next_expected_run ?? null, checked: health.checked ?? 0, created: health.created ?? 0, staled: health.staled ?? 0, errors: health.errors ?? 0, consecutiveFailures: health.consecutive_failures ?? 0, circuitOpenUntil: health.circuit_open_until ?? null, leaseState: health.lease_state ?? "unknown", notifications: settings.mission_notifications_enabled ? "ENABLED" : "DISABLED", pendingHighCritical: pending.rows[0]?.count ?? 0 };
 }
 
 async function persistGeneratorHealth(patch: Record<string, unknown>) {
