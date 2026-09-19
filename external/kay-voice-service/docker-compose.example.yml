@@ -1,0 +1,9 @@
+services:
+  kay-voice:
+    build: .
+    ports: ["8000:8000"]
+    env_file: [.env]
+    environment:
+      PORT: "${PORT:-8000}"
+      KAY_WEBSOCKET_MAX_FRAME_BYTES: "${KAY_WEBSOCKET_MAX_FRAME_BYTES:-1048576}"
+    restart: unless-stopped
