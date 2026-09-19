@@ -65,9 +65,35 @@ def valid_input(**overrides):
 
 
 def test_catalog_is_exact_and_profiles_are_present():
-    assert list(SAMPLE_TEXTS) == ["sample_1", "sample_2", "sample_3"]
+    assert list(SAMPLE_TEXTS) == ["sample_1", "sample_2", "sample_3", "recording_notice_tarek"]
     assert set(VOICE_PROFILES) == {"A", "A2", "B", "C"}
     assert all(text and len(text) <= handler.MAX_SAMPLE_TEXT_LENGTH for text in SAMPLE_TEXTS.values())
+
+
+def test_tarek_recording_notice_is_fixed_text_and_a2_only():
+    class CaptureProvider(MockProvider):
+        async def synthesize(self, text, *, voice, language):
+            self.received_text = text
+            return await super().synthesize(text, voice=voice, language=language)
+
+    provider = CaptureProvider()
+    asyncio.run(
+        handler.generate(
+            {"sample_id": "recording_notice_tarek", "profile": "A2"},
+            provider=provider,
+        )
+    )
+    assert provider.received_text == (
+        "مرحبا طارق، معك كاي. حبيت أحكي معك عن تقرير اليوم بخصوص العملاء، "
+        "علمًا أن المكالمة مسجلة لضمان جودة الخدمة."
+    )
+    with pytest.raises(ValueError, match="requires the approved A2 profile"):
+        asyncio.run(
+            handler.generate(
+                {"sample_id": "recording_notice_tarek", "profile": "A"},
+                provider=provider,
+            )
+        )
 
 
 def test_sample_1_v2_spoken_text_and_calm_profile_preserve_original_catalog():

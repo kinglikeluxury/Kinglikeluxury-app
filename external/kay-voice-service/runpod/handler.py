@@ -46,6 +46,8 @@ def _payload(request: dict[str, Any]) -> tuple[str, str]:
     profile = request.get("profile")
     if sample_id not in SAMPLE_TEXTS or profile not in VOICE_PROFILES:
         raise ValueError("sample_id and profile must select an approved sample")
+    if sample_id == "recording_notice_tarek" and profile != "A2":
+        raise ValueError("recording_notice_tarek requires the approved A2 profile")
     text = SPOKEN_TEXTS[sample_id]
     if len(text) > MAX_SAMPLE_TEXT_LENGTH:
         raise ValueError("sample text exceeds MAX_SAMPLE_TEXT_LENGTH")
