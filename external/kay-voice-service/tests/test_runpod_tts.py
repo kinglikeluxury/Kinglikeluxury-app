@@ -3,7 +3,6 @@ import base64
 import inspect
 import os
 import sys
-import threading
 import time
 import types
 import wave
@@ -72,15 +71,35 @@ def test_catalog_is_exact_and_profiles_are_present():
 
 def test_import_is_optional_and_core_provider_is_used():
     assert inspect.isclass(TextToSpeechProvider)
+    assert inspect.iscoroutinefunction(handler.generate)
+    assert inspect.iscoroutinefunction(handler.handler)
     assert handler._runpod is None or hasattr(handler._runpod, "serverless")
     provider = MockProvider()
-    result = handler.generate(valid_input(), provider=provider)
+    result = asyncio.run(handler.generate(valid_input(), provider=provider))
     assert result["sample_id"] == "sample_1"
     assert base64.b64decode(result["audio_base64"]).startswith(b"RIFF")
     assert result["model"] == "oddadmix/lahgtna-chatterbox-v1"
     assert result["model_revision"] == "test-revision"
     assert result["device"] == "mock-device"
     assert result["model_load_duration_ms"] == 7
+
+
+def test_handler_awaits_inside_an_existing_event_loop(monkeypatch):
+    provider = MockProvider()
+    monkeypatch.setattr(handler, "_provider", provider)
+
+    async def invoke():
+        return await handler.handler({"input": valid_input()})
+
+    result = asyncio.run(invoke())
+
+    assert result["status"] == "ok"
+    assert base64.b64decode(result["audio_base64"]).startswith(b"RIFF")
+
+
+def test_live_request_path_does_not_use_nested_asyncio_run():
+    source = (ROOT / "runpod/handler.py").read_text()
+    assert "asyncio.run(" not in source
 
 
 @pytest.mark.parametrize("payload", [
@@ -91,11 +110,15 @@ def test_import_is_optional_and_core_provider_is_used():
 ])
 def test_fixed_payload_validation(payload):
     with pytest.raises((PermissionError, ValueError)):
-        handler.generate(payload, provider=MockProvider())
+        asyncio.run(handler.generate(payload, provider=MockProvider()))
 
 
 def test_handler_does_not_accept_platform_key_in_payload():
-    result = handler.handler({"input": {"api_key": "wrong", "sample_id": "sample_1", "profile": "A"}})
+    result = asyncio.run(
+        handler.handler(
+            {"input": {"api_key": "wrong", "sample_id": "sample_1", "profile": "A"}}
+        )
+    )
     assert result["status"] == "error"
     assert "api_key" not in str(result)
 
@@ -109,7 +132,7 @@ def test_cost_limit_rejects_long_generation(monkeypatch):
             return wav_bytes(), "audio/wav"
 
     with pytest.raises(TimeoutError):
-        handler.generate(valid_input(), provider=SlowProvider())
+        asyncio.run(handler.generate(valid_input(), provider=SlowProvider()))
 
 
 def test_warm_provider_is_singleton_and_requests_are_serialized(monkeypatch):
@@ -133,14 +156,13 @@ def test_warm_provider_is_singleton_and_requests_are_serialized(monkeypatch):
     monkeypatch.setattr(handler, "RunPodChatterboxProvider", CountingProvider)
     results = []
 
-    def call():
-        results.append(handler.generate(valid_input()))
+    async def call_twice():
+        return await asyncio.gather(
+            handler.generate(valid_input()),
+            handler.generate(valid_input()),
+        )
 
-    threads = [threading.Thread(target=call) for _ in range(2)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+    results.extend(asyncio.run(call_twice()))
     assert len(created) == 1
     assert len(results) == 2
     assert CountingProvider.maximum == 1
