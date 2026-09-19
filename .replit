@@ -82,3 +82,6 @@ NEON_CLUSTER_ID = "ep-young-forest-aq74bptf"
 NEON_PROJECT_ID = "gentle-morning-88210977"
 
 [userenv.development]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-3e5fda27-78ae-4e29-9bee-a12e7865f8b6"
