@@ -8,6 +8,12 @@ const service = readFileSync(new URL("./kayRecordingService.ts", import.meta.url
 const storage = readFileSync(new URL("./kayRecordingStorage.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../artifacts/kay-recording-foundation-v1-migration.sql", import.meta.url), "utf8");
 const ownership = readFileSync(new URL("./kayDataOwnership.ts", import.meta.url), "utf8");
+const storageEnvKeys = [
+  "KAY_RECORDING_STORAGE_ENDPOINT",
+  "KAY_RECORDING_STORAGE_BUCKET",
+  "KAY_RECORDING_STORAGE_ACCESS_KEY_ID",
+  "KAY_RECORDING_STORAGE_SECRET_ACCESS_KEY",
+];
 
 test("recording archive and direct playback/download URLs use the live Kay admin gate", () => {
   assert.match(routes, /requireKayAdmin/);
@@ -34,9 +40,18 @@ test("recording foundation separates employee archives and manager debriefs", ()
 
 test("private storage fails closed and does not expose a URL without its configuration", () => {
   assert.match(storage, /KAY_RECORDING_STORAGE_ENDPOINT/);
-  assert.match(storage, /SIGNED_URL_TTL_SECONDS = 300/);
-  assert.equal(getKayRecordingStorageStatus().configured, false);
-  assert.equal(createKayRecordingSignedReadUrl("recordings/example.webm"), null);
+  assert.match(storage, /KAY_RECORDING_SIGNED_URL_TTL_SECONDS = 300/);
+  const saved = Object.fromEntries(storageEnvKeys.map(key => [key, process.env[key]]));
+  try {
+    for (const key of storageEnvKeys) delete process.env[key];
+    assert.equal(getKayRecordingStorageStatus().configured, false);
+    assert.equal(createKayRecordingSignedReadUrl("recordings/example.webm"), null);
+  } finally {
+    for (const key of storageEnvKeys) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
 });
 
 test("metadata migration is additive, private, and grants no delete/truncate", () => {

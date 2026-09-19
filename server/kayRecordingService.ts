@@ -1,9 +1,14 @@
 import { withKayInternalClient } from "./kayInternalDatabase";
 import {
   createKayRecordingSignedReadUrl,
+  KAY_RECORDING_AUDIO_MIME_TYPES,
+  KAY_RECORDING_MAX_AUDIO_BYTES,
   getKayRecordingStorageStatus,
+  isSafeKayRecordingObjectKey,
+  uploadKayRecordingObject,
   type KayRecordingStorageStatus,
 } from "./kayRecordingStorage";
+import type { KayRecordingStorageUploadResult } from "./kayRecordingStorage";
 
 export type KayRecordingArchiveType = "EMPLOYEE_CALL" | "MANAGER_DEBRIEF";
 export type KayRecordingStatus =
@@ -22,6 +27,83 @@ export const KAY_SUPERVISED_EMPLOYEES = Object.freeze([
   { id: 29, name: "Samer" },
   { id: 31, name: "Jwana" },
 ] as const);
+
+export const KAY_RECORDING_UPLOAD_SOURCE = "kay-call-lifecycle" as const;
+export type KayRecordingUploadSource = typeof KAY_RECORDING_UPLOAD_SOURCE;
+
+type KayRecordingUploadSession = {
+  employee_id: number | null;
+  archive_type: KayRecordingArchiveType;
+  recording_status: string;
+  storage_upload_status: string;
+  ended_at: Date | string | null;
+  call_started_at: Date | string | null;
+  created_at: Date | string;
+};
+
+export type KayRecordingUploadInput = {
+  source: KayRecordingUploadSource;
+  callSessionId: number;
+  audio: Buffer;
+  contentType: string;
+};
+
+export type KayRecordingUploadDependencies = {
+  loadSession: (callSessionId: number) => Promise<KayRecordingUploadSession | null>;
+  uploadObject: (input: {
+    objectKey: string;
+    body: Buffer;
+    contentType: string;
+  }) => Promise<KayRecordingStorageUploadResult>;
+  persist: (input: {
+    callSessionId: number;
+    objectKey: string;
+    mediaType: string;
+  }) => Promise<any>;
+  markFailed: (callSessionId: number) => Promise<any>;
+};
+
+function recordingUploadError(message: string, code: string, status: number): Error & {
+  code: string;
+  status: number;
+} {
+  return Object.assign(new Error(message), { code, status });
+}
+
+export function normalizeKayRecordingContentType(contentType: string): keyof typeof KAY_RECORDING_AUDIO_MIME_TYPES {
+  const normalized = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
+  if (!(normalized in KAY_RECORDING_AUDIO_MIME_TYPES)) {
+    throw recordingUploadError("Unsupported Kay recording audio type.", "KAY_RECORDING_UNSUPPORTED_AUDIO_TYPE", 415);
+  }
+  return normalized as keyof typeof KAY_RECORDING_AUDIO_MIME_TYPES;
+}
+
+export function buildKayRecordingObjectKey(input: {
+  employeeId: number | null;
+  callSessionId: number;
+  recordedAt: Date | string;
+  extension: keyof typeof KAY_RECORDING_AUDIO_MIME_TYPES;
+}): string {
+  if (!Number.isSafeInteger(input.callSessionId) || input.callSessionId < 1) {
+    throw recordingUploadError("Invalid Kay recording session id.", "KAY_RECORDING_INVALID_SESSION", 400);
+  }
+  if (input.employeeId !== null && (!Number.isSafeInteger(input.employeeId) || input.employeeId < 1)) {
+    throw recordingUploadError("Invalid Kay recording employee id.", "KAY_RECORDING_INVALID_EMPLOYEE", 400);
+  }
+  const date = new Date(input.recordedAt);
+  if (Number.isNaN(date.getTime())) {
+    throw recordingUploadError("Invalid Kay recording date.", "KAY_RECORDING_INVALID_DATE", 400);
+  }
+  const employeeGroup = input.employeeId === null ? "manager-debrief" : `employee-${input.employeeId}`;
+  const year = String(date.getUTCFullYear()).padStart(4, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const key = `kay-recordings/${employeeGroup}/${year}/${month}/${day}/${input.callSessionId}.${KAY_RECORDING_AUDIO_MIME_TYPES[input.extension]}`;
+  if (!isSafeKayRecordingObjectKey(key)) {
+    throw recordingUploadError("Generated Kay recording object key is unsafe.", "KAY_RECORDING_INVALID_OBJECT_KEY", 400);
+  }
+  return key;
+}
 
 export function isSupervisedKayEmployee(employeeId: number): boolean {
   return KAY_SUPERVISED_EMPLOYEES.some(employee => employee.id === employeeId);
@@ -47,6 +129,29 @@ async function recordingQuery<T>(operation: (client: any) => Promise<T>): Promis
   } catch (error) {
     throw metadataUnavailable(error);
   }
+}
+
+function recordingDate(session: KayRecordingUploadSession): Date {
+  const value = session.ended_at ?? session.call_started_at ?? session.created_at;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw recordingUploadError("Kay recording session has no valid recording date.", "KAY_RECORDING_INVALID_DATE", 409);
+  }
+  return date;
+}
+
+async function loadKayRecordingUploadSession(callSessionId: number): Promise<KayRecordingUploadSession | null> {
+  const result: any = await recordingQuery<any>(client =>
+    client.query(
+      `SELECT employee_id,archive_type,recording_status,storage_upload_status,
+              ended_at,call_started_at,created_at
+         FROM kay_recording_sessions
+        WHERE call_session_id=$1
+        LIMIT 1`,
+      [callSessionId],
+    ),
+  );
+  return result.rows[0] ?? null;
 }
 
 export async function listKayRecordings(input: {
@@ -265,6 +370,21 @@ export async function finalizeKayRecordingMetadata(input: {
   );
 }
 
+export async function markKayRecordingUploadFailed(callSessionId: number) {
+  return recordingQuery(client =>
+    client.query(
+      `UPDATE kay_recording_sessions
+          SET recording_status='FAILED',
+              storage_upload_status='FAILED',
+              updated_at=NOW()
+        WHERE call_session_id=$1
+          AND recording_status='UPLOADING'
+        RETURNING id`,
+      [callSessionId],
+    ),
+  );
+}
+
 export async function persistKayRecordingUpload(input: {
   callSessionId: number;
   objectKey: string;
@@ -276,6 +396,9 @@ export async function persistKayRecordingUpload(input: {
       code: "KAY_RECORDING_STORAGE_UNAVAILABLE",
     });
   }
+  if (!isSafeKayRecordingObjectKey(input.objectKey)) {
+    throw recordingUploadError("Invalid private recording object key.", "KAY_RECORDING_INVALID_OBJECT_KEY", 400);
+  }
   return recordingQuery(client =>
     client.query(
       `UPDATE kay_recording_sessions
@@ -286,4 +409,75 @@ export async function persistKayRecordingUpload(input: {
       [input.callSessionId, input.objectKey.trim(), input.mediaType?.slice(0, 120) ?? null],
     ),
   );
+}
+
+export async function performKayRecordingUpload(
+  input: KayRecordingUploadInput,
+  dependencies: KayRecordingUploadDependencies,
+) {
+  if (input.source !== KAY_RECORDING_UPLOAD_SOURCE) {
+    throw recordingUploadError("Kay recording upload is internal-only.", "KAY_RECORDING_UPLOAD_UNAUTHORIZED", 403);
+  }
+  if (!Number.isSafeInteger(input.callSessionId) || input.callSessionId < 1) {
+    throw recordingUploadError("Invalid Kay recording session id.", "KAY_RECORDING_INVALID_SESSION", 400);
+  }
+
+  const session = await dependencies.loadSession(input.callSessionId);
+  if (!session) {
+    throw recordingUploadError("Kay recording session was not found.", "KAY_RECORDING_SESSION_NOT_FOUND", 404);
+  }
+  if (session.recording_status !== "UPLOADING" || session.storage_upload_status !== "PENDING") {
+    throw recordingUploadError("Kay recording session is not ready for upload.", "KAY_RECORDING_INVALID_UPLOAD_STATE", 409);
+  }
+
+  try {
+    if (!Buffer.isBuffer(input.audio)) {
+      throw recordingUploadError("Kay recording audio must be a Buffer.", "KAY_RECORDING_INVALID_BODY", 400);
+    }
+    if (input.audio.length === 0) {
+      throw recordingUploadError("Kay recording audio cannot be empty.", "KAY_RECORDING_EMPTY_AUDIO", 400);
+    }
+    if (input.audio.length > KAY_RECORDING_MAX_AUDIO_BYTES) {
+      throw recordingUploadError("Kay recording audio exceeds the maximum allowed size.", "KAY_RECORDING_AUDIO_TOO_LARGE", 413);
+    }
+    const contentType = normalizeKayRecordingContentType(input.contentType);
+    if (session.archive_type === "EMPLOYEE_CALL" &&
+        (session.employee_id == null || !isSupervisedKayEmployee(session.employee_id))) {
+      throw recordingUploadError("Kay recording employee is outside the supervised scope.", "KAY_RECORDING_EMPLOYEE_OUT_OF_SCOPE", 403);
+    }
+    const objectKey = buildKayRecordingObjectKey({
+      employeeId: session.employee_id,
+      callSessionId: input.callSessionId,
+      recordedAt: recordingDate(session),
+      extension: contentType,
+    });
+    const uploaded = await dependencies.uploadObject({
+      objectKey,
+      body: input.audio,
+      contentType,
+    });
+    await dependencies.persist({
+      callSessionId: input.callSessionId,
+      objectKey,
+      mediaType: contentType,
+    });
+    return { objectKey, contentType, ...uploaded };
+  } catch (error) {
+    await dependencies.markFailed(input.callSessionId).catch(() => {});
+    if ((error as any)?.code?.startsWith("KAY_RECORDING_")) throw error;
+    throw recordingUploadError("Kay recording upload failed.", "KAY_RECORDING_UPLOAD_FAILED", 503);
+  }
+}
+
+/**
+ * Internal Kay call lifecycle entry point. There is intentionally no HTTP
+ * upload route: future call orchestration supplies completed audio bytes here.
+ */
+export async function uploadKayRecordingAudio(input: KayRecordingUploadInput) {
+  return performKayRecordingUpload(input, {
+    loadSession: loadKayRecordingUploadSession,
+    uploadObject: uploadKayRecordingObject,
+    persist: persistKayRecordingUpload,
+    markFailed: markKayRecordingUploadFailed,
+  });
 }

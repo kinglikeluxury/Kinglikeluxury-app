@@ -33,3 +33,4 @@
 - [Kay voice branch reconciliation](kay-voice-branch-reconciliation.md) — reconcile an advanced remote voice branch in an isolated worktree and fast-forward only; never force-push over remote features.
 - [RunPod zero-scale drain](runpod-zero-scale-drain.md) — workersMax=0 can leave a worker draining briefly; verify endpoint health reaches all-zero before declaring shutdown.
 - [Kay recording foundation](kay-recording-foundation.md) — keep audio outside PostgreSQL; admin-only signed playback stays fail-closed until private storage is provisioned.
+- [R2 SigV4 transport](r2-sigv4-transport.md) — R2 Authorization has no comma after the algorithm; empty object requests need zero content length and fetch transport.
