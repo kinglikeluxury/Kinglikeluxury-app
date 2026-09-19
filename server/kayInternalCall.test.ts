@@ -137,6 +137,9 @@ test("after-hours Tarek test override is narrow, expiring, and single-use", () =
   assert.match(service, /Number\.isNaN\(startedAt\.getTime\(\)\)/);
   assert.match(service, /15 \* 60 \* 1000/);
   assert.match(service, /KAY_TAREK_ADMIN_TEST_RETRY_ENABLED/);
+  assert.match(service, /KAY_TAREK_ADMIN_TEST_RETRY_WINDOW_SCOPED/);
+  assert.match(service, /created_at >= \$1/);
+  assert.match(service, /created_at < \$2/);
   assert.match(service, /adminTestAllowedCount/);
   assert.match(service, /status IN \('RINGING','ACTIVE'\)/);
   assert.match(service, /reason_code='ADMIN_TEST'/);
@@ -147,7 +150,7 @@ test("after-hours Tarek test override is narrow, expiring, and single-use", () =
 
 test("direct Kay caller has no caller socket and exposes target lifecycle", () => {
   assert.match(service, /\/api\/admin\/kay\/internal-calls\/test-readiness/);
-  assert.match(service, /ready: Number\(consumed\.rows\[0\]\?\.consumed_count \|\| 0\) < adminTestAllowedCount\(now\)/);
+  assert.match(service, /ready: consumedCount < adminTestAllowedCount\(now\)/);
   assert.match(service, /\/api\/admin\/kay\/internal-calls\/start/);
   assert.match(service, /target_user_id/);
   assert.match(service, /reason_code/);

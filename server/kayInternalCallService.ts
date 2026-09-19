@@ -1,6 +1,7 @@
 import type { Express, RequestHandler, Response } from "express";
 import { ServerResponse, type IncomingMessage, type Server } from "http";
 import { randomUUID } from "crypto";
+import type { PoolClient } from "pg";
 import { WebSocketServer, WebSocket } from "ws";
 import { sendPushNotification } from "./notificationService";
 import { withKayInternalClient } from "./kayInternalDatabase";
@@ -61,7 +62,35 @@ function tarekAdminTestRetryEnabled(now = new Date()): boolean {
 }
 
 function adminTestAllowedCount(now = new Date()): number {
+  if (
+    process.env.KAY_TAREK_ADMIN_TEST_RETRY_WINDOW_SCOPED === "true" &&
+    tarekTestWindowActive(now)
+  ) {
+    return 1;
+  }
   return tarekAdminTestRetryEnabled(now) ? 2 : 1;
+}
+
+async function countAdminTestSessions(client: PoolClient, now: Date): Promise<number> {
+  const scopedWindow =
+    process.env.KAY_TAREK_ADMIN_TEST_RETRY_WINDOW_SCOPED === "true" &&
+    tarekTestWindowActive(now);
+  const result = scopedWindow
+    ? await client.query(
+        `SELECT COUNT(*)::integer AS consumed_count
+           FROM kay_internal_call_sessions
+          WHERE reason_code='ADMIN_TEST'
+            AND created_at >= $1
+            AND created_at < $2`,
+        [
+          new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT || ""),
+          new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || ""),
+        ],
+      )
+    : await client.query(`SELECT COUNT(*)::integer AS consumed_count
+                            FROM kay_internal_call_sessions
+                           WHERE reason_code='ADMIN_TEST'`);
+  return Number(result.rows[0]?.consumed_count || 0);
 }
 
 const KAY_INTERNAL_CALLS_ENABLED = () => {
@@ -905,13 +934,11 @@ export function registerKayInternalCallRoutes(
         expires > now &&
         expires.getTime() - started.getTime() <= 15 * 60 * 1000;
       if (!overrideActive) return res.status(200).json({ ready: false });
-      const consumed = await withKayInternalClient(client =>
-        client.query(`SELECT COUNT(*)::integer AS consumed_count
-                        FROM kay_internal_call_sessions
-                       WHERE reason_code='ADMIN_TEST'`)
+      const consumedCount = await withKayInternalClient(client =>
+        countAdminTestSessions(client, now)
       );
       return res.status(200).json({
-        ready: Number(consumed.rows[0]?.consumed_count || 0) < adminTestAllowedCount(now),
+        ready: consumedCount < adminTestAllowedCount(now),
         expiry: expires.toISOString(),
       });
     } catch (error: any) {
@@ -954,12 +981,8 @@ export function registerKayInternalCallRoutes(
         try {
           await client.query("SELECT pg_advisory_xact_lock($1,$2)", [126322, target.id]);
           if (testMode) {
-            const consumed = await client.query(
-              `SELECT COUNT(*)::integer AS consumed_count
-                 FROM kay_internal_call_sessions
-                WHERE reason_code='ADMIN_TEST'`,
-            );
-            if (Number(consumed.rows[0]?.consumed_count || 0) >= adminTestAllowedCount(now)) {
+            const consumedCount = await countAdminTestSessions(client, now);
+            if (consumedCount >= adminTestAllowedCount(now)) {
               throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED");
             }
           }
