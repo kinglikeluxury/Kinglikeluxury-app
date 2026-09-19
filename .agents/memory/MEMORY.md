@@ -30,3 +30,4 @@
 - [Kay WebRTC endpoint binding](kay-webrtc-endpoint-binding.md) — call roles and lifecycle belong to exact authenticated sockets, not merely user IDs.
 - [Kay call anti-spam atomicity](kay-call-anti-spam-atomicity.md) — evaluate limits and insert under one employee transaction lock; idempotent replay must never re-ring.
 - [Kay direct caller live verification](kay-direct-caller-live-verification.md) — single-browser in-app ring, answer, local Arabic voice, microphone controls, and hangup were confirmed live.
+- [Kay voice branch reconciliation](kay-voice-branch-reconciliation.md) — reconcile an advanced remote voice branch in an isolated worktree and fast-forward only; never force-push over remote features.
