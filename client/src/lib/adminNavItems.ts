@@ -247,6 +247,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     highlight: true,
   },
   {
+    labelKey: "admin.kayRecordings",
+    labelFallback: "Kay Recorded Calls",
+    path: "/admin/kay/recordings",
+    Icon: FileText,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
     labelKey: "admin.competitorIntelligence",
     labelFallback: "Competitor Intelligence",
     path: "/admin/competitor-intelligence",

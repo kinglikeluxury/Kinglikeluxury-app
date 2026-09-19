@@ -56,6 +56,7 @@ import { authorizeKayAction, denyKayWrite } from "./kayActionGateway";
 import { withKayReadonlyAnalysis } from "./kayAnalysisDatabase";
 import { withKayInternalClient } from "./kayInternalDatabase";
 import { registerKayInternalCallRoutes } from "./kayInternalCallService";
+import { registerKayRecordingRoutes } from "./kayRecordingRoutes";
 import { getSupervisorSnapshot } from "./kaySupervisorIntelligenceService";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
@@ -470,6 +471,9 @@ ${metaTags}
     });
   app.use(sessionMiddleware);
   registerKayInternalCallRoutes(app, httpServer, sessionMiddleware);
+  // Register before the generic Kay gate so direct metadata/playback URLs
+  // always reach the live admin middleware, including unauthenticated requests.
+  registerKayRecordingRoutes(app);
 
   // Middleware to check if user is authenticated
   const isAuthenticated = (req: Request, res: Response, next: Function) => {
@@ -516,6 +520,8 @@ ${metaTags}
     "/api/admin/kay/owner-brief",
     "/api/admin/kay/reviews",
     "/api/admin/kay/supervisor/snapshot",
+    "/api/admin/kay/recordings",
+    "/api/admin/kay/manager-debriefs",
   ]);
   app.use(["/api/kay", "/api/admin/kay"], async (req: any, res, next) => {
     const route = req.originalUrl.split("?")[0];
@@ -523,7 +529,8 @@ ${metaTags}
     const parameterizedDedicatedRead =
       /^\/api\/kay\/missions\/[1-9]\d*$/.test(route) ||
       /^\/api\/admin\/kay\/leads\/[1-9]\d*\/protection$/.test(route) ||
-      /^\/api\/admin\/kay\/rescue\/[1-9]\d*\/[1-9]\d*\/preview$/.test(route);
+      /^\/api\/admin\/kay\/rescue\/[1-9]\d*\/[1-9]\d*\/preview$/.test(route) ||
+      /^\/api\/admin\/kay\/recordings\/[1-9]\d*(?:\/(?:play|download))?$/.test(route);
     const readonlyAnalysis = dryRun ||
       (req.method === "GET" && (kayDedicatedReadRoutes.has(route) || parameterizedDedicatedRead));
     if (req.method === "GET" || dryRun) {
@@ -564,7 +571,6 @@ ${metaTags}
       });
     }
   });
-
   // ─── Kay Zero Max — admin-only, observation-only control center ───
   app.get("/api/admin/kay/control", requireKayAdmin, async (_req, res) => {
     try {

@@ -63,6 +63,7 @@ import BroadcastPage from "@/pages/admin/broadcast";
 import CompetitorIntelligencePage from "@/pages/admin/competitor-intelligence";
 import KayControlCenterPage from "@/pages/admin/kay-control-center";
 import KayMySalesPage from "@/pages/admin/kay-my-sales";
+import KayRecordingsPage from "@/pages/admin/kay-recordings";
 import InvestGeorgiaIl from "@/pages/invest-georgia-il";
 import FloatingAIButton from "@/components/FloatingAIButton";
 import InstallPWA from "@/components/InstallPWA";
@@ -74,7 +75,7 @@ import { KayCallInitiator, KayCallProvider } from "./lib/kay-call";
 
 function Router() {
   const [location] = useLocation();
-  const isKayWorkspace = location === "/admin/kay/my-sales" || location === "/admin/kay-control-center";
+  const isKayWorkspace = location === "/admin/kay/my-sales" || location === "/admin/kay-control-center" || location === "/admin/kay/recordings";
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -124,6 +125,7 @@ function Router() {
           <Route path="/admin/competitor-intelligence" component={CompetitorIntelligencePage} />
           <Route path="/admin/kay-control-center" component={KayControlCenterPage} />
            <Route path="/admin/kay/my-sales" component={KayMySalesPage} />
+           <Route path="/admin/kay/recordings" component={KayRecordingsPage} />
           <Route path="/admin/kay/call">
             <main className="min-h-[100dvh] bg-[#f4f8f8] p-6">
               <KayCallInitiator />

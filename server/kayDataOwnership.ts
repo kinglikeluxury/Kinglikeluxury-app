@@ -24,6 +24,7 @@ export const KAY_DATA_OWNERSHIP: readonly KayDataObject[] = Object.freeze([
   { name: "kay_promises", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal promise tracking." },
   { name: "kay_internal_briefings", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal employee briefings." },
   { name: "kay_internal_call_sessions", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal Kay browser call sessions only; no audio or customer data." },
+  { name: "kay_recording_sessions", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal Kay recording metadata only; audio is outside PostgreSQL." },
   { name: "kay_manager_reviews", owner: "KAY_OWNED", runtimeWrite: true, note: "Internal manager review queue." },
   { name: "kay_runtime_state", owner: "KAY_OWNED", runtimeWrite: true, note: "Worker leases, health, and availability only." },
 
@@ -47,6 +48,7 @@ const ownershipByName = new Map(KAY_DATA_OWNERSHIP.map(item => [item.name, item]
 
 export const KAY_INTERNAL_OPTIONAL_WRITABLE_TABLES: readonly string[] = Object.freeze([
   "kay_internal_call_sessions",
+  "kay_recording_sessions",
 ]);
 
 export const KAY_INTERNAL_WRITABLE_TABLES = Object.freeze(

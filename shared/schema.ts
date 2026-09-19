@@ -943,6 +943,37 @@ export const kayInternalCallSessions = pgTable("kay_internal_call_sessions", {
 }));
 export type KayInternalCallSession = typeof kayInternalCallSessions.$inferSelect;
 
+/**
+ * Recording-foundation metadata only. Audio objects are stored outside
+ * PostgreSQL; this table deliberately has no CRM/customer fields or FK.
+ */
+export const kayRecordingSessions = pgTable("kay_recording_sessions", {
+  id: serial("id").primaryKey(),
+  archiveType: text("archive_type").notNull(),
+  callSessionId: integer("call_session_id"),
+  employeeId: integer("employee_id"),
+  employeeName: text("employee_name"),
+  counterpartName: text("counterpart_name"),
+  callStartedAt: timestamp("call_started_at"),
+  answeredAt: timestamp("answered_at"),
+  endedAt: timestamp("ended_at"),
+  durationSeconds: integer("duration_seconds"),
+  recordingStatus: text("recording_status").notNull().default("NOT_STARTED"),
+  noticeStatus: text("notice_status").notNull().default("NOT_PLAYED"),
+  noticePlayedAt: timestamp("notice_played_at"),
+  noticeFailureReason: text("notice_failure_reason"),
+  storageObjectKey: text("storage_object_key"),
+  mediaType: text("media_type"),
+  storageUploadStatus: text("storage_upload_status").notNull().default("NOT_STARTED"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  callSessionUnique: uniqueIndex("kay_recording_sessions_call_session_unique_idx").on(table.callSessionId),
+  archiveCreatedIdx: index("kay_recording_sessions_archive_created_idx").on(table.archiveType, table.createdAt),
+  employeeCreatedIdx: index("kay_recording_sessions_employee_created_idx").on(table.employeeId, table.createdAt),
+}));
+export type KayRecordingSession = typeof kayRecordingSessions.$inferSelect;
+
 // ── Kay Phase B — shadow-only lead safety ledger ────────────────────────────
 // These tables deliberately have no FK-triggered CRM writes.  They are an
 // append-only observation/control plane beside the CRM.

@@ -11,6 +11,11 @@ import {
   createCommitmentFromCallOutcome,
   getMeaningfulEmployeeActionItems,
 } from "./kaySupervisorIntelligenceService";
+import {
+  ensureKayRecordingSession,
+  onKayCallAnswered,
+  onKayCallEnded,
+} from "./kayRecordingService";
 
 const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 const KAY_INTERNAL_CALL_EVENTS = new Set([
@@ -438,6 +443,13 @@ export async function createKayInternalCall(input: {
   if (!transaction.created) {
     return { ...call, callId: call.id, targetName: target.username, replayed: true };
   }
+  void ensureKayRecordingSession({
+    callSessionId: Number(call.id),
+    archiveType: target.id === 1 ? "MANAGER_DEBRIEF" : "EMPLOYEE_CALL",
+    employeeId: target.id === 1 ? null : target.id,
+    employeeName: target.id === 1 ? null : target.username,
+    counterpartName: target.id === 1 ? "Tarek" : "Kay",
+  }).catch(error => console.error("[KayRecording] metadata hook failed:", error?.message || error));
   if (testOverrideActive) armAfterHoursTarekTestExpiry(testExpiresAt);
   initiatingConnectionByCall.set(Number(call.id), input.initiatorConnectionId);
   if (title) {
@@ -852,6 +864,11 @@ export function registerKayInternalCallRoutes(
         }
       });
       const callId = Number(result.id);
+      void ensureKayRecordingSession({
+        callSessionId: callId,
+        archiveType: "MANAGER_DEBRIEF",
+        counterpartName: "Tarek",
+      }).catch(error => console.error("[KayRecording] metadata hook failed:", error?.message || error));
       const expiry = overrideActive ? expires : new Date(now.getTime() + 2 * 60 * 1000);
       if (overrideActive) armAfterHoursTarekTestExpiry(expires);
       scheduleDirectExpiry(callId, expiry);
@@ -897,6 +914,11 @@ export function registerKayInternalCallRoutes(
           return res.status(200).json({ call_session_id: callId, status: "ENDED" });
         }
         await updateCallStatus(callId, nextStatus, [...allowed]);
+        if (nextStatus === "ACTIVE") {
+          void onKayCallAnswered(callId).catch(error => console.error("[KayRecording] answer hook failed:", error?.message || error));
+        } else {
+          void onKayCallEnded(callId).catch(error => console.error("[KayRecording] end hook failed:", error?.message || error));
+        }
         if (nextStatus !== "ACTIVE") {
           directExpiryTimers.get(callId) && clearTimeout(directExpiryTimers.get(callId));
           directExpiryTimers.delete(callId);
@@ -1049,10 +1071,14 @@ export function registerKayInternalCallRoutes(
               if (type === "call_answer") {
                 await updateCallStatus(callId, "ACTIVE", ["RINGING"]);
                 answeringConnectionByCall.set(callId, client.kayConnectionId || "");
+                void onKayCallAnswered(callId).catch(error => console.error("[KayRecording] answer hook failed:", error?.message || error));
               }
               if (type === "call_reject") await updateCallStatus(callId, "REJECTED", ["RINGING"]);
               if (type === "call_busy") await updateCallStatus(callId, "BUSY", ["RINGING"]);
-              if (type === "call_end") await updateCallStatus(callId, "ENDED", ["RINGING", "ACTIVE"]);
+              if (type === "call_end") {
+                await updateCallStatus(callId, "ENDED", ["RINGING", "ACTIVE"]);
+                void onKayCallEnded(callId).catch(error => console.error("[KayRecording] end hook failed:", error?.message || error));
+              }
               const event = (
                 type === "call_offer" || type === "call_answer"
                   ? { type, callId, sdp: message.sdp }

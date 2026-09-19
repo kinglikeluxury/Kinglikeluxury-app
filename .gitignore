@@ -10,6 +10,7 @@ vite.config.ts.*
 *.tar.gz
 *.sql
 !artifacts/kay-internal-call-v1-migration.sql
+!artifacts/kay-recording-foundation-v1-migration.sql
 !server/migrations/2026-09-09-kay-operational-scope.sql
 *.sql.gz
 *.apk
