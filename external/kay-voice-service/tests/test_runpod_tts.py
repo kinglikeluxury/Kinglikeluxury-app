@@ -84,6 +84,79 @@ def test_import_is_optional_and_core_provider_is_used():
     assert result["model_load_duration_ms"] == 7
 
 
+def make_timed_provider(telemetry, clock=None, elapsed_ms=0):
+    class TimedProvider(MockProvider):
+        def __init__(self):
+            self.telemetry = telemetry
+
+        async def synthesize(self, text, *, voice, language):
+            assert text in SAMPLE_TEXTS.values()
+            assert voice == "kay_male"
+            assert language == "ar"
+            if clock is not None:
+                clock.value = elapsed_ms
+            return wav_bytes(), "audio/wav"
+
+    return TimedProvider()
+
+
+def test_timeout_uses_generation_telemetry_and_preserves_completed_wav(monkeypatch):
+    clock = types.SimpleNamespace(value=0)
+    monkeypatch.setattr(
+        handler,
+        "time",
+        types.SimpleNamespace(perf_counter=lambda: clock.value / 1000),
+    )
+    provider = make_timed_provider(
+        SynthesisTelemetry(
+            model="test-model",
+            model_revision="test-revision",
+            device="mock-device",
+            model_load_duration_ms=20_000,
+            generation_duration_ms=25_000,
+            total_request_duration_ms=45_000,
+        ),
+        clock=clock,
+        elapsed_ms=45_000,
+    )
+
+    result = asyncio.run(handler.generate(valid_input(), provider=provider))
+
+    assert base64.b64decode(result["audio_base64"]).startswith(b"RIFF")
+    assert result["model_load_duration_ms"] == 20_000
+    assert result["generation_duration_ms"] == 25_000
+    assert result["total_request_duration_ms"] == 45_000
+
+
+def test_generation_timeout_uses_provider_generation_duration(monkeypatch):
+    provider = make_timed_provider(
+        SynthesisTelemetry(generation_duration_ms=120_001)
+    )
+    with pytest.raises(TimeoutError, match="generation"):
+        asyncio.run(handler.generate(valid_input(), provider=provider))
+
+
+def test_request_timeout_is_separate_from_generation_timeout(monkeypatch):
+    clock = types.SimpleNamespace(value=0)
+    monkeypatch.setattr(
+        handler,
+        "time",
+        types.SimpleNamespace(perf_counter=lambda: clock.value / 1000),
+    )
+    provider = make_timed_provider(
+        SynthesisTelemetry(
+            model_load_duration_ms=216_000,
+            generation_duration_ms=25_000,
+            total_request_duration_ms=241_000,
+        ),
+        clock=clock,
+        elapsed_ms=241_000,
+    )
+
+    with pytest.raises(TimeoutError, match="request"):
+        asyncio.run(handler.generate(valid_input(), provider=provider))
+
+
 def test_handler_awaits_inside_an_existing_event_loop(monkeypatch):
     provider = MockProvider()
     monkeypatch.setattr(handler, "_provider", provider)

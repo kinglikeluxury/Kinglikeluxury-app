@@ -38,15 +38,16 @@ Create only after explicit approval:
 * `KAY_RUNPOD_AUTOSTART=true`
 * `KAY_TTS_MODEL=oddadmix/lahgtna-chatterbox-v1`
 * `MAX_SAMPLE_TEXT_LENGTH=300`
-* `MAX_GENERATION_SECONDS=30`
+* `MAX_GENERATION_SECONDS=120`
+* `MAX_REQUEST_SECONDS=240`
 * `KAY_TTS_DEVICE=cuda`
 * `KAY_TTS_MODEL_REVISION=6b37e50d1952f07306dc9ff3f3d4ff4ddaf32541`
 * `KAY_TTS_RUNTIME_REVISION=433cb74200b55457bffa8ee6965a02ecab546a1c`
 * `KAY_TTS_REFERENCE_AUDIO=/runpod-volume/reference/kay-owned-male.wav`
   (optional; omit it to use the pinned model's built-in conditionals)
 * `HF_HOME=/runpod-volume/huggingface`
-* Endpoint execution timeout: hard RunPod boundary of 300s initially
-  (`MAX_GENERATION_SECONDS` plus cold-start allowance); revise after measurements
+* Endpoint execution timeout: hard RunPod boundary of 300s
+  (`MAX_REQUEST_SECONDS` plus final safety allowance)
 * Maximum execution/cost control: 300s hard maximum, no autoscaling above one worker
 
 Source provenance: Hugging Face TTS model
@@ -57,12 +58,10 @@ at commit `433cb74200b55457bffa8ee6965a02ecab546a1c`. The pinned runtime
 accepts the Arabic language token `language_id="ar"` and ships the built-in
 `conds.pt` conditionals used when no reference is mounted.
 
-The Python `MAX_GENERATION_SECONDS` check is a soft response-time violation
-only. It cannot cancel an already-running blocking CUDA kernel; RunPod's hard
-execution timeout and container termination are the cost boundary. Configure
-that platform timeout to the cold-start allowance plus the 30-second generation
-budget (300s initially), never claim Python cancellation, and revise after
-measurements.
+The Python generation and request checks are soft response-time violations only.
+They cannot cancel an already-running blocking CUDA kernel; RunPod's hard
+execution timeout and container termination are the cost boundary. Never claim
+Python cancellation.
 
 Mount a persistent network volume for the Hugging Face cache and a separate
 read-only reference-audio mount. Do not persist request audio or generated

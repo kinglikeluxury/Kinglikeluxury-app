@@ -19,7 +19,8 @@ from .provider import RunPodChatterboxProvider
 from .samples import SAMPLE_TEXTS, TTS_MODEL, VOICE_PROFILES
 
 MAX_SAMPLE_TEXT_LENGTH = int(os.getenv("MAX_SAMPLE_TEXT_LENGTH", "300"))
-MAX_GENERATION_SECONDS = float(os.getenv("MAX_GENERATION_SECONDS", "30"))
+MAX_GENERATION_SECONDS = float(os.getenv("MAX_GENERATION_SECONDS", "120"))
+MAX_REQUEST_SECONDS = float(os.getenv("MAX_REQUEST_SECONDS", "240"))
 _provider: TextToSpeechProvider | None = None
 _provider_lock = threading.Lock()
 _generation_locks: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
@@ -86,11 +87,16 @@ async def generate(
         audio, media_type = await _run(selected, SAMPLE_TEXTS[sample_id], profile)
     generation_duration_ms = round((time.perf_counter() - generation_started) * 1000)
     total_duration_ms = round((time.perf_counter() - started) * 1000)
-    if total_duration_ms > MAX_GENERATION_SECONDS * 1000:
+    telemetry = selected.last_telemetry()
+    actual_generation_duration_ms = (
+        telemetry.generation_duration_ms or generation_duration_ms
+    )
+    if actual_generation_duration_ms > MAX_GENERATION_SECONDS * 1000:
         raise TimeoutError("generation exceeded MAX_GENERATION_SECONDS")
+    if total_duration_ms > MAX_REQUEST_SECONDS * 1000:
+        raise TimeoutError("request exceeded MAX_REQUEST_SECONDS")
     if not isinstance(audio, bytes) or not audio.startswith(b"RIFF") or b"WAVE" not in audio[:16]:
         raise ValueError("provider must return WAV bytes")
-    telemetry = selected.last_telemetry()
     return {
         "sample_id": sample_id,
         "profile": profile,
@@ -98,7 +104,7 @@ async def generate(
         "model_revision": telemetry.model_revision,
         "audio_base64": base64.b64encode(audio).decode("ascii"),
         "audio_media_type": media_type or "audio/wav",
-        "generation_duration_ms": telemetry.generation_duration_ms or generation_duration_ms,
+        "generation_duration_ms": actual_generation_duration_ms,
         "model_load_duration_ms": telemetry.model_load_duration_ms,
         "total_request_duration_ms": total_duration_ms,
         "device": telemetry.device,
