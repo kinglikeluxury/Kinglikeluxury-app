@@ -3,9 +3,10 @@ import { Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
 import { useAuth } from "./auth";
 import { Button } from "@/components/ui/button";
 import { buildKayRecordingNotice } from "@shared/kayRecording";
+import { KAY_AUDIO_CONSTRAINTS, isKayCallPushUrl } from "./kay-call-shared";
+import kayRecordingPlumbingFixtureUrl from "../../../artifacts/kay-voice-sample-A2.wav";
 
 export const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
-export const KAY_AUDIO_CONSTRAINTS: MediaStreamConstraints = { audio: true, video: false };
 export const KAY_TAREK_TEST_MESSAGE =
   "مساء الخير أستاذ طارق، معك كاي. هذه أول مكالمة تجريبية مباشرة بيني وبينك داخل تطبيق كينغ لايك. إذا كنت تسمعني بشكل واضح، فالاتصال يعمل بشكل صحيح.";
 
@@ -23,15 +24,6 @@ export type KayIncomingCall = {
 
 export function kayCallUrl(pathname: string = window.location.pathname): string {
   return pathname === "/admin/kay/call" ? pathname : "/admin/kay/call";
-}
-
-export function isKayCallPushUrl(url: string = window.location.href): boolean {
-  try {
-    const origin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
-    return new URL(url, origin).pathname === "/admin/kay/call";
-  } catch {
-    return false;
-  }
 }
 
 function socketUrl() {
@@ -242,6 +234,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const recordingRef = useRef<{ recorder: MediaRecorder; chunks: Blob[]; mimeType: string } | null>(null);
   const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const remoteRecordingSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const directFixtureSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const recordingStopRef = useRef<Promise<Blob | null> | null>(null);
   const [status, setStatus] = useState<KayCallStatus>("idle");
   const [incomingCall, setIncomingCall] = useState<KayIncomingCall | null>(null);
@@ -395,6 +388,10 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     recordingRef.current = null;
     remoteRecordingSourceRef.current?.disconnect();
     remoteRecordingSourceRef.current = null;
+    if (directFixtureSourceRef.current) {
+      try { directFixtureSourceRef.current.stop(); } catch {}
+      directFixtureSourceRef.current = null;
+    }
     recordingDestinationRef.current = null;
     recordingStopRef.current = null;
     setRecordingActive(false);
@@ -421,21 +418,54 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     setCallError("");
   }, []);
 
+  const playDirectAdminTestFixture = useCallback(async (): Promise<void> => {
+    const context = audioContextRef.current;
+    const destination = recordingDestinationRef.current;
+    if (!context || !destination) throw new Error("Kay recording audio graph is unavailable.");
+    const response = await fetch(kayRecordingPlumbingFixtureUrl);
+    if (!response.ok) throw new Error("Kay recording plumbing fixture could not be loaded.");
+    const audioData = await response.arrayBuffer();
+    const audioBuffer = await context.decodeAudioData(audioData);
+    await context.resume();
+    await new Promise<void>((resolve, reject) => {
+      const source = context.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(destination);
+      source.connect(context.destination);
+      directFixtureSourceRef.current = source;
+      source.onended = () => {
+        if (directFixtureSourceRef.current === source) directFixtureSourceRef.current = null;
+        resolve();
+      };
+      try {
+        source.start();
+      } catch (error) {
+        if (directFixtureSourceRef.current === source) directFixtureSourceRef.current = null;
+        reject(error);
+      }
+    });
+  }, []);
+
   const reportRecordingNotice = useCallback(async (call: KayIncomingCall): Promise<boolean> => {
     try {
-      if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
-        throw new Error("Arabic recording notice is unavailable.");
+      if (call.direct && call.reasonCode === "ADMIN_TEST") {
+        // KAY_RECORDING_PLUMBING_FIXTURE only: this WAV is not the official Arabic notice audio.
+        await playDirectAdminTestFixture();
+      } else {
+        if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+          throw new Error("Arabic recording notice is unavailable.");
+        }
+        await new Promise<void>((resolve, reject) => {
+          const utterance = new SpeechSynthesisUtterance(buildKayRecordingNotice(call.targetName));
+          utterance.lang = "ar";
+          const voices = window.speechSynthesis.getVoices().filter(voice => voice.lang.toLowerCase().startsWith("ar"));
+          utterance.voice = voices.find(voice => /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)) || voices[0] || null;
+          utterance.onend = () => resolve();
+          utterance.onerror = () => reject(new Error("Arabic recording notice failed."));
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+        });
       }
-      await new Promise<void>((resolve, reject) => {
-        const utterance = new SpeechSynthesisUtterance(buildKayRecordingNotice(call.targetName));
-        utterance.lang = "ar";
-        const voices = window.speechSynthesis.getVoices().filter(voice => voice.lang.toLowerCase().startsWith("ar"));
-        utterance.voice = voices.find(voice => /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)) || voices[0] || null;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => reject(new Error("Arabic recording notice failed."));
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
-      });
       send({ type: "recording_notice_result", callId: call.callId, played: true });
       return true;
     } catch (error) {
@@ -452,7 +482,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       setCallError("The Arabic recording notice failed; the call was ended.");
       return false;
     }
-  }, [cleanup, send, stopRecording]);
+  }, [cleanup, playDirectAdminTestFixture, send, stopRecording]);
 
   const answerDirect = useCallback(async (call: KayIncomingCall) => {
     const stream = await navigator.mediaDevices.getUserMedia(KAY_AUDIO_CONSTRAINTS);

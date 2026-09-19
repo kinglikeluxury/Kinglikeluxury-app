@@ -169,3 +169,14 @@ test("direct Kay caller has no caller socket and exposes target lifecycle", () =
   assert.match(service, /if \(isDirectCall\(call\)\)/);
   assert.match(service, /type: "incoming_call"/);
 });
+
+test("only Tarek ADMIN_TEST direct recordings may use the plumbing fixture", () => {
+  assert.match(service, /function isAllowedDirectKayRecordingTest/);
+  assert.match(service, /call\.reason_code === "ADMIN_TEST"/);
+  assert.match(service, /Number\(call\.target_user_id\) === 1/);
+  assert.match(service, /Number\(call\.initiated_by_user_id\) === 1/);
+  assert.match(service, /isDirectCall\(call\) && !isAllowedDirectKayRecordingTest\(call\)/);
+  assert.match(service, /KAY_DIRECT_CALL_AUDIO_NOT_CAPTURED/);
+  assert.match(service, /finalizeKayRecordingAndUpload/);
+  assert.doesNotMatch(service.slice(service.indexOf("function isAllowedDirectKayRecordingTest"), service.indexOf("function directExpiry")), /crm_/i);
+});

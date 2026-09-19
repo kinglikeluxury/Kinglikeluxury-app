@@ -189,7 +189,7 @@ async function finalizePendingKayRecording(callId: number) {
   const pending = pendingRecordingUploadsByCall.get(callId);
   pendingRecordingUploadsByCall.delete(callId);
   const call = await getCall(callId).catch(() => undefined);
-  if (call && isDirectCall(call)) {
+  if (call && isDirectCall(call) && !isAllowedDirectKayRecordingTest(call)) {
     await markKayRecordingCaptureFailed(callId, "KAY_DIRECT_CALL_AUDIO_NOT_CAPTURED").catch(() => {});
     return { ok: false, reason: "KAY_DIRECT_CALL_AUDIO_NOT_CAPTURED" };
   }
@@ -211,6 +211,18 @@ async function finalizePendingKayRecording(callId: number) {
 
 function isDirectCall(call: { idempotency_key?: string | null }) {
   return typeof call.idempotency_key === "string" && call.idempotency_key.startsWith("DIRECT_");
+}
+
+function isAllowedDirectKayRecordingTest(call: {
+  idempotency_key?: string | null;
+  reason_code?: string | null;
+  target_user_id?: number | string | null;
+  initiated_by_user_id?: number | string | null;
+}) {
+  return isDirectCall(call) &&
+    call.reason_code === "ADMIN_TEST" &&
+    Number(call.target_user_id) === 1 &&
+    Number(call.initiated_by_user_id) === 1;
 }
 
 function directExpiry(call: { reason_code: string; created_at: Date }) {

@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { isKayCallPushUrl, KAY_AUDIO_CONSTRAINTS } from "./kay-call";
+import { isKayCallPushUrl, KAY_AUDIO_CONSTRAINTS } from "./kay-call-shared";
+const source = readFileSync(new URL("./kay-call.tsx", import.meta.url), "utf8");
 
 test("Kay calls request audio without video", () => {
   assert.deepEqual(KAY_AUDIO_CONSTRAINTS, { audio: true, video: false });
@@ -14,7 +15,6 @@ test("Kay push URLs never carry call or customer query data", () => {
 });
 
 test("Kay call controller exposes signaling, controls, and cleanup", () => {
-  const source = readFileSync(new URL("./kay-call.tsx", import.meta.url), "utf8");
   for (const token of [
     "new WebSocket",
     "RTCPeerConnection",
@@ -31,6 +31,14 @@ test("Kay call controller exposes signaling, controls, and cleanup", () => {
     "recording_upload_complete",
     "MediaRecorder",
     "createMediaStreamDestination",
+    "AudioBufferSourceNode",
+    "decodeAudioData",
+    "kayRecordingPlumbingFixtureUrl",
+    "source.connect(destination)",
+    "source.connect(context.destination)",
+    "source.onended",
+    "call.direct && call.reasonCode === \"ADMIN_TEST\"",
+    "PLUMBING_FIXTURE",
     "buildKayRecordingNotice",
     "toggleMute",
     "track.stop()",
@@ -57,7 +65,6 @@ test("Kay call controller exposes signaling, controls, and cleanup", () => {
 });
 
 test("direct Kay caller uses local voice and microphone without a peer", () => {
-  const source = readFileSync(new URL("./kay-call.tsx", import.meta.url), "utf8");
   assert.match(source, /هذه أول مكالمة تجريبية مباشرة بيني وبينك داخل تطبيق كينغ لايك/);
   assert.match(source, /\/api\/admin\/kay\/internal-calls\/test-readiness/);
   assert.match(source, /اتصل بي من KAY الآن/);
@@ -71,4 +78,23 @@ test("direct Kay caller uses local voice and microphone without a peer", () => {
   assert.match(source, /micLevel/);
   assert.match(source, /Kay call was not ended on the server/);
   assert.match(source, /KAY_CALL_ENDED/);
+});
+
+test("direct ADMIN_TEST uses a capturable fixture and waits for source completion", () => {
+  const directNotice = source.slice(source.indexOf("const playDirectAdminTestFixture"), source.indexOf("const reportRecordingNotice"));
+  assert.match(directNotice, /fetch\(kayRecordingPlumbingFixtureUrl\)/);
+  assert.match(directNotice, /context\.decodeAudioData/);
+  assert.match(directNotice, /source\.connect\(destination\)/);
+  assert.match(directNotice, /source\.connect\(context\.destination\)/);
+  assert.match(directNotice, /source\.onended/);
+  assert.match(source, /if \(call\.direct && call\.reasonCode === "ADMIN_TEST"\)/);
+  assert.match(source, /PLUMBING_FIXTURE/);
+  assert.match(source.slice(source.indexOf("const reportRecordingNotice"), source.indexOf("const answerDirect")), /await playDirectAdminTestFixture\(\)/);
+});
+
+test("microphone and direct fixture share the MediaRecorder destination", () => {
+  const recordingSection = source.slice(source.indexOf("const startRecording"), source.indexOf("const reportRecordingNotice"));
+  assert.match(recordingSection, /source\.connect\(destination\)/);
+  assert.match(recordingSection, /source\.connect\(destination\)[\s\S]*source\.connect\(context\.destination\)/);
+  assert.match(source, /recordingDestinationRef\.current = destination/);
 });
