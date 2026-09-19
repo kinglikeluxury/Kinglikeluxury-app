@@ -11,6 +11,7 @@ export const KAY_TAREK_OFFICIAL_NOTICE_TEXT =
   "مرحبا طارق، معك كاي. حبيت أحكي معك عن تقرير اليوم بخصوص العملاء، علمًا أن المكالمة مسجلة لضمان جودة الخدمة.";
 export const KAY_TAREK_TEST_MESSAGE =
   "مساء الخير أستاذ طارق، معك كاي. هذه أول مكالمة تجريبية مباشرة بيني وبينك داخل تطبيق كينغ لايك. إذا كنت تسمعني بشكل واضح، فالاتصال يعمل بشكل صحيح.";
+export const KAY_DIRECT_NOTICE_TIMEOUT_MS = 15_000;
 
 export type KayCallStatus = "idle" | "incoming" | "connecting" | "connected" | "ended" | "error";
 export type KayIncomingCall = {
@@ -111,6 +112,7 @@ export function KayActiveCall({
   onEnd,
   onObject,
   recordingActive,
+  noticePending = false,
   micLevel = 0,
 }: {
   status: Exclude<KayCallStatus, "idle" | "incoming">;
@@ -121,6 +123,7 @@ export function KayActiveCall({
   onEnd: () => void;
   onObject: () => void;
   recordingActive: boolean;
+  noticePending?: boolean;
   micLevel?: number;
 }) {
   return (
@@ -135,7 +138,7 @@ export function KayActiveCall({
         </div>
         <span className="font-mono text-sm text-slate-600">{status === "connected" ? duration : "Connecting…"}</span>
       </div>
-       <p className="mt-3 text-sm text-slate-600">{recordingActive ? "Recording is required for this call." : status === "connected" ? "Connected" : status === "error" ? "Call unavailable" : "Connecting securely…"}</p>
+       <p className="mt-3 text-sm text-slate-600">{noticePending ? "Playing the official recording notice…" : recordingActive ? "Recording is required for this call." : status === "connected" ? "Connected" : status === "error" ? "Call unavailable" : "Connecting securely…"}</p>
       {status === "connected" && <div className="mt-3 flex items-end gap-1" aria-label="Microphone activity">
         {[0, 1, 2, 3, 4].map((bar) => <span key={bar} className="w-1 rounded-full bg-[#16736e]" style={{ height: `${6 + Math.min(18, micLevel * (bar + 1) * 3)}px` }} />)}
       </div>}
@@ -237,6 +240,9 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const remoteRecordingSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const directFixtureSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const directNoticeFetchRef = useRef<Promise<ArrayBuffer> | null>(null);
+  const directNoticeBufferRef = useRef<ArrayBuffer | null>(null);
+  const directNoticePendingRef = useRef(false);
   const recordingStopRef = useRef<Promise<Blob | null> | null>(null);
   const [status, setStatus] = useState<KayCallStatus>("idle");
   const [incomingCall, setIncomingCall] = useState<KayIncomingCall | null>(null);
@@ -248,6 +254,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const [callError, setCallError] = useState("");
   const [directTestReady, setDirectTestReady] = useState(false);
   const [recordingActive, setRecordingActive] = useState(false);
+  const [noticePending, setNoticePending] = useState(false);
 
   useEffect(() => {
     statusRef.current = status;
@@ -259,10 +266,26 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const callReason = activeCall?.reasonCode || "";
   const duration = formatDuration(startedAt, now);
 
-  const send = useCallback((message: Record<string, unknown>) => {
+  const send = useCallback((message: Record<string, unknown>): boolean => {
     const socket = socketRef.current;
-    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+    if (socket?.readyState !== WebSocket.OPEN) return false;
+    try {
+      socket.send(JSON.stringify(message));
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
+
+  const reportDirectNoticeLifecycle = useCallback((call: KayIncomingCall, eventName: string, reasonCode?: string) => {
+    if (!call.direct || call.reasonCode !== "ADMIN_TEST") return false;
+    return send({
+      type: "recording_notice_lifecycle",
+      callId: call.callId,
+      eventName,
+      ...(reasonCode ? { reasonCode } : {}),
+    });
+  }, [send]);
 
   const waitForSocket = useCallback(async () => {
     if (socketRef.current?.readyState === WebSocket.OPEN && connectionIdRef.current) return;
@@ -313,6 +336,13 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     recorder.start(250);
     recordingRef.current = { recorder, chunks, mimeType };
     setRecordingActive(true);
+  }, []);
+
+  const prepareDirectAudioContext = useCallback(() => {
+    const context = audioContextRef.current || new AudioContext();
+    audioContextRef.current = context;
+    if (context.state === "suspended") void context.resume().catch(() => {});
+    return context;
   }, []);
 
   const connectRemoteToRecording = useCallback((stream: MediaStream) => {
@@ -394,6 +424,10 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       try { directFixtureSourceRef.current.stop(); } catch {}
       directFixtureSourceRef.current = null;
     }
+    directNoticePendingRef.current = false;
+    setNoticePending(false);
+    directNoticeBufferRef.current = null;
+    directNoticeFetchRef.current = null;
     recordingDestinationRef.current = null;
     recordingStopRef.current = null;
     setRecordingActive(false);
@@ -420,15 +454,48 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     setCallError("");
   }, []);
 
-  const playDirectAdminTestNotice = useCallback(async (): Promise<void> => {
+  const preloadDirectAdminTestNotice = useCallback(() => {
+    if (directNoticeBufferRef.current) return Promise.resolve(directNoticeBufferRef.current);
+    if (directNoticeFetchRef.current) return directNoticeFetchRef.current;
+    directNoticeFetchRef.current = fetch(kayRecordingOfficialNoticeUrl).then(async response => {
+      if (!response.ok) throw new Error("NOTICE_FETCH_HTTP_FAILED");
+      const data = await response.arrayBuffer();
+      if (!data.byteLength) throw new Error("NOTICE_FETCH_EMPTY");
+      directNoticeBufferRef.current = data;
+      return data;
+    });
+    return directNoticeFetchRef.current;
+  }, []);
+
+  const playDirectAdminTestNotice = useCallback(async (call: KayIncomingCall): Promise<void> => {
     const context = audioContextRef.current;
     const destination = recordingDestinationRef.current;
     if (!context || !destination) throw new Error("Kay recording audio graph is unavailable.");
-    const response = await fetch(kayRecordingOfficialNoticeUrl);
-    if (!response.ok) throw new Error("Kay recording official Arabic notice could not be loaded.");
-    const audioData = await response.arrayBuffer();
-    const audioBuffer = await context.decodeAudioData(audioData);
-    await context.resume();
+    reportDirectNoticeLifecycle(call, "notice_fetch_started");
+    let audioData: ArrayBuffer;
+    try {
+      audioData = await preloadDirectAdminTestNotice();
+      reportDirectNoticeLifecycle(call, "notice_fetch_ok");
+    } catch (error) {
+      reportDirectNoticeLifecycle(call, "notice_fetch_failed", error instanceof Error ? error.message : "NOTICE_FETCH_FAILED");
+      throw error;
+    }
+    let audioBuffer: AudioBuffer;
+    try {
+      audioBuffer = await context.decodeAudioData(audioData.slice(0));
+      reportDirectNoticeLifecycle(call, "decode_ok");
+    } catch (error) {
+      reportDirectNoticeLifecycle(call, "decode_failed", "NOTICE_DECODE_FAILED");
+      throw Object.assign(new Error("NOTICE_DECODE_FAILED"), { cause: error });
+    }
+    reportDirectNoticeLifecycle(call, "audio_context_state_before_resume", context.state);
+    try {
+      if (context.state === "suspended") await context.resume();
+      if (context.state !== "running") throw new Error("NOTICE_AUDIO_CONTEXT_NOT_RUNNING");
+      reportDirectNoticeLifecycle(call, "audio_context_state_after_resume", context.state);
+    } catch (error) {
+      throw Object.assign(new Error("NOTICE_AUDIO_CONTEXT_RESUME_FAILED"), { cause: error });
+    }
     await new Promise<void>((resolve, reject) => {
       const source = context.createBufferSource();
       source.buffer = audioBuffer;
@@ -437,44 +504,62 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       directFixtureSourceRef.current = source;
       source.onended = () => {
         if (directFixtureSourceRef.current === source) directFixtureSourceRef.current = null;
+        reportDirectNoticeLifecycle(call, "source_ended");
         resolve();
       };
       try {
         source.start();
+        reportDirectNoticeLifecycle(call, "source_started");
       } catch (error) {
         if (directFixtureSourceRef.current === source) directFixtureSourceRef.current = null;
         reject(error);
       }
     });
-  }, []);
+  }, [preloadDirectAdminTestNotice, reportDirectNoticeLifecycle]);
 
   const reportRecordingNotice = useCallback(async (call: KayIncomingCall): Promise<boolean> => {
+    const isDirectAdminTest = call.direct && call.reasonCode === "ADMIN_TEST";
+    if (isDirectAdminTest) {
+      directNoticePendingRef.current = true;
+      setNoticePending(true);
+    }
+    const playNotice = isDirectAdminTest
+      ? playDirectAdminTestNotice(call)
+      : (async () => {
+          if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+            throw new Error("Arabic recording notice is unavailable.");
+          }
+          await new Promise<void>((resolve, reject) => {
+            const utterance = new SpeechSynthesisUtterance(buildKayRecordingNotice(call.targetName));
+            utterance.lang = "ar";
+            const voices = window.speechSynthesis.getVoices().filter(voice => voice.lang.toLowerCase().startsWith("ar"));
+            utterance.voice = voices.find(voice => /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)) || voices[0] || null;
+            utterance.onend = () => resolve();
+            utterance.onerror = () => reject(new Error("Arabic recording notice failed."));
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+          });
+        })();
     try {
-      if (call.direct && call.reasonCode === "ADMIN_TEST") {
-        await playDirectAdminTestNotice();
-      } else {
-        if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
-          throw new Error("Arabic recording notice is unavailable.");
-        }
-        await new Promise<void>((resolve, reject) => {
-          const utterance = new SpeechSynthesisUtterance(buildKayRecordingNotice(call.targetName));
-          utterance.lang = "ar";
-          const voices = window.speechSynthesis.getVoices().filter(voice => voice.lang.toLowerCase().startsWith("ar"));
-          utterance.voice = voices.find(voice => /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)) || voices[0] || null;
-          utterance.onend = () => resolve();
-          utterance.onerror = () => reject(new Error("Arabic recording notice failed."));
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
-        });
+      await Promise.race([
+        playNotice,
+        new Promise<never>((_, reject) => window.setTimeout(
+          () => reject(new Error("NOTICE_WATCHDOG_TIMEOUT")),
+          isDirectAdminTest ? KAY_DIRECT_NOTICE_TIMEOUT_MS : 60_000,
+        )),
+      ]);
+      if (!send({ type: "recording_notice_result", callId: call.callId, played: true })) {
+        throw new Error("NOTICE_WEBSOCKET_DELIVERY_FAILED");
       }
-      send({ type: "recording_notice_result", callId: call.callId, played: true });
       return true;
     } catch (error) {
+      const failureReason = error instanceof Error ? error.message : "NOTICE_FAILED";
+      reportDirectNoticeLifecycle(call, "notice_fetch_failed", failureReason);
       send({
         type: "recording_notice_result",
         callId: call.callId,
         played: false,
-        failureReason: error instanceof Error ? error.message : "ARABIC_NOTICE_FAILED",
+        failureReason,
       });
       await stopRecording();
       send({ type: "call_end", callId: call.callId });
@@ -482,10 +567,20 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       setStatus("error");
       setCallError("The Arabic recording notice failed; the call was ended.");
       return false;
+    } finally {
+      if (isDirectAdminTest) {
+        directNoticePendingRef.current = false;
+        setNoticePending(false);
+      }
     }
-  }, [cleanup, playDirectAdminTestNotice, send, stopRecording]);
+  }, [cleanup, playDirectAdminTestNotice, reportDirectNoticeLifecycle, send, stopRecording]);
 
   const answerDirect = useCallback(async (call: KayIncomingCall) => {
+    if (call.reasonCode === "ADMIN_TEST") {
+      prepareDirectAudioContext();
+      directNoticePendingRef.current = true;
+      setNoticePending(true);
+    }
     const stream = await navigator.mediaDevices.getUserMedia(KAY_AUDIO_CONSTRAINTS);
     streamRef.current = stream;
     startRecording(stream);
@@ -499,7 +594,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     setStatus("connected");
     setStartedAt(Date.now());
     await reportRecordingNotice(call);
-  }, [reportRecordingNotice, startRecording]);
+  }, [prepareDirectAudioContext, reportRecordingNotice, startRecording]);
 
   const playTarekTestVoice = useCallback((callId: number) => {
     if (initiatedCallIdsRef.current.has(callId) || spokenTestCallIdsRef.current.has(callId)) return;
@@ -589,6 +684,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     try {
       setStatus("connecting");
       if (targetUserId === 1 && initiationType === "ADMIN_TEST") {
+        void preloadDirectAdminTestNotice();
         const response = await fetch("/api/admin/kay/internal-calls/start", {
           method: "POST",
           credentials: "include",
@@ -654,7 +750,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       setStatus("error");
       throw error;
     }
-  }, [cleanup, monitorPeer, send, user, waitForSocket]);
+  }, [cleanup, monitorPeer, preloadDirectAdminTestNotice, send, user, waitForSocket]);
 
   const reject = useCallback(async () => {
     try {
@@ -675,6 +771,11 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       cleanup();
       return;
     }
+    if (call.direct && call.reasonCode === "ADMIN_TEST" && directNoticePendingRef.current) {
+      reportDirectNoticeLifecycle(call, "user_end_clicked", "NOTICE_PENDING");
+      setCallError("The official recording notice is still playing.");
+      return;
+    }
     try {
       await stopAndSendEnd(call.callId);
       cleanup();
@@ -682,7 +783,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       cleanup();
       setCallError("Kay call was not ended on the server.");
     }
-  }, [cleanup, stopAndSendEnd]);
+  }, [cleanup, reportDirectNoticeLifecycle, stopAndSendEnd]);
 
   const objectToRecording = useCallback(async () => {
     const call = incomingCallRef.current;
@@ -766,6 +867,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
             setIncomingCall(directCall);
             setOfferReady(true);
             setStatus("incoming");
+            reportDirectNoticeLifecycle(directCall, "websocket_open", "CALL_SOCKET_OPEN");
             const expiresAt = Date.parse(directCall.expiry || "");
             if (Number.isFinite(expiresAt)) {
               const expire = () => {
@@ -836,6 +938,13 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       };
       socket.onclose = (event) => {
         connectionIdRef.current = null;
+        const activeCall = incomingCallRef.current;
+        if (activeCall?.direct && activeCall.reasonCode === "ADMIN_TEST") {
+          reportDirectNoticeLifecycle(activeCall, "websocket_closed", `SOCKET_CLOSED_${event.code}`);
+          if (directNoticePendingRef.current) {
+            reportDirectNoticeLifecycle(activeCall, "disconnect_cleanup", "CLIENT_SOCKET_CLOSED");
+          }
+        }
         cleanup();
         if (!disposed && event.code !== 1008) reconnectRef.current = window.setTimeout(connect, 3000);
       };
@@ -848,7 +957,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       socketRef.current = null;
       cleanup();
     };
-  }, [authorized, cleanup, isLoading, send, user?.id]);
+  }, [authorized, cleanup, isLoading, reportDirectNoticeLifecycle, send, user?.id]);
 
   const value = useMemo(() => ({ status, incomingCall, callTitle, callReason, muted, duration, answer, startCall, reject, end, objectToRecording, toggleMute }), [answer, callReason, callTitle, duration, end, incomingCall, muted, objectToRecording, reject, startCall, status, toggleMute]);
 
@@ -873,7 +982,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       )}
       {status === "incoming" && incomingCall && <IncomingKayCall call={incomingCall} canAnswer={offerReady || incomingCall.direct === true} onAnswer={answer} onReject={reject} />}
       {(status === "connecting" || status === "connected" || status === "error") && (
-        <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} micLevel={micLevel} recordingActive={recordingActive} onMute={toggleMute} onObject={objectToRecording} onEnd={end} />
+        <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} micLevel={micLevel} recordingActive={recordingActive} noticePending={noticePending} onMute={toggleMute} onObject={objectToRecording} onEnd={end} />
       )}
     </KayCallContext.Provider>
   );

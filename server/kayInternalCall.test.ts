@@ -186,3 +186,13 @@ test("only Tarek ADMIN_TEST direct recordings may use the plumbing fixture", () 
   assert.match(service, /finalizeKayRecordingAndUpload/);
   assert.doesNotMatch(service.slice(service.indexOf("function isAllowedDirectKayRecordingTest"), service.indexOf("function directExpiry")), /crm_/i);
 });
+
+test("ADMIN_TEST notice lifecycle telemetry is bounded and Kay-only", () => {
+  assert.match(service, /recording_notice_lifecycle/);
+  assert.match(service, /KAY_ADMIN_TEST_LIFECYCLE_ONLY/);
+  assert.match(service, /eventName/);
+  assert.match(service, /reasonCode/);
+  assert.match(service, /Number\(call\.target_user_id\) === 1/);
+  assert.match(service, /Number\(call\.initiated_by_user_id\) === 1/);
+  assert.doesNotMatch(service.slice(service.indexOf("if (type === \"recording_notice_lifecycle\")"), service.indexOf("if (type === \"recording_objection\")")), /crm_/i);
+});

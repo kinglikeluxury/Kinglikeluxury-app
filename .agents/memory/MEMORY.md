@@ -36,3 +36,4 @@
 - [R2 SigV4 transport](r2-sigv4-transport.md) — R2 Authorization has no comma after the algorithm; empty object requests need zero content length and fetch transport.
 - [Kay browser audio capture](kay-browser-audio-capture.md) — speechSynthesis is audible but not a MediaStream; direct virtual calls must fail closed instead of becoming READY.
 - [Kay Vite audio fixture](kay-vite-audio-fixture.md) — Vite bundles the tracked WAV, while Node tests must avoid importing the binary-bearing component directly.
+- [Kay metadata migration ownership](kay-metadata-migration-ownership.md) — recording metadata schema changes require the dedicated migration-owner connection; runtime Kay writer cannot alter table ownership.

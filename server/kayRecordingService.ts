@@ -31,6 +31,22 @@ export const KAY_SUPERVISED_EMPLOYEES = Object.freeze([
 export const KAY_RECORDING_UPLOAD_SOURCE = "kay-call-lifecycle" as const;
 export type KayRecordingUploadSource = typeof KAY_RECORDING_UPLOAD_SOURCE;
 
+export const KAY_ADMIN_TEST_LIFECYCLE_EVENTS = new Set([
+  "notice_fetch_started",
+  "notice_fetch_ok",
+  "notice_fetch_failed",
+  "audio_context_state_before_resume",
+  "audio_context_state_after_resume",
+  "decode_ok",
+  "decode_failed",
+  "source_started",
+  "source_ended",
+  "websocket_open",
+  "websocket_closed",
+  "user_end_clicked",
+  "disconnect_cleanup",
+]);
+
 type KayRecordingUploadSession = {
   employee_id: number | null;
   archive_type: KayRecordingArchiveType;
@@ -316,6 +332,51 @@ export async function onKayRecordingStarted(callSessionId: number): Promise<any>
         WHERE call_session_id=$1 AND notice_status='PLAYED' AND recording_status='NOTICE_PLAYED'
         RETURNING id`,
       [callSessionId],
+    ),
+  );
+}
+
+/**
+ * Stores bounded, non-sensitive ADMIN_TEST lifecycle evidence beside the
+ * recording metadata. This deliberately accepts event names and reason codes
+ * only; it never receives audio, CRM, or customer data.
+ */
+export async function recordKayAdminTestLifecycle(
+  callSessionId: number,
+  eventName: string,
+  reasonCode?: string,
+): Promise<any> {
+  if (!KAY_ADMIN_TEST_LIFECYCLE_EVENTS.has(eventName)) {
+    throw Object.assign(new Error("KAY_ADMIN_TEST_INVALID_LIFECYCLE_EVENT"), { status: 400 });
+  }
+  const safeReason = reasonCode ? String(reasonCode).slice(0, 120) : null;
+  return recordingQuery<any>(client =>
+    client.query(
+      `UPDATE kay_recording_sessions AS r
+          SET lifecycle_events = (
+                CASE
+                  WHEN jsonb_array_length(COALESCE(r.lifecycle_events, '[]'::jsonb)) >= 64
+                    THEN COALESCE(r.lifecycle_events, '[]'::jsonb) - 0
+                  ELSE COALESCE(r.lifecycle_events, '[]'::jsonb)
+                END
+                || jsonb_build_array(jsonb_build_object(
+                     'event', $2::text,
+                     'timestamp', clock_timestamp(),
+                     'reason_code', $3::text
+                   ))
+              ),
+              updated_at=NOW()
+        WHERE r.call_session_id=$1
+          AND EXISTS (
+            SELECT 1
+              FROM kay_internal_call_sessions AS c
+             WHERE c.id=r.call_session_id
+               AND c.reason_code='ADMIN_TEST'
+               AND c.target_user_id=1
+               AND c.initiated_by_user_id=1
+          )
+        RETURNING r.id`,
+      [callSessionId, eventName, safeReason],
     ),
   );
 }

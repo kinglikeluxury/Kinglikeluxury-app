@@ -64,3 +64,14 @@ test("metadata migration is additive, private, and grants no delete/truncate", (
   assert.doesNotMatch(migration, /\b(?:INSERT INTO|UPDATE|DELETE FROM|ALTER TABLE)\s+crm_/i);
   assert.match(ownership, /kay_recording_sessions.*KAY_OWNED/);
 });
+
+test("ADMIN_TEST lifecycle metadata stores only bounded event evidence", () => {
+  assert.match(migration, /lifecycle_events JSONB NOT NULL DEFAULT '\[\]'::jsonb/);
+  assert.match(service, /recordKayAdminTestLifecycle/);
+  assert.match(service, /jsonb_build_object/);
+  assert.match(service, /clock_timestamp/);
+  assert.match(service, /eventName/);
+  assert.match(service, /reason_code/);
+  const lifecycle = service.slice(service.indexOf("recordKayAdminTestLifecycle"), service.indexOf("export async function recordKayRecordingObjection"));
+  assert.doesNotMatch(lifecycle, /audio|crm_/i);
+});

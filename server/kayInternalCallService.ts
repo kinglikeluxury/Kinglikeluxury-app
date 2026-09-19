@@ -18,6 +18,7 @@ import {
   onKayCallEnded,
   onKayRecordingNoticePlayed,
   onKayRecordingStarted,
+  recordKayAdminTestLifecycle,
   recordKayRecordingObjection,
   finalizeKayRecordingAndUpload,
   markKayRecordingCaptureFailed,
@@ -33,6 +34,7 @@ const KAY_INTERNAL_CALL_EVENTS = new Set([
   "call_end",
   "call_busy",
   "recording_notice_result",
+  "recording_notice_lifecycle",
   "recording_objection",
   "recording_upload_begin",
   "recording_upload_chunk",
@@ -758,6 +760,20 @@ function validateSignal(message: any): any {
       ...(message.failureReason === undefined ? {} : { failureReason: message.failureReason }),
     };
   }
+  if (type === "recording_notice_lifecycle") {
+    assertAllowedKeys(message, ["type", "callId", "eventName", "reasonCode"]);
+    if (typeof message.eventName !== "string" || message.eventName.length < 1 || message.eventName.length > 80 ||
+        (message.reasonCode !== undefined &&
+          (typeof message.reasonCode !== "string" || message.reasonCode.length > 120))) {
+      throw httpError(400, "KAY_RECORDING_INVALID_LIFECYCLE_EVENT");
+    }
+    return {
+      type,
+      callId: message.callId,
+      eventName: message.eventName,
+      ...(message.reasonCode === undefined ? {} : { reasonCode: message.reasonCode }),
+    };
+  }
   if (type === "recording_objection") {
     assertAllowedKeys(message, ["type", "callId"]);
     return { type, callId: message.callId };
@@ -823,6 +839,10 @@ async function endCallsForDisconnectedUser(userId: number) {
     pendingRecordingUploadsByCall.delete(callId);
     initiatingConnectionByCall.delete(callId);
     answeringConnectionByCall.delete(callId);
+    if (row.reason_code === "ADMIN_TEST") {
+      await recordKayAdminTestLifecycle(callId, "websocket_closed", "SERVER_USER_DISCONNECT").catch(() => {});
+      await recordKayAdminTestLifecycle(callId, "disconnect_cleanup", "SERVER_USER_DISCONNECT").catch(() => {});
+    }
     await onKayCallEnded(callId).catch(() => {});
     await finalizePendingKayRecording(callId);
     await deliverOrQueueSignal(peerId, { type: "call_end", callId });
@@ -889,6 +909,10 @@ async function endCallsForDisconnectedSocket(userId: number, connectionId: strin
     pendingRecordingUploadsByCall.delete(callId);
     initiatingConnectionByCall.delete(callId);
     answeringConnectionByCall.delete(callId);
+    if (row.reason_code === "ADMIN_TEST") {
+      await recordKayAdminTestLifecycle(callId, "websocket_closed", "SERVER_SOCKET_DISCONNECT").catch(() => {});
+      await recordKayAdminTestLifecycle(callId, "disconnect_cleanup", "SERVER_SOCKET_DISCONNECT").catch(() => {});
+    }
     await onKayCallEnded(callId).catch(() => {});
     await finalizePendingKayRecording(callId);
     await deliverOrQueueSignal(peerId, { type: "call_end", callId }, deliveryOptions);
@@ -1275,6 +1299,18 @@ export function registerKayInternalCallRoutes(
                     const started = await onKayRecordingStarted(callId);
                     if (!started.rowCount) throw httpError(409, "KAY_RECORDING_START_STATE_CHANGED");
                   }
+                  return;
+                }
+                if (type === "recording_notice_lifecycle") {
+                  if (!isAllowedDirectKayRecordingTest(call)) {
+                    throw httpError(403, "KAY_ADMIN_TEST_LIFECYCLE_ONLY");
+                  }
+                  const result = await recordKayAdminTestLifecycle(
+                    callId,
+                    message.eventName,
+                    message.reasonCode,
+                  );
+                  if (!result.rowCount) throw httpError(409, "KAY_RECORDING_LIFECYCLE_STATE_CHANGED");
                   return;
                 }
                 if (type === "recording_objection") {

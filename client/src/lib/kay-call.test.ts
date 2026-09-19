@@ -81,15 +81,43 @@ test("direct Kay caller uses local voice and microphone without a peer", () => {
 });
 
 test("direct ADMIN_TEST uses the official notice WAV and waits for source completion", () => {
-  const directNotice = source.slice(source.indexOf("const playDirectAdminTestNotice"), source.indexOf("const reportRecordingNotice"));
+  const directNotice = source.slice(source.indexOf("const preloadDirectAdminTestNotice"), source.indexOf("const reportRecordingNotice"));
   assert.match(directNotice, /fetch\(kayRecordingOfficialNoticeUrl\)/);
-  assert.match(directNotice, /context\.decodeAudioData/);
-  assert.match(directNotice, /source\.connect\(destination\)/);
-  assert.match(directNotice, /source\.connect\(context\.destination\)/);
-  assert.match(directNotice, /source\.onended/);
-  assert.match(source, /if \(call\.direct && call\.reasonCode === "ADMIN_TEST"\)/);
+  assert.match(directNotice, /arrayBuffer\(\)/);
+  const playNotice = source.slice(source.indexOf("const playDirectAdminTestNotice"), source.indexOf("const reportRecordingNotice"));
+  assert.match(playNotice, /context\.decodeAudioData/);
+  assert.match(playNotice, /source\.connect\(destination\)/);
+  assert.match(playNotice, /source\.connect\(context\.destination\)/);
+  assert.match(playNotice, /source\.onended/);
+  assert.match(playNotice, /source_ended/);
+  assert.match(source, /call\.direct && call\.reasonCode === "ADMIN_TEST"/);
   assert.match(source, /مرحبا طارق، معك كاي\. حبيت أحكي معك عن تقرير اليوم بخصوص العملاء، علمًا أن المكالمة مسجلة لضمان جودة الخدمة\./);
-  assert.match(source.slice(source.indexOf("const reportRecordingNotice"), source.indexOf("const answerDirect")), /await playDirectAdminTestNotice\(\)/);
+  assert.match(source.slice(source.indexOf("const reportRecordingNotice"), source.indexOf("const answerDirect")), /playDirectAdminTestNotice\(call\)/);
+});
+
+test("direct ADMIN_TEST blocks End while notice is pending", () => {
+  const endSource = source.slice(source.indexOf("const end ="), source.indexOf("const objectToRecording"));
+  assert.match(endSource, /directNoticePendingRef\.current/);
+  assert.match(endSource, /user_end_clicked/);
+  assert.match(endSource, /return;/);
+  assert.match(source, /Playing the official recording notice/);
+});
+
+test("direct Answer prepares and resumes AudioContext before async work", () => {
+  const answerDirect = source.slice(source.indexOf("const answerDirect"), source.indexOf("const playTarekTestVoice"));
+  assert.match(answerDirect, /prepareDirectAudioContext\(\)/);
+  assert.match(answerDirect, /prepareDirectAudioContext\(\)[\s\S]*getUserMedia/);
+  assert.match(source, /context\.state === "suspended"[\s\S]*context\.resume\(\)/);
+});
+
+test("direct notice success reports played after source end, and failures fail closed", () => {
+  const notice = source.slice(source.indexOf("const reportRecordingNotice"), source.indexOf("const answerDirect"));
+  assert.match(source, /source_ended/);
+  assert.match(notice, /recording_notice_result[\s\S]*played: true/);
+  assert.match(notice, /KAY_DIRECT_NOTICE_TIMEOUT_MS/);
+  assert.match(notice, /NOTICE_WATCHDOG_TIMEOUT/);
+  assert.match(notice, /recording_notice_result[\s\S]*played: false/);
+  assert.match(notice, /stopRecording\(\)[\s\S]*call_end[\s\S]*cleanup\(\)/);
 });
 
 test("microphone and direct fixture share the MediaRecorder destination", () => {
