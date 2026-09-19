@@ -161,6 +161,89 @@ def test_provider_fails_without_cuda_before_model_download(monkeypatch, tmp_path
         provider._load_model()
 
 
+def test_provider_uses_builtin_conditionals_without_reference(monkeypatch):
+    from runpod.provider import RunPodChatterboxProvider
+
+    calls = {}
+
+    class FakeAudio:
+        def squeeze(self):
+            return self
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            return [0.0]
+
+    class FakeModel:
+        sr = 8000
+
+        def generate(self, **kwargs):
+            calls.update(kwargs)
+            return FakeAudio()
+
+    def write_wav(output, samples, sample_rate, format):
+        output.write(b"RIFF\x24\x00\x00\x00WAVEfmt ")
+
+    monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(write=write_wav))
+    provider = RunPodChatterboxProvider()
+    provider._load_model = lambda: (FakeModel(), 0, "test-device")
+
+    audio, media_type, _ = provider._synthesize_blocking(
+        "مساء الخير", {"exaggeration": 0.4, "cfg_weight": 0.6, "temperature": 0.7}
+    )
+
+    assert audio.startswith(b"RIFF")
+    assert media_type == "audio/wav"
+    assert calls["language_id"] == "ar"
+    assert calls["audio_prompt_path"] is None
+
+
+def test_provider_uses_existing_owned_reference(monkeypatch, tmp_path):
+    from runpod.provider import RunPodChatterboxProvider
+
+    calls = {}
+
+    class FakeAudio:
+        def squeeze(self):
+            return self
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            return [0.0]
+
+    class FakeModel:
+        sr = 8000
+
+        def generate(self, **kwargs):
+            calls.update(kwargs)
+            return FakeAudio()
+
+    def write_wav(output, samples, sample_rate, format):
+        output.write(b"RIFF\x24\x00\x00\x00WAVEfmt ")
+
+    reference = tmp_path / "owned.wav"
+    reference.write_bytes(b"owned")
+    monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(write=write_wav))
+    provider = RunPodChatterboxProvider()
+    provider._reference = str(reference)
+    provider._load_model = lambda: (FakeModel(), 0, "test-device")
+
+    provider._synthesize_blocking("مساء الخير", {})
+
+    assert calls["language_id"] == "ar"
+    assert calls["audio_prompt_path"] == str(reference)
+
+
 def test_warm_model_reports_cached_device_without_reload():
     from runpod.provider import RunPodChatterboxProvider
 

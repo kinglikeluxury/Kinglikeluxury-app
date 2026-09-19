@@ -38,13 +38,21 @@ class RunPodChatterboxProvider(TextToSpeechProvider):
 
     @property
     def configured(self) -> bool:
-        return bool(self._reference and Path(self._reference).is_file())
+        return not self._reference or Path(self._reference).is_file()
+
+    def _reference_path(self) -> str | None:
+        """Return an optional owned reference, or use the model's built-in voice."""
+        if not self._reference:
+            return None
+        if not Path(self._reference).is_file():
+            raise ProviderUnavailable(
+                "configured KAY_TTS_REFERENCE_AUDIO file does not exist"
+            )
+        return self._reference
 
     def _load_model(self) -> tuple[Any, int, str]:
         if self._model is not None:
             return self._model, 0, self._actual_device
-        if not self._reference or not Path(self._reference).is_file():
-            raise ProviderUnavailable("an owned/licensed KAY_TTS_REFERENCE_AUDIO file is required")
         started = time.perf_counter()
         # These imports and the snapshot download happen only on the first
         # deployed request, never during module import.
@@ -67,10 +75,11 @@ class RunPodChatterboxProvider(TextToSpeechProvider):
         started = time.perf_counter()
         model, load_ms, device = self._load_model()
         controls = dict(options or {})
+        reference = self._reference_path()
         audio = model.generate(
             text=text,
-            language_id="ko",
-            audio_prompt_path=self._reference,
+            language_id="ar",
+            audio_prompt_path=reference,
             exaggeration=float(controls.get("exaggeration", 0.4)),
             cfg_weight=float(controls.get("cfg_weight", 0.6)),
             temperature=float(controls.get("temperature", 0.7)),

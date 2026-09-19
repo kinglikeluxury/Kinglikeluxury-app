@@ -15,9 +15,10 @@ The adapter calls `app.providers.base.TextToSpeechProvider` through
 process lock for one request at a time. On the deployed worker only, the
 first request downloads the pinned snapshot and loads the model; imports in
 Replit never import torch/chatterbox/huggingface. An owned/licensed male
-reference voice is required via `KAY_TTS_REFERENCE_AUDIO`; never use a
-third-party identifiable voice. Syrian output intentionally uses
-Chatterbox `language_id="ko"` per the official Oddadmix README.
+reference voice is optional via `KAY_TTS_REFERENCE_AUDIO`; when absent, the
+pinned model's built-in `conds.pt` conditionals are used. Never use a
+third-party identifiable voice. Kay Arabic output uses Chatterbox
+`language_id="ar"`.
 
 The RunPod platform authenticates the endpoint using its native authorization
 mechanism. The job input contains **only** `sample_id` and `profile`; never put
@@ -42,6 +43,7 @@ Create only after explicit approval:
 * `KAY_TTS_MODEL_REVISION=6b37e50d1952f07306dc9ff3f3d4ff4ddaf32541`
 * `KAY_TTS_RUNTIME_REVISION=433cb74200b55457bffa8ee6965a02ecab546a1c`
 * `KAY_TTS_REFERENCE_AUDIO=/runpod-volume/reference/kay-owned-male.wav`
+  (optional; omit it to use the pinned model's built-in conditionals)
 * `HF_HOME=/runpod-volume/huggingface`
 * Endpoint execution timeout: hard RunPod boundary of 300s initially
   (`MAX_GENERATION_SECONDS` plus cold-start allowance); revise after measurements
@@ -51,8 +53,9 @@ Source provenance: Hugging Face TTS model
 [`oddadmix/lahgtna-chatterbox-v1`](https://huggingface.co/oddadmix/lahgtna-chatterbox-v1),
 model revision `6b37e50d1952f07306dc9ff3f3d4ff4ddaf32541`; runtime source is
 [`Oddadmix/lahgtna-chatterbox`](https://github.com/Oddadmix/lahgtna-chatterbox)
-at commit `433cb74200b55457bffa8ee6965a02ecab546a1c`. The official Oddadmix
-README maps Syrian dialect synthesis to Chatterbox `language_id="ko"`.
+at commit `433cb74200b55457bffa8ee6965a02ecab546a1c`. The pinned runtime
+accepts the Arabic language token `language_id="ar"` and ships the built-in
+`conds.pt` conditionals used when no reference is mounted.
 
 The Python `MAX_GENERATION_SECONDS` check is a soft response-time violation
 only. It cannot cancel an already-running blocking CUDA kernel; RunPod's hard
