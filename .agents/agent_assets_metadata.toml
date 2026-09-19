@@ -259,3 +259,17 @@ mtime_ms = 1788299250543
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/ad1ccea4-e29e-4e00-948f-4eace61dd83a/823d60c3-170f-435d-82f6-8e5c9abfd889"
 storage_version_token = "1788299301805814"
 content_type = "image/png"
+
+[[outputs]]
+id = "QDlBdoHCKU_9IJkYYCKk3"
+uri = "file://artifacts/kay-voice-sample-01.wav"
+type = "audio"
+title = "Kay voice sample 01"
+description = "Validated WAV generated from the single RunPod Sample 1 retry."
+logical_id = "a7635321-a833-4987-b516-5513c95aa7ab"
+content_hash = "sha256:f5f51222b066eb21d8cced27836de97964ce128090c13e531dfaa2a26af82df6"
+size = 247724
+mtime_ms = 1789816716279
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/a7635321-a833-4987-b516-5513c95aa7ab/1de9f0c7-a2f9-47ff-aff4-d508c6bf1ea0"
+storage_version_token = "1789816725285603"
+content_type = "audio/wav"
