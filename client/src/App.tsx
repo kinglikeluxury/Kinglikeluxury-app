@@ -66,6 +66,7 @@ import KayMySalesPage from "@/pages/admin/kay-my-sales";
 import KayRecordingsPage from "@/pages/admin/kay-recordings";
 import InvestGeorgiaIl from "@/pages/invest-georgia-il";
 import FloatingAIButton from "@/components/FloatingAIButton";
+import FloatingKayCallButton from "@/components/FloatingKayCallButton";
 import InstallPWA from "@/components/InstallPWA";
 import SplashScreen from "@/components/SplashScreen";
 import { useTranslation } from "react-i18next";
@@ -80,6 +81,7 @@ function Router() {
   return (
     <div className="flex flex-col min-h-screen">
       {!isKayWorkspace && <Navbar />}
+      <FloatingKayCallButton />
       <main className={`flex-grow ${isKayWorkspace ? "" : "pb-16 md:pb-0"} page-transition`}>
         <Switch key={location}>
           <Route path="/" component={Home} />
