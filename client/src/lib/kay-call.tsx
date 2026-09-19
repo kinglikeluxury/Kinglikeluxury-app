@@ -4,7 +4,7 @@ import { useAuth } from "./auth";
 import { Button } from "@/components/ui/button";
 import { buildKayRecordingNotice } from "@shared/kayRecording";
 import { KAY_AUDIO_CONSTRAINTS, isKayCallPushUrl } from "./kay-call-shared";
-import kayRecordingPlumbingFixtureUrl from "../../../artifacts/kay-voice-sample-A2.wav";
+import kayRecordingPlumbingFixtureUrl from "../../../artifacts/kay-recording-notice-tarek-A2.wav";
 
 export const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 export const KAY_TAREK_TEST_MESSAGE =
