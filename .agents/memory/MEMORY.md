@@ -31,3 +31,4 @@
 - [Kay call anti-spam atomicity](kay-call-anti-spam-atomicity.md) — evaluate limits and insert under one employee transaction lock; idempotent replay must never re-ring.
 - [Kay direct caller live verification](kay-direct-caller-live-verification.md) — single-browser in-app ring, answer, local Arabic voice, microphone controls, and hangup were confirmed live.
 - [Kay voice branch reconciliation](kay-voice-branch-reconciliation.md) — reconcile an advanced remote voice branch in an isolated worktree and fast-forward only; never force-push over remote features.
+- [RunPod zero-scale drain](runpod-zero-scale-drain.md) — workersMax=0 can leave a worker draining briefly; verify endpoint health reaches all-zero before declaring shutdown.

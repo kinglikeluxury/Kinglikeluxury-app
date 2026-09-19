@@ -273,3 +273,17 @@ mtime_ms = 1789820486886
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/a7635321-a833-4987-b516-5513c95aa7ab/fe2f3081-3111-4778-b5e4-d1543f41afc2"
 storage_version_token = "1789820504417351"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "uPP2RZ5VW9T7j0POdJTfN"
+uri = "file://artifacts/kay-voice-sample-A2.wav"
+type = "audio"
+title = "KAY Syrian Voice A2 Sample"
+description = "RunPod sample_1 synthesized with Syrian Voice A2 profile from immutable image ebd84deb4cf483b9170b438e673725ea201fd4de. WAV validated at 24 kHz, 5.680 seconds, mono."
+logical_id = "9ab55f40-d679-4320-bb57-6507c7363dfc"
+content_hash = "sha256:12ff8380dc46ba78ccaa0d02e01fc131ec01b3a35d1030da88e3ea506cf616a4"
+size = 272684
+mtime_ms = 1789825080743
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/9ab55f40-d679-4320-bb57-6507c7363dfc/ee91dc56-f143-48ef-9378-7b2e1c8d3945"
+storage_version_token = "1789825094342080"
+content_type = "audio/wav"
