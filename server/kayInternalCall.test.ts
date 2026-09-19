@@ -33,13 +33,27 @@ test("only the four authorized Kay users can participate and each signal reloads
 });
 
 test("required signaling events and safe generic push fallback exist", () => {
-  for (const event of ["call_offer", "call_answer", "ice_candidate", "call_reject", "call_end", "call_busy"]) {
+  for (const event of [
+    "call_offer", "call_answer", "ice_candidate", "call_reject", "call_end", "call_busy",
+    "recording_notice_result", "recording_objection", "recording_upload_begin",
+    "recording_upload_chunk", "recording_upload_complete",
+  ]) {
     assert.match(service, new RegExp(`"${event}"`));
   }
   assert.match(service, /some\(socket => socket\.readyState === WebSocket\.OPEN\)/);
   assert.match(service, /title: "Kay is calling", body: "Kay is calling"/);
   assert.match(service, /data: \{ kayCall: true, path: "\/admin\/kay\/call" \}/);
   assert.match(service, /type: "incoming_call"/);
+});
+
+test("recording messages stay on the answering socket and finalize before READY", () => {
+  assert.match(service, /KAY_RECORDING_ANSWERING_CONNECTION_REQUIRED/);
+  assert.match(service, /pendingRecordingUploadsByCall/);
+  assert.match(service, /await onKayCallEnded\(callId\)/);
+  assert.match(service, /await finalizePendingKayRecording\(callId\)/);
+  assert.match(service, /KAY_DIRECT_CALL_AUDIO_NOT_CAPTURED/);
+  assert.match(service, /MAX_RECORDING_CHUNK_BYTES = 40 \* 1024/);
+  assert.match(service, /client\.send\(JSON\.stringify\(\{\s*type: "recording_upload_result"/);
 });
 
 test("WebSocket origin is restricted to the request host", () => {

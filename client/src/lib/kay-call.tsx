@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, createContext, useCo
 import { Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
 import { useAuth } from "./auth";
 import { Button } from "@/components/ui/button";
+import { buildKayRecordingNotice } from "@shared/kayRecording";
 
 export const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 export const KAY_AUDIO_CONSTRAINTS: MediaStreamConstraints = { audio: true, video: false };
@@ -59,6 +60,7 @@ type KayCallContextValue = {
   startCall: (targetUserId: number, reasonCode: string, title?: string, initiationType?: string) => Promise<void>;
   reject: () => void;
   end: () => void;
+  objectToRecording: () => void;
   toggleMute: () => void;
 };
 
@@ -113,6 +115,8 @@ export function KayActiveCall({
   title,
   onMute,
   onEnd,
+  onObject,
+  recordingActive,
   micLevel = 0,
 }: {
   status: Exclude<KayCallStatus, "idle" | "incoming">;
@@ -121,6 +125,8 @@ export function KayActiveCall({
   title: string;
   onMute: () => void;
   onEnd: () => void;
+  onObject: () => void;
+  recordingActive: boolean;
   micLevel?: number;
 }) {
   return (
@@ -135,13 +141,16 @@ export function KayActiveCall({
         </div>
         <span className="font-mono text-sm text-slate-600">{status === "connected" ? duration : "Connecting…"}</span>
       </div>
-      <p className="mt-3 text-sm text-slate-600">{status === "connected" ? "Connected" : status === "error" ? "Call unavailable" : "Connecting securely…"}</p>
+       <p className="mt-3 text-sm text-slate-600">{recordingActive ? "Recording is required for this call." : status === "connected" ? "Connected" : status === "error" ? "Call unavailable" : "Connecting securely…"}</p>
       {status === "connected" && <div className="mt-3 flex items-end gap-1" aria-label="Microphone activity">
         {[0, 1, 2, 3, 4].map((bar) => <span key={bar} className="w-1 rounded-full bg-[#16736e]" style={{ height: `${6 + Math.min(18, micLevel * (bar + 1) * 3)}px` }} />)}
       </div>}
       <div className="mt-5 flex gap-3">
         <Button variant="outline" onClick={onMute} disabled={status !== "connected"} aria-label={muted ? "Unmute" : "Mute"}>
           {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />} {muted ? "Unmute" : "Mute"}
+        </Button>
+        <Button variant="outline" className="border-amber-600 text-amber-800 hover:bg-amber-50" onClick={onObject} disabled={!recordingActive}>
+          Object
         </Button>
         <Button className="flex-1 bg-red-700 hover:bg-red-800" onClick={onEnd}>
           <PhoneOff className="h-4 w-4" /> End call
@@ -230,6 +239,10 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const initiatedCallIdsRef = useRef<Set<number>>(new Set());
   const spokenTestCallIdsRef = useRef<Set<number>>(new Set());
   const directExpiryTimerRef = useRef<number | null>(null);
+  const recordingRef = useRef<{ recorder: MediaRecorder; chunks: Blob[]; mimeType: string } | null>(null);
+  const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const remoteRecordingSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const recordingStopRef = useRef<Promise<Blob | null> | null>(null);
   const [status, setStatus] = useState<KayCallStatus>("idle");
   const [incomingCall, setIncomingCall] = useState<KayIncomingCall | null>(null);
   const [muted, setMuted] = useState(false);
@@ -239,6 +252,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const [micLevel, setMicLevel] = useState(0);
   const [callError, setCallError] = useState("");
   const [directTestReady, setDirectTestReady] = useState(false);
+  const [recordingActive, setRecordingActive] = useState(false);
 
   useEffect(() => {
     statusRef.current = status;
@@ -271,6 +285,101 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     return socketReadyRef.current;
   }, []);
 
+  const startRecording = useCallback((stream: MediaStream) => {
+    const context = audioContextRef.current || new AudioContext();
+    audioContextRef.current = context;
+    void context.resume().catch(() => {});
+    const destination = context.createMediaStreamDestination();
+    const analyser = context.createAnalyser();
+    const source = context.createMediaStreamSource(stream);
+    source.connect(analyser);
+    source.connect(destination);
+    recordingDestinationRef.current = destination;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const tick = () => {
+      if (!streamRef.current) return;
+      analyser.getByteTimeDomainData(data);
+      setMicLevel(Math.abs(data.reduce((sum, value) => sum + value - 128, 0)) / data.length);
+      micAnimationRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+    const mimeType = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/ogg",
+    ].find(type => MediaRecorder.isTypeSupported(type));
+    if (!mimeType) throw new Error("This browser cannot capture Kay call audio.");
+    const recorder = new MediaRecorder(destination.stream, { mimeType });
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = event => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+    recorder.start(250);
+    recordingRef.current = { recorder, chunks, mimeType };
+    setRecordingActive(true);
+  }, []);
+
+  const connectRemoteToRecording = useCallback((stream: MediaStream) => {
+    const context = audioContextRef.current;
+    const destination = recordingDestinationRef.current;
+    if (!context || !destination) return;
+    remoteRecordingSourceRef.current?.disconnect();
+    const source = context.createMediaStreamSource(stream);
+    source.connect(destination);
+    remoteRecordingSourceRef.current = source;
+  }, []);
+
+  const stopRecording = useCallback(async (): Promise<Blob | null> => {
+    if (recordingStopRef.current) return recordingStopRef.current;
+    const active = recordingRef.current;
+    if (!active) return null;
+    recordingStopRef.current = new Promise<Blob | null>(resolve => {
+      const finish = () => resolve(active.chunks.length ? new Blob(active.chunks, { type: active.mimeType }) : null);
+      active.recorder.addEventListener("stop", finish, { once: true });
+      if (active.recorder.state === "inactive") finish();
+      else active.recorder.stop();
+    }).finally(() => {
+      recordingStopRef.current = null;
+      recordingRef.current = null;
+      setRecordingActive(false);
+    });
+    return recordingStopRef.current;
+  }, []);
+
+  const bytesToBase64 = useCallback((bytes: Uint8Array) => {
+    let binary = "";
+    for (let index = 0; index < bytes.length; index += 1) binary += String.fromCharCode(bytes[index]);
+    return btoa(binary);
+  }, []);
+
+  const sendRecording = useCallback(async (callId: number, blob: Blob | null) => {
+    if (blob && blob.size > 0 && blob.size <= 50 * 1024 * 1024) {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      send({
+        type: "recording_upload_begin",
+        callId,
+        contentType: blob.type || "audio/webm",
+        totalBytes: bytes.byteLength,
+      });
+      const chunkSize = 40 * 1024;
+      for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        send({
+          type: "recording_upload_chunk",
+          callId,
+          data: bytesToBase64(bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length))),
+        });
+      }
+      send({ type: "recording_upload_complete", callId });
+    }
+    send({ type: "call_end", callId });
+  }, [bytesToBase64, send]);
+
+  const stopAndSendEnd = useCallback(async (callId: number) => {
+    const blob = await stopRecording();
+    await sendRecording(callId, blob);
+  }, [sendRecording, stopRecording]);
+
   const cleanup = useCallback(() => {
     if (peerDisconnectRef.current) {
       window.clearTimeout(peerDisconnectRef.current);
@@ -282,6 +391,13 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    if (recordingRef.current?.recorder.state !== "inactive") recordingRef.current?.recorder.stop();
+    recordingRef.current = null;
+    remoteRecordingSourceRef.current?.disconnect();
+    remoteRecordingSourceRef.current = null;
+    recordingDestinationRef.current = null;
+    recordingStopRef.current = null;
+    setRecordingActive(false);
     if (micAnimationRef.current !== null) cancelAnimationFrame(micAnimationRef.current);
     micAnimationRef.current = null;
     if (audioContextRef.current) void audioContextRef.current.close();
@@ -305,40 +421,59 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     setCallError("");
   }, []);
 
+  const reportRecordingNotice = useCallback(async (call: KayIncomingCall): Promise<boolean> => {
+    try {
+      if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+        throw new Error("Arabic recording notice is unavailable.");
+      }
+      await new Promise<void>((resolve, reject) => {
+        const utterance = new SpeechSynthesisUtterance(buildKayRecordingNotice(call.targetName));
+        utterance.lang = "ar";
+        const voices = window.speechSynthesis.getVoices().filter(voice => voice.lang.toLowerCase().startsWith("ar"));
+        utterance.voice = voices.find(voice => /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)) || voices[0] || null;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => reject(new Error("Arabic recording notice failed."));
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      });
+      send({ type: "recording_notice_result", callId: call.callId, played: true });
+      return true;
+    } catch (error) {
+      send({
+        type: "recording_notice_result",
+        callId: call.callId,
+        played: false,
+        failureReason: error instanceof Error ? error.message : "ARABIC_NOTICE_FAILED",
+      });
+      await stopRecording();
+      send({ type: "call_end", callId: call.callId });
+      cleanup();
+      setStatus("error");
+      setCallError("The Arabic recording notice failed; the call was ended.");
+      return false;
+    }
+  }, [cleanup, send, stopRecording]);
+
   const answerDirect = useCallback(async (call: KayIncomingCall) => {
     const stream = await navigator.mediaDevices.getUserMedia(KAY_AUDIO_CONSTRAINTS);
     streamRef.current = stream;
-    const context = new AudioContext();
-    audioContextRef.current = context;
-    const analyser = context.createAnalyser();
-    const source = context.createMediaStreamSource(stream);
-    source.connect(analyser);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const tick = () => {
-      if (!streamRef.current) return;
-      analyser.getByteTimeDomainData(data);
-      setMicLevel(Math.abs(data.reduce((sum, value) => sum + value - 128, 0)) / data.length);
-      micAnimationRef.current = requestAnimationFrame(tick);
-    };
-    tick();
-    const response = await fetch(`/api/admin/kay/internal-calls/${call.callId}/answer`, { method: "POST", credentials: "include" });
+    startRecording(stream);
+    const response = await fetch(`/api/admin/kay/internal-calls/${call.callId}/answer`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ connectionId: connectionIdRef.current }),
+    });
     if (!response.ok) throw new Error("Unable to answer Kay call.");
     setStatus("connected");
     setStartedAt(Date.now());
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(KAY_TAREK_TEST_MESSAGE);
-      utterance.lang = "ar";
-      const voices = window.speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith("ar"));
-      utterance.voice = voices.find((voice) => /(male|tarik|tarek|hamed|maged|omar|ahmed)/i.test(voice.name)) || voices[0] || null;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    }
-  }, []);
+    await reportRecordingNotice(call);
+  }, [reportRecordingNotice, startRecording]);
 
   const playTarekTestVoice = useCallback((callId: number) => {
     if (initiatedCallIdsRef.current.has(callId) || spokenTestCallIdsRef.current.has(callId)) return;
     if (incomingCallRef.current?.reasonCode !== "ADMIN_TEST" || !("speechSynthesis" in window)) return;
-    const utterance = new SpeechSynthesisUtterance(KAY_TAREK_TEST_MESSAGE);
+    const utterance = new SpeechSynthesisUtterance(buildKayRecordingNotice(incomingCallRef.current?.targetName || "الزميل"));
     utterance.lang = "ar";
     const arabicVoices = window.speechSynthesis.getVoices()
       .filter((voice) => voice.lang.toLowerCase().startsWith("ar"));
@@ -391,6 +526,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       monitorPeer(peer, incomingCall.callId);
       stream.getTracks().forEach((track) => peer.addTrack(track, stream));
       peer.ontrack = (event) => {
+        if (event.streams[0]) connectRemoteToRecording(event.streams[0]);
         if (audioRef.current) {
           audioRef.current.srcObject = event.streams[0];
           void audioRef.current.play().catch(() => {});
@@ -404,13 +540,15 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       for (const candidate of pendingCandidatesRef.current) await peer.addIceCandidate(candidate).catch(() => {});
       const answerDescription = await peer.createAnswer();
       await peer.setLocalDescription(answerDescription);
+      startRecording(stream);
       send({ type: "call_answer", callId: incomingCall.callId, sdp: answerDescription });
+      await reportRecordingNotice(incomingCall);
     } catch {
       if (incomingCall) send({ type: "call_reject", callId: incomingCall.callId });
       cleanup();
       setStatus("error");
     }
-  }, [answerDirect, cleanup, incomingCall, monitorPeer, send]);
+  }, [answerDirect, cleanup, connectRemoteToRecording, incomingCall, monitorPeer, reportRecordingNotice, send, startRecording]);
 
   const startCall = useCallback(async (targetUserId: number, reasonCode: string, title?: string, initiationType = "MANUAL") => {
     if (!user?.isAdmin || user.id !== 1 || !KAY_INTERNAL_CALL_USER_IDS.has(targetUserId)) {
@@ -501,17 +639,33 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   }, [cleanup, incomingCall, send]);
 
   const end = useCallback(async () => {
+    const call = incomingCallRef.current;
+    if (!call) {
+      cleanup();
+      return;
+    }
     try {
-      if (incomingCall?.direct) {
-        const response = await fetch(`/api/admin/kay/internal-calls/${incomingCall.callId}/end`, { method: "POST", credentials: "include" });
-        if (!response.ok) throw new Error("Unable to end Kay call.");
-      } else if (incomingCall) send({ type: "call_end", callId: incomingCall.callId });
+      await stopAndSendEnd(call.callId);
       cleanup();
     } catch {
       cleanup();
       setCallError("Kay call was not ended on the server.");
     }
-  }, [cleanup, incomingCall, send]);
+  }, [cleanup, stopAndSendEnd]);
+
+  const objectToRecording = useCallback(async () => {
+    const call = incomingCallRef.current;
+    if (!call) return;
+    try {
+      send({ type: "recording_objection", callId: call.callId });
+      await stopRecording();
+      send({ type: "call_end", callId: call.callId });
+      cleanup();
+    } catch {
+      cleanup();
+      setCallError("The objection could not be saved on the server.");
+    }
+  }, [cleanup, send, stopRecording]);
 
   const toggleMute = useCallback(() => {
     const next = !muted;
@@ -665,7 +819,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     };
   }, [authorized, cleanup, isLoading, send, user?.id]);
 
-  const value = useMemo(() => ({ status, incomingCall, callTitle, callReason, muted, duration, answer, startCall, reject, end, toggleMute }), [answer, callReason, callTitle, duration, end, incomingCall, muted, reject, startCall, status, toggleMute]);
+  const value = useMemo(() => ({ status, incomingCall, callTitle, callReason, muted, duration, answer, startCall, reject, end, objectToRecording, toggleMute }), [answer, callReason, callTitle, duration, end, incomingCall, muted, objectToRecording, reject, startCall, status, toggleMute]);
 
   return (
     <KayCallContext.Provider value={value}>
@@ -688,7 +842,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       )}
       {status === "incoming" && incomingCall && <IncomingKayCall call={incomingCall} canAnswer={offerReady || incomingCall.direct === true} onAnswer={answer} onReject={reject} />}
       {(status === "connecting" || status === "connected" || status === "error") && (
-        <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} micLevel={micLevel} onMute={toggleMute} onEnd={end} />
+        <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} micLevel={micLevel} recordingActive={recordingActive} onMute={toggleMute} onObject={objectToRecording} onEnd={end} />
       )}
     </KayCallContext.Provider>
   );

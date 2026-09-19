@@ -962,6 +962,8 @@ export const kayRecordingSessions = pgTable("kay_recording_sessions", {
   noticeStatus: text("notice_status").notNull().default("NOT_PLAYED"),
   noticePlayedAt: timestamp("notice_played_at"),
   noticeFailureReason: text("notice_failure_reason"),
+  objectionAt: timestamp("objection_at"),
+  objectionReason: text("objection_reason"),
   storageObjectKey: text("storage_object_key"),
   mediaType: text("media_type"),
   storageUploadStatus: text("storage_upload_status").notNull().default("NOT_STARTED"),

@@ -56,6 +56,8 @@ test("private storage fails closed and does not expose a URL without its configu
 
 test("metadata migration is additive, private, and grants no delete/truncate", () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS kay_recording_sessions/);
+  assert.match(migration, /objection_at TIMESTAMPTZ/);
+  assert.match(migration, /objection_reason TEXT/);
   assert.match(migration, /archive_type.*EMPLOYEE_CALL.*MANAGER_DEBRIEF/s);
   assert.match(migration, /GRANT SELECT, INSERT, UPDATE ON TABLE kay_recording_sessions/);
   assert.match(migration, /REVOKE DELETE, TRUNCATE/);

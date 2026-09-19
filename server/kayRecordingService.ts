@@ -170,6 +170,7 @@ export async function listKayRecordings(input: {
       `SELECT id,archive_type,call_session_id,employee_id,employee_name,counterpart_name,
               call_started_at,answered_at,ended_at,duration_seconds,
               recording_status,notice_status,notice_played_at,notice_failure_reason,
+               objection_at,objection_reason,
               storage_object_key,media_type,storage_upload_status,
               created_at,updated_at
          FROM kay_recording_sessions
@@ -189,6 +190,7 @@ export async function getKayRecording(id: number) {
       `SELECT id,archive_type,call_session_id,employee_id,employee_name,counterpart_name,
               call_started_at,answered_at,ended_at,duration_seconds,
               recording_status,notice_status,notice_played_at,notice_failure_reason,
+               objection_at,objection_reason,
               storage_object_key,media_type,storage_upload_status,
               created_at,updated_at
          FROM kay_recording_sessions WHERE id=$1 LIMIT 1`,
@@ -239,8 +241,8 @@ export async function getKayRecordingPlaybackUrl(
 }
 
 /**
- * Future lifecycle hooks. These persist metadata only; they never request
- * consent, touch CRM tables, upload audio, or start a call.
+ * Call lifecycle hooks persist Kay metadata only. Audio enters the private
+ * storage service only after the browser has ended a normally recorded call.
  */
 export async function ensureKayRecordingSession(input: {
   callSessionId: number;
@@ -290,8 +292,8 @@ export async function onKayCallAnswered(callSessionId: number) {
   );
 }
 
-export async function onKayRecordingNoticePlayed(callSessionId: number, played: boolean, failureReason?: string) {
-  return recordingQuery(client =>
+export async function onKayRecordingNoticePlayed(callSessionId: number, played: boolean, failureReason?: string): Promise<any> {
+  return recordingQuery<any>(client =>
     client.query(
       `UPDATE kay_recording_sessions
           SET notice_status=$2,
@@ -306,14 +308,31 @@ export async function onKayRecordingNoticePlayed(callSessionId: number, played: 
   );
 }
 
-export async function onKayRecordingStarted(callSessionId: number) {
-  return recordingQuery(client =>
+export async function onKayRecordingStarted(callSessionId: number): Promise<any> {
+  return recordingQuery<any>(client =>
     client.query(
       `UPDATE kay_recording_sessions
           SET recording_status='RECORDING',updated_at=NOW()
         WHERE call_session_id=$1 AND notice_status='PLAYED' AND recording_status='NOTICE_PLAYED'
         RETURNING id`,
       [callSessionId],
+    ),
+  );
+}
+
+export async function recordKayRecordingObjection(callSessionId: number, reason = "EMPLOYEE_OBJECTED"): Promise<any> {
+  return recordingQuery<any>(client =>
+    client.query(
+      `UPDATE kay_recording_sessions
+          SET objection_at=COALESCE(objection_at,NOW()),
+              objection_reason=$2,
+              recording_status='FAILED',
+              storage_upload_status='FAILED',
+              updated_at=NOW()
+        WHERE call_session_id=$1
+          AND recording_status IN ('NOTICE_PENDING','NOTICE_PLAYED','RECORDING','FINALIZING')
+        RETURNING id,objection_at`,
+      [callSessionId, String(reason).slice(0, 240)],
     ),
   );
 }
@@ -341,7 +360,16 @@ export async function onKayCallEnded(callSessionId: number) {
       `UPDATE kay_recording_sessions
           SET ended_at=COALESCE(ended_at,NOW()),
               duration_seconds=CASE WHEN answered_at IS NULL THEN NULL ELSE GREATEST(0,EXTRACT(EPOCH FROM (COALESCE(ended_at,NOW())-answered_at))::integer) END,
-              recording_status=CASE WHEN recording_status IN ('RECORDING','NOTICE_PLAYED') THEN 'FINALIZING' ELSE recording_status END,
+              notice_status=CASE WHEN recording_status='NOTICE_PENDING' THEN 'FAILED' ELSE notice_status END,
+              notice_failure_reason=CASE
+                WHEN recording_status='NOTICE_PENDING' THEN COALESCE(notice_failure_reason,'CALL_ENDED_BEFORE_NOTICE')
+                ELSE notice_failure_reason
+              END,
+              recording_status=CASE
+                WHEN recording_status IN ('RECORDING','NOTICE_PLAYED') THEN 'FINALIZING'
+                WHEN recording_status='NOTICE_PENDING' THEN 'NOTICE_FAILED'
+                ELSE recording_status
+              END,
               updated_at=NOW()
         WHERE call_session_id=$1
         RETURNING id`,
@@ -381,6 +409,22 @@ export async function markKayRecordingUploadFailed(callSessionId: number) {
           AND recording_status='UPLOADING'
         RETURNING id`,
       [callSessionId],
+    ),
+  );
+}
+
+export async function markKayRecordingCaptureFailed(callSessionId: number, reason = "RECORDING_CAPTURE_FAILED") {
+  return recordingQuery(client =>
+    client.query(
+      `UPDATE kay_recording_sessions
+          SET recording_status='FAILED',
+              storage_upload_status='FAILED',
+              notice_failure_reason=COALESCE(notice_failure_reason,$2),
+              updated_at=NOW()
+        WHERE call_session_id=$1
+          AND recording_status IN ('FINALIZING','UPLOADING')
+        RETURNING id`,
+      [callSessionId, String(reason).slice(0, 500)],
     ),
   );
 }
@@ -479,5 +523,34 @@ export async function uploadKayRecordingAudio(input: KayRecordingUploadInput) {
     uploadObject: uploadKayRecordingObject,
     persist: persistKayRecordingUpload,
     markFailed: markKayRecordingUploadFailed,
+  });
+}
+
+export async function finalizeKayRecordingAndUpload(input: {
+  callSessionId: number;
+  audio: Buffer;
+  contentType: string;
+  durationSeconds?: number;
+}) {
+  let contentType: keyof typeof KAY_RECORDING_AUDIO_MIME_TYPES;
+  try {
+    contentType = normalizeKayRecordingContentType(input.contentType);
+  } catch (error) {
+    await markKayRecordingCaptureFailed(input.callSessionId, (error as any)?.code || "KAY_RECORDING_UNSUPPORTED_AUDIO_TYPE").catch(() => {});
+    throw error;
+  }
+  const finalized: any = await finalizeKayRecordingMetadata({
+    callSessionId: input.callSessionId,
+    mediaType: contentType,
+    durationSeconds: input.durationSeconds,
+  });
+  if (!finalized.rowCount) {
+    throw recordingUploadError("Kay recording was not ready to finalize.", "KAY_RECORDING_INVALID_FINALIZE_STATE", 409);
+  }
+  return uploadKayRecordingAudio({
+    source: KAY_RECORDING_UPLOAD_SOURCE,
+    callSessionId: input.callSessionId,
+    audio: input.audio,
+    contentType,
   });
 }

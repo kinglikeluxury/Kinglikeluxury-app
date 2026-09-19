@@ -15,7 +15,13 @@ import {
   ensureKayRecordingSession,
   onKayCallAnswered,
   onKayCallEnded,
+  onKayRecordingNoticePlayed,
+  onKayRecordingStarted,
+  recordKayRecordingObjection,
+  finalizeKayRecordingAndUpload,
+  markKayRecordingCaptureFailed,
 } from "./kayRecordingService";
+import { KAY_RECORDING_MAX_AUDIO_BYTES } from "./kayRecordingStorage";
 
 const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 const KAY_INTERNAL_CALL_EVENTS = new Set([
@@ -25,6 +31,11 @@ const KAY_INTERNAL_CALL_EVENTS = new Set([
   "call_reject",
   "call_end",
   "call_busy",
+  "recording_notice_result",
+  "recording_objection",
+  "recording_upload_begin",
+  "recording_upload_chunk",
+  "recording_upload_complete",
 ]);
 const KAY_INTERNAL_CALLS_ENABLED = () => {
   if (process.env.KAY_INTERNAL_CALLS_ENABLED !== "true") return false;
@@ -45,6 +56,7 @@ const KAY_INTERNAL_CALLS_ENABLED = () => {
 const MAX_RAW_MESSAGE_BYTES = 64 * 1024;
 const MAX_SDP_BYTES = 32 * 1024;
 const MAX_CANDIDATE_BYTES = 16 * 1024;
+const MAX_RECORDING_CHUNK_BYTES = 40 * 1024;
 let afterHoursTarekTestTimer: NodeJS.Timeout | null = null;
 const directExpiryTimers = new Map<number, NodeJS.Timeout>();
 
@@ -60,6 +72,16 @@ const socketsByUser = new Map<number, Set<CallSocket>>();
 const pendingOffersByCall = new Map<number, { sdp: { type: "offer"; sdp: string }; title?: string }>();
 const initiatingConnectionByCall = new Map<number, string>();
 const answeringConnectionByCall = new Map<number, string>();
+type PendingRecordingUpload = {
+  userId: number;
+  connectionId: string;
+  contentType: string;
+  totalBytes: number;
+  bytes: number;
+  chunks: Buffer[];
+  complete: boolean;
+};
+const pendingRecordingUploadsByCall = new Map<number, PendingRecordingUpload>();
 const pendingSignalsByUser = new Map<number, Array<{ event: ForwardedSignal; options: DeliveryOptions; expiresAt: number }>>();
 const SIGNAL_TTL_MS = 2 * 60 * 1000;
 const MAX_QUEUED_SIGNALS_PER_USER = 96;
@@ -161,6 +183,30 @@ async function getCall(callId: number) {
     idempotency_key: string;
     created_at: Date;
   } | undefined;
+}
+
+async function finalizePendingKayRecording(callId: number) {
+  const pending = pendingRecordingUploadsByCall.get(callId);
+  pendingRecordingUploadsByCall.delete(callId);
+  const call = await getCall(callId).catch(() => undefined);
+  if (call && isDirectCall(call)) {
+    await markKayRecordingCaptureFailed(callId, "KAY_DIRECT_CALL_AUDIO_NOT_CAPTURED").catch(() => {});
+    return { ok: false, reason: "KAY_DIRECT_CALL_AUDIO_NOT_CAPTURED" };
+  }
+  if (!pending || !pending.complete || pending.bytes !== pending.totalBytes) {
+    await markKayRecordingCaptureFailed(callId, "RECORDING_CAPTURE_INCOMPLETE").catch(() => {});
+    return { ok: false, reason: "RECORDING_CAPTURE_INCOMPLETE" };
+  }
+  try {
+    const uploaded = await finalizeKayRecordingAndUpload({
+      callSessionId: callId,
+      audio: Buffer.concat(pending.chunks, pending.bytes),
+      contentType: pending.contentType,
+    });
+    return { ok: true, uploaded };
+  } catch (error: any) {
+    return { ok: false, reason: error?.code || "KAY_RECORDING_UPLOAD_FAILED" };
+  }
 }
 
 function isDirectCall(call: { idempotency_key?: string | null }) {
@@ -443,13 +489,18 @@ export async function createKayInternalCall(input: {
   if (!transaction.created) {
     return { ...call, callId: call.id, targetName: target.username, replayed: true };
   }
-  void ensureKayRecordingSession({
-    callSessionId: Number(call.id),
-    archiveType: target.id === 1 ? "MANAGER_DEBRIEF" : "EMPLOYEE_CALL",
-    employeeId: target.id === 1 ? null : target.id,
-    employeeName: target.id === 1 ? null : target.username,
-    counterpartName: target.id === 1 ? "Tarek" : "Kay",
-  }).catch(error => console.error("[KayRecording] metadata hook failed:", error?.message || error));
+  try {
+    await ensureKayRecordingSession({
+      callSessionId: Number(call.id),
+      archiveType: target.id === 1 ? "MANAGER_DEBRIEF" : "EMPLOYEE_CALL",
+      employeeId: target.id === 1 ? null : target.id,
+      employeeName: target.id === 1 ? null : target.username,
+      counterpartName: target.id === 1 ? "Tarek" : "Kay",
+    });
+  } catch (error: any) {
+    await updateCallStatus(Number(call.id), "ENDED", ["RINGING"]).catch(() => {});
+    throw error;
+  }
   if (testOverrideActive) armAfterHoursTarekTestExpiry(testExpiresAt);
   initiatingConnectionByCall.set(Number(call.id), input.initiatorConnectionId);
   if (title) {
@@ -565,6 +616,14 @@ async function authorizeSignal(
   if (type === "call_end" && !["RINGING", "ACTIVE"].includes(call.status)) {
     throw httpError(409, "KAY_INTERNAL_CALL_END_ONLY_WHILE_ACTIVE");
   }
+  if (type.startsWith("recording_")) {
+    if (!isTarget || call.status !== "ACTIVE") {
+      throw httpError(409, "KAY_RECORDING_TARGET_ONLY_WHILE_ACTIVE");
+    }
+    if (answeringConnectionByCall.get(callId) !== senderConnectionId) {
+      throw httpError(403, "KAY_RECORDING_ANSWERING_CONNECTION_REQUIRED");
+    }
+  }
   return {
     sender,
     initiator,
@@ -591,7 +650,7 @@ function assertAllowedKeys(value: Record<string, unknown>, keys: string[]) {
   }
 }
 
-function validateSignal(message: any) {
+function validateSignal(message: any): any {
   if (!message || typeof message !== "object" || Array.isArray(message)) {
     throw httpError(400, "KAY_INTERNAL_CALL_INVALID_SIGNAL");
   }
@@ -627,6 +686,53 @@ function validateSignal(message: any) {
     assertAllowedKeys(candidate, ["candidate", "sdpMid", "sdpMLineIndex", "usernameFragment"]);
     return { type, callId: message.callId, candidate };
   }
+  if (type === "recording_notice_result") {
+    assertAllowedKeys(message, ["type", "callId", "played", "failureReason"]);
+    if (typeof message.played !== "boolean" ||
+        (message.failureReason !== undefined &&
+          (typeof message.failureReason !== "string" || message.failureReason.length > 500))) {
+      throw httpError(400, "KAY_RECORDING_INVALID_NOTICE_RESULT");
+    }
+    return {
+      type,
+      callId: message.callId,
+      played: message.played,
+      ...(message.failureReason === undefined ? {} : { failureReason: message.failureReason }),
+    };
+  }
+  if (type === "recording_objection") {
+    assertAllowedKeys(message, ["type", "callId"]);
+    return { type, callId: message.callId };
+  }
+  if (type === "recording_upload_begin") {
+    assertExactKeys(message, ["type", "callId", "contentType", "totalBytes"]);
+    if (typeof message.contentType !== "string" ||
+        message.contentType.length < 1 || message.contentType.length > 120 ||
+        !Number.isSafeInteger(message.totalBytes) ||
+        message.totalBytes < 1 || message.totalBytes > KAY_RECORDING_MAX_AUDIO_BYTES) {
+      throw httpError(400, "KAY_RECORDING_INVALID_UPLOAD_BEGIN");
+    }
+    return { type, callId: message.callId, contentType: message.contentType, totalBytes: message.totalBytes };
+  }
+  if (type === "recording_upload_chunk") {
+    assertExactKeys(message, ["type", "callId", "data"]);
+    if (typeof message.data !== "string" ||
+        message.data.length < 1 || message.data.length > Math.ceil(MAX_RECORDING_CHUNK_BYTES * 4 / 3) + 8 ||
+        message.data.length % 4 !== 0 ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(message.data)) {
+      throw httpError(400, "KAY_RECORDING_INVALID_UPLOAD_CHUNK");
+    }
+    const chunk = Buffer.from(message.data, "base64");
+    if (!chunk.length || chunk.length > MAX_RECORDING_CHUNK_BYTES ||
+        chunk.toString("base64") !== message.data) {
+      throw httpError(400, "KAY_RECORDING_INVALID_UPLOAD_CHUNK");
+    }
+    return { type, callId: message.callId, data: message.data };
+  }
+  if (type === "recording_upload_complete") {
+    assertExactKeys(message, ["type", "callId"]);
+    return { type, callId: message.callId };
+  }
   assertExactKeys(message, ["type", "callId"]);
   return { type, callId: message.callId };
 }
@@ -656,8 +762,11 @@ async function endCallsForDisconnectedUser(userId: number) {
       : Number(row.target_user_id);
     dropQueuedCallSignals(callId);
     clearEphemeralCallState(callId);
+    pendingRecordingUploadsByCall.delete(callId);
     initiatingConnectionByCall.delete(callId);
     answeringConnectionByCall.delete(callId);
+    await onKayCallEnded(callId).catch(() => {});
+    await finalizePendingKayRecording(callId);
     await deliverOrQueueSignal(peerId, { type: "call_end", callId });
     if (row.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
   }
@@ -719,8 +828,11 @@ async function endCallsForDisconnectedSocket(userId: number, connectionId: strin
       : { requiredConnectionId: initiatingConnectionId };
     dropQueuedCallSignals(callId);
     clearEphemeralCallState(callId);
+    pendingRecordingUploadsByCall.delete(callId);
     initiatingConnectionByCall.delete(callId);
     answeringConnectionByCall.delete(callId);
+    await onKayCallEnded(callId).catch(() => {});
+    await finalizePendingKayRecording(callId);
     await deliverOrQueueSignal(peerId, { type: "call_end", callId }, deliveryOptions);
     if (row.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
   }
@@ -864,11 +976,16 @@ export function registerKayInternalCallRoutes(
         }
       });
       const callId = Number(result.id);
-      void ensureKayRecordingSession({
-        callSessionId: callId,
-        archiveType: "MANAGER_DEBRIEF",
-        counterpartName: "Tarek",
-      }).catch(error => console.error("[KayRecording] metadata hook failed:", error?.message || error));
+      try {
+        await ensureKayRecordingSession({
+          callSessionId: callId,
+          archiveType: "MANAGER_DEBRIEF",
+          counterpartName: "Tarek",
+        });
+      } catch (error: any) {
+        await updateCallStatus(callId, "ENDED", ["RINGING"]).catch(() => {});
+        throw error;
+      }
       const expiry = overrideActive ? expires : new Date(now.getTime() + 2 * 60 * 1000);
       if (overrideActive) armAfterHoursTarekTestExpiry(expires);
       scheduleDirectExpiry(callId, expiry);
@@ -901,6 +1018,20 @@ export function registerKayInternalCallRoutes(
         if (!call || !isDirectCall(call) || call.caller !== "KAY" || Number(call.target_user_id) !== target.id) {
           throw httpError(404, "KAY_INTERNAL_CALL_NOT_FOUND");
         }
+        let targetSocket: CallSocket | undefined;
+        if (action === "answer") {
+          const connectionId = String(req.body?.connectionId || "");
+          targetSocket = Array.from(socketsByUser.get(target.id) || []).find(socket =>
+            socket.kayConnectionId === connectionId && socket.readyState === WebSocket.OPEN
+          );
+          if (!targetSocket) throw httpError(409, "KAY_DIRECT_CALL_TARGET_SOCKET_REQUIRED");
+          answeringConnectionByCall.set(callId, connectionId);
+        } else if (action === "end") {
+          const connectionId = answeringConnectionByCall.get(callId);
+          targetSocket = Array.from(socketsByUser.get(target.id) || []).find(socket =>
+            socket.kayConnectionId === connectionId && socket.readyState === WebSocket.OPEN
+          );
+        }
         const expiry = directExpiry(call);
         if (expiry.getTime() <= Date.now()) {
           if (action !== "end") {
@@ -915,9 +1046,20 @@ export function registerKayInternalCallRoutes(
         }
         await updateCallStatus(callId, nextStatus, [...allowed]);
         if (nextStatus === "ACTIVE") {
-          void onKayCallAnswered(callId).catch(error => console.error("[KayRecording] answer hook failed:", error?.message || error));
+          await onKayCallAnswered(callId);
         } else {
-          void onKayCallEnded(callId).catch(error => console.error("[KayRecording] end hook failed:", error?.message || error));
+          await onKayCallEnded(callId).catch(error => console.error("[KayRecording] end hook failed:", error?.message || error));
+          if (action === "end") {
+            const recordingResult = await finalizePendingKayRecording(callId);
+            if (targetSocket) {
+              await sendToSocketIfAuthorized(targetSocket, {
+                type: "recording_upload_result",
+                callId,
+                ok: recordingResult.ok,
+                ...(recordingResult.ok ? {} : { reason: recordingResult.reason }),
+              }).catch(() => {});
+            }
+          }
         }
         if (nextStatus !== "ACTIVE") {
           directExpiryTimers.get(callId) && clearTimeout(directExpiryTimers.get(callId));
@@ -1044,69 +1186,144 @@ export function registerKayInternalCallRoutes(
               });
             }
           }).then(() => flushQueuedSignals(userId, client)).catch(() => {});
-          client.on("message", async raw => {
-            try {
-              if (Buffer.byteLength(raw.toString(), "utf8") > MAX_RAW_MESSAGE_BYTES) {
-                throw httpError(413, "KAY_INTERNAL_CALL_SIGNAL_TOO_LARGE");
+          let messageChain = Promise.resolve();
+          client.on("message", raw => {
+            const processMessage = async () => {
+              try {
+                if (Buffer.byteLength(raw.toString(), "utf8") > MAX_RAW_MESSAGE_BYTES) {
+                  throw httpError(413, "KAY_INTERNAL_CALL_SIGNAL_TOO_LARGE");
+                }
+                const message = validateSignal(JSON.parse(raw.toString()));
+                const { type, callId } = message;
+                const currentUserId = await reloadSocketSession(request);
+                if (currentUserId !== client.kayUserId) {
+                  throw httpError(401, "KAY_INTERNAL_CALL_SESSION_CHANGED");
+                }
+                const { call, peerId, deliveryOptions } = await authorizeSignal(
+                  callId,
+                  currentUserId,
+                  client.kayConnectionId || "",
+                  type,
+                );
+
+                if (type === "recording_notice_result") {
+                  const result = await onKayRecordingNoticePlayed(
+                    callId,
+                    message.played === true,
+                    message.failureReason,
+                  );
+                  if (!result.rowCount) throw httpError(409, "KAY_RECORDING_NOTICE_STATE_CHANGED");
+                  if (message.played === true) {
+                    const started = await onKayRecordingStarted(callId);
+                    if (!started.rowCount) throw httpError(409, "KAY_RECORDING_START_STATE_CHANGED");
+                  }
+                  return;
+                }
+                if (type === "recording_objection") {
+                  const result = await recordKayRecordingObjection(callId);
+                  if (!result.rowCount) throw httpError(409, "KAY_RECORDING_OBJECTION_STATE_CHANGED");
+                  return;
+                }
+                if (type === "recording_upload_begin") {
+                  if (pendingRecordingUploadsByCall.has(callId)) {
+                    throw httpError(409, "KAY_RECORDING_UPLOAD_ALREADY_STARTED");
+                  }
+                  pendingRecordingUploadsByCall.set(callId, {
+                    userId: currentUserId,
+                    connectionId: client.kayConnectionId || "",
+                    contentType: message.contentType,
+                    totalBytes: message.totalBytes,
+                    bytes: 0,
+                    chunks: [],
+                    complete: false,
+                  });
+                  return;
+                }
+                if (type === "recording_upload_chunk") {
+                  const pending = pendingRecordingUploadsByCall.get(callId);
+                  if (!pending ||
+                      pending.userId !== currentUserId ||
+                      pending.connectionId !== client.kayConnectionId ||
+                      pending.complete) {
+                    throw httpError(409, "KAY_RECORDING_UPLOAD_NOT_OPEN");
+                  }
+                  const chunk = Buffer.from(message.data, "base64");
+                  if (pending.bytes + chunk.length > pending.totalBytes ||
+                      pending.bytes + chunk.length > KAY_RECORDING_MAX_AUDIO_BYTES) {
+                    throw httpError(413, "KAY_RECORDING_UPLOAD_TOO_LARGE");
+                  }
+                  pending.chunks.push(chunk);
+                  pending.bytes += chunk.length;
+                  return;
+                }
+                if (type === "recording_upload_complete") {
+                  const pending = pendingRecordingUploadsByCall.get(callId);
+                  if (!pending ||
+                      pending.userId !== currentUserId ||
+                      pending.connectionId !== client.kayConnectionId ||
+                      pending.bytes !== pending.totalBytes) {
+                    throw httpError(409, "KAY_RECORDING_UPLOAD_INCOMPLETE");
+                  }
+                  pending.complete = true;
+                  return;
+                }
+
+                if (type === "call_offer") {
+                  const existing = pendingOffersByCall.get(callId);
+                  pendingOffersByCall.set(callId, {
+                    sdp: message.sdp as { type: "offer"; sdp: string },
+                    ...(existing?.title ? { title: existing.title } : {}),
+                  });
+                }
+                if (type === "call_answer") {
+                  await updateCallStatus(callId, "ACTIVE", ["RINGING"]);
+                  answeringConnectionByCall.set(callId, client.kayConnectionId || "");
+                  await onKayCallAnswered(callId);
+                }
+                if (type === "call_reject") await updateCallStatus(callId, "REJECTED", ["RINGING"]);
+                if (type === "call_busy") await updateCallStatus(callId, "BUSY", ["RINGING"]);
+                if (type === "call_end") {
+                  await updateCallStatus(callId, "ENDED", ["RINGING", "ACTIVE"]);
+                  await onKayCallEnded(callId);
+                  const recordingResult = await finalizePendingKayRecording(callId);
+                  if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({
+                      type: "recording_upload_result",
+                      callId,
+                      ok: recordingResult.ok,
+                      ...(recordingResult.ok ? {} : { reason: recordingResult.reason }),
+                    }));
+                  }
+                }
+                const event = (
+                  type === "call_offer" || type === "call_answer"
+                    ? { type, callId, sdp: message.sdp }
+                    : type === "ice_candidate"
+                      ? { type, callId, candidate: message.candidate }
+                      : { type, callId }
+                ) as ForwardedSignal;
+                if (type === "call_reject" || type === "call_busy" || type === "call_end") {
+                  dropQueuedCallSignals(callId);
+                }
+                await deliverOrQueueSignal(peerId, event, deliveryOptions);
+                if (type === "call_reject" || type === "call_busy" || type === "call_end") client.send(JSON.stringify({ type, callId }));
+                if (type === "call_answer" || type === "call_reject" || type === "call_busy" || type === "call_end") {
+                  clearEphemeralCallState(callId);
+                }
+                if (type === "call_reject" || type === "call_busy" || type === "call_end") {
+                  initiatingConnectionByCall.delete(callId);
+                  if (type !== "call_end") answeringConnectionByCall.delete(callId);
+                  if (call.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
+                }
+              } catch (error: any) {
+                if (error?.status === 401 || error?.status === 403) {
+                  client.close(1008, "Not authorized");
+                } else if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: "error", message: error?.message || "KAY_INTERNAL_CALL_SIGNAL_FAILED" }));
+                }
               }
-              const message = validateSignal(JSON.parse(raw.toString()));
-              const { type, callId } = message;
-              const currentUserId = await reloadSocketSession(request);
-              if (currentUserId !== client.kayUserId) {
-                throw httpError(401, "KAY_INTERNAL_CALL_SESSION_CHANGED");
-              }
-              const { call, peerId, deliveryOptions } = await authorizeSignal(
-                callId,
-                currentUserId,
-                client.kayConnectionId || "",
-                type,
-              );
-              if (type === "call_offer") {
-                const existing = pendingOffersByCall.get(callId);
-                pendingOffersByCall.set(callId, {
-                  sdp: message.sdp as { type: "offer"; sdp: string },
-                  ...(existing?.title ? { title: existing.title } : {}),
-                });
-              }
-              if (type === "call_answer") {
-                await updateCallStatus(callId, "ACTIVE", ["RINGING"]);
-                answeringConnectionByCall.set(callId, client.kayConnectionId || "");
-                void onKayCallAnswered(callId).catch(error => console.error("[KayRecording] answer hook failed:", error?.message || error));
-              }
-              if (type === "call_reject") await updateCallStatus(callId, "REJECTED", ["RINGING"]);
-              if (type === "call_busy") await updateCallStatus(callId, "BUSY", ["RINGING"]);
-              if (type === "call_end") {
-                await updateCallStatus(callId, "ENDED", ["RINGING", "ACTIVE"]);
-                void onKayCallEnded(callId).catch(error => console.error("[KayRecording] end hook failed:", error?.message || error));
-              }
-              const event = (
-                type === "call_offer" || type === "call_answer"
-                  ? { type, callId, sdp: message.sdp }
-                  : type === "ice_candidate"
-                    ? { type, callId, candidate: message.candidate }
-                    : { type, callId }
-              ) as ForwardedSignal;
-              if (type === "call_reject" || type === "call_busy" || type === "call_end") {
-                dropQueuedCallSignals(callId);
-              }
-              await deliverOrQueueSignal(peerId, event, deliveryOptions);
-              if (type === "call_reject" || type === "call_busy" || type === "call_end") client.send(JSON.stringify({ type, callId }));
-              if (type === "call_answer" || type === "call_reject" || type === "call_busy" || type === "call_end") {
-                clearEphemeralCallState(callId);
-              }
-              if (type === "call_reject" || type === "call_busy" || type === "call_end") {
-                initiatingConnectionByCall.delete(callId);
-                answeringConnectionByCall.delete(callId);
-                if (call.reason_code === "ADMIN_TEST") disableAfterHoursTarekTestRuntime();
-              }
-              void call;
-            } catch (error: any) {
-              if (error?.status === 401 || error?.status === 403) {
-                client.close(1008, "Not authorized");
-              } else if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: "error", message: error?.message || "KAY_INTERNAL_CALL_SIGNAL_FAILED" }));
-              }
-            }
+            };
+            messageChain = messageChain.then(processMessage, processMessage);
           });
         });
       }).catch(() => rejectUpgrade(socket));

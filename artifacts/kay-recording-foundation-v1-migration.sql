@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS kay_recording_sessions (
     CHECK (notice_status IN ('NOT_PLAYED', 'PLAYED', 'FAILED')),
   notice_played_at TIMESTAMPTZ,
   notice_failure_reason TEXT,
+  objection_at TIMESTAMPTZ,
+  objection_reason TEXT,
   storage_object_key TEXT,
   media_type TEXT,
   storage_upload_status TEXT NOT NULL DEFAULT 'NOT_STARTED'
