@@ -16,7 +16,7 @@ from typing import Any
 
 from app.providers.base import ProviderUnavailable, TextToSpeechProvider
 from .provider import RunPodChatterboxProvider
-from .samples import SAMPLE_TEXTS, TTS_MODEL, VOICE_PROFILES
+from .samples import SAMPLE_TEXTS, SPOKEN_TEXTS, TTS_MODEL, VOICE_PROFILES
 
 MAX_SAMPLE_TEXT_LENGTH = int(os.getenv("MAX_SAMPLE_TEXT_LENGTH", "300"))
 MAX_GENERATION_SECONDS = float(os.getenv("MAX_GENERATION_SECONDS", "120"))
@@ -46,7 +46,7 @@ def _payload(request: dict[str, Any]) -> tuple[str, str]:
     profile = request.get("profile")
     if sample_id not in SAMPLE_TEXTS or profile not in VOICE_PROFILES:
         raise ValueError("sample_id and profile must select an approved sample")
-    text = SAMPLE_TEXTS[sample_id]
+    text = SPOKEN_TEXTS[sample_id]
     if len(text) > MAX_SAMPLE_TEXT_LENGTH:
         raise ValueError("sample text exceeds MAX_SAMPLE_TEXT_LENGTH")
     return sample_id, profile
@@ -84,7 +84,7 @@ async def generate(
     selected = provider or _get_provider()
     generation_started = time.perf_counter()
     async with _generation_lock():
-        audio, media_type = await _run(selected, SAMPLE_TEXTS[sample_id], profile)
+        audio, media_type = await _run(selected, SPOKEN_TEXTS[sample_id], profile)
     generation_duration_ms = round((time.perf_counter() - generation_started) * 1000)
     total_duration_ms = round((time.perf_counter() - started) * 1000)
     telemetry = selected.last_telemetry()

@@ -6,11 +6,21 @@ SAMPLE_TEXTS = {
     "sample_3": "تمام، فهمت عليك. رح أرجع أتحقق من المتابعة، وإذا في شي بحاجة لقرار من الإدارة رح أرفعلك توصية فقط.",
 }
 
+SPOKEN_TEXTS = {
+    **SAMPLE_TEXTS,
+    "sample_1": "مساء الخير أستاذ طارئ، معك كاي. حبيت أحكي معك شوي بخصوص متابعة العملاء.",
+}
+
 VOICE_PROFILES = {
     "A": {
         "name": "calm professional",
         "description": "male, Arabic, Levantine/Syrian leaning, calm, natural, professional, not theatrical",
         "controls": {"exaggeration": 0.35, "cfg_weight": 0.55, "temperature": 0.65},
+    },
+    "A2": {
+        "name": "Syrian calm professional",
+        "description": "male, Syrian/Levantine, calm, confident, natural, low theatricality, relaxed falling ending",
+        "controls": {"exaggeration": 0.20, "cfg_weight": 0.60, "temperature": 0.50},
     },
     "B": {
         "name": "warm conversational",

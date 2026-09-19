@@ -15,9 +15,10 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("KAY_VOICE_SERVICE_API_KEY", "runpod-test-secret")
 
-from app.providers.base import SynthesisTelemetry, TextToSpeechProvider
+from app.providers.base import ProviderUnavailable, SynthesisTelemetry, TextToSpeechProvider
 from runpod import handler
-from runpod.samples import SAMPLE_TEXTS, VOICE_PROFILES
+from runpod.provider import RunPodChatterboxProvider
+from runpod.samples import SAMPLE_TEXTS, SPOKEN_TEXTS, VOICE_PROFILES
 
 
 def wav_bytes() -> bytes:
@@ -47,7 +48,7 @@ class MockProvider(TextToSpeechProvider):
 
     async def synthesize(self, text, *, voice, language):
         type(self).calls += 1
-        assert text in SAMPLE_TEXTS.values()
+        assert text in SPOKEN_TEXTS.values()
         assert voice == "kay_male"
         assert language == "ar"
         await asyncio.sleep(0)
@@ -65,8 +66,57 @@ def valid_input(**overrides):
 
 def test_catalog_is_exact_and_profiles_are_present():
     assert list(SAMPLE_TEXTS) == ["sample_1", "sample_2", "sample_3"]
-    assert set(VOICE_PROFILES) == {"A", "B", "C"}
+    assert set(VOICE_PROFILES) == {"A", "A2", "B", "C"}
     assert all(text and len(text) <= handler.MAX_SAMPLE_TEXT_LENGTH for text in SAMPLE_TEXTS.values())
+
+
+def test_sample_1_v2_spoken_text_and_calm_profile_preserve_original_catalog():
+    original = "مساء الخير أستاذ طارق، معك كاي. حبيت أحكي معك دقيقتين عن متابعة العملاء اليوم."
+    spoken = "مساء الخير أستاذ طارئ، معك كاي. حبيت أحكي معك شوي بخصوص متابعة العملاء."
+    assert SAMPLE_TEXTS["sample_1"] == original
+    assert SPOKEN_TEXTS["sample_1"] == spoken
+    assert SPOKEN_TEXTS["sample_2"] == SAMPLE_TEXTS["sample_2"]
+    assert SPOKEN_TEXTS["sample_3"] == SAMPLE_TEXTS["sample_3"]
+    assert VOICE_PROFILES["A"]["controls"] == {
+        "exaggeration": 0.35,
+        "cfg_weight": 0.55,
+        "temperature": 0.65,
+    }
+    assert VOICE_PROFILES["B"]["controls"] == {
+        "exaggeration": 0.55,
+        "cfg_weight": 0.45,
+        "temperature": 0.80,
+    }
+    assert VOICE_PROFILES["C"]["controls"] == {
+        "exaggeration": 0.25,
+        "cfg_weight": 0.70,
+        "temperature": 0.55,
+    }
+    assert VOICE_PROFILES["A2"]["controls"] == {
+        "exaggeration": 0.20,
+        "cfg_weight": 0.60,
+        "temperature": 0.50,
+    }
+
+    class CaptureProvider(MockProvider):
+        async def synthesize(self, text, *, voice, language):
+            self.received_text = text
+            return await super().synthesize(text, voice=voice, language=language)
+
+    provider = CaptureProvider()
+    calls_before = CaptureProvider.calls
+    asyncio.run(handler.generate(valid_input(profile="A2"), provider=provider))
+    assert provider.received_text == spoken
+    assert CaptureProvider.calls == calls_before + 1
+
+
+def test_v2_does_not_globally_replace_qaf():
+    source = "\n".join(
+        (ROOT / path).read_text()
+        for path in ("runpod/samples.py", "runpod/handler.py")
+    )
+    assert ".replace(\"ق\", \"أ\")" not in source
+    assert ".replace('ق', 'أ')" not in source
 
 
 def test_import_is_optional_and_core_provider_is_used():
@@ -90,7 +140,7 @@ def make_timed_provider(telemetry, clock=None, elapsed_ms=0):
             self.telemetry = telemetry
 
         async def synthesize(self, text, *, voice, language):
-            assert text in SAMPLE_TEXTS.values()
+            assert text in SPOKEN_TEXTS.values()
             assert voice == "kay_male"
             assert language == "ar"
             if clock is not None:
