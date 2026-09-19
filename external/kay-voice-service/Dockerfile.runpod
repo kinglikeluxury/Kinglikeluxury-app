@@ -1,0 +1,30 @@
+FROM runpod/pytorch:1.0.3-cu1281-torch260-ubuntu2404
+
+WORKDIR /service
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    KAY_RUNPOD_AUTOSTART=true \
+    KAY_TTS_MODEL=oddadmix/lahgtna-chatterbox-v1 \
+    KAY_TTS_MODEL_REVISION=6b37e50d1952f07306dc9ff3f3d4ff4ddaf32541 \
+    KAY_TTS_RUNTIME_REVISION=433cb74200b55457bffa8ee6965a02ecab546a1c \
+    MAX_SAMPLE_TEXT_LENGTH=300 \
+    MAX_GENERATION_SECONDS=30 \
+    PYTHONPATH=/opt/lahgtna/src:/service
+
+COPY requirements-runpod.txt .
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && git clone https://github.com/Oddadmix/lahgtna-chatterbox.git /opt/lahgtna \
+    && cd /opt/lahgtna \
+    && git checkout 433cb74200b55457bffa8ee6965a02ecab546a1c \
+    && rm -rf .git \
+    && pip install --no-cache-dir --disable-pip-version-check -r /service/requirements-runpod.txt \
+    && python -c "import torch, torchaudio, runpod, chatterbox.mtl_tts; assert torch.__version__.startswith('2.6'), torch.__version__; assert torchaudio.__version__.startswith('2.6'), torchaudio.__version__; assert chatterbox.mtl_tts.__file__.startswith('/opt/lahgtna/src/'), chatterbox.mtl_tts.__file__" \
+    && apt-get purge -y --auto-remove git \
+    && rm -rf /var/lib/apt/lists/*
+COPY app ./app
+# Copy under a different package name so the optional RunPod SDK is not
+# shadowed by this repository's source directory named runpod.
+COPY runpod ./adapter
+
+CMD ["python", "-m", "adapter.handler"]

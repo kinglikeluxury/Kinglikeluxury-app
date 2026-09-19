@@ -30,3 +30,23 @@ Use a thin RunPod HTTP handler as an adapter around the same provider interfaces
 Mount a model-cache volume (or provider cache) only in a later deployment so cold starts download approved weights once per worker. Lazy-load models on first request, offer an optional warm worker for latency-sensitive periods, and configure a single concurrent request per GPU until measured otherwise. Keep the 30-second request timeout, 60-second realtime idle timeout, 15-minute realtime lifetime, and bounded audio/frame sizes aligned across the adapter and gateway. Set minimum workers to zero for scale-to-zero when latency is acceptable. Budget roughly 12–24GB VRAM for Whisper-large Arabic plus the selected TTS runtime, subject to actual quantization and model measurements; no GPU is provisioned by this repository.
 
 Future Kinglike integration uses only `KAY_VOICE_SERVICE_URL` and `KAY_VOICE_SERVICE_API_KEY`. Production call behavior is unchanged and browser `speechSynthesis` remains the fallback.
+
+## TTS-only RunPod sample preparation
+
+The optional `runpod/` adapter is not part of the core image contract and is
+not deployed by this repository. It accepts only the three fixed Arabic texts
+and profiles A (calm professional), B (warm conversational), and C (confident
+supervisor). It uses `oddadmix/lahgtna-chatterbox-v1`, returns temporary
+base64-encoded WAV bytes plus timing/device metadata, and rejects arbitrary
+text. Configure `MAX_SAMPLE_TEXT_LENGTH=300` and
+`MAX_GENERATION_SECONDS=30`; the future RunPod endpoint must use min workers 0,
+max workers 1, one request at a time, and a 24GB-class GPU. See
+`runpod/README.md` for exact settings. No endpoint or sample generation has
+been performed.
+
+The external GPU image uses `Dockerfile.runpod` and pinned
+`requirements-runpod.txt` with the official base image
+`runpod/pytorch:1.0.3-cu1281-torch260-ubuntu2404`. Package pins and the
+Chatterbox API must be validated externally in that image before endpoint
+creation. RunPod native endpoint authentication is used; its key is never
+part of the job input.

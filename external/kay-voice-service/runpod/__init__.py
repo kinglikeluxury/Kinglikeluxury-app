@@ -1,0 +1,1 @@
+"""Optional RunPod Serverless adapter; the core service has no RunPod dependency."""
