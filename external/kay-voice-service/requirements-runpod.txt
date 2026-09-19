@@ -1,0 +1,7 @@
+# Versions are pinned for the external image and must be validated in the
+# Official RunPod base image supplies torch 2.6/torchaudio. Normal installation
+# retains the package dependency closure; validate resolution externally.
+runpod==1.7.13
+chatterbox-tts==0.1.2
+huggingface-hub==0.27.1
+soundfile==0.13.1
