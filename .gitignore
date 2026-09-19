@@ -35,3 +35,7 @@ attached_assets/Pasted-*.txt
 logs/
 tmp/
 temp/
+
+# ── Private Kay voice reference and isolated worktrees ───────────────────────
+.worktrees/
+attached_assets/kay-syrian-reference_*.wav
