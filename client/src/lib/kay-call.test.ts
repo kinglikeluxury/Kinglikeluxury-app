@@ -33,12 +33,12 @@ test("Kay call controller exposes signaling, controls, and cleanup", () => {
     "createMediaStreamDestination",
     "AudioBufferSourceNode",
     "decodeAudioData",
-    "kayRecordingPlumbingFixtureUrl",
+    "kayRecordingOfficialNoticeUrl",
     "source.connect(destination)",
     "source.connect(context.destination)",
     "source.onended",
     "call.direct && call.reasonCode === \"ADMIN_TEST\"",
-    "PLUMBING_FIXTURE",
+    "KAY_TAREK_OFFICIAL_NOTICE_TEXT",
     "buildKayRecordingNotice",
     "toggleMute",
     "track.stop()",
@@ -80,16 +80,16 @@ test("direct Kay caller uses local voice and microphone without a peer", () => {
   assert.match(source, /KAY_CALL_ENDED/);
 });
 
-test("direct ADMIN_TEST uses a capturable fixture and waits for source completion", () => {
-  const directNotice = source.slice(source.indexOf("const playDirectAdminTestFixture"), source.indexOf("const reportRecordingNotice"));
-  assert.match(directNotice, /fetch\(kayRecordingPlumbingFixtureUrl\)/);
+test("direct ADMIN_TEST uses the official notice WAV and waits for source completion", () => {
+  const directNotice = source.slice(source.indexOf("const playDirectAdminTestNotice"), source.indexOf("const reportRecordingNotice"));
+  assert.match(directNotice, /fetch\(kayRecordingOfficialNoticeUrl\)/);
   assert.match(directNotice, /context\.decodeAudioData/);
   assert.match(directNotice, /source\.connect\(destination\)/);
   assert.match(directNotice, /source\.connect\(context\.destination\)/);
   assert.match(directNotice, /source\.onended/);
   assert.match(source, /if \(call\.direct && call\.reasonCode === "ADMIN_TEST"\)/);
-  assert.match(source, /PLUMBING_FIXTURE/);
-  assert.match(source.slice(source.indexOf("const reportRecordingNotice"), source.indexOf("const answerDirect")), /await playDirectAdminTestFixture\(\)/);
+  assert.match(source, /مرحبا طارق، معك كاي\. حبيت أحكي معك عن تقرير اليوم بخصوص العملاء، علمًا أن المكالمة مسجلة لضمان جودة الخدمة\./);
+  assert.match(source.slice(source.indexOf("const reportRecordingNotice"), source.indexOf("const answerDirect")), /await playDirectAdminTestNotice\(\)/);
 });
 
 test("microphone and direct fixture share the MediaRecorder destination", () => {

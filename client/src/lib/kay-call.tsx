@@ -4,9 +4,11 @@ import { useAuth } from "./auth";
 import { Button } from "@/components/ui/button";
 import { buildKayRecordingNotice } from "@shared/kayRecording";
 import { KAY_AUDIO_CONSTRAINTS, isKayCallPushUrl } from "./kay-call-shared";
-import kayRecordingPlumbingFixtureUrl from "../../../artifacts/kay-recording-notice-tarek-A2.wav";
+import kayRecordingOfficialNoticeUrl from "../../../artifacts/kay-recording-notice-tarek-A2.wav";
 
 export const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
+export const KAY_TAREK_OFFICIAL_NOTICE_TEXT =
+  "مرحبا طارق، معك كاي. حبيت أحكي معك عن تقرير اليوم بخصوص العملاء، علمًا أن المكالمة مسجلة لضمان جودة الخدمة.";
 export const KAY_TAREK_TEST_MESSAGE =
   "مساء الخير أستاذ طارق، معك كاي. هذه أول مكالمة تجريبية مباشرة بيني وبينك داخل تطبيق كينغ لايك. إذا كنت تسمعني بشكل واضح، فالاتصال يعمل بشكل صحيح.";
 
@@ -418,12 +420,12 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     setCallError("");
   }, []);
 
-  const playDirectAdminTestFixture = useCallback(async (): Promise<void> => {
+  const playDirectAdminTestNotice = useCallback(async (): Promise<void> => {
     const context = audioContextRef.current;
     const destination = recordingDestinationRef.current;
     if (!context || !destination) throw new Error("Kay recording audio graph is unavailable.");
-    const response = await fetch(kayRecordingPlumbingFixtureUrl);
-    if (!response.ok) throw new Error("Kay recording plumbing fixture could not be loaded.");
+    const response = await fetch(kayRecordingOfficialNoticeUrl);
+    if (!response.ok) throw new Error("Kay recording official Arabic notice could not be loaded.");
     const audioData = await response.arrayBuffer();
     const audioBuffer = await context.decodeAudioData(audioData);
     await context.resume();
@@ -449,8 +451,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const reportRecordingNotice = useCallback(async (call: KayIncomingCall): Promise<boolean> => {
     try {
       if (call.direct && call.reasonCode === "ADMIN_TEST") {
-        // KAY_RECORDING_PLUMBING_FIXTURE only: this WAV is not the official Arabic notice audio.
-        await playDirectAdminTestFixture();
+        await playDirectAdminTestNotice();
       } else {
         if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
           throw new Error("Arabic recording notice is unavailable.");
@@ -482,7 +483,7 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       setCallError("The Arabic recording notice failed; the call was ended.");
       return false;
     }
-  }, [cleanup, playDirectAdminTestFixture, send, stopRecording]);
+  }, [cleanup, playDirectAdminTestNotice, send, stopRecording]);
 
   const answerDirect = useCallback(async (call: KayIncomingCall) => {
     const stream = await navigator.mediaDevices.getUserMedia(KAY_AUDIO_CONSTRAINTS);

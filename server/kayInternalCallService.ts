@@ -37,21 +37,39 @@ const KAY_INTERNAL_CALL_EVENTS = new Set([
   "recording_upload_chunk",
   "recording_upload_complete",
 ]);
+
+function tarekTestWindowConfigured(): boolean {
+  return Boolean(
+    process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT ||
+    process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT,
+  );
+}
+
+function tarekTestWindowActive(now = new Date()): boolean {
+  const startedAt = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT || "");
+  const expiresAt = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
+  if (Number.isNaN(startedAt.getTime()) || Number.isNaN(expiresAt.getTime())) return false;
+  return process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
+    startedAt.getTime() <= now.getTime() &&
+    expiresAt.getTime() > now.getTime() &&
+    expiresAt.getTime() - startedAt.getTime() <= 15 * 60 * 1000;
+}
+
+function tarekAdminTestRetryEnabled(now = new Date()): boolean {
+  return process.env.KAY_TAREK_ADMIN_TEST_RETRY_ENABLED === "true" &&
+    tarekTestWindowActive(now);
+}
+
+function adminTestAllowedCount(now = new Date()): number {
+  return tarekAdminTestRetryEnabled(now) ? 2 : 1;
+}
+
 const KAY_INTERNAL_CALLS_ENABLED = () => {
   if (process.env.KAY_INTERNAL_CALLS_ENABLED !== "true") return false;
   const startedRaw = process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT;
   const expiresRaw = process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT;
   if (!startedRaw && !expiresRaw) return true;
-  if (!startedRaw || !expiresRaw) return false;
-  const startedAt = new Date(startedRaw);
-  const expiresAt = new Date(expiresRaw);
-  const now = Date.now();
-  return process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
-    !Number.isNaN(startedAt.getTime()) &&
-    !Number.isNaN(expiresAt.getTime()) &&
-    startedAt.getTime() <= now &&
-    expiresAt.getTime() > now &&
-    expiresAt.getTime() - startedAt.getTime() <= 15 * 60 * 1000;
+  return tarekTestWindowActive();
 };
 const MAX_RAW_MESSAGE_BYTES = 64 * 1024;
 const MAX_SDP_BYTES = 32 * 1024;
@@ -389,6 +407,7 @@ export async function createKayInternalCall(input: {
 }) {
   requireEnabled();
   const now = new Date();
+  const testExpiresAt = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
   const idempotencyKey = String(input.idempotencyKey || "").trim();
   if (!idempotencyKey) throw httpError(400, "KAY_INTERNAL_CALL_IDEMPOTENCY_KEY_REQUIRED");
   if (/^DIRECT_/i.test(idempotencyKey)) {
@@ -415,21 +434,17 @@ export async function createKayInternalCall(input: {
   if (!/^[A-Z0-9_]+$/.test(reasonCode)) throw httpError(400, "KAY_INTERNAL_CALL_REASON_REQUIRED");
   const initiationType = String(input.initiationType || "MANUAL").trim().toUpperCase();
   const requestedAdminTest = initiationType === "ADMIN_TEST" || reasonCode === "ADMIN_TEST";
-  const testStartedAt = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT || "");
-  const testExpiresAt = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
   const testOverrideActive =
     initiationType === "ADMIN_TEST" &&
     reasonCode === "ADMIN_TEST" &&
     initiator.id === 1 &&
     target.id === 1 &&
-    process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
-    !Number.isNaN(testStartedAt.getTime()) &&
-    !Number.isNaN(testExpiresAt.getTime()) &&
-    testStartedAt.getTime() <= now.getTime() &&
-    testExpiresAt.getTime() > now.getTime() &&
-    testExpiresAt.getTime() - testStartedAt.getTime() <= 15 * 60 * 1000;
+    tarekTestWindowActive(now);
   if (requestedAdminTest && !testOverrideActive) {
     throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_OVERRIDE_INACTIVE");
+  }
+  if (tarekTestWindowConfigured() && !testOverrideActive) {
+    throw httpError(423, "KAY_TAREK_ADMIN_TEST_ONLY");
   }
   if (!testOverrideActive) assertKayCallWindow(now);
   const title = sanitizeTitle(input.title);
@@ -458,9 +473,11 @@ export async function createKayInternalCall(input: {
       }
       if (requestedAdminTest) {
         const consumed = await client.query(
-          `SELECT EXISTS(SELECT 1 FROM kay_internal_call_sessions WHERE reason_code='ADMIN_TEST') AS consumed`,
+          `SELECT COUNT(*)::integer AS consumed_count
+             FROM kay_internal_call_sessions
+            WHERE reason_code='ADMIN_TEST'`,
         );
-        if (consumed.rows[0]?.consumed === true) {
+        if (Number(consumed.rows[0]?.consumed_count || 0) >= adminTestAllowedCount(now)) {
           throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED");
         }
       }
@@ -889,10 +906,12 @@ export function registerKayInternalCallRoutes(
         expires.getTime() - started.getTime() <= 15 * 60 * 1000;
       if (!overrideActive) return res.status(200).json({ ready: false });
       const consumed = await withKayInternalClient(client =>
-        client.query(`SELECT EXISTS(SELECT 1 FROM kay_internal_call_sessions WHERE reason_code='ADMIN_TEST') AS consumed`)
+        client.query(`SELECT COUNT(*)::integer AS consumed_count
+                        FROM kay_internal_call_sessions
+                       WHERE reason_code='ADMIN_TEST'`)
       );
       return res.status(200).json({
-        ready: consumed.rows[0]?.consumed !== true,
+        ready: Number(consumed.rows[0]?.consumed_count || 0) < adminTestAllowedCount(now),
         expiry: expires.toISOString(),
       });
     } catch (error: any) {
@@ -918,13 +937,13 @@ export function registerKayInternalCallRoutes(
         throw httpError(400, "KAY_DIRECT_CALL_TEST_MODE_REASON_MISMATCH");
       }
       const now = new Date();
-      const started = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_STARTED_AT || "");
       const expires = new Date(process.env.KAY_AFTER_HOURS_TAREK_TEST_EXPIRES_AT || "");
       const overrideActive = testMode && reasonCode === "ADMIN_TEST" &&
-        process.env.KAY_AUTOMATIC_INTERNAL_CALLS_ENABLED === "false" &&
-        !Number.isNaN(started.getTime()) && !Number.isNaN(expires.getTime()) &&
-        started <= now && expires > now && expires.getTime() - started.getTime() <= 15 * 60 * 1000;
+        tarekTestWindowActive(now);
       if (testMode && !overrideActive) throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_OVERRIDE_INACTIVE");
+      if (tarekTestWindowConfigured() && !overrideActive) {
+        throw httpError(423, "KAY_TAREK_ADMIN_TEST_ONLY");
+      }
       if (!overrideActive) assertKayCallWindow(now);
       const meaningfulActionItems = testMode
         ? true
@@ -936,9 +955,13 @@ export function registerKayInternalCallRoutes(
           await client.query("SELECT pg_advisory_xact_lock($1,$2)", [126322, target.id]);
           if (testMode) {
             const consumed = await client.query(
-              `SELECT EXISTS(SELECT 1 FROM kay_internal_call_sessions WHERE reason_code='ADMIN_TEST') AS consumed`,
+              `SELECT COUNT(*)::integer AS consumed_count
+                 FROM kay_internal_call_sessions
+                WHERE reason_code='ADMIN_TEST'`,
             );
-            if (consumed.rows[0]?.consumed === true) throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED");
+            if (Number(consumed.rows[0]?.consumed_count || 0) >= adminTestAllowedCount(now)) {
+              throw httpError(423, "KAY_AFTER_HOURS_TAREK_TEST_ALREADY_CONSUMED");
+            }
           }
           const ringingDirect = await client.query(
             `SELECT id,reason_code,created_at FROM kay_internal_call_sessions
