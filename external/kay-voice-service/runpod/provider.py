@@ -7,11 +7,16 @@ Replit never imports torch, chatterbox, or downloads model files.
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
+from contextlib import contextmanager
 import io
 import os
+import tempfile
 import time
+import wave
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 from app.providers.base import ProviderUnavailable, SynthesisTelemetry, TextToSpeechProvider
 from .samples import TTS_MODEL
@@ -25,6 +30,12 @@ RUNTIME_REVISION = os.getenv(
     "433cb74200b55457bffa8ee6965a02ecab546a1c",
 )
 MODEL_ID = os.getenv("KAY_TTS_MODEL", TTS_MODEL)
+MAX_REFERENCE_AUDIO_BYTES = int(
+    os.getenv("KAY_TTS_REFERENCE_MAX_BYTES", str(4 * 1024 * 1024))
+)
+MAX_REFERENCE_AUDIO_SECONDS = float(
+    os.getenv("KAY_TTS_REFERENCE_MAX_SECONDS", "30")
+)
 
 
 class RunPodChatterboxProvider(TextToSpeechProvider):
@@ -33,22 +44,81 @@ class RunPodChatterboxProvider(TextToSpeechProvider):
         self._model_load_duration_ms = 0
         self._device = os.getenv("KAY_TTS_DEVICE", "cuda")
         self._reference = os.getenv("KAY_TTS_REFERENCE_AUDIO", "")
+        self._reference_b64 = os.getenv("KAY_TTS_REFERENCE_AUDIO_B64", "")
         self._actual_device = ""
         self._telemetry = SynthesisTelemetry(model=MODEL_ID, model_revision=MODEL_REVISION)
 
     @property
     def configured(self) -> bool:
+        if self._reference_b64:
+            return True
         return not self._reference or Path(self._reference).is_file()
 
-    def _reference_path(self) -> str | None:
-        """Return an optional owned reference, or use the model's built-in voice."""
-        if not self._reference:
-            return None
-        if not Path(self._reference).is_file():
+    @staticmethod
+    def _validate_reference_wav_bytes(payload: bytes) -> None:
+        if not payload:
+            raise ProviderUnavailable("reference audio is empty")
+        if len(payload) > MAX_REFERENCE_AUDIO_BYTES:
+            raise ProviderUnavailable("reference audio exceeds configured size limit")
+        try:
+            with wave.open(io.BytesIO(payload), "rb") as wav:
+                channels = wav.getnchannels()
+                sample_width = wav.getsampwidth()
+                sample_rate = wav.getframerate()
+                frames = wav.getnframes()
+        except (wave.Error, EOFError) as exc:
+            raise ProviderUnavailable("reference audio must be a valid PCM WAV") from exc
+
+        if channels <= 0 or sample_width <= 0 or sample_rate <= 0 or frames <= 0:
+            raise ProviderUnavailable("reference WAV contains invalid audio metadata")
+        duration = frames / sample_rate
+        if duration > MAX_REFERENCE_AUDIO_SECONDS:
+            raise ProviderUnavailable("reference audio exceeds configured duration limit")
+
+    @contextmanager
+    def _reference_path(self) -> Iterator[str | None]:
+        """Yield an optional owned reference path without persisting private audio."""
+        if self._reference and self._reference_b64:
             raise ProviderUnavailable(
-                "configured KAY_TTS_REFERENCE_AUDIO file does not exist"
+                "configure only one of KAY_TTS_REFERENCE_AUDIO or KAY_TTS_REFERENCE_AUDIO_B64"
             )
-        return self._reference
+
+        if self._reference_b64:
+            encoded = self._reference_b64.strip()
+            max_encoded = ((MAX_REFERENCE_AUDIO_BYTES + 2) // 3) * 4 + 16
+            if len(encoded) > max_encoded:
+                raise ProviderUnavailable("encoded reference audio exceeds configured size limit")
+            try:
+                payload = base64.b64decode(encoded, validate=True)
+            except (binascii.Error, ValueError):
+                raise ProviderUnavailable(
+                    "KAY_TTS_REFERENCE_AUDIO_B64 is not valid base64"
+                ) from None
+
+            self._validate_reference_wav_bytes(payload)
+            path: str | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="wb", suffix=".wav", prefix="kay-reference-", dir="/tmp", delete=False
+                ) as temp:
+                    temp.write(payload)
+                    path = temp.name
+                os.chmod(path, 0o600)
+                yield path
+            finally:
+                if path:
+                    Path(path).unlink(missing_ok=True)
+            return
+
+        if self._reference:
+            if not Path(self._reference).is_file():
+                raise ProviderUnavailable(
+                    "configured KAY_TTS_REFERENCE_AUDIO file does not exist"
+                )
+            yield self._reference
+            return
+
+        yield None
 
     def _load_model(self) -> tuple[Any, int, str]:
         if self._model is not None:
@@ -75,15 +145,15 @@ class RunPodChatterboxProvider(TextToSpeechProvider):
         started = time.perf_counter()
         model, load_ms, device = self._load_model()
         controls = dict(options or {})
-        reference = self._reference_path()
-        audio = model.generate(
-            text=text,
-            language_id="ar",
-            audio_prompt_path=reference,
-            exaggeration=float(controls.get("exaggeration", 0.4)),
-            cfg_weight=float(controls.get("cfg_weight", 0.6)),
-            temperature=float(controls.get("temperature", 0.7)),
-        )
+        with self._reference_path() as reference:
+            audio = model.generate(
+                text=text,
+                language_id="ar",
+                audio_prompt_path=reference,
+                exaggeration=float(controls.get("exaggeration", 0.4)),
+                cfg_weight=float(controls.get("cfg_weight", 0.6)),
+                temperature=float(controls.get("temperature", 0.7)),
+            )
         import soundfile as sf
 
         output = io.BytesIO()

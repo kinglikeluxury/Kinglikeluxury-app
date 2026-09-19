@@ -349,3 +349,88 @@ def test_warm_model_reports_cached_device_without_reload():
     assert model is provider._model
     assert load_ms == 0
     assert device == "NVIDIA Test GPU"
+
+def test_provider_uses_private_base64_reference_and_removes_tempfile(monkeypatch):
+    from runpod.provider import RunPodChatterboxProvider
+
+    calls = {}
+    reference = wav_bytes()
+
+    class FakeAudio:
+        def squeeze(self):
+            return self
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            return [0.0]
+
+    class FakeModel:
+        sr = 8000
+
+        def generate(self, **kwargs):
+            calls.update(kwargs)
+            prompt = kwargs["audio_prompt_path"]
+            assert prompt.startswith("/tmp/kay-reference-")
+            assert Path(prompt).is_file()
+            return FakeAudio()
+
+    def write_wav(output, samples, sample_rate, format):
+        output.write(b"RIFF\\x24\\x00\\x00\\x00WAVEfmt ")
+
+    monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(write=write_wav))
+    provider = RunPodChatterboxProvider()
+    provider._reference = ""
+    provider._reference_b64 = base64.b64encode(reference).decode("ascii")
+    provider._load_model = lambda: (FakeModel(), 0, "test-device")
+
+    provider._synthesize_blocking("مساء الخير", {})
+
+    assert calls["language_id"] == "ar"
+    temp_path = calls["audio_prompt_path"]
+    assert not Path(temp_path).exists()
+
+
+def test_provider_rejects_malformed_private_base64(monkeypatch):
+    from app.providers.base import ProviderUnavailable
+    from runpod.provider import RunPodChatterboxProvider
+
+    provider = RunPodChatterboxProvider()
+    provider._reference = ""
+    provider._reference_b64 = "%%%not-base64%%%"
+
+    with pytest.raises(ProviderUnavailable, match="valid base64"):
+        with provider._reference_path():
+            pass
+
+
+def test_provider_rejects_invalid_private_wav():
+    from app.providers.base import ProviderUnavailable
+    from runpod.provider import RunPodChatterboxProvider
+
+    provider = RunPodChatterboxProvider()
+    provider._reference = ""
+    provider._reference_b64 = base64.b64encode(b"not-a-wave").decode("ascii")
+
+    with pytest.raises(ProviderUnavailable, match="valid PCM WAV"):
+        with provider._reference_path():
+            pass
+
+
+def test_provider_rejects_ambiguous_reference_sources(tmp_path):
+    from app.providers.base import ProviderUnavailable
+    from runpod.provider import RunPodChatterboxProvider
+
+    local_reference = tmp_path / "owned.wav"
+    local_reference.write_bytes(wav_bytes())
+    provider = RunPodChatterboxProvider()
+    provider._reference = str(local_reference)
+    provider._reference_b64 = base64.b64encode(wav_bytes()).decode("ascii")
+
+    with pytest.raises(ProviderUnavailable, match="configure only one"):
+        with provider._reference_path():
+            pass
