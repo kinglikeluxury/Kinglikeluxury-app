@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   build-and-push:
@@ -16,13 +17,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io \
-            --username "$DOCKERHUB_USERNAME" \
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
+            --username "$GHCR_USERNAME" \
             --password-stdin
 
       - name: Build and push immutable SHA image
@@ -32,4 +33,4 @@ jobs:
           file: external/kay-voice-service/Dockerfile.runpod
           platforms: linux/amd64
           push: true
-          tags: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/kay-voice-tts:${{ github.sha }}
+          tags: ghcr.io/kinglikeluxury/kay-voice-tts:${{ github.sha }}
