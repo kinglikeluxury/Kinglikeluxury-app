@@ -1,4 +1,4 @@
-import type { Express, RequestHandler, Response } from "express";
+import express, { type Express, RequestHandler, Response } from "express";
 import { ServerResponse, type IncomingMessage, type Server } from "http";
 import { randomUUID } from "crypto";
 import type { PoolClient } from "pg";
@@ -24,6 +24,11 @@ import {
   markKayRecordingCaptureFailed,
 } from "./kayRecordingService";
 import { KAY_RECORDING_MAX_AUDIO_BYTES } from "./kayRecordingStorage";
+import {
+  KAY_ONE_TURN_MAX_AUDIO_BYTES,
+  assertKayOneTurnCall,
+  processKayOneTurn,
+} from "./kayOneTurnConversationService";
 
 const KAY_INTERNAL_CALL_USER_IDS = new Set([1, 24, 29, 31]);
 const KAY_INTERNAL_CALL_EVENTS = new Set([
@@ -1083,6 +1088,55 @@ export function registerKayInternalCallRoutes(
       return res.status(error?.status || 500).json({ message: error?.message || "Unable to start direct Kay call." });
     }
   });
+
+  app.post(
+    "/api/admin/kay/internal-calls/:callId/one-turn",
+    express.raw({ type: ["audio/wav", "audio/x-wav"], limit: KAY_ONE_TURN_MAX_AUDIO_BYTES }),
+    async (req: any, res: Response) => {
+      try {
+        requireEnabled();
+        const target = await loadAuthorizedUser(Number(req.session?.userId));
+        if (!target.isAdmin || target.id !== 1) throw httpError(403, "KAY_ONE_TURN_TAREK_ONLY");
+        const callId = Number(req.params.callId);
+        if (!Number.isInteger(callId) || callId < 1) throw httpError(400, "KAY_INTERNAL_CALL_ID_REQUIRED");
+        const connectionId = String(req.headers["x-kay-connection-id"] || "");
+        const answeringSocket = Array.from(socketsByUser.get(1) || []).find(socket =>
+          socket.kayConnectionId === connectionId &&
+          socket.readyState === WebSocket.OPEN &&
+          answeringConnectionByCall.get(callId) === connectionId
+        );
+        if (!answeringSocket) throw httpError(403, "KAY_ONE_TURN_ANSWERING_SOCKET_REQUIRED");
+        const call = await getCall(callId);
+        if (!call || !isAllowedDirectKayRecordingTest(call)) {
+          throw httpError(403, "KAY_ONE_TURN_TAREK_ONLY");
+        }
+        assertKayOneTurnCall(call);
+        const contentType = String(req.headers["content-type"] || "").split(";", 1)[0].toLowerCase();
+        if (!["audio/wav", "audio/x-wav"].includes(contentType)) {
+          throw httpError(415, "KAY_ONE_TURN_AUDIO_WAV_REQUIRED");
+        }
+        const audio = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+        if (!audio.length || audio.length > KAY_ONE_TURN_MAX_AUDIO_BYTES) {
+          throw httpError(400, "KAY_ONE_TURN_AUDIO_INVALID");
+        }
+        const result = await processKayOneTurn({
+          call,
+          connectionId,
+          audio,
+        });
+        res
+          .status(200)
+          .setHeader("Cache-Control", "no-store")
+          .type(result.mediaType)
+          .send(result.audio);
+      } catch (error: any) {
+        const status = Number(error?.status) || 500;
+        return res.status(status).json({
+          code: error?.code || error?.message || "KAY_ONE_TURN_FAILED",
+        });
+      }
+    },
+  );
 
   for (const [action, nextStatus, allowed] of [
     ["answer", "ACTIVE", ["RINGING"]],

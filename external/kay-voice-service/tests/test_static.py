@@ -29,6 +29,20 @@ class StaticContractTests(unittest.TestCase):
     self.assertNotIn("UploadFile", main)
     self.assertNotIn("multipart", (ROOT / "requirements.txt").read_text())
 
+  def test_lazy_provider_implementations_support_real_arbitrary_turns(self):
+    stt = (ROOT / "app/providers/stt.py").read_text()
+    tts = (ROOT / "app/providers/tts.py").read_text()
+    self.assertIn("from faster_whisper import WhisperModel", stt)
+    self.assertIn("WhisperModel(", stt)
+    self.assertIn("model.transcribe(", stt)
+    self.assertIn("asyncio.to_thread", stt)
+    self.assertIn("from chatterbox.mtl_tts import ChatterboxMultilingualTTS", tts)
+    self.assertIn("ChatterboxMultilingualTTS.from_local", tts)
+    self.assertIn("text=text[: self.config.max_text_chars]", tts)
+    self.assertIn('language_id=language', tts)
+    self.assertIn("asyncio.to_thread", tts)
+    self.assertNotIn("sample_id", tts)
+
   def test_container_is_pinned_and_non_root(self):
     dockerfile = (ROOT / "Dockerfile").read_text()
     self.assertIn("python:3.11.9-slim-bookworm", dockerfile)

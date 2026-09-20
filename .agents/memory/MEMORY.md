@@ -37,3 +37,4 @@
 - [Kay browser audio capture](kay-browser-audio-capture.md) — speechSynthesis is audible but not a MediaStream; direct virtual calls must fail closed instead of becoming READY.
 - [Kay Vite audio fixture](kay-vite-audio-fixture.md) — Vite bundles the tracked WAV, while Node tests must avoid importing the binary-bearing component directly.
 - [Kay metadata migration ownership](kay-metadata-migration-ownership.md) — recording metadata schema changes require the dedicated migration-owner connection; runtime Kay writer cannot alter table ownership.
+- [Kay one-turn gateway](kay-one-turn-gateway.md) — Tarek voice tests are notice-gated, exact-socket-bound, database-reserved, and terminal after one attempt.

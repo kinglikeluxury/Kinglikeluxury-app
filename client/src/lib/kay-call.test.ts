@@ -126,3 +126,22 @@ test("microphone and direct fixture share the MediaRecorder destination", () => 
   assert.match(recordingSection, /source\.connect\(destination\)[\s\S]*source\.connect\(context\.destination\)/);
   assert.match(source, /recordingDestinationRef\.current = destination/);
 });
+
+test("ADMIN_TEST starts exactly one bounded turn after the played notice", () => {
+  assert.match(source, /if \(await reportRecordingNotice\(call\)\) startOneTurn\(call\)/);
+  assert.match(source, /oneTurnConsumedRef\.current = true/);
+  assert.match(source, /oneTurnTimerRef\.current = window\.setTimeout\(finishOneTurnListening, 15_000\)/);
+  assert.match(source, /mediaBlobToKayWav/);
+  assert.match(source, /Content-Type": "audio\/wav"/);
+  assert.match(source, /X-Kay-Connection-Id/);
+  assert.match(source, /KAY_ONE_TURN_AUDIO_PLAYBACK_TIMEOUT/);
+});
+
+test("one-turn reply is played through the capturable recording graph", () => {
+  const playback = source.slice(source.indexOf("const playKayReply"), source.indexOf("const failOneTurn"));
+  assert.match(playback, /source\.connect\(destination\)/);
+  assert.match(playback, /source\.connect\(context\.destination\)/);
+  assert.match(playback, /context\.decodeAudioData/);
+  assert.match(source, /oneTurnState === "listening"/);
+  assert.match(source, /Failed — Retry unavailable\./);
+});

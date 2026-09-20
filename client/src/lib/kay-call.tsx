@@ -14,6 +14,7 @@ export const KAY_TAREK_TEST_MESSAGE =
 export const KAY_DIRECT_NOTICE_TIMEOUT_MS = 15_000;
 
 export type KayCallStatus = "idle" | "incoming" | "connecting" | "connected" | "ended" | "error";
+export type KayOneTurnState = "idle" | "listening" | "thinking" | "speaking" | "complete" | "failed";
 export type KayIncomingCall = {
   callId: number;
   caller: "KAY";
@@ -42,6 +43,56 @@ function formatDuration(startedAt: number | null, now: number) {
   if (!startedAt) return "00:00";
   const total = Math.max(0, Math.floor((now - startedAt) / 1000));
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function kayTurnMimeType() {
+  return [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+  ].find(type => MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function writeWavPcm16(audio: Float32Array, sampleRate: number) {
+  const buffer = new ArrayBuffer(44 + audio.length * 2);
+  const view = new DataView(buffer);
+  const writeText = (offset: number, value: string) => {
+    for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
+  };
+  writeText(0, "RIFF");
+  view.setUint32(4, 36 + audio.length * 2, true);
+  writeText(8, "WAVE");
+  writeText(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeText(36, "data");
+  view.setUint32(40, audio.length * 2, true);
+  for (let index = 0; index < audio.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, audio[index]));
+    view.setInt16(44 + index * 2, sample < 0 ? sample * 32768 : sample * 32767, true);
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+async function mediaBlobToKayWav(blob: Blob, context: AudioContext) {
+  const decoded = await context.decodeAudioData((await blob.arrayBuffer()).slice(0));
+  const targetRate = 16_000;
+  const targetLength = Math.max(1, Math.round(decoded.duration * targetRate));
+  const mono = new Float32Array(targetLength);
+  const channels = Math.max(1, decoded.numberOfChannels);
+  for (let index = 0; index < targetLength; index += 1) {
+    const sourceIndex = Math.min(decoded.length - 1, Math.floor(index * decoded.sampleRate / targetRate));
+    let value = 0;
+    for (let channel = 0; channel < channels; channel += 1) value += decoded.getChannelData(channel)[sourceIndex] || 0;
+    mono[index] = value / channels;
+  }
+  return writeWavPcm16(mono, targetRate);
 }
 
 type KayCallContextValue = {
@@ -114,6 +165,8 @@ export function KayActiveCall({
   recordingActive,
   noticePending = false,
   micLevel = 0,
+  oneTurnState = "idle",
+  onFinishListening,
 }: {
   status: Exclude<KayCallStatus, "idle" | "incoming">;
   duration: string;
@@ -125,6 +178,8 @@ export function KayActiveCall({
   recordingActive: boolean;
   noticePending?: boolean;
   micLevel?: number;
+  oneTurnState?: KayOneTurnState;
+  onFinishListening?: () => void;
 }) {
   return (
     <section className="fixed inset-x-4 bottom-4 z-[100] mx-auto max-w-md rounded-2xl border border-[#b9d9d6] bg-[#fbfdfd] p-5 shadow-2xl" role="dialog" aria-label="Active Kay call">
@@ -138,7 +193,30 @@ export function KayActiveCall({
         </div>
         <span className="font-mono text-sm text-slate-600">{status === "connected" ? duration : "Connecting…"}</span>
       </div>
-       <p className="mt-3 text-sm text-slate-600">{noticePending ? "Playing the official recording notice…" : recordingActive ? "Recording is required for this call." : status === "connected" ? "Connected" : status === "error" ? "Call unavailable" : "Connecting securely…"}</p>
+       <p className="mt-3 text-sm text-slate-600">
+         {noticePending
+           ? "Playing the official recording notice…"
+           : oneTurnState === "listening"
+             ? "Listening — speak once, then send your question."
+             : oneTurnState === "thinking"
+               ? "Thinking…"
+               : oneTurnState === "speaking"
+                 ? "Speaking…"
+                 : oneTurnState === "complete"
+                   ? "One-turn conversation complete."
+                   : oneTurnState === "failed"
+                     ? "Failed — Retry unavailable."
+                     : recordingActive
+                       ? "Recording is required for this call."
+                       : status === "connected"
+                         ? "Connected"
+                         : status === "error" ? "Call unavailable" : "Connecting securely…"}
+       </p>
+       {oneTurnState === "listening" && onFinishListening && (
+         <Button className="mt-4 w-full bg-[#16736e] hover:bg-[#125e5a]" onClick={onFinishListening}>
+           Send spoken question
+         </Button>
+       )}
       {status === "connected" && <div className="mt-3 flex items-end gap-1" aria-label="Microphone activity">
         {[0, 1, 2, 3, 4].map((bar) => <span key={bar} className="w-1 rounded-full bg-[#16736e]" style={{ height: `${6 + Math.min(18, micLevel * (bar + 1) * 3)}px` }} />)}
       </div>}
@@ -244,6 +322,12 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   const directNoticeBufferRef = useRef<ArrayBuffer | null>(null);
   const directNoticePendingRef = useRef(false);
   const recordingStopRef = useRef<Promise<Blob | null> | null>(null);
+  const oneTurnRecorderRef = useRef<MediaRecorder | null>(null);
+  const oneTurnChunksRef = useRef<Blob[]>([]);
+  const oneTurnTimerRef = useRef<number | null>(null);
+  const oneTurnCancelledRef = useRef(false);
+  const oneTurnConsumedRef = useRef(false);
+  const [oneTurnState, setOneTurnState] = useState<KayOneTurnState>("idle");
   const [status, setStatus] = useState<KayCallStatus>("idle");
   const [incomingCall, setIncomingCall] = useState<KayIncomingCall | null>(null);
   const [muted, setMuted] = useState(false);
@@ -355,6 +439,106 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     remoteRecordingSourceRef.current = source;
   }, []);
 
+  const playKayReply = useCallback(async (audio: Blob): Promise<void> => {
+    const context = audioContextRef.current;
+    const destination = recordingDestinationRef.current;
+    if (!context || !destination) throw new Error("KAY_ONE_TURN_AUDIO_GRAPH_UNAVAILABLE");
+    if (context.state === "suspended") await context.resume();
+    if (context.state !== "running") throw new Error("KAY_ONE_TURN_AUDIO_CONTEXT_UNAVAILABLE");
+    const buffer = await context.decodeAudioData((await audio.arrayBuffer()).slice(0));
+    await new Promise<void>((resolve, reject) => {
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(destination);
+      source.connect(context.destination);
+      source.onended = () => resolve();
+      try {
+        source.start();
+      } catch {
+        reject(new Error("KAY_ONE_TURN_AUDIO_PLAYBACK_FAILED"));
+      }
+      window.setTimeout(() => reject(new Error("KAY_ONE_TURN_AUDIO_PLAYBACK_TIMEOUT")), 30_000);
+    });
+  }, []);
+
+  const failOneTurn = useCallback((reason: string) => {
+    oneTurnCancelledRef.current = true;
+    if (oneTurnTimerRef.current !== null) window.clearTimeout(oneTurnTimerRef.current);
+    oneTurnTimerRef.current = null;
+    if (oneTurnRecorderRef.current?.state !== "inactive") oneTurnRecorderRef.current?.stop();
+    oneTurnRecorderRef.current = null;
+    setOneTurnState("failed");
+    setCallError(reason || "One-turn Kay conversation failed.");
+  }, []);
+
+  const finishOneTurnListening = useCallback(() => {
+    const recorder = oneTurnRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+    oneTurnConsumedRef.current = true;
+    if (oneTurnTimerRef.current !== null) window.clearTimeout(oneTurnTimerRef.current);
+    oneTurnTimerRef.current = null;
+    recorder.stop();
+  }, []);
+
+  const startOneTurn = useCallback((call: KayIncomingCall) => {
+    if (!call.direct || call.reasonCode !== "ADMIN_TEST" || oneTurnConsumedRef.current) return;
+    const stream = streamRef.current;
+    const context = audioContextRef.current;
+    const connectionId = connectionIdRef.current;
+    if (!stream || !context || !connectionId) {
+      failOneTurn("KAY_ONE_TURN_CAPTURE_UNAVAILABLE");
+      return;
+    }
+    const mimeType = kayTurnMimeType();
+    if (!mimeType) {
+      failOneTurn("KAY_ONE_TURN_CAPTURE_FORMAT_UNAVAILABLE");
+      return;
+    }
+    oneTurnCancelledRef.current = false;
+    oneTurnChunksRef.current = [];
+    const recorder = new MediaRecorder(stream, { mimeType });
+    oneTurnRecorderRef.current = recorder;
+    setOneTurnState("listening");
+    recorder.ondataavailable = event => {
+      if (event.data.size > 0) oneTurnChunksRef.current.push(event.data);
+    };
+    recorder.onstop = () => {
+      oneTurnRecorderRef.current = null;
+      if (oneTurnCancelledRef.current) return;
+      const sourceBlob = new Blob(oneTurnChunksRef.current, { type: mimeType });
+      if (!sourceBlob.size) {
+        failOneTurn("KAY_ONE_TURN_EMPTY_AUDIO");
+        return;
+      }
+      setOneTurnState("thinking");
+      void (async () => {
+        try {
+          const wav = await mediaBlobToKayWav(sourceBlob, context);
+          const response = await fetch(`/api/admin/kay/internal-calls/${call.callId}/one-turn`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "audio/wav",
+              "X-Kay-Connection-Id": connectionId,
+            },
+            body: wav,
+          });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(String(payload?.code || "KAY_ONE_TURN_FAILED"));
+          }
+          setOneTurnState("speaking");
+          await playKayReply(await response.blob());
+          setOneTurnState("complete");
+        } catch (error) {
+          failOneTurn(error instanceof Error ? error.message : "KAY_ONE_TURN_FAILED");
+        }
+      })();
+    };
+    recorder.start(250);
+    oneTurnTimerRef.current = window.setTimeout(finishOneTurnListening, 15_000);
+  }, [failOneTurn, finishOneTurnListening, playKayReply]);
+
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     if (recordingStopRef.current) return recordingStopRef.current;
     const active = recordingRef.current;
@@ -406,6 +590,14 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
   }, [sendRecording, stopRecording]);
 
   const cleanup = useCallback(() => {
+    oneTurnCancelledRef.current = true;
+    oneTurnConsumedRef.current = false;
+    if (oneTurnTimerRef.current !== null) window.clearTimeout(oneTurnTimerRef.current);
+    oneTurnTimerRef.current = null;
+    if (oneTurnRecorderRef.current?.state !== "inactive") oneTurnRecorderRef.current?.stop();
+    oneTurnRecorderRef.current = null;
+    oneTurnChunksRef.current = [];
+    setOneTurnState("idle");
     if (peerDisconnectRef.current) {
       window.clearTimeout(peerDisconnectRef.current);
       peerDisconnectRef.current = null;
@@ -593,8 +785,8 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) throw new Error("Unable to answer Kay call.");
     setStatus("connected");
     setStartedAt(Date.now());
-    await reportRecordingNotice(call);
-  }, [prepareDirectAudioContext, reportRecordingNotice, startRecording]);
+    if (await reportRecordingNotice(call)) startOneTurn(call);
+  }, [prepareDirectAudioContext, reportRecordingNotice, startOneTurn, startRecording]);
 
   const playTarekTestVoice = useCallback((callId: number) => {
     if (initiatedCallIdsRef.current.has(callId) || spokenTestCallIdsRef.current.has(callId)) return;
@@ -982,7 +1174,20 @@ export function KayCallProvider({ children }: { children: React.ReactNode }) {
       )}
       {status === "incoming" && incomingCall && <IncomingKayCall call={incomingCall} canAnswer={offerReady || incomingCall.direct === true} onAnswer={answer} onReject={reject} />}
       {(status === "connecting" || status === "connected" || status === "error") && (
-        <KayActiveCall status={status} duration={duration} muted={muted} title={callTitle} micLevel={micLevel} recordingActive={recordingActive} noticePending={noticePending} onMute={toggleMute} onObject={objectToRecording} onEnd={end} />
+        <KayActiveCall
+          status={status}
+          duration={duration}
+          muted={muted}
+          title={callTitle}
+          micLevel={micLevel}
+          recordingActive={recordingActive}
+          noticePending={noticePending}
+          oneTurnState={incomingCall?.direct && incomingCall.reasonCode === "ADMIN_TEST" ? oneTurnState : "idle"}
+          onFinishListening={oneTurnState === "listening" ? finishOneTurnListening : undefined}
+          onMute={toggleMute}
+          onObject={objectToRecording}
+          onEnd={end}
+        />
       )}
     </KayCallContext.Provider>
   );

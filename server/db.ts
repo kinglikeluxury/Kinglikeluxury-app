@@ -594,6 +594,15 @@ export async function ensureKayTables(): Promise<void> {
           );
           CREATE INDEX IF NOT EXISTS kay_internal_call_sessions_target_created_idx
             ON kay_internal_call_sessions(target_user_id,created_at);
+           CREATE TABLE IF NOT EXISTS kay_voice_one_turn_sessions (
+             call_session_id INTEGER PRIMARY KEY REFERENCES kay_internal_call_sessions(id) ON DELETE CASCADE,
+             status TEXT NOT NULL DEFAULT 'PROCESSING'
+               CHECK (status IN ('PROCESSING','COMPLETED','FAILED')),
+             failure_reason TEXT,
+             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+             started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+             ended_at TIMESTAMP
+           );
           INSERT INTO kay_settings (key, value) VALUES
             ('phase_d_workflow', '{"enabled":false,"evaluation_interval_minutes":5,"max_commitment_extensions":2,"critical_bypass_quiet_hours":false,"reminder_minutes":5,"promise_escalation_minutes":60,"voice_enabled":false,"default_language":"en","style":"PROFESSIONAL","directness_level":3,"brief_length":"SHORT","preferred_voice_name":null,"speech_rate":1,"speech_pitch":1,"max_brief_seconds":30,"call_style":"PROFESSIONAL","owner_address":"Owner","employee_address_style":"FIRST_NAME","personality_toggles":{"warm":true,"encouraging":true,"concise":true,"empathetic":true},"employee_profiles":{},"trigger_types":["CRITICAL_MISSION","COMMITMENT_OVERDUE","IMPORTANT_PROMISE_OVERDUE","MANAGER_REVIEW"]}'::jsonb)
          ON CONFLICT (key) DO NOTHING;
