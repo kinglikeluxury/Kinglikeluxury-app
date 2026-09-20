@@ -1,99 +1,222 @@
-"""Optional RunPod Serverless TTS-only adapter.
+"""Unified, authenticated RunPod adapter for the single-turn Kay test.
 
-This module is importable without the optional ``runpod`` package. It is
-deliberately limited to the three approved first samples and never logs input.
+The handler accepts exactly two operations:
+
+* ``stt``: one bounded base64-encoded PCM WAV turn.
+* ``tts``: one bounded arbitrary Arabic text response.
+
+Provider classes are imported and instantiated lazily. Model runtimes, weights,
+and reference audio are touched only after an authenticated request passes all
+validation.
 """
 
 from __future__ import annotations
 
 import asyncio
 import base64
-import inspect
+import binascii
 import os
+import secrets
 import threading
 import time
 from typing import Any
 
-from app.providers.base import ProviderUnavailable, TextToSpeechProvider
-from .provider import RunPodChatterboxProvider
-from .samples import SAMPLE_TEXTS, TTS_MODEL, VOICE_PROFILES
+from app.audio import InvalidAudio, validate_audio
+from app.config import settings
+from app.providers.base import ProviderUnavailable, SpeechToTextProvider, TextToSpeechProvider
+from app.providers.stt import LazyWhisperProvider
+from app.providers.tts import LazyChatterboxProvider
 
-MAX_SAMPLE_TEXT_LENGTH = int(os.getenv("MAX_SAMPLE_TEXT_LENGTH", "300"))
+MAX_AUDIO_BYTES = int(os.getenv("KAY_ONE_TURN_MAX_AUDIO_BYTES", str(2 * 1024 * 1024)))
+MAX_AUDIO_DURATION_SECONDS = int(os.getenv("KAY_ONE_TURN_MAX_AUDIO_DURATION_SECONDS", "15"))
+MAX_TEXT_CHARS = int(os.getenv("KAY_ONE_TURN_MAX_TEXT_CHARS", str(settings.max_text_chars)))
 MAX_GENERATION_SECONDS = float(os.getenv("MAX_GENERATION_SECONDS", "30"))
-_provider: TextToSpeechProvider | None = None
+MAX_BASE64_AUDIO_CHARS = ((MAX_AUDIO_BYTES + 2) // 3) * 4
+ALLOWED_WAV_TYPES = {"audio/wav", "audio/x-wav"}
+STT_BASE64_KEYS = {"operation", "api_key", "audio_base64", "content_type"}
+STT_RAW_KEYS = {"operation", "api_key", "audio", "content_type"}
+TTS_KEYS = {"operation", "api_key", "text", "voice", "language"}
+
+_stt_provider: SpeechToTextProvider | None = None
+_tts_provider: TextToSpeechProvider | None = None
 _provider_lock = threading.Lock()
+_request_lock = threading.Lock()
 
 
-def _get_provider() -> TextToSpeechProvider:
-    """Create one provider per warm worker; never downloads a model here."""
-    global _provider
-    if _provider is None:
+class HandlerRequestError(ValueError):
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+class HandlerAuthError(PermissionError):
+    def __init__(self, code: str = "AUTH_REQUIRED"):
+        super().__init__(code)
+        self.code = code
+
+
+def _configured_api_key() -> str:
+    return os.getenv("KAY_VOICE_SERVICE_API_KEY", "")
+
+
+def _require_api_key(payload: dict[str, Any]) -> None:
+    expected = _configured_api_key()
+    supplied = payload.get("api_key")
+    if not expected:
+        raise HandlerAuthError("AUTH_NOT_CONFIGURED")
+    if not isinstance(supplied, str) or not secrets.compare_digest(supplied, expected):
+        raise HandlerAuthError()
+
+
+def _require_object(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise HandlerRequestError("INVALID_REQUEST")
+    return value
+
+
+def _require_keys(payload: dict[str, Any], expected: set[str]) -> None:
+    if set(payload) != expected:
+        raise HandlerRequestError("INVALID_REQUEST")
+
+
+def _decode_wav(payload: dict[str, Any]) -> bytes:
+    if payload.get("content_type") not in ALLOWED_WAV_TYPES:
+        raise HandlerRequestError("UNSUPPORTED_AUDIO_TYPE")
+    if "audio_base64" in payload:
+        encoded = payload.get("audio_base64")
+        if not isinstance(encoded, str) or not encoded or len(encoded) > MAX_BASE64_AUDIO_CHARS:
+            raise HandlerRequestError("AUDIO_TOO_LARGE")
+        try:
+            audio = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError):
+            raise HandlerRequestError("INVALID_AUDIO") from None
+    else:
+        audio = payload.get("audio")
+        if not isinstance(audio, bytes):
+            raise HandlerRequestError("INVALID_AUDIO")
+    if not audio or len(audio) > MAX_AUDIO_BYTES:
+        raise HandlerRequestError("AUDIO_TOO_LARGE")
+    try:
+        validate_audio(audio, MAX_AUDIO_BYTES, MAX_AUDIO_DURATION_SECONDS)
+    except InvalidAudio:
+        raise HandlerRequestError("INVALID_AUDIO") from None
+    return audio
+
+
+def _validate_stt_payload(payload: Any) -> tuple[dict[str, Any], bytes]:
+    value = _require_object(payload)
+    if set(value) not in (STT_BASE64_KEYS, STT_RAW_KEYS):
+        raise HandlerRequestError("INVALID_REQUEST")
+    _require_api_key(value)
+    return value, _decode_wav(value)
+
+
+def _validate_tts_payload(payload: Any) -> tuple[dict[str, Any], str]:
+    value = _require_object(payload)
+    _require_keys(value, TTS_KEYS)
+    _require_api_key(value)
+    text = value.get("text")
+    if not isinstance(text, str) or not text.strip() or len(text) > MAX_TEXT_CHARS:
+        raise HandlerRequestError("INVALID_TEXT")
+    if value.get("voice") != "kay_male" or value.get("language") != "ar":
+        raise HandlerRequestError("UNSUPPORTED_VOICE")
+    return value, text.strip()
+
+
+def _get_stt_provider() -> SpeechToTextProvider:
+    global _stt_provider
+    if _stt_provider is None:
         with _provider_lock:
-            if _provider is None:
-                _provider = RunPodChatterboxProvider()
-    return _provider
+            if _stt_provider is None:
+                _stt_provider = LazyWhisperProvider()
+    return _stt_provider
 
 
-def _payload(request: dict[str, Any]) -> tuple[str, str]:
-    if not isinstance(request, dict):
-        raise ValueError("input must be an object")
-    if set(request) != {"sample_id", "profile"}:
-        raise ValueError("only sample_id and profile are accepted; use native RunPod auth")
-    sample_id = request.get("sample_id")
-    profile = request.get("profile")
-    if sample_id not in SAMPLE_TEXTS or profile not in VOICE_PROFILES:
-        raise ValueError("sample_id and profile must select an approved sample")
-    text = SAMPLE_TEXTS[sample_id]
-    if len(text) > MAX_SAMPLE_TEXT_LENGTH:
-        raise ValueError("sample text exceeds MAX_SAMPLE_TEXT_LENGTH")
-    return sample_id, profile
+def _get_tts_provider() -> TextToSpeechProvider:
+    global _tts_provider
+    if _tts_provider is None:
+        with _provider_lock:
+            if _tts_provider is None:
+                _tts_provider = LazyChatterboxProvider()
+    return _tts_provider
 
 
-def _run(provider: TextToSpeechProvider, text: str, profile: str) -> tuple[bytes, str]:
-    result = provider.synthesize_with_options(
-        text, voice="kay_male", language="ar",
-        options=VOICE_PROFILES[profile]["controls"],
-    )
-    if inspect.isawaitable(result):
-        return asyncio.run(result)
-    return result
+def _run(awaitable: Any) -> Any:
+    async def bounded() -> Any:
+        return await asyncio.wait_for(awaitable, timeout=MAX_GENERATION_SECONDS)
+
+    return asyncio.run(bounded())
 
 
-def generate(request: dict[str, Any], provider: TextToSpeechProvider | None = None) -> dict[str, Any]:
-    """Generate one approved sample through the existing provider abstraction."""
-    started = time.perf_counter()
-    sample_id, profile = _payload(request)
-    selected = provider or _get_provider()
-    generation_started = time.perf_counter()
-    with _provider_lock:
-        audio, media_type = _run(selected, SAMPLE_TEXTS[sample_id], profile)
-    generation_duration_ms = round((time.perf_counter() - generation_started) * 1000)
-    total_duration_ms = round((time.perf_counter() - started) * 1000)
-    if total_duration_ms > MAX_GENERATION_SECONDS * 1000:
-        raise TimeoutError("generation exceeded MAX_GENERATION_SECONDS")
+def _generate_stt(payload: Any, provider: SpeechToTextProvider | None = None) -> dict[str, Any]:
+    _, audio = _validate_stt_payload(payload)
+    selected = provider or _get_stt_provider()
+    result = _run(selected.transcribe(audio, language="ar"))
+    text = getattr(result, "text", "")
+    if not isinstance(text, str) or not text.strip():
+        raise HandlerRequestError("EMPTY_TRANSCRIPT")
+    return {
+        "status": "ok",
+        "operation": "stt",
+        "text": text[: settings.max_text_chars],
+        "language": str(getattr(result, "language", "ar") or "ar"),
+        "duration_ms": int(getattr(result, "duration_ms", 0) or 0),
+    }
+
+
+def _generate_tts(payload: Any, provider: TextToSpeechProvider | None = None) -> dict[str, Any]:
+    _, text = _validate_tts_payload(payload)
+    selected = provider or _get_tts_provider()
+    result = _run(selected.synthesize(text, voice="kay_male", language="ar"))
+    if not isinstance(result, tuple) or len(result) != 2:
+        raise HandlerRequestError("INVALID_PROVIDER_AUDIO")
+    audio, media_type = result
     if not isinstance(audio, bytes) or not audio.startswith(b"RIFF") or b"WAVE" not in audio[:16]:
-        raise ValueError("provider must return WAV bytes")
+        raise HandlerRequestError("INVALID_PROVIDER_AUDIO")
     telemetry = selected.last_telemetry()
     return {
-        "sample_id": sample_id,
-        "profile": profile,
-        "model": telemetry.model or TTS_MODEL,
-        "model_revision": telemetry.model_revision,
+        "status": "ok",
+        "operation": "tts",
         "audio_base64": base64.b64encode(audio).decode("ascii"),
         "audio_media_type": media_type or "audio/wav",
-        "generation_duration_ms": telemetry.generation_duration_ms or generation_duration_ms,
+        "model": telemetry.model,
+        "model_revision": telemetry.model_revision,
         "model_load_duration_ms": telemetry.model_load_duration_ms,
-        "total_request_duration_ms": total_duration_ms,
+        "generation_duration_ms": telemetry.generation_duration_ms,
+        "total_request_duration_ms": telemetry.total_request_duration_ms,
         "device": telemetry.device,
     }
 
 
+def generate(payload: dict[str, Any], *, stt_provider: SpeechToTextProvider | None = None,
+             tts_provider: TextToSpeechProvider | None = None) -> dict[str, Any]:
+    value = _require_object(payload)
+    operation = value.get("operation")
+    with _request_lock:
+        if operation == "stt":
+            return _generate_stt(value, provider=stt_provider)
+        if operation == "tts":
+            return _generate_tts(value, provider=tts_provider)
+    raise HandlerRequestError("UNSUPPORTED_OPERATION")
+
+
 def handler(job: dict[str, Any]) -> dict[str, Any]:
-    """RunPod-compatible entry point; errors are safe and contain no secrets."""
+    """RunPod-compatible entry point with generic, non-sensitive errors."""
     try:
-        return {"status": "ok", **generate((job or {}).get("input", {}))}
-    except (ProviderUnavailable, TimeoutError, ValueError) as exc:
-        return {"status": "error", "code": type(exc).__name__.upper(), "message": str(exc)}
+        request = _require_object((job or {}).get("input"))
+        return generate(request)
+    except HandlerAuthError as exc:
+        return {"status": "error", "code": exc.code}
+    except HandlerRequestError as exc:
+        return {"status": "error", "code": exc.code}
+    except InvalidAudio:
+        return {"status": "error", "code": "INVALID_REQUEST"}
+    except TimeoutError:
+        return {"status": "error", "code": "TIMEOUT"}
+    except ProviderUnavailable:
+        return {"status": "error", "code": "PROVIDER_UNAVAILABLE"}
+    except Exception:
+        return {"status": "error", "code": "INTERNAL_ERROR"}
 
 
 _runpod = None

@@ -53,8 +53,16 @@ function timeoutSignal(milliseconds: number): AbortSignal {
 
 function voiceServiceConfig() {
   const baseUrl = String(process.env.KAY_VOICE_SERVICE_URL || "").replace(/\/+$/, "");
-  const apiKey = String(process.env.KAY_VOICE_SERVICE_API_KEY || "");
-  if (!baseUrl || !apiKey) throw oneTurnError("KAY_VOICE_SERVICE_NOT_CONFIGURED");
+  const apiKey = String(process.env.KAY_VOICE_SERVICE_API_KEY || "").trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw oneTurnError("KAY_VOICE_SERVICE_NOT_CONFIGURED");
+  }
+  if (!["http:", "https:"].includes(parsed.protocol) || !apiKey) {
+    throw oneTurnError("KAY_VOICE_SERVICE_NOT_CONFIGURED");
+  }
   return { baseUrl, apiKey };
 }
 

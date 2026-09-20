@@ -65,19 +65,24 @@ class StaticContractTests(unittest.TestCase):
 
   def test_runpod_image_and_adapter_are_optional(self):
     for name in ("runpod/handler.py", "runpod/provider.py", "runpod/samples.py",
-                 "runpod/README.md", "Dockerfile.runpod", "requirements-runpod.txt"):
+                 "runpod/README.md", "Dockerfile.runpod", "requirements-runpod.txt",
+                 "assets/internal/kay-syrian-reference.wav"):
       self.assertTrue((ROOT / name).exists())
     image = (ROOT / "Dockerfile.runpod").read_text()
     self.assertIn("runpod/pytorch:1.0.3-cu1281-torch260-ubuntu2404", image)
     self.assertIn("requirements-runpod.txt", image)
     self.assertIn("COPY runpod ./adapter", image)
+    self.assertIn("COPY assets/internal ./assets/internal", image)
     self.assertIn("adapter.handler", image)
+    self.assertIn("ENTRYPOINT", image)
     self.assertIn("PYTHONPATH=/opt/lahgtna/src:/service", image)
     self.assertIn("https://github.com/Oddadmix/lahgtna-chatterbox.git", image)
     self.assertIn("git checkout 433cb74200b55457bffa8ee6965a02ecab546a1c", image)
     self.assertNotIn("--no-deps", image)
-    self.assertIn("import torch, torchaudio, runpod, chatterbox.mtl_tts", image)
+    self.assertIn("import torch, torchaudio, runpod, faster_whisper, numpy, chatterbox.mtl_tts", image)
     requirements = (ROOT / "requirements-runpod.txt").read_text()
+    self.assertIn("faster-whisper==1.1.1", requirements)
+    self.assertIn("numpy==2.2.3", requirements)
     for line in requirements.splitlines():
       if line and not line.startswith("#"):
         self.assertIn("==", line)
@@ -92,8 +97,14 @@ class StaticContractTests(unittest.TestCase):
     self.assertIn("CUDA GPU is required", provider)
     self.assertNotIn("import torch\n", provider.split("def _load_model", 1)[0])
     adapter = (ROOT / "runpod/handler.py").read_text()
-    self.assertIn("only sample_id and profile", adapter)
-    self.assertNotIn("API_KEY", adapter)
+    self.assertIn('operation == "stt"', adapter)
+    self.assertIn('operation == "tts"', adapter)
+    self.assertIn("audio_base64", adapter)
+    self.assertIn("LazyWhisperProvider", adapter)
+    self.assertIn("LazyChatterboxProvider", adapter)
+    self.assertIn("secrets.compare_digest", adapter)
+    self.assertNotIn("only sample_id and profile", adapter)
+    self.assertNotIn("SAMPLE_TEXTS", adapter)
     source = "\n".join(p.read_text() for p in (ROOT / "runpod").rglob("*.py"))
     self.assertNotIn("REPL_ID", source)
     self.assertNotIn("DATABASE_URL", source)

@@ -1,28 +1,51 @@
-# KAY TTS-only RunPod Serverless preparation
+# KAY unified one-turn RunPod Serverless preparation
 
 This optional adapter is **not deployed** and does not start unless
-`KAY_RUNPOD_AUTOSTART=true`. It supports exactly `sample_1`, `sample_2`, and
-`sample_3`, each with profile `A`, `B`, or `C`; arbitrary text is rejected to
-prevent accidental GPU spend during the first sample test.
+`KAY_RUNPOD_AUTOSTART=true`. It accepts exactly two operations for the
+Tarek-only one-turn test: one bounded base64 WAV STT request, or one bounded
+arbitrary Arabic TTS request. Both require the configured
+`KAY_VOICE_SERVICE_API_KEY`; model loading remains lazy.
 
 Profile controls are intentionally distinct: A uses exaggeration `0.35`,
 cfg_weight `0.55`, temperature `0.65`; B uses `0.55`, `0.45`, `0.80`; and C
 uses `0.25`, `0.70`, `0.55`. These are style controls, not a claim of
 different trained voices.
 
-The adapter calls `app.providers.base.TextToSpeechProvider` through
-`RunPodChatterboxProvider`. It has one lazy singleton per warm worker and a
-process lock for one request at a time. On the deployed worker only, the
-first request downloads the pinned snapshot and loads the model; imports in
-Replit never import torch/chatterbox/huggingface. An owned/licensed male
-reference voice is required via `KAY_TTS_REFERENCE_AUDIO`; never use a
-third-party identifiable voice. Syrian output intentionally uses
-Chatterbox `language_id="ko"` per the official Oddadmix README.
+The adapter calls `app.providers.stt.LazyWhisperProvider` and
+`app.providers.tts.LazyChatterboxProvider`. It has one lazy singleton per warm
+worker and a process lock for one request at a time. On the deployed worker
+only, the first request imports runtime packages and loads the model; imports
+in the application/test environment do not load weights. An owned/licensed
+male reference voice is required via `KAY_TTS_REFERENCE_AUDIO`.
 
-The RunPod platform authenticates the endpoint using its native authorization
-mechanism. The job input contains **only** `sample_id` and `profile`; never put
-an API key or platform token in the payload. The core FastAPI service retains
-its independent Bearer API-key authentication.
+The handler independently authenticates each job using `api_key` in the
+validated internal input contract. The application-side HTTP adapter uses the
+same configured secret as a Bearer token. Never log either form.
+
+### Unified input shapes
+
+STT:
+
+```json
+{
+  "operation": "stt",
+  "api_key": "<configured key>",
+  "audio_base64": "<one PCM WAV turn>",
+  "content_type": "audio/wav"
+}
+```
+
+TTS:
+
+```json
+{
+  "operation": "tts",
+  "api_key": "<configured key>",
+  "text": "<arbitrary Arabic reply>",
+  "voice": "kay_male",
+  "language": "ar"
+}
+```
 
 ## Exact future endpoint settings
 
@@ -36,12 +59,13 @@ Create only after explicit approval:
 * Scale-to-zero: enabled
 * `KAY_RUNPOD_AUTOSTART=true`
 * `KAY_TTS_MODEL=oddadmix/lahgtna-chatterbox-v1`
-* `MAX_SAMPLE_TEXT_LENGTH=300`
+* `KAY_ONE_TURN_MAX_AUDIO_DURATION_SECONDS=15`
+* `KAY_ONE_TURN_MAX_TEXT_CHARS=4000`
 * `MAX_GENERATION_SECONDS=30`
 * `KAY_TTS_DEVICE=cuda`
 * `KAY_TTS_MODEL_REVISION=6b37e50d1952f07306dc9ff3f3d4ff4ddaf32541`
 * `KAY_TTS_RUNTIME_REVISION=433cb74200b55457bffa8ee6965a02ecab546a1c`
-* `KAY_TTS_REFERENCE_AUDIO=/runpod-volume/reference/kay-owned-male.wav`
+* `KAY_TTS_REFERENCE_AUDIO=/service/assets/internal/kay-syrian-reference.wav`
 * `HF_HOME=/runpod-volume/huggingface`
 * Endpoint execution timeout: hard RunPod boundary of 300s initially
   (`MAX_GENERATION_SECONDS` plus cold-start allowance); revise after measurements

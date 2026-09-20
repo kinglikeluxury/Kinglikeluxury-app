@@ -1,11 +1,6 @@
 import asyncio
 import base64
-import inspect
 import os
-import sys
-import threading
-import time
-import types
 import wave
 from io import BytesIO
 from pathlib import Path
@@ -13,12 +8,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parents[1]
-sys.path.insert(0, str(ROOT))
-os.environ.setdefault("KAY_VOICE_SERVICE_API_KEY", "runpod-test-secret")
+os.environ["KAY_VOICE_SERVICE_API_KEY"] = "runpod-test-secret"
 
-from app.providers.base import SynthesisTelemetry, TextToSpeechProvider
+from app.providers.base import SynthesisTelemetry, Transcription
 from runpod import handler
-from runpod.samples import SAMPLE_TEXTS, VOICE_PROFILES
 
 
 def wav_bytes() -> bytes:
@@ -26,148 +19,148 @@ def wav_bytes() -> bytes:
     with wave.open(output, "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
-        wav.setframerate(8000)
-        wav.writeframes(b"\0\0")
+        wav.setframerate(16_000)
+        wav.writeframes(b"\0\0" * 160)
     return output.getvalue()
 
 
-class MockProvider(TextToSpeechProvider):
-    calls = 0
-    telemetry = SynthesisTelemetry(
-        model="oddadmix/lahgtna-chatterbox-v1",
-        model_revision="test-revision",
-        device="mock-device",
-        model_load_duration_ms=7,
-        generation_duration_ms=9,
-        total_request_duration_ms=16,
-    )
+class MockSttProvider:
+    def __init__(self):
+        self.calls = 0
 
-    @property
-    def configured(self):
-        return True
+    async def transcribe(self, audio, *, language):
+        self.calls += 1
+        assert audio.startswith(b"RIFF")
+        assert language == "ar"
+        return Transcription(text="مرحبا يا كاي", language="ar", duration_ms=10)
+
+
+class MockTtsProvider:
+    def __init__(self):
+        self.calls = 0
 
     async def synthesize(self, text, *, voice, language):
-        type(self).calls += 1
-        assert text in SAMPLE_TEXTS.values()
+        self.calls += 1
+        assert text == "هذا رد عربي حر للاختبار"
         assert voice == "kay_male"
         assert language == "ar"
-        await asyncio.sleep(0)
         return wav_bytes(), "audio/wav"
 
     def last_telemetry(self):
-        return self.telemetry
+        return SynthesisTelemetry(
+            model="test-model",
+            model_revision="test-revision",
+            device="test-device",
+            model_load_duration_ms=0,
+            generation_duration_ms=1,
+            total_request_duration_ms=1,
+        )
 
 
-def valid_input(**overrides):
-    payload = {"sample_id": "sample_1", "profile": "A"}
+def stt_payload(**overrides):
+    payload = {
+        "operation": "stt",
+        "api_key": "runpod-test-secret",
+        "audio_base64": base64.b64encode(wav_bytes()).decode("ascii"),
+        "content_type": "audio/wav",
+    }
     payload.update(overrides)
     return payload
 
 
-def test_catalog_is_exact_and_profiles_are_present():
-    assert list(SAMPLE_TEXTS) == ["sample_1", "sample_2", "sample_3"]
-    assert set(VOICE_PROFILES) == {"A", "B", "C"}
-    assert all(text and len(text) <= handler.MAX_SAMPLE_TEXT_LENGTH for text in SAMPLE_TEXTS.values())
+def tts_payload(**overrides):
+    payload = {
+        "operation": "tts",
+        "api_key": "runpod-test-secret",
+        "text": "هذا رد عربي حر للاختبار",
+        "voice": "kay_male",
+        "language": "ar",
+    }
+    payload.update(overrides)
+    return payload
 
 
-def test_import_is_optional_and_core_provider_is_used():
-    assert inspect.isclass(TextToSpeechProvider)
-    assert handler._runpod is None or hasattr(handler._runpod, "serverless")
-    provider = MockProvider()
-    result = handler.generate(valid_input(), provider=provider)
-    assert result["sample_id"] == "sample_1"
+def test_unified_handler_accepts_one_stt_wav_turn():
+    provider = MockSttProvider()
+    result = handler.generate(stt_payload(), stt_provider=provider)
+    assert result["status"] == "ok"
+    assert result["operation"] == "stt"
+    assert result["text"] == "مرحبا يا كاي"
+    assert provider.calls == 1
+
+
+def test_unified_handler_accepts_one_raw_wav_turn():
+    provider = MockSttProvider()
+    payload = stt_payload()
+    payload.pop("audio_base64")
+    payload["audio"] = wav_bytes()
+    result = handler.generate(payload, stt_provider=provider)
+    assert result["status"] == "ok"
+    assert result["operation"] == "stt"
+
+
+def test_unified_handler_accepts_arbitrary_arabic_tts():
+    provider = MockTtsProvider()
+    result = handler.generate(tts_payload(), tts_provider=provider)
+    assert result["status"] == "ok"
+    assert result["operation"] == "tts"
     assert base64.b64decode(result["audio_base64"]).startswith(b"RIFF")
-    assert result["model"] == "oddadmix/lahgtna-chatterbox-v1"
-    assert result["model_revision"] == "test-revision"
-    assert result["device"] == "mock-device"
-    assert result["model_load_duration_ms"] == 7
+    assert result["model"] == "test-model"
+    assert provider.calls == 1
 
 
 @pytest.mark.parametrize("payload", [
-    {"api_key": "wrong", "sample_id": "sample_1", "profile": "A"},
-    {"sample_id": "other", "profile": "A"},
-    {"sample_id": "sample_1", "profile": "D"},
-    {"sample_id": "sample_1", "profile": "A", "text": "arbitrary"},
+    stt_payload(api_key="wrong"),
+    tts_payload(api_key="wrong"),
 ])
-def test_fixed_payload_validation(payload):
-    with pytest.raises((PermissionError, ValueError)):
-        handler.generate(payload, provider=MockProvider())
+def test_both_operations_reject_bad_auth(payload):
+    result = handler.handler({"input": payload})
+    assert result == {"status": "error", "code": "AUTH_REQUIRED"}
 
 
-def test_handler_does_not_accept_platform_key_in_payload():
-    result = handler.handler({"input": {"api_key": "wrong", "sample_id": "sample_1", "profile": "A"}})
-    assert result["status"] == "error"
-    assert "api_key" not in str(result)
+def test_missing_service_key_fails_closed(monkeypatch):
+    monkeypatch.delenv("KAY_VOICE_SERVICE_API_KEY", raising=False)
+    result = handler.handler({"input": tts_payload()})
+    assert result == {"status": "error", "code": "AUTH_NOT_CONFIGURED"}
 
 
-def test_cost_limit_rejects_long_generation(monkeypatch):
+def test_stt_rejects_oversize_and_unsupported_payload(monkeypatch):
+    monkeypatch.setattr(handler, "MAX_AUDIO_BYTES", 1)
+    monkeypatch.setattr(handler, "MAX_BASE64_AUDIO_CHARS", 8)
+    assert handler.handler({"input": stt_payload()})["code"] == "AUDIO_TOO_LARGE"
+    assert handler.handler({"input": stt_payload(content_type="audio/mp3")})["code"] == "UNSUPPORTED_AUDIO_TYPE"
+
+
+def test_strict_payload_and_text_validation():
+    assert handler.handler({"input": tts_payload(extra="nope")})["code"] == "INVALID_REQUEST"
+    assert handler.handler({"input": tts_payload(language="en")})["code"] == "UNSUPPORTED_VOICE"
+    assert handler.handler({"input": {"operation": "realtime", "api_key": "runpod-test-secret"}})["code"] == "UNSUPPORTED_OPERATION"
+
+
+def test_timeout_is_generic_and_bounded(monkeypatch):
     monkeypatch.setattr(handler, "MAX_GENERATION_SECONDS", 0.001)
 
-    class SlowProvider(MockProvider):
+    class SlowProvider(MockTtsProvider):
         async def synthesize(self, text, *, voice, language):
             await asyncio.sleep(0.01)
             return wav_bytes(), "audio/wav"
 
     with pytest.raises(TimeoutError):
-        handler.generate(valid_input(), provider=SlowProvider())
+        handler.generate(tts_payload(), tts_provider=SlowProvider())
+    monkeypatch.setattr(handler, "MAX_GENERATION_SECONDS", 30)
 
 
-def test_warm_provider_is_singleton_and_requests_are_serialized(monkeypatch):
-    handler._provider = None
-    created = []
-
-    class CountingProvider(MockProvider):
-        active = 0
-        maximum = 0
-
-        def __init__(self):
-            created.append(self)
-
-        async def synthesize(self, text, *, voice, language):
-            type(self).active += 1
-            type(self).maximum = max(type(self).maximum, type(self).active)
-            await asyncio.sleep(0.01)
-            type(self).active -= 1
-            return wav_bytes(), "audio/wav"
-
-    monkeypatch.setattr(handler, "RunPodChatterboxProvider", CountingProvider)
-    results = []
-
-    def call():
-        results.append(handler.generate(valid_input()))
-
-    threads = [threading.Thread(target=call) for _ in range(2)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-    assert len(created) == 1
-    assert len(results) == 2
-    assert CountingProvider.maximum == 1
+def test_import_and_provider_construction_do_not_load_models():
+    assert handler._stt_provider is None
+    assert handler._tts_provider is None
+    assert "faster_whisper" not in handler.__dict__
+    assert "torch" not in handler.__dict__
 
 
-def test_provider_fails_without_cuda_before_model_download(monkeypatch, tmp_path):
-    from app.providers.base import ProviderUnavailable
-    from runpod.provider import RunPodChatterboxProvider
-
-    fake_torch = types.SimpleNamespace(
-        cuda=types.SimpleNamespace(is_available=lambda: False)
-    )
-    monkeypatch.setitem(sys.modules, "torch", fake_torch)
-    provider = RunPodChatterboxProvider()
-    provider._reference = str(tmp_path / "owned.wav")
-    Path(provider._reference).write_bytes(b"owned")
-    with pytest.raises(ProviderUnavailable, match="CUDA"):
-        provider._load_model()
-
-
-def test_warm_model_reports_cached_device_without_reload():
-    from runpod.provider import RunPodChatterboxProvider
-
-    provider = RunPodChatterboxProvider()
-    provider._model = object()
-    provider._actual_device = "NVIDIA Test GPU"
-    model, load_ms, device = provider._load_model()
-    assert model is provider._model
-    assert load_ms == 0
-    assert device == "NVIDIA Test GPU"
+def test_image_reference_is_valid_internal_wav():
+    reference = ROOT / "assets/internal/kay-syrian-reference.wav"
+    assert reference.exists()
+    with wave.open(str(reference), "rb") as audio:
+        assert audio.getnchannels() == 1
+        assert audio.getsampwidth() == 2
+        assert audio.getcomptype() == "NONE"

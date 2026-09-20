@@ -33,12 +33,11 @@ Future Kinglike integration uses only `KAY_VOICE_SERVICE_URL` and `KAY_VOICE_SER
 
 ## TTS-only RunPod sample preparation
 
-The optional `runpod/` adapter is not part of the core image contract and is
-not deployed by this repository. It accepts only the three fixed Arabic texts
-and profiles A (calm professional), B (warm conversational), and C (confident
-supervisor). It uses `oddadmix/lahgtna-chatterbox-v1`, returns temporary
-base64-encoded WAV bytes plus timing/device metadata, and rejects arbitrary
-text. Configure `MAX_SAMPLE_TEXT_LENGTH=300` and
+The optional `runpod/` adapter is not deployed by this repository. It now
+supports the two bounded operations required by the Tarek-only one-turn test:
+base64 WAV STT and arbitrary Arabic TTS. Both require
+`KAY_VOICE_SERVICE_API_KEY`; the handler returns generic error codes and never
+logs request content. Configure the one-turn limits and
 `MAX_GENERATION_SECONDS=30`; the future RunPod endpoint must use min workers 0,
 max workers 1, one request at a time, and a 24GB-class GPU. See
 `runpod/README.md` for exact settings. No endpoint or sample generation has
