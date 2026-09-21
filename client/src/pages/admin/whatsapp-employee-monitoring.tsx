@@ -44,6 +44,7 @@ import {
   type MockEmployee,
   type MockMessage,
 } from "@/lib/whatsappEmployeeMonitoringMock";
+import "./whatsapp-employee-monitoring.css";
 
 type ConversationFilter = "all" | "unread" | "archived" | "deleted" | "media";
 type MobilePanel = "employees" | "conversations" | "chat";
@@ -711,7 +712,7 @@ export default function WhatsappEmployeeMonitoringPage() {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-[#f4f8f8] px-3 pb-3 pt-6 sm:p-5 lg:p-7">
+    <div className="kinglike-family-whatsapp min-h-[calc(100dvh-4rem)] bg-[#f4f8f8] px-3 pb-3 pt-6 sm:p-5 lg:p-7">
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>

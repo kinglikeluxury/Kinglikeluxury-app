@@ -371,3 +371,17 @@ mtime_ms = 1790019797447
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/78945d66-6167-4b70-9d85-47ac8e41735b/b4759bc5-00ed-4712-9f7d-9971265fae94"
 storage_version_token = "1790019844780730"
 content_type = "image/png"
+
+[[outputs]]
+id = "MznQ_evU56bOABtT2xtKx"
+uri = "file://tmp/whatsapp-unicode-previews/whatsapp-tajawal-ar-mobile.png"
+type = "image"
+title = "Kinglike Family WhatsApp — Local Tajawal Arabic Mobile"
+description = "390px mobile screenshot showing the locally loaded Tajawal font, full title, conversation, and composer."
+logical_id = "e5d32351-225c-4668-a87b-d7258a48e31f"
+content_hash = "sha256:61cac141ee6e49cc460ebb1a5e642e773f5141ef1e09da4ada10024243dc1250"
+size = 68090
+mtime_ms = 1790020570195
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/e5d32351-225c-4668-a87b-d7258a48e31f/7c77eb38-44bf-4497-aaf5-8709bbe8ab94"
+storage_version_token = "1790020627336564"
+content_type = "image/png"
