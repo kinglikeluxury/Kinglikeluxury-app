@@ -201,7 +201,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   {
     labelKey: "admin.whatsappMonitoring",
-    labelFallback: "WhatsApp Monitoring",
+    labelFallback: "Kinglike Family WhatsApp",
     path: "/admin/whatsapp-monitoring",
     Icon: MessageSquare,
     iconColorHex: "#3bcac4",

@@ -247,7 +247,7 @@
     "emailCampaign": "Email Campaign",
     "users": "Users",
     "liveCameras": "Live Cameras",
-    "whatsappMonitoring": "WhatsApp Monitoring",
+    "whatsappMonitoring": "Kinglike Family WhatsApp",
     "searchByPropertyId": "Search by Property ID",
     "propertyIdPlaceholder": "Property ID..."
   },
@@ -632,7 +632,7 @@
     "landscapeFormat": "Landscape Format"
   },
   "whatsappMonitoring": {
-    "title": "WhatsApp Monitoring",
+    "title": "Kinglike Family WhatsApp",
     "subtitle": "A safe mock archive for reviewing employee conversations.",
     "adminLabel": "Admin workspace",
     "mockOnly": "Mock data only",

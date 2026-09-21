@@ -242,7 +242,7 @@
     "createProject": "إضافة مشروع",
     "blogManagement": "إدارة المدونة",
     "leads": "قاعدة العملاء",
-    "whatsappMonitoring": "مراقبة واتساب"
+    "whatsappMonitoring": "Kinglike Family WhatsApp"
   },
   "blog": {
     "title": "مدونة العقارات",
@@ -625,7 +625,7 @@
     "landscapeFormat": "تنسيق أفقي"
   },
   "whatsappMonitoring": {
-    "title": "مراقبة واتساب",
+    "title": "Kinglike Family WhatsApp",
     "subtitle": "أرشيف تجريبي آمن لمراجعة محادثات الموظفين.",
     "adminLabel": "مساحة الإدارة",
     "mockOnly": "بيانات تجريبية فقط",

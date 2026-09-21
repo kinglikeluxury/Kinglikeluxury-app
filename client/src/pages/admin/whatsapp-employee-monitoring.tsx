@@ -714,7 +714,7 @@ export default function WhatsappEmployeeMonitoringPage() {
               {t("whatsappMonitoring.adminLabel", "Admin workspace")}
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#005476] sm:text-3xl">
-              {t("whatsappMonitoring.title", "WhatsApp Monitoring")}
+              {t("whatsappMonitoring.title", "Kinglike Family WhatsApp")}
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               {t("whatsappMonitoring.subtitle", "A safe mock archive for reviewing employee conversations.")}
