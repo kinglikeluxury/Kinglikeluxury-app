@@ -2,6 +2,10 @@ name: Build and push KAY RunPod voice worker
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build-kay-voice-runpod.yml"
+      - "external/kay-voice-service/**"
 
 permissions:
   contents: read
