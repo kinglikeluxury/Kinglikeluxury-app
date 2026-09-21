@@ -469,8 +469,8 @@ function MessageMedia({
           <FileText className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{media.name}</span>
-          <span className="text-xs text-slate-500">{media.size}</span>
+           <LtrText className="block truncate text-sm font-medium">{media.name}</LtrText>
+           {media.size && <LtrText className="block text-xs text-slate-500">{media.size}</LtrText>}
         </span>
         <a
           href={MOCK_PDF_DATA_URL}
@@ -530,13 +530,15 @@ function ChatPanel({
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <img src={conversation.avatar} alt="" className="h-10 w-10 rounded-full" />
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold text-slate-900">{conversation.customerName}</h2>
-          <p className="truncate text-xs text-slate-500">{conversation.customerPhone}</p>
+         <div className="min-w-0 flex-1">
+           <UnicodeText className="block truncate text-sm font-semibold text-slate-900">
+             {conversation.customerName}
+           </UnicodeText>
+           <LtrText className="block truncate text-xs text-slate-500">{conversation.customerPhone}</LtrText>
         </div>
         <div className="hidden text-end sm:block">
           <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("whatsappMonitoring.employee", "Employee")}</p>
-          <p className="text-xs font-semibold text-[#005476]">{employee?.name}</p>
+           {employee?.name && <UnicodeText className="block text-xs font-semibold text-[#005476]">{employee.name}</UnicodeText>}
         </div>
         <Button variant="ghost" size="icon" aria-label={t("whatsappMonitoring.moreActions", "More actions")}>
           <MoreVertical className="h-5 w-5 text-slate-500" />
@@ -556,7 +558,9 @@ function ChatPanel({
               <div key={message.id}>
                 {(!previous || previous.dateLabel !== message.dateLabel) && (
                   <div className="my-4 flex justify-center">
-                    <span className="rounded-lg bg-white/75 px-3 py-1 text-[11px] text-slate-500 shadow-sm">{message.dateLabel}</span>
+                   <LtrText className="rounded-lg bg-white/75 px-3 py-1 text-[11px] text-slate-500 shadow-sm">
+                     {message.dateLabel}
+                   </LtrText>
                   </div>
                 )}
                 {message.kind === "note" ? (
@@ -565,7 +569,7 @@ function ChatPanel({
                       <FileText className="h-3.5 w-3.5" />
                       {t("whatsappMonitoring.internalNote", "Internal note")}
                     </div>
-                    {message.text}
+                     <UnicodeText>{message.text}</UnicodeText>
                   </div>
                 ) : (
                   <div className={cn("mb-2 flex", message.direction === "outgoing" ? "justify-end" : "justify-start")}>
@@ -581,7 +585,7 @@ function ChatPanel({
                     >
                       {message.replyTo && (
                         <div className="mb-2 border-s-2 border-[#3bcac4] bg-black/5 px-2 py-1 text-xs text-slate-500">
-                          {message.replyTo}
+                           <UnicodeText>{message.replyTo}</UnicodeText>
                         </div>
                       )}
                       {message.kind === "deleted" && (
@@ -591,11 +595,23 @@ function ChatPanel({
                         </div>
                       )}
                       {message.media && <MessageMedia message={message} onPreview={onPreview} />}
-                      {message.kind !== "deleted" && message.kind !== "media" && <p className="whitespace-pre-wrap">{message.text}</p>}
-                      {message.kind === "deleted" && <p className="italic">{message.text}</p>}
+                      {message.kind !== "deleted" && message.text && (
+                        <p>
+                          <UnicodeText>{message.text}</UnicodeText>
+                        </p>
+                      )}
+                      {message.kind === "deleted" && (
+                        <p className="italic">
+                          <UnicodeText>{message.text}</UnicodeText>
+                        </p>
+                      )}
                       <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-slate-400">
-                        {message.deletedAt && <span>{t("whatsappMonitoring.deletedAt", "Deleted")} {message.deletedAt}</span>}
-                        <span>{message.time}</span>
+                        {message.deletedAt && (
+                          <LtrText>
+                            {`${t("whatsappMonitoring.deletedAt", "Deleted")} ${message.deletedAt}`}
+                          </LtrText>
+                        )}
+                        <LtrText>{message.time}</LtrText>
                         <MessageStatus status={message.status} />
                       </div>
                     </div>
