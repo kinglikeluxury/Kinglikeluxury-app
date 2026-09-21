@@ -15,10 +15,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
+import logging
 import os
 import secrets
 import threading
-import time
 from typing import Any
 
 from app.audio import InvalidAudio, validate_audio
@@ -37,10 +37,11 @@ STT_BASE64_KEYS = {"operation", "api_key", "audio_base64", "content_type"}
 STT_RAW_KEYS = {"operation", "api_key", "audio", "content_type"}
 TTS_KEYS = {"operation", "api_key", "text", "voice", "language"}
 
+logger = logging.getLogger(__name__)
 _stt_provider: SpeechToTextProvider | None = None
 _tts_provider: TextToSpeechProvider | None = None
 _provider_lock = threading.Lock()
-_request_lock = threading.Lock()
+_request_lock = asyncio.Lock()
 
 
 class HandlerRequestError(ValueError):
@@ -141,17 +142,15 @@ def _get_tts_provider() -> TextToSpeechProvider:
     return _tts_provider
 
 
-def _run(awaitable: Any) -> Any:
-    async def bounded() -> Any:
-        return await asyncio.wait_for(awaitable, timeout=MAX_GENERATION_SECONDS)
-
-    return asyncio.run(bounded())
-
-
-def _generate_stt(payload: Any, provider: SpeechToTextProvider | None = None) -> dict[str, Any]:
+async def _generate_stt(
+    payload: Any, provider: SpeechToTextProvider | None = None
+) -> dict[str, Any]:
     _, audio = _validate_stt_payload(payload)
     selected = provider or _get_stt_provider()
-    result = _run(selected.transcribe(audio, language="ar"))
+    result = await asyncio.wait_for(
+        selected.transcribe(audio, language="ar"),
+        timeout=MAX_GENERATION_SECONDS,
+    )
     text = getattr(result, "text", "")
     if not isinstance(text, str) or not text.strip():
         raise HandlerRequestError("EMPTY_TRANSCRIPT")
@@ -164,10 +163,15 @@ def _generate_stt(payload: Any, provider: SpeechToTextProvider | None = None) ->
     }
 
 
-def _generate_tts(payload: Any, provider: TextToSpeechProvider | None = None) -> dict[str, Any]:
+async def _generate_tts(
+    payload: Any, provider: TextToSpeechProvider | None = None
+) -> dict[str, Any]:
     _, text = _validate_tts_payload(payload)
     selected = provider or _get_tts_provider()
-    result = _run(selected.synthesize(text, voice="kay_male", language="ar"))
+    result = await asyncio.wait_for(
+        selected.synthesize(text, voice="kay_male", language="ar"),
+        timeout=MAX_GENERATION_SECONDS,
+    )
     if not isinstance(result, tuple) or len(result) != 2:
         raise HandlerRequestError("INVALID_PROVIDER_AUDIO")
     audio, media_type = result
@@ -188,23 +192,36 @@ def _generate_tts(payload: Any, provider: TextToSpeechProvider | None = None) ->
     }
 
 
-def generate(payload: dict[str, Any], *, stt_provider: SpeechToTextProvider | None = None,
-             tts_provider: TextToSpeechProvider | None = None) -> dict[str, Any]:
+async def generate(
+    payload: dict[str, Any],
+    *,
+    stt_provider: SpeechToTextProvider | None = None,
+    tts_provider: TextToSpeechProvider | None = None,
+) -> dict[str, Any]:
     value = _require_object(payload)
     operation = value.get("operation")
-    with _request_lock:
+    async with _request_lock:
         if operation == "stt":
-            return _generate_stt(value, provider=stt_provider)
+            return await _generate_stt(value, provider=stt_provider)
         if operation == "tts":
-            return _generate_tts(value, provider=tts_provider)
+            return await _generate_tts(value, provider=tts_provider)
     raise HandlerRequestError("UNSUPPORTED_OPERATION")
 
 
-def handler(job: dict[str, Any]) -> dict[str, Any]:
+async def handler(
+    job: dict[str, Any],
+    *,
+    stt_provider: SpeechToTextProvider | None = None,
+    tts_provider: TextToSpeechProvider | None = None,
+) -> dict[str, Any]:
     """RunPod-compatible entry point with generic, non-sensitive errors."""
     try:
         request = _require_object((job or {}).get("input"))
-        return generate(request)
+        return await generate(
+            request,
+            stt_provider=stt_provider,
+            tts_provider=tts_provider,
+        )
     except HandlerAuthError as exc:
         return {"status": "error", "code": exc.code}
     except HandlerRequestError as exc:
@@ -216,6 +233,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     except ProviderUnavailable:
         return {"status": "error", "code": "PROVIDER_UNAVAILABLE"}
     except Exception:
+        job_id = job.get("id", "unknown") if isinstance(job, dict) else "unknown"
+        logger.exception("RunPod handler failed job_id=%s", job_id)
         return {"status": "error", "code": "INTERNAL_ERROR"}
 
 
