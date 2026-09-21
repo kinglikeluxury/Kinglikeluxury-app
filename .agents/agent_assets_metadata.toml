@@ -385,3 +385,17 @@ mtime_ms = 1790020570195
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/e5d32351-225c-4668-a87b-d7258a48e31f/7c77eb38-44bf-4497-aaf5-8709bbe8ab94"
 storage_version_token = "1790020627336564"
 content_type = "image/png"
+
+[[outputs]]
+id = "VCHtnDuE0kZ3uqmEy5kWG"
+uri = "file://tmp/whatsapp-unicode-previews/whatsapp-bottom-nav-fixed-mobile.png"
+type = "image"
+title = "Kinglike Family WhatsApp — Mobile Composer Fix"
+description = "390px Arabic mobile capture after removing the shared bottom navigation and floating shell buttons from this route; the chat composer is fully visible."
+logical_id = "0baa5a08-68ae-4d9d-9d11-85bc169548c9"
+content_hash = "sha256:89cbcfc0c94aa8d7a97f89b364e5e7639b2670b334771616929d06fce2120f82"
+size = 42911
+mtime_ms = 1790022079824
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/0baa5a08-68ae-4d9d-9d11-85bc169548c9/34091b4f-cca3-4387-a36c-b28530fb02c7"
+storage_version_token = "1790022132183414"
+content_type = "image/png"

@@ -51,6 +51,7 @@ type MobilePanel = "employees" | "conversations" | "chat";
 type PreviewState = { kind: "image" | "video"; url: string; title: string } | null;
 
 const FILTERS: ConversationFilter[] = ["all", "unread", "archived", "deleted", "media"];
+const MOBILE_HISTORY_STATE_KEY = "kinglikeFamilyWhatsappPanel";
 const unicodeTextStyle: CSSProperties = {
   unicodeBidi: "plaintext",
   whiteSpace: "pre-wrap",
@@ -153,6 +154,11 @@ function MessageStatus({ status }: { status?: MockMessage["status"] }) {
   );
 }
 
+function MobileBackIcon({ isRtl }: { isRtl: boolean }) {
+  const Icon = isRtl ? ChevronRight : ChevronLeft;
+  return <Icon className="h-5 w-5" />;
+}
+
 function MediaIcon({ kind }: { kind: MediaKind }) {
   if (kind === "image") return <ImageIcon className="h-4 w-4" />;
   if (kind === "video") return <Video className="h-4 w-4" />;
@@ -252,6 +258,7 @@ function ConversationPanel({
   onFilter,
   onSelect,
   onBack,
+  isRtl,
   t,
 }: {
   conversations: MockConversation[];
@@ -262,6 +269,7 @@ function ConversationPanel({
   onFilter: (value: ConversationFilter) => void;
   onSelect: (id: string) => void;
   onBack: () => void;
+  isRtl: boolean;
   t: (key: string, fallback: string) => string;
 }) {
   const filterLabels: Record<ConversationFilter, string> = {
@@ -277,7 +285,7 @@ function ConversationPanel({
       <div className="border-b border-slate-200 bg-white px-4 py-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onBack} aria-label={t("whatsappMonitoring.back", "Back")}>
-            <ChevronLeft className="h-5 w-5" />
+            <MobileBackIcon isRtl={isRtl} />
           </Button>
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-slate-900">{t("whatsappMonitoring.conversations", "Conversations")}</h2>
@@ -505,12 +513,14 @@ function ChatPanel({
   employee,
   onBack,
   onPreview,
+  isRtl,
   t,
 }: {
   conversation: MockConversation | undefined;
   employee: MockEmployee | undefined;
   onBack: () => void;
   onPreview: (preview: Exclude<PreviewState, null>) => void;
+  isRtl: boolean;
   t: (key: string, fallback: string) => string;
 }) {
   if (!conversation) {
@@ -528,7 +538,7 @@ function ChatPanel({
     <section className="flex min-h-0 flex-1 flex-col bg-[#efeae2]">
       <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
         <Button variant="ghost" size="icon" className="lg:hidden" onClick={onBack} aria-label={t("whatsappMonitoring.back", "Back")}>
-          <ChevronLeft className="h-5 w-5" />
+          <MobileBackIcon isRtl={isRtl} />
         </Button>
         <img src={conversation.avatar} alt="" className="h-10 w-10 rounded-full" />
          <div className="min-w-0 flex-1">
@@ -624,7 +634,7 @@ function ChatPanel({
         </div>
       </div>
 
-      <div className="border-t border-slate-200 bg-white px-3 py-3 sm:px-5">
+      <div className="whatsapp-composer border-t border-slate-200 bg-white px-3 py-3 sm:px-5">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <Button type="button" variant="ghost" size="icon" disabled aria-label={t("whatsappMonitoring.attach", "Attach")}>
             <Paperclip className="h-5 w-5 text-slate-400" />
@@ -662,6 +672,7 @@ export default function WhatsappEmployeeMonitoringPage() {
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("employees");
   const [preview, setPreview] = useState<PreviewState>(null);
+  const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
 
   useEffect(() => {
     if (!isLoading && (!user || !user.isAdmin)) navigate("/");
@@ -672,6 +683,25 @@ export default function WhatsappEmployeeMonitoringPage() {
       window.scrollTo({ top: 0, behavior: "auto" });
     }
   }, [mobilePanel]);
+
+  useEffect(() => {
+    const currentState = window.history.state ?? {};
+    window.history.replaceState(
+      { ...currentState, [MOBILE_HISTORY_STATE_KEY]: "employees" },
+      "",
+      window.location.href,
+    );
+
+    const handlePopState = (event: PopStateEvent) => {
+      const panel = event.state?.[MOBILE_HISTORY_STATE_KEY] as MobilePanel | undefined;
+      if (panel === "employees" || panel === "conversations" || panel === "chat") {
+        setMobilePanel(panel);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const filteredConversations = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -695,16 +725,35 @@ export default function WhatsappEmployeeMonitoringPage() {
   const selectedConversation = MOCK_CONVERSATIONS.find((conversation) => conversation.id === selectedConversationId);
   const activeEmployee = MOCK_EMPLOYEES.find((employee) => employee.id === selectedConversation?.employeeId) ?? selectedEmployee;
 
+  const pushMobilePanel = (nextPanel: MobilePanel) => {
+    if (mobilePanel === nextPanel) return;
+    window.history.pushState(
+      { ...(window.history.state ?? {}), [MOBILE_HISTORY_STATE_KEY]: nextPanel },
+      "",
+      window.location.href,
+    );
+    setMobilePanel(nextPanel);
+  };
+
+  const goBackMobilePanel = () => {
+    if (mobilePanel === "employees") return;
+    if (window.history.state?.[MOBILE_HISTORY_STATE_KEY]) {
+      window.history.back();
+      return;
+    }
+    setMobilePanel(mobilePanel === "chat" ? "conversations" : "employees");
+  };
+
   const selectEmployee = (id: string) => {
     setSelectedEmployeeId(id);
     const nextConversation = MOCK_CONVERSATIONS.find((conversation) => id === "all" || conversation.employeeId === id);
     if (nextConversation) setSelectedConversationId(nextConversation.id);
-    setMobilePanel("conversations");
+    pushMobilePanel("conversations");
   };
 
   const selectConversation = (id: string) => {
     setSelectedConversationId(id);
-    setMobilePanel("chat");
+    pushMobilePanel("chat");
   };
 
   if (isLoading || !user?.isAdmin) {
@@ -712,8 +761,8 @@ export default function WhatsappEmployeeMonitoringPage() {
   }
 
   return (
-    <div className="kinglike-family-whatsapp min-h-[calc(100dvh-4rem)] bg-[#f4f8f8] px-3 pb-3 pt-6 sm:p-5 lg:p-7">
-      <div className="mx-auto max-w-[1600px]">
+    <div className="kinglike-family-whatsapp flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-[#f4f8f8] px-3 pb-3 pt-6 sm:p-5 lg:p-7">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#3bcac4]">
@@ -732,17 +781,17 @@ export default function WhatsappEmployeeMonitoringPage() {
           </Badge>
         </div>
 
-        <div className="flex h-[calc(100dvh-11rem)] min-h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-[#005476]/5">
-          <div className={cn("min-w-0 flex-1 lg:flex lg:w-[220px] lg:flex-none", mobilePanel === "employees" ? "flex" : "hidden")}>
+        <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-[#005476]/5">
+          <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[220px] lg:flex-none", mobilePanel === "employees" ? "flex" : "hidden")}>
             <EmployeePanel
               employees={MOCK_EMPLOYEES}
               selectedEmployeeId={selectedEmployeeId}
               onSelect={selectEmployee}
-              onNext={() => setMobilePanel("conversations")}
+              onNext={() => pushMobilePanel("conversations")}
               t={t}
             />
           </div>
-          <div className={cn("min-w-0 flex-1 lg:flex lg:w-[340px] lg:flex-none", mobilePanel === "conversations" ? "flex" : "hidden")}>
+          <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[340px] lg:flex-none", mobilePanel === "conversations" ? "flex" : "hidden")}>
             <ConversationPanel
               conversations={filteredConversations}
               selectedConversationId={selectedConversationId}
@@ -751,16 +800,18 @@ export default function WhatsappEmployeeMonitoringPage() {
               onSearch={setSearch}
               onFilter={setFilter}
               onSelect={selectConversation}
-              onBack={() => setMobilePanel("employees")}
+              onBack={goBackMobilePanel}
+              isRtl={isRtl}
               t={t}
             />
           </div>
-          <div className={cn("min-w-0 flex-1 lg:flex", mobilePanel === "chat" ? "flex" : "hidden")}>
+          <div className={cn("min-h-0 min-w-0 flex-1 lg:flex", mobilePanel === "chat" ? "flex" : "hidden")}>
             <ChatPanel
               conversation={selectedConversation}
               employee={activeEmployee}
-              onBack={() => setMobilePanel("conversations")}
+              onBack={goBackMobilePanel}
               onPreview={setPreview}
+              isRtl={isRtl}
               t={t}
             />
           </div>

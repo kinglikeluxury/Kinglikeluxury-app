@@ -78,12 +78,13 @@ import { KayCallInitiator, KayCallProvider } from "./lib/kay-call";
 function Router() {
   const [location] = useLocation();
   const isKayWorkspace = location === "/admin/kay/my-sales" || location === "/admin/kay-control-center" || location === "/admin/kay/recordings";
+  const isKinglikeFamilyWhatsapp = location === "/admin/whatsapp-monitoring";
 
   return (
     <div className="flex flex-col min-h-screen">
       {!isKayWorkspace && <Navbar />}
-      <FloatingKayCallButton />
-      <main className={`flex-grow ${isKayWorkspace ? "" : "pb-16 md:pb-0"} page-transition`}>
+      {!isKinglikeFamilyWhatsapp && <FloatingKayCallButton />}
+      <main className={`flex-grow ${isKayWorkspace || isKinglikeFamilyWhatsapp ? "" : "pb-16 md:pb-0"} page-transition`}>
         <Switch key={location}>
           <Route path="/" component={Home} />
           <Route path="/properties" component={Properties} />
@@ -154,8 +155,8 @@ function Router() {
       {!isKayWorkspace && <div className="hidden md:block">
         <Footer />
       </div>}
-      {!isKayWorkspace && <BottomNav />}
-      {!isKayWorkspace && <FloatingAIButton />}
+      {!isKayWorkspace && !isKinglikeFamilyWhatsapp && <BottomNav />}
+      {!isKayWorkspace && !isKinglikeFamilyWhatsapp && <FloatingAIButton />}
     </div>
   );
 }
