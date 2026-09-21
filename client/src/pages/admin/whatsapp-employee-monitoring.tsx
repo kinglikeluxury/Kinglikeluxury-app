@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
 import {
@@ -50,6 +50,67 @@ type MobilePanel = "employees" | "conversations" | "chat";
 type PreviewState = { kind: "image" | "video"; url: string; title: string } | null;
 
 const FILTERS: ConversationFilter[] = ["all", "unread", "archived", "deleted", "media"];
+const unicodeTextStyle: CSSProperties = {
+  unicodeBidi: "plaintext",
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
+};
+const technicalTextStyle: CSSProperties = {
+  unicodeBidi: "isolate",
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
+};
+const technicalTokenPattern =
+  /(https?:\/\/[^\s]+|(?:[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,})|\+\d[\d\s().-]{6,}\d|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:\s*[A-Z]{3})?\b|\b\d{1,2}:\d{2}\b)/gu;
+
+function renderUnicodeText(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(technicalTokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    if (index > lastIndex) nodes.push(text.slice(lastIndex, index));
+    nodes.push(
+      <span key={`${index}-${token}`} dir="ltr" style={technicalTextStyle}>
+        {token}
+      </span>,
+    );
+    lastIndex = index + token.length;
+  }
+
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
+}
+
+function UnicodeText({
+  children,
+  className,
+}: {
+  children: string;
+  className?: string;
+}) {
+  return (
+    <span dir="auto" className={className} style={unicodeTextStyle}>
+      {renderUnicodeText(children)}
+    </span>
+  );
+}
+
+function LtrText({
+  children,
+  className,
+}: {
+  children: string;
+  className?: string;
+}) {
+  return (
+    <span dir="ltr" className={className} style={technicalTextStyle}>
+      {children}
+    </span>
+  );
+}
 
 function formatDuration(seconds = 0) {
   return `0:${String(seconds).padStart(2, "0")}`;
@@ -150,7 +211,7 @@ function EmployeePanel({
               </div>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-semibold">{employee.name}</span>
+                   <UnicodeText className="block truncate text-sm font-semibold">{employee.name}</UnicodeText>
                   {employee.id !== "all" && (
                     <span className="text-[10px] text-slate-400">
                       {MOCK_CONVERSATIONS.filter((item) => item.employeeId === employee.id).reduce(
@@ -160,9 +221,11 @@ function EmployeePanel({
                     </span>
                   )}
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-slate-400">
-                  {employee.id === "all" ? employee.role : EMPLOYEE_STATUS_LABELS[employee.status]}
-                </span>
+                 <UnicodeText
+                   className="mt-0.5 block truncate text-xs text-slate-400"
+                 >
+                   {employee.id === "all" ? employee.role : EMPLOYEE_STATUS_LABELS[employee.status]}
+                 </UnicodeText>
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 lg:hidden" />
             </button>
@@ -271,15 +334,17 @@ function ConversationPanel({
                 <img src={conversation.avatar} alt="" className="h-12 w-12 shrink-0 rounded-full" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-slate-800">{conversation.customerName}</span>
-                    <span className="shrink-0 text-[11px] text-slate-400">{lastMessage.time}</span>
+                    <UnicodeText className="block truncate text-sm font-semibold text-slate-800">
+                      {conversation.customerName}
+                    </UnicodeText>
+                    <LtrText className="shrink-0 text-[11px] text-slate-400">{lastMessage.time}</LtrText>
                   </span>
                   <span className="mt-1 flex items-center gap-1.5">
                     {lastMessage.media && <MediaIcon kind={lastMessage.media.kind} />}
                     <span className="truncate text-xs text-slate-500">{getLastMessageLabel(lastMessage)}</span>
                   </span>
                   <span className="mt-1 flex items-center justify-between gap-2">
-                    <span className="truncate text-[11px] text-slate-400">{conversation.customerPhone}</span>
+                     <LtrText className="block truncate text-[11px] text-slate-400">{conversation.customerPhone}</LtrText>
                     {conversation.unreadCount > 0 && (
                       <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#3bcac4] px-1 text-[10px] font-bold text-[#005476]">
                         {conversation.unreadCount}
