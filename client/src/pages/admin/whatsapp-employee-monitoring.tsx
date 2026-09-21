@@ -296,29 +296,82 @@ function ConversationPanel({
   );
 }
 
+function dataUrlToBlobUrl(dataUrl: string) {
+  const [header, base64] = dataUrl.split(",");
+  const mimeType = header.match(/^data:(.*?);base64$/)?.[1] ?? "application/octet-stream";
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+}
+
+function useLocalBlobUrl(dataUrl: string) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const nextBlobUrl = dataUrlToBlobUrl(dataUrl);
+    setBlobUrl(nextBlobUrl);
+
+    return () => {
+      URL.revokeObjectURL(nextBlobUrl);
+    };
+  }, [dataUrl]);
+
+  return blobUrl;
+}
+
 function AudioPreview({ name, durationSeconds = 0 }: { name: string; durationSeconds?: number }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const audioUrl = useLocalBlobUrl(EMPTY_WAV_DATA_URL);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const toggle = async () => {
-    if (isPlaying) {
-      audioRef.current?.pause();
-      setIsPlaying(false);
+    const audio = audioRef.current;
+    if (!audio || !audioUrl) return;
+
+    if (!audio.paused) {
+      audio.pause();
       return;
     }
-    setIsPlaying(true);
-    try {
-      await audioRef.current?.play();
-    } catch {
-      // The local empty WAV is intentionally only a safe fixture; the visual control remains usable.
+
+    if (audio.ended || !Number.isFinite(audio.currentTime)) {
+      audio.currentTime = 0;
     }
-    window.setTimeout(() => setIsPlaying(false), Math.max(durationSeconds * 1000, 900));
+
+    try {
+      await audio.play();
+    } catch {
+      setIsPlaying(false);
+    }
   };
 
   return (
     <div className="flex min-w-[220px] items-center gap-3 rounded-xl bg-white/80 px-3 py-2">
-      <audio ref={audioRef} src={EMPTY_WAV_DATA_URL} preload="metadata" />
-      <Button type="button" size="icon" variant="outline" className="h-8 w-8 rounded-full" onClick={toggle} aria-label={isPlaying ? "Pause audio" : "Play audio"}>
+      <audio
+        ref={audioRef}
+        src={audioUrl ?? undefined}
+        preload="metadata"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          if (audioRef.current) audioRef.current.currentTime = 0;
+        }}
+        onError={() => setIsPlaying(false)}
+      />
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        className="h-8 w-8 rounded-full"
+        onClick={toggle}
+        disabled={!audioUrl}
+        aria-label={isPlaying ? "Pause audio" : "Play audio"}
+      >
         {isPlaying ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 fill-current" />}
       </Button>
       <div className="flex flex-1 items-center gap-0.5">
