@@ -399,3 +399,31 @@ mtime_ms = 1790022079824
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/0baa5a08-68ae-4d9d-9d11-85bc169548c9/34091b4f-cca3-4387-a36c-b28530fb02c7"
 storage_version_token = "1790022132183414"
 content_type = "image/png"
+
+[[outputs]]
+id = "SfiuVte_Wog0Xf7hgMHpK"
+uri = "file://tmp/whatsapp-unicode-previews/font-scope-home-ar.png"
+type = "image"
+title = "Home Arabic — Original Font Scope"
+description = "390px Arabic Home capture showing the original application font stack with no Tajawal Local usage."
+logical_id = "30ec4d8b-f861-4683-9a92-0a2d2eb6e45e"
+content_hash = "sha256:7dce606af856d8f89d8d7caec01d9b42d2f76395e9c34fab04b6e672b3a66dbf"
+size = 15078
+mtime_ms = 1790022299959
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/30ec4d8b-f861-4683-9a92-0a2d2eb6e45e/7d94a063-44d0-4c65-b6c4-2d3b0f88b53a"
+storage_version_token = "1790022312245772"
+content_type = "image/png"
+
+[[outputs]]
+id = "ErDaoC4iO9tr1TQaoJcuR"
+uri = "file://tmp/whatsapp-unicode-previews/font-scope-whatsapp-ar.png"
+type = "image"
+title = "Kinglike Family WhatsApp — Tajawal Local"
+description = "390px Arabic WhatsApp capture showing Tajawal Local applied only inside the WhatsApp page root."
+logical_id = "6cfb1b27-48b8-40b6-84e1-d3ebf2e9126d"
+content_hash = "sha256:9797d187afb0442f9db548a60e1af36110f648639c78b2d99d09f82627a1353d"
+size = 51919
+mtime_ms = 1790022305183
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/6cfb1b27-48b8-40b6-84e1-d3ebf2e9126d/d7c611a4-0ede-4a1f-9dbc-e0f3f2cbef79"
+storage_version_token = "1790022313681248"
+content_type = "image/png"
