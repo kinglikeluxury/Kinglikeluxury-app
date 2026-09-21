@@ -1,0 +1,299 @@
+export type EmployeeStatus = "connected" | "attention" | "disconnected";
+export type MessageDirection = "incoming" | "outgoing";
+export type MessageKind = "text" | "media" | "deleted" | "note";
+export type MediaKind = "image" | "video" | "audio" | "file";
+
+export interface MockEmployee {
+  id: string;
+  name: string;
+  role: string;
+  phone: string;
+  status: EmployeeStatus;
+  avatar: string;
+}
+
+export interface MockMedia {
+  kind: MediaKind;
+  name: string;
+  size?: string;
+  durationSeconds?: number;
+  url: string;
+}
+
+export interface MockMessage {
+  id: string;
+  direction: MessageDirection;
+  kind: MessageKind;
+  text: string;
+  time: string;
+  dateLabel: string;
+  status?: "sent" | "delivered" | "read";
+  replyTo?: string;
+  media?: MockMedia;
+  deletedAt?: string;
+}
+
+export interface MockConversation {
+  id: string;
+  employeeId: string;
+  customerName: string;
+  customerPhone: string;
+  avatar: string;
+  archived?: boolean;
+  unreadCount: number;
+  messages: MockMessage[];
+}
+
+const svgDataUrl = (initials: string, background: string, foreground = "#ffffff") =>
+  `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+      <rect width="160" height="160" rx="80" fill="${background}"/>
+      <text x="80" y="93" text-anchor="middle" font-family="Arial,sans-serif" font-size="48" font-weight="700" fill="${foreground}">${initials}</text>
+    </svg>`,
+  )}`;
+
+const mediaPlaceholder = (label: string, background: string) =>
+  `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+      <rect width="900" height="560" fill="${background}"/>
+      <circle cx="450" cy="235" r="68" fill="rgba(255,255,255,.22)"/>
+      <path d="M425 195l70 40-70 40z" fill="#fff"/>
+      <text x="450" y="390" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="700" fill="#fff">${label}</text>
+      <text x="450" y="430" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="rgba(255,255,255,.8)">Local mock preview</text>
+    </svg>`,
+  )}`;
+
+export const EMPTY_WAV_DATA_URL =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAAA";
+
+export const MOCK_PDF_DATA_URL =
+  "data:application/pdf;charset=utf-8,%25PDF-1.4%0A%25%20Kinglike%20Luxury%20mock%20document%0A";
+
+export const MOCK_EMPLOYEES: MockEmployee[] = [
+  {
+    id: "all",
+    name: "All Employees",
+    role: "Monitoring overview",
+    phone: "Company workspace",
+    status: "connected",
+    avatar: svgDataUrl("ALL", "#005476"),
+  },
+  {
+    id: "samer",
+    name: "Samer",
+    role: "Property Advisor",
+    phone: "+999 555 0101",
+    status: "connected",
+    avatar: svgDataUrl("SA", "#3bcac4"),
+  },
+  {
+    id: "fadi",
+    name: "Fadi",
+    role: "Sales Advisor",
+    phone: "+999 555 0102",
+    status: "attention",
+    avatar: svgDataUrl("FA", "#005476"),
+  },
+  {
+    id: "joanna",
+    name: "Joanna",
+    role: "Client Relations",
+    phone: "+999 555 0103",
+    status: "disconnected",
+    avatar: svgDataUrl("JO", "#64748b"),
+  },
+];
+
+export const MOCK_CONVERSATIONS: MockConversation[] = [
+  {
+    id: "conversation-demo-1",
+    employeeId: "samer",
+    customerName: "Lina Demo",
+    customerPhone: "+999 555 1001",
+    avatar: svgDataUrl("LD", "#d97706"),
+    unreadCount: 2,
+    messages: [
+      {
+        id: "message-1",
+        direction: "incoming",
+        kind: "text",
+        text: "مرحباً، أريد معرفة تفاصيل المشروع التجريبي.",
+        time: "09:12",
+        dateLabel: "Today",
+      },
+      {
+        id: "message-2",
+        direction: "outgoing",
+        kind: "text",
+        text: "أهلاً Lina، سأرسل لك الملخص الآن.",
+        time: "09:14",
+        dateLabel: "Today",
+        status: "read",
+      },
+      {
+        id: "message-3",
+        direction: "outgoing",
+        kind: "media",
+        text: "Project overview",
+        time: "09:15",
+        dateLabel: "Today",
+        status: "delivered",
+        media: {
+          kind: "image",
+          name: "project-overview.jpg",
+          size: "420 KB",
+          url: mediaPlaceholder("PROJECT", "#005476"),
+        },
+      },
+      {
+        id: "message-4",
+        direction: "incoming",
+        kind: "text",
+        text: "شكراً، هل يوجد موعد متاح غداً؟",
+        time: "09:18",
+        dateLabel: "Today",
+      },
+      {
+        id: "message-5",
+        direction: "outgoing",
+        kind: "text",
+        text: "نعم، أستطيع حجز الساعة 11:30.",
+        time: "09:20",
+        dateLabel: "Today",
+        status: "read",
+        replyTo: "شكراً، هل يوجد موعد متاح غداً؟",
+      },
+      {
+        id: "message-6",
+        direction: "incoming",
+        kind: "media",
+        text: "Voice note",
+        time: "09:23",
+        dateLabel: "Today",
+        media: {
+          kind: "audio",
+          name: "voice-note.wav",
+          durationSeconds: 12,
+          url: EMPTY_WAV_DATA_URL,
+        },
+      },
+    ],
+  },
+  {
+    id: "conversation-demo-2",
+    employeeId: "samer",
+    customerName: "Alex Sample",
+    customerPhone: "+999 555 1002",
+    avatar: svgDataUrl("AS", "#7c3aed"),
+    unreadCount: 0,
+    archived: true,
+    messages: [
+      {
+        id: "message-7",
+        direction: "incoming",
+        kind: "text",
+        text: "Could you send the sample floor plan?",
+        time: "Yesterday",
+        dateLabel: "Yesterday",
+      },
+      {
+        id: "message-8",
+        direction: "outgoing",
+        kind: "media",
+        text: "Here is the sample file.",
+        time: "Yesterday",
+        dateLabel: "Yesterday",
+        status: "read",
+        media: {
+          kind: "file",
+          name: "sample-floor-plan.pdf",
+          size: "180 KB",
+          url: MOCK_PDF_DATA_URL,
+        },
+      },
+    ],
+  },
+  {
+    id: "conversation-demo-3",
+    employeeId: "fadi",
+    customerName: "Maya Example",
+    customerPhone: "+999 555 1003",
+    avatar: svgDataUrl("ME", "#0f766e"),
+    unreadCount: 1,
+    messages: [
+      {
+        id: "message-9",
+        direction: "incoming",
+        kind: "text",
+        text: "Is the video walkthrough available in English?",
+        time: "11:02",
+        dateLabel: "Today",
+      },
+      {
+        id: "message-10",
+        direction: "outgoing",
+        kind: "media",
+        text: "Video walkthrough",
+        time: "11:05",
+        dateLabel: "Today",
+        status: "delivered",
+        media: {
+          kind: "video",
+          name: "walkthrough.mp4",
+          size: "2.1 MB",
+          url: mediaPlaceholder("VIDEO", "#0f766e"),
+        },
+      },
+      {
+        id: "message-11",
+        direction: "incoming",
+        kind: "deleted",
+        text: "This message was removed from WhatsApp.",
+        time: "11:07",
+        dateLabel: "Today",
+        deletedAt: "11:08",
+      },
+      {
+        id: "message-12",
+        direction: "outgoing",
+        kind: "note",
+        text: "Internal note: confirm the English brochure before the next follow-up.",
+        time: "11:10",
+        dateLabel: "Today",
+      },
+    ],
+  },
+  {
+    id: "conversation-demo-4",
+    employeeId: "joanna",
+    customerName: "Noor Placeholder",
+    customerPhone: "+999 555 1004",
+    avatar: svgDataUrl("NP", "#be185d"),
+    unreadCount: 0,
+    messages: [
+      {
+        id: "message-13",
+        direction: "incoming",
+        kind: "text",
+        text: "مرحباً، أرسلوا لي أوقات الزيارة المتاحة.",
+        time: "Mon",
+        dateLabel: "Monday",
+      },
+      {
+        id: "message-14",
+        direction: "outgoing",
+        kind: "text",
+        text: "بكل سرور، هذه أوقات الزيارة التجريبية.",
+        time: "Mon",
+        dateLabel: "Monday",
+        status: "sent",
+      },
+    ],
+  },
+];
+
+export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = {
+  connected: "Connected",
+  attention: "Attention Required",
+  disconnected: "Disconnected",
+};
