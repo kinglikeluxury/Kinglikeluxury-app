@@ -666,6 +666,12 @@ export default function WhatsappEmployeeMonitoringPage() {
     if (!isLoading && (!user || !user.isAdmin)) navigate("/");
   }, [isLoading, navigate, user]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [mobilePanel]);
+
   const filteredConversations = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return MOCK_CONVERSATIONS.filter((conversation) => {
@@ -705,7 +711,7 @@ export default function WhatsappEmployeeMonitoringPage() {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-[#f4f8f8] p-3 sm:p-5 lg:p-7">
+    <div className="min-h-[calc(100dvh-4rem)] bg-[#f4f8f8] px-3 pb-3 pt-6 sm:p-5 lg:p-7">
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
