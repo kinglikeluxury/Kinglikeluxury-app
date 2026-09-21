@@ -32,6 +32,7 @@
 - [Kay direct caller live verification](kay-direct-caller-live-verification.md) — single-browser in-app ring, answer, local Arabic voice, microphone controls, and hangup were confirmed live.
 - [Kay voice branch reconciliation](kay-voice-branch-reconciliation.md) — reconcile an advanced remote voice branch in an isolated worktree and fast-forward only; never force-push over remote features.
 - [RunPod zero-scale drain](runpod-zero-scale-drain.md) — workersMax=0 can leave a worker draining briefly; verify endpoint health reaches all-zero before declaring shutdown.
+- [RunPod queued-job startup](runpod-queued-job-startup.md) — a scale-to-zero endpoint can leave a job queued with all worker counters at zero; never retry before canceling and draining.
 - [Kay recording foundation](kay-recording-foundation.md) — keep audio outside PostgreSQL; admin-only signed playback stays fail-closed until private storage is provisioned.
 - [R2 SigV4 transport](r2-sigv4-transport.md) — R2 Authorization has no comma after the algorithm; empty object requests need zero content length and fetch transport.
 - [Kay browser audio capture](kay-browser-audio-capture.md) — speechSynthesis is audible but not a MediaStream; direct virtual calls must fail closed instead of becoming READY.
