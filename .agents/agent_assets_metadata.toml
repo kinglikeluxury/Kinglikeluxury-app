@@ -301,3 +301,59 @@ mtime_ms = 1789839228635
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/f5bd9304-b163-4e34-bdaa-c109ddb03ceb/4f0957b0-1748-4744-926a-587f4933b2c2"
 storage_version_token = "1789839353762771"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "zJWtASxhkQePEo8DldCyx"
+uri = "file://tmp/whatsapp-unicode-previews/whatsapp-unicode-en-mobile.png"
+type = "image"
+title = "WhatsApp Unicode — English Mobile"
+description = "English UI at mobile width."
+logical_id = "3b077cf5-6892-4217-87fe-b0018fa6a4dd"
+content_hash = "sha256:190462c0dd409227303e0ca0fd14e276de5909f250aa0714992704a08cd73766"
+size = 74403
+mtime_ms = 1790018482357
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/3b077cf5-6892-4217-87fe-b0018fa6a4dd/af76b038-397e-4535-afed-e317d6f83026"
+storage_version_token = "1790018487959730"
+content_type = "image/png"
+
+[[outputs]]
+id = "xZwU14p0kHClNEoOKZcPz"
+uri = "file://tmp/whatsapp-unicode-previews/whatsapp-unicode-ar-mobile.png"
+type = "image"
+title = "WhatsApp Unicode — Arabic Mobile"
+description = "Arabic UI at mobile width."
+logical_id = "6100c907-69f3-4f87-ae35-d04f2140a345"
+content_hash = "sha256:8deb9c972b55ffec2a5b0076c4a13c14ff37f9182a48abb60cf78c9eb8b86141"
+size = 73685
+mtime_ms = 1790018482361
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/6100c907-69f3-4f87-ae35-d04f2140a345/2d6933da-1e3b-4084-b846-6a95d6eb7705"
+storage_version_token = "1790018490134643"
+content_type = "image/png"
+
+[[outputs]]
+id = "SvQmP8de0npx-IIoNHqRK"
+uri = "file://tmp/whatsapp-unicode-previews/whatsapp-unicode-en-desktop.png"
+type = "image"
+title = "WhatsApp Unicode — English Desktop"
+description = "English UI at desktop width."
+logical_id = "6f2d7fa1-763d-4a7a-b257-5d3ffa38e386"
+content_hash = "sha256:4a5e58d1ef42dfab759e37523fd5a259b9b3534e24a8d57642ecd5cdc4f1df7d"
+size = 205498
+mtime_ms = 1790018482366
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/6f2d7fa1-763d-4a7a-b257-5d3ffa38e386/ae975250-517d-4f2b-b5ec-f6126f0ffb71"
+storage_version_token = "1790018492288187"
+content_type = "image/png"
+
+[[outputs]]
+id = "rO4bBuyNiL4zqg3v4HZkn"
+uri = "file://tmp/whatsapp-unicode-previews/whatsapp-unicode-ar-desktop.png"
+type = "image"
+title = "WhatsApp Unicode — Arabic Desktop"
+description = "Arabic UI at desktop width."
+logical_id = "0edc52c1-a6d5-4f61-8a7d-39098951f5b3"
+content_hash = "sha256:a559206ae80761e687f80d0c45b871361673aff155494a8078b791ef125b32d7"
+size = 199243
+mtime_ms = 1790018482371
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/0edc52c1-a6d5-4f61-8a7d-39098951f5b3/8158defc-b1ea-4af9-8329-f20e1f26583d"
+storage_version_token = "1790018494432246"
+content_type = "image/png"
