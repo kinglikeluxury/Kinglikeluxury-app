@@ -365,11 +365,13 @@ function MessageMedia({
       </div>
     );
   }
+  if (media.kind !== "image" && media.kind !== "video") return null;
+  const previewKind = media.kind as "image" | "video";
   return (
     <button
       type="button"
       className="group relative block overflow-hidden rounded-xl text-start"
-      onClick={() => onPreview({ kind: media.kind, url: media.url, title: media.name })}
+      onClick={() => onPreview({ kind: previewKind, url: media.url, title: media.name })}
     >
       <img src={media.url} alt={media.name} className="max-h-56 w-full max-w-[290px] object-cover transition-transform group-hover:scale-[1.02]" />
       <span className="absolute bottom-2 start-2 rounded-full bg-black/55 px-2 py-1 text-[11px] text-white">
