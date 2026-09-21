@@ -427,3 +427,45 @@ mtime_ms = 1790022516919
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/6cfb1b27-48b8-40b6-84e1-d3ebf2e9126d/111b88c1-8879-439a-aa76-2659862f75e9"
 storage_version_token = "1790022526204848"
 content_type = "image/png"
+
+[[outputs]]
+id = "cgMai2j3J6yjKsNIyvaK9"
+uri = "file://tmp/whatsapp-unicode-previews/preview-home-ar.png"
+type = "image"
+title = "Preview Home Arabic — Production Font Match"
+description = "1440x1000 Arabic Home capture after the splash screen, used for the Production comparison."
+logical_id = "541330d0-857a-48c3-91ba-6924df3f77e3"
+content_hash = "sha256:2544413f0e21c34679b2f26136625f7d5ac896ebd5b6e2a4615343358a3f94b0"
+size = 424327
+mtime_ms = 1790023265643
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/541330d0-857a-48c3-91ba-6924df3f77e3/7ee1ade0-15ef-44ee-80fe-a642c6416a14"
+storage_version_token = "1790023287004193"
+content_type = "image/png"
+
+[[outputs]]
+id = "7kQ4dA8AN8rMR1aK8eyLa"
+uri = "file://tmp/whatsapp-unicode-previews/preview-property-detail-ar.png"
+type = "image"
+title = "Preview Property Details Arabic — Production Font Match"
+description = "1440x1000 Arabic property details capture after the splash screen."
+logical_id = "9270ac68-34a8-4e31-bc51-afc3c2d62609"
+content_hash = "sha256:110ff588e51e03329bd4b7c9d6ad53946fa74a3ceea340827469a14c5ba9c6aa"
+size = 576402
+mtime_ms = 1790023272375
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/9270ac68-34a8-4e31-bc51-afc3c2d62609/36871acb-76a0-43fa-ba49-fee3b3c6e62a"
+storage_version_token = "1790023290098895"
+content_type = "image/png"
+
+[[outputs]]
+id = "d341aLsmDgu71IWfBxAnC"
+uri = "file://tmp/whatsapp-unicode-previews/preview-whatsapp-ar.png"
+type = "image"
+title = "Preview Kinglike Family WhatsApp Arabic"
+description = "390x844 Arabic WhatsApp capture showing the locally scoped Tajawal Local font."
+logical_id = "683972d3-8c73-49ec-9b40-f5b116af8fae"
+content_hash = "sha256:9797d187afb0442f9db548a60e1af36110f648639c78b2d99d09f82627a1353d"
+size = 51919
+mtime_ms = 1790023133339
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/683972d3-8c73-49ec-9b40-f5b116af8fae/e2f04a00-c264-4b63-a0a8-7aa9a2f300fb"
+storage_version_token = "1790023291566486"
+content_type = "image/png"
