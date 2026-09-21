@@ -44,7 +44,10 @@ import {
   type MockEmployee,
   type MockMessage,
 } from "@/lib/whatsappEmployeeMonitoringMock";
-import "./whatsapp-employee-monitoring.css";
+import whatsappMonitoringStyles from "./whatsapp-employee-monitoring.css?raw";
+import tajawalBoldUrl from "@/assets/fonts/tajawal/Tajawal-Bold.woff2";
+import tajawalMediumUrl from "@/assets/fonts/tajawal/Tajawal-Medium.woff2";
+import tajawalRegularUrl from "@/assets/fonts/tajawal/Tajawal-Regular.woff2";
 
 type ConversationFilter = "all" | "unread" | "archived" | "deleted" | "media";
 type MobilePanel = "employees" | "conversations" | "chat";
@@ -52,6 +55,11 @@ type PreviewState = { kind: "image" | "video"; url: string; title: string } | nu
 
 const FILTERS: ConversationFilter[] = ["all", "unread", "archived", "deleted", "media"];
 const MOBILE_HISTORY_STATE_KEY = "kinglikeFamilyWhatsappPanel";
+const WHATSAPP_STYLE_ID = "kinglike-family-whatsapp-styles";
+const scopedWhatsappStyles = whatsappMonitoringStyles
+  .replaceAll("../../assets/fonts/tajawal/Tajawal-Regular.woff2", tajawalRegularUrl)
+  .replaceAll("../../assets/fonts/tajawal/Tajawal-Medium.woff2", tajawalMediumUrl)
+  .replaceAll("../../assets/fonts/tajawal/Tajawal-Bold.woff2", tajawalBoldUrl);
 const unicodeTextStyle: CSSProperties = {
   unicodeBidi: "plaintext",
   whiteSpace: "pre-wrap",
@@ -673,6 +681,19 @@ export default function WhatsappEmployeeMonitoringPage() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("employees");
   const [preview, setPreview] = useState<PreviewState>(null);
   const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
+
+  useEffect(() => {
+    document.getElementById(WHATSAPP_STYLE_ID)?.remove();
+
+    const style = document.createElement("style");
+    style.id = WHATSAPP_STYLE_ID;
+    style.textContent = scopedWhatsappStyles;
+    document.head.appendChild(style);
+
+    return () => {
+      style.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoading && (!user || !user.isAdmin)) navigate("/");
