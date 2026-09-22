@@ -469,3 +469,45 @@ mtime_ms = 1790023133339
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/683972d3-8c73-49ec-9b40-f5b116af8fae/e2f04a00-c264-4b63-a0a8-7aa9a2f300fb"
 storage_version_token = "1790023291566486"
 content_type = "image/png"
+
+[[outputs]]
+id = "lOw9CGTOkYSGcFtHmDLVM"
+uri = "file://tmp/whatsapp-unicode-previews/home-before-final-ar.png"
+type = "image"
+title = "Home Arabic — Before WhatsApp"
+description = "Preview capture after restart and test-session cache/service-worker cleanup, before opening WhatsApp."
+logical_id = "6675b04b-b13e-4816-b72a-4a5b5d3eb4a7"
+content_hash = "sha256:5b7bc2fb9ab49db3da4ed19732f67255afca1366e30cee3c4f60b3a704a9cfd6"
+size = 424586
+mtime_ms = 1790085958455
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/6675b04b-b13e-4816-b72a-4a5b5d3eb4a7/2536a5ff-5514-42f5-ad97-501cf4e1c0e0"
+storage_version_token = "1790086235879479"
+content_type = "image/png"
+
+[[outputs]]
+id = "RVnOHPRaR2Npa9HscAK8y"
+uri = "file://tmp/whatsapp-unicode-previews/home-after-final-ar.png"
+type = "image"
+title = "Home Arabic — After Leaving WhatsApp"
+description = "Preview capture after opening WhatsApp and returning to Home; public CSS remains present and Tajawal Local is absent."
+logical_id = "60e82d3f-946e-4125-bff4-97cd402d7c35"
+content_hash = "sha256:dcf6d72f9bf2cf32ada358b703ac06b9d7f618eb2050b6b65e0665a199063b76"
+size = 434742
+mtime_ms = 1790085968939
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/60e82d3f-946e-4125-bff4-97cd402d7c35/a848a220-76be-4ebd-8f78-fceeeff8a1c5"
+storage_version_token = "1790086238989240"
+content_type = "image/png"
+
+[[outputs]]
+id = "_K93xcLFnITG2cj5UUZEI"
+uri = "file://tmp/whatsapp-unicode-previews/whatsapp-after-restart-ar.png"
+type = "image"
+title = "Kinglike Family WhatsApp — Tajawal Local Scope"
+description = "Preview capture of WhatsApp after restart; the local WhatsApp stylesheet is active inside the page."
+logical_id = "422f2b8a-fba3-4423-80a3-5a2889d59133"
+content_hash = "sha256:22c40b4722d20e1d7a97939b1a64aca6aa796cd27bae03ca813e456d73c891e8"
+size = 55720
+mtime_ms = 1790085836312
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:a85647cc-20f7-42b2-af3d-8fb35590c342/422f2b8a-fba3-4423-80a3-5a2889d59133/d3bc9ca6-a3b5-48da-aebd-f8f74b98920f"
+storage_version_token = "1790086240469690"
+content_type = "image/png"
