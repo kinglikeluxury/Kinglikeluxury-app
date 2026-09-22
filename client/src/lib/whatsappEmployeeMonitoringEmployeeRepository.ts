@@ -44,9 +44,24 @@ type EmployeeMessagesResponse = {
 
 const localFilePreview = "data:application/pdf;charset=utf-8,%25PDF-1.4%0A%25%20LOCAL%20MOCK%20DOCUMENT%0A";
 
-function avatarDataUrl(initials: string, color: string): string {
+const fallbackAvatarColor = "#005476";
+
+function escapeSvgText(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&apos;",
+  }[character] ?? character));
+}
+
+export function avatarDataUrl(initials: string, color: string): string {
+  const safeInitials = escapeSvgText(initials);
+  const safeColor = /^#[0-9a-f]{6}$/i.test(color) ? color : fallbackAvatarColor;
+
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-    `<svg width="160" height="160"><rect width="160" height="160" rx="80" fill="${color}"/><text x="80" y="93" text-anchor="middle" font-family="Arial,sans-serif" font-size="48" font-weight="700" fill="#fff">${initials}</text></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" rx="80" fill="${safeColor}"/><text x="80" y="93" text-anchor="middle" font-family="Arial,sans-serif" font-size="48" font-weight="700" fill="#fff">${safeInitials}</text></svg>`,
   )}`;
 }
 

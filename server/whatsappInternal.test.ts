@@ -15,6 +15,7 @@ import {
 } from "./whatsappInternalRepository";
 import { WhatsappInternalService } from "./whatsappInternalService";
 import { parseListQuery } from "./whatsappInternalRoutes";
+import { avatarDataUrl } from "../client/src/lib/whatsappEmployeeMonitoringEmployeeRepository";
 
 const request = (session: Record<string, unknown> = {}, body?: unknown): Request =>
   ({ session, body, headers: {}, header: () => undefined } as unknown as Request);
@@ -98,6 +99,23 @@ test("WhatsApp auth returns 401 and 403 at the middleware boundary", async () =>
     async () => ({ id: 1, role: "sub_agent", isAdmin: false, isActive: false }),
   );
   assert.equal(inactiveEmployee.statusCode, 403);
+});
+
+test("Employee avatar data URLs are valid SVG and safely encoded", () => {
+  const safeUrl = avatarDataUrl("LQ", "#0f766e");
+  const safeSvg = decodeURIComponent(safeUrl.split(",", 2)[1] ?? "");
+
+  assert.match(safeUrl, /^data:image\/svg\+xml;charset=UTF-8,/);
+  assert.match(safeSvg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+  assert.match(safeSvg, />LQ<\/text><\/svg>$/);
+  assert.match(safeSvg, /fill="#0f766e"/);
+
+  const hostileUrl = avatarDataUrl(`<svg onload="alert('x')">&`, `url("https://attacker.example/avatar")`);
+  const hostileSvg = decodeURIComponent(hostileUrl.split(",", 2)[1] ?? "");
+
+  assert.match(hostileSvg, /&lt;svg onload=&quot;alert\(&apos;x&apos;\)&quot;&gt;&amp;<\/text>/);
+  assert.doesNotMatch(hostileSvg, /<svg onload|<script|attacker\.example|url\(/i);
+  assert.match(hostileSvg, /fill="#005476"/);
 });
 
 test("employee auth uses the current user record and updates session only after success", async () => {
