@@ -43,6 +43,7 @@ import { registerDeveloperRegistrationRoutes, ensureDeveloperRegistrationRouteTa
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
 import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
+import { registerWhatsappInternalRoutes } from "./whatsappInternalRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
 import { registerWebinarCampaignRoutes } from "./webinarCampaign";
@@ -258,6 +259,7 @@ app.use((req, res, next) => {
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
   registerWhatsappApiHistoryRoutes(app);
+  registerWhatsappInternalRoutes(app);
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
   registerBroadcastRoutes(app);

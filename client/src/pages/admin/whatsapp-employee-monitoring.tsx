@@ -35,8 +35,6 @@ import { useAuth } from "@/lib/auth";
 import {
   EMPLOYEE_STATUS_LABELS,
   EMPTY_WAV_DATA_URL,
-  MOCK_CONVERSATIONS,
-  MOCK_EMPLOYEES,
   MOCK_PDF_DATA_URL,
   type EmployeeStatus,
   type MediaKind,
@@ -44,6 +42,7 @@ import {
   type MockEmployee,
   type MockMessage,
 } from "@/lib/whatsappEmployeeMonitoringMock";
+import { whatsappMonitoringRepository } from "@/lib/whatsappEmployeeMonitoringRepository";
 import whatsappMonitoringStyles from "./whatsapp-employee-monitoring.css?raw";
 import tajawalBoldUrl from "@/assets/fonts/tajawal/Tajawal-Bold.woff2";
 import tajawalMediumUrl from "@/assets/fonts/tajawal/Tajawal-Medium.woff2";
@@ -73,6 +72,8 @@ const technicalTextStyle: CSSProperties = {
 };
 const technicalTokenPattern =
   /(https?:\/\/[^\s]+|(?:[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,})|\+\d[\d\s().-]{6,}\d|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:\s*[A-Z]{3})?\b|\b\d{1,2}:\d{2}\b)/gu;
+const MOCK_EMPLOYEES = whatsappMonitoringRepository.listEmployees();
+const MOCK_CONVERSATIONS = whatsappMonitoringRepository.listConversations();
 
 function renderUnicodeText(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
