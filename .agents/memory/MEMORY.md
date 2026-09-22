@@ -44,3 +44,4 @@
 - [Public Arabic font policy](public-arabic-font-policy.md) — public typography is frozen; Tajawal Local remains scoped to Kinglike Family WhatsApp only.
 - [Arabic font reference captures](arabic-font-reference-captures.md) — the older mobile Home preview is a splash capture, not a rendered Home baseline.
 - [Employee WhatsApp boundary](employee-whatsapp-boundary.md) — Employee UI uses independent shared presentation code and employee endpoints, never an Admin-page or Admin-repository import.
+- [Visual QA splash timing](visual-qa-splash-timing.md) — wait for the 3.4s app splash to finish before capturing rendered-route screenshots.
