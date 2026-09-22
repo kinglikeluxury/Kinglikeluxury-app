@@ -42,3 +42,4 @@
 - [RunPod remote image builds](runpod-remote-image-build.md) — local Docker cannot extract the CUDA base under its quota; use the repository GitHub Actions build and verify its immutable GHCR tag.
 - [Mobile shell panel sizing](mobile-shell-panel-sizing.md) — when a fixed mobile shell is removed, constrain the page viewport and set nested flex panels to min-height: 0 so chat scrolling stays inside the panel.
 - [Public Arabic font policy](public-arabic-font-policy.md) — public typography is frozen; Tajawal Local remains scoped to Kinglike Family WhatsApp only.
+- [Arabic font reference captures](arabic-font-reference-captures.md) — the older mobile Home preview is a splash capture, not a rendered Home baseline.
