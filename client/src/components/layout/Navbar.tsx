@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Crown, LayoutDashboard, ListTodo } from "lucide-react";
+import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Crown, LayoutDashboard, ListTodo, MessageSquare } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
@@ -233,6 +233,14 @@ const Navbar = () => {
                               Tasks / المهام
                             </Link>
                           </DropdownMenuItem>
+                          {user.isActive === true && user.isAdmin !== true && (
+                            <DropdownMenuItem asChild>
+                              <Link href="/employee/whatsapp" className="flex items-center gap-2">
+                                <MessageSquare className="w-3.5 h-3.5" style={{ color: "#3bcac4" }} />
+                                Kinglike Family WhatsApp
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
                         </>
                       )}
 

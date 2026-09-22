@@ -77,6 +77,7 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     isAdmin: boolean;
+    isActive: boolean;
     role: string;
     kayLegacyBaselineConfirmation?: { token: string; adminId: number; fingerprint: string; limit: number; expiresAt: number; candidates: Array<{id:number;status:string;trusted:boolean;existing:boolean}> };
   }
@@ -1527,6 +1528,7 @@ ${metaTags}
 
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
+      req.session.isActive = user.isActive === true;
       req.session.role = user.role ?? "user";
 
       // Fire-and-forget welcome notifications
@@ -1538,6 +1540,8 @@ ${metaTags}
         username: user.username,
         authMethod: user.authMethod,
         isAdmin: user.isAdmin,
+        isActive: user.isActive === true,
+        role: user.role ?? "user",
       };
       if (user.email) userResponse.email = user.email;
       if (user.phoneNumber) userResponse.phoneNumber = user.phoneNumber;
@@ -1660,6 +1664,7 @@ ${metaTags}
       // Set session
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
+      req.session.isActive = user.isActive === true;
       req.session.role = user.role ?? "user";
       
       // Return appropriate user data
@@ -1668,6 +1673,7 @@ ${metaTags}
         username: user.username,
         authMethod: user.authMethod,
         isAdmin: user.isAdmin,
+        isActive: user.isActive === true,
         role: user.role ?? "user",
       };
       
@@ -1900,6 +1906,11 @@ ${metaTags}
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Refresh the trusted session flags from the database on every auth check.
+    req.session.isAdmin = user.isAdmin === true;
+    req.session.isActive = user.isActive === true;
+    req.session.role = user.role ?? "user";
     
     res.json({ 
       id: user.id, 
@@ -1908,6 +1919,7 @@ ${metaTags}
       phoneNumber: user.phoneNumber,
       authMethod: user.authMethod,
       isAdmin: user.isAdmin,
+      isActive: user.isActive === true,
       role: user.role ?? "user",
     });
   });

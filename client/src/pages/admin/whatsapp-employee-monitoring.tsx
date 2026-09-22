@@ -48,9 +48,9 @@ import tajawalBoldUrl from "@/assets/fonts/tajawal/Tajawal-Bold.woff2";
 import tajawalMediumUrl from "@/assets/fonts/tajawal/Tajawal-Medium.woff2";
 import tajawalRegularUrl from "@/assets/fonts/tajawal/Tajawal-Regular.woff2";
 
-type ConversationFilter = "all" | "unread" | "archived" | "deleted" | "media";
+export type ConversationFilter = "all" | "unread" | "archived" | "deleted" | "media";
 type MobilePanel = "employees" | "conversations" | "chat";
-type PreviewState = { kind: "image" | "video"; url: string; title: string } | null;
+export type PreviewState = { kind: "image" | "video"; url: string; title: string } | null;
 
 const FILTERS: ConversationFilter[] = ["all", "unread", "archived", "deleted", "media"];
 const MOBILE_HISTORY_STATE_KEY = "kinglikeFamilyWhatsappPanel";
@@ -175,7 +175,7 @@ function MediaIcon({ kind }: { kind: MediaKind }) {
   return <FileText className="h-4 w-4" />;
 }
 
-function EmployeePanel({
+export function EmployeePanel({
   employees,
   selectedEmployeeId,
   onSelect,
@@ -258,7 +258,7 @@ function EmployeePanel({
   );
 }
 
-function ConversationPanel({
+export function ConversationPanel({
   conversations,
   selectedConversationId,
   search,
@@ -517,7 +517,7 @@ function MessageMedia({
   );
 }
 
-function ChatPanel({
+export function ChatPanel({
   conversation,
   employee,
   onBack,
@@ -697,7 +697,12 @@ export default function WhatsappEmployeeMonitoringPage() {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && (!user || !user.isAdmin)) navigate("/");
+    if (isLoading) return;
+    if (user?.role === "sub_agent" && user.isActive === true && user.isAdmin !== true) {
+      navigate("/employee/whatsapp");
+      return;
+    }
+    if (!user || !user.isAdmin) navigate("/");
   }, [isLoading, navigate, user]);
 
   useEffect(() => {

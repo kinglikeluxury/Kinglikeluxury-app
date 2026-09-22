@@ -54,13 +54,17 @@ test("WhatsApp auth returns 401 and 403 at the middleware boundary", () => {
   const employeeOnAdminRoute = response();
   requireWhatsappEmployee(request({ userId: 9, isAdmin: true, role: "admin" }), employeeOnAdminRoute.res, () => undefined);
   assert.equal(employeeOnAdminRoute.statusCode, 403);
+
+  const inactiveEmployee = response();
+  requireWhatsappEmployee(request({ userId: 1, isAdmin: false, role: "sub_agent", isActive: false }), inactiveEmployee.res, () => undefined);
+  assert.equal(inactiveEmployee.statusCode, 403);
 });
 
 test("admin sees all mock employees and employee sees only owned conversations", async () => {
   clearWhatsappAuditEntries();
   const service = await serviceFor();
   const admin = { userId: 99, role: "admin", isAdmin: true };
-  const employee = { userId: 1, role: "sub_agent", isAdmin: false };
+  const employee = { userId: 1, role: "sub_agent", isAdmin: false, isActive: true };
   const query = { offset: 0, limit: 100 };
 
   const allEmployees = await service.listEmployees(request(), admin, query);
@@ -73,7 +77,7 @@ test("admin sees all mock employees and employee sees only owned conversations",
 
 test("conversation ownership blocks IDOR without revealing another employee's conversation", async () => {
   const service = await serviceFor();
-  const employee = { userId: 1, role: "sub_agent", isAdmin: false };
+  const employee = { userId: 1, role: "sub_agent", isAdmin: false, isActive: true };
   const own = await service.getConversationMessages(request(), employee, "conversation-demo-1");
   assert.equal(own.conversation.employeeId, "samer");
   await assert.rejects(
@@ -130,6 +134,30 @@ test("session actor identity is required and role matching is exact", () => {
   const actor = getWhatsappActor(request({ userId: 1, isAdmin: false, role: "sub_agent_extra" }));
   assert.ok(actor);
   assert.equal(isWhatsappEmployee(actor), false);
+});
+
+test("an active sub-agent without an explicit mock mapping receives no conversations", async () => {
+  const service = await serviceFor();
+  const unmappedEmployee = { userId: 99999, role: "sub_agent", isAdmin: false, isActive: true };
+  const result = await service.listConversations(request(), unmappedEmployee, { offset: 0, limit: 100 });
+  assert.deepEqual(result.items, []);
+  assert.equal(result.total, 0);
+});
+
+test("employee UI uses only employee endpoints and does not import the local repository", () => {
+  const pageSource = readFileSync(new URL("../client/src/pages/employee/whatsapp.tsx", import.meta.url), "utf8");
+  const repositorySource = readFileSync(new URL("../client/src/lib/whatsappEmployeeMonitoringEmployeeRepository.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(pageSource, /whatsappEmployeeMonitoringRepository/);
+  assert.doesNotMatch(repositorySource, /\/api\/admin\/whatsapp/);
+  assert.match(repositorySource, /\/api\/employee\/whatsapp\/conversations/);
+  assert.match(repositorySource, /credentials:\s*"include"/);
+});
+
+test("employee workspace does not render the employee panel in employee mode", () => {
+  const source = readFileSync(new URL("../client/src/components/whatsapp/WhatsAppMonitoringWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(source, /workspaceMode === "admin"/);
+  assert.match(source, /EmployeePanel/);
+  assert.match(source, /workspaceMode === "employee"/);
 });
 
 test("pagination validation is bounded and rejects negative, non-numeric, and unsupported values", () => {

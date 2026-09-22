@@ -6,6 +6,7 @@ export interface WhatsappActor {
   userId: number;
   role: string;
   isAdmin: boolean;
+  isActive: boolean;
 }
 
 export function getWhatsappActor(req: Request): WhatsappActor | null {
@@ -17,6 +18,7 @@ export function getWhatsappActor(req: Request): WhatsappActor | null {
     userId: userId as number,
     role: typeof session.role === "string" ? session.role : "",
     isAdmin: session.isAdmin === true,
+    isActive: session.isActive === true,
   };
 }
 
@@ -58,7 +60,7 @@ export function requireWhatsappEmployee(req: Request, res: Response, next: NextF
     res.status(401).json({ message: "Not authenticated" });
     return;
   }
-  if (!isWhatsappEmployee(actor)) {
+  if (!isWhatsappEmployee(actor) || actor.isActive !== true) {
     res.status(403).json({ message: "Not authorized" });
     return;
   }
