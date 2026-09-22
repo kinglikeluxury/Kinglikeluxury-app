@@ -147,12 +147,15 @@ app.use(
           "https://www.googleadservices.com",
           "https://googleads.g.doubleclick.net",
           "https://www.google.com",
+          "https://lon.rtsp.me",
+          "https://frn.rtsp.me",
           "wss:",
           "ws:",
         ],
         frameSrc: [
           "'self'",
           "https://challenges.cloudflare.com",
+          "https://rtsp.run",
         ],
         frameAncestors: process.env.NODE_ENV === "production"
           ? ["'self'"]
