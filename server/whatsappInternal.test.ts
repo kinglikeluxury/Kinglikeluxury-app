@@ -3,10 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { Request, Response } from "express";
 import {
+  createRequireWhatsappEmployee,
   getWhatsappActor,
   isWhatsappEmployee,
   requireWhatsappAdmin,
-  requireWhatsappEmployee,
 } from "./whatsappInternalAuth";
 import { clearWhatsappAuditEntries, getWhatsappAuditEntries } from "./whatsappInternalAudit";
 import {
@@ -19,7 +19,13 @@ import { parseListQuery } from "./whatsappInternalRoutes";
 const request = (session: Record<string, unknown> = {}, body?: unknown): Request =>
   ({ session, body, headers: {}, header: () => undefined } as unknown as Request);
 
-function response() {
+const TEST_MOCK_EMPLOYEE_MAPPING = new Map<number, string>([
+  [1, "samer"],
+  [2, "fadi"],
+  [3, "joanna"],
+]);
+
+function response(onJson?: () => void) {
   let statusCode = 200;
   let body: unknown;
   const res = {
@@ -29,6 +35,7 @@ function response() {
     },
     json(value: unknown) {
       body = value;
+      onJson?.();
       return res;
     },
     setHeader() {
@@ -38,11 +45,40 @@ function response() {
   return { res: res as unknown as Response, get statusCode() { return statusCode; }, get body() { return body; } };
 }
 
-async function serviceFor(req = request()) {
-  return new WhatsappInternalService(new MockWhatsappInternalRepository());
+async function serviceFor(mapping: ReadonlyMap<number, string> = TEST_MOCK_EMPLOYEE_MAPPING) {
+  return new WhatsappInternalService(new MockWhatsappInternalRepository(mapping));
 }
 
-test("WhatsApp auth returns 401 and 403 at the middleware boundary", () => {
+async function invokeEmployeeGuard(
+  session: Record<string, unknown>,
+  userLookup: Parameters<typeof createRequireWhatsappEmployee>[0],
+) {
+  let nextCalls = 0;
+  let responseCompleted = false;
+  let resolveCompletion!: () => void;
+  const completed = new Promise<void>((resolve) => {
+    resolveCompletion = resolve;
+  });
+  const result = response(() => {
+    responseCompleted = true;
+    resolveCompletion();
+  });
+  const middleware = createRequireWhatsappEmployee(userLookup);
+  middleware(request(session), result.res, () => {
+    nextCalls += 1;
+    resolveCompletion();
+  });
+  await completed;
+  return {
+    statusCode: result.statusCode,
+    body: result.body,
+    nextCalls,
+    responseCompleted,
+    session,
+  };
+}
+
+test("WhatsApp auth returns 401 and 403 at the middleware boundary", async () => {
   const unauthenticated = response();
   requireWhatsappAdmin(request(), unauthenticated.res, () => undefined);
   assert.equal(unauthenticated.statusCode, 401);
@@ -51,13 +87,79 @@ test("WhatsApp auth returns 401 and 403 at the middleware boundary", () => {
   requireWhatsappAdmin(request({ userId: 9, isAdmin: false, role: "sub_agent" }), unauthorized.res, () => undefined);
   assert.equal(unauthorized.statusCode, 403);
 
-  const employeeOnAdminRoute = response();
-  requireWhatsappEmployee(request({ userId: 9, isAdmin: true, role: "admin" }), employeeOnAdminRoute.res, () => undefined);
+  const employeeOnAdminRoute = await invokeEmployeeGuard(
+    { userId: 9, isAdmin: true, role: "admin", isActive: true },
+    async () => ({ id: 9, role: "admin", isAdmin: true, isActive: true }),
+  );
   assert.equal(employeeOnAdminRoute.statusCode, 403);
 
-  const inactiveEmployee = response();
-  requireWhatsappEmployee(request({ userId: 1, isAdmin: false, role: "sub_agent", isActive: false }), inactiveEmployee.res, () => undefined);
+  const inactiveEmployee = await invokeEmployeeGuard(
+    { userId: 1, isAdmin: false, role: "sub_agent", isActive: true },
+    async () => ({ id: 1, role: "sub_agent", isAdmin: false, isActive: false }),
+  );
   assert.equal(inactiveEmployee.statusCode, 403);
+});
+
+test("employee auth uses the current user record and updates session only after success", async () => {
+  let lookupCalls = 0;
+  const session = { userId: 1, isAdmin: true, role: "admin", isActive: false };
+  const result = await invokeEmployeeGuard(session, async (userId) => {
+    lookupCalls += 1;
+    assert.equal(userId, 1);
+    return { id: 1, role: "sub_agent", isAdmin: false, isActive: true };
+  });
+
+  assert.equal(lookupCalls, 1);
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.nextCalls, 1);
+  assert.equal(result.responseCompleted, false);
+  assert.deepEqual(session, { userId: 1, isAdmin: false, role: "sub_agent", isActive: true });
+});
+
+test("employee auth rejects missing, inactive, wrong-role, and missing users", async () => {
+  let lookupCalls = 0;
+  const missingSession = await invokeEmployeeGuard({}, async () => {
+    lookupCalls += 1;
+    return undefined;
+  });
+  assert.equal(missingSession.statusCode, 401);
+  assert.equal(lookupCalls, 0);
+  assert.equal(missingSession.nextCalls, 0);
+
+  const missingUser = await invokeEmployeeGuard({ userId: 1 }, async () => undefined);
+  assert.equal(missingUser.statusCode, 403);
+  assert.equal(missingUser.nextCalls, 0);
+
+  const inactiveUser = await invokeEmployeeGuard({ userId: 1 }, async () => ({
+    id: 1,
+    role: "sub_agent",
+    isAdmin: false,
+    isActive: false,
+  }));
+  assert.equal(inactiveUser.statusCode, 403);
+
+  const wrongRole = await invokeEmployeeGuard({ userId: 1 }, async () => ({
+    id: 1,
+    role: "user",
+    isAdmin: false,
+    isActive: true,
+  }));
+  assert.equal(wrongRole.statusCode, 403);
+});
+
+test("employee auth fails closed on lookup failure without exposing the database error", async () => {
+  let nextCalls = 0;
+  const session = { userId: 1, isAdmin: false, role: "sub_agent", isActive: true };
+  const result = await invokeEmployeeGuard(session, async () => {
+    throw new Error("database password and connection details");
+  });
+
+  nextCalls += result.nextCalls;
+  assert.equal(result.statusCode, 503);
+  assert.deepEqual(result.body, { message: "Service temporarily unavailable" });
+  assert.doesNotMatch(JSON.stringify(result.body), /database|password|connection/i);
+  assert.equal(nextCalls, 0);
+  assert.deepEqual(session, { userId: 1, isAdmin: false, role: "sub_agent", isActive: true });
 });
 
 test("admin sees all mock employees and employee sees only owned conversations", async () => {
@@ -144,6 +246,37 @@ test("an active sub-agent without an explicit mock mapping receives no conversat
   assert.equal(result.total, 0);
 });
 
+test("runtime repository has no default mapping for IDs 1, 2, or 3", async () => {
+  const service = await serviceFor(new Map());
+  for (const userId of [1, 2, 3]) {
+    const result = await service.listConversations(
+      request(),
+      { userId, role: "sub_agent", isAdmin: false, isActive: true },
+      { offset: 0, limit: 100 },
+    );
+    assert.deepEqual(result.items, []);
+    assert.equal(result.total, 0);
+  }
+});
+
+test("injected test mapping is isolated from the runtime default", async () => {
+  const injected = await serviceFor(TEST_MOCK_EMPLOYEE_MAPPING);
+  const owned = await injected.listConversations(
+    request(),
+    { userId: 2, role: "sub_agent", isAdmin: false, isActive: true },
+    { offset: 0, limit: 100 },
+  );
+  assert.deepEqual(owned.items.map((item) => item.employeeId), ["fadi"]);
+
+  const runtime = await serviceFor(new Map());
+  const empty = await runtime.listConversations(
+    request(),
+    { userId: 2, role: "sub_agent", isAdmin: false, isActive: true },
+    { offset: 0, limit: 100 },
+  );
+  assert.deepEqual(empty.items, []);
+});
+
 test("employee UI uses only employee endpoints and does not import the local repository", () => {
   const pageSource = readFileSync(new URL("../client/src/pages/employee/whatsapp.tsx", import.meta.url), "utf8");
   const repositorySource = readFileSync(new URL("../client/src/lib/whatsappEmployeeMonitoringEmployeeRepository.ts", import.meta.url), "utf8");
@@ -176,6 +309,11 @@ test("the monitoring page keeps the composer disabled", () => {
   const source = readFileSync(new URL("../client/src/pages/admin/whatsapp-employee-monitoring.tsx", import.meta.url), "utf8");
   assert.match(source, /composerDisabled/);
   assert.match(source, /Sending is disabled in this mock-only phase/);
+});
+
+test("employee rate limiting remains before live authorization", () => {
+  const source = readFileSync(new URL("./whatsappInternalRoutes.ts", import.meta.url), "utf8");
+  assert.match(source, /whatsappInternalRateLimit,\s*requireWhatsappEmployee/);
 });
 
 function requestWithQuery(query: Record<string, string>): Request {

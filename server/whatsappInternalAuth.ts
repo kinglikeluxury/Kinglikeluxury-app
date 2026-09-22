@@ -72,6 +72,7 @@ export function createRequireWhatsappEmployee(userLookup: WhatsappUserLookup) {
     }
 
     void userLookup(userId as number).then((user) => {
+      if (res.headersSent) return;
       if (
         !user ||
         user.isActive !== true ||
