@@ -73,23 +73,16 @@ export interface WhatsappEmployeeMonitoringRepository {
 }
 
 interface StoredEmployee extends WhatsappEmployee {
-  userId: number;
 }
 
 interface StoredConversation extends WhatsappConversation {
   messages: WhatsappMessage[];
 }
 
-export const MOCK_EMPLOYEE_USER_IDS = {
-  samer: 1,
-  fadi: 2,
-  joanna: 3,
-} as const;
-
 const employees: StoredEmployee[] = [
-  { id: "samer", userId: MOCK_EMPLOYEE_USER_IDS.samer, name: "Samer", role: "Property Advisor", phone: "+999 555 0101", status: "connected", avatar: { initials: "SA", color: "#3bcac4" } },
-  { id: "fadi", userId: MOCK_EMPLOYEE_USER_IDS.fadi, name: "Fadi", role: "Sales Advisor", phone: "+999 555 0102", status: "attention", avatar: { initials: "FA", color: "#005476" } },
-  { id: "joanna", userId: MOCK_EMPLOYEE_USER_IDS.joanna, name: "Joanna", role: "Client Relations", phone: "+999 555 0103", status: "disconnected", avatar: { initials: "JO", color: "#64748b" } },
+  { id: "samer", name: "Samer", role: "Property Advisor", phone: "+999 555 0101", status: "connected", avatar: { initials: "SA", color: "#3bcac4" } },
+  { id: "fadi", name: "Fadi", role: "Sales Advisor", phone: "+999 555 0102", status: "attention", avatar: { initials: "FA", color: "#005476" } },
+  { id: "joanna", name: "Joanna", role: "Client Relations", phone: "+999 555 0103", status: "disconnected", avatar: { initials: "JO", color: "#64748b" } },
 ];
 
 const conversations: StoredConversation[] = [
@@ -165,8 +158,7 @@ function maskPhone(phone: string): string {
 }
 
 function publicEmployee(employee: StoredEmployee): WhatsappEmployee {
-  const { userId: _userId, ...safeEmployee } = employee;
-  return clone(safeEmployee);
+  return clone(employee);
 }
 
 function publicConversation(conversation: StoredConversation): WhatsappConversation {
@@ -183,14 +175,18 @@ function publicConversation(conversation: StoredConversation): WhatsappConversat
   });
 }
 
-function ownedEmployeeId(actor: WhatsappActor): string | null {
+function ownedEmployeeId(actor: WhatsappActor, employeeUserMapping: ReadonlyMap<number, string>): string | null {
   if (actor.isAdmin) return null;
-  return Object.entries(MOCK_EMPLOYEE_USER_IDS).find(([, userId]) => userId === actor.userId)?.[0] ?? null;
+  return employeeUserMapping.get(actor.userId) ?? null;
 }
 
-function assertCanReadConversation(actor: WhatsappActor, conversation: StoredConversation): void {
+function assertCanReadConversation(
+  actor: WhatsappActor,
+  conversation: StoredConversation,
+  employeeUserMapping: ReadonlyMap<number, string>,
+): void {
   if (actor.isAdmin) return;
-  if (ownedEmployeeId(actor) !== conversation.employeeId) {
+  if (ownedEmployeeId(actor, employeeUserMapping) !== conversation.employeeId) {
     throw new Error("Conversation not found");
   }
 }
@@ -206,6 +202,8 @@ function page<T>(items: T[], total: number, query: WhatsappListQuery): WhatsappP
 }
 
 export class MockWhatsappInternalRepository implements WhatsappEmployeeMonitoringRepository {
+  constructor(private readonly employeeUserMapping: ReadonlyMap<number, string> = new Map()) {}
+
   async listEmployees(actor: WhatsappActor, query: WhatsappListQuery): Promise<WhatsappPage<WhatsappEmployee>> {
     if (!actor.isAdmin) throw new Error("Not authorized");
     const rows = employees
@@ -215,7 +213,7 @@ export class MockWhatsappInternalRepository implements WhatsappEmployeeMonitorin
   }
 
   async listConversations(actor: WhatsappActor, query: WhatsappListQuery): Promise<WhatsappPage<WhatsappConversation>> {
-    const owner = ownedEmployeeId(actor);
+    const owner = ownedEmployeeId(actor, this.employeeUserMapping);
     const rows = conversations
       .filter((conversation) => actor.isAdmin || conversation.employeeId === owner)
       .filter((conversation) => !query.employeeId || conversation.employeeId === query.employeeId)
@@ -227,7 +225,7 @@ export class MockWhatsappInternalRepository implements WhatsappEmployeeMonitorin
   async getConversationMessages(actor: WhatsappActor, conversationId: string): Promise<{ conversation: WhatsappConversation; messages: WhatsappMessage[] }> {
     const conversation = conversations.find((item) => item.id === conversationId);
     if (!conversation) throw new Error("Conversation not found");
-    assertCanReadConversation(actor, conversation);
+    assertCanReadConversation(actor, conversation, this.employeeUserMapping);
     return {
       conversation: publicConversation(conversation),
       messages: clone(conversation.messages),

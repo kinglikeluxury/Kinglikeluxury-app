@@ -2,6 +2,15 @@ import type { NextFunction, Request, Response } from "express";
 
 export const WHATSAPP_EMPLOYEE_ROLE = "sub_agent" as const;
 
+export interface WhatsappUserRecord {
+  id: number;
+  role: string | null;
+  isAdmin: boolean;
+  isActive: boolean;
+}
+
+export type WhatsappUserLookup = (userId: number) => Promise<WhatsappUserRecord | undefined>;
+
 export interface WhatsappActor {
   userId: number;
   role: string;
@@ -54,18 +63,44 @@ export function requireWhatsappAdmin(req: Request, res: Response, next: NextFunc
   next();
 }
 
-export function requireWhatsappEmployee(req: Request, res: Response, next: NextFunction): void {
-  const actor = getWhatsappActor(req);
-  if (!actor) {
-    res.status(401).json({ message: "Not authenticated" });
-    return;
-  }
-  if (!isWhatsappEmployee(actor) || actor.isActive !== true) {
-    res.status(403).json({ message: "Not authorized" });
-    return;
-  }
-  attachActor(req, actor);
-  next();
+export function createRequireWhatsappEmployee(userLookup: WhatsappUserLookup) {
+  return function requireWhatsappEmployee(req: Request, res: Response, next: NextFunction): void {
+    const userId = req.session?.userId;
+    if (!Number.isSafeInteger(userId)) {
+      res.status(401).json({ message: "Not authenticated" });
+      return;
+    }
+
+    void userLookup(userId as number).then((user) => {
+      if (
+        !user ||
+        user.isActive !== true ||
+        user.role !== WHATSAPP_EMPLOYEE_ROLE ||
+        user.isAdmin === true
+      ) {
+        res.status(403).json({ message: "Not authorized" });
+        return;
+      }
+
+      const actor: WhatsappActor = {
+        userId: user.id,
+        role: user.role,
+        isAdmin: false,
+        isActive: true,
+      };
+
+      req.session.isAdmin = false;
+      req.session.isActive = true;
+      req.session.role = user.role;
+      attachActor(req, actor);
+      next();
+    }).catch(() => {
+      console.error("[WhatsApp auth] employee lookup failed");
+      if (!res.headersSent) {
+        res.status(503).json({ message: "Service temporarily unavailable" });
+      }
+    });
+  };
 }
 
 export function getAttachedWhatsappActor(req: Request): WhatsappActor {

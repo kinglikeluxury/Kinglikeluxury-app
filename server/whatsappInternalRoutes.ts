@@ -1,11 +1,13 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import {
+  createRequireWhatsappEmployee,
   getAttachedWhatsappActor,
   requireWhatsappAdmin,
-  requireWhatsappEmployee,
 } from "./whatsappInternalAuth";
 import { WhatsappInternalServiceError, whatsappInternalService } from "./whatsappInternalService";
 import type { WhatsappListQuery } from "./whatsappInternalRepository";
+import type { WhatsappUserLookup } from "./whatsappInternalAuth";
+import { storage } from "./storage";
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 25;
@@ -123,7 +125,12 @@ function asyncRoute(handler: (req: Request, res: Response) => Promise<void>) {
   };
 }
 
-export function registerWhatsappInternalRoutes(app: Express): void {
+export function registerWhatsappInternalRoutes(
+  app: Express,
+  userLookup: WhatsappUserLookup = async (userId) => storage.getUser(userId),
+): void {
+  const requireWhatsappEmployee = createRequireWhatsappEmployee(userLookup);
+
   app.get("/api/admin/whatsapp/employees", whatsappInternalRateLimit, requireWhatsappAdmin, asyncRoute(async (req, res) => {
     const result = await whatsappInternalService.listEmployees(req, getAttachedWhatsappActor(req), parseListQuery(req, false));
     res.json({ ...result, mode: "mock" });
