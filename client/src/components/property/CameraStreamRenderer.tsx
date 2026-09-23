@@ -7,9 +7,16 @@ interface CameraStreamRendererProps {
 
 function isEmbedPage(url: string): boolean {
   try {
-    return /\/embed\.html(?:$|[?#])/i.test(new URL(url).pathname + new URL(url).search + new URL(url).hash);
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.replace(/\/+$/, "");
+
+    return (
+      (hostname === "rtsp.run" && pathname === "/embed.html") ||
+      (hostname === "rtsp.me" && /^\/embed\/[^/]+$/i.test(pathname))
+    );
   } catch {
-    return /\/embed\.html(?:$|[?#])/i.test(url);
+    return false;
   }
 }
 

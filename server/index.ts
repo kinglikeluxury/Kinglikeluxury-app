@@ -156,6 +156,7 @@ app.use(
           "'self'",
           "https://challenges.cloudflare.com",
           "https://rtsp.run",
+          "https://rtsp.me",
         ],
         frameAncestors: process.env.NODE_ENV === "production"
           ? ["'self'"]
