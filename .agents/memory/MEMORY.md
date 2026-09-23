@@ -46,3 +46,4 @@
 - [Employee WhatsApp boundary](employee-whatsapp-boundary.md) — Employee UI uses independent shared presentation code and employee endpoints, never an Admin-page or Admin-repository import.
 - [Visual QA splash timing](visual-qa-splash-timing.md) — wait for the 3.4s app splash to finish before capturing rendered-route screenshots.
 - [Live camera source routing](live-camera-source-routing.md) — distinguish embed pages from HLS sources; frame-src, connect-src, and media-src must be scoped separately.
+- [Read-only browser diagnostics](readonly-browser-diagnostics.md) — if bundled Playwright Chromium lacks system libraries, use the system Chromium executable without installing packages.
