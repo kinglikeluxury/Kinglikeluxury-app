@@ -8,7 +8,12 @@ export type WhatsappMonitorPrototypeEnvironment = {
 };
 
 export function getWhatsappMonitorPrototypeConfig(
-  environment: WhatsappMonitorPrototypeEnvironment = process.env,
+  environment: WhatsappMonitorPrototypeEnvironment = {
+    WHATSAPP_MONITOR_META_APP_ID: process.env.WHATSAPP_MONITOR_META_APP_ID,
+    WHATSAPP_MONITOR_META_CONFIG_ID: process.env.WHATSAPP_MONITOR_META_CONFIG_ID,
+    WHATSAPP_MONITORING_META_PROTOTYPE_ENABLED:
+      process.env.WHATSAPP_MONITORING_META_PROTOTYPE_ENABLED,
+  },
 ) {
   const enabled =
     environment.WHATSAPP_MONITORING_META_PROTOTYPE_ENABLED?.trim().toLowerCase() ===
