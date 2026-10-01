@@ -27,7 +27,6 @@ type MetaSdk = {
     appId: string;
     autoLogAppEvents: false;
     xfbml: false;
-    version: string;
   }) => void;
   login: (
     callback: (response: unknown) => void,
@@ -59,7 +58,6 @@ function initializeSdk(appId: string): MetaSdk {
       appId,
       autoLogAppEvents: false,
       xfbml: false,
-      version: "v25.0",
     });
     initializedAppId = appId;
   }

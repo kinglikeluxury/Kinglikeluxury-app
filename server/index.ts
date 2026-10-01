@@ -44,6 +44,7 @@ import { startDeveloperRegistrationScheduler } from "./developerRegistrationServ
 import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
 import { registerWhatsappInternalRoutes } from "./whatsappInternalRoutes";
+import { registerWhatsappMonitorPrototypeRoutes } from "./whatsappMonitorPrototypeRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
 import { registerWebinarCampaignRoutes } from "./webinarCampaign";
@@ -102,6 +103,7 @@ app.use(
           "'unsafe-eval'",
           "https://challenges.cloudflare.com",
           "https://www.googletagmanager.com",
+          "https://connect.facebook.net",
         ],
         styleSrc: [
           "'self'",
@@ -147,6 +149,9 @@ app.use(
           "https://www.googleadservices.com",
           "https://googleads.g.doubleclick.net",
           "https://www.google.com",
+          "https://connect.facebook.net",
+          "https://www.facebook.com",
+          "https://graph.facebook.com",
           "https://lon.rtsp.me",
           "https://frn.rtsp.me",
           "wss:",
@@ -155,6 +160,7 @@ app.use(
         frameSrc: [
           "'self'",
           "https://challenges.cloudflare.com",
+          "https://www.facebook.com",
           "https://rtsp.run",
           "https://rtsp.me",
         ],
@@ -264,6 +270,7 @@ app.use((req, res, next) => {
   registerEmailNurturingRoutes(app);
   registerWhatsappApiHistoryRoutes(app);
   registerWhatsappInternalRoutes(app);
+  registerWhatsappMonitorPrototypeRoutes(app);
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
   registerBroadcastRoutes(app);
