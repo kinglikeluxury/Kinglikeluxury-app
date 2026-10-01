@@ -30,6 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import MetaAppReviewPrototype from "@/components/admin/MetaAppReviewPrototype";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import {
@@ -807,6 +808,8 @@ export default function WhatsappEmployeeMonitoringPage() {
             {t("whatsappMonitoring.mockOnly", "Mock data only")}
           </Badge>
         </div>
+
+        <MetaAppReviewPrototype />
 
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-[#005476]/5">
           <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[220px] lg:flex-none", mobilePanel === "employees" ? "flex" : "hidden")}>
