@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   launchMetaWhatsappBusinessAppSignup,
+  getSafeMetaSdkDiagnostic,
   parseMetaWhatsappSignupSessionEvent,
   preloadMetaWhatsappBusinessAppSignup,
   type MetaWhatsappLoginResult,
@@ -56,6 +57,7 @@ export default function MetaAppReviewPrototype() {
   const [configurationError, setConfigurationError] = useState(false);
   const [sdkStatus, setSdkStatus] =
     useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [sdkDiagnostic, setSdkDiagnostic] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [sessionEvent, setSessionEvent] = useState<PrototypeStatus | null>(null);
   const signupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,17 +97,22 @@ export default function MetaAppReviewPrototype() {
         : undefined;
     if (!appId) {
       setSdkStatus("idle");
+      setSdkDiagnostic(null);
       return;
     }
 
     let active = true;
     setSdkStatus("loading");
+    setSdkDiagnostic(null);
     preloadMetaWhatsappBusinessAppSignup(appId)
       .then(() => {
         if (active) setSdkStatus("ready");
       })
-      .catch(() => {
-        if (active) setSdkStatus("error");
+      .catch((error: unknown) => {
+        if (active) {
+          setSdkDiagnostic(getSafeMetaSdkDiagnostic(error));
+          setSdkStatus("error");
+        }
       });
 
     return () => {
@@ -267,8 +274,8 @@ export default function MetaAppReviewPrototype() {
 
           {sdkStatus === "error" && (
             <p className="text-xs text-amber-700" role="status">
-              Meta signup could not be initialized. Refresh this page to retry.
-              No account data was saved.
+              {sdkDiagnostic ?? "Facebook SDK initialization failed."} No
+              account data was saved.
             </p>
           )}
 
