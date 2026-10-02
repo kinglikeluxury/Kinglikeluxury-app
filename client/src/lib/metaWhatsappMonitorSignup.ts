@@ -300,6 +300,7 @@ function initializeSdk(appId: string): MetaSdk {
     try {
       sdk.init({
         appId,
+        version: "v26.0",
         autoLogAppEvents: false,
         xfbml: false,
       });
