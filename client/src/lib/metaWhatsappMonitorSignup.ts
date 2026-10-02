@@ -670,7 +670,14 @@ function getSafeLoginResponseDiagnostics(
         .map((value) =>
           typeof value === "string" ? value.trim().toLowerCase() : "",
         )
-        .map((key) => SAFE_META_LOGIN_ERROR_MESSAGES[key])
+        .map((key) =>
+          Object.prototype.hasOwnProperty.call(
+            SAFE_META_LOGIN_ERROR_MESSAGES,
+            key,
+          )
+            ? SAFE_META_LOGIN_ERROR_MESSAGES[key]
+            : undefined,
+        )
         .find((message) => message !== undefined) ?? null
     : null;
 
@@ -696,15 +703,37 @@ export function launchMetaWhatsappBusinessAppSignup(
     throw new MetaSdkInitializationError("sdk_not_ready");
   }
 
+  const reportDiagnostics = (
+    update: Partial<MetaWhatsappLoginAttemptDiagnostics>,
+  ) => {
+    try {
+      onDiagnosticsUpdate?.(update);
+    } catch {
+      // Per-click diagnostics must never interrupt the signup flow.
+    }
+  };
   let callbackFired = false;
   try {
-    onDiagnosticsUpdate?.({ fbLoginCalled: true });
+    reportDiagnostics({ fbLoginCalled: true });
     sdk.login(
       (response) => {
         callbackFired = true;
-        onDiagnosticsUpdate?.({
+        let responseDiagnostics: ReturnType<
+          typeof getSafeLoginResponseDiagnostics
+        >;
+        try {
+          responseDiagnostics = getSafeLoginResponseDiagnostics(response);
+        } catch {
+          responseDiagnostics = {
+            authResponsePresent: false,
+            callbackErrorPresent: false,
+            safeErrorCode: null,
+            safeErrorMessage: null,
+          };
+        }
+        reportDiagnostics({
           callbackFired: true,
-          ...getSafeLoginResponseDiagnostics(response),
+          ...responseDiagnostics,
         });
         onLoginResult(classifyMetaWhatsappLoginResponse(response));
       },
@@ -721,7 +750,7 @@ export function launchMetaWhatsappBusinessAppSignup(
     );
   } catch (error) {
     if (!callbackFired) {
-      onDiagnosticsUpdate?.({ popupLaunchException: true });
+      reportDiagnostics({ popupLaunchException: true });
     }
     throw error;
   }
@@ -766,10 +795,14 @@ export function parseMetaWhatsappSignupSessionEvent(
         : eventPayload.event === "ERROR"
           ? "error"
           : "none";
-  onDiagnosticsUpdate?.({
-    waEmbeddedSignupMessageReceived: true,
-    signupEventType,
-  });
+  try {
+    onDiagnosticsUpdate?.({
+      waEmbeddedSignupMessageReceived: true,
+      signupEventType,
+    });
+  } catch {
+    // Per-click diagnostics must never interrupt signup event handling.
+  }
 
   if (
     eventPayload.event === "FINISH" ||
