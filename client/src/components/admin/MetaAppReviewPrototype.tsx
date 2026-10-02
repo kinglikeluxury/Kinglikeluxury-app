@@ -346,6 +346,24 @@ export default function MetaAppReviewPrototype() {
             </p>
           )}
 
+          <div className="flex md:justify-end">
+            <Button
+              type="button"
+              onClick={handleLaunch}
+              disabled={!canLaunch}
+              className="w-full shrink-0 bg-[#1877f2] text-white hover:bg-[#1668d5] md:w-auto md:min-w-56"
+            >
+              {isLaunching
+                ? "Waiting for Meta…"
+                : sdkStatus === "loading"
+                  ? "Preparing Meta…"
+                  : "Connect company WhatsApp"}
+              {!isLaunching && sdkStatus !== "loading" && (
+                <ArrowUpRight aria-hidden="true" />
+              )}
+            </Button>
+          </div>
+
           <div
             className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs"
             aria-label="Temporary SDK diagnostics"
@@ -471,22 +489,6 @@ export default function MetaAppReviewPrototype() {
             </p>
           )}
         </div>
-
-        <Button
-          type="button"
-          onClick={handleLaunch}
-          disabled={!canLaunch}
-          className="shrink-0 bg-[#1877f2] text-white hover:bg-[#1668d5] md:min-w-56"
-        >
-          {isLaunching
-            ? "Waiting for Meta…"
-            : sdkStatus === "loading"
-              ? "Preparing Meta…"
-              : "Connect company WhatsApp"}
-          {!isLaunching && sdkStatus !== "loading" && (
-            <ArrowUpRight aria-hidden="true" />
-          )}
-        </Button>
       </div>
     </section>
   );
