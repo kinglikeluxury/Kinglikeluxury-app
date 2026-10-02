@@ -47,7 +47,38 @@ type SignupTimeoutRef = {
   current: ReturnType<typeof setTimeout> | null;
 };
 
+type PopupLaunchExceptionDetails = {
+  name: string;
+  message: string;
+  category: string | null;
+};
+
 const SIGNUP_TIMEOUT_MS = 20_000;
+const SAFE_EXCEPTION_NAMES = new Set([
+  "Error",
+  "TypeError",
+  "RangeError",
+  "ReferenceError",
+  "SyntaxError",
+  "URIError",
+  "EvalError",
+  "DOMException",
+  "AbortError",
+  "SecurityError",
+  "NotAllowedError",
+  "InvalidStateError",
+  "NetworkError",
+  "OperationError",
+  "DataError",
+  "NotSupportedError",
+  "TimeoutError",
+  "ConstraintError",
+  "InvalidAccessError",
+  "QuotaExceededError",
+  "NotReadableError",
+  "NotFoundError",
+  "MetaSdkInitializationError",
+]);
 const INITIAL_LOGIN_DIAGNOSTICS: MetaWhatsappLoginAttemptDiagnostics = {
   fbLoginCalled: false,
   callbackFired: false,
@@ -67,6 +98,86 @@ function clearSignupTimeout(timeoutRef: SignupTimeoutRef): void {
   }
 }
 
+function readExceptionString(
+  error: unknown,
+  property: "name" | "message",
+): string | null {
+  if (typeof error === "string" && property === "message") return error;
+  if (!error || (typeof error !== "object" && typeof error !== "function")) {
+    return null;
+  }
+  try {
+    const value = (error as Record<string, unknown>)[property];
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizePopupLaunchExceptionMessage(error: unknown): string {
+  const rawMessage = readExceptionString(error, "message")?.trim();
+  if (!rawMessage) return "No safe exception message available.";
+  if (/[\[{]/.test(rawMessage)) {
+    return "Message suppressed because it resembles structured payload data.";
+  }
+
+  const sanitized = rawMessage
+    .replace(/https?:\/\/[^\s"'<>]+/gi, "[URL redacted]")
+    .replace(
+      /\b(access[_\s-]?token|refresh[_\s-]?token|token|secret|client[_\s-]?secret|api[_\s-]?key|private[_\s-]?key|password|credential|authorization[_\s-]?code|auth[_\s-]?code|code|app[_\s-]?id|config[_\s-]?id|client[_\s-]?id|waba[_\s-]?id|phone[_\s-]?number[_\s-]?id|id)\b\s*["']?\s*[:=]\s*["']?[^"'&\s,;}\]]+/gi,
+      "$1=[redacted]",
+    )
+    .replace(
+      /\b((?:app|config|client|waba|phone[\s_-]*number)[\s_-]*id)\b\s+(?:is\s+)?[A-Za-z0-9._~+/-]+/gi,
+      "$1 [redacted]",
+    )
+    .replace(/\b\d{5,}\b/g, "[redacted]")
+    .replace(
+      /\b(?=[A-Za-z0-9_-]{6,}\b)(?=[A-Za-z0-9_-]*[A-Za-z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]+\b/g,
+      "[redacted]",
+    )
+    .replace(/\b[A-Za-z0-9_-]{12,}\b/g, "[redacted]");
+
+  return sanitized.slice(0, 140) || "No safe exception message available.";
+}
+
+function getPopupLaunchExceptionDetails(
+  error: unknown,
+): PopupLaunchExceptionDetails {
+  const candidateName = readExceptionString(error, "name");
+  const name =
+    candidateName && SAFE_EXCEPTION_NAMES.has(candidateName)
+      ? candidateName
+      : "UnknownError";
+  const message = sanitizePopupLaunchExceptionMessage(error);
+  const classificationText = `${name} ${message}`.toLowerCase();
+  let category: string | null = null;
+
+  if (
+    /security|permission|notallowed|blocked|user gesture|popup|window\.open/.test(
+      classificationText,
+    )
+  ) {
+    category = "Browser popup or security restriction";
+  } else if (/network|offline|connection|fetch/.test(classificationText)) {
+    category = "Network/runtime";
+  } else if (
+    /fb\.login|facebook sdk|meta sdk|not a function|undefined/.test(
+      classificationText,
+    )
+  ) {
+    category = "Meta SDK/API availability";
+  } else if (
+    /invalidstate|invalid state|invalidaccess|illegal invocation/.test(
+      classificationText,
+    )
+  ) {
+    category = "Invalid state or browser context";
+  }
+
+  return { name, message, category };
+}
+
 export default function MetaAppReviewPrototype() {
   const [configuration, setConfiguration] =
     useState<PrototypeConfigResponse | null>(null);
@@ -78,6 +189,8 @@ export default function MetaAppReviewPrototype() {
     useState<MetaSdkBootstrapDiagnostics>(getMetaSdkBootstrapDiagnostics);
   const [loginDiagnostics, setLoginDiagnostics] =
     useState<MetaWhatsappLoginAttemptDiagnostics>(INITIAL_LOGIN_DIAGNOSTICS);
+  const [popupLaunchExceptionDetails, setPopupLaunchExceptionDetails] =
+    useState<PopupLaunchExceptionDetails | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [sessionEvent, setSessionEvent] = useState<PrototypeStatus | null>(null);
   const signupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -240,6 +353,7 @@ export default function MetaAppReviewPrototype() {
     const attemptId = signupAttemptIdRef.current + 1;
     signupAttemptIdRef.current = attemptId;
     setLoginDiagnostics(INITIAL_LOGIN_DIAGNOSTICS);
+    setPopupLaunchExceptionDetails(null);
     loginDiagnosticAttemptActiveRef.current = true;
     if (loginDiagnosticTimeoutRef.current) {
       clearTimeout(loginDiagnosticTimeoutRef.current);
@@ -275,7 +389,8 @@ export default function MetaAppReviewPrototype() {
           ...diagnostics,
         }));
       });
-    } catch {
+    } catch (error: unknown) {
+      setPopupLaunchExceptionDetails(getPopupLaunchExceptionDetails(error));
       signupAttemptActiveRef.current = false;
       clearSignupTimeout(signupTimeoutRef);
       setIsLaunching(false);
@@ -406,6 +521,32 @@ export default function MetaAppReviewPrototype() {
                       : "None")}
                 </dd>
               </div>
+              {popupLaunchExceptionDetails && (
+                <>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-600">Exception name</dt>
+                    <dd className="font-medium text-slate-900">
+                      {popupLaunchExceptionDetails.name}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3 sm:col-span-2">
+                    <dt className="text-slate-600">
+                      Sanitized exception message
+                    </dt>
+                    <dd className="min-w-0 break-words text-right font-medium text-slate-900">
+                      {popupLaunchExceptionDetails.message}
+                    </dd>
+                  </div>
+                  {popupLaunchExceptionDetails.category && (
+                    <div className="flex justify-between gap-3 sm:col-span-2">
+                      <dt className="text-slate-600">Exception category</dt>
+                      <dd className="text-right font-medium text-slate-900">
+                        {popupLaunchExceptionDetails.category}
+                      </dd>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="flex justify-between gap-3 sm:col-span-2">
                 <dt className="text-slate-600">Signup event type</dt>
                 <dd className="font-medium text-slate-900">
