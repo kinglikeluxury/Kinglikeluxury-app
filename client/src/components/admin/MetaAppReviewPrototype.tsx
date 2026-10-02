@@ -366,31 +366,6 @@ export default function MetaAppReviewPrototype() {
 
           <div
             className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs"
-            aria-label="Temporary SDK diagnostics"
-          >
-            <p className="mb-1 font-semibold text-slate-700">
-              Temporary SDK diagnostics
-            </p>
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-              {sdkDiagnosticRows.map(([label, value]) => (
-                <div key={label} className="flex justify-between gap-3">
-                  <dt className="text-slate-600">{label}</dt>
-                  <dd className="font-medium text-slate-900">
-                    {value ? "Yes" : "No"}
-                  </dd>
-                </div>
-              ))}
-              <div className="flex justify-between gap-3 sm:col-span-2">
-                <dt className="text-slate-600">Current initialization stage</dt>
-                <dd className="text-right font-medium text-slate-900">
-                  {getSafeMetaSdkInitializationStage(sdkDiagnostics.stage)}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <div
-            className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs"
             role="group"
             aria-label="Temporary Connect diagnostics"
           >
@@ -435,6 +410,31 @@ export default function MetaAppReviewPrototype() {
                 <dt className="text-slate-600">Signup event type</dt>
                 <dd className="font-medium text-slate-900">
                   {loginDiagnostics.signupEventType}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div
+            className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs"
+            aria-label="Temporary SDK diagnostics"
+          >
+            <p className="mb-1 font-semibold text-slate-700">
+              Temporary SDK diagnostics
+            </p>
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+              {sdkDiagnosticRows.map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-3">
+                  <dt className="text-slate-600">{label}</dt>
+                  <dd className="font-medium text-slate-900">
+                    {value ? "Yes" : "No"}
+                  </dd>
+                </div>
+              ))}
+              <div className="flex justify-between gap-3 sm:col-span-2">
+                <dt className="text-slate-600">Current initialization stage</dt>
+                <dd className="text-right font-medium text-slate-900">
+                  {getSafeMetaSdkInitializationStage(sdkDiagnostics.stage)}
                 </dd>
               </div>
             </dl>

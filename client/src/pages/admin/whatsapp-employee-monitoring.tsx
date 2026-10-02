@@ -789,8 +789,8 @@ export default function WhatsappEmployeeMonitoringPage() {
   }
 
   return (
-    <div className="kinglike-family-whatsapp flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-[#f4f8f8] px-3 pb-3 pt-6 sm:p-5 lg:p-7">
-      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col">
+    <div className="kinglike-family-whatsapp flex h-auto min-h-[calc(100dvh-4rem)] flex-col overflow-y-auto bg-[#f4f8f8] px-3 pb-3 pt-6 sm:h-[calc(100dvh-4rem)] sm:min-h-0 sm:overflow-hidden sm:p-5 lg:p-7">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col sm:min-h-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#3bcac4]">
