@@ -18,6 +18,29 @@ export type MetaWhatsappLoginResult =
   | "error"
   | "no_authorization";
 
+export type MetaWhatsappSignupEventType =
+  | "success"
+  | "cancel"
+  | "error"
+  | "none";
+
+export type MetaWhatsappLoginAttemptDiagnostics = {
+  fbLoginCalled: boolean;
+  callbackFired: boolean;
+  authResponsePresent: boolean;
+  callbackErrorPresent: boolean;
+  safeErrorCode: string | null;
+  safeErrorMessage: string | null;
+  waEmbeddedSignupMessageReceived: boolean;
+  signupEventType: MetaWhatsappSignupEventType;
+  popupLaunchException: boolean;
+};
+
+export type MetaWhatsappSignupMessageDiagnostics = Pick<
+  MetaWhatsappLoginAttemptDiagnostics,
+  "waEmbeddedSignupMessageReceived" | "signupEventType"
+>;
+
 export type MetaSdkInitializationDiagnostic =
   | "invalid_app_id_format"
   | "sdk_script_load_failed"
@@ -571,28 +594,137 @@ export function classifyMetaWhatsappLoginResponse(
   return "no_authorization";
 }
 
+const SAFE_META_LOGIN_ERROR_MESSAGES: Record<string, string> = {
+  access_denied: "Access was denied.",
+  user_denied: "Access was denied.",
+  invalid_request: "Meta rejected the signup request.",
+  popup_blocked: "The browser blocked the signup popup.",
+  popup_closed: "The signup popup was closed.",
+  temporarily_unavailable: "Meta reported a temporary issue.",
+};
+
+function getSafeNumericErrorCode(value: unknown): string | null {
+  if (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 999_999
+  ) {
+    return String(value);
+  }
+  return typeof value === "string" && /^\d{1,6}$/.test(value)
+    ? value
+    : null;
+}
+
+function getSafeLoginResponseDiagnostics(
+  response: unknown,
+): Pick<
+  MetaWhatsappLoginAttemptDiagnostics,
+  | "authResponsePresent"
+  | "callbackErrorPresent"
+  | "safeErrorCode"
+  | "safeErrorMessage"
+> {
+  if (!response || typeof response !== "object") {
+    return {
+      authResponsePresent: false,
+      callbackErrorPresent: false,
+      safeErrorCode: null,
+      safeErrorMessage: null,
+    };
+  }
+
+  const result = response as Record<string, unknown>;
+  const errorObject =
+    result.error && typeof result.error === "object"
+      ? (result.error as Record<string, unknown>)
+      : undefined;
+  const callbackErrorPresent = [
+    result.error,
+    result.error_code,
+    result.error_reason,
+    result.error_message,
+    result.error_description,
+  ].some((value) => value != null);
+
+  const safeErrorCode = callbackErrorPresent
+    ? [
+        result.error_code,
+        errorObject?.code,
+        errorObject?.error_code,
+      ]
+        .map(getSafeNumericErrorCode)
+        .find((value) => value !== null) ?? null
+    : null;
+
+  const safeMessageKeyCandidates = [
+    result.error,
+    result.error_reason,
+    result.error_type,
+    errorObject?.type,
+    errorObject?.error,
+  ];
+  const safeErrorMessage = callbackErrorPresent
+    ? safeMessageKeyCandidates
+        .map((value) =>
+          typeof value === "string" ? value.trim().toLowerCase() : "",
+        )
+        .map((key) => SAFE_META_LOGIN_ERROR_MESSAGES[key])
+        .find((message) => message !== undefined) ?? null
+    : null;
+
+  return {
+    authResponsePresent:
+      result.authResponse !== null &&
+      typeof result.authResponse === "object",
+    callbackErrorPresent,
+    safeErrorCode,
+    safeErrorMessage,
+  };
+}
+
 export function launchMetaWhatsappBusinessAppSignup(
   config: MetaWhatsappSignupConfig,
   onLoginResult: (result: MetaWhatsappLoginResult) => void,
+  onDiagnosticsUpdate?: (
+    update: Partial<MetaWhatsappLoginAttemptDiagnostics>,
+  ) => void,
 ): void {
   const sdk = window.FB;
   if (!sdk || initializedAppId !== config.appId) {
     throw new MetaSdkInitializationError("sdk_not_ready");
   }
 
-  sdk.login(
-    (response) => onLoginResult(classifyMetaWhatsappLoginResponse(response)),
-    {
-      config_id: config.configId,
-      response_type: "code",
-      override_default_response_type: true,
-      extras: {
-        setup: {},
-        featureType: "whatsapp_business_app_onboarding",
-        sessionInfoVersion: "3",
+  let callbackFired = false;
+  try {
+    onDiagnosticsUpdate?.({ fbLoginCalled: true });
+    sdk.login(
+      (response) => {
+        callbackFired = true;
+        onDiagnosticsUpdate?.({
+          callbackFired: true,
+          ...getSafeLoginResponseDiagnostics(response),
+        });
+        onLoginResult(classifyMetaWhatsappLoginResponse(response));
       },
-    },
-  );
+      {
+        config_id: config.configId,
+        response_type: "code",
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+          featureType: "whatsapp_business_app_onboarding",
+          sessionInfoVersion: "3",
+        },
+      },
+    );
+  } catch (error) {
+    if (!callbackFired) {
+      onDiagnosticsUpdate?.({ popupLaunchException: true });
+    }
+    throw error;
+  }
 }
 
 function safeMetaId(value: unknown): string | undefined {
@@ -604,6 +736,7 @@ function safeMetaId(value: unknown): string | undefined {
 export function parseMetaWhatsappSignupSessionEvent(
   origin: string,
   message: unknown,
+  onDiagnosticsUpdate?: (diagnostics: MetaWhatsappSignupMessageDiagnostics) => void,
 ): MetaWhatsappSignupSessionEvent | null {
   if (origin !== "https://www.facebook.com" || typeof message !== "string") {
     return null;
@@ -623,6 +756,20 @@ export function parseMetaWhatsappSignupSessionEvent(
     data?: unknown;
   };
   if (eventPayload.type !== "WA_EMBEDDED_SIGNUP") return null;
+
+  const signupEventType: MetaWhatsappSignupEventType =
+    eventPayload.event === "FINISH" ||
+    eventPayload.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
+      ? "success"
+      : eventPayload.event === "CANCEL"
+        ? "cancel"
+        : eventPayload.event === "ERROR"
+          ? "error"
+          : "none";
+  onDiagnosticsUpdate?.({
+    waEmbeddedSignupMessageReceived: true,
+    signupEventType,
+  });
 
   if (
     eventPayload.event === "FINISH" ||
