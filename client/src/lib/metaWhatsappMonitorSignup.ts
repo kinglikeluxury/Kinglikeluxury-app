@@ -12,6 +12,12 @@ export type MetaWhatsappSignupSessionEvent =
   | { kind: "cancelled" }
   | { kind: "error" };
 
+export type MetaWhatsappLoginResult =
+  | "authorized"
+  | "cancelled"
+  | "error"
+  | "no_authorization";
+
 type MetaSdkLoginOptions = {
   config_id: string;
   response_type: "code";
@@ -42,6 +48,7 @@ declare global {
 }
 
 const SDK_SCRIPT_ID = "facebook-jssdk-whatsapp-monitor-prototype";
+const SDK_INITIALIZATION_TIMEOUT_MS = 20_000;
 let sdkInitialization:
   | { appId: string; promise: Promise<MetaSdk> }
   | undefined;
@@ -88,12 +95,30 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
     const script =
       (document.getElementById(SDK_SCRIPT_ID) as HTMLScriptElement | null) ??
       document.createElement("script");
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const resolveSdk = (sdk: MetaSdk) => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      resolve(sdk);
+    };
+
+    const rejectLoad = (message: string) => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      sdkInitialization = undefined;
+      reject(new Error(message));
+    };
 
     window.fbAsyncInit = () => {
+      if (settled) return;
       try {
-        resolve(initializeSdk(appId));
+        resolveSdk(initializeSdk(appId));
       } catch {
-        reject(new Error("Meta signup could not be initialized."));
+        rejectLoad("Meta signup could not be initialized.");
       }
     };
 
@@ -102,10 +127,11 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
     script.async = true;
     script.defer = true;
     script.crossOrigin = "anonymous";
-    script.onerror = () => {
-      sdkInitialization = undefined;
-      reject(new Error("Meta signup could not be loaded."));
-    };
+    script.onerror = () => rejectLoad("Meta signup could not be loaded.");
+    timeout = setTimeout(
+      () => rejectLoad("Meta signup SDK initialization timed out."),
+      SDK_INITIALIZATION_TIMEOUT_MS,
+    );
 
     if (!script.parentNode) document.head.appendChild(script);
   });
@@ -114,16 +140,51 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
   return promise;
 }
 
-export async function launchMetaWhatsappBusinessAppSignup(
-  config: MetaWhatsappSignupConfig,
-  onLoginDialogClosed: () => void,
+export function preloadMetaWhatsappBusinessAppSignup(
+  appId: string,
 ): Promise<void> {
-  const sdk = await loadMetaSdk(config.appId);
+  return loadMetaSdk(appId).then(() => undefined);
+}
+
+export function classifyMetaWhatsappLoginResponse(
+  response: unknown,
+): MetaWhatsappLoginResult {
+  if (!response || typeof response !== "object") {
+    return "no_authorization";
+  }
+
+  const result = response as Record<string, unknown>;
+  if (
+    result.error != null ||
+    result.error_code != null ||
+    result.error_reason != null
+  ) {
+    return "error";
+  }
+
+  const authResponse = result.authResponse;
+  if (
+    (authResponse !== null && typeof authResponse === "object") ||
+    result.status === "connected"
+  ) {
+    return "authorized";
+  }
+
+  if (result.status === "unknown") return "cancelled";
+  return "no_authorization";
+}
+
+export function launchMetaWhatsappBusinessAppSignup(
+  config: MetaWhatsappSignupConfig,
+  onLoginResult: (result: MetaWhatsappLoginResult) => void,
+): void {
+  const sdk = window.FB;
+  if (!sdk || initializedAppId !== config.appId) {
+    throw new Error("Meta signup is not ready.");
+  }
+
   sdk.login(
-    () => {
-      // The login response may contain an exchangeable code. Deliberately ignore it.
-      onLoginDialogClosed();
-    },
+    (response) => onLoginResult(classifyMetaWhatsappLoginResponse(response)),
     {
       config_id: config.configId,
       response_type: "code",

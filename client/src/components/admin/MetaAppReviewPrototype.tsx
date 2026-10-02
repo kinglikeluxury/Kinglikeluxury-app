@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   launchMetaWhatsappBusinessAppSignup,
   parseMetaWhatsappSignupSessionEvent,
+  preloadMetaWhatsappBusinessAppSignup,
+  type MetaWhatsappLoginResult,
   type MetaWhatsappSignupConfig,
   type MetaWhatsappSignupSessionEvent,
 } from "@/lib/metaWhatsappMonitorSignup";
@@ -31,13 +33,35 @@ function isPrototypeConfigResponse(
   );
 }
 
+type PrototypeStatus =
+  | MetaWhatsappSignupSessionEvent
+  | { kind: "authorized" | "no_authorization" | "timeout" };
+
+type SignupTimeoutRef = {
+  current: ReturnType<typeof setTimeout> | null;
+};
+
+const SIGNUP_TIMEOUT_MS = 20_000;
+
+function clearSignupTimeout(timeoutRef: SignupTimeoutRef): void {
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }
+}
+
 export default function MetaAppReviewPrototype() {
   const [configuration, setConfiguration] =
     useState<PrototypeConfigResponse | null>(null);
   const [configurationError, setConfigurationError] = useState(false);
+  const [sdkStatus, setSdkStatus] =
+    useState<"idle" | "loading" | "ready" | "error">("idle");
   const [isLaunching, setIsLaunching] = useState(false);
-  const [sessionEvent, setSessionEvent] =
-    useState<MetaWhatsappSignupSessionEvent | null>(null);
+  const [sessionEvent, setSessionEvent] = useState<PrototypeStatus | null>(null);
+  const signupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionEventReceivedRef = useRef(false);
+  const signupAttemptActiveRef = useRef(false);
+  const signupAttemptIdRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -65,18 +89,54 @@ export default function MetaAppReviewPrototype() {
   }, []);
 
   useEffect(() => {
+    const appId =
+      configuration?.enabled && configuration.configured
+        ? configuration.appId
+        : undefined;
+    if (!appId) {
+      setSdkStatus("idle");
+      return;
+    }
+
+    let active = true;
+    setSdkStatus("loading");
+    preloadMetaWhatsappBusinessAppSignup(appId)
+      .then(() => {
+        if (active) setSdkStatus("ready");
+      })
+      .catch(() => {
+        if (active) setSdkStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    configuration?.enabled,
+    configuration?.configured,
+    configuration?.appId,
+  ]);
+
+  useEffect(() => {
     const handleMessage = (event: MessageEvent<unknown>) => {
       const parsed = parseMetaWhatsappSignupSessionEvent(
         event.origin,
         event.data,
       );
       if (!parsed) return;
+      sessionEventReceivedRef.current = true;
+      signupAttemptActiveRef.current = false;
+      clearSignupTimeout(signupTimeoutRef);
       setSessionEvent(parsed);
       setIsLaunching(false);
     };
 
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      signupAttemptActiveRef.current = false;
+      clearSignupTimeout(signupTimeoutRef);
+    };
   }, []);
 
   const signupConfig: MetaWhatsappSignupConfig | null =
@@ -89,17 +149,61 @@ export default function MetaAppReviewPrototype() {
           configId: configuration.configId,
         }
       : null;
-  const canLaunch = Boolean(signupConfig) && !isLaunching;
+  const canLaunch =
+    Boolean(signupConfig) && sdkStatus === "ready" && !isLaunching;
 
-  const handleLaunch = async () => {
-    if (!signupConfig || isLaunching) return;
+  const handleLoginResult = (result: MetaWhatsappLoginResult) => {
+    if (
+      !signupAttemptActiveRef.current ||
+      sessionEventReceivedRef.current
+    ) {
+      return;
+    }
+    if (result === "authorized") {
+      setSessionEvent({ kind: "authorized" });
+      return;
+    }
+
+    signupAttemptActiveRef.current = false;
+    clearSignupTimeout(signupTimeoutRef);
+    setIsLaunching(false);
+    if (result === "cancelled") {
+      setSessionEvent({ kind: "cancelled" });
+    } else if (result === "error") {
+      setSessionEvent({ kind: "error" });
+    } else {
+      setSessionEvent({ kind: "no_authorization" });
+    }
+  };
+
+  const handleLaunch = () => {
+    if (!signupConfig || sdkStatus !== "ready" || isLaunching) return;
+    const attemptId = signupAttemptIdRef.current + 1;
+    signupAttemptIdRef.current = attemptId;
+    sessionEventReceivedRef.current = false;
+    signupAttemptActiveRef.current = true;
     setSessionEvent(null);
     setIsLaunching(true);
+    clearSignupTimeout(signupTimeoutRef);
+    signupTimeoutRef.current = setTimeout(() => {
+      if (signupAttemptIdRef.current !== attemptId) return;
+      signupTimeoutRef.current = null;
+      signupAttemptActiveRef.current = false;
+      if (sessionEventReceivedRef.current) return;
+      setIsLaunching(false);
+      setSessionEvent({ kind: "timeout" });
+    }, SIGNUP_TIMEOUT_MS);
+
     try {
-      await launchMetaWhatsappBusinessAppSignup(signupConfig, () => {
-        setIsLaunching(false);
+      // SDK readiness is established before enabling the button, so FB.login
+      // runs synchronously within this click handler's user-activation window.
+      launchMetaWhatsappBusinessAppSignup(signupConfig, (result) => {
+        if (signupAttemptIdRef.current !== attemptId) return;
+        handleLoginResult(result);
       });
     } catch {
+      signupAttemptActiveRef.current = false;
+      clearSignupTimeout(signupTimeoutRef);
       setIsLaunching(false);
       setSessionEvent({ kind: "error" });
     }
@@ -155,6 +259,19 @@ export default function MetaAppReviewPrototype() {
             </p>
           )}
 
+          {sdkStatus === "loading" && (
+            <p className="text-xs text-slate-500" role="status">
+              Preparing Meta signup. The connect button will be available when ready.
+            </p>
+          )}
+
+          {sdkStatus === "error" && (
+            <p className="text-xs text-amber-700" role="status">
+              Meta signup could not be initialized. Refresh this page to retry.
+              No account data was saved.
+            </p>
+          )}
+
           {sessionEvent?.kind === "completed" && (
             <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" role="status">
               <p>
@@ -182,7 +299,25 @@ export default function MetaAppReviewPrototype() {
 
           {sessionEvent?.kind === "error" && (
             <p className="text-xs text-amber-700" role="status">
-              Signup did not complete. No account data was saved.
+              Meta returned an error or could not open the signup dialog. No account data was saved.
+            </p>
+          )}
+
+          {sessionEvent?.kind === "no_authorization" && (
+            <p className="text-xs text-slate-600" role="status">
+              Meta did not return authorization. Nothing was saved.
+            </p>
+          )}
+
+          {sessionEvent?.kind === "authorized" && (
+            <p className="text-xs text-slate-600" role="status">
+              Meta authorization returned. Waiting for signup confirmation; no code or token was saved.
+            </p>
+          )}
+
+          {sessionEvent?.kind === "timeout" && (
+            <p className="text-xs text-amber-700" role="status">
+              Meta did not respond in time. Nothing was saved; you can try again.
             </p>
           )}
         </div>
@@ -193,8 +328,14 @@ export default function MetaAppReviewPrototype() {
           disabled={!canLaunch}
           className="shrink-0 bg-[#1877f2] text-white hover:bg-[#1668d5] md:min-w-56"
         >
-          {isLaunching ? "Waiting for Meta…" : "Connect company WhatsApp"}
-          {!isLaunching && <ArrowUpRight aria-hidden="true" />}
+          {isLaunching
+            ? "Waiting for Meta…"
+            : sdkStatus === "loading"
+              ? "Preparing Meta…"
+              : "Connect company WhatsApp"}
+          {!isLaunching && sdkStatus !== "loading" && (
+            <ArrowUpRight aria-hidden="true" />
+          )}
         </Button>
       </div>
     </section>
