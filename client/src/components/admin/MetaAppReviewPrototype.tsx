@@ -3,10 +3,14 @@ import { AlertCircle, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  getMetaSdkBootstrapDiagnostics,
+  getSafeMetaSdkInitializationStage,
   launchMetaWhatsappBusinessAppSignup,
   getSafeMetaSdkDiagnostic,
   parseMetaWhatsappSignupSessionEvent,
   preloadMetaWhatsappBusinessAppSignup,
+  subscribeToMetaSdkBootstrapDiagnostics,
+  type MetaSdkBootstrapDiagnostics,
   type MetaWhatsappLoginResult,
   type MetaWhatsappSignupConfig,
   type MetaWhatsappSignupSessionEvent,
@@ -58,6 +62,8 @@ export default function MetaAppReviewPrototype() {
   const [sdkStatus, setSdkStatus] =
     useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sdkDiagnostic, setSdkDiagnostic] = useState<string | null>(null);
+  const [sdkDiagnostics, setSdkDiagnostics] =
+    useState<MetaSdkBootstrapDiagnostics>(getMetaSdkBootstrapDiagnostics);
   const [isLaunching, setIsLaunching] = useState(false);
   const [sessionEvent, setSessionEvent] = useState<PrototypeStatus | null>(null);
   const signupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,6 +94,12 @@ export default function MetaAppReviewPrototype() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    return subscribeToMetaSdkBootstrapDiagnostics((diagnostics) => {
+      setSdkDiagnostics(diagnostics);
+    });
   }, []);
 
   useEffect(() => {
@@ -158,6 +170,16 @@ export default function MetaAppReviewPrototype() {
       : null;
   const canLaunch =
     Boolean(signupConfig) && sdkStatus === "ready" && !isLaunching;
+  const sdkDiagnosticRows: Array<[string, boolean]> = [
+    ["SDK script tag present", sdkDiagnostics.sdkScriptTagPresent],
+    ["SDK script load event fired", sdkDiagnostics.sdkScriptLoadEventFired],
+    ["SDK script error event fired", sdkDiagnostics.sdkScriptErrorEventFired],
+    ["fbAsyncInit fired", sdkDiagnostics.fbAsyncInitFired],
+    ["window.FB present", sdkDiagnostics.windowFbPresent],
+    ["FB.init attempted", sdkDiagnostics.fbInitAttempted],
+    ["SDK ready", sdkDiagnostics.sdkReady],
+    ["Timeout reached", sdkDiagnostics.timeoutReached],
+  ];
 
   const handleLoginResult = (result: MetaWhatsappLoginResult) => {
     if (
@@ -278,6 +300,31 @@ export default function MetaAppReviewPrototype() {
               account data was saved.
             </p>
           )}
+
+          <div
+            className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs"
+            aria-label="Temporary SDK diagnostics"
+          >
+            <p className="mb-1 font-semibold text-slate-700">
+              Temporary SDK diagnostics
+            </p>
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+              {sdkDiagnosticRows.map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-3">
+                  <dt className="text-slate-600">{label}</dt>
+                  <dd className="font-medium text-slate-900">
+                    {value ? "Yes" : "No"}
+                  </dd>
+                </div>
+              ))}
+              <div className="flex justify-between gap-3 sm:col-span-2">
+                <dt className="text-slate-600">Current initialization stage</dt>
+                <dd className="text-right font-medium text-slate-900">
+                  {getSafeMetaSdkInitializationStage(sdkDiagnostics.stage)}
+                </dd>
+              </div>
+            </dl>
+          </div>
 
           {sessionEvent?.kind === "completed" && (
             <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" role="status">

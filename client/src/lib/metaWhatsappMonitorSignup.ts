@@ -74,6 +74,145 @@ export function getSafeMetaSdkDiagnostic(error: unknown): string {
   return SAFE_DIAGNOSTIC_MESSAGES.unexpected_initialization_error;
 }
 
+export type MetaSdkInitializationStage =
+  | "idle"
+  | "validating_app_id"
+  | "checking_for_sdk"
+  | "using_existing_fb"
+  | "reusing_existing_script"
+  | "injecting_script"
+  | "waiting_for_sdk"
+  | "script_load_event_fired"
+  | "script_loaded_waiting_for_fb"
+  | "script_error_event_fired"
+  | "fb_async_init_fired"
+  | "fb_init_attempted"
+  | "fb_init_returned"
+  | "fb_init_failed"
+  | "initialization_failed"
+  | "script_insert_failed"
+  | "invalid_app_id"
+  | "not_browser"
+  | "timeout_reached"
+  | "ready";
+
+export type MetaSdkBootstrapDiagnostics = {
+  sdkScriptTagPresent: boolean;
+  sdkScriptLoadEventFired: boolean;
+  sdkScriptErrorEventFired: boolean;
+  fbAsyncInitFired: boolean;
+  windowFbPresent: boolean;
+  fbInitAttempted: boolean;
+  sdkReady: boolean;
+  stage: MetaSdkInitializationStage;
+  timeoutReached: boolean;
+};
+
+const INITIAL_META_SDK_DIAGNOSTICS: MetaSdkBootstrapDiagnostics = {
+  sdkScriptTagPresent: false,
+  sdkScriptLoadEventFired: false,
+  sdkScriptErrorEventFired: false,
+  fbAsyncInitFired: false,
+  windowFbPresent: false,
+  fbInitAttempted: false,
+  sdkReady: false,
+  stage: "idle",
+  timeoutReached: false,
+};
+
+let metaSdkDiagnostics: MetaSdkBootstrapDiagnostics = {
+  ...INITIAL_META_SDK_DIAGNOSTICS,
+};
+const metaSdkDiagnosticListeners = new Set<
+  (diagnostics: MetaSdkBootstrapDiagnostics) => void
+>();
+
+export function getMetaSdkBootstrapDiagnostics(): MetaSdkBootstrapDiagnostics {
+  return { ...metaSdkDiagnostics };
+}
+
+export function subscribeToMetaSdkBootstrapDiagnostics(
+  listener: (diagnostics: MetaSdkBootstrapDiagnostics) => void,
+): () => void {
+  metaSdkDiagnosticListeners.add(listener);
+  listener(getMetaSdkBootstrapDiagnostics());
+  return () => metaSdkDiagnosticListeners.delete(listener);
+}
+
+function notifyMetaSdkDiagnosticListeners(): void {
+  const snapshot = getMetaSdkBootstrapDiagnostics();
+  for (const listener of metaSdkDiagnosticListeners) {
+    try {
+      listener(snapshot);
+    } catch {
+      // Diagnostic rendering must never interrupt SDK initialization.
+    }
+  }
+}
+
+function beginMetaSdkDiagnosticAttempt(
+  stage: MetaSdkInitializationStage,
+  sdkScriptTagPresent: boolean,
+): void {
+  metaSdkDiagnostics = {
+    ...INITIAL_META_SDK_DIAGNOSTICS,
+    stage,
+    sdkScriptTagPresent,
+    windowFbPresent:
+      typeof window !== "undefined" && Boolean(window.FB),
+  };
+  notifyMetaSdkDiagnosticListeners();
+}
+
+function updateMetaSdkDiagnostics(
+  update: Partial<MetaSdkBootstrapDiagnostics>,
+): void {
+  const next: MetaSdkBootstrapDiagnostics = {
+    ...metaSdkDiagnostics,
+    ...update,
+    windowFbPresent:
+      typeof window !== "undefined" ? Boolean(window.FB) : false,
+  };
+  const changed = (
+    Object.keys(next) as Array<keyof MetaSdkBootstrapDiagnostics>
+  ).some((key) => next[key] !== metaSdkDiagnostics[key]);
+  if (!changed) return;
+  metaSdkDiagnostics = next;
+  notifyMetaSdkDiagnosticListeners();
+}
+
+const SAFE_INITIALIZATION_STAGE_LABELS: Record<
+  MetaSdkInitializationStage,
+  string
+> = {
+  idle: "Idle",
+  validating_app_id: "Validating App ID format",
+  checking_for_sdk: "Checking for an existing SDK",
+  using_existing_fb: "Using the existing FB object",
+  reusing_existing_script: "Reusing an existing SDK script",
+  injecting_script: "Adding the SDK script",
+  waiting_for_sdk: "Waiting for fbAsyncInit or window.FB",
+  script_load_event_fired: "SDK script load event fired",
+  script_loaded_waiting_for_fb: "SDK script loaded; waiting for window.FB",
+  script_error_event_fired: "SDK script error event fired",
+  fb_async_init_fired: "fbAsyncInit fired",
+  fb_init_attempted: "FB.init attempted",
+  fb_init_returned: "FB.init returned",
+  fb_init_failed: "FB.init failed",
+  initialization_failed: "SDK initialization failed",
+  script_insert_failed: "SDK script could not be inserted",
+  invalid_app_id: "App ID format validation failed",
+  not_browser: "Browser environment unavailable",
+  timeout_reached: "20-second initialization timeout reached",
+  ready: "SDK ready",
+};
+
+export function getSafeMetaSdkInitializationStage(
+  stage: MetaSdkInitializationStage,
+): string {
+  return SAFE_INITIALIZATION_STAGE_LABELS[stage];
+}
+
 type MetaSdkLoginOptions = {
   config_id: string;
   response_type: "code";
@@ -112,11 +251,16 @@ let initializedAppId: string | undefined;
 
 function initializeSdk(appId: string): MetaSdk {
   if (!/^\d+$/.test(appId)) {
+    updateMetaSdkDiagnostics({ stage: "invalid_app_id" });
     throw new MetaSdkInitializationError("invalid_app_id_format");
   }
   const sdk = window.FB;
-  if (!sdk) throw new MetaSdkInitializationError("fb_object_missing");
+  if (!sdk) {
+    updateMetaSdkDiagnostics({ stage: "initialization_failed" });
+    throw new MetaSdkInitializationError("fb_object_missing");
+  }
   if (initializedAppId && initializedAppId !== appId) {
+    updateMetaSdkDiagnostics({ stage: "initialization_failed" });
     throw new MetaSdkInitializationError(
       "already_initialized_for_another_app",
     );
@@ -125,6 +269,10 @@ function initializeSdk(appId: string): MetaSdk {
     // Reserve initialization before invoking the SDK so callback/poll races
     // cannot make this loader call FB.init twice.
     initializedAppId = appId;
+    updateMetaSdkDiagnostics({
+      fbInitAttempted: true,
+      stage: "fb_init_attempted",
+    });
     try {
       sdk.init({
         appId,
@@ -133,8 +281,10 @@ function initializeSdk(appId: string): MetaSdk {
       });
     } catch (error) {
       initializedAppId = undefined;
+      updateMetaSdkDiagnostics({ stage: "fb_init_failed" });
       throw new MetaSdkInitializationError("fb_init_threw", error);
     }
+    updateMetaSdkDiagnostics({ stage: "fb_init_returned" });
   }
   return sdk;
 }
@@ -160,11 +310,19 @@ function findExistingMetaSdkScript(): HTMLScriptElement | null {
 
 function loadMetaSdk(appId: string): Promise<MetaSdk> {
   if (!/^\d+$/.test(appId)) {
+    beginMetaSdkDiagnosticAttempt(
+      "validating_app_id",
+      typeof document !== "undefined" &&
+        Boolean(findExistingMetaSdkScript()),
+    );
+    updateMetaSdkDiagnostics({ stage: "invalid_app_id" });
     return Promise.reject(
       new MetaSdkInitializationError("invalid_app_id_format"),
     );
   }
   if (typeof window === "undefined" || typeof document === "undefined") {
+    beginMetaSdkDiagnosticAttempt("checking_for_sdk", false);
+    updateMetaSdkDiagnostics({ stage: "not_browser" });
     return Promise.reject(new MetaSdkInitializationError("not_browser"));
   }
 
@@ -179,19 +337,37 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
     return sdkInitialization.promise;
   }
 
+  const existingScript = findExistingMetaSdkScript();
+  beginMetaSdkDiagnosticAttempt(
+    "checking_for_sdk",
+    Boolean(existingScript),
+  );
+
   // The SDK may already have been loaded by this page or another script.
   // Initialize it directly rather than waiting for fbAsyncInit or injecting
   // another script tag.
   if (window.FB) {
+    updateMetaSdkDiagnostics({
+      sdkScriptTagPresent: Boolean(existingScript),
+      stage: "using_existing_fb",
+    });
     try {
-      return Promise.resolve(initializeSdk(appId));
+      const sdk = initializeSdk(appId);
+      updateMetaSdkDiagnostics({
+        sdkReady: true,
+        stage: "ready",
+      });
+      return Promise.resolve(sdk);
     } catch (error) {
       return Promise.reject(error);
     }
   }
 
-  const existingScript = findExistingMetaSdkScript();
   const script = existingScript ?? document.createElement("script");
+  updateMetaSdkDiagnostics({
+    sdkScriptTagPresent: Boolean(existingScript),
+    stage: existingScript ? "reusing_existing_script" : "injecting_script",
+  });
   let settled = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let pollInterval: ReturnType<typeof setInterval> | undefined;
@@ -202,7 +378,7 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
       if (timeout) clearTimeout(timeout);
       if (pollInterval) clearInterval(pollInterval);
       script.removeEventListener("error", onScriptError);
-      script.removeEventListener("load", initializeWhenAvailable);
+      script.removeEventListener("load", onScriptLoad);
       if (window.fbAsyncInit === onFbAsyncInit) {
         window.fbAsyncInit = previousFbAsyncInit;
       }
@@ -211,6 +387,11 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
     const resolveSdk = (sdk: MetaSdk) => {
       if (settled) return;
       settled = true;
+      updateMetaSdkDiagnostics({
+        sdkScriptTagPresent: script.isConnected,
+        sdkReady: true,
+        stage: "ready",
+      });
       cleanup();
       if (sdkInitialization?.promise === promiseReference) {
         sdkInitialization = undefined;
@@ -221,6 +402,10 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
     const rejectLoad = (error: MetaSdkInitializationError) => {
       if (settled) return;
       settled = true;
+      updateMetaSdkDiagnostics({
+        sdkScriptTagPresent: script.isConnected,
+        sdkReady: false,
+      });
       cleanup();
       sdkInitialization = undefined;
       reject(error);
@@ -228,10 +413,19 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
 
     let fbAsyncInitRan = false;
     const initializeWhenAvailable = () => {
+      updateMetaSdkDiagnostics({
+        sdkScriptTagPresent: script.isConnected,
+      });
       if (settled || !window.FB) return;
       try {
         resolveSdk(initializeSdk(appId));
       } catch (error) {
+        if (
+          !(error instanceof MetaSdkInitializationError) ||
+          error.diagnostic !== "fb_init_threw"
+        ) {
+          updateMetaSdkDiagnostics({ stage: "initialization_failed" });
+        }
         rejectLoad(
           error instanceof MetaSdkInitializationError
             ? error
@@ -247,27 +441,54 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
     const onFbAsyncInit = () => {
       if (settled) return;
       fbAsyncInitRan = true;
+      updateMetaSdkDiagnostics({
+        fbAsyncInitFired: true,
+        stage: "fb_async_init_fired",
+      });
       initializeWhenAvailable();
     };
-    const onScriptError = () =>
+    const onScriptError = () => {
+      updateMetaSdkDiagnostics({
+        sdkScriptErrorEventFired: true,
+        stage: "script_error_event_fired",
+      });
       rejectLoad(new MetaSdkInitializationError("sdk_script_load_failed"));
+    };
+    const onScriptLoad = () => {
+      updateMetaSdkDiagnostics({
+        sdkScriptLoadEventFired: true,
+        sdkScriptTagPresent: script.isConnected,
+        stage: "script_load_event_fired",
+      });
+      if (!window.FB) {
+        updateMetaSdkDiagnostics({
+          stage: "script_loaded_waiting_for_fb",
+        });
+      }
+      initializeWhenAvailable();
+    };
 
     // Register the callback before injecting a new script. Polling also
     // handles a script tag that was already present or a callback that is
     // never invoked even though window.FB appears.
     window.fbAsyncInit = onFbAsyncInit;
     script.addEventListener("error", onScriptError, { once: true });
-    script.addEventListener("load", initializeWhenAvailable);
+    script.addEventListener("load", onScriptLoad);
     pollInterval = setInterval(initializeWhenAvailable, 100);
     timeout = setTimeout(
-      () =>
+      () => {
+        updateMetaSdkDiagnostics({
+          timeoutReached: true,
+          stage: "timeout_reached",
+        });
         rejectLoad(
           new MetaSdkInitializationError(
             fbAsyncInitRan
               ? "sdk_initialization_timeout"
               : "fb_async_init_did_not_run",
           ),
-        ),
+        );
+      },
       SDK_INITIALIZATION_TIMEOUT_MS,
     );
 
@@ -287,7 +508,12 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
     if (!script.parentNode) {
       try {
         document.head.appendChild(script);
+        updateMetaSdkDiagnostics({
+          sdkScriptTagPresent: script.isConnected,
+          stage: "waiting_for_sdk",
+        });
       } catch (error) {
+        updateMetaSdkDiagnostics({ stage: "script_insert_failed" });
         rejectLoad(
           new MetaSdkInitializationError(
             "sdk_script_insert_failed",
@@ -295,6 +521,11 @@ function loadMetaSdk(appId: string): Promise<MetaSdk> {
           ),
         );
       }
+    } else {
+      updateMetaSdkDiagnostics({
+        sdkScriptTagPresent: script.isConnected,
+        stage: "waiting_for_sdk",
+      });
     }
   });
 
