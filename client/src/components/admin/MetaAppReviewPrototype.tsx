@@ -11,6 +11,7 @@ import {
   preloadMetaWhatsappBusinessAppSignup,
   subscribeToMetaSdkBootstrapDiagnostics,
   type MetaSdkBootstrapDiagnostics,
+  type MetaWhatsappLoginAttemptDiagnostics,
   type MetaWhatsappLoginResult,
   type MetaWhatsappSignupConfig,
   type MetaWhatsappSignupSessionEvent,
@@ -47,6 +48,17 @@ type SignupTimeoutRef = {
 };
 
 const SIGNUP_TIMEOUT_MS = 20_000;
+const INITIAL_LOGIN_DIAGNOSTICS: MetaWhatsappLoginAttemptDiagnostics = {
+  fbLoginCalled: false,
+  callbackFired: false,
+  authResponsePresent: false,
+  callbackErrorPresent: false,
+  safeErrorCode: null,
+  safeErrorMessage: null,
+  waEmbeddedSignupMessageReceived: false,
+  signupEventType: "none",
+  popupLaunchException: false,
+};
 
 function clearSignupTimeout(timeoutRef: SignupTimeoutRef): void {
   if (timeoutRef.current) {
@@ -64,12 +76,18 @@ export default function MetaAppReviewPrototype() {
   const [sdkDiagnostic, setSdkDiagnostic] = useState<string | null>(null);
   const [sdkDiagnostics, setSdkDiagnostics] =
     useState<MetaSdkBootstrapDiagnostics>(getMetaSdkBootstrapDiagnostics);
+  const [loginDiagnostics, setLoginDiagnostics] =
+    useState<MetaWhatsappLoginAttemptDiagnostics>(INITIAL_LOGIN_DIAGNOSTICS);
   const [isLaunching, setIsLaunching] = useState(false);
   const [sessionEvent, setSessionEvent] = useState<PrototypeStatus | null>(null);
   const signupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionEventReceivedRef = useRef(false);
   const signupAttemptActiveRef = useRef(false);
   const signupAttemptIdRef = useRef(0);
+  const loginDiagnosticAttemptActiveRef = useRef(false);
+  const loginDiagnosticTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
@@ -141,6 +159,13 @@ export default function MetaAppReviewPrototype() {
       const parsed = parseMetaWhatsappSignupSessionEvent(
         event.origin,
         event.data,
+        (diagnostics) => {
+          if (!loginDiagnosticAttemptActiveRef.current) return;
+          setLoginDiagnostics((current) => ({
+            ...current,
+            ...diagnostics,
+          }));
+        },
       );
       if (!parsed) return;
       sessionEventReceivedRef.current = true;
@@ -155,6 +180,11 @@ export default function MetaAppReviewPrototype() {
       window.removeEventListener("message", handleMessage);
       signupAttemptActiveRef.current = false;
       clearSignupTimeout(signupTimeoutRef);
+      loginDiagnosticAttemptActiveRef.current = false;
+      if (loginDiagnosticTimeoutRef.current) {
+        clearTimeout(loginDiagnosticTimeoutRef.current);
+        loginDiagnosticTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -209,6 +239,15 @@ export default function MetaAppReviewPrototype() {
     if (!signupConfig || sdkStatus !== "ready" || isLaunching) return;
     const attemptId = signupAttemptIdRef.current + 1;
     signupAttemptIdRef.current = attemptId;
+    setLoginDiagnostics(INITIAL_LOGIN_DIAGNOSTICS);
+    loginDiagnosticAttemptActiveRef.current = true;
+    if (loginDiagnosticTimeoutRef.current) {
+      clearTimeout(loginDiagnosticTimeoutRef.current);
+    }
+    loginDiagnosticTimeoutRef.current = setTimeout(() => {
+      loginDiagnosticAttemptActiveRef.current = false;
+      loginDiagnosticTimeoutRef.current = null;
+    }, SIGNUP_TIMEOUT_MS);
     sessionEventReceivedRef.current = false;
     signupAttemptActiveRef.current = true;
     setSessionEvent(null);
@@ -229,6 +268,12 @@ export default function MetaAppReviewPrototype() {
       launchMetaWhatsappBusinessAppSignup(signupConfig, (result) => {
         if (signupAttemptIdRef.current !== attemptId) return;
         handleLoginResult(result);
+      }, (diagnostics) => {
+        if (signupAttemptIdRef.current !== attemptId) return;
+        setLoginDiagnostics((current) => ({
+          ...current,
+          ...diagnostics,
+        }));
       });
     } catch {
       signupAttemptActiveRef.current = false;
@@ -321,6 +366,57 @@ export default function MetaAppReviewPrototype() {
                 <dt className="text-slate-600">Current initialization stage</dt>
                 <dd className="text-right font-medium text-slate-900">
                   {getSafeMetaSdkInitializationStage(sdkDiagnostics.stage)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div
+            className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs"
+            role="group"
+            aria-label="Temporary Connect diagnostics"
+          >
+            <p className="mb-1 font-semibold text-slate-700">
+              Temporary Connect diagnostics
+            </p>
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+              {[
+                ["FB.login called", loginDiagnostics.fbLoginCalled],
+                ["FB.login callback fired", loginDiagnostics.callbackFired],
+                ["authResponse present", loginDiagnostics.authResponsePresent],
+                ["Callback error present", loginDiagnostics.callbackErrorPresent],
+                [
+                  "WA_EMBEDDED_SIGNUP message received",
+                  loginDiagnostics.waEmbeddedSignupMessageReceived,
+                ],
+                ["Popup launch exception", loginDiagnostics.popupLaunchException],
+              ].map(([label, value]) => (
+                <div key={label as string} className="flex justify-between gap-3">
+                  <dt className="text-slate-600">{label}</dt>
+                  <dd className="font-medium text-slate-900">
+                    {value ? "Yes" : "No"}
+                  </dd>
+                </div>
+              ))}
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-600">Safe error code</dt>
+                <dd className="font-medium text-slate-900">
+                  {loginDiagnostics.safeErrorCode ?? "None"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-600">Safe error message</dt>
+                <dd className="text-right font-medium text-slate-900">
+                  {loginDiagnostics.safeErrorMessage ??
+                    (loginDiagnostics.callbackErrorPresent
+                      ? "Suppressed (not on the safe list)"
+                      : "None")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3 sm:col-span-2">
+                <dt className="text-slate-600">Signup event type</dt>
+                <dd className="font-medium text-slate-900">
+                  {loginDiagnostics.signupEventType}
                 </dd>
               </div>
             </dl>
