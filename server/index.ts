@@ -45,6 +45,7 @@ import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
 import { registerWhatsappInternalRoutes } from "./whatsappInternalRoutes";
 import { registerWhatsappMonitorPrototypeRoutes } from "./whatsappMonitorPrototypeRoutes";
+import { registerMetaReviewWhatsappRoutes } from "./metaReviewWhatsappRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
 import { registerWebinarCampaignRoutes } from "./webinarCampaign";
@@ -213,7 +214,10 @@ app.use(cors(corsOriginFn));
 app.use(express.json({
   limit: "50mb",
   verify: (req: any, _res, buf) => {
-    if (req.path === "/api/webhooks/meta-leads") {
+    if (
+      req.path === "/api/webhooks/meta-leads" ||
+      req.path === "/api/meta-review/whatsapp/webhook"
+    ) {
       req.rawBody = buf;
     }
   },
@@ -247,7 +251,9 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        if (path !== "/api/admin/meta-review/whatsapp/events") {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
       }
 
       if (logLine.length > 80) {
@@ -271,6 +277,7 @@ app.use((req, res, next) => {
   registerWhatsappApiHistoryRoutes(app);
   registerWhatsappInternalRoutes(app);
   registerWhatsappMonitorPrototypeRoutes(app);
+  registerMetaReviewWhatsappRoutes(app);
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
   registerBroadcastRoutes(app);
