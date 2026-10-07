@@ -8,6 +8,7 @@ const MAX_EVENTS = 100;
 const MAX_MESSAGE_LENGTH = 1000;
 
 export interface MetaReviewWhatsappEnvironment {
+  [key: string]: string | undefined;
   META_REVIEW_WA_TEST_ENABLED?: string;
   META_REVIEW_WA_TEST_WABA_ID?: string;
   META_REVIEW_WA_TEST_PHONE_NUMBER_ID?: string;
