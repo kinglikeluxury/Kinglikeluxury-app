@@ -88,7 +88,7 @@ class FakeQueuePool {
   }
 
   private claimToken(value: Date): string {
-    return value.toISOString().slice(0, 23);
+    return `${value.toISOString().slice(0, 23)}000`;
   }
 
   async connect() {
@@ -105,6 +105,23 @@ class FakeQueuePool {
           return { rows: [], rowCount: 0 };
         }
 
+        if (text.includes("AND updated_at = $9::timestamp without time zone")) {
+          const item = this.rows.find((candidate) => candidate.id === Number(params[7]));
+          if (
+            !item ||
+            item.status !== "processing" ||
+            this.claimToken(item.updated_at) !== String(params[8])
+          ) {
+            return { rows: [], rowCount: 0 };
+          }
+          item.status = String(params[0]);
+          if (params[4] != null) item.retry_count = Number(params[4]);
+          item.next_retry_at = params[5] ?? null;
+          item.error_message = params[6] ?? null;
+          item.updated_at = this.nextClaimTimestamp(item.updated_at);
+          return { rows: [{ id: item.id }], rowCount: 1 };
+        }
+
         if (text.includes("retry limit reached")) {
           const cutoff = this.now - META_QUEUE_STALE_AFTER_MS;
           const limit = Number(params[0]);
@@ -116,13 +133,18 @@ class FakeQueuePool {
             .sort((a, b) => a.updated_at.getTime() - b.updated_at.getTime() || a.id - b.id)
             .slice(0, limit);
           for (const item of selected) {
-            item.status = "needs_review";
-            item.retry_count += 1;
+            item.status = "processing";
+            item.retry_count = Math.min(item.retry_count + 1, item.max_retries);
+            item.error_message = "Recovered stale processing row after worker termination; retry limit reached";
             item.next_retry_at = null;
             item.updated_at = this.nextClaimTimestamp(item.updated_at);
           }
           return {
-            rows: selected.map((item) => ({ id: item.id, meta_lead_id: item.meta_lead_id })),
+            rows: selected.map((item) => ({
+              ...item,
+              needs_review_after_claim: true,
+              claim_updated_at: this.claimToken(item.updated_at),
+            })),
             rowCount: selected.length,
           };
         }
@@ -245,19 +267,18 @@ test("two workers recover the same stale row only once", async () => {
   assert.equal(fake.rows[0].retry_count, 1);
 });
 
-test("claim returns an exact strictly newer millisecond fencing token", async () => {
+test("claim returns an exact strictly newer microsecond fencing token", async () => {
   const now = Date.now();
   const previous = new Date(now);
   const fake = new FakeQueuePool([row(1, "pending", now, { updated_at: previous })], now);
   const [claimed] = await claimQueueEntries(fake);
   assert.equal(typeof claimed.claimUpdatedAt, "string");
-  assert.match(claimed.claimUpdatedAt, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}$/);
-  assert.equal(claimed.claimUpdatedAt, claimed.updatedAt.toISOString().slice(0, 23));
+  assert.match(claimed.claimUpdatedAt, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}$/);
+  assert.equal(claimed.claimUpdatedAt, `${claimed.updatedAt.toISOString().slice(0, 23)}000`);
   assert.ok(claimed.updatedAt.getTime() > previous.getTime());
-  assert.match(
-    fake.sql.filter((sql) => sql.includes("GREATEST(")).join("\n"),
-    /date_trunc\('milliseconds', clock_timestamp\(\)\)[\s\S]*updated_at \+ interval '1 millisecond'/,
-  );
+  const claimSql = fake.sql.filter((sql) => sql.includes("UPDATE lead_import_queue")).join("\n");
+  assert.match(claimSql, /updated_at = NOW\(\)/);
+  assert.match(claimSql, /to_char\(q\.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS\.US'\) AS claim_updated_at/);
 });
 
 test("claim token remains canonical text across a non-UTC process timezone", async () => {
@@ -269,7 +290,7 @@ test("claim token remains canonical text across a non-UTC process timezone", asy
     const [claimed] = await claimQueueEntries(fake);
     const token = claimed.claimUpdatedAt;
     assert.equal(typeof token, "string");
-    assert.match(token, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}$/);
+    assert.match(token, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}$/);
     // The exact text is what the fenced UPDATE receives; it is never parsed
     // through a JavaScript Date (which could reinterpret a timestamp zone).
     assert.equal(token, String(token));
@@ -282,6 +303,25 @@ test("claim token remains canonical text across a non-UTC process timezone", asy
   }
 });
 
+test("webhook queue uses exact NOW claim versions while Pull Sync retains its existing claim behavior", () => {
+  const source = readFileSync(new URL("./metaLeadsService.ts", import.meta.url), "utf8");
+  const queueStart = source.indexOf("export async function claimQueueEntries(");
+  const pullStart = source.indexOf("async function claimPullSyncEntry(", queueStart);
+  const processStart = source.indexOf("async function processQueue(", pullStart);
+  const queueClaimCode = source.slice(queueStart, pullStart);
+  const pullClaimCode = source.slice(pullStart, processStart);
+
+  assert.equal((queueClaimCode.match(/updated_at = NOW\(\)/g) ?? []).length, 3);
+  assert.equal((queueClaimCode.match(/to_char\(q\.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS\.US'\)/g) ?? []).length, 3);
+  assert.doesNotMatch(queueClaimCode, /updated_at\s*=\s*GREATEST/);
+  assert.doesNotMatch(pullClaimCode, /updated_at = NOW\(\)/);
+  assert.match(
+    pullClaimCode,
+    /updated_at = GREATEST\(\s*date_trunc\('milliseconds', clock_timestamp\(\)\),\s*updated_at \+ interval '1 millisecond'\s*\)/,
+  );
+  assert.match(pullClaimCode, /to_char\(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS\.MS'\)/);
+});
+
 test("stale worker A cannot complete after worker B reclaims, while B can", async () => {
   const now = Date.now();
   const source = readFileSync(new URL("./metaLeadsService.ts", import.meta.url), "utf8");
@@ -289,20 +329,22 @@ test("stale worker A cannot complete after worker B reclaims, while B can", asyn
   assert.match(source, /AND status = 'processing'\s+AND updated_at = \$9/);
 
   // This is the database UPDATE predicate reduced to an offline fake: the
-  // newer claim token makes A's UPDATE affect zero rows, while B succeeds.
-  const state = { status: "processing", updatedAt: now + 1 };
-  const fencedUpdate = (token: number, status: string): number => {
-    if (state.status !== "processing" || state.updatedAt !== token) return 0;
-    state.status = status;
-    state.updatedAt += 1;
-    return 1;
-  };
-  const tokenA = state.updatedAt;
-  state.updatedAt += 1; // stale recovery/reclaim by B
-  const tokenB = state.updatedAt;
-  assert.equal(fencedUpdate(tokenA, "completed"), 0);
-  assert.equal(fencedUpdate(tokenB, "completed"), 1);
-  assert.equal(state.status, "completed");
+  // newer claim token makes A's UPDATE affect zero rows for every terminal state.
+  for (const terminalStatus of ["completed", "retry", "needs_review"] as const) {
+    const state = { status: "processing", updatedAt: now + 1 };
+    const fencedUpdate = (token: number, status: string): number => {
+      if (state.status !== "processing" || state.updatedAt !== token) return 0;
+      state.status = status;
+      state.updatedAt += 1;
+      return 1;
+    };
+    const tokenA = state.updatedAt;
+    state.updatedAt += 1; // stale recovery/reclaim by B
+    const tokenB = state.updatedAt;
+    assert.equal(fencedUpdate(tokenA, terminalStatus), 0);
+    assert.equal(fencedUpdate(tokenB, terminalStatus), 1);
+    assert.equal(state.status, terminalStatus);
+  }
 });
 
 test("fenced integration transition hook is test-environment gated", async () => {
@@ -440,8 +482,21 @@ test("Task 30 locks, canonical selection, notification claim, and round-robin re
 test("dedicated flag is the only startup gate for the Meta queue processor", () => {
   const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(source, /ENABLE_META_LEADS_PROCESSOR === "true"/);
+  assert.match(source, /ENABLE_BACKGROUND_SCHEDULERS === "true"/);
   assert.equal((source.match(/startMetaLeadsProcessor\(\)/g) ?? []).length, 1);
-  assert.match(source, /if \(metaLeadsProcessorEnabled\) \{\s*startMetaLeadsProcessor\(\)/);
+  assert.match(source, /if \(process\.env\.ENABLE_META_LEADS_PROCESSOR === "true"\) \{\s*startMetaLeadsProcessor\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) \{\s*startScheduler\(\);\s*startDailyBackup\(\);\s*\}/);
+  assert.match(source, /^\s*startCrmTaskReminderScheduler\(\);$/m);
+  assert.match(source, /await ensureDeveloperRegistrationTables\(\);\s*startDeveloperRegistrationScheduler\(\);/);
+  assert.match(source, /await ensureBroadcastTables\(\);\s*await resumePendingBroadcasts\(\);/);
+  assert.match(source, /if \(schedulersEnabled\) startNurturingScheduler\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) startWaQualScheduler\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) \{\s*if \(process\.env\.META_LEAD_PULL_SYNC_ENABLED === "true"\) \{\s*startPullSyncScheduler\(\)/);
+  const metaStepStart = source.indexOf('name: "ensureMetaLeadsTables"');
+  const metaStepEnd = source.indexOf('name: "ensureWhatsappAiTables"', metaStepStart);
+  const metaStep = source.slice(metaStepStart, metaStepEnd);
+  assert.match(metaStep, /if \(process\.env\.ENABLE_META_LEADS_PROCESSOR === "true"\) \{\s*startMetaLeadsProcessor\(\)/);
+  assert.match(metaStep, /if \(schedulersEnabled\) \{\s*if \(process\.env\.META_LEAD_PULL_SYNC_ENABLED === "true"\) \{\s*startPullSyncScheduler\(\)/);
   const serviceSource = readFileSync(new URL("./metaLeadsService.ts", import.meta.url), "utf8");
   assert.match(serviceSource, /if \(queueProcessorStarted\) \{/);
 });
