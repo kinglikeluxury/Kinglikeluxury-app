@@ -350,15 +350,14 @@ app.use((req, res, next) => {
   server.headersTimeout = 630000;
 
   const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
-  const metaLeadsProcessorEnabled = process.env.ENABLE_META_LEADS_PROCESSOR === "true";
   if (schedulersEnabled) {
     startScheduler();
     startDailyBackup();
   } else {
     console.log("[Schedulers] Disabled by ENABLE_BACKGROUND_SCHEDULERS — set to 'true' to enable background processing");
   }
-  // All unrelated background schedulers remain behind the global scheduler gate.
-  if (schedulersEnabled) startCrmTaskReminderScheduler();
+  // CRM task reminders are lightweight and user-facing — always run regardless of the heavy-scheduler gate
+  startCrmTaskReminderScheduler();
   validateMetaWhatsAppConfig();
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -395,7 +394,7 @@ app.use((req, res, next) => {
       name: "ensureMetaLeadsTables",
       run: async () => {
         await ensureMetaLeadsTables();
-        if (metaLeadsProcessorEnabled) {
+        if (process.env.ENABLE_META_LEADS_PROCESSOR === "true") {
           startMetaLeadsProcessor();
         } else {
           console.log("[MetaLeads] Queue processor disabled — set ENABLE_META_LEADS_PROCESSOR=true to enable");
@@ -414,7 +413,7 @@ app.use((req, res, next) => {
       name: "ensureDeveloperRegistrationTables",
       run: async () => {
         await ensureDeveloperRegistrationTables();
-        if (schedulersEnabled) startDeveloperRegistrationScheduler();
+        startDeveloperRegistrationScheduler();
       },
     },
     {
@@ -428,7 +427,7 @@ app.use((req, res, next) => {
       name: "ensureBroadcastTables",
       run: async () => {
         await ensureBroadcastTables();
-        if (schedulersEnabled) await resumePendingBroadcasts();
+        await resumePendingBroadcasts();
       },
     },
     { name: "ensureWhatsAppApiTables", run: () => ensureWhatsAppApiTables() },
