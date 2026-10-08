@@ -357,8 +357,8 @@ app.use((req, res, next) => {
   } else {
     console.log("[Schedulers] Disabled by ENABLE_BACKGROUND_SCHEDULERS — set to 'true' to enable background processing");
   }
-  // CRM task reminders are lightweight and user-facing — always run regardless of the heavy-scheduler gate
-  startCrmTaskReminderScheduler();
+  // All unrelated background schedulers remain behind the global scheduler gate.
+  if (schedulersEnabled) startCrmTaskReminderScheduler();
   validateMetaWhatsAppConfig();
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -414,7 +414,7 @@ app.use((req, res, next) => {
       name: "ensureDeveloperRegistrationTables",
       run: async () => {
         await ensureDeveloperRegistrationTables();
-        startDeveloperRegistrationScheduler();
+        if (schedulersEnabled) startDeveloperRegistrationScheduler();
       },
     },
     {
@@ -428,7 +428,7 @@ app.use((req, res, next) => {
       name: "ensureBroadcastTables",
       run: async () => {
         await ensureBroadcastTables();
-        await resumePendingBroadcasts();
+        if (schedulersEnabled) await resumePendingBroadcasts();
       },
     },
     { name: "ensureWhatsAppApiTables", run: () => ensureWhatsAppApiTables() },

@@ -49,4 +49,4 @@
 - [Read-only browser diagnostics](readonly-browser-diagnostics.md) — if bundled Playwright Chromium lacks system libraries, use the system Chromium executable without installing packages.
 - [Meta WhatsApp review prototype](meta-whatsapp-review-prototype.md) — honor Builder ES v4 and Session Info v3 exactly; do not add unrequested Meta configuration or integration scope.
 - [Meta sync startup side effect](meta-sync-startup-side-effect.md) — restarting the main app can immediately run the existing Meta lead pull-sync job, even when the processor is disabled.
-- [Meta queue claim fencing](meta-queue-claim-fencing.md) — use exact DB-issued `updated_at` versions to fence every terminal transition without schema changes.
+- [Meta queue claim fencing](meta-queue-claim-fencing.md) — use exact DB-issued `updated_at` versions for the webhook queue only; keep Pull Sync separate.

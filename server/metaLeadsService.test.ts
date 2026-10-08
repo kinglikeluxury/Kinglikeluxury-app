@@ -303,7 +303,7 @@ test("claim token remains canonical text across a non-UTC process timezone", asy
   }
 });
 
-test("all queue and pull-sync claims use NOW and return the exact microsecond version", () => {
+test("webhook queue uses exact NOW claim versions while Pull Sync retains its existing claim behavior", () => {
   const source = readFileSync(new URL("./metaLeadsService.ts", import.meta.url), "utf8");
   const queueStart = source.indexOf("export async function claimQueueEntries(");
   const pullStart = source.indexOf("async function claimPullSyncEntry(", queueStart);
@@ -314,8 +314,12 @@ test("all queue and pull-sync claims use NOW and return the exact microsecond ve
   assert.equal((queueClaimCode.match(/updated_at = NOW\(\)/g) ?? []).length, 3);
   assert.equal((queueClaimCode.match(/to_char\(q\.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS\.US'\)/g) ?? []).length, 3);
   assert.doesNotMatch(queueClaimCode, /updated_at\s*=\s*GREATEST/);
-  assert.match(pullClaimCode, /updated_at = NOW\(\)/);
-  assert.match(pullClaimCode, /to_char\(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS\.US'\)/);
+  assert.doesNotMatch(pullClaimCode, /updated_at = NOW\(\)/);
+  assert.match(
+    pullClaimCode,
+    /updated_at = GREATEST\(\s*date_trunc\('milliseconds', clock_timestamp\(\)\),\s*updated_at \+ interval '1 millisecond'\s*\)/,
+  );
+  assert.match(pullClaimCode, /to_char\(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS\.MS'\)/);
 });
 
 test("stale worker A cannot complete after worker B reclaims, while B can", async () => {
@@ -478,8 +482,21 @@ test("Task 30 locks, canonical selection, notification claim, and round-robin re
 test("dedicated flag is the only startup gate for the Meta queue processor", () => {
   const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(source, /ENABLE_META_LEADS_PROCESSOR === "true"/);
+  assert.match(source, /ENABLE_BACKGROUND_SCHEDULERS === "true"/);
   assert.equal((source.match(/startMetaLeadsProcessor\(\)/g) ?? []).length, 1);
   assert.match(source, /if \(metaLeadsProcessorEnabled\) \{\s*startMetaLeadsProcessor\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) \{\s*startScheduler\(\);\s*startDailyBackup\(\);\s*\}/);
+  assert.match(source, /if \(schedulersEnabled\) startCrmTaskReminderScheduler\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) startDeveloperRegistrationScheduler\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) await resumePendingBroadcasts\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) startNurturingScheduler\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) startWaQualScheduler\(\)/);
+  assert.match(source, /if \(schedulersEnabled\) \{\s*if \(process\.env\.META_LEAD_PULL_SYNC_ENABLED === "true"\) \{\s*startPullSyncScheduler\(\)/);
+  const metaStepStart = source.indexOf('name: "ensureMetaLeadsTables"');
+  const metaStepEnd = source.indexOf('name: "ensureWhatsappAiTables"', metaStepStart);
+  const metaStep = source.slice(metaStepStart, metaStepEnd);
+  assert.match(metaStep, /if \(metaLeadsProcessorEnabled\) \{\s*startMetaLeadsProcessor\(\)/);
+  assert.match(metaStep, /if \(schedulersEnabled\) \{\s*if \(process\.env\.META_LEAD_PULL_SYNC_ENABLED === "true"\) \{\s*startPullSyncScheduler\(\)/);
   const serviceSource = readFileSync(new URL("./metaLeadsService.ts", import.meta.url), "utf8");
   assert.match(serviceSource, /if \(queueProcessorStarted\) \{/);
 });
