@@ -1086,10 +1086,13 @@ async function claimPullSyncEntry(id: number): Promise<MetaQueueEntry | null> {
     const result = await client.query(
       `UPDATE lead_import_queue
        SET status = 'processing',
-           updated_at = NOW()
+           updated_at = GREATEST(
+             date_trunc('milliseconds', clock_timestamp()),
+             updated_at + interval '1 millisecond'
+           )
        WHERE id = $1 AND status = 'pending'
        RETURNING *,
-          to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS claim_updated_at`,
+         to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS claim_updated_at`,
       [id],
     );
     await client.query("COMMIT");
