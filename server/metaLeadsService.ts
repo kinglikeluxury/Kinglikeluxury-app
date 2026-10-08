@@ -930,6 +930,7 @@ export async function claimQueueEntries(
 ): Promise<MetaQueueEntry[]> {
   const client = await queuePool.connect();
   let transactionOpen = false;
+  let clientReleased = false;
   try {
     await client.query("BEGIN");
     transactionOpen = true;
@@ -943,24 +944,23 @@ export async function claimQueueEntries(
          FROM lead_import_queue
          WHERE status = 'processing'
             AND processed_at IS NULL
-            AND updated_at < clock_timestamp() - interval '15 minutes'
+            AND updated_at < NOW() - interval '15 minutes'
            AND retry_count + 1 >= max_retries
          ORDER BY updated_at ASC, id ASC
          LIMIT $1
          FOR UPDATE SKIP LOCKED
        )
        UPDATE lead_import_queue AS q
-       SET status = 'needs_review',
-           retry_count = q.retry_count + 1,
+        SET status = 'processing',
+            retry_count = LEAST(q.retry_count + 1, q.max_retries),
            error_message = 'Recovered stale processing row after worker termination; retry limit reached',
            next_retry_at = NULL,
-          updated_at = GREATEST(
-            date_trunc('milliseconds', clock_timestamp()),
-            q.updated_at + interval '1 millisecond'
-          )
+            updated_at = NOW()
        FROM candidates
        WHERE q.id = candidates.id
-       RETURNING q.id, q.meta_lead_id`,
+        RETURNING q.*,
+          true AS needs_review_after_claim,
+          to_char(q.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS claim_updated_at`,
       [META_QUEUE_RETRY_BATCH_SIZE],
     );
 
@@ -975,14 +975,11 @@ export async function claimQueueEntries(
        )
        UPDATE lead_import_queue AS q
        SET status = 'processing',
-            updated_at = GREATEST(
-              date_trunc('milliseconds', clock_timestamp()),
-              q.updated_at + interval '1 millisecond'
-            )
+           updated_at = NOW()
        FROM candidates
        WHERE q.id = candidates.id
        RETURNING q.*,
-         to_char(q.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS claim_updated_at`,
+          to_char(q.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS claim_updated_at`,
       [META_QUEUE_PENDING_BATCH_SIZE],
     );
 
@@ -992,12 +989,12 @@ export async function claimQueueEntries(
          FROM lead_import_queue
          WHERE (
              status = 'retry'
-             AND next_retry_at <= clock_timestamp()
+              AND next_retry_at <= NOW()
            )
            OR (
              status = 'processing'
               AND processed_at IS NULL
-             AND updated_at < clock_timestamp() - interval '15 minutes'
+              AND updated_at < NOW() - interval '15 minutes'
              AND retry_count + 1 < max_retries
            )
          ORDER BY
@@ -1020,26 +1017,43 @@ export async function claimQueueEntries(
                THEN 'Recovered stale processing row after worker termination'
              ELSE q.error_message
            END,
-            updated_at = GREATEST(
-              date_trunc('milliseconds', clock_timestamp()),
-              q.updated_at + interval '1 millisecond'
-            )
+            updated_at = NOW()
        FROM candidates
        WHERE q.id = candidates.id
        RETURNING q.*, candidates.recovered_stale,
-         to_char(q.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS claim_updated_at`,
+          to_char(q.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS claim_updated_at`,
       [META_QUEUE_RETRY_BATCH_SIZE],
     );
 
     await client.query("COMMIT");
     transactionOpen = false;
+    client.release();
+    clientReleased = true;
+
+    // Exhausted stale rows are first claimed and committed, then moved to
+    // needs_review through the same claim-version fence as other terminal writes.
+    for (const row of exhausted.rows) {
+      const entry = mapQueueRow(row);
+      const transitioned = await updateClaimedQueueEntry(
+        entry,
+        {
+          status: "needs_review",
+          retryCount: entry.retryCount,
+          nextRetryAt: null,
+          errorMessage: "Recovered stale processing row after worker termination; retry limit reached",
+        },
+        queuePool,
+      );
+      if (transitioned) {
+        await logQueueAudit(row.id, row.meta_lead_id, "stale_processing_needs_review", {
+          staleAfterMs: META_QUEUE_STALE_AFTER_MS,
+        }, queuePool);
+      } else {
+        console.warn(`[MetaLeads][Processor] Lost queue claim before stale needs_review — queueId=${row.id}`);
+      }
+    }
 
     // Keep audit writes outside the short row-locking claim transaction.
-    for (const row of exhausted.rows) {
-      await logQueueAudit(row.id, row.meta_lead_id, "stale_processing_needs_review", {
-        staleAfterMs: META_QUEUE_STALE_AFTER_MS,
-      }, queuePool);
-    }
     for (const row of retries.rows.filter((item: any) => item.recovered_stale)) {
       await logQueueAudit(row.id, row.meta_lead_id, "recovered_stale", {
         staleAfterMs: META_QUEUE_STALE_AFTER_MS,
@@ -1054,7 +1068,7 @@ export async function claimQueueEntries(
     }
     throw err;
   } finally {
-    client.release();
+    if (!clientReleased) client.release();
   }
 }
 
@@ -1072,13 +1086,10 @@ async function claimPullSyncEntry(id: number): Promise<MetaQueueEntry | null> {
     const result = await client.query(
       `UPDATE lead_import_queue
        SET status = 'processing',
-           updated_at = GREATEST(
-             date_trunc('milliseconds', clock_timestamp()),
-             updated_at + interval '1 millisecond'
-           )
+           updated_at = NOW()
        WHERE id = $1 AND status = 'pending'
        RETURNING *,
-         to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS claim_updated_at`,
+          to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS claim_updated_at`,
       [id],
     );
     await client.query("COMMIT");
