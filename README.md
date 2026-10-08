@@ -71,4 +71,3 @@ See the [mobile app README](./mobile-app/README.md) for detailed setup instructi
 The web application is designed to be easily deployed on platforms like Vercel, Netlify, or any Node.js hosting service.
 
 The mobile application can be built as an APK file for distribution on the Google Play Store or for direct installation.
-<!-- This README summarizes the Kinglike Luxury platform. -->

@@ -54,8 +54,6 @@ import DeveloperRegistrationCenterPage from "@/pages/admin/developer-registratio
 import EmailSequencesPage from "@/pages/admin/email-sequences";
 import EmailHistoryPage from "@/pages/admin/email-history";
 import WhatsappApiChatHistoryPage from "@/pages/admin/whatsapp-api-chat-history";
-import WhatsappEmployeeMonitoringPage from "@/pages/admin/whatsapp-employee-monitoring";
-import EmployeeWhatsappPage from "@/pages/employee/whatsapp";
 import CrmHealthPage from "@/pages/admin/crm-health";
 import WhatsappConciergeDashboard from "@/pages/admin/whatsapp-concierge-dashboard";
 import EmployeeDashboardPage from "@/pages/admin/employee-dashboard";
@@ -79,14 +77,12 @@ import { KayCallInitiator, KayCallProvider } from "./lib/kay-call";
 function Router() {
   const [location] = useLocation();
   const isKayWorkspace = location === "/admin/kay/my-sales" || location === "/admin/kay-control-center" || location === "/admin/kay/recordings";
-  const isKinglikeFamilyWhatsapp = location === "/admin/whatsapp-monitoring";
-  const isKinglikeFamilyEmployeeWhatsapp = location === "/employee/whatsapp";
 
   return (
     <div className="flex flex-col min-h-screen">
       {!isKayWorkspace && <Navbar />}
-      {!isKinglikeFamilyWhatsapp && !isKinglikeFamilyEmployeeWhatsapp && <FloatingKayCallButton />}
-      <main className={`flex-grow ${isKayWorkspace || isKinglikeFamilyWhatsapp || isKinglikeFamilyEmployeeWhatsapp ? "" : "pb-16 md:pb-0"} page-transition`}>
+      <FloatingKayCallButton />
+      <main className={`flex-grow ${isKayWorkspace ? "" : "pb-16 md:pb-0"} page-transition`}>
         <Switch key={location}>
           <Route path="/" component={Home} />
           <Route path="/properties" component={Properties} />
@@ -124,8 +120,6 @@ function Router() {
           <Route path="/admin/email-sequences" component={EmailSequencesPage} />
           <Route path="/admin/email-history" component={EmailHistoryPage} />
           <Route path="/admin/whatsapp-api-chat-history" component={WhatsappApiChatHistoryPage} />
-          <Route path="/admin/whatsapp-monitoring" component={WhatsappEmployeeMonitoringPage} />
-          <Route path="/employee/whatsapp" component={EmployeeWhatsappPage} />
           <Route path="/admin/crm-health" component={CrmHealthPage} />
           <Route path="/admin/whatsapp-concierge" component={WhatsappConciergeDashboard} />
           <Route path="/admin/ai-marketing-center" component={AiMarketingCenterPage} />
@@ -158,8 +152,8 @@ function Router() {
       {!isKayWorkspace && <div className="hidden md:block">
         <Footer />
       </div>}
-      {!isKayWorkspace && !isKinglikeFamilyWhatsapp && !isKinglikeFamilyEmployeeWhatsapp && <BottomNav />}
-      {!isKayWorkspace && !isKinglikeFamilyWhatsapp && !isKinglikeFamilyEmployeeWhatsapp && <FloatingAIButton />}
+      {!isKayWorkspace && <BottomNav />}
+      {!isKayWorkspace && <FloatingAIButton />}
     </div>
   );
 }

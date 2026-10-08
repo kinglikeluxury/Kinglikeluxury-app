@@ -241,8 +241,7 @@
     "approvals": "الموافقات",
     "createProject": "إضافة مشروع",
     "blogManagement": "إدارة المدونة",
-    "leads": "قاعدة العملاء",
-    "whatsappMonitoring": "Kinglike Family WhatsApp"
+    "leads": "قاعدة العملاء"
   },
   "blog": {
     "title": "مدونة العقارات",
@@ -623,38 +622,5 @@
     "horizontal": "أفقي",
     "mobileFormat": "تنسيق هاتف",
     "landscapeFormat": "تنسيق أفقي"
-  },
-  "whatsappMonitoring": {
-    "title": "Kinglike Family WhatsApp",
-    "subtitle": "محادثات واتساب موظفي عائلة كينغ لايك في مكان واحد.",
-    "adminLabel": "مساحة الإدارة",
-    "mockOnly": "بيانات تجريبية فقط",
-    "employees": "الموظفون",
-    "monitoringList": "قائمة المراقبة",
-    "viewConversations": "عرض المحادثات",
-    "conversations": "المحادثات",
-    "mockConversations": "محادثات تجريبية",
-    "searchPlaceholder": "البحث بالاسم أو الرقم",
-    "filterAll": "الكل",
-    "filterUnread": "غير مقروءة",
-    "filterArchived": "مؤرشفة",
-    "filterDeleted": "أحداث الحذف",
-    "filterMedia": "تتضمن وسائط",
-    "noConversations": "لم يتم العثور على محادثات",
-    "selectConversation": "اختر محادثة",
-    "employee": "الموظف",
-    "moreActions": "إجراءات إضافية",
-    "archivedPreview": "معاينة أرشيف المراقبة",
-    "internalNote": "ملاحظة داخلية",
-    "deletedFromWhatsapp": "تم الحذف من واتساب",
-    "deletedAt": "وقت الحذف",
-    "attach": "إرفاق",
-    "emoji": "رمز تعبيري",
-    "send": "إرسال",
-    "sendingLater": "سيتم تفعيل الإرسال في مرحلة لاحقة",
-    "composerDisabled": "الإرسال معطّل في هذه المرحلة التجريبية",
-    "closePreview": "إغلاق المعاينة",
-    "videoPlaceholder": "عنصر معاينة فيديو تجريبي",
-    "back": "رجوع"
   }
 }

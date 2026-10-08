@@ -43,9 +43,6 @@ import { registerDeveloperRegistrationRoutes, ensureDeveloperRegistrationRouteTa
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
 import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
-import { registerWhatsappInternalRoutes } from "./whatsappInternalRoutes";
-import { registerWhatsappMonitorPrototypeRoutes } from "./whatsappMonitorPrototypeRoutes";
-import { registerMetaReviewWhatsappRoutes } from "./metaReviewWhatsappRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
 import { registerWebinarCampaignRoutes } from "./webinarCampaign";
@@ -104,7 +101,6 @@ app.use(
           "'unsafe-eval'",
           "https://challenges.cloudflare.com",
           "https://www.googletagmanager.com",
-          "https://connect.facebook.net",
         ],
         styleSrc: [
           "'self'",
@@ -150,20 +146,12 @@ app.use(
           "https://www.googleadservices.com",
           "https://googleads.g.doubleclick.net",
           "https://www.google.com",
-          "https://connect.facebook.net",
-          "https://www.facebook.com",
-          "https://graph.facebook.com",
-          "https://lon.rtsp.me",
-          "https://frn.rtsp.me",
           "wss:",
           "ws:",
         ],
         frameSrc: [
           "'self'",
           "https://challenges.cloudflare.com",
-          "https://www.facebook.com",
-          "https://rtsp.run",
-          "https://rtsp.me",
         ],
         frameAncestors: process.env.NODE_ENV === "production"
           ? ["'self'"]
@@ -214,10 +202,7 @@ app.use(cors(corsOriginFn));
 app.use(express.json({
   limit: "50mb",
   verify: (req: any, _res, buf) => {
-    if (
-      req.path === "/api/webhooks/meta-leads" ||
-      req.path === "/api/meta-review/whatsapp/webhook"
-    ) {
+    if (req.path === "/api/webhooks/meta-leads") {
       req.rawBody = buf;
     }
   },
@@ -251,9 +236,7 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        if (path !== "/api/admin/meta-review/whatsapp/events") {
-          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-        }
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
       if (logLine.length > 80) {
@@ -275,9 +258,6 @@ app.use((req, res, next) => {
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
   registerWhatsappApiHistoryRoutes(app);
-  registerWhatsappInternalRoutes(app);
-  registerWhatsappMonitorPrototypeRoutes(app);
-  registerMetaReviewWhatsappRoutes(app);
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
   registerBroadcastRoutes(app);
@@ -350,6 +330,7 @@ app.use((req, res, next) => {
   server.headersTimeout = 630000;
 
   const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
+  const metaLeadsProcessorEnabled = process.env.ENABLE_META_LEADS_PROCESSOR === "true";
   if (schedulersEnabled) {
     startScheduler();
     startDailyBackup();
@@ -394,7 +375,7 @@ app.use((req, res, next) => {
       name: "ensureMetaLeadsTables",
       run: async () => {
         await ensureMetaLeadsTables();
-        if (process.env.ENABLE_META_LEADS_PROCESSOR === "true") {
+        if (metaLeadsProcessorEnabled) {
           startMetaLeadsProcessor();
         } else {
           console.log("[MetaLeads] Queue processor disabled — set ENABLE_META_LEADS_PROCESSOR=true to enable");
