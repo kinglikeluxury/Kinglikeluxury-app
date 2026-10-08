@@ -169,7 +169,7 @@ test("real PostgreSQL Meta claim fencing and contention", { skip: !hardGate ? sk
          ($3, $3, 'retry', 1, 3, $4, clock_timestamp()),
          ($5, $5, 'completed', 0, 3, NULL, clock_timestamp()),
          ($6, $6, 'processing', 0, 3, NULL, clock_timestamp()),
-         ($7, $7, 'processing', 1, 3, NULL, $8),
+         ($7, $7, 'processing', 0, 3, NULL, $8),
          ($9, $9, 'processing', 2, 3, NULL, $8)`,
         [
           `${runId}-due`, new Date(Date.now() - 60_000), `${runId}-future`, future,
