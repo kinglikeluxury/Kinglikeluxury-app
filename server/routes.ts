@@ -18,6 +18,7 @@ import {
   PROPERTY_STATUS,
   crmLeads, kaySettings, kayEvents,
 } from "@shared/schema";
+import { SYRIAN_CITY_ENTRIES, toSyriaCityValue } from "@shared/syriaLocations";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
 import { z } from "zod";
@@ -3158,7 +3159,8 @@ ${metaTags}
       'georgia': 'Georgia',
       'uae': 'UAE',
       'northern-cyprus': 'Northern Cyprus',
-      'turkey': 'Turkey'
+      'turkey': 'Turkey',
+      'syria': 'Syria',
     };
     
     // Handle city-level filtering  
@@ -3176,7 +3178,11 @@ ${metaTags}
       'guzelyurt': 'Güzelyurt',
       'esentepe': 'Esentepe',
       'istanbul': 'Istanbul',
-      'trabzon': 'Trabzon'
+      'trabzon': 'Trabzon',
+      ...Object.fromEntries(SYRIAN_CITY_ENTRIES.map(({ city }) => [
+        toSyriaCityValue(city),
+        city,
+      ])),
     };
     
     // Return country filter or city filter

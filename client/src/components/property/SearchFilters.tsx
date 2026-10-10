@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PROPERTY_TYPES } from "@shared/schema";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import { Label } from "@/components/ui/label";
 import { Search, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -73,6 +74,8 @@ const getCitiesForCountry = (country: string) => {
         { value: "istanbul", label: "İstanbul" },
         { value: "trabzon", label: "Trabzon" },
       ];
+    case "syria":
+      return SYRIA_CITY_OPTIONS;
     default:
       return [];
   }
@@ -215,6 +218,7 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
                   <SelectItem value="uae">🇦🇪 {t('countries.uae', 'UAE')}</SelectItem>
                   <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus')}</SelectItem>
                   <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
+                  <SelectItem value="syria">🇸🇾 Syria</SelectItem>
                 </SelectContent>
               </Select>
               {errors.country && (

@@ -354,6 +354,7 @@ export const CONSULTATION_COUNTRIES = {
   TURKEY: "turkey",
   DUBAI: "dubai",
   NORTH_CYPRUS: "north_cyprus",
+  SYRIA: "syria",
 } as const;
 
 export const CONSULTATION_TYPES = {

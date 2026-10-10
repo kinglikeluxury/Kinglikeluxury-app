@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { PROPERTY_TYPES } from "@shared/schema";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import luxuryLogoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import constructionImagePath from "@assets/1702663538423.jpg";
 import apartmentsImagePath from "@assets/category-apartments.jpg";
@@ -61,6 +62,8 @@ const CategorySection = () => {
           { value: "istanbul", label: "İstanbul" },
           { value: "trabzon", label: "Trabzon" },
         ];
+      case "syria":
+        return SYRIA_CITY_OPTIONS;
       default:
         return [];
     }
@@ -211,6 +214,7 @@ const CategorySection = () => {
                   <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
                   <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                   <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
+                  <SelectItem value="syria">🇸🇾 Syria</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -12,6 +12,7 @@ import {
   ChevronRight, AlertCircle
 } from "lucide-react";
 import { ProjectLiveCamera } from "@shared/schema";
+import { SYRIAN_CITIES } from "@shared/syriaLocations";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ const COUNTRIES = [
   { key: "turkey",       label: "🇹🇷 Turkey" },
   { key: "dubai",        label: "🇦🇪 Dubai" },
   { key: "north_cyprus", label: "🇨🇾 North Cyprus" },
+  { key: "syria", label: "🇸🇾 Syria" },
 ];
 
 const CITIES_BY_COUNTRY: Record<string, string[]> = {
@@ -27,6 +29,7 @@ const CITIES_BY_COUNTRY: Record<string, string[]> = {
   turkey:       ["Istanbul", "Antalya", "Alanya", "Bodrum", "Izmir", "Ankara", "Trabzon"],
   dubai:        ["Dubai Marina", "Downtown Dubai", "Palm Jumeirah", "Business Bay", "JVC", "JBR"],
   north_cyprus: ["Kyrenia", "Famagusta", "Lefkosa", "Iskele", "Guzelyurt", "Bogazici"],
+  syria: [...SYRIAN_CITIES],
 };
 
 // Keywords used to infer which country a property belongs to from its location text
@@ -35,6 +38,7 @@ const COUNTRY_KEYWORDS: Record<string, string[]> = {
   turkey:       ["turkey", "türkiye", "istanbul", "antalya", "alanya", "bodrum", "izmir", "ankara", "trabzon"],
   dubai:        ["dubai", "uae", "abu dhabi", "sharjah", "emirates"],
   north_cyprus: ["cyprus", "kyrenia", "famagusta", "lefkosa", "iskele", "guzelyurt"],
+  syria: ["syria", ...SYRIAN_CITIES.map((city) => city.toLowerCase())],
 };
 
 function inferCountry(location: string, liveCountry?: string | null): string | null {
