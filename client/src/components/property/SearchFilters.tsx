@@ -168,6 +168,10 @@ const SearchFilters = ({ initialFilters }: SearchFiltersProps) => {
       params.append("type", propertyType);
     }
 
+    if (country && country !== "any") {
+      params.append("country", country);
+    }
+
     // Pass city as the location filter (backend uses city param)
     if (city && city !== "any") {
       params.append("city", city);
