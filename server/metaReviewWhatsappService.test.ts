@@ -157,6 +157,45 @@ test("fixed sender always targets configured test recipient and fixed hello_worl
   clearMetaReviewWhatsappEventsForTests();
 });
 
+test("failed test send logs only sanitized Meta error diagnostics", async () => {
+  const warnings: unknown[][] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => warnings.push(args);
+  try {
+    await assert.rejects(
+      sendMetaReviewWhatsappTestTemplate(TEST_ENV, async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              message:
+                "Recipient +15551234567 with phone ID 987654321 token=synthetic-test-access-token WAMID wamid.HBgM123456789012345",
+              type: "OAuthException",
+              code: 131030,
+              error_subcode: 2494010,
+            },
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+      /HTTP 400/,
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0]?.[0], "[meta-review-test] Meta Graph API send failed");
+  const diagnostic = warnings[0]?.[1] as Record<string, unknown>;
+  assert.deepEqual(diagnostic, {
+    metaHttpStatus: 400,
+    errorCode: 131030,
+    errorSubcode: 2494010,
+    errorMessage:
+      "Recipient [redacted] with phone ID [redacted] token=[redacted] WAMID [redacted-wamid]",
+  });
+  assert.doesNotMatch(JSON.stringify(diagnostic), /15551234567|987654321|synthetic-test-access-token|wamid\./i);
+});
+
 test("sender fails closed before network access when test mode is disabled", async () => {
   let fetchCalled = false;
   await assert.rejects(

@@ -68,6 +68,67 @@ export class MetaReviewWhatsappSendError extends Error {
   }
 }
 
+function sanitizeMetaErrorMessage(
+  value: unknown,
+  environment: MetaReviewWhatsappEnvironment,
+): string {
+  if (typeof value !== "string") return "No Meta error message supplied.";
+
+  let message = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ");
+  const sensitiveValues = [
+    environment.META_REVIEW_WA_TEST_ACCESS_TOKEN,
+    environment.META_REVIEW_WA_TEST_RECIPIENT,
+    environment.META_REVIEW_WA_TEST_PHONE_NUMBER_ID,
+    environment.META_REVIEW_WA_TEST_WABA_ID,
+    environment.META_REVIEW_WA_TEST_VERIFY_TOKEN,
+    environment.META_REVIEW_WA_TEST_APP_SECRET,
+  ].filter((item): item is string => Boolean(item));
+
+  for (const sensitiveValue of sensitiveValues) {
+    message = message.split(sensitiveValue).join("[redacted]");
+  }
+
+  message = message
+    .replace(/\bwamid\.[^\s,;]+/gi, "[redacted-wamid]")
+    .replace(/\b(?:bearer\s+)?(?:eaa|ea[a-z0-9]{8,})[a-z0-9._-]*/gi, "[redacted-token]")
+    .replace(/\b(access[_ -]?token|token|secret|recipient|phone(?:[_ -]?number)?(?:[_ -]?id)?|waba(?:[_ -]?id)?)\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
+    .replace(/\+?\d[\d\s().-]{6,}\d/g, "[redacted-number]")
+    .replace(/\b[a-z0-9._-]{20,}\b/gi, "[redacted-value]")
+    .replace(/\b[a-z0-9._-]*\d{5,}[a-z0-9._-]*\b/gi, "[redacted-value]")
+    .slice(0, 240);
+
+  return message || "Meta returned an empty error message.";
+}
+
+function getMetaErrorDetails(payload: unknown): {
+  errorCode: number | null;
+  errorSubcode: number | null;
+  errorMessage: unknown;
+} {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return { errorCode: null, errorSubcode: null, errorMessage: undefined };
+  }
+
+  const error = payload.error;
+  if (!error || typeof error !== "object") {
+    return { errorCode: null, errorSubcode: null, errorMessage: undefined };
+  }
+
+  const safeCode = (value: unknown): number | null =>
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= 1_000_000_000
+      ? value
+      : null;
+
+  return {
+    errorCode: safeCode("code" in error ? error.code : undefined),
+    errorSubcode: safeCode("error_subcode" in error ? error.error_subcode : undefined),
+    errorMessage: "message" in error ? error.message : undefined,
+  };
+}
+
 const eventBuffer: StoredEvent[] = [];
 const seenDedupeKeys = new Set<string>();
 let nextEventId = 1;
@@ -385,6 +446,19 @@ export async function sendMetaReviewWhatsappTestTemplate(
   }
 
   if (!response.ok) {
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = undefined;
+    }
+    const details = getMetaErrorDetails(payload);
+    console.warn("[meta-review-test] Meta Graph API send failed", {
+      metaHttpStatus: response.status,
+      errorCode: details.errorCode,
+      errorSubcode: details.errorSubcode,
+      errorMessage: sanitizeMetaErrorMessage(details.errorMessage, environment),
+    });
     throw new MetaReviewWhatsappSendError(
       `Meta Cloud API rejected the test template (HTTP ${response.status}).`,
       502,
