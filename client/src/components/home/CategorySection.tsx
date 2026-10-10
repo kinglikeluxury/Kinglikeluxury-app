@@ -102,7 +102,7 @@ const CategorySection = () => {
     } else {
       const params = new URLSearchParams();
       params.append("type", selectedCategory);
-      if (selectedCountry) params.append("city", selectedCountry);
+       if (selectedCountry) params.append("country", selectedCountry);
       if (selectedCity) params.append("city", selectedCity);
       if (selectedPurpose) params.append("purpose", selectedPurpose);
       setShowModal(false);
