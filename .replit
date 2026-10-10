@@ -48,7 +48,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "ENABLE_META_REVIEW_DIAGNOSTIC_MODE=true npm run dev"
 waitForPort = 5000
 
 [agent]
