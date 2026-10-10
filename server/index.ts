@@ -132,7 +132,6 @@ app.use(
           "https://flagcdn.com",
           "https://images.unsplash.com",
           "https://cdnjs.cloudflare.com",
-          "https://*.basemaps.cartocdn.com",
           "https://www.google-analytics.com",
           "https://www.googleadservices.com",
           "https://googleads.g.doubleclick.net",

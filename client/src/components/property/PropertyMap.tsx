@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { addOpenStreetMapTiles } from '@/lib/openStreetMapTiles';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -59,13 +60,9 @@ const PropertyMap = ({ latitude, longitude, location, className = "" }: Property
       doubleClickZoom: false,
       tap: false,
       keyboard: false,
-      attributionControl: false,
     }).setView([centerLat, centerLng], centerZoom);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      subdomains: 'abcd',
-    }).addTo(map);
+    addOpenStreetMapTiles(map);
 
     if (hasCoords) {
       const customIcon = L.divIcon({
