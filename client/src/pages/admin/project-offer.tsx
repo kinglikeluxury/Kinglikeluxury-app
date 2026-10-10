@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
+import { SYRIAN_CITIES } from "@shared/syriaLocations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -717,6 +718,7 @@ export default function ProjectOfferPage() {
     "UAE": ["Dubai", "Sharjah", "Ras Al Khaimah", "Abu Dhabi", "Ajman", "Fujairah", "Umm Al Quwain"],
     "Northern Cyprus (TRNC)": ["Lefkoşa (Nicosia)", "Gazimağusa (Famagusta)", "Girne (Kyrenia)", "İskele", "Güzelyurt", "Esentepe"],
     "Turkey": ["İstanbul", "Trabzon", "Ankara", "İzmir", "Antalya", "Bursa", "Alanya", "Mersin"],
+    "Syria": [...SYRIAN_CITIES],
   };
 
   const normalizeLocationPart = (value: string) => value.trim().toLocaleLowerCase();

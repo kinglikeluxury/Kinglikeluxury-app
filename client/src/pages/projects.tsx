@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -319,6 +320,7 @@ const Projects = () => {
         'uae': 'uae',
         'northern-cyprus': 'northern cyprus',
         'turkey': 'turkey',
+        'syria': 'syria',
       };
       const countryName = countryNameMap[selectedCountry] || selectedCountry.replace(/-/g, ' ');
       const matchesCountryName = projectLocation.includes(countryName);
@@ -326,7 +328,12 @@ const Projects = () => {
       const matchesGeorgianCity =
         selectedCountry === 'georgia' &&
         georgianCityAliases.some((city) => projectLocation.includes(city));
-      if (!matchesCountryName && !matchesGeorgianCity) {
+      const matchesSyrianCity =
+        selectedCountry === 'syria' &&
+        SYRIA_CITY_OPTIONS.some((city) =>
+          projectLocation.includes(city.label.split(" — ")[0].toLowerCase()),
+        );
+      if (!matchesCountryName && !matchesGeorgianCity && !matchesSyrianCity) {
         return false;
       }
     }
@@ -341,6 +348,10 @@ const Projects = () => {
         'girne': 'girne', 'iskele': 'skele',
         'guzelyurt': 'güzelyurt', 'esentepe': 'esentepe',
         'istanbul': 'istanbul', 'trabzon': 'trabzon',
+        ...Object.fromEntries(SYRIA_CITY_OPTIONS.map(({ value, label }) => [
+          value,
+          label.split(" — ")[0].toLowerCase(),
+        ])),
       };
       const cityName = cityMap[selectedCity] || selectedCity.toLowerCase().replace(/-/g, ' ');
       if (!projectLocation.includes(cityName)) {
@@ -404,6 +415,11 @@ const Projects = () => {
           { value: 'istanbul', label: '🇹🇷 İstanbul' },
           { value: 'trabzon', label: '🇹🇷 Trabzon' },
         ];
+      case 'syria':
+        return SYRIA_CITY_OPTIONS.map((city) => ({
+          ...city,
+          label: `🇸🇾 ${city.label}`,
+        }));
       default:
         return [];
     }
@@ -647,6 +663,7 @@ const Projects = () => {
                     <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
                     <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                     <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
+                    <SelectItem value="syria">🇸🇾 Syria</SelectItem>
                   </SelectContent>
                 </Select>
                 {filterErrors.country && (

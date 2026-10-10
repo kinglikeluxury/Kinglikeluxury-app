@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import LocationSelector from "@/components/property/LocationSelector";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
@@ -405,6 +406,8 @@ const PropertyForm = () => {
           { value: "istanbul", label: "İstanbul" },
           { value: "trabzon", label: "Trabzon" }
         ];
+      case "syria":
+        return SYRIA_CITY_OPTIONS;
       default:
         return [];
     }
@@ -919,6 +922,7 @@ const PropertyForm = () => {
                 case 'uae': return 'UAE';
                 case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
                 case 'turkey': return 'Turkey';
+                case 'syria': return 'Syria';
                 default: return c;
               }
             }).join(', ');
@@ -972,6 +976,7 @@ const PropertyForm = () => {
             case 'uae': return 'UAE';
             case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
             case 'turkey': return 'Turkey';
+            case 'syria': return 'Syria';
             default: return country;
           }
         });
@@ -1507,7 +1512,8 @@ const PropertyForm = () => {
                         { value: 'georgia', label: '🇬🇪 Georgia' },
                         { value: 'uae', label: '🇦🇪 United Arab Emirates' },
                         { value: 'northern-cyprus', label: '🇨🇾 Northern Cyprus (TRNC)' },
-                        { value: 'turkey', label: '🇹🇷 Turkey' }
+                        { value: 'turkey', label: '🇹🇷 Turkey' },
+                        { value: 'syria', label: '🇸🇾 Syria' },
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
@@ -1682,6 +1688,11 @@ const PropertyForm = () => {
                       { value: 'bayburt', label: '🇹🇷 Bayburt, Turkey', country: 'turkey' },
                       { value: 'osmaniye', label: '🇹🇷 Osmaniye, Turkey', country: 'turkey' },
                       { value: 'kilis', label: '🇹🇷 Kilis, Turkey', country: 'turkey' },
+                      ...SYRIA_CITY_OPTIONS.map((city) => ({
+                        value: city.value,
+                        label: `🇸🇾 ${city.label}, Syria`,
+                        country: 'syria',
+                      })),
                     ];
 
                     const selectedCountry = formData.country as string;

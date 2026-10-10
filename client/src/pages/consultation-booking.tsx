@@ -18,7 +18,7 @@ import { Link } from "wouter";
 import { ConsultationTimeSlot } from "@shared/schema";
 import { CountryCodePicker } from "@/components/ui/country-code-picker";
 
-const COUNTRIES = ["georgia", "turkey", "dubai", "north_cyprus"] as const;
+const COUNTRIES = ["georgia", "turkey", "dubai", "north_cyprus", "syria"] as const;
 const TYPES = ["investment", "viewing", "residency", "installment"] as const;
 const METHODS = ["google_meet", "zoom", "whatsapp_video", "whatsapp_voice"] as const;
 
@@ -77,6 +77,7 @@ export default function ConsultationBooking() {
         turkey: "turkey", istanbul: "turkey", antalya: "turkey", alanya: "turkey",
         "uae": "dubai", "uae/dubai": "dubai", dubai: "dubai",
         "north cyprus": "north_cyprus", "northern cyprus": "north_cyprus", cyprus: "north_cyprus",
+        syria: "syria", damascus: "syria", aleppo: "syria",
       };
       if (profile.country) {
         const mapped = countryMap[(profile.country as string).toLowerCase().trim()];
@@ -280,7 +281,7 @@ export default function ConsultationBooking() {
                     style={{ borderColor: country === c ? "#3bcac4" : "#e5e7eb", background: country === c ? "#f0fdfc" : "#fff" }}
                   >
                     <span className="text-[13px] font-semibold" style={{ color: country === c ? "#005476" : "#374151" }}>
-                      {t(`consultation.countries.${c}`)}
+                      {c === "syria" ? "Syria" : t(`consultation.countries.${c}`)}
                     </span>
                   </button>
                 ))}

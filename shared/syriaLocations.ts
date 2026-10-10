@@ -29,7 +29,19 @@ export const SYRIAN_GOVERNORATES = {
   quneitra: ["Quneitra", "Khan Arnabah", "Jaba"],
 } as const;
 
-export const SYRIAN_CITIES = Object.values(SYRIAN_GOVERNORATES).flat();
+export const SYRIAN_CITY_ENTRIES = Object.entries(SYRIAN_GOVERNORATES).flatMap(
+  ([governorate, cities]) =>
+    cities.map((city) => ({
+      city,
+      governorate: governorate
+        .replace(/([A-Z])/g, " $1")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase())
+        .replace("Daraa", "Daraa")
+        .replace("Deir Ezzor", "Deir ez-Zor"),
+    })),
+);
+
+export const SYRIAN_CITIES = SYRIAN_CITY_ENTRIES.map(({ city }) => city);
 
 export function toSyriaCityValue(city: string): string {
   return city
@@ -40,7 +52,7 @@ export function toSyriaCityValue(city: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export const SYRIA_CITY_OPTIONS = SYRIAN_CITIES.map((city) => ({
+export const SYRIA_CITY_OPTIONS = SYRIAN_CITY_ENTRIES.map(({ city, governorate }) => ({
   value: toSyriaCityValue(city),
-  label: city,
+  label: `${city} — ${governorate}`,
 }));
