@@ -57,6 +57,11 @@ import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
+import {
+  isMetaReviewDiagnosticMode,
+  META_REVIEW_DIAGNOSTIC_MODE_STARTUP_LOG,
+  shouldRunNormalStartupWork,
+} from "./metaReviewDiagnosticMode";
 
 const app = express();
 
@@ -333,7 +338,10 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000", 10);
   // Kay's one-way production freeze must succeed before the process accepts
   // traffic. A failure rejects startup instead of leaving old triggers active.
-  await enforceKayProductionSafetyFreeze();
+  const metaReviewDiagnosticMode = isMetaReviewDiagnosticMode(process.env);
+  if (!metaReviewDiagnosticMode) {
+    await enforceKayProductionSafetyFreeze();
+  }
   server.listen(
     {
       port,
@@ -348,6 +356,11 @@ app.use((req, res, next) => {
   server.timeout = 600000;
   server.keepAliveTimeout = 620000;
   server.headersTimeout = 630000;
+
+  if (!shouldRunNormalStartupWork(process.env)) {
+    console.info(META_REVIEW_DIAGNOSTIC_MODE_STARTUP_LOG);
+    return;
+  }
 
   const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
   if (schedulersEnabled) {
