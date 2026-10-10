@@ -19,6 +19,7 @@ import {
   crmLeads, kaySettings, kayEvents,
 } from "@shared/schema";
 import { SYRIAN_CITY_ENTRIES, toSyriaCityValue } from "@shared/syriaLocations";
+import { buildPropertyLocationFilter } from "./propertyLocationFilter";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
 import { z } from "zod";
@@ -1977,12 +1978,21 @@ ${metaTags}
       if (minPrice) filters.minPrice = parseInt(minPrice as string);
       if (maxPrice) filters.maxPrice = parseInt(maxPrice as string);
       
-      // Support country+city filtering for main feed (Hero search)
-      if (req.query.city && req.query.city !== 'any') {
-        const locationFilter = getLocationFilter(req.query.city as string);
-        if (locationFilter) {
-          filters.locationContains = locationFilter;
-        }
+      const countryQuery = typeof req.query.country === "string" ? req.query.country : "";
+      const cityQuery = typeof req.query.city === "string" && req.query.city !== "any"
+        ? req.query.city
+        : "";
+
+      if (countryQuery && countryQuery !== "any") {
+        const geoFilter = buildPropertyLocationFilter(countryQuery, cityQuery || undefined);
+        if (!geoFilter) return res.json([]);
+        filters.countryLocationRegex = geoFilter.countryRegex;
+        filters.cityLocationRegex = geoFilter.cityRegex;
+      } else if (cityQuery) {
+        // Preserve older city-only URLs; all current country/city search submissions
+        // send country and use the strict country-aware path above.
+        const locationFilter = getLocationFilter(cityQuery);
+        if (locationFilter) filters.locationContains = locationFilter;
       }
       
       // If admin is requesting, allow getting all statuses

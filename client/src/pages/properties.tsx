@@ -3,6 +3,7 @@ import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Property, PROPERTY_TYPES } from "@shared/schema";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import PropertyCard from "@/components/property/PropertyCard";
 import SearchFilters from "@/components/property/SearchFilters";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const Properties = () => {
     const params = new URLSearchParams();
 
     if (filters.type) params.append("type", filters.type);
+    if (filters.country) params.append("country", filters.country);
     if (filters.location) params.append("location", filters.location);
     if (filters.city) params.append("city", filters.city);
     if (filters.minPrice) params.append("minPrice", filters.minPrice);
@@ -77,6 +79,7 @@ const Properties = () => {
     if (uaeCities.includes(city)) return "uae";
     if (cyprusCities.includes(city)) return "northern-cyprus";
     if (turkeyCities.includes(city)) return "turkey";
+    if (SYRIA_CITY_OPTIONS.some((option) => option.value === city)) return "syria";
     return "";
   };
 
@@ -84,7 +87,7 @@ const Properties = () => {
 
   const searchFilters = {
     type: filters.type || undefined,
-    country: derivedCountry || undefined,
+    country: filters.country || derivedCountry || undefined,
     city: filters.city || undefined,
     location: filters.location || undefined,
     minPrice: filters.minPrice ? parseInt(filters.minPrice) : undefined,
