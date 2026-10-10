@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin } from 'lucide-react';
+import { addOpenStreetMapTiles } from '@/lib/openStreetMapTiles';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -88,12 +89,7 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
           scrollWheelZoom: true,
         }).setView([startLat, startLng], center.zoom);
 
-        // Fast CartoDB Voyager tiles — better performance on mobile
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
-          maxZoom: 20,
-          subdomains: 'abcd',
-        }).addTo(map);
+        addOpenStreetMapTiles(map);
 
         leafletMapRef.current = map;
 
