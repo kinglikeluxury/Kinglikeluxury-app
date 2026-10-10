@@ -144,7 +144,17 @@ test("real PostgreSQL Meta claim fencing and contention", { skip: !hardGate ? sk
     assert.equal(claimedIds.length, 30);
     assert.equal(new Set(claimedIds).size, 30);
     assert.ok(a.every((row) => typeof row.claimUpdatedAt === "string"));
-    assert.ok(a.every((row) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}$/.test(row.claimUpdatedAt)));
+    assert.ok(a.every((row) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}$/.test(row.claimUpdatedAt)));
+    const persistedVersions = await setup.query<{ id: number; version: string }>(
+      `SELECT id, to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS version
+       FROM lead_import_queue
+       WHERE id = ANY($1::integer[])`,
+      [claimedIds],
+    );
+    const versionById = new Map(persistedVersions.rows.map((row) => [row.id, row.version] as const));
+    for (const claim of [...a, ...b, ...extra]) {
+      assert.equal(versionById.get(claim.id), claim.claimUpdatedAt);
+    }
 
     const client2 = await setup.connect();
     try {
@@ -159,7 +169,7 @@ test("real PostgreSQL Meta claim fencing and contention", { skip: !hardGate ? sk
          ($3, $3, 'retry', 1, 3, $4, clock_timestamp()),
          ($5, $5, 'completed', 0, 3, NULL, clock_timestamp()),
          ($6, $6, 'processing', 0, 3, NULL, clock_timestamp()),
-         ($7, $7, 'processing', 1, 3, NULL, $8),
+         ($7, $7, 'processing', 0, 3, NULL, $8),
          ($9, $9, 'processing', 2, 3, NULL, $8)`,
         [
           `${runId}-due`, new Date(Date.now() - 60_000), `${runId}-future`, future,
@@ -194,6 +204,54 @@ test("real PostgreSQL Meta claim fencing and contention", { skip: !hardGate ? sk
     assert.equal(await fencedQueueTransitionForTest(workerA, staleClaim.id, oldToken, "completed"), false);
     assert.equal(await fencedQueueTransitionForTest(workerB, newerClaim.id, newerClaim.claimUpdatedAt, "completed"), true);
     assert.equal((await claimQueueEntries(workerA)).some((row) => row.id === staleClaim.id), false);
+
+    // Every terminal state uses the same exact claim-version fence. Simulate a
+    // long-running owner, reclaim each row, then verify the old token is rejected.
+    const terminalStatuses = ["completed", "retry", "needs_review"] as const;
+    const terminalMetaIds = terminalStatuses.map((status) => `${runId}-fence-${status}`);
+    const terminalRows = await Promise.all(
+      terminalMetaIds.map((metaLeadId) =>
+        setup.query<{ id: number }>(
+          `INSERT INTO lead_import_queue
+           (meta_lead_id, leadgen_id, status, retry_count, max_retries)
+           VALUES ($1, $1, 'pending', 0, 8) RETURNING id`,
+          [metaLeadId],
+        ),
+      ),
+    );
+    const terminalIds = terminalRows.map((result) => result.rows[0].id);
+    const initialTerminalClaims = await claimQueueEntries(workerA);
+    const initialClaimById = new Map(
+      initialTerminalClaims
+        .filter((claim) => terminalIds.includes(claim.id))
+        .map((claim) => [claim.id, claim] as const),
+    );
+    assert.equal(initialClaimById.size, terminalIds.length);
+    await setup.query(
+      "UPDATE lead_import_queue SET updated_at = clock_timestamp() - interval '16 minutes' WHERE id = ANY($1::integer[])",
+      [terminalIds],
+    );
+    const replacementClaims = await claimQueueEntries(workerB);
+    const replacementById = new Map(
+      replacementClaims
+        .filter((claim) => terminalIds.includes(claim.id))
+        .map((claim) => [claim.id, claim] as const),
+    );
+    assert.equal(replacementById.size, terminalIds.length);
+    for (const [index, status] of terminalStatuses.entries()) {
+      const id = terminalIds[index];
+      const oldClaim = initialClaimById.get(id)!;
+      const newClaim = replacementById.get(id)!;
+      assert.notEqual(newClaim.claimUpdatedAt, oldClaim.claimUpdatedAt);
+      assert.equal(
+        await fencedQueueTransitionForTest(workerA, id, oldClaim.claimUpdatedAt, status),
+        false,
+      );
+      assert.equal(
+        await fencedQueueTransitionForTest(workerB, id, newClaim.claimUpdatedAt, status),
+        true,
+      );
+    }
 
     const exhausted = await setup.query<{ status: string; retry_count: number }>(
       "SELECT status, retry_count FROM lead_import_queue WHERE meta_lead_id = $1",
