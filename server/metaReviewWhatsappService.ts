@@ -41,14 +41,31 @@ interface NormalizedConfig {
   appSecret: string;
   webhookConfigured: boolean;
   sendConfigured: boolean;
+  managementConfigured: boolean;
 }
 
 export interface MetaReviewWhatsappStatus {
   enabled: boolean;
   webhookConfigured: boolean;
   sendConfigured: boolean;
+  managementConfigured: boolean;
   bufferedEventCount: number;
   storage: "in_memory";
+}
+
+export interface MetaReviewWhatsappManagementData {
+  waba: {
+    connected: true;
+    accountReviewStatus?: string;
+    businessVerificationStatus?: string;
+  };
+  phoneNumbers: Array<{
+    displayNumber: string;
+    verifiedName?: string;
+    qualityRating?: string;
+    status?: string;
+    codeVerificationStatus?: string;
+  }>;
 }
 
 export type WebhookProcessingResult =
@@ -168,6 +185,10 @@ function readConfig(
     /^\d+$/.test(phoneNumberId) &&
     recipientDigits.length > 0 &&
     accessToken.length > 0;
+  const managementConfigured =
+    enabled &&
+    /^\d+$/.test(wabaId) &&
+    accessToken.length > 0;
 
   return {
     enabled,
@@ -179,6 +200,127 @@ function readConfig(
     appSecret,
     webhookConfigured,
     sendConfigured,
+    managementConfigured,
+  };
+}
+
+function safeMetaLabel(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const label = value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b\d{5,}\b/g, "[redacted]")
+    .trim()
+    .slice(0, 100);
+  return label || undefined;
+}
+
+function safeMetaStatus(value: unknown): string | undefined {
+  if (typeof value !== "string" || !/^[a-z_]{1,40}$/i.test(value)) return undefined;
+  return value.toUpperCase();
+}
+
+function maskPhoneNumber(value: unknown): string {
+  if (typeof value !== "string") return "Number ending unavailable";
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 4 ? `•••• ${digits.slice(-4)}` : "Number ending unavailable";
+}
+
+export class MetaReviewWhatsappManagementError extends Error {
+  constructor(readonly statusCode: number) {
+    super(statusCode === 503
+      ? "The isolated Meta Review management test is not configured."
+      : "The isolated Meta Review management request could not be completed.");
+    this.name = "MetaReviewWhatsappManagementError";
+  }
+}
+
+async function fetchMetaJson(
+  url: URL,
+  accessToken: string,
+  fetchImpl: typeof fetch,
+): Promise<Record<string, unknown>> {
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    throw new MetaReviewWhatsappManagementError(502);
+  }
+
+  if (!response.ok) throw new MetaReviewWhatsappManagementError(502);
+
+  try {
+    const data: unknown = await response.json();
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Invalid Graph response");
+    }
+    return data as Record<string, unknown>;
+  } catch {
+    throw new MetaReviewWhatsappManagementError(502);
+  }
+}
+
+export async function loadMetaReviewWhatsappManagementData(
+  environment: MetaReviewWhatsappEnvironment = process.env,
+  fetchImpl: typeof fetch = fetch,
+): Promise<MetaReviewWhatsappManagementData> {
+  const config = readConfig(environment);
+  if (!config.managementConfigured) {
+    throw new MetaReviewWhatsappManagementError(503);
+  }
+
+  const graphBase = `https://graph.facebook.com/${META_GRAPH_API_VERSION}`;
+  const wabaUrl = new URL(`${graphBase}/${encodeURIComponent(config.wabaId)}`);
+  wabaUrl.searchParams.set("fields", "account_review_status,business_verification_status");
+  const phoneNumbersUrl = new URL(
+    `${graphBase}/${encodeURIComponent(config.wabaId)}/phone_numbers`,
+  );
+  phoneNumbersUrl.searchParams.set(
+    "fields",
+    "id,display_phone_number,verified_name,quality_rating,status,code_verification_status",
+  );
+  phoneNumbersUrl.searchParams.set("limit", "100");
+
+  const [waba, phoneNumbers] = await Promise.all([
+    fetchMetaJson(wabaUrl, config.accessToken, fetchImpl),
+    fetchMetaJson(phoneNumbersUrl, config.accessToken, fetchImpl),
+  ]);
+
+  const rawPhoneNumbers = phoneNumbers.data;
+  return {
+    waba: {
+      connected: true,
+      ...(safeMetaStatus(waba.account_review_status)
+        ? { accountReviewStatus: safeMetaStatus(waba.account_review_status) }
+        : {}),
+      ...(safeMetaStatus(waba.business_verification_status)
+        ? { businessVerificationStatus: safeMetaStatus(waba.business_verification_status) }
+        : {}),
+    },
+    phoneNumbers: Array.isArray(rawPhoneNumbers)
+      ? rawPhoneNumbers
+          .filter((item): item is Record<string, unknown> =>
+            Boolean(item) && typeof item === "object" && !Array.isArray(item),
+          )
+          .map((item) => ({
+            displayNumber: maskPhoneNumber(item.display_phone_number),
+            ...(safeMetaLabel(item.verified_name)
+              ? { verifiedName: safeMetaLabel(item.verified_name) }
+              : {}),
+            ...(safeMetaStatus(item.quality_rating)
+              ? { qualityRating: safeMetaStatus(item.quality_rating) }
+              : {}),
+            ...(safeMetaStatus(item.status)
+              ? { status: safeMetaStatus(item.status) }
+              : {}),
+            ...(safeMetaStatus(item.code_verification_status)
+              ? { codeVerificationStatus: safeMetaStatus(item.code_verification_status) }
+              : {}),
+          }))
+      : [],
   };
 }
 
@@ -400,6 +542,7 @@ export function getMetaReviewWhatsappStatus(
     enabled: config.enabled,
     webhookConfigured: config.webhookConfigured,
     sendConfigured: config.sendConfigured,
+    managementConfigured: config.managementConfigured,
     bufferedEventCount: eventBuffer.length,
     storage: "in_memory",
   };
