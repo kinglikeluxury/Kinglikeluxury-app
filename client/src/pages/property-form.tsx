@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import LocationSelector from "@/components/property/LocationSelector";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
 import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
+import { combineLocationParts, getSyriaCityDisplayName } from "@shared/property-location";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
@@ -903,12 +904,6 @@ const PropertyForm = () => {
         !(formData.coordinates?.lat === 0 && formData.coordinates?.lng === 0);
 
       const getLocationString = () => {
-        // A map selection is the source of truth. Do not replace its
-        // reverse-geocoded address with the city dropdown value.
-        if (hasSelectedCoordinates && formData.location.trim()) {
-          return formData.location.trim();
-        }
-
         const cities = formData.city ? formData.city.split(',') : [];
         const countries = formData.country ? formData.country.split(',') : [];
         
@@ -965,7 +960,8 @@ const PropertyForm = () => {
             case 'esentepe': return 'Esentepe';
             case 'istanbul': return 'Istanbul';
             case 'trabzon': return 'Trabzon';
-            default: return city;
+            default:
+              return getSyriaCityDisplayName(city) || city;
           }
         });
 
@@ -980,6 +976,16 @@ const PropertyForm = () => {
             default: return country;
           }
         });
+
+        // Preserve the reverse-geocoded pin address and append selected
+        // city/country names so country-based filters can classify the record.
+        if (hasSelectedCoordinates && formData.location.trim()) {
+          return combineLocationParts([
+            formData.location,
+            ...cityNames,
+            ...countryNames,
+          ]);
+        }
 
         // Combine city and country (e.g., "Batumi, Georgia" or "Dubai, UAE")
         return `${cityNames.join(', ')}, ${countryNames.join(', ')}`;
