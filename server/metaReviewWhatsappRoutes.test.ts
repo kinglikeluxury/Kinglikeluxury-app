@@ -22,6 +22,7 @@ const TEST_ENV: MetaReviewWhatsappEnvironment = {
 async function withTestServer<T>(
   admin: boolean,
   run: (origin: string) => Promise<T>,
+  fetchImpl: typeof fetch = async () => ({ ok: true, status: 200 } as Response),
 ): Promise<T> {
   const app = express();
   app.use(express.json({
@@ -39,7 +40,7 @@ async function withTestServer<T>(
   });
   registerMetaReviewWhatsappRoutes(app, {
     environment: () => TEST_ENV,
-    fetchImpl: async () => ({ ok: true, status: 200 } as Response),
+    fetchImpl,
   });
 
   const server = app.listen(0, "127.0.0.1");
@@ -62,8 +63,12 @@ test("admin test endpoints require an authenticated admin session", async () => 
       `${origin}/api/admin/meta-review/whatsapp/send-test-template`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
     );
+    const managementResponse = await fetch(
+      `${origin}/api/admin/meta-review/whatsapp/management`,
+    );
     assert.equal(statusResponse.status, 401);
     assert.equal(sendResponse.status, 401);
+    assert.equal(managementResponse.status, 401);
   });
 });
 
@@ -94,6 +99,82 @@ test("admin sees isolated readiness and can send only the fixed empty-body actio
       message: "The fixed test template was submitted.",
     });
   });
+});
+
+test("management endpoint reads only test WABA data and returns a redacted view", async () => {
+  const requests: Array<{ url: string; authorization: string | undefined }> = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = new URL(input instanceof URL ? input : String(input));
+    requests.push({
+      url: url.toString(),
+      authorization: new Headers(init?.headers).get("authorization") ?? undefined,
+    });
+    const isPhoneList = url.pathname.endsWith("/phone_numbers");
+    const data = isPhoneList
+      ? {
+          data: [{
+            id: "987654321",
+            display_phone_number: "+1 555 123 4567",
+            verified_name: "Test Business",
+            quality_rating: "GREEN",
+            status: "CONNECTED",
+            code_verification_status: "VERIFIED",
+          }],
+        }
+      : {
+          account_review_status: "APPROVED",
+          business_verification_status: "VERIFIED",
+        };
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await withTestServer(true, async (origin) => {
+    const response = await fetch(
+      `${origin}/api/admin/meta-review/whatsapp/management`,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    const body = await response.json() as {
+      waba: { connected: boolean; accountReviewStatus?: string };
+      phoneNumbers: Array<{
+        displayNumber: string;
+        verifiedName?: string;
+        status?: string;
+        qualityRating?: string;
+      }>;
+    };
+    assert.equal(body.waba.connected, true);
+    assert.equal(body.waba.accountReviewStatus, "APPROVED");
+    assert.deepEqual(body.phoneNumbers[0], {
+      displayNumber: "•••• 4567",
+      verifiedName: "Test Business",
+      qualityRating: "GREEN",
+      status: "CONNECTED",
+      codeVerificationStatus: "VERIFIED",
+    });
+    const serialized = JSON.stringify(body);
+    for (const sensitive of [
+      TEST_ENV.META_REVIEW_WA_TEST_WABA_ID,
+      TEST_ENV.META_REVIEW_WA_TEST_PHONE_NUMBER_ID,
+      TEST_ENV.META_REVIEW_WA_TEST_ACCESS_TOKEN,
+      "15551234567",
+      "987654321",
+    ]) {
+      assert.equal(serialized.includes(sensitive), false);
+    }
+  }, fetchImpl);
+
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every(({ url }) =>
+    url.startsWith("https://graph.facebook.com/v23.0/123456789"),
+  ));
+  assert.ok(requests.some(({ url }) => new URL(url).pathname.endsWith("/phone_numbers")));
+  assert.ok(requests.every(({ authorization }) =>
+    authorization === `Bearer ${TEST_ENV.META_REVIEW_WA_TEST_ACCESS_TOKEN}`,
+  ));
 });
 
 test("public callback verifies challenge and stores only signed test-recipient events", async () => {

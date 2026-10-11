@@ -237,7 +237,9 @@ export class MetaReviewWhatsappManagementError extends Error {
 
 async function fetchMetaJson(
   url: URL,
+  operation: "waba_status" | "phone_numbers",
   accessToken: string,
+  environment: MetaReviewWhatsappEnvironment,
   fetchImpl: typeof fetch,
 ): Promise<Record<string, unknown>> {
   let response: Response;
@@ -247,10 +249,30 @@ async function fetchMetaJson(
       headers: { Authorization: `Bearer ${accessToken}` },
     });
   } catch {
+    console.warn("[meta-review-management] Graph API request failed", {
+      operation,
+      category: "network_error",
+    });
     throw new MetaReviewWhatsappManagementError(502);
   }
 
-  if (!response.ok) throw new MetaReviewWhatsappManagementError(502);
+  if (!response.ok) {
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = undefined;
+    }
+    const details = getMetaErrorDetails(payload);
+    console.warn("[meta-review-management] Graph API request rejected", {
+      operation,
+      metaHttpStatus: response.status,
+      errorCode: details.errorCode,
+      errorSubcode: details.errorSubcode,
+      errorMessage: sanitizeMetaErrorMessage(details.errorMessage, environment),
+    });
+    throw new MetaReviewWhatsappManagementError(502);
+  }
 
   try {
     const data: unknown = await response.json();
@@ -285,8 +307,14 @@ export async function loadMetaReviewWhatsappManagementData(
   phoneNumbersUrl.searchParams.set("limit", "100");
 
   const [waba, phoneNumbers] = await Promise.all([
-    fetchMetaJson(wabaUrl, config.accessToken, fetchImpl),
-    fetchMetaJson(phoneNumbersUrl, config.accessToken, fetchImpl),
+    fetchMetaJson(wabaUrl, "waba_status", config.accessToken, environment, fetchImpl),
+    fetchMetaJson(
+      phoneNumbersUrl,
+      "phone_numbers",
+      config.accessToken,
+      environment,
+      fetchImpl,
+    ),
   ]);
 
   const rawPhoneNumbers = phoneNumbers.data;
