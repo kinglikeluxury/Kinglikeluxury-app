@@ -2,7 +2,9 @@ import type { Express, Request, Response } from "express";
 import { requireWhatsappAdmin } from "./whatsappInternalAuth";
 import {
   getMetaReviewWhatsappEvents,
+  loadMetaReviewWhatsappManagementData,
   getMetaReviewWhatsappStatus,
+  MetaReviewWhatsappManagementError,
   META_REVIEW_WHATSAPP_WEBHOOK_PATH,
   processMetaReviewWhatsappWebhook,
   sendMetaReviewWhatsappTestTemplate,
@@ -78,6 +80,28 @@ export function registerMetaReviewWhatsappRoutes(
     (_req, res) => {
       res.setHeader("Cache-Control", "no-store");
       res.json({ events: getMetaReviewWhatsappEvents() });
+    },
+  );
+
+  app.get(
+    "/api/admin/meta-review/whatsapp/management",
+    requireWhatsappAdmin,
+    async (_req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const data = await loadMetaReviewWhatsappManagementData(
+          environment(),
+          dependencies.fetchImpl,
+        );
+        res.json(data);
+      } catch (error) {
+        const statusCode = error instanceof MetaReviewWhatsappManagementError
+          ? error.statusCode
+          : 502;
+        res.status(statusCode).json({
+          message: "Test WhatsApp Business details are unavailable.",
+        });
+      }
     },
   );
 
