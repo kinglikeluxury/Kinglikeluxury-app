@@ -585,6 +585,64 @@ ${metaTags}
       });
     }
   });
+  function sanitizeKayDiagnosticMessage(error: unknown): string | null {
+    const raw = error instanceof Error ? error.message : String(error ?? "");
+    if (!raw) return null;
+    if (/all attempts to open a websocket.*failed/i.test(raw)) return "Neon WebSocket connection failed";
+    if (/password authentication failed/i.test(raw)) return "Database authentication failed";
+    if (/fetch failed/i.test(raw)) return "Database transport fetch failed";
+    const connectionCode = raw.match(/\b(ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH)\b/i)?.[1];
+    if (connectionCode) return `Database connection failed (${connectionCode.toUpperCase()})`;
+
+    const safeIdentifier = `[A-Za-z_][A-Za-z0-9_.]*`;
+    const structuralPatterns: Array<[RegExp, string]> = [
+      [new RegExp(`^permission denied for (table|relation|sequence|schema) "?(${safeIdentifier})"?$`, "i"), "$1 permission denied: $2"],
+      [new RegExp(`^(relation|table) "?(${safeIdentifier})"? does not exist$`, "i"), "$1 missing: $2"],
+      [new RegExp(`^column "?(${safeIdentifier})"? does not exist$`, "i"), "column missing: $1"],
+      [/^current transaction is aborted, commands ignored until end of transaction block$/i, "transaction aborted"],
+      [/^canceling statement due to statement timeout$/i, "database statement timed out"],
+    ];
+    for (const [pattern, replacement] of structuralPatterns) {
+      const match = raw.match(pattern);
+      if (match) return raw.replace(pattern, replacement).slice(0, 180);
+    }
+
+    if (/no pg_hba\.conf entry/i.test(raw)) return "Database host authentication rule rejected the connection";
+    if (/connection terminated unexpectedly/i.test(raw)) return "Database connection terminated unexpectedly";
+    if (/remaining connection slots are reserved/i.test(raw)) return "Database connection limit reached";
+    if (/statement timeout|query timeout|timed out/i.test(raw)) return "Database operation timed out";
+    return "Unclassified error (message redacted)";
+  }
+
+  function kayReadDiagnostic(endpoint: string): RequestHandler {
+    return (req, res, next) => {
+      if (!isMetaReviewDiagnosticMode(process.env)) return next();
+      const correlationId = randomUUID();
+      let capturedError: unknown = null;
+      res.setHeader("X-Kay-Diagnostic-Id", correlationId);
+      (req as any).recordKayDiagnosticError = (error: unknown) => { capturedError = error; };
+      res.once("finish", () => {
+        const error = capturedError as any;
+        const errorClass = error && typeof error === "object" && error.constructor?.name
+          ? String(error.constructor.name).replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 48)
+          : null;
+        const rawCode = error && typeof error === "object" ? error.code : null;
+        const errorCode = typeof rawCode === "string" && /^[A-Za-z0-9_.-]{1,48}$/.test(rawCode)
+          ? rawCode
+          : typeof rawCode === "number" && Number.isFinite(rawCode) ? String(rawCode) : null;
+        console.info("[KayReadDiagnostic]", JSON.stringify({
+          endpoint,
+          status: res.statusCode,
+          correlationId,
+          errorClass,
+          errorCode,
+          errorMessage: capturedError ? sanitizeKayDiagnosticMessage(capturedError) : null,
+        }));
+      });
+      next();
+    };
+  }
+
   // ─── Kay Zero Max — admin-only, observation-only control center ───
   app.get("/api/admin/kay/control", requireKayAdmin, async (_req, res) => {
     try {
@@ -596,7 +654,7 @@ ${metaTags}
     }
   });
 
-  app.get("/api/admin/kay/supervisor/snapshot", requireKayAdmin, async (req, res) => {
+  app.get("/api/admin/kay/supervisor/snapshot", kayReadDiagnostic("/api/admin/kay/supervisor/snapshot"), requireKayAdmin, async (req, res) => {
     try {
       const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
       if (employeeId !== undefined && (!Number.isInteger(employeeId) || employeeId < 1)) {
@@ -604,6 +662,7 @@ ${metaTags}
       }
       res.json(await getSupervisorSnapshot(employeeId));
     } catch (err: any) {
+      (req as any).recordKayDiagnosticError?.(err);
       res.status(500).json({ message: "Unable to load Kay supervisor snapshot." });
     }
   });
@@ -950,13 +1009,14 @@ ${metaTags}
     try { res.json(await setPhaseDSettings(req.body, req.session.userId)); } catch { res.status(500).json({ message: "Unable to update Phase D settings." }); }
   });
   app.get("/api/admin/kay/owner-brief", requireKayAdmin, async (_req, res) => res.json(await getOwnerBrief()));
-  app.get("/api/admin/kay/reviews", requireKayAdmin, async (_req, res) => {
+  app.get("/api/admin/kay/reviews", kayReadDiagnostic("/api/admin/kay/reviews"), requireKayAdmin, async (req, res) => {
     try {
       const reviews = await withKayInternalClient(client =>
         client.query(`SELECT * FROM kay_manager_reviews ORDER BY created_at DESC LIMIT 100`)
       );
       res.json({ reviews: reviews.rows, shadow: true });
-    } catch {
+    } catch (err) {
+      (req as any).recordKayDiagnosticError?.(err);
       res.status(503).json({ message: "Kay internal services are currently unavailable.", code: "KAY_INTERNAL_UNAVAILABLE" });
     }
   });
