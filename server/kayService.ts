@@ -539,12 +539,112 @@ export async function getKayControlSnapshot() {
     getRescueSettings(),
     withKayReadonlyAnalysis(async client => (await client.query("SELECT * FROM kay_lead_protection WHERE removed_at IS NULL LIMIT 100")).rows),
   ]);
+  const decisionLeadIds = decisions
+    .map(decision => Number(decision.leadId))
+    .filter((id, index, allIds) =>
+      Number.isInteger(id) && id > 0 && allIds.indexOf(id) === index,
+    );
+  const currentLeadState = decisionLeadIds.length
+    ? await withKayReadonlyAnalysis(async client => (await client.query(`
+        SELECT l.id, l.status,
+          (SELECT h.entered_at FROM kay_lead_status_history h
+            WHERE h.lead_id=l.id AND h.status=l.status
+            ORDER BY h.entered_at DESC LIMIT 1) AS entered_at,
+          EXISTS(SELECT 1 FROM kay_lead_protection p
+            WHERE p.lead_id=l.id AND p.removed_at IS NULL) AS is_protected,
+          EXISTS(SELECT 1 FROM crm_tasks t
+            WHERE t.lead_id=l.id AND t.completed_at IS NULL) AS has_incomplete_task
+        FROM crm_leads l
+        WHERE l.id=ANY($1::int[])
+      `, [decisionLeadIds])).rows)
+    : [];
+  const leadStateById = new Map(currentLeadState.map(lead => [Number(lead.id), lead]));
+  const newestRescueByWindow = new Map<string, { id: number; createdAt: number }>();
+  for (const decision of decisions) {
+    const type = String(decision.decisionType ?? "");
+    const payload = (decision.payload ?? {}) as Record<string, any>;
+    if (
+      payload.state !== "ACTIVE" ||
+      decision.leadId == null ||
+      (!type.endsWith("_rescue_eligible") && type !== "manager_review")
+    ) continue;
+    const key = `${decision.leadId}:${String(payload.status ?? "")}:${String(payload.status_entered_at ?? "")}`;
+    const candidate = { id: Number(decision.id), createdAt: new Date(decision.createdAt).getTime() };
+    const previous = newestRescueByWindow.get(key);
+    if (!previous || candidate.createdAt > previous.createdAt ||
+      (candidate.createdAt === previous.createdAt && candidate.id > previous.id)) {
+      newestRescueByWindow.set(key, candidate);
+    }
+  }
+  const decisionsWithFreshness = decisions.map(decision => {
+    const decisionType = String(decision.decisionType ?? "");
+    const payload = (decision.payload ?? {}) as Record<string, any>;
+    const leadState = decision.leadId == null ? undefined : leadStateById.get(Number(decision.leadId));
+    let decisionCategory = "other";
+    if (decisionType.endsWith("_rescue_eligible")) decisionCategory = "rescue";
+    else if (decisionType === "manager_review") decisionCategory = "manager_review";
+    else if (decisionType === "protection_recommended" || decisionType === "protected_lead_review_due") decisionCategory = "protection";
+    else if (decisionType === "unprotected_opportunity") decisionCategory = "opportunity";
+
+    let freshness: "current" | "stale" | "unknown" = "unknown";
+    let freshnessReason: string | null = null;
+    if (payload.state === "ACTIVE" && leadState) {
+      if (decisionCategory === "rescue" || decisionCategory === "manager_review") {
+        const rescueWindowKey = `${decision.leadId}:${String(payload.status ?? "")}:${String(payload.status_entered_at ?? "")}`;
+        const newest = newestRescueByWindow.get(rescueWindowKey);
+        const currentStatusEnteredAt = leadState.entered_at
+          ? new Date(leadState.entered_at).toISOString()
+          : null;
+        if (newest && newest.id !== Number(decision.id)) {
+          freshness = "stale";
+          freshnessReason = "A newer decision exists for this CRM status window.";
+        } else if (payload.status !== leadState.status) {
+          freshness = "stale";
+          freshnessReason = "CRM status changed since this decision.";
+        } else if ((payload.status_entered_at ?? null) !== currentStatusEnteredAt) {
+          freshness = "stale";
+          freshnessReason = "CRM status window changed since this decision.";
+        } else {
+          freshness = "current";
+        }
+      } else if (decisionCategory === "opportunity") {
+        if (leadState.has_incomplete_task) {
+          freshness = "stale";
+          freshnessReason = "An open task now exists for this lead.";
+        } else if (leadState.is_protected) {
+          freshness = "stale";
+          freshnessReason = "This lead is currently protected.";
+        } else if (!isKayOrphanEligibleStatus(leadState.status)) {
+          freshness = "stale";
+          freshnessReason = "The current CRM status is outside the opportunity-review scope.";
+        } else {
+          freshness = "current";
+        }
+      } else if (decisionType === "protection_recommended") {
+        if (leadState.is_protected) {
+          freshness = "stale";
+          freshnessReason = "This lead is already protected.";
+        } else if (!getKayStatusIntelligence(leadState.status).protectedCandidate) {
+          freshness = "stale";
+          freshnessReason = "The current CRM status is no longer a protection candidate.";
+        } else {
+          freshness = "current";
+        }
+      }
+    }
+    return {
+      ...(sanitizeKayJson(decision) as Record<string, unknown>),
+      decisionCategory,
+      freshness,
+      freshnessReason,
+    };
+  });
   return {
     mode,
     rescueSettings: settings,
     statusIntelligence: Object.values(KAY_STATUS_INTELLIGENCE).slice(0, 100).map(item => sanitizeKayJson(item)),
     protectedLeads: protections.map(item => sanitizeKayJson(item)),
     events: events.map((event) => sanitizeKayJson(event)),
-    decisions: decisions.map((decision) => sanitizeKayJson(decision)),
+    decisions: decisionsWithFreshness,
   };
 }
