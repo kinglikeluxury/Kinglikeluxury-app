@@ -15,9 +15,11 @@ import {
 import { verifyStoredPassword } from "./passwordAuth";
 import {
   clearMetaReviewerAccountsForTests,
+  authenticateMetaReviewer,
   findMetaReviewerByEmail,
   getMetaReviewerAccount,
 } from "./metaReviewerAccessStore";
+import { createMetaReviewerAccessGuard } from "./metaReviewerAccessGuard";
 
 const TEST_ENV: MetaReviewWhatsappEnvironment = {
   META_REVIEW_WA_TEST_ENABLED: "true",
@@ -100,10 +102,21 @@ test("reviewer provisioning hashes credentials and supports disable and delete",
     (req as typeof req & { session?: unknown }).session = unauthenticated
       ? undefined
       : reviewerSession
-        ? { userId: reviewerId, isAdmin: true, isActive: true, role: "meta_reviewer" }
+        ? {
+            userId: reviewerId,
+            isAdmin: false,
+            isMetaReviewer: true,
+            isActive: true,
+            role: "meta_reviewer",
+            destroy: (callback: (error?: Error) => void) => callback(),
+          }
         : { userId: 42, isAdmin: true, isActive: true, role: "admin" };
     next();
   });
+  app.use(createMetaReviewerAccessGuard(() => ({
+    NODE_ENV: "development",
+    ENABLE_META_REVIEW_DIAGNOSTIC_MODE: "true",
+  })));
   registerMetaReviewWhatsappRoutes(app, {
     environment: () => ({
       ...TEST_ENV,
@@ -111,7 +124,17 @@ test("reviewer provisioning hashes credentials and supports disable and delete",
       ENABLE_META_REVIEW_DIAGNOSTIC_MODE: "true",
     }),
     userStorage: fakeStorage,
+    fetchImpl: async (input) => {
+      const url = String(input);
+      return new Response(
+        JSON.stringify(url.includes("/phone_numbers") ? { data: [] } : {}),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
   });
+  app.get("/admin/whatsapp-monitoring", (_req, res) => res.sendStatus(200));
+  app.get("/admin/users", (_req, res) => res.sendStatus(200));
+  app.get("/api/admin/users", (_req, res) => res.sendStatus(200));
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -139,12 +162,18 @@ test("reviewer provisioning hashes credentials and supports disable and delete",
     const reviewerId = created.reviewer.id;
     const reviewer = getMetaReviewerAccount(reviewerId)!;
     assert.equal(reviewer.role, "meta_reviewer");
-    assert.equal(reviewer.isAdmin, true);
+    assert.equal(reviewer.isMetaReviewer, true);
+    assert.equal("isAdmin" in reviewer, false);
     assert.equal(reviewer.isActive, true);
     assert.notEqual(reviewer.passwordHash, candidate);
     assert.equal(findMetaReviewerByEmail("REVIEWER@example.test")?.id, reviewerId);
     assert.equal(await bcrypt.compare(candidate, reviewer.passwordHash), true);
     assert.equal(await verifyStoredPassword(candidate, reviewer.passwordHash), true);
+    assert.equal(
+      (await authenticateMetaReviewer("reviewer@example.test", candidate))?.id,
+      reviewerId,
+    );
+    assert.equal(await authenticateMetaReviewer("reviewer@example.test", "wrong-password"), undefined);
 
     const reviewerStatus = await fetch(`${origin}/api/admin/meta-review/whatsapp/status`, {
       headers: {
@@ -153,6 +182,71 @@ test("reviewer provisioning hashes credentials and supports disable and delete",
       },
     });
     assert.equal(reviewerStatus.status, 200);
+    assert.equal(
+      (await fetch(`${origin}/api/admin/meta-review/whatsapp/events`, {
+        headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+      })).status,
+      200,
+    );
+    assert.equal(
+      (await fetch(`${origin}/api/admin/meta-review/whatsapp/management`, {
+        headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+      })).status,
+      200,
+    );
+    assert.equal(
+      (await fetch(`${origin}/api/admin/meta-review/whatsapp/send-test-template`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-reviewer-session": "true",
+          "x-reviewer-id": String(reviewerId),
+        },
+        body: "{}",
+      })).status,
+      200,
+    );
+    assert.equal(
+      (await fetch(`${origin}/admin/whatsapp-monitoring`, {
+        headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+      })).status,
+      200,
+    );
+
+    const reviewerManagement = await fetch(
+      `${origin}/api/admin/meta-reviewer-access`,
+      { headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) } },
+    );
+    assert.equal(reviewerManagement.status, 403);
+    const blockedAdminApi = await fetch(`${origin}/api/admin/users`, {
+      headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+    });
+    assert.equal(blockedAdminApi.status, 403);
+    const blockedCrmApi = await fetch(`${origin}/api/admin/crm/leads`, {
+      headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+    });
+    assert.equal(blockedCrmApi.status, 403);
+    const blockedAdminPage = await fetch(`${origin}/admin/users`, {
+      headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+    });
+    assert.equal(blockedAdminPage.status, 403);
+    assert.equal(
+      (await fetch(`${origin}/api/admin/users`, {
+        headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+      })).status,
+      403,
+    );
+    assert.equal(
+      (await fetch(`${origin}/admin/crm/42`, {
+        headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+      })).status,
+      403,
+    );
+
+    const realAdminApi = await fetch(`${origin}/api/admin/users`);
+    assert.equal(realAdminApi.status, 200);
+    const realAdminPage = await fetch(`${origin}/admin/users`);
+    assert.equal(realAdminPage.status, 200);
 
     const listResponse = await fetch(`${origin}/api/admin/meta-reviewer-access`);
     const list = await listResponse.json() as { reviewers: Array<Record<string, unknown>> };
@@ -164,7 +258,7 @@ test("reviewer provisioning hashes credentials and supports disable and delete",
     });
     assert.equal(disableResponse.status, 200);
     assert.equal(getMetaReviewerAccount(reviewerId)?.isActive, false);
-    assert.equal(getMetaReviewerAccount(reviewerId)?.isAdmin, false);
+    assert.equal(getMetaReviewerAccount(reviewerId)?.isMetaReviewer, true);
 
     const blockedReviewerResponse = await fetch(`${origin}/api/admin/meta-reviewer-access`, {
       headers: {
@@ -172,7 +266,7 @@ test("reviewer provisioning hashes credentials and supports disable and delete",
         "x-reviewer-id": String(reviewerId),
       },
     });
-    assert.equal(blockedReviewerResponse.status, 403);
+    assert.equal(blockedReviewerResponse.status, 401);
 
     const deleteResponse = await fetch(`${origin}/api/admin/meta-reviewer-access/${reviewerId}`, {
       method: "DELETE",

@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
+import { verifyStoredPassword } from "./passwordAuth";
 
 export interface MetaReviewerAccount {
   id: number;
   email: string;
   username: string;
   passwordHash: string;
-  isAdmin: boolean;
+  isMetaReviewer: true;
   isActive: boolean;
   role: "meta_reviewer";
 }
@@ -34,7 +35,7 @@ export async function createMetaReviewerAccount(
       email: normalizedEmail,
       username: normalizedEmail,
       passwordHash: await bcrypt.hash(password, 12),
-      isAdmin: true,
+      isMetaReviewer: true,
       isActive: true,
       role: "meta_reviewer",
     };
@@ -50,6 +51,22 @@ export function findMetaReviewerByEmail(email: string): MetaReviewerAccount | un
   return Array.from(accounts.values()).find(account => account.email === normalizedEmail);
 }
 
+export async function authenticateMetaReviewer(
+  email: string,
+  password: string,
+): Promise<MetaReviewerAccount | undefined> {
+  const account = findMetaReviewerByEmail(email);
+  if (
+    !account ||
+    account.isMetaReviewer !== true ||
+    account.isActive !== true ||
+    !await verifyStoredPassword(password, account.passwordHash)
+  ) {
+    return undefined;
+  }
+  return account;
+}
+
 export function getMetaReviewerAccount(id: number): MetaReviewerAccount | undefined {
   return accounts.get(id);
 }
@@ -62,7 +79,6 @@ export function disableMetaReviewerAccount(id: number): SafeMetaReviewerAccount 
   const account = accounts.get(id);
   if (!account) return undefined;
   account.isActive = false;
-  account.isAdmin = false;
   return toSafeAccount(account);
 }
 

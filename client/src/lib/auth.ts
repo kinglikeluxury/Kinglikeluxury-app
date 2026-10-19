@@ -10,6 +10,7 @@ export type User = {
   phoneNumber: string | null;
   authMethod: string | null;
   isAdmin: boolean;
+  isMetaReviewer?: boolean;
   isActive: boolean;
   role: string;
 };
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: `Welcome back, ${userData.username}!`,
       });
       // Silently attempt push subscription after login
-      if (isPushSupported()) {
+      if (!userData.isMetaReviewer && isPushSupported()) {
         subscribeToPush().catch(() => {});
       }
       return userData;

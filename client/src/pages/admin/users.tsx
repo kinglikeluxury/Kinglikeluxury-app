@@ -45,7 +45,7 @@ export default function AdminUsers() {
     id: number;
     email: string | null;
     username: string;
-    isAdmin: boolean;
+    isMetaReviewer: boolean;
     isActive: boolean;
   }> }>({
     queryKey: ["/api/admin/meta-reviewer-access"],
@@ -214,11 +214,11 @@ export default function AdminUsers() {
                 <div>
                   <p className="font-medium text-gray-900">{reviewer.email}</p>
                   <p className="text-xs text-gray-500">
-                    {reviewer.isActive && reviewer.isAdmin ? "Active reviewer admin" : "Disabled"}
+                  {reviewer.isActive && reviewer.isMetaReviewer ? "Active limited reviewer" : "Disabled"}
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  {reviewer.isActive && reviewer.isAdmin && (
+                  {reviewer.isActive && reviewer.isMetaReviewer && (
                     <Button
                       type="button"
                       variant="outline"
