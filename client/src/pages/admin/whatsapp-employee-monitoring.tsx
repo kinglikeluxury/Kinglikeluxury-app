@@ -704,7 +704,11 @@ export default function WhatsappEmployeeMonitoringPage() {
       navigate("/employee/whatsapp");
       return;
     }
-    if (!user || !user.isAdmin) navigate("/");
+    if (!user) {
+      navigate("/login?redirect=/admin/whatsapp-monitoring");
+      return;
+    }
+    if (!user.isAdmin && !user.isMetaReviewer) navigate("/");
   }, [isLoading, navigate, user]);
 
   useEffect(() => {
@@ -785,7 +789,7 @@ export default function WhatsappEmployeeMonitoringPage() {
     pushMobilePanel("chat");
   };
 
-  if (isLoading || !user?.isAdmin) {
+  if (isLoading || (!user?.isAdmin && !user?.isMetaReviewer)) {
     return <div className="min-h-[70vh] bg-slate-50" aria-label="Loading admin workspace" />;
   }
 

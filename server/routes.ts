@@ -6,9 +6,11 @@ import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
 import bcrypt from "bcrypt";
 import { verifyStoredPassword } from "./passwordAuth";
 import {
+  authenticateMetaReviewer,
   findMetaReviewerByEmail,
   getMetaReviewerAccount,
 } from "./metaReviewerAccessStore";
+import { createMetaReviewerAccessGuard } from "./metaReviewerAccessGuard";
 import { isMetaReviewDiagnosticMode } from "./metaReviewDiagnosticMode";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
@@ -85,6 +87,7 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     isAdmin: boolean;
+    isMetaReviewer?: boolean;
     isActive: boolean;
     role: string;
     kayLegacyBaselineConfirmation?: { token: string; adminId: number; fingerprint: string; limit: number; expiresAt: number; candidates: Array<{id:number;status:string;trusted:boolean;existing:boolean}> };
@@ -93,6 +96,43 @@ declare module "express-session" {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // Install session and reviewer authorization before registering any routes.
+  // This ensures even early debug/API handlers cannot bypass reviewer fencing.
+  const isProduction = process.env.NODE_ENV === "production";
+  const sessionMiddleware: RequestHandler = session({
+    cookie: {
+      maxAge: 86400000,
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
+    },
+    store: storage.sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    secret: (() => {
+      const secret = process.env.SESSION_SECRET;
+      if (!secret) {
+        if (process.env.NODE_ENV === "production") {
+          console.error(
+            "[SECURITY] SESSION_SECRET environment variable is NOT set. " +
+            "This is required in production to prevent session forgery. " +
+            "Set SESSION_SECRET in Replit Secrets immediately."
+          );
+        } else {
+          console.warn(
+            "[SECURITY] SESSION_SECRET not set — using insecure dev fallback. " +
+            "Set SESSION_SECRET before deploying to production."
+          );
+        }
+      }
+      return secret || (process.env.NODE_ENV === "production"
+        ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
+        : "dev-only-insecure-fallback-do-not-use-in-production");
+    })(),
+  });
+  app.use(sessionMiddleware);
+  app.use(createMetaReviewerAccessGuard());
 
   // ─── Database Status Debug Endpoint ────────────────────────────────────────
   app.get("/api/debug/database-status", async (_req, res) => {
@@ -444,41 +484,6 @@ ${metaTags}
     }
   });
 
-  // Configure sessions with PostgreSQL store
-  const isProduction = process.env.NODE_ENV === "production";
-
-  const sessionMiddleware: RequestHandler = session({
-      cookie: {
-        maxAge: 86400000, // 24 hours
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
-      },
-      store: storage.sessionStore,
-      resave: false,
-      saveUninitialized: false,
-      secret: (() => {
-        const secret = process.env.SESSION_SECRET;
-        if (!secret) {
-          if (process.env.NODE_ENV === "production") {
-            console.error(
-              "[SECURITY] SESSION_SECRET environment variable is NOT set. " +
-              "This is required in production to prevent session forgery. " +
-              "Set SESSION_SECRET in Replit Secrets immediately."
-            );
-          } else {
-            console.warn(
-              "[SECURITY] SESSION_SECRET not set — using insecure dev fallback. " +
-              "Set SESSION_SECRET before deploying to production."
-            );
-          }
-        }
-        return secret || (process.env.NODE_ENV === "production"
-          ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
-          : "dev-only-insecure-fallback-do-not-use-in-production");
-      })(),
-    });
-  app.use(sessionMiddleware);
   registerKayInternalCallRoutes(app, httpServer, sessionMiddleware);
   // Register before the generic Kay gate so direct metadata/playback URLs
   // always reach the live admin middleware, including unauthenticated requests.
@@ -1589,23 +1594,24 @@ ${metaTags}
         ? findMetaReviewerByEmail(reviewerEmail)
         : undefined;
       if (reviewer) {
-        const valid = reviewer.isActive &&
-          reviewer.isAdmin &&
-          typeof password === "string" &&
-          await verifyStoredPassword(password, reviewer.passwordHash);
-        if (!valid) {
+        const authenticatedReviewer = typeof password === "string"
+          ? await authenticateMetaReviewer(reviewerEmail, password)
+          : undefined;
+        if (!authenticatedReviewer) {
           return res.status(401).json({ message: "Invalid login credentials." });
         }
-        req.session.userId = reviewer.id;
-        req.session.isAdmin = true;
+        req.session.userId = authenticatedReviewer.id;
+        req.session.isAdmin = false;
+        req.session.isMetaReviewer = true;
         req.session.isActive = true;
         req.session.role = "meta_reviewer";
         return res.json({
-          id: reviewer.id,
-          username: reviewer.username,
-          email: reviewer.email,
+          id: authenticatedReviewer.id,
+          username: authenticatedReviewer.username,
+          email: authenticatedReviewer.email,
           authMethod: "email",
-          isAdmin: true,
+          isAdmin: false,
+          isMetaReviewer: true,
           isActive: true,
           role: "meta_reviewer",
         });
@@ -1949,7 +1955,7 @@ ${metaTags}
       const reviewer = isMetaReviewDiagnosticMode()
         ? getMetaReviewerAccount(req.session.userId)
         : undefined;
-      if (!reviewer || !reviewer.isActive || !reviewer.isAdmin) {
+      if (!reviewer || !reviewer.isActive || !reviewer.isMetaReviewer) {
         req.session.destroy(() => undefined);
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1958,7 +1964,8 @@ ${metaTags}
         username: reviewer.username,
         email: reviewer.email,
         authMethod: "email",
-        isAdmin: true,
+        isAdmin: false,
+        isMetaReviewer: true,
         isActive: true,
         role: "meta_reviewer",
       });

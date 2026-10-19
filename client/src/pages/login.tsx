@@ -34,8 +34,8 @@ const Login = () => {
   const onSubmit = async (data: LoginFormValues) => {
     try {
       setIsLoading(true);
-      await login(data.username, data.password);
-      navigate(redirectTo);
+      const user = await login(data.username, data.password);
+      navigate(user.isMetaReviewer ? "/admin/whatsapp-monitoring" : redirectTo);
     } catch {
       // Error toast is already handled by useAuth
     } finally {

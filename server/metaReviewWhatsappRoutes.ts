@@ -35,24 +35,22 @@ function createRequireActiveMetaReviewAdmin() {
     res: Response,
     next: NextFunction,
   ): void {
-    requireWhatsappAdmin(req, res, () => {
-      if (req.session.role !== "meta_reviewer") {
-        next();
-        return;
-      }
-
+    if (req.session?.role === "meta_reviewer") {
       const account = getMetaReviewerAccount(req.session.userId!);
       if (
         !account ||
         account.role !== "meta_reviewer" ||
-        account.isAdmin !== true ||
+        req.session.isMetaReviewer !== true ||
+        account.isMetaReviewer !== true ||
         account.isActive !== true
       ) {
         res.status(403).json({ message: "Not authorized" });
         return;
       }
       next();
-    });
+      return;
+    }
+    requireWhatsappAdmin(req, res, next);
   };
 }
 
@@ -67,7 +65,7 @@ export function registerMetaReviewWhatsappRoutes(
   if (isMetaReviewDiagnosticMode(environment())) {
   app.get(
     "/api/admin/meta-reviewer-access",
-    requireActiveMetaReviewAdmin,
+    requireWhatsappAdmin,
     async (_req, res) => {
       try {
         const reviewers = listMetaReviewerAccounts();
@@ -81,7 +79,7 @@ export function registerMetaReviewWhatsappRoutes(
 
   app.post(
     "/api/admin/meta-reviewer-access",
-    requireActiveMetaReviewAdmin,
+    requireWhatsappAdmin,
     async (req, res) => {
       const email = typeof req.body?.email === "string"
         ? req.body.email.trim().toLowerCase()
@@ -118,7 +116,7 @@ export function registerMetaReviewWhatsappRoutes(
             id: created.id,
             email: created.email,
             username: created.username,
-            isAdmin: created.isAdmin,
+            isMetaReviewer: created.isMetaReviewer,
             isActive: created.isActive,
           },
         });
@@ -130,7 +128,7 @@ export function registerMetaReviewWhatsappRoutes(
 
   app.patch(
     "/api/admin/meta-reviewer-access/:id/disable",
-    requireActiveMetaReviewAdmin,
+    requireWhatsappAdmin,
     async (req, res) => {
       const id = Number(req.params.id);
       if (!Number.isSafeInteger(id) || id === 0) {
@@ -148,7 +146,7 @@ export function registerMetaReviewWhatsappRoutes(
           res.status(404).json({ message: "Reviewer account not found." });
           return;
         }
-        res.json({ ok: true, id: updated.id, isActive: false, isAdmin: false });
+        res.json({ ok: true, id: updated.id, isActive: false, isMetaReviewer: true });
       } catch {
         res.status(500).json({ message: "Unable to disable the reviewer account." });
       }
@@ -157,7 +155,7 @@ export function registerMetaReviewWhatsappRoutes(
 
   app.delete(
     "/api/admin/meta-reviewer-access/:id",
-    requireActiveMetaReviewAdmin,
+    requireWhatsappAdmin,
     async (req, res) => {
       const id = Number(req.params.id);
       if (!Number.isSafeInteger(id) || id === 0) {
