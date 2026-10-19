@@ -1,5 +1,14 @@
-import type { Express, Request, Response } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
+import { storage } from "./storage";
 import { requireWhatsappAdmin } from "./whatsappInternalAuth";
+import {
+  createMetaReviewerAccount,
+  deleteMetaReviewerAccount,
+  disableMetaReviewerAccount,
+  getMetaReviewerAccount,
+  listMetaReviewerAccounts,
+} from "./metaReviewerAccessStore";
+import { isMetaReviewDiagnosticMode } from "./metaReviewDiagnosticMode";
 import {
   getMetaReviewWhatsappEvents,
   loadMetaReviewWhatsappManagementData,
@@ -17,6 +26,34 @@ type RequestWithRawBody = Request & { rawBody?: Buffer };
 export interface MetaReviewWhatsappRouteDependencies {
   environment?: () => MetaReviewWhatsappEnvironment;
   fetchImpl?: typeof fetch;
+  userStorage?: Pick<typeof storage, "getUserByEmail" | "getUserByUsername">;
+}
+
+function createRequireActiveMetaReviewAdmin() {
+  return function requireActiveMetaReviewAdmin(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void {
+    requireWhatsappAdmin(req, res, () => {
+      if (req.session.role !== "meta_reviewer") {
+        next();
+        return;
+      }
+
+      const account = getMetaReviewerAccount(req.session.userId!);
+      if (
+        !account ||
+        account.role !== "meta_reviewer" ||
+        account.isAdmin !== true ||
+        account.isActive !== true
+      ) {
+        res.status(403).json({ message: "Not authorized" });
+        return;
+      }
+      next();
+    });
+  };
 }
 
 export function registerMetaReviewWhatsappRoutes(
@@ -24,6 +61,123 @@ export function registerMetaReviewWhatsappRoutes(
   dependencies: MetaReviewWhatsappRouteDependencies = {},
 ): void {
   const environment = dependencies.environment ?? (() => process.env);
+  const userStorage = dependencies.userStorage ?? storage;
+  const requireActiveMetaReviewAdmin = createRequireActiveMetaReviewAdmin();
+
+  if (isMetaReviewDiagnosticMode(environment())) {
+  app.get(
+    "/api/admin/meta-reviewer-access",
+    requireActiveMetaReviewAdmin,
+    async (_req, res) => {
+      try {
+        const reviewers = listMetaReviewerAccounts();
+        res.setHeader("Cache-Control", "no-store");
+        res.json({ reviewers });
+      } catch {
+        res.status(500).json({ message: "Unable to load reviewer accounts." });
+      }
+    },
+  );
+
+  app.post(
+    "/api/admin/meta-reviewer-access",
+    requireActiveMetaReviewAdmin,
+    async (req, res) => {
+      const email = typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+      const password = typeof req.body?.password === "string"
+        ? req.body.password
+        : "";
+
+      if (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+        email.length > 254 ||
+        password.length < 12 ||
+        Buffer.byteLength(password, "utf8") > 72
+      ) {
+        res.status(400).json({
+          message: "Enter a valid email and a password with 12–72 UTF-8 bytes.",
+        });
+        return;
+      }
+
+      try {
+        if (
+          await userStorage.getUserByEmail(email) ||
+          await userStorage.getUserByUsername(email)
+        ) {
+          res.status(409).json({ message: "An account already uses that email." });
+          return;
+        }
+
+        const created = await createMetaReviewerAccount(email, password);
+
+        res.status(201).json({
+          reviewer: {
+            id: created.id,
+            email: created.email,
+            username: created.username,
+            isAdmin: created.isAdmin,
+            isActive: created.isActive,
+          },
+        });
+      } catch {
+        res.status(500).json({ message: "Unable to create the reviewer account." });
+      }
+    },
+  );
+
+  app.patch(
+    "/api/admin/meta-reviewer-access/:id/disable",
+    requireActiveMetaReviewAdmin,
+    async (req, res) => {
+      const id = Number(req.params.id);
+      if (!Number.isSafeInteger(id) || id === 0) {
+        res.status(400).json({ message: "Invalid reviewer account." });
+        return;
+      }
+      try {
+        const reviewer = getMetaReviewerAccount(id);
+        if (!reviewer) {
+          res.status(404).json({ message: "Reviewer account not found." });
+          return;
+        }
+        const updated = disableMetaReviewerAccount(id);
+        if (!updated) {
+          res.status(404).json({ message: "Reviewer account not found." });
+          return;
+        }
+        res.json({ ok: true, id: updated.id, isActive: false, isAdmin: false });
+      } catch {
+        res.status(500).json({ message: "Unable to disable the reviewer account." });
+      }
+    },
+  );
+
+  app.delete(
+    "/api/admin/meta-reviewer-access/:id",
+    requireActiveMetaReviewAdmin,
+    async (req, res) => {
+      const id = Number(req.params.id);
+      if (!Number.isSafeInteger(id) || id === 0) {
+        res.status(400).json({ message: "Invalid reviewer account." });
+        return;
+      }
+      try {
+        const reviewer = getMetaReviewerAccount(id);
+        if (!reviewer) {
+          res.status(404).json({ message: "Reviewer account not found." });
+          return;
+        }
+        deleteMetaReviewerAccount(id);
+        res.json({ ok: true });
+      } catch {
+        res.status(500).json({ message: "Unable to delete the reviewer account." });
+      }
+    },
+  );
+  }
 
   app.get(META_REVIEW_WHATSAPP_WEBHOOK_PATH, (req, res) => {
     const challenge = validateMetaReviewWhatsappChallenge(
@@ -67,7 +221,7 @@ export function registerMetaReviewWhatsappRoutes(
 
   app.get(
     "/api/admin/meta-review/whatsapp/status",
-    requireWhatsappAdmin,
+    requireActiveMetaReviewAdmin,
     (_req, res) => {
       res.setHeader("Cache-Control", "no-store");
       res.json(getMetaReviewWhatsappStatus(environment()));
@@ -76,7 +230,7 @@ export function registerMetaReviewWhatsappRoutes(
 
   app.get(
     "/api/admin/meta-review/whatsapp/events",
-    requireWhatsappAdmin,
+    requireActiveMetaReviewAdmin,
     (_req, res) => {
       res.setHeader("Cache-Control", "no-store");
       res.json({ events: getMetaReviewWhatsappEvents() });
@@ -85,7 +239,7 @@ export function registerMetaReviewWhatsappRoutes(
 
   app.get(
     "/api/admin/meta-review/whatsapp/management",
-    requireWhatsappAdmin,
+    requireActiveMetaReviewAdmin,
     async (_req, res) => {
       res.setHeader("Cache-Control", "no-store");
       try {
@@ -107,7 +261,7 @@ export function registerMetaReviewWhatsappRoutes(
 
   app.post(
     "/api/admin/meta-review/whatsapp/send-test-template",
-    requireWhatsappAdmin,
+    requireActiveMetaReviewAdmin,
     async (req, res) => {
       if (
         !req.body ||
