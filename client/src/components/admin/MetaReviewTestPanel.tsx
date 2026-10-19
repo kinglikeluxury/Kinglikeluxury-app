@@ -268,8 +268,6 @@ export default function MetaReviewTestPanel() {
                         {[
                           phone.status && `Status: ${phone.status}`,
                           phone.qualityRating && `Quality: ${phone.qualityRating}`,
-                          phone.codeVerificationStatus &&
-                            `Verification: ${phone.codeVerificationStatus}`,
                         ].filter(Boolean).join(" · ") || "No additional status details returned."}
                       </p>
                     </li>
