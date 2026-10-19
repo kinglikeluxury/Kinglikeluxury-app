@@ -1,13 +1,23 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import express from "express";
 import test from "node:test";
+import bcrypt from "bcrypt";
 import {
   clearMetaReviewWhatsappEventsForTests,
   type MetaReviewWhatsappEnvironment,
 } from "./metaReviewWhatsappService";
-import { registerMetaReviewWhatsappRoutes } from "./metaReviewWhatsappRoutes";
+import {
+  registerMetaReviewWhatsappRoutes,
+  type MetaReviewWhatsappRouteDependencies,
+} from "./metaReviewWhatsappRoutes";
+import { verifyStoredPassword } from "./passwordAuth";
+import {
+  clearMetaReviewerAccountsForTests,
+  findMetaReviewerByEmail,
+  getMetaReviewerAccount,
+} from "./metaReviewerAccessStore";
 
 const TEST_ENV: MetaReviewWhatsappEnvironment = {
   META_REVIEW_WA_TEST_ENABLED: "true",
@@ -58,6 +68,7 @@ async function withTestServer<T>(
 test("admin test endpoints require an authenticated admin session", async () => {
   clearMetaReviewWhatsappEventsForTests();
   await withTestServer(false, async (origin) => {
+    const reviewerAccess = await fetch(`${origin}/api/admin/meta-reviewer-access`);
     const statusResponse = await fetch(`${origin}/api/admin/meta-review/whatsapp/status`);
     const sendResponse = await fetch(
       `${origin}/api/admin/meta-review/whatsapp/send-test-template`,
@@ -66,10 +77,113 @@ test("admin test endpoints require an authenticated admin session", async () => 
     const managementResponse = await fetch(
       `${origin}/api/admin/meta-review/whatsapp/management`,
     );
+    assert.equal(reviewerAccess.status, 404);
     assert.equal(statusResponse.status, 401);
     assert.equal(sendResponse.status, 401);
     assert.equal(managementResponse.status, 401);
   });
+});
+
+test("reviewer provisioning hashes credentials and supports disable and delete", async () => {
+  clearMetaReviewerAccountsForTests();
+  const fakeStorage = {
+    getUserByEmail: async () => undefined,
+    getUserByUsername: async () => undefined,
+  } as unknown as NonNullable<MetaReviewWhatsappRouteDependencies["userStorage"]>;
+
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    const reviewerSession = req.get("x-reviewer-session") === "true";
+    const reviewerId = Number(req.get("x-reviewer-id"));
+    const unauthenticated = req.get("x-no-admin") === "true";
+    (req as typeof req & { session?: unknown }).session = unauthenticated
+      ? undefined
+      : reviewerSession
+        ? { userId: reviewerId, isAdmin: true, isActive: true, role: "meta_reviewer" }
+        : { userId: 42, isAdmin: true, isActive: true, role: "admin" };
+    next();
+  });
+  registerMetaReviewWhatsappRoutes(app, {
+    environment: () => ({
+      ...TEST_ENV,
+      NODE_ENV: "development",
+      ENABLE_META_REVIEW_DIAGNOSTIC_MODE: "true",
+    }),
+    userStorage: fakeStorage,
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Test server did not bind.");
+  const origin = `http://127.0.0.1:${address.port}`;
+  try {
+    const candidate = `reviewer-fixture-${randomUUID()}`;
+    const unauthorizedCreate = await fetch(`${origin}/api/admin/meta-reviewer-access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-no-admin": "true" },
+      body: JSON.stringify({ email: "blocked@example.test", password: candidate }),
+    });
+    assert.equal(unauthorizedCreate.status, 401);
+
+    const createResponse = await fetch(`${origin}/api/admin/meta-reviewer-access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "reviewer@example.test", password: candidate }),
+    });
+    assert.equal(createResponse.status, 201);
+    const createdPayload = await createResponse.text();
+    assert.equal(createdPayload.includes(candidate), false);
+    assert.equal(createdPayload.includes("$2"), false);
+    const created = JSON.parse(createdPayload) as { reviewer: { id: number } };
+    const reviewerId = created.reviewer.id;
+    const reviewer = getMetaReviewerAccount(reviewerId)!;
+    assert.equal(reviewer.role, "meta_reviewer");
+    assert.equal(reviewer.isAdmin, true);
+    assert.equal(reviewer.isActive, true);
+    assert.notEqual(reviewer.passwordHash, candidate);
+    assert.equal(findMetaReviewerByEmail("REVIEWER@example.test")?.id, reviewerId);
+    assert.equal(await bcrypt.compare(candidate, reviewer.passwordHash), true);
+    assert.equal(await verifyStoredPassword(candidate, reviewer.passwordHash), true);
+
+    const reviewerStatus = await fetch(`${origin}/api/admin/meta-review/whatsapp/status`, {
+      headers: {
+        "x-reviewer-session": "true",
+        "x-reviewer-id": String(reviewerId),
+      },
+    });
+    assert.equal(reviewerStatus.status, 200);
+
+    const listResponse = await fetch(`${origin}/api/admin/meta-reviewer-access`);
+    const list = await listResponse.json() as { reviewers: Array<Record<string, unknown>> };
+    assert.equal(list.reviewers.length, 1);
+    assert.equal("password" in list.reviewers[0], false);
+
+    const disableResponse = await fetch(`${origin}/api/admin/meta-reviewer-access/${reviewerId}/disable`, {
+      method: "PATCH",
+    });
+    assert.equal(disableResponse.status, 200);
+    assert.equal(getMetaReviewerAccount(reviewerId)?.isActive, false);
+    assert.equal(getMetaReviewerAccount(reviewerId)?.isAdmin, false);
+
+    const blockedReviewerResponse = await fetch(`${origin}/api/admin/meta-reviewer-access`, {
+      headers: {
+        "x-reviewer-session": "true",
+        "x-reviewer-id": String(reviewerId),
+      },
+    });
+    assert.equal(blockedReviewerResponse.status, 403);
+
+    const deleteResponse = await fetch(`${origin}/api/admin/meta-reviewer-access/${reviewerId}`, {
+      method: "DELETE",
+    });
+    assert.equal(deleteResponse.status, 200);
+    assert.equal(getMetaReviewerAccount(reviewerId), undefined);
+  } finally {
+    clearMetaReviewerAccountsForTests();
+    server.close();
+    await once(server, "close");
+  }
 });
 
 test("admin sees isolated readiness and can send only the fixed empty-body action", async () => {

@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +22,15 @@ const AUTH_ICON: Record<string, JSX.Element> = {
 
 export default function AdminUsers() {
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
+  const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const [reviewerEmail, setReviewerEmail] = useState("");
+  const [reviewerPassword, setReviewerPassword] = useState("");
+
+  useEffect(() => {
+    if (!authLoading && (!user || !user.isAdmin)) navigate("/");
+  }, [authLoading, navigate, user]);
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
@@ -29,6 +39,59 @@ export default function AdminUsers() {
       return r.json();
     }),
     retry: false,
+  });
+
+  const reviewersQuery = useQuery<{ reviewers: Array<{
+    id: number;
+    email: string | null;
+    username: string;
+    isAdmin: boolean;
+    isActive: boolean;
+  }> }>({
+    queryKey: ["/api/admin/meta-reviewer-access"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin/meta-reviewer-access", { credentials: "include" });
+      if (!response.ok) throw new Error("Unable to load reviewer accounts");
+      return response.json();
+    },
+    enabled: !!user?.isAdmin,
+    retry: false,
+  });
+
+  const createReviewerMutation = useMutation({
+    mutationFn: (data: { email: string; password: string }) =>
+      apiRequest("POST", "/api/admin/meta-reviewer-access", data),
+    onSuccess: () => {
+      setReviewerEmail("");
+      setReviewerPassword("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/meta-reviewer-access"] });
+      toast({ title: "Reviewer account created" });
+    },
+    onError: (error: Error) => toast({
+      title: "Could not create reviewer account",
+      description: error.message,
+      variant: "destructive",
+    }),
+  });
+
+  const disableReviewerMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("PATCH", `/api/admin/meta-reviewer-access/${id}/disable`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/meta-reviewer-access"] });
+      toast({ title: "Reviewer account disabled" });
+    },
+    onError: (error: Error) => toast({ title: "Could not disable account", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteReviewerMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("DELETE", `/api/admin/meta-reviewer-access/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/meta-reviewer-access"] });
+      toast({ title: "Reviewer account deleted" });
+    },
+    onError: (error: Error) => toast({ title: "Could not delete account", description: error.message, variant: "destructive" }),
   });
 
   const toggleAdminMutation = useMutation({
@@ -62,6 +125,11 @@ export default function AdminUsers() {
   const adminCount = users.filter(u => u.isAdmin).length;
   const verifiedCount = users.filter(u => u.isVerified).length;
 
+  if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-[#3bcac4]" /></div>;
+  }
+  if (!user?.isAdmin) return null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -88,6 +156,99 @@ export default function AdminUsers() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
+        {reviewersQuery.isSuccess && (
+        <section className="bg-white rounded-2xl shadow-sm border border-teal-100 p-5 mb-5">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Meta Reviewer Access</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Create a temporary admin account for Meta App Review. The password is entered here, stored only as a hash in this diagnostic Preview process, and never returned. A restart clears reviewer accounts.
+            </p>
+          </div>
+          <form
+            className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end"
+            onSubmit={(event) => {
+              event.preventDefault();
+              createReviewerMutation.mutate({ email: reviewerEmail, password: reviewerPassword });
+            }}
+          >
+            <label className="text-sm font-medium text-gray-700">
+              Reviewer email
+              <Input
+                type="email"
+                autoComplete="email"
+                required
+                maxLength={254}
+                value={reviewerEmail}
+                onChange={(event) => setReviewerEmail(event.target.value)}
+                className="mt-1"
+              />
+            </label>
+            <label className="text-sm font-medium text-gray-700">
+              Password (12 characters minimum; 72 UTF-8 bytes maximum)
+              <Input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={12}
+                maxLength={72}
+                value={reviewerPassword}
+                onChange={(event) => setReviewerPassword(event.target.value)}
+                className="mt-1"
+              />
+            </label>
+            <Button
+              type="submit"
+              disabled={createReviewerMutation.isPending}
+              className="bg-[#005476] hover:bg-[#003f59]"
+            >
+              {createReviewerMutation.isPending ? "Creating…" : "Create reviewer"}
+            </Button>
+          </form>
+          <div className="mt-5 space-y-2">
+            {reviewersQuery.isLoading ? (
+              <p className="text-sm text-gray-500">Loading reviewer accounts…</p>
+            ) : reviewersQuery.error ? (
+              <p className="text-sm text-red-600">Reviewer accounts could not be loaded.</p>
+            ) : reviewersQuery.data?.reviewers.length ? reviewersQuery.data.reviewers.map((reviewer) => (
+              <div key={reviewer.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                <div>
+                  <p className="font-medium text-gray-900">{reviewer.email}</p>
+                  <p className="text-xs text-gray-500">
+                    {reviewer.isActive && reviewer.isAdmin ? "Active reviewer admin" : "Disabled"}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {reviewer.isActive && reviewer.isAdmin && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={disableReviewerMutation.isPending}
+                      onClick={() => disableReviewerMutation.mutate(reviewer.id)}
+                    >
+                      Disable
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={deleteReviewerMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm(`Delete reviewer account ${reviewer.email}?`)) {
+                        deleteReviewerMutation.mutate(reviewer.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm text-gray-500">No Meta reviewer accounts have been created.</p>
+            )}
+          </div>
+        </section>
+        )}
+
         {/* Search */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-5">
           <div className="relative">

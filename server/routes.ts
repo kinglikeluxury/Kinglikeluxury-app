@@ -4,6 +4,12 @@ import { createServer, type Server } from "http";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
 import bcrypt from "bcrypt";
+import { verifyStoredPassword } from "./passwordAuth";
+import {
+  findMetaReviewerByEmail,
+  getMetaReviewerAccount,
+} from "./metaReviewerAccessStore";
+import { isMetaReviewDiagnosticMode } from "./metaReviewDiagnosticMode";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
 import pg from "pg";
@@ -1577,6 +1583,33 @@ ${metaTags}
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password, phoneNumber, whatsappNumber, facebookId, authMethod } = req.body;
+
+      const reviewerEmail = typeof username === "string" ? username.trim().toLowerCase() : "";
+      const reviewer = isMetaReviewDiagnosticMode()
+        ? findMetaReviewerByEmail(reviewerEmail)
+        : undefined;
+      if (reviewer) {
+        const valid = reviewer.isActive &&
+          reviewer.isAdmin &&
+          typeof password === "string" &&
+          await verifyStoredPassword(password, reviewer.passwordHash);
+        if (!valid) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+        req.session.userId = reviewer.id;
+        req.session.isAdmin = true;
+        req.session.isActive = true;
+        req.session.role = "meta_reviewer";
+        return res.json({
+          id: reviewer.id,
+          username: reviewer.username,
+          email: reviewer.email,
+          authMethod: "email",
+          isAdmin: true,
+          isActive: true,
+          role: "meta_reviewer",
+        });
+      }
       
       // Get user based on auth method
       let user;
@@ -1588,10 +1621,11 @@ ${metaTags}
         }
         
         user = await storage.getUserByUsername(username);
+        if (!user) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
         
-        const _emailPassOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password)
-          : user.password === password;
+        const _emailPassOk = await verifyStoredPassword(password, user.password);
         if (!user || !_emailPassOk) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
@@ -1651,9 +1685,10 @@ ${metaTags}
         }
 
         // Generic error — never reveal whether username/email/phone exists or which field failed
-        const _passOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password!)
-          : user.password === password;
+        if (!user) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+        const _passOk = await verifyStoredPassword(password, user.password);
         if (!user || !_passOk) {
           return res.status(401).json({ message: "Invalid login credentials." });
         }
@@ -1661,6 +1696,13 @@ ${metaTags}
       
       if (!user) {
         return res.status(401).json({ message: "User not found" });
+      }
+
+      if (
+        user.role === "meta_reviewer" &&
+        (user.isAdmin !== true || user.isActive !== true)
+      ) {
+        return res.status(401).json({ message: "Invalid login credentials." });
       }
       
       // Set session
@@ -1902,11 +1944,38 @@ ${metaTags}
     if (!req.session.userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
+
+    if (req.session.role === "meta_reviewer") {
+      const reviewer = isMetaReviewDiagnosticMode()
+        ? getMetaReviewerAccount(req.session.userId)
+        : undefined;
+      if (!reviewer || !reviewer.isActive || !reviewer.isAdmin) {
+        req.session.destroy(() => undefined);
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      return res.json({
+        id: reviewer.id,
+        username: reviewer.username,
+        email: reviewer.email,
+        authMethod: "email",
+        isAdmin: true,
+        isActive: true,
+        role: "meta_reviewer",
+      });
+    }
     
     const user = await storage.getUser(req.session.userId);
     
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    if (
+      user.role === "meta_reviewer" &&
+      (user.isAdmin !== true || user.isActive !== true)
+    ) {
+      req.session.destroy(() => undefined);
+      return res.status(401).json({ message: "Not authenticated" });
     }
 
     // Refresh the trusted session flags from the database on every auth check.
