@@ -1,32 +1,26 @@
-export const AI_BLOG_MARKETS = [
-  { country: "georgia", label: "جورجيا", flag: "🇬🇪" },
-  { country: "turkey", label: "تركيا", flag: "🇹🇷" },
-  { country: "syria", label: "سوريا", flag: "🇸🇾" },
-  { country: "azerbaijan", label: "أذربيجان — باكو فقط", flag: "🇦🇿" },
-  { country: "northern-cyprus", label: "شمال قبرص", flag: "🇨🇾" },
-] as const;
+import { getGeminiAiBlogReadiness } from "./geminiAiBlogProvider";
+import { AI_BLOG_MARKETS, isAllowedAiBlogMarket } from "./aiBlogMarkets";
+export { AI_BLOG_MARKETS, isAllowedAiBlogMarket } from "./aiBlogMarkets";
 
 export type AiDraftStatus =
   | "waiting" | "needs_verification" | "ready_for_review"
   | "rejected" | "published" | "failed";
 
-export function isAllowedAiBlogMarket(country: string): boolean {
-  return AI_BLOG_MARKETS.some((market) => market.country === country);
-}
-
 export function getAiBlogProviderReadiness(env: NodeJS.ProcessEnv = process.env) {
-  const researchReady = Boolean(env.TAVILY_API_KEY || env.SERPAPI_API_KEY);
-  const textReady = Boolean(env.OPENAI_API_KEY);
-  const imageReady = Boolean(env.OPENAI_API_KEY && env.CLOUDINARY_CLOUD_NAME);
+  const gemini = getGeminiAiBlogReadiness(env);
   return {
     // No provider adapters or scheduler runner are wired yet. Environment flags
     // alone must never make the UI claim the feature can run.
     generationEnabled: false,
     schedulerEnabled: false,
-    researchReady,
-    textReady,
-    imageReady,
-    reason: "التوليد والبحث والصور والجدولة معطلة؛ لم تُوصل خدمات التنفيذ بعد ويلزم اعتماد التكلفة أولاً.",
+    researchReady: false,
+    textReady: gemini.configured,
+    imageReady: false,
+    textProvider: "Gemini",
+    textModel: gemini.model,
+    textKeyPresent: gemini.keyPresent,
+    textConfigurationBlockers: gemini.blockers,
+    reason: "التوليد والبحث والصور والجدولة معطلة. موصل Gemini لا يصبح جاهزاً إلا بعد تأكيد الخطة والحصة المجانية وتعطيل الفوترة وإعداد مفتاح ونموذج؛ لا يوجد تحويل إلى مزود آخر.",
   };
 }
 

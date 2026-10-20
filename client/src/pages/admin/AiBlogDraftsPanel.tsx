@@ -27,7 +27,11 @@ type Draft = {
 };
 type State = {
   configured: boolean; message?: string;
-  readiness: { reason: string; generationEnabled: boolean; schedulerEnabled: boolean; researchReady: boolean; textReady: boolean; imageReady: boolean };
+  readiness: {
+    reason: string; generationEnabled: boolean; schedulerEnabled: boolean; researchReady: boolean;
+    textReady: boolean; imageReady: boolean; textProvider?: string; textModel?: string | null;
+    textKeyPresent?: boolean; textConfigurationBlockers?: string[];
+  };
   schedule: { enabled: boolean; time_georgia: string };
   drafts: Draft[];
 };
@@ -88,12 +92,19 @@ export function AiBlogDraftsPanel() {
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
           <div className="flex gap-2 font-semibold"><AlertTriangle className="h-5 w-5 shrink-0" />{data?.readiness?.reason || "التوليد والجدولة معطلان افتراضياً."}</div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-            <span>مفتاح البحث: {data?.readiness?.researchReady ? "موجود فقط" : "غير مضبوط"}</span>
-            <span>مفتاح النص: {data?.readiness?.textReady ? "موجود فقط" : "غير مضبوط"}</span>
+            <span>البحث: معطل، لا يوجد موصل مجاني معتمد</span>
+            <span>موصل النص: {data?.readiness?.textProvider || "Gemini"}</span>
+            <span>مفتاح Gemini: {data?.readiness?.textKeyPresent ? "موجود فقط" : "غير مضبوط"}</span>
+            <span>النموذج: {data?.readiness?.textModel || "غير محدد"}</span>
             <span>مفتاح الصور/Cloudinary: {data?.readiness?.imageReady ? "موجود فقط" : "غير مضبوط"}</span>
             <span>التنفيذ: {data?.readiness?.schedulerEnabled ? "متاح" : "غير موصول"}</span>
           </div>
-          <p className="mt-2">وجود مفتاح لا يعني أن التكامل جاهز أو نشط. لم يتم استدعاء مزود بحث أو ذكاء اصطناعي أو صور. يلزم اعتماد التكلفة وتنفيذ واختبار التكاملات قبل أي تفعيل.</p>
+          <p className="mt-2">وجود مفتاح لا يعني أن التكامل جاهز أو نشط. يجب إثبات أهلية النموذج والحصة المجانية وتعطيل الفوترة من حساب Google؛ التطبيق لا يستطيع التحقق من ذلك تلقائياً. لا يوجد بحث مؤسس على Google Search ولا تحويل إلى OpenAI أو Tavily أو SerpAPI.</p>
+          {!!data?.readiness?.textConfigurationBlockers?.length && (
+            <ul className="mt-2 list-inside list-disc text-xs">
+              {data.readiness.textConfigurationBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+            </ul>
+          )}
           <div className="mt-3 rounded border border-amber-400/60 bg-white/70 p-3">
             <strong>إعداد غلاف محلي بلا رفع</strong>
             <p className="mt-1">يمكن تجهيز نسخة مشتقة من صورة تملكها Kinglike أو تملك ترخيص استخدامها عبر ImageMagick في مساحة العمل، مع الاحتفاظ بكامل الإطار حتى لا تُقص أي علامة أصلية. لا يضيف المسار علامة مائية ولا يزيل علامة موجودة، ولا يتصل بـCloudinary أو أي خدمة. سعة Cloudinary لم تُثبت، لذلك الرفع غير متاح ولا تُحفظ الصورة في التخزين الحي.</p>
