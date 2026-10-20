@@ -50,14 +50,27 @@ test("startup gate returns before Kay scheduler in diagnostic mode and status ha
   const index = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(index, /if \(!shouldRunNormalStartupWork\(process\.env\)\) \{[\s\S]*?return;[\s\S]*?startKayRecommendationScheduler\(\)/);
   const routes = readFileSync(new URL("./routes.ts", import.meta.url), "utf8");
-  assert.match(routes, /recommendationScheduler:\s*getKayRecommendationSchedulerStatus\(\)/);
+  assert.match(routes, /recommendationScheduler:\s*await getKayRecommendationSchedulerStatusWithPersistence\(\)/);
   assert.doesNotMatch(routes, /\/api\/admin\/kay\/recommendation-scheduler\/(run|start|enable)/);
 });
 
 test("Control Center exposes scheduler status without a control button", () => {
   const client = readFileSync(new URL("../client/src/pages/admin/kay-control-center.tsx", import.meta.url), "utf8");
   assert.match(client, /Kay recommendation scheduler/);
-  assert.match(client, /recommendationScheduler\?\.lastCycleCompletedAt/);
-  assert.match(client, /recommendationScheduler\?\.reason/);
+  assert.match(client, /title="Last result"/);
+  assert.match(client, /title="Checked"/);
+  assert.match(client, /title="Recommendations \/ Eligible"/);
+  assert.match(client, /title="Stale"/);
+  assert.match(client, /title="Disabled reason"/);
+  assert.match(client, /persistent\?\.lastRunAt/);
+  assert.doesNotMatch(client, /lastCycleError/);
   assert.doesNotMatch(client, /Enable scheduler|Run scheduler|Start scheduler/);
+});
+
+test("scheduler history uses Kay runtime state and stores no raw error messages", () => {
+  const source = readFileSync(new URL("./kayRecommendationSchedulerState.ts", import.meta.url), "utf8");
+  assert.match(source, /kay_runtime_state/);
+  assert.match(source, /recommendation_scheduler_health/);
+  assert.match(source, /errorCode/);
+  assert.doesNotMatch(source, /error\.message|stack/);
 });
