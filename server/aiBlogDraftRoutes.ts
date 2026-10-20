@@ -138,7 +138,14 @@ export function registerAiBlogDraftRoutes(
 
   app.post("/api/admin/ai-blog/drafts/:id/publish", isAuthenticated, isAdmin, async (req: Request, res) => {
     const id = Number(req.params.id);
-    if (!Number.isSafeInteger(id) || id <= 0 || !(req.session as any)?.userId) {
+    const sessionUserId = req.session?.userId;
+    if (
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      typeof sessionUserId !== "number" ||
+      !Number.isSafeInteger(sessionUserId) ||
+      sessionUserId <= 0
+    ) {
       return res.status(400).json({ message: "معرّف المسودة غير صالح." });
     }
     const client = await pool.connect();
@@ -154,7 +161,7 @@ export function registerAiBlogDraftRoutes(
         await client.query("ROLLBACK");
         return res.status(409).json({ message: "لا يمكن النشر قبل اكتمال المراجعة والعنوان والمحتوى والرابط والصورة." });
       }
-      const author = await getUser(req.session.userId);
+      const author = await getUser(sessionUserId);
       if (!author?.isAdmin) {
         await client.query("ROLLBACK");
         return res.status(403).json({ message: "صلاحية النشر غير متاحة." });
