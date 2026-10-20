@@ -82,6 +82,41 @@ export function registerAiBlogDraftRoutes(
     });
   });
 
+  app.post("/api/admin/ai-blog/drafts", isAuthenticated, isAdmin, async (req, res) => {
+    const { businessDate, country } = req.body ?? {};
+    if (
+      typeof businessDate !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(businessDate) ||
+      Number.isNaN(Date.parse(`${businessDate}T00:00:00Z`)) ||
+      new Date(`${businessDate}T00:00:00Z`).toISOString().slice(0, 10) !== businessDate
+    ) {
+      return res.status(400).json({ message: "تاريخ العمل غير صالح." });
+    }
+    if (typeof country !== "string" || !isAllowedAiBlogMarket(country)) {
+      return res.status(400).json({ message: "السوق غير مسموح." });
+    }
+    try {
+      const result = await pool.query(
+        `INSERT INTO ai_blog_drafts (business_date,country,status,title,content)
+         VALUES ($1,$2,'needs_verification',$3,$4)
+         ON CONFLICT (business_date,country) DO NOTHING
+         RETURNING *`,
+        [
+          businessDate,
+          country,
+          typeof req.body?.title === "string" ? req.body.title.slice(0, 300) : "",
+          typeof req.body?.content === "string" ? req.body.content.slice(0, 100_000) : "",
+        ],
+      );
+      if (!result.rowCount) {
+        return res.status(409).json({ message: "توجد مسودة لهذا السوق والتاريخ بالفعل." });
+      }
+      return res.status(201).json({ draft: result.rows[0] });
+    } catch {
+      return res.status(503).json({ message: "تعذر إنشاء المسودة؛ تحقق من مخطط قاعدة البيانات." });
+    }
+  });
+
   app.put("/api/admin/ai-blog/drafts/:id", isAuthenticated, isAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ message: "معرّف المسودة غير صالح." });
@@ -103,7 +138,7 @@ export function registerAiBlogDraftRoutes(
 
   app.post("/api/admin/ai-blog/drafts/:id/publish", isAuthenticated, isAdmin, async (req: Request, res) => {
     const id = Number(req.params.id);
-    if (!Number.isSafeInteger(id) || id <= 0 || !req.session?.userId) {
+    if (!Number.isSafeInteger(id) || id <= 0 || !(req.session as any)?.userId) {
       return res.status(400).json({ message: "معرّف المسودة غير صالح." });
     }
     const client = await pool.connect();
