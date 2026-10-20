@@ -53,4 +53,5 @@
 - [Meta queue claim fencing](meta-queue-claim-fencing.md) — use exact DB-issued `updated_at` versions for the webhook queue only; keep Pull Sync separate.
 - [Syria market scope](syria-market-scope.md) — Syria real-estate additions must leave Meta, WhatsApp, and background processing unchanged.
 - [Azerbaijan market scope](azerbaijan-market-scope.md) — Azerbaijan support is limited to the country and Baku; preserve Syria and all existing locations.
+- [AI blog draft safety](ai-blog-drafts-safety.md) — keep AI research, writing, images, and scheduling fail-closed until the user approves costs and a dedicated test DB verifies persistence.
 - [Kay isolated Neon test transport](kay-test-neon-websocket.md) — isolated tests using Neon pools must set the `ws` WebSocket constructor before connecting; the normal server bootstrap does this globally.
