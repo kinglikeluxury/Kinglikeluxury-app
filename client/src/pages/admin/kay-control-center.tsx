@@ -56,7 +56,18 @@ type Control = {
     lastCycleStartedAt: string | null;
     lastCycleCompletedAt: string | null;
     lastCycleResult: { checked: number; eligible: number; blocked: number; stale: number } | null;
-    lastCycleError: string | null;
+    persistent?: {
+      enabledObserved: boolean;
+      lastRunAt: string | null;
+      lastResult: "PASS" | "FAIL" | "SKIPPED" | null;
+      checkedCount: number | null;
+      recommendationCount: number | null;
+      eligibleCount: number | null;
+      staleCount: number | null;
+      disabledReason: string | null;
+      errorCode: string | null;
+      updatedAt: string | null;
+    };
   };
   protectedLeads?: any[];
 };
@@ -610,20 +621,26 @@ export default function KayControlCenterPage() {
               value={control.data?.recommendationScheduler?.enabled ? "Enabled" : "Disabled"}
             />
             <Metric
-              title="Interval"
-              value={`${control.data?.recommendationScheduler?.intervalMinutes ?? 15} minutes`}
+              title="Last run"
+              value={date(control.data?.recommendationScheduler?.persistent?.lastRunAt ?? control.data?.recommendationScheduler?.lastCycleCompletedAt)}
             />
             <Metric
-              title="Last cycle"
-              value={date(control.data?.recommendationScheduler?.lastCycleCompletedAt)}
+              title="Last result"
+              value={label(control.data?.recommendationScheduler?.persistent?.lastResult)}
             />
+            <Metric title="Checked" value={control.data?.recommendationScheduler?.persistent?.checkedCount == null ? "Not available" : String(control.data.recommendationScheduler.persistent.checkedCount)} />
+            <Metric title="Recommendations / Eligible" value={
+              control.data?.recommendationScheduler?.persistent?.recommendationCount == null &&
+              control.data?.recommendationScheduler?.persistent?.eligibleCount == null
+                ? "Not available"
+                : `${control.data.recommendationScheduler.persistent.recommendationCount ?? "—"} / ${control.data.recommendationScheduler.persistent.eligibleCount ?? "—"}`
+            } />
+            <Metric title="Stale" value={control.data?.recommendationScheduler?.persistent?.staleCount == null ? "Not available" : String(control.data.recommendationScheduler.persistent.staleCount)} />
             <Metric
-              title="Reason"
-              value={label(control.data?.recommendationScheduler?.reason)}
+              title="Disabled reason"
+              value={label(control.data?.recommendationScheduler?.persistent?.disabledReason ?? control.data?.recommendationScheduler?.reason)}
             />
-            {control.data?.recommendationScheduler?.lastCycleError && (
-              <Metric title="Last cycle error" value={control.data.recommendationScheduler.lastCycleError} />
-            )}
+            <Metric title="Interval" value={`${control.data?.recommendationScheduler?.intervalMinutes ?? 15} minutes`} />
           </CardContent>
         </Card>
         <LegacyBaselineCard

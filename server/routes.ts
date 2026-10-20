@@ -52,7 +52,7 @@ import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
-import { getKayRecommendationSchedulerStatus } from "./kayRecommendationScheduler";
+import { getKayRecommendationSchedulerStatusWithPersistence } from "./kayRecommendationScheduler";
 import { getAssistedRescuePreview, listPromiseHandoffs } from "./kayRescueReadService";
 import { getAutoRescueHealth, getAutoRescueReadiness } from "./kayAutoRescueReadService";
 import { requireKayAdmin } from "./kayAuth";
@@ -655,7 +655,7 @@ ${metaTags}
         missionInspection,
         operationsHealth,
         availability,
-        recommendationScheduler: getKayRecommendationSchedulerStatus(),
+        recommendationScheduler: await getKayRecommendationSchedulerStatusWithPersistence(),
       });
     } catch (err: any) {
       res.status(500).json({ message: "Unable to load Kay control data." });
