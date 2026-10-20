@@ -125,11 +125,17 @@ export function registerAiBlogDraftRoutes(
     const update = normalizeAiDraftUpdate(req.body ?? {});
     const entries = Object.entries(update).filter(([, value]) => value !== undefined);
     if (!entries.length) return res.status(400).json({ message: "لا توجد حقول صالحة للحفظ." });
-    const setSql = entries.map(([key], index) => `"${key}"=$${index + 1}`).join(",");
+    const jsonbFields = new Set(["keywords", "sources"]);
+    const setSql = entries
+      .map(([key], index) => `"${key}"=$${index + 1}${jsonbFields.has(key) ? "::jsonb" : ""}`)
+      .join(",");
+    const values = entries.map(([key, value]) =>
+      jsonbFields.has(key) ? JSON.stringify(value) : value,
+    );
     try {
       const result = await pool.query(
         `UPDATE ai_blog_drafts SET ${setSql},updated_at=NOW() WHERE id=$${entries.length + 1} AND status <> 'published' RETURNING *`,
-        [...entries.map(([, value]) => value), id],
+        [...values, id],
       );
       if (!result.rowCount) return res.status(404).json({ message: "المسودة غير موجودة أو منشورة." });
       res.json({ draft: result.rows[0] });
@@ -160,7 +166,10 @@ export function registerAiBlogDraftRoutes(
         await client.query("ROLLBACK");
         return res.status(404).json({ message: "المسودة غير موجودة أو سبق نشرها." });
       }
-      if (!isAllowedAiBlogMarket(draft.country) || !isPublishableAiDraft(draft)) {
+      if (
+        !isAllowedAiBlogMarket(draft.country) ||
+        !isPublishableAiDraft({ ...draft, coverImage: draft.cover_image })
+      ) {
         await client.query("ROLLBACK");
         return res.status(409).json({ message: "لا يمكن النشر قبل اكتمال المراجعة والعنوان والمحتوى والرابط والصورة." });
       }
