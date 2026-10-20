@@ -86,6 +86,6 @@ async function main() {
 }
 
 main().catch(() => {
-  console.error("AI_BLOG_TEST_DB_ERROR stage=configuration code=TEST_DATABASE_CONFIG_INVALID");
+  console.error("AI_BLOG_TEST_DB_ERROR stage=script_runtime code=SCRIPT_RUNTIME_FAILED");
   process.exitCode = 1;
 });
