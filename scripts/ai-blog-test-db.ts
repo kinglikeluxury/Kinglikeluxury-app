@@ -5,6 +5,8 @@ import {
   AI_BLOG_TEST_APPLICATION_NAME,
   AI_BLOG_TEST_DATABASE_NAME,
   assertIsolatedAiBlogTestDatabaseIdentity,
+  classifyAiBlogTestDatabaseFailure,
+  formatAiBlogTestDatabaseFailure,
   getIsolatedAiBlogTestDatabaseConfig,
 } from "../server/aiBlogTestDatabase";
 
@@ -13,37 +15,42 @@ const migrationConfirmation = "--confirm-isolated-test-database-migration";
 
 async function main() {
   if (command !== "verify" && command !== "migrate") {
-    throw new Error("Usage: ai-blog:test-db verify | migrate --confirm-isolated-test-database-migration");
+    console.error("AI_BLOG_TEST_DB_ERROR stage=configuration code=TEST_DATABASE_CONFIG_INVALID");
+    process.exitCode = 1;
+    return;
   }
   if (command === "migrate" &&
     (!args.includes(migrationConfirmation) || process.env.AI_BLOG_TEST_DB_ALLOW_MIGRATION !== "true")) {
-    throw new Error(
-      "Migration refused. Supply the explicit confirmation argument and set AI_BLOG_TEST_DB_ALLOW_MIGRATION=true.",
-    );
+    console.error("AI_BLOG_TEST_DB_ERROR stage=configuration code=TEST_DATABASE_CONFIG_INVALID");
+    process.exitCode = 1;
+    return;
   }
 
-  const config = getIsolatedAiBlogTestDatabaseConfig(process.env);
-  const pool = new Pool({
-    connectionString: config.connectionString,
-    application_name: AI_BLOG_TEST_APPLICATION_NAME,
-    max: 1,
-    connectionTimeoutMillis: 5000,
-    statement_timeout: 5000,
-    ssl: false,
-  });
-
+  let stage: "configuration" | "tcp_connect" | "identity_check" | "migration" | "pool_close" = "configuration";
+  let pool: Pool | undefined;
+  let client: Awaited<ReturnType<Pool["connect"]>> | undefined;
+  let failure: ReturnType<typeof classifyAiBlogTestDatabaseFailure> | undefined;
   try {
-    const client = await pool.connect();
-    try {
-      const identity = await client.query(
-        "SELECT current_database() AS database_name, inet_server_addr()::text AS server_address",
-      );
-      assertIsolatedAiBlogTestDatabaseIdentity(identity.rows[0] ?? {});
-      if (command === "verify") {
-        console.log(`Verified isolated PostgreSQL target: ${AI_BLOG_TEST_DATABASE_NAME} on loopback.`);
-        return;
-      }
-
+    const config = getIsolatedAiBlogTestDatabaseConfig(process.env);
+    pool = new Pool({
+      connectionString: config.connectionString,
+      application_name: AI_BLOG_TEST_APPLICATION_NAME,
+      max: 1,
+      connectionTimeoutMillis: 5000,
+      statement_timeout: 5000,
+      ssl: false,
+    });
+    stage = "tcp_connect";
+    client = await pool.connect();
+    stage = "identity_check";
+    const identity = await client.query(
+      "SELECT current_database() AS database_name, inet_server_addr()::text AS server_address",
+    );
+    assertIsolatedAiBlogTestDatabaseIdentity(identity.rows[0] ?? {});
+    if (command === "verify") {
+      console.log(`Verified isolated PostgreSQL target: ${AI_BLOG_TEST_DATABASE_NAME} on loopback.`);
+    } else {
+      stage = "migration";
       const migrationPath = path.resolve(
         process.cwd(),
         "server/migrations/2026-10-20-ai-blog-usage-quotas.sql",
@@ -58,15 +65,27 @@ async function main() {
         throw error;
       }
       console.log("Applied AI Blog usage migration to the verified isolated test database only.");
-    } finally {
-      client.release();
     }
+  } catch (error) {
+    failure = classifyAiBlogTestDatabaseFailure(stage, error);
   } finally {
-    await pool.end();
+    client?.release();
+    if (pool) {
+      try {
+        stage = "pool_close";
+        await pool.end();
+      } catch (error) {
+        failure ??= classifyAiBlogTestDatabaseFailure(stage, error);
+      }
+    }
+  }
+  if (failure) {
+    console.error(formatAiBlogTestDatabaseFailure(failure));
+    process.exitCode = 1;
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : "Isolated test database command failed.");
+main().catch(() => {
+  console.error("AI_BLOG_TEST_DB_ERROR stage=configuration code=TEST_DATABASE_CONFIG_INVALID");
   process.exitCode = 1;
 });
