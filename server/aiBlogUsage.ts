@@ -10,7 +10,7 @@ export type AiBlogUsageReservation = {
 };
 export type AiBlogUsageReserveResult =
   | { ok: true; reservation: AiBlogUsageReservation }
-  | { ok: false; reason: "daily_request_limit" | "daily_article_limit" | "duplicate_operation" };
+  | { ok: false; reason: "daily_request_limit" | "daily_article_limit" | "duplicate_operation" | "invalid_limits" };
 
 export interface AiBlogUsageGate {
   reserve(operationKey: string): Promise<AiBlogUsageReserveResult>;
@@ -62,6 +62,12 @@ export class PostgresAiBlogUsageGate implements AiBlogUsageGate {
       );
       const maxArticles = Number(limits.rows[0]?.max_daily_articles ?? 0);
       const maxRequests = Number(limits.rows[0]?.max_daily_requests ?? 0);
+      if (
+        !Number.isSafeInteger(maxArticles) || maxArticles < 0 || maxArticles > 100 ||
+        !Number.isSafeInteger(maxRequests) || maxRequests < 0 || maxRequests > 500
+      ) {
+        return { ok: false, reason: "invalid_limits" };
+      }
       await client.query(
         "INSERT INTO ai_blog_usage_daily (usage_date) VALUES ($1::date) ON CONFLICT (usage_date) DO NOTHING",
         [usageDate],
@@ -76,8 +82,19 @@ export class PostgresAiBlogUsageGate implements AiBlogUsageGate {
       );
       if (existing.rowCount) return { ok: false, reason: "duplicate_operation" };
       const row = usage.rows[0];
-      if (Number(row.requests_used) >= maxRequests) return { ok: false, reason: "daily_request_limit" };
-      if (Number(row.articles_completed) + Number(row.articles_reserved) >= maxArticles) {
+      const requestsUsed = Number(row?.requests_used);
+      const articlesCompleted = Number(row?.articles_completed);
+      const articlesReserved = Number(row?.articles_reserved);
+      if (
+        !row ||
+        !Number.isSafeInteger(requestsUsed) || requestsUsed < 0 ||
+        !Number.isSafeInteger(articlesCompleted) || articlesCompleted < 0 ||
+        !Number.isSafeInteger(articlesReserved) || articlesReserved < 0
+      ) {
+        return { ok: false, reason: "invalid_limits" };
+      }
+      if (requestsUsed >= maxRequests) return { ok: false, reason: "daily_request_limit" };
+      if (articlesCompleted + articlesReserved >= maxArticles) {
         return { ok: false, reason: "daily_article_limit" };
       }
       await client.query(
