@@ -52,6 +52,7 @@ import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
+import { getKayRecommendationSchedulerStatus } from "./kayRecommendationScheduler";
 import { getAssistedRescuePreview, listPromiseHandoffs } from "./kayRescueReadService";
 import { getAutoRescueHealth, getAutoRescueReadiness } from "./kayAutoRescueReadService";
 import { requireKayAdmin } from "./kayAuth";
@@ -648,7 +649,14 @@ ${metaTags}
     try {
       const [control, employeeWorkflow, missionInspection, operationsHealth] = await Promise.all([getKayControlSnapshot(), getKayEmployeeWorkflowSnapshot(), getKayMissionInspection(), getKayOperationsHealth()]);
       const availability = await Promise.all((employeeWorkflow as any[]).map(async employee => ({ employeeId: employee.employee_id, ...(await getKayAvailability(employee.employee_id)) })));
-      res.json({ ...control, employeeWorkflow, missionInspection, operationsHealth, availability });
+      res.json({
+        ...control,
+        employeeWorkflow,
+        missionInspection,
+        operationsHealth,
+        availability,
+        recommendationScheduler: getKayRecommendationSchedulerStatus(),
+      });
     } catch (err: any) {
       res.status(500).json({ message: "Unable to load Kay control data." });
     }
