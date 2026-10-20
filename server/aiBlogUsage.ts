@@ -140,16 +140,25 @@ export async function getAiBlogUsageSummary(pool: Pick<Pool, "query">, now = new
      WHERE l.id=1`,
     [usageDate],
   );
-  const row = rows[0] ?? {
-    max_daily_articles: 0, max_daily_requests: 0,
-    requests_used: 0, articles_completed: 0, articles_reserved: 0,
-  };
+  const row = rows[0];
+  if (!row) {
+    return {
+      configured: false as const,
+      timezone: TbilisiZone,
+      usageDate,
+      resetAt: getNextTbilisiResetAt(now),
+      providerQuotaVerified: false as const,
+      billingVerified: false as const,
+    };
+  }
   const maxArticles = Number(row.max_daily_articles);
   const maxRequests = Number(row.max_daily_requests);
   const usedArticles = Number(row.articles_completed);
   const reservedArticles = Number(row.articles_reserved);
   const usedRequests = Number(row.requests_used);
   return {
+    configured: true as const,
+    timezone: TbilisiZone,
     usageDate,
     maxDailyArticles: maxArticles,
     maxDailyRequests: maxRequests,

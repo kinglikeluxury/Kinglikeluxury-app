@@ -6,6 +6,7 @@ import {
   isPublishableAiDraft,
   normalizeAiDraftUpdate,
 } from "./aiBlogDraftPolicy";
+import { getAiBlogUsageSummary, updateAiBlogUsageLimits } from "./aiBlogUsage";
 
 type UserLike = { id: number; isAdmin?: boolean } | undefined;
 
@@ -44,6 +45,63 @@ export function registerAiBlogDraftRoutes(
         message: "يلزم تطبيق ترحيل قاعدة البيانات الإضافي قبل استخدام لوحة المسودات.",
         schedule: { enabled: false, time_georgia: "09:00" },
         drafts: [],
+      });
+    }
+  });
+
+  app.get("/api/admin/ai-blog/usage", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const usage = await getAiBlogUsageSummary(pool);
+      if (!usage.configured) {
+        return res.json({
+          configured: false,
+          timezone: usage.timezone,
+          usageDate: usage.usageDate,
+          resetAt: usage.resetAt,
+          providerQuotaVerified: false,
+          billingVerified: false,
+          message: "جداول حدود Gemini غير مهيأة. أضف ترحيل حصص AI Blog أولاً؛ لم تُعرض أرقام تقديرية.",
+        });
+      }
+      return res.json({
+        ...usage,
+        message: "هذه حدود واستهلاكات داخلية فقط، وليست حصة Google الفعلية. أهلية الخطة والفوترة ورصيد المزود غير متحقق منها.",
+      });
+    } catch (error) {
+      onRouteError?.("readAiBlogUsage", error);
+      return res.status(503).json({
+        configured: false,
+        code: "AI_BLOG_USAGE_SCHEMA_MISSING",
+        message: "جداول حدود Gemini غير متاحة. يلزم تجهيز ترحيل حصص AI Blog؛ لم يتم تغيير أي إعداد.",
+        providerQuotaVerified: false,
+        billingVerified: false,
+      });
+    }
+  });
+
+  app.put("/api/admin/ai-blog/usage/limits", isAuthenticated, isAdmin, async (req, res) => {
+    const maxDailyArticles = req.body?.maxDailyArticles;
+    const maxDailyRequests = req.body?.maxDailyRequests;
+    try {
+      const result = await updateAiBlogUsageLimits(pool, { maxDailyArticles, maxDailyRequests });
+      return res.json({
+        ...result,
+        timezone: "Asia/Tbilisi",
+        providerQuotaVerified: false,
+        billingVerified: false,
+        message: "تم حفظ الحدود الداخلية فقط؛ لم يتم تفعيل التوليد أو التحقق من حصة Google أو الفوترة.",
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "AI_BLOG_ARTICLE_LIMIT_INVALID") {
+        return res.status(400).json({ code: error.message, message: "حد المقالات يجب أن يكون عدداً صحيحاً بين 0 و100." });
+      }
+      if (error instanceof Error && error.message === "AI_BLOG_REQUEST_LIMIT_INVALID") {
+        return res.status(400).json({ code: error.message, message: "حد الطلبات يجب أن يكون عدداً صحيحاً بين 0 و500." });
+      }
+      onRouteError?.("updateAiBlogUsageLimits", error);
+      return res.status(503).json({
+        code: "AI_BLOG_USAGE_SCHEMA_MISSING",
+        message: "جداول حدود Gemini غير متاحة. يلزم تجهيز ترحيل حصص AI Blog؛ لم يتم حفظ الحدود.",
       });
     }
   });

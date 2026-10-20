@@ -35,6 +35,23 @@ type State = {
   schedule: { enabled: boolean; time_georgia: string };
   drafts: Draft[];
 };
+type UsageState = {
+  configured: boolean;
+  timezone?: string;
+  usageDate?: string;
+  resetAt?: string;
+  maxDailyArticles?: number;
+  maxDailyRequests?: number;
+  requestsUsed?: number;
+  articlesCompleted?: number;
+  articlesReserved?: number;
+  remainingRequests?: number;
+  remainingArticles?: number;
+  providerQuotaVerified?: false;
+  billingVerified?: false;
+  generationEnabled?: false;
+  message?: string;
+};
 
 async function call(path: string, method = "GET", body?: unknown) {
   const response = await fetch(path, {
@@ -57,8 +74,15 @@ export function AiBlogDraftsPanel() {
     },
     refetchInterval: 30000,
   });
+  const usageQuery = useQuery<UsageState>({
+    queryKey: ["/api/admin/ai-blog/usage"],
+    queryFn: () => call("/api/admin/ai-blog/usage"),
+    refetchInterval: 30000,
+  });
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [enabled, setEnabled] = useState(false);
+  const [maxDailyArticles, setMaxDailyArticles] = useState(0);
+  const [maxDailyRequests, setMaxDailyRequests] = useState(0);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [sourcesJson, setSourcesJson] = useState("");
   const [coverSourceUrl, setCoverSourceUrl] = useState("");
@@ -73,10 +97,23 @@ export function AiBlogDraftsPanel() {
       setEnabled(data.schedule.enabled);
     }
   }, [data?.schedule?.enabled, data?.schedule?.time_georgia]);
+  useEffect(() => {
+    if (usageQuery.data?.configured) {
+      setMaxDailyArticles(usageQuery.data.maxDailyArticles ?? 0);
+      setMaxDailyRequests(usageQuery.data.maxDailyRequests ?? 0);
+    }
+  }, [usageQuery.data?.configured, usageQuery.data?.maxDailyArticles, usageQuery.data?.maxDailyRequests]);
 
   async function action(fn: () => Promise<unknown>, success: string) {
     setBusy(true); setNotice("");
-    try { await fn(); setNotice(success); await qc.invalidateQueries({ queryKey: ["/api/admin/ai-blog/status"] }); }
+    try {
+      await fn();
+      setNotice(success);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["/api/admin/ai-blog/status"] }),
+        qc.invalidateQueries({ queryKey: ["/api/admin/ai-blog/usage"] }),
+      ]);
+    }
     catch (error) { setNotice(error instanceof Error ? error.message : "تعذر تنفيذ الطلب"); }
     finally { setBusy(false); }
   }
@@ -142,6 +179,44 @@ export function AiBlogDraftsPanel() {
         </div>
         {!data?.configured && <div className="text-sm text-gray-600">{data?.message || "يظهر هنا سبب التعطيل ومتطلبات الترحيل."}</div>}
         {notice && <div role="status" className="rounded bg-slate-100 p-3 text-sm">{notice}</div>}
+      </CardContent>
+    </Card>
+
+    <Card className="border-slate-200">
+      <CardHeader>
+        <CardTitle className="text-lg text-[#005476]">حدود Gemini الداخلية — Asia/Tbilisi</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          هذه حدود داخلية للتطبيق فقط؛ ليست حصة Google الفعلية. أهلية الخطة المجانية والفوترة ورصيد المزود غير متحقق منها. حفظ الحدود لا يفعّل التوليد أو الجدولة.
+        </p>
+        {usageQuery.data?.configured ? <>
+          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded border p-3">المقالات: {usageQuery.data.articlesCompleted} مستخدم / {usageQuery.data.maxDailyArticles} حد</div>
+            <div className="rounded border p-3">طلبات Gemini: {usageQuery.data.requestsUsed} مستخدم / {usageQuery.data.maxDailyRequests} حد داخلي</div>
+            <div className="rounded border p-3">المتبقي داخلياً: {usageQuery.data.remainingArticles} مقال، {usageQuery.data.remainingRequests} طلب</div>
+            <div className="rounded border p-3">محجوز حالياً: {usageQuery.data.articlesReserved} مقال</div>
+          </div>
+          <p className="text-xs text-slate-600">
+            يوم الاستخدام: {usageQuery.data.usageDate} ({usageQuery.data.timezone}). إعادة الضبط: {usageQuery.data.resetAt ? new Date(usageQuery.data.resetAt).toLocaleString() : "غير متاح"}.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm">الحد اليومي للمقالات (0–100)
+              <Input type="number" min={0} max={100} step={1} value={maxDailyArticles} onChange={e => setMaxDailyArticles(Number(e.target.value))} />
+            </label>
+            <label className="text-sm">الحد اليومي لطلبات Gemini (0–500)
+              <Input type="number" min={0} max={500} step={1} value={maxDailyRequests} onChange={e => setMaxDailyRequests(Number(e.target.value))} />
+            </label>
+          </div>
+          <Button disabled={busy} onClick={() => action(
+            () => call("/api/admin/ai-blog/usage/limits", "PUT", { maxDailyArticles, maxDailyRequests }),
+            "حُفظت الحدود الداخلية. إنشاء المقالات ما زال معطلاً.",
+          )}>حفظ الحدود</Button>
+        </> : <div role="status" className="rounded border border-dashed p-4 text-sm text-slate-700">
+          {usageQuery.isLoading ? "جارٍ تحميل حالة حدود الاستخدام…" :
+            usageQuery.data?.message || (usageQuery.error instanceof Error ? usageQuery.error.message : "بيانات حدود الاستخدام غير متاحة.")}
+          <p className="mt-2 text-xs">لن تُعرض أرقام افتراضية على أنها استهلاك حقيقي. بعد تجهيز ترحيل الحصص يمكن عرض الحدود والاستهلاك المسجل.</p>
+        </div>}
       </CardContent>
     </Card>
 
