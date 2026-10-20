@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { startKayRecommendationScheduler } from "./kayRecommendationScheduler";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -361,6 +362,10 @@ app.use((req, res, next) => {
     console.info(META_REVIEW_DIAGNOSTIC_MODE_STARTUP_LOG);
     return;
   }
+
+  // This independent Kay-only scheduler has its own opt-in flag and does not
+  // depend on ENABLE_BACKGROUND_SCHEDULERS or start any general-purpose jobs.
+  startKayRecommendationScheduler();
 
   const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
   if (schedulersEnabled) {

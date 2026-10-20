@@ -48,6 +48,16 @@ type Control = {
   employeeWorkflow?: Employee[];
   statusIntelligence?: any[];
   operationsHealth?: any;
+  recommendationScheduler?: {
+    enabled: boolean;
+    configuredEnabled: boolean;
+    reason: string | null;
+    intervalMinutes: number;
+    lastCycleStartedAt: string | null;
+    lastCycleCompletedAt: string | null;
+    lastCycleResult: { checked: number; eligible: number; blocked: number; stale: number } | null;
+    lastCycleError: string | null;
+  };
   protectedLeads?: any[];
 };
 type RescuePreview = {
@@ -588,6 +598,32 @@ export default function KayControlCenterPage() {
                   : "Not available"
               }
             />
+          </CardContent>
+        </Card>
+        <Card className="border-[#bed2cc]" data-testid="kay-recommendation-scheduler-status">
+          <CardHeader>
+            <CardTitle className="text-lg">Kay recommendation scheduler</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              title="Status"
+              value={control.data?.recommendationScheduler?.enabled ? "Enabled" : "Disabled"}
+            />
+            <Metric
+              title="Interval"
+              value={`${control.data?.recommendationScheduler?.intervalMinutes ?? 15} minutes`}
+            />
+            <Metric
+              title="Last cycle"
+              value={date(control.data?.recommendationScheduler?.lastCycleCompletedAt)}
+            />
+            <Metric
+              title="Reason"
+              value={label(control.data?.recommendationScheduler?.reason)}
+            />
+            {control.data?.recommendationScheduler?.lastCycleError && (
+              <Metric title="Last cycle error" value={control.data.recommendationScheduler.lastCycleError} />
+            )}
           </CardContent>
         </Card>
         <LegacyBaselineCard
