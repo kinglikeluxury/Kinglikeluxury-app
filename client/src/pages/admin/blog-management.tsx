@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video, Sparkles, CheckCircle2, Clock, AlertCircle, Circle, Link2 } from "lucide-react";
 import { uploadToCloudinary } from "@/lib/cloudinaryUpload";
+import { AiBlogDraftsPanel } from "./AiBlogDraftsPanel";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
 
@@ -650,6 +651,7 @@ const BlogManagement = () => {
           </Card>
         )}
 
+        <AiBlogDraftsPanel />
         <div className="space-y-4">
           {(!posts || posts.length === 0) && !showForm && (
             <Card className="p-12 text-center">
