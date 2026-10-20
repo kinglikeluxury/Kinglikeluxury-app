@@ -28,6 +28,21 @@ test("runner preserves safe identity failure and adds child exit code", () => {
   );
 });
 
+test("runner preserves the classifier's generic TCP connection failure", () => {
+  assert.deepEqual(
+    formatRunnerResult({
+      status: 1,
+      stdout: "",
+      stderr: "AI_BLOG_TEST_DB_ERROR stage=tcp_connect code=DATABASE_OPERATION_FAILED",
+    }),
+    {
+      ok: false,
+      exitCode: 1,
+      line: "AI_BLOG_TEST_DB_ERROR stage=tcp_connect code=DATABASE_OPERATION_FAILED exit_code=1",
+    },
+  );
+});
+
 test("tsx or import startup failure becomes a safe startup diagnostic", () => {
   const raw = "Error [ERR_MODULE_NOT_FOUND]: postgresql://private-user:private-pass@host/db\nat loadSecret()";
   const result = formatRunnerResult({ status: 1, stdout: "", stderr: raw });
