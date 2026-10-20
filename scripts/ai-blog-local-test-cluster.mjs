@@ -19,6 +19,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -33,6 +34,9 @@ const DATABASE = "ai_blog_drafts_test";
 const ROLE = "ai_blog_test_user";
 const PREFIX = "kinglike-ai-blog-test-";
 const SAFE_ERROR = "AI_BLOG_LOCAL_TEST_CLUSTER";
+// Pinned Nix store path: do not replace with PATH lookup. If this immutable
+// package path is absent or fails ownership checks, stop before creating files.
+const PG_BIN_DIR = "/nix/store/bgwr5i8jf8jpg75rr53rz3fqv5k8yrwp-postgresql-16.10/bin";
 
 function fail(stage, code) {
   const error = new Error(`${SAFE_ERROR} stage=${stage} code=${code}`);
@@ -40,25 +44,38 @@ function fail(stage, code) {
   throw error;
 }
 
-function findExecutable(name) {
-  for (const directory of (process.env.PATH ?? "").split(path.delimiter)) {
-    if (!directory) continue;
-    const candidate = path.join(directory, name);
-    try {
-      const info = lstatSync(candidate);
-      if (!info.isFile() && !info.isSymbolicLink()) continue;
-      const resolved = realpathSync(candidate);
-      const target = lstatSync(resolved);
-      if (target.isFile() && (target.mode & 0o111) !== 0) return resolved;
-    } catch {
-      // Continue searching PATH; never print candidate paths.
-    }
+function getPinnedExecutables() {
+  const dir = lstatSync(PG_BIN_DIR);
+  if (
+    !dir.isDirectory() ||
+    dir.isSymbolicLink() ||
+    dir.uid !== 0 ||
+    (dir.mode & 0o022) !== 0 ||
+    realpathSync(PG_BIN_DIR) !== PG_BIN_DIR
+  ) {
+    fail("preflight", "PINNED_POSTGRES_DIRECTORY_INVALID");
   }
-  return undefined;
+  const result = {};
+  for (const name of ["initdb", "pg_ctl", "psql", "postgres"]) {
+    const file = path.join(PG_BIN_DIR, name);
+    const info = lstatSync(file);
+    if (
+      !info.isFile() ||
+      info.isSymbolicLink() ||
+      info.uid !== 0 ||
+      (info.mode & 0o022) !== 0 ||
+      (info.mode & 0o111) === 0 ||
+      realpathSync(file) !== file
+    ) {
+      fail("preflight", "PINNED_POSTGRES_BINARY_INVALID");
+    }
+    result[name] = file;
+  }
+  return result;
 }
 
 function commandEnvironment() {
-  return { PATH: process.env.PATH ?? "", LC_ALL: "C" };
+  return { PATH: PG_BIN_DIR, LC_ALL: "C" };
 }
 
 function run(executable, args, input) {
@@ -109,39 +126,77 @@ function selectLoopbackPort() {
 }
 
 function hasListenerOnPort(port) {
-  let checked = 0;
-  for (const table of ["/proc/net/tcp", "/proc/net/tcp6"]) {
+  const listeners = [];
+  for (const [table, family] of [["/proc/net/tcp", "ipv4"], ["/proc/net/tcp6", "ipv6"]]) {
     try {
-      checked += 1;
       const lines = readFileSync(table, "utf8").trim().split(/\r?\n/).slice(1);
       for (const line of lines) {
         const fields = line.trim().split(/\s+/);
         if (fields[3] === "0A" && Number.parseInt(fields[1].split(":").at(-1), 16) === port) {
-          return true;
+          listeners.push({ family, address: fields[1].split(":")[0] });
         }
       }
     } catch {
       fail("isolation", "LISTENER_CHECK_UNAVAILABLE");
     }
   }
-  if (checked !== 2) fail("isolation", "LISTENER_CHECK_UNAVAILABLE");
-  return false;
+  return listeners;
 }
 
-function ownedPostmasterPid(dataDirectory) {
+function inspectPostmaster(dataDirectory, postgresExecutable) {
   const pidFile = path.join(dataDirectory, "postmaster.pid");
   if (!existsSync(pidFile)) return undefined;
   try {
+    const pidInfo = lstatSync(pidFile);
+    if (
+      !pidInfo.isFile() ||
+      pidInfo.isSymbolicLink() ||
+      pidInfo.uid !== process.getuid() ||
+      (pidInfo.mode & 0o077) !== 0
+    ) return null;
     const [pidLine, directoryLine] = readFileSync(pidFile, "utf8").split(/\r?\n/);
     const pid = Number(pidLine);
     if (!Number.isSafeInteger(pid) || pid < 2 || directoryLine !== dataDirectory) return null;
     const commandLine = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0").filter(Boolean);
     const dataArg = commandLine.findIndex((value) => value === "-D");
-    if (dataArg < 0 || commandLine[dataArg + 1] !== dataDirectory) return null;
-    return pid;
+    const compactDataArg = commandLine.find((value) => value.startsWith("-D") && value.length > 2);
+    if (
+      (dataArg < 0 || commandLine[dataArg + 1] !== dataDirectory) &&
+      compactDataArg !== `-D${dataDirectory}`
+    ) return null;
+    const procInfo = lstatSync(`/proc/${pid}`);
+    if (!procInfo.isDirectory() || procInfo.uid !== process.getuid()) return null;
+    if (realpathSync(`/proc/${pid}/exe`) !== postgresExecutable) return null;
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+    const statClose = stat.lastIndexOf(")");
+    if (statClose < 0) return null;
+    const fields = stat.slice(statClose + 1).trim().split(/\s+/);
+    const startTime = fields[19];
+    if (!/^\d+$/.test(startTime ?? "")) return null;
+    return {
+      pid,
+      startTime,
+      executable: postgresExecutable,
+      dataDirectory,
+      pidDevice: pidInfo.dev,
+      pidInode: pidInfo.ino,
+    };
   } catch {
     return null;
   }
+}
+
+function samePostmaster(first, second) {
+  return Boolean(
+    first &&
+    second &&
+    first.pid === second.pid &&
+    first.startTime === second.startTime &&
+    first.executable === second.executable &&
+    first.dataDirectory === second.dataDirectory &&
+    first.pidDevice === second.pidDevice &&
+    first.pidInode === second.pidInode
+  );
 }
 
 function writePrivateFile(file, contents) {
@@ -164,6 +219,10 @@ function prepareClusterFiles(dataDirectory, socketDirectory, port, osUser) {
     `port = ${port}`,
     `unix_socket_directories = '${socketDirectory}'`,
     "password_encryption = 'scram-sha-256'",
+    "log_statement = 'none'",
+    "log_min_error_statement = 'panic'",
+    "log_connections = off",
+    "log_disconnections = off",
     "hba_file = 'pg_hba.conf'",
     "ident_file = 'pg_ident.conf'",
     "",
