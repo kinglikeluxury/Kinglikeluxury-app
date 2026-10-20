@@ -263,12 +263,27 @@ function containsSymlink(directory) {
   return false;
 }
 
-function cleanup({ root, dataDirectory, marker, pgCtl, port, started, initialized }) {
+function cleanup({
+  root,
+  dataDirectory,
+  marker,
+  pgCtl,
+  postgresExecutable,
+  expectedPostmaster,
+  port,
+  started,
+  initialized,
+}) {
   if (!root || !verifyMarker(root, marker)) return "RETAINED_MARKER_CHECK_FAILED";
 
-  const pid = ownedPostmasterPid(dataDirectory);
-  if (pid === null) return "RETAINED_POSTMASTER_IDENTITY_UNCERTAIN";
-  if (pid !== undefined) {
+  const currentPostmaster = inspectPostmaster(dataDirectory, postgresExecutable);
+  if (currentPostmaster === null) return "RETAINED_POSTMASTER_IDENTITY_UNCERTAIN";
+  if (currentPostmaster !== undefined) {
+    if (expectedPostmaster && !samePostmaster(expectedPostmaster, currentPostmaster)) {
+      return "RETAINED_POSTMASTER_IDENTITY_CHANGED";
+    }
+    const beforeStop = inspectPostmaster(dataDirectory, postgresExecutable);
+    if (!samePostmaster(currentPostmaster, beforeStop)) return "RETAINED_POSTMASTER_IDENTITY_CHANGED";
     const stop = run(pgCtl, ["-D", dataDirectory, "-m", "fast", "-w", "-t", "20", "stop"]);
     if (stop.status !== 0) return "RETAINED_STOP_FAILED";
   } else if (initialized) {
@@ -276,8 +291,10 @@ function cleanup({ root, dataDirectory, marker, pgCtl, port, started, initialize
     if (status.status !== 3) return "RETAINED_SERVER_STATUS_UNCERTAIN";
   }
 
-  if (ownedPostmasterPid(dataDirectory) !== undefined) return "RETAINED_POSTMASTER_STILL_PRESENT";
-  if (Number.isInteger(port) && hasListenerOnPort(port)) return "RETAINED_PORT_STILL_LISTENING";
+  if (inspectPostmaster(dataDirectory, postgresExecutable) !== undefined) {
+    return "RETAINED_POSTMASTER_STILL_PRESENT";
+  }
+  if (Number.isInteger(port) && hasListenerOnPort(port).length > 0) return "RETAINED_PORT_STILL_LISTENING";
   if (!verifyMarker(root, marker)) return "RETAINED_MARKER_CHECK_FAILED";
 
   try {
@@ -294,6 +311,8 @@ async function main() {
   let root;
   let dataDirectory;
   let pgCtl;
+  let postgresExecutable;
+  let expectedPostmaster;
   let port;
   let started = false;
   let initialized = false;
@@ -305,12 +324,10 @@ async function main() {
     const osUser = os.userInfo().username;
     if (!/^[a-z_][a-z0-9_-]{0,31}$/i.test(osUser)) fail(stage, "OS_USER_UNSUPPORTED");
 
-    const binaries = ["initdb", "pg_ctl", "psql", "postgres"].map(findExecutable);
-    if (binaries.some((binary) => !binary) || new Set(binaries.map((binary) => path.dirname(binary))).size !== 1) {
-      fail(stage, "POSTGRES_BINARIES_UNAVAILABLE_OR_MIXED");
-    }
-    const [initdb, foundPgCtl, psql] = binaries;
+    const binaries = getPinnedExecutables();
+    const { initdb, pg_ctl: foundPgCtl, psql, postgres } = binaries;
     pgCtl = foundPgCtl;
+    postgresExecutable = postgres;
 
     const tempBase = "/tmp";
     const tempInfo = lstatSync(tempBase);
@@ -345,7 +362,7 @@ async function main() {
 
     stage = "configuration";
     port = await selectLoopbackPort();
-    if (hasListenerOnPort(port)) fail(stage, "SELECTED_PORT_UNAVAILABLE");
+    if (hasListenerOnPort(port).length > 0) fail(stage, "SELECTED_PORT_UNAVAILABLE");
     prepareClusterFiles(dataDirectory, socketDirectory, port, osUser);
 
     stage = "server_start";
@@ -355,9 +372,13 @@ async function main() {
       "PG_CTL_START_FAILED",
     );
     started = true;
-    if (hasListenerOnPort(port)) {
-      // The SQL identity check below must prove that this listener is our server.
-    } else {
+    expectedPostmaster = inspectPostmaster(dataDirectory, postgresExecutable);
+    if (!expectedPostmaster) fail(stage, "POSTMASTER_IDENTITY_UNVERIFIED");
+    const listeners = hasListenerOnPort(port);
+    if (
+      listeners.length === 0 ||
+      listeners.some(({ family, address }) => family !== "ipv4" || address !== "0100007F")
+    ) {
       fail(stage, "LOOPBACK_LISTENER_NOT_FOUND");
     }
 
@@ -409,10 +430,20 @@ async function main() {
   } catch (error) {
     resultLine = error?.safeLine ?? `${SAFE_ERROR} stage=${stage} code=LOCAL_TEST_FAILED`;
   } finally {
-    if (root && marker && dataDirectory && pgCtl) {
+    if (root && marker && dataDirectory && pgCtl && postgresExecutable) {
       let cleanupResult;
       try {
-        cleanupResult = cleanup({ root, dataDirectory, marker, pgCtl, port, started, initialized });
+        cleanupResult = cleanup({
+          root,
+          dataDirectory,
+          marker,
+          pgCtl,
+          postgresExecutable,
+          expectedPostmaster,
+          port,
+          started,
+          initialized,
+        });
       } catch {
         cleanupResult = "RETAINED_CLEANUP_CHECK_FAILED";
       }
