@@ -52,4 +52,5 @@
 - [Meta sync startup side effect](meta-sync-startup-side-effect.md) — restarting the main app can immediately run the existing Meta lead pull-sync job, even when the processor is disabled.
 - [Meta queue claim fencing](meta-queue-claim-fencing.md) — use exact DB-issued `updated_at` versions for the webhook queue only; keep Pull Sync separate.
 - [Syria market scope](syria-market-scope.md) — Syria real-estate additions must leave Meta, WhatsApp, and background processing unchanged.
+- [Azerbaijan market scope](azerbaijan-market-scope.md) — Azerbaijan support is limited to the country and Baku; preserve Syria and all existing locations.
 - [Kay isolated Neon test transport](kay-test-neon-websocket.md) — isolated tests using Neon pools must set the `ws` WebSocket constructor before connecting; the normal server bootstrap does this globally.

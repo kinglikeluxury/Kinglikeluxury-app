@@ -33,7 +33,7 @@ function BlogPostCard({ post, lang }: { post: any; lang: string }) {
             <div className="absolute top-3 left-3">
               <span className="text-xs bg-white/90 backdrop-blur-sm text-[#005476] px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
-                {post.country === "uae" ? "🇦🇪 UAE" : post.country === "turkey" ? "🇹🇷 Turkey" : post.country === "northern-cyprus" ? "🇨🇾 N. Cyprus" : "🇬🇪 Georgia"}
+                {post.country === "uae" ? "🇦🇪 UAE" : post.country === "turkey" ? "🇹🇷 Turkey" : post.country === "northern-cyprus" ? "🇨🇾 N. Cyprus" : post.country === "azerbaijan" ? "🇦🇿 Azerbaijan — Baku" : post.country === "syria" ? "🇸🇾 Syria" : "🇬🇪 Georgia"}
               </span>
             </div>
           </div>
@@ -166,6 +166,26 @@ export default function Blog() {
             }`}
           >
             <span>🇨🇾</span> {t("countries.northernCyprus", "N. Cyprus")}
+          </button>
+          <button
+            onClick={() => setCountryFilter("azerbaijan")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
+              countryFilter === "azerbaijan"
+                ? "bg-[#005476] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
+            }`}
+          >
+            <span>🇦🇿</span> Azerbaijan — Baku
+          </button>
+          <button
+            onClick={() => setCountryFilter("syria")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
+              countryFilter === "syria"
+                ? "bg-[#005476] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
+            }`}
+          >
+            <span>🇸🇾</span> Syria
           </button>
         </div>
 

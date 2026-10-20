@@ -415,6 +415,8 @@ const Projects = () => {
           { value: 'istanbul', label: '🇹🇷 İstanbul' },
           { value: 'trabzon', label: '🇹🇷 Trabzon' },
         ];
+      case 'azerbaijan':
+        return [{ value: 'baku', label: '🇦🇿 Baku — Bakı — باکو' }];
       case 'syria':
         return SYRIA_CITY_OPTIONS.map((city) => ({
           ...city,
@@ -664,6 +666,7 @@ const Projects = () => {
                     <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                     <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
                     <SelectItem value="syria">🇸🇾 Syria</SelectItem>
+                    <SelectItem value="azerbaijan">🇦🇿 Azerbaijan</SelectItem>
                   </SelectContent>
                 </Select>
                 {filterErrors.country && (
