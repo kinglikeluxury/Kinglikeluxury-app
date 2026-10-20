@@ -182,7 +182,16 @@ async function run() {
     return res.status(403).json({ message: "Not authorized" });
   };
 
-  registerAiBlogDraftRoutes(app, { pool, isAuthenticated, isAdmin, getUser });
+  registerAiBlogDraftRoutes(app, {
+    pool,
+    isAuthenticated,
+    isAdmin,
+    getUser,
+    onRouteError: (operation, error) => {
+      const value = error as { code?: unknown; message?: unknown };
+      console.error(`[local-test-diagnostic] ${operation} code=${String(value?.code ?? "unknown")} message=${String(value?.message ?? "unknown")}`);
+    },
+  });
   app.use((_req, res) => res.status(404).json({ message: "Test route not mounted" }));
 
   server = app.listen(HTTP_PORT, "127.0.0.1");

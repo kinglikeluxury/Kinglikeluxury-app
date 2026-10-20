@@ -14,6 +14,7 @@ export interface AiBlogDraftRouteDependencies {
   isAuthenticated: RequestHandler;
   isAdmin: RequestHandler;
   getUser: (id: number) => Promise<UserLike>;
+  onRouteError?: (operation: string, error: unknown) => void;
 }
 
 /**
@@ -22,7 +23,7 @@ export interface AiBlogDraftRouteDependencies {
  */
 export function registerAiBlogDraftRoutes(
   app: Express,
-  { pool, isAuthenticated, isAdmin, getUser }: AiBlogDraftRouteDependencies,
+  { pool, isAuthenticated, isAdmin, getUser, onRouteError }: AiBlogDraftRouteDependencies,
 ) {
   app.get("/api/admin/ai-blog/status", isAuthenticated, isAdmin, async (_req, res) => {
     try {
@@ -112,7 +113,8 @@ export function registerAiBlogDraftRoutes(
         return res.status(409).json({ message: "توجد مسودة لهذا السوق والتاريخ بالفعل." });
       }
       return res.status(201).json({ draft: result.rows[0] });
-    } catch {
+    } catch (error) {
+      onRouteError?.("createDraft", error);
       return res.status(503).json({ message: "تعذر إنشاء المسودة؛ تحقق من مخطط قاعدة البيانات." });
     }
   });
@@ -131,7 +133,8 @@ export function registerAiBlogDraftRoutes(
       );
       if (!result.rowCount) return res.status(404).json({ message: "المسودة غير موجودة أو منشورة." });
       res.json({ draft: result.rows[0] });
-    } catch {
+    } catch (error) {
+      onRouteError?.("updateDraft", error);
       res.status(503).json({ message: "تعذر حفظ المسودة؛ تحقق من تطبيق ترحيل قاعدة البيانات." });
     }
   });
@@ -181,6 +184,7 @@ export function registerAiBlogDraftRoutes(
       await client.query("COMMIT");
       return res.json({ post: post.rows[0] });
     } catch (error: any) {
+      onRouteError?.("publishDraft", error);
       await client.query("ROLLBACK").catch(() => undefined);
       if (error?.code === "23505") return res.status(409).json({ message: "رابط المقال مستخدم بالفعل؛ عدّل الرابط قبل النشر." });
       return res.status(503).json({ message: "تعذر إتمام النشر. لم يتم كشف تفاصيل داخلية." });
