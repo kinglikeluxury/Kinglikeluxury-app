@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Clock3, Image, RefreshCw, Save, Send, Sparkles } from "lucide-react";
+import { AlertTriangle, Clock3, Eye, Image, RefreshCw, Save, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { buildAiBlogDraftPreview } from "@/lib/aiBlogDraftPreview";
 
 const markets = [
   ["georgia", "جورجيا", "🇬🇪"], ["turkey", "تركيا", "🇹🇷"],
@@ -84,6 +85,7 @@ export function AiBlogDraftsPanel() {
   const [maxDailyArticles, setMaxDailyArticles] = useState(0);
   const [maxDailyRequests, setMaxDailyRequests] = useState(0);
   const [editing, setEditing] = useState<Draft | null>(null);
+  const [previewDraftId, setPreviewDraftId] = useState<number | null>(null);
   const [sourcesJson, setSourcesJson] = useState("");
   const [coverSourceUrl, setCoverSourceUrl] = useState("");
   const [coverLicense, setCoverLicense] = useState("");
@@ -242,6 +244,12 @@ export function AiBlogDraftsPanel() {
                 setCoverOutputSha256(coverSource?.outputSha256 || "");
               }
             }}>مراجعة وتعديل</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-expanded={previewDraftId === draft.id}
+              onClick={() => setPreviewDraftId(previewDraftId === draft.id ? null : draft.id)}
+            ><Eye className="ml-1 h-4 w-4" />{previewDraftId === draft.id ? "إغلاق المعاينة" : "معاينة المقال"}</Button>
             <Button size="sm" variant="outline" disabled title="إعادة المحاولة معطلة إلى حين اعتماد الخدمات"><RefreshCw className="ml-1 h-4 w-4" />إعادة محاولة</Button>
             {draft.status === "ready_for_review" && <Button size="sm" disabled={busy} onClick={() => {
               if (window.confirm("سيُنشر هذا المقال علناً الآن. هل راجعت المعلومات والمصادر؟")) {
@@ -250,6 +258,45 @@ export function AiBlogDraftsPanel() {
             }}><Send className="ml-1 h-4 w-4" />نشر يدوي</Button>}
           </div>
         </div>
+        {previewDraftId === draft.id && (() => {
+          const preview = buildAiBlogDraftPreview(draft);
+          return <section aria-label="معاينة المقال" className="space-y-4 rounded-lg border border-[#005476]/20 bg-slate-50 p-4">
+            <h3 className="text-lg font-bold text-[#005476]">{preview.title || "عنوان المقال غير متوفر"}</h3>
+            {preview.coverImage
+              ? <img src={preview.coverImage} alt={preview.title || "صورة الغلاف"} className="max-h-80 w-full rounded object-cover" />
+              : <p className="text-sm text-slate-600">صورة الغلاف غير متوفرة أو رابطها ليس HTTPS صالحاً.</p>}
+            <div className="space-y-2 rounded bg-white p-4 text-sm leading-8">
+              {preview.contentBlocks.length
+                ? preview.contentBlocks.map((block, index) => block.kind === "heading"
+                  ? <h4 key={index} className="pt-2 text-base font-bold text-[#005476]">{block.text}</h4>
+                  : <p key={index} className={block.kind === "quote" ? "border-r-2 border-[#3bcac4] pr-3 text-slate-700" : ""}>
+                    {block.kind === "listItem" ? "• " : ""}{block.text}
+                  </p>)
+                : <p className="text-slate-500">محتوى المقال غير متوفر.</p>}
+            </div>
+            <div className="grid gap-3 rounded bg-white p-4 text-sm sm:grid-cols-2">
+              <p><strong>عنوان SEO:</strong> {preview.title || "غير متوفر"}</p>
+              <p><strong>وصف SEO:</strong> {preview.seoDescription || "غير متوفر"}</p>
+              <p><strong>الكلمات المفتاحية:</strong> {preview.keywords.length ? preview.keywords.join("، ") : "غير متوفرة"}</p>
+              <p><strong>Slug:</strong> <span dir="ltr">{preview.slug || "غير متوفر"}</span></p>
+            </div>
+            <div className="space-y-2 rounded bg-white p-4 text-sm">
+              <strong>المصادر المسجلة في المسودة</strong>
+              {preview.sources.length
+                ? <ul className="list-inside list-disc space-y-2">
+                    {preview.sources.map((source, index) => <li key={index}>
+                      <span>{source.title || "عنوان المصدر غير متوفر"}</span>
+                      {source.accessedAt && <span className="mr-2 text-slate-500">— {source.accessedAt}</span>}
+                      {source.url
+                        ? <a className="mr-2 break-all text-blue-700 underline" href={source.url} target="_blank" rel="noreferrer">{source.url}</a>
+                        : <span className="mr-2 text-slate-500">الرابط غير متوفر أو غير صالح؛ لم تتم إضافة رابط بديل.</span>}
+                    </li>)}
+                  </ul>
+                : <p className="text-slate-500">لا توجد مصادر محفوظة في هذه المسودة.</p>}
+              <p className="text-xs text-slate-500">هذه بيانات المصادر المسجلة فقط؛ لم يُجرَ تحقق خارجي منها أثناء المعاينة.</p>
+            </div>
+          </section>;
+        })()}
         {draft.safe_error_code && <p className="text-sm text-amber-800">سبب آمن: {draft.safe_error_code}</p>}
         {editing?.id === draft.id && <div className="grid gap-3">
           <Input aria-label="العنوان" placeholder="العنوان" value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} />
