@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { Pool } from "pg";
+import pg from "pg";
 import {
   AI_BLOG_TEST_APPLICATION_NAME,
   AI_BLOG_TEST_DATABASE_NAME,
@@ -22,6 +22,8 @@ function markDiagnosticPhase(phase: "ENTRY_BODY" | "MAIN_ENTERED" | "CONFIGURATI
 
 markDiagnosticPhase("ENTRY_BODY");
 
+type DatabasePool = InstanceType<typeof pg.Pool>;
+
 async function main() {
   markDiagnosticPhase("MAIN_ENTERED");
   if (command !== "verify" && command !== "migrate") {
@@ -37,12 +39,12 @@ async function main() {
   }
 
   let stage: "configuration" | "tcp_connect" | "identity_check" | "migration" | "pool_close" = "configuration";
-  let pool: Pool | undefined;
-  let client: Awaited<ReturnType<Pool["connect"]>> | undefined;
+  let pool: DatabasePool | undefined;
+  let client: Awaited<ReturnType<DatabasePool["connect"]>> | undefined;
   let failure: ReturnType<typeof classifyAiBlogTestDatabaseFailure> | undefined;
   try {
     const config = getIsolatedAiBlogTestDatabaseConfig(process.env);
-    pool = new Pool({
+    pool = new pg.Pool({
       connectionString: config.connectionString,
       application_name: AI_BLOG_TEST_APPLICATION_NAME,
       max: 1,
