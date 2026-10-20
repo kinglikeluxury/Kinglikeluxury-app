@@ -74,6 +74,16 @@ test("usage endpoints are registered behind both existing authentication guards"
   assert.equal(nonAdmin.statusCode, 403);
 });
 
+test("the existing administrator-only draft source route rejects visitors and non-admin users", async () => {
+  const visitorRoutes = makeHarness({ authenticated: false });
+  const visitor = await callRoute(visitorRoutes.get("GET /api/admin/ai-blog/status")!);
+  assert.equal(visitor.statusCode, 401);
+
+  const userRoutes = makeHarness({ authenticated: true, admin: false });
+  const ordinaryUser = await callRoute(userRoutes.get("GET /api/admin/ai-blog/status")!);
+  assert.equal(ordinaryUser.statusCode, 403);
+});
+
 test("usage endpoint returns real mock counters and explicit non-verification flags", async () => {
   const routes = makeHarness({
     query: async () => ({ rows: [{
