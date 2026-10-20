@@ -219,10 +219,13 @@ function prepareClusterFiles(dataDirectory, socketDirectory, port, osUser) {
     `port = ${port}`,
     `unix_socket_directories = '${socketDirectory}'`,
     "password_encryption = 'scram-sha-256'",
+    "logging_collector = off",
+    "log_destination = 'stderr'",
     "log_statement = 'none'",
     "log_min_error_statement = 'panic'",
     "log_connections = off",
     "log_disconnections = off",
+    "log_error_verbosity = 'terse'",
     "hba_file = 'pg_hba.conf'",
     "ident_file = 'pg_ident.conf'",
     "",
@@ -240,6 +243,7 @@ function prepareClusterFiles(dataDirectory, socketDirectory, port, osUser) {
 }
 
 function verifyMarker(root, marker) {
+  if (!marker) return true;
   try {
     assertPrivateDirectory(root);
     const info = lstatSync(marker.path);
@@ -265,6 +269,7 @@ function containsSymlink(directory) {
 
 function cleanup({
   root,
+  rootCreated,
   dataDirectory,
   marker,
   pgCtl,
@@ -274,24 +279,39 @@ function cleanup({
   started,
   initialized,
 }) {
-  if (!root || !verifyMarker(root, marker)) return "RETAINED_MARKER_CHECK_FAILED";
+  if (
+    !rootCreated ||
+    !root ||
+    path.dirname(root) !== "/tmp" ||
+    !path.basename(root).startsWith(PREFIX) ||
+    path.resolve(root) !== root
+  ) return "RETAINED_OWNERSHIP_UNPROVEN";
+  try {
+    assertPrivateDirectory(root);
+  } catch {
+    return "RETAINED_DIRECTORY_CHECK_FAILED";
+  }
+  if (!verifyMarker(root, marker)) return "RETAINED_MARKER_CHECK_FAILED";
 
-  const currentPostmaster = inspectPostmaster(dataDirectory, postgresExecutable);
+  const currentPostmaster = dataDirectory
+    ? inspectPostmaster(dataDirectory, postgresExecutable)
+    : undefined;
   if (currentPostmaster === null) return "RETAINED_POSTMASTER_IDENTITY_UNCERTAIN";
   if (currentPostmaster !== undefined) {
     if (expectedPostmaster && !samePostmaster(expectedPostmaster, currentPostmaster)) {
       return "RETAINED_POSTMASTER_IDENTITY_CHANGED";
     }
+    if (started && !expectedPostmaster) return "RETAINED_POSTMASTER_IDENTITY_UNCERTAIN";
     const beforeStop = inspectPostmaster(dataDirectory, postgresExecutable);
     if (!samePostmaster(currentPostmaster, beforeStop)) return "RETAINED_POSTMASTER_IDENTITY_CHANGED";
     const stop = run(pgCtl, ["-D", dataDirectory, "-m", "fast", "-w", "-t", "20", "stop"]);
     if (stop.status !== 0) return "RETAINED_STOP_FAILED";
-  } else if (initialized) {
+  } else if (initialized && dataDirectory) {
     const status = run(pgCtl, ["-D", dataDirectory, "status"]);
     if (status.status !== 3) return "RETAINED_SERVER_STATUS_UNCERTAIN";
   }
 
-  if (inspectPostmaster(dataDirectory, postgresExecutable) !== undefined) {
+  if (dataDirectory && inspectPostmaster(dataDirectory, postgresExecutable) !== undefined) {
     return "RETAINED_POSTMASTER_STILL_PRESENT";
   }
   if (Number.isInteger(port) && hasListenerOnPort(port).length > 0) return "RETAINED_PORT_STILL_LISTENING";
@@ -309,6 +329,7 @@ function cleanup({
 async function main() {
   let stage = "preflight";
   let root;
+  let rootCreated = false;
   let dataDirectory;
   let pgCtl;
   let postgresExecutable;
@@ -340,17 +361,20 @@ async function main() {
       fail(stage, "TEMP_BASE_NOT_CANONICAL");
     }
     root = mkdtempSync(path.join(tempBase, PREFIX));
+    rootCreated = true;
     chmodSync(root, 0o700);
     assertPrivateDirectory(root);
-    dataDirectory = path.join(root, "data");
-    const socketDirectory = path.join(root, "socket");
-    mkdirSync(dataDirectory, { mode: 0o700 });
-    mkdirSync(socketDirectory, { mode: 0o700 });
     marker = {
       path: path.join(root, ".owner-marker"),
       value: `${randomBytes(24).toString("hex")}\n`,
     };
     writePrivateFile(marker.path, marker.value);
+    if (!verifyMarker(root, marker)) fail("filesystem", "OWNER_MARKER_CHECK_FAILED");
+
+    dataDirectory = path.join(root, "data");
+    const socketDirectory = path.join(root, "socket");
+    mkdirSync(dataDirectory, { mode: 0o700 });
+    mkdirSync(socketDirectory, { mode: 0o700 });
 
     stage = "cluster_init";
     requireCommandSuccess(
@@ -430,11 +454,12 @@ async function main() {
   } catch (error) {
     resultLine = error?.safeLine ?? `${SAFE_ERROR} stage=${stage} code=LOCAL_TEST_FAILED`;
   } finally {
-    if (root && marker && dataDirectory && pgCtl && postgresExecutable) {
+    if (rootCreated && root && pgCtl && postgresExecutable) {
       let cleanupResult;
       try {
         cleanupResult = cleanup({
           root,
+          rootCreated,
           dataDirectory,
           marker,
           pgCtl,
@@ -448,8 +473,8 @@ async function main() {
         cleanupResult = "RETAINED_CLEANUP_CHECK_FAILED";
       }
       if (cleanupResult !== "REMOVED") resultLine = `${SAFE_ERROR} stage=cleanup code=${cleanupResult}`;
-    } else if (root) {
-      resultLine = `${SAFE_ERROR} stage=cleanup code=RETAINED_SETUP_INCOMPLETE`;
+    } else if (rootCreated) {
+      resultLine = `${SAFE_ERROR} stage=cleanup code=RETAINED_OWNERSHIP_UNPROVEN`;
     }
   }
 
