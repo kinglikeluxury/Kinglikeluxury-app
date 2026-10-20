@@ -1,5 +1,9 @@
 import { getKayMode, getRescueSettings, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { isMetaReviewDiagnosticMode } from "./metaReviewDiagnosticMode";
+import {
+  persistKayRecommendationSchedulerState,
+  readKayRecommendationSchedulerState,
+} from "./kayRecommendationSchedulerState";
 
 const INTERVAL_MS = 15 * 60_000;
 
@@ -66,7 +70,26 @@ export function getKayRecommendationSchedulerStatus(environment: Environment = p
     lastCycleStartedAt: runtime.lastCycleStartedAt,
     lastCycleCompletedAt: runtime.lastCycleCompletedAt,
     lastCycleResult: runtime.lastCycleResult,
-    lastCycleError: runtime.lastCycleError,
+  };
+}
+
+export async function getKayRecommendationSchedulerStatusWithPersistence(environment: Environment = process.env) {
+  const [live, persisted] = await Promise.all([
+    Promise.resolve(getKayRecommendationSchedulerStatus(environment)),
+    readKayRecommendationSchedulerState(),
+  ]);
+  return {
+    ...live,
+    lastCycleCompletedAt: persisted.lastRunAt ?? live.lastCycleCompletedAt,
+    lastCycleResult: persisted.lastRunAt
+      ? {
+          checked: persisted.checkedCount ?? 0,
+          eligible: persisted.eligibleCount ?? 0,
+          recommendations: persisted.recommendationCount ?? persisted.eligibleCount ?? 0,
+          stale: persisted.staleCount ?? 0,
+        }
+      : live.lastCycleResult,
+    persistent: persisted,
   };
 }
 
@@ -75,17 +98,34 @@ async function runRecommendationCycle(): Promise<void> {
   const availability = getKayRecommendationSchedulerAvailability();
   if (!availability.enabled) {
     runtime.reason = availability.reason;
+    void persistKayRecommendationSchedulerState({
+      enabledObserved: false,
+      disabledReason: availability.reason,
+      errorCode: null,
+    });
     return;
   }
   cycleRunning = true;
   runtime.lastCycleStartedAt = new Date().toISOString();
   runtime.reason = null;
   runtime.lastCycleError = null;
+  let persistPatch: Parameters<typeof persistKayRecommendationSchedulerState>[0] | null = null;
   try {
     const [mode, settings] = await Promise.all([getKayMode(), getRescueSettings()]);
     const blockedReason = getKayRecommendationCycleBlockReason(mode, settings);
     if (blockedReason) {
       runtime.reason = blockedReason;
+      persistPatch = {
+        enabledObserved: true,
+        lastRunAt: new Date().toISOString(),
+        lastResult: "SKIPPED",
+        checkedCount: null,
+        recommendationCount: null,
+        eligibleCount: null,
+        staleCount: null,
+        disabledReason: blockedReason,
+        errorCode: null,
+      };
       return;
     }
 
@@ -94,6 +134,17 @@ async function runRecommendationCycle(): Promise<void> {
     // stay within the existing Kay queue/events/decisions internal write gates.
     await enqueueKayEvaluationScan();
     runtime.lastCycleResult = await runKayShadowEvaluator();
+    persistPatch = {
+      enabledObserved: true,
+      lastRunAt: new Date().toISOString(),
+      lastResult: "PASS",
+      checkedCount: runtime.lastCycleResult.checked,
+      recommendationCount: runtime.lastCycleResult.eligible,
+      eligibleCount: runtime.lastCycleResult.eligible,
+      staleCount: runtime.lastCycleResult.stale,
+      disabledReason: null,
+      errorCode: null,
+    };
   } catch (error) {
     const err = error as { name?: unknown; code?: unknown };
     const errorClass = typeof err?.name === "string" ? err.name.slice(0, 60) : "Error";
@@ -101,9 +152,17 @@ async function runRecommendationCycle(): Promise<void> {
     runtime.lastCycleError = errorCode ? `${errorClass}:${errorCode}` : errorClass;
     runtime.reason = "CYCLE_FAILED";
     console.warn(`[KayRecommendationScheduler] cycle failed (${runtime.lastCycleError})`);
+    persistPatch = {
+      enabledObserved: true,
+      lastRunAt: new Date().toISOString(),
+      lastResult: "FAIL",
+      disabledReason: "CYCLE_FAILED",
+      errorCode: errorCode && /^[A-Za-z0-9_.-]{1,60}$/.test(errorCode) ? errorCode : null,
+    };
   } finally {
     runtime.lastCycleCompletedAt = new Date().toISOString();
     cycleRunning = false;
+    if (persistPatch) void persistKayRecommendationSchedulerState(persistPatch);
   }
 }
 
