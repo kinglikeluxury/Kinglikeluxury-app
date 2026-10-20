@@ -88,7 +88,7 @@ async function run() {
   const client = await pool.connect();
   try {
     const identity = await client.query(
-      "SELECT current_database() AS database, current_user AS role, inet_server_addr()::text AS address, inet_server_port() AS port",
+      "SELECT current_database() AS database, current_user AS role, host(inet_server_addr()) AS address, inet_server_port() AS port",
     );
     const row = identity.rows[0];
     assert.equal(row.database, DB_NAME);
