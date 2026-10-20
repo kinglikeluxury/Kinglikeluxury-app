@@ -156,6 +156,10 @@ async function runRecommendationCycle(): Promise<void> {
       enabledObserved: true,
       lastRunAt: new Date().toISOString(),
       lastResult: "FAIL",
+      checkedCount: null,
+      recommendationCount: null,
+      eligibleCount: null,
+      staleCount: null,
       disabledReason: "CYCLE_FAILED",
       errorCode: errorCode && /^[A-Za-z0-9_.-]{1,60}$/.test(errorCode) ? errorCode : null,
     };
