@@ -7,6 +7,7 @@ const safePairs = new Set([
   "tcp_connect:TCP_CONNECTION_REFUSED",
   "tcp_connect:TCP_CONNECTION_TIMEOUT",
   "tcp_connect:POSTGRES_DATABASE_NOT_FOUND",
+  "tcp_connect:DATABASE_OPERATION_FAILED",
   "postgres_authentication:POSTGRES_AUTHENTICATION_FAILED",
   "postgres_authentication:POSTGRES_HBA_REJECTED",
   "postgres_authentication:POSTGRES_ROLE_NOT_FOUND",
