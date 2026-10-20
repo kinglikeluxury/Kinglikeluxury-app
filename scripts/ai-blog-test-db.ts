@@ -12,8 +12,18 @@ import {
 
 const [command, ...args] = process.argv.slice(2);
 const migrationConfirmation = "--confirm-isolated-test-database-migration";
+const diagnosticMarkersEnabled = args.includes("--diagnostic-markers");
+
+function markDiagnosticPhase(phase: "ENTRY_BODY" | "MAIN_ENTERED" | "CONFIGURATION_REJECTED" | "MAIN_REJECTED") {
+  if (diagnosticMarkersEnabled) {
+    process.stderr.write(`AI_BLOG_TEST_DB_PHASE=${phase}\n`);
+  }
+}
+
+markDiagnosticPhase("ENTRY_BODY");
 
 async function main() {
+  markDiagnosticPhase("MAIN_ENTERED");
   if (command !== "verify" && command !== "migrate") {
     console.error("AI_BLOG_TEST_DB_ERROR stage=configuration code=TEST_DATABASE_CONFIG_INVALID");
     process.exitCode = 1;
@@ -67,6 +77,7 @@ async function main() {
       console.log("Applied AI Blog usage migration to the verified isolated test database only.");
     }
   } catch (error) {
+    if (stage === "configuration") markDiagnosticPhase("CONFIGURATION_REJECTED");
     failure = classifyAiBlogTestDatabaseFailure(stage, error);
   } finally {
     client?.release();
@@ -86,6 +97,7 @@ async function main() {
 }
 
 main().catch(() => {
+  markDiagnosticPhase("MAIN_REJECTED");
   console.error("AI_BLOG_TEST_DB_ERROR stage=script_runtime code=SCRIPT_RUNTIME_FAILED");
   process.exitCode = 1;
 });

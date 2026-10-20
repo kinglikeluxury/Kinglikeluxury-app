@@ -21,6 +21,29 @@ const safePairs = new Set([
 
 const safeLinePattern = /^AI_BLOG_TEST_DB_ERROR stage=([a-z_]+) code=([A-Z_]+)$/;
 const successLine = "Verified isolated PostgreSQL target: ai_blog_drafts_test on loopback.";
+const safePhases = new Set(["PRELOAD_READY", "ENTRY_BODY", "MAIN_ENTERED", "CONFIGURATION_REJECTED", "MAIN_REJECTED"]);
+
+export function extractSafePhases(stdout = "", stderr = "") {
+  return new Set(
+    `${stdout}\n${stderr}`
+      .split(/\r?\n/)
+      .map((line) => line.trim().match(/^AI_BLOG_TEST_DB_PHASE=([A-Z_]+)$/)?.[1])
+      .filter((phase) => phase && safePhases.has(phase)),
+  );
+}
+
+function classifyUnmarkedStartup(phases, exitCode) {
+  if (!phases.has("PRELOAD_READY")) {
+    return `AI_BLOG_TEST_DB_ERROR stage=loader_startup code=LOADER_STARTUP_FAILED exit_code=${exitCode}`;
+  }
+  if (!phases.has("ENTRY_BODY")) {
+    return `AI_BLOG_TEST_DB_ERROR stage=entry_load code=ENTRY_MODULE_LOAD_FAILED exit_code=${exitCode}`;
+  }
+  if (!phases.has("MAIN_ENTERED")) {
+    return `AI_BLOG_TEST_DB_ERROR stage=entry_execution code=ENTRY_BODY_FAILED exit_code=${exitCode}`;
+  }
+  return `AI_BLOG_TEST_DB_ERROR stage=main_execution code=SAFE_DIAGNOSTIC_MISSING exit_code=${exitCode}`;
+}
 
 export function extractSafeDiagnostic(stdout = "", stderr = "") {
   for (const line of `${stdout}\n${stderr}`.split(/\r?\n/)) {
@@ -54,7 +77,7 @@ export function formatRunnerResult({ status, signal, error, stdout = "", stderr 
     return {
       ok: false,
       exitCode: childExitCode,
-      line: `AI_BLOG_TEST_DB_ERROR stage=script_startup code=SCRIPT_STARTUP_FAILED exit_code=${childExitCode}`,
+      line: classifyUnmarkedStartup(extractSafePhases(stdout, stderr), childExitCode),
     };
   }
 
@@ -82,9 +105,10 @@ export function runVerify(args = process.argv.slice(2)) {
   }
 
   const scriptPath = path.resolve("scripts/ai-blog-test-db.ts");
+  const phaseMarkerPath = pathToFileURL(path.resolve("scripts/ai-blog-test-db-stage-marker.mjs")).href;
   const child = spawnSync(
     process.execPath,
-    ["--import", "tsx", scriptPath, "verify"],
+    ["--import", "tsx", "--import", phaseMarkerPath, scriptPath, "verify", "--diagnostic-markers"],
     { encoding: "utf8", maxBuffer: 1024 * 1024 },
   );
   const result = formatRunnerResult(child);
