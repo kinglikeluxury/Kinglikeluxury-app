@@ -19,7 +19,10 @@ const labels: Record<string, string> = {
 type Draft = {
   id: number; business_date: string; country: string; status: string; title: string;
   content: string; keywords: string[]; seo_description: string; slug: string;
-  cover_image: string; sources: { url: string; title: string; accessedAt: string }[];
+  cover_image: string; sources: {
+    url: string; title: string; accessedAt: string; kind?: string;
+    license?: string; attribution?: string | null; outputSha256?: string;
+  }[];
   review_note?: string; safe_error_code?: string;
 };
 type State = {
@@ -54,6 +57,10 @@ export function AiBlogDraftsPanel() {
   const [enabled, setEnabled] = useState(false);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [sourcesJson, setSourcesJson] = useState("");
+  const [coverSourceUrl, setCoverSourceUrl] = useState("");
+  const [coverLicense, setCoverLicense] = useState("");
+  const [coverAttribution, setCoverAttribution] = useState("");
+  const [coverOutputSha256, setCoverOutputSha256] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   useEffect(() => {
@@ -87,6 +94,12 @@ export function AiBlogDraftsPanel() {
             <span>التنفيذ: {data?.readiness?.schedulerEnabled ? "متاح" : "غير موصول"}</span>
           </div>
           <p className="mt-2">وجود مفتاح لا يعني أن التكامل جاهز أو نشط. لم يتم استدعاء مزود بحث أو ذكاء اصطناعي أو صور. يلزم اعتماد التكلفة وتنفيذ واختبار التكاملات قبل أي تفعيل.</p>
+          <div className="mt-3 rounded border border-amber-400/60 bg-white/70 p-3">
+            <strong>إعداد غلاف محلي بلا رفع</strong>
+            <p className="mt-1">يمكن تجهيز نسخة مشتقة من صورة تملكها Kinglike أو تملك ترخيص استخدامها عبر ImageMagick في مساحة العمل، مع الاحتفاظ بكامل الإطار حتى لا تُقص أي علامة أصلية. لا يضيف المسار علامة مائية ولا يزيل علامة موجودة، ولا يتصل بـCloudinary أو أي خدمة. سعة Cloudinary لم تُثبت، لذلك الرفع غير متاح ولا تُحفظ الصورة في التخزين الحي.</p>
+            <code dir="ltr" className="mt-2 block break-all rounded bg-slate-100 p-2 text-xs">npm run ai-blog:cover -- &lt;input-image&gt; generated-artifacts/ai-blog-covers/&lt;name&gt;.jpg --source-url &lt;https-url&gt; --license "Kinglike-owned"</code>
+            <p className="mt-1 text-xs">الناتج المحلي 1200×630 وأقل من 10MB مع ملف provenance جانبي. لن يصبح رابطاً عاماً ولن يُرفع تلقائياً؛ لا تستخدم مساراً محلياً كرابط غلاف منشور. Pexels API يتطلب إسناداً في سجل المصدر عند استخدامه.</p>
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {markets.map(([key, name, flag]) => {
@@ -132,7 +145,16 @@ export function AiBlogDraftsPanel() {
           <div className="flex gap-2">
             <Button size="sm" variant="outline" disabled={busy} onClick={() => {
               if (editing?.id === draft.id) setEditing(null);
-              else { setEditing({ ...draft }); setSourcesJson(JSON.stringify(draft.sources || [], null, 2)); }
+              else {
+                setEditing({ ...draft });
+                const storedSources = draft.sources || [];
+                const coverSource = storedSources.find(source => source.kind === "cover_image");
+                setSourcesJson(JSON.stringify(storedSources.filter(source => source.kind !== "cover_image"), null, 2));
+                setCoverSourceUrl(coverSource?.url || "");
+                setCoverLicense(coverSource?.license || "");
+                setCoverAttribution(coverSource?.attribution || "");
+                setCoverOutputSha256(coverSource?.outputSha256 || "");
+              }
             }}>مراجعة وتعديل</Button>
             <Button size="sm" variant="outline" disabled title="إعادة المحاولة معطلة إلى حين اعتماد الخدمات"><RefreshCw className="ml-1 h-4 w-4" />إعادة محاولة</Button>
             {draft.status === "ready_for_review" && <Button size="sm" disabled={busy} onClick={() => {
@@ -150,6 +172,14 @@ export function AiBlogDraftsPanel() {
           <Textarea aria-label="وصف SEO" placeholder="وصف SEO" value={editing.seo_description} onChange={e => setEditing({ ...editing, seo_description: e.target.value })} />
           <Input aria-label="الرابط" placeholder="SEO slug" value={editing.slug} onChange={e => setEditing({ ...editing, slug: e.target.value })} />
           <div className="flex items-center gap-2"><Image className="h-4 w-4" /><Input aria-label="رابط صورة الغلاف" placeholder="رابط صورة الغلاف (الرفع يدوياً من أدوات المقالات الحالية)" value={editing.cover_image} onChange={e => setEditing({ ...editing, cover_image: e.target.value })} /></div>
+           <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+             <strong className="text-sm">إثبات مصدر الغلاف وترخيصه</strong>
+             <Input aria-label="رابط مصدر صورة الغلاف" placeholder="رابط الصورة الأصلية HTTPS" value={coverSourceUrl} onChange={e => setCoverSourceUrl(e.target.value)} />
+             <Input aria-label="ترخيص صورة الغلاف" placeholder="مثال: Kinglike-owned أو Pexels License" value={coverLicense} onChange={e => setCoverLicense(e.target.value)} />
+             <Input aria-label="إسناد صورة الغلاف" placeholder="اسم المصور ورابطه عند اشتراط الإسناد" value={coverAttribution} onChange={e => setCoverAttribution(e.target.value)} />
+             <Input aria-label="بصمة ملف الغلاف" placeholder="SHA-256 من ملف provenance (اختياري)" value={coverOutputSha256} onChange={e => setCoverOutputSha256(e.target.value)} />
+             <p className="text-xs text-slate-600">هذه البيانات تحفظ مع مصادر المسودة. لا تحفظ المسار المحلي للصورة كرابط، ولا ترفع الملف إلى Cloudinary أو التخزين الحي من هذه اللوحة.</p>
+           </div>
           <Textarea aria-label="ملاحظة المراجعة" placeholder="ملاحظات المراجعة" value={editing.review_note || ""} onChange={e => setEditing({ ...editing, review_note: e.target.value })} />
           <Textarea aria-label="المصادر" placeholder='مصادر بصيغة JSON: [{"title":"...","url":"https://...","accessedAt":"YYYY-MM-DD"}]' rows={5} value={sourcesJson} onChange={e => setSourcesJson(e.target.value)} />
           <label className="text-sm">حالة المراجعة
@@ -166,6 +196,27 @@ export function AiBlogDraftsPanel() {
             } catch {
               throw new Error("صيغة المصادر غير صحيحة؛ أدخل قائمة JSON صالحة.");
             }
+             const hasCoverMetadata = Boolean(coverSourceUrl.trim() || coverLicense.trim() || coverAttribution.trim() || coverOutputSha256.trim());
+             if (hasCoverMetadata) {
+               let sourceUrl: URL;
+               try { sourceUrl = new URL(coverSourceUrl.trim()); }
+               catch { throw new Error("أدخل رابط HTTPS صالحاً لمصدر صورة الغلاف."); }
+               if (sourceUrl.protocol !== "https:" || !coverLicense.trim()) {
+                 throw new Error("يلزم رابط HTTPS وترخيص أو إثبات ملكية للغلاف.");
+               }
+               if (/pexels/i.test(coverLicense) && !coverAttribution.trim()) {
+                 throw new Error("أضف إسناد المصور وPexels عند استخدام صور عبر Pexels API.");
+               }
+               parsedSources.push({
+                 kind: "cover_image",
+                 title: "مصدر صورة الغلاف",
+                 url: sourceUrl.toString(),
+                 accessedAt: new Date().toISOString(),
+                 license: coverLicense.trim(),
+                 attribution: coverAttribution.trim() || null,
+                 outputSha256: coverOutputSha256.trim() || undefined,
+               });
+             }
             await call(`/api/admin/ai-blog/drafts/${draft.id}`, "PUT", {
               ...editing, seoDescription: editing.seo_description, coverImage: editing.cover_image,
               sources: parsedSources,
