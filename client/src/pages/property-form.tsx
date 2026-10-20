@@ -407,6 +407,8 @@ const PropertyForm = () => {
           { value: "istanbul", label: "İstanbul" },
           { value: "trabzon", label: "Trabzon" }
         ];
+      case "azerbaijan":
+        return [{ value: "baku", label: "Baku — Bakı — باکو" }];
       case "syria":
         return SYRIA_CITY_OPTIONS;
       default:
@@ -1520,6 +1522,7 @@ const PropertyForm = () => {
                         { value: 'northern-cyprus', label: '🇨🇾 Northern Cyprus (TRNC)' },
                         { value: 'turkey', label: '🇹🇷 Turkey' },
                         { value: 'syria', label: '🇸🇾 Syria' },
+                        { value: 'azerbaijan', label: '🇦🇿 Azerbaijan' },
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
@@ -1556,7 +1559,7 @@ const PropertyForm = () => {
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.country) ? formData.country : formData.country?.split(',') || []).map((country) => (
                             <Badge key={country} variant="secondary" className="text-xs">
-                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'northern-cyprus' ? '🇨🇾 TRNC' : country === 'turkey' ? '🇹🇷 Turkey' : country}
+                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'northern-cyprus' ? '🇨🇾 TRNC' : country === 'turkey' ? '🇹🇷 Turkey' : country === 'azerbaijan' ? '🇦🇿 Azerbaijan' : country === 'syria' ? '🇸🇾 Syria' : country}
                             </Badge>
                           ))}
                         </div>
@@ -1614,6 +1617,7 @@ const PropertyForm = () => {
                       { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
                       { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
                       { value: 'istanbul', label: '🇹🇷 İstanbul, Turkey', country: 'turkey' },
+                      { value: 'baku', label: '🇦🇿 Baku — Bakı — باکو, Azerbaijan', country: 'azerbaijan' },
                       { value: 'ankara', label: '🇹🇷 Ankara, Turkey', country: 'turkey' },
                       { value: 'izmir', label: '🇹🇷 İzmir, Turkey', country: 'turkey' },
                       { value: 'bursa', label: '🇹🇷 Bursa, Turkey', country: 'turkey' },

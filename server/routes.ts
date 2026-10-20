@@ -17,6 +17,7 @@ import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail,
 import pg from "pg";
 const { Pool } = pg;
 import { storage } from "./storage";
+import { canReadBlogPost } from "./blogVisibility";
 import { 
   insertUserSchema, 
   insertPropertySchema, 
@@ -260,11 +261,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!post) {
         const redirectPost = await storage.getBlogPostByOldSlug(slug);
         if (redirectPost) {
+          const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+          if (!canReadBlogPost(redirectPost.published, viewer?.isAdmin === true)) {
+            return res.status(404).send("Not found");
+          }
           const localizedSlug = getPostLangSlug(redirectPost, lang);
           return res.redirect(301, `/${lang}/blog/${slugToUrlPath(localizedSlug)}`);
         }
         if (isBot) return res.status(404).send("Not found");
         return next();
+      }
+
+      // Drafts are private, including direct URLs and crawler/server-rendered routes.
+      if (!post.published) {
+        const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+        if (!canReadBlogPost(post.published, viewer?.isAdmin === true)) return res.status(404).send("Not found");
+      }
+
+      // If there is no translation for the requested language and the source is Arabic,
+      // keep the public URL aligned with the Arabic content rather than serving Arabic at /en.
+      const requestedTranslation = post.translations?.[lang];
+      const sourceLooksArabic = /[\u0600-\u06FF]/.test(
+        `${post.title || ""} ${(post.content || "").slice(0, 500)}`,
+      );
+      if (!requestedTranslation && lang !== "ar" && sourceLooksArabic && post.translations?.ar) {
+        const arabicSlug = getPostLangSlug(post, "ar");
+        return res.redirect(301, `/ar/blog/${slugToUrlPath(arabicSlug)}`);
       }
 
       const safe = (s: string) =>
@@ -2818,12 +2840,32 @@ ${metaTags}
         // Check legacy old slugs
         const redirectPost = await storage.getBlogPostByOldSlug(slug);
         if (redirectPost) {
+          const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+          if (!canReadBlogPost(redirectPost.published, viewer?.isAdmin === true)) {
+            return res.status(404).json({ message: "Blog post not found" });
+          }
           const localizedSlug = langStr
             ? ((redirectPost as any).translations?.[langStr]?.slug || redirectPost.slug)
             : redirectPost.slug;
           return res.status(301).json({ redirect: localizedSlug });
         }
         return res.status(404).json({ message: "Blog post not found" });
+      }
+
+      if (!blogPost.published) {
+        const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+        if (!canReadBlogPost(blogPost.published, viewer?.isAdmin === true)) {
+          return res.status(404).json({ message: "Blog post not found" });
+        }
+      }
+
+      const requestedTranslation = langStr ? blogPost.translations?.[langStr] : undefined;
+      const sourceLooksArabic = /[\u0600-\u06FF]/.test(
+        `${blogPost.title || ""} ${(blogPost.content || "").slice(0, 500)}`,
+      );
+      if (langStr && langStr !== "ar" && !requestedTranslation && sourceLooksArabic && blogPost.translations?.ar) {
+        const arabicSlug = blogPost.translations.ar.slug || blogPost.slug;
+        return res.status(301).json({ redirect: `/ar/blog/${slugToUrlPath(arabicSlug)}` });
       }
 
       if (langStr) {
@@ -2930,7 +2972,8 @@ ${metaTags}
         authorId: user.id,
         categories: categories || [],
         country: country || 'georgia',
-        published: published !== false,
+        // Creating a post never publishes it by omission. Publishing must be an explicit admin action.
+        published: published === true,
       };
 
       const validated = insertBlogPostSchema.safeParse(postData);
@@ -3045,6 +3088,13 @@ ${metaTags}
       const blogPost = await storage.updateBlogPost(id, updates);
       if (!blogPost) {
         return res.status(404).json({ message: "Blog post not found" });
+      }
+
+      if (!blogPost.published) {
+        const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+        if (!canReadBlogPost(blogPost.published, viewer?.isAdmin === true)) {
+          return res.status(404).json({ message: "Blog post not found" });
+        }
       }
 
       res.json(blogPost);
