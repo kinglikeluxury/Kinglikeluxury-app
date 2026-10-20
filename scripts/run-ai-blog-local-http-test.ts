@@ -284,16 +284,19 @@ async function run() {
   assert(Number.isSafeInteger(draftId));
 
   await check("draft edit and manual review persist over HTTP; draft is absent from public post table", async () => {
+    const testSources = [{ url: "https://example.com/local-test", title: "Synthetic fixture", accessedAt: "2099-01-01T00:00:00Z" }];
+    const testKeywords = ["اختبار محلي", "محتوى اصطناعي"];
     const response = await http(`/api/admin/ai-blog/drafts/${draftId}`, {
       method: "PUT",
       headers: adminHeaders,
       body: JSON.stringify({
         title: "مقال اصطناعي للاختبار فقط",
         content: "هذا محتوى ثابت للاختبار المحلي، وليس مولداً بالذكاء الاصطناعي ولا يتضمن معلومات سوقية حقيقية.",
+        keywords: testKeywords,
         seoDescription: "وصف اختبار محلي",
         slug: TEST_SLUG,
         coverImage: "https://res.cloudinary.com/demo/image/upload/local-test.jpg",
-        sources: [{ url: "https://example.com/local-test", title: "Synthetic fixture", accessedAt: "2099-01-01T00:00:00Z" }],
+        sources: testSources,
         reviewNote: "Reviewed in local HTTP test only",
         status: "ready_for_review",
       }),
@@ -302,6 +305,16 @@ async function run() {
     const data = await response.json() as any;
     assert.equal(data.draft.status, "ready_for_review");
     assert.equal(data.draft.title, "مقال اصطناعي للاختبار فقط");
+    assert.deepEqual(data.draft.sources, testSources);
+    assert.deepEqual(data.draft.keywords, testKeywords);
+    assert.equal(data.draft.content, "هذا محتوى ثابت للاختبار المحلي، وليس مولداً بالذكاء الاصطناعي ولا يتضمن معلومات سوقية حقيقية.");
+    const readback = await pool.query(
+      "SELECT sources,keywords,content FROM ai_blog_drafts WHERE id=$1",
+      [draftId],
+    );
+    assert.deepEqual(readback.rows[0].sources, testSources);
+    assert.deepEqual(readback.rows[0].keywords, testKeywords);
+    assert.equal(readback.rows[0].content, "هذا محتوى ثابت للاختبار المحلي، وليس مولداً بالذكاء الاصطناعي ولا يتضمن معلومات سوقية حقيقية.");
     const posts = await pool.query("SELECT COUNT(*)::int AS count FROM blog_posts WHERE slug=$1", [TEST_SLUG]);
     assert.equal(posts.rows[0].count, 0);
   });
