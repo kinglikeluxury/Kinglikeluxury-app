@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { buildAiBlogDraftPreview } from "@/lib/aiBlogDraftPreview";
+import { parseAiBlogUsageResponse } from "@/lib/aiBlogUsageResponse";
 
 const markets = [
   ["georgia", "جورجيا", "🇬🇪"], ["turkey", "تركيا", "🇹🇷"],
@@ -65,22 +66,6 @@ async function call(path: string, method = "GET", body?: unknown) {
   return data;
 }
 
-async function fetchUsageState(): Promise<UsageState> {
-  const response = await fetch("/api/admin/ai-blog/usage", { credentials: "include" });
-  const data = await response.json().catch(() => ({}));
-  if (
-    response.status === 503 &&
-    data?.code === "AI_BLOG_USAGE_SCHEMA_MISSING"
-  ) {
-    return {
-      configured: false,
-      message: data.message || "يلزم تجهيز ترحيل حصص AI Blog قبل عرض بيانات الاستخدام.",
-    };
-  }
-  if (!response.ok) throw new Error(data.message || "تعذر تحميل بيانات الاستخدام");
-  return data as UsageState;
-}
-
 export function AiBlogDraftsPanel() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery<State>({
@@ -93,7 +78,9 @@ export function AiBlogDraftsPanel() {
   });
   const usageQuery = useQuery<UsageState>({
     queryKey: ["/api/admin/ai-blog/usage"],
-    queryFn: fetchUsageState,
+    queryFn: async () => parseAiBlogUsageResponse<UsageState>(
+      await fetch("/api/admin/ai-blog/usage", { credentials: "include" }),
+    ),
     refetchInterval: 30000,
   });
   const [scheduleTime, setScheduleTime] = useState("09:00");
