@@ -42,13 +42,9 @@ function readApplicationServerKey(subscription: PushSubscriptionLike): Uint8Arra
 async function restoreOldSubscription(
   deps: PushSubscriptionReconciliationDependencies,
   oldKey: Uint8Array,
-  oldEndpoint: string,
 ): Promise<void> {
   const restored = await deps.subscribe(oldKey);
   await deps.register(restored);
-  if (restored.endpoint !== oldEndpoint) {
-    await deps.delete(oldEndpoint).catch(() => undefined);
-  }
 }
 
 export async function reconcilePushSubscription(
@@ -91,7 +87,7 @@ export async function reconcilePushSubscription(
       await deps.register(replacement);
     } catch (error) {
       if (replacement) await replacement.unsubscribe().catch(() => false);
-      await restoreOldSubscription(deps, oldKey, oldEndpoint).catch(() => undefined);
+      await restoreOldSubscription(deps, oldKey).catch(() => undefined);
       throw error;
     }
 
