@@ -75,7 +75,7 @@ export function buildPropertyLocationFilter(
           Boolean(name && LEGACY_CITIES_BY_COUNTRY[countryKey]?.includes(name)),
         )
     : [];
-  const uniqueCityNames = [...new Set(cityNames)];
+  const uniqueCityNames = Array.from(new Set(cityNames));
 
   if (cityValue && uniqueCityNames.length === 0) return undefined;
 
