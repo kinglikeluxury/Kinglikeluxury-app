@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PROPERTY_TYPES } from "@shared/schema";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import { Search, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -84,6 +85,10 @@ const Hero = () => {
           { value: "istanbul", label: "İstanbul" },
           { value: "trabzon", label: "Trabzon" }
         ];
+      case "azerbaijan":
+        return [{ value: "baku", label: "Baku — Bakı — باکو" }];
+      case "syria":
+        return SYRIA_CITY_OPTIONS;
       default:
         return [];
     }
@@ -121,6 +126,7 @@ const Hero = () => {
     }
 
     // For regular property types route to /properties
+    if (city && city !== "any") params.append("country", city);
     if (location && location !== "any") {
       params.append("city", location);
     } else if (city && city !== "any") {
@@ -179,6 +185,8 @@ const Hero = () => {
                         <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
                         <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                         <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
+                        <SelectItem value="syria">🇸🇾 Syria</SelectItem>
+                        <SelectItem value="azerbaijan">🇦🇿 Azerbaijan</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { PROPERTY_TYPES } from "@shared/schema";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import luxuryLogoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import constructionImagePath from "@assets/1702663538423.jpg";
 import apartmentsImagePath from "@assets/category-apartments.jpg";
@@ -61,6 +62,10 @@ const CategorySection = () => {
           { value: "istanbul", label: "İstanbul" },
           { value: "trabzon", label: "Trabzon" },
         ];
+      case "azerbaijan":
+        return [{ value: "baku", label: "Baku — Bakı — باکو" }];
+      case "syria":
+        return SYRIA_CITY_OPTIONS;
       default:
         return [];
     }
@@ -99,7 +104,7 @@ const CategorySection = () => {
     } else {
       const params = new URLSearchParams();
       params.append("type", selectedCategory);
-      if (selectedCountry) params.append("city", selectedCountry);
+      if (selectedCountry) params.append("country", selectedCountry);
       if (selectedCity) params.append("city", selectedCity);
       if (selectedPurpose) params.append("purpose", selectedPurpose);
       setShowModal(false);
@@ -211,6 +216,8 @@ const CategorySection = () => {
                   <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
                   <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                   <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
+                  <SelectItem value="syria">🇸🇾 Syria</SelectItem>
+                  <SelectItem value="azerbaijan">🇦🇿 Azerbaijan</SelectItem>
                 </SelectContent>
               </Select>
             </div>

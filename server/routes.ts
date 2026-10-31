@@ -18,6 +18,8 @@ import {
   PROPERTY_STATUS,
   crmLeads, kaySettings, kayEvents,
 } from "@shared/schema";
+import { SYRIAN_CITY_ENTRIES, toSyriaCityValue } from "@shared/syriaLocations";
+import { buildPropertyLocationFilter } from "./propertyLocationFilter";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
 import { z } from "zod";
@@ -1964,12 +1966,19 @@ ${metaTags}
       if (minPrice) filters.minPrice = parseInt(minPrice as string);
       if (maxPrice) filters.maxPrice = parseInt(maxPrice as string);
       
-      // Support country+city filtering for main feed (Hero search)
-      if (req.query.city && req.query.city !== 'any') {
-        const locationFilter = getLocationFilter(req.query.city as string);
-        if (locationFilter) {
-          filters.locationContains = locationFilter;
-        }
+      const countryQuery = typeof req.query.country === "string" ? req.query.country : "";
+      const cityQuery = typeof req.query.city === "string" && req.query.city !== "any"
+        ? req.query.city
+        : "";
+
+      if (countryQuery && countryQuery !== "any") {
+        const geoFilter = buildPropertyLocationFilter(countryQuery, cityQuery || undefined);
+        if (!geoFilter) return res.json([]);
+        filters.countryLocationRegex = geoFilter.countryRegex;
+        filters.cityLocationRegex = geoFilter.cityRegex;
+      } else if (cityQuery) {
+        const locationFilter = getLocationFilter(cityQuery);
+        if (locationFilter) filters.locationContains = locationFilter;
       }
       
       // If admin is requesting, allow getting all statuses
@@ -3146,7 +3155,8 @@ ${metaTags}
       'georgia': 'Georgia',
       'uae': 'UAE',
       'northern-cyprus': 'Northern Cyprus',
-      'turkey': 'Turkey'
+      'turkey': 'Turkey',
+      'syria': 'Syria',
     };
     
     // Handle city-level filtering  
@@ -3164,7 +3174,11 @@ ${metaTags}
       'guzelyurt': 'Güzelyurt',
       'esentepe': 'Esentepe',
       'istanbul': 'Istanbul',
-      'trabzon': 'Trabzon'
+      'trabzon': 'Trabzon',
+      ...Object.fromEntries(SYRIAN_CITY_ENTRIES.map(({ city }) => [
+        toSyriaCityValue(city),
+        city,
+      ])),
     };
     
     // Return country filter or city filter

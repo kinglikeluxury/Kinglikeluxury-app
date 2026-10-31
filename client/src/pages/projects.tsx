@@ -36,6 +36,7 @@ import { Link } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate, needsTranslation } from "@/hooks/useAutoTranslate";
 import { slugifyProperty } from "@/lib/slugify";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 
 interface Project {
   id: number | string;
@@ -319,6 +320,8 @@ const Projects = () => {
         'uae': 'uae',
         'northern-cyprus': 'northern cyprus',
         'turkey': 'turkey',
+        'syria': 'syria',
+        'azerbaijan': 'azerbaijan',
       };
       const countryName = countryNameMap[selectedCountry] || selectedCountry.replace(/-/g, ' ');
       const matchesCountryName = projectLocation.includes(countryName);
@@ -326,7 +329,13 @@ const Projects = () => {
       const matchesGeorgianCity =
         selectedCountry === 'georgia' &&
         georgianCityAliases.some((city) => projectLocation.includes(city));
-      if (!matchesCountryName && !matchesGeorgianCity) {
+      const matchesSyrianCity =
+        selectedCountry === 'syria' &&
+        SYRIA_CITY_OPTIONS.some(({ value }) => projectLocation.includes(value.replace(/-/g, ' ')));
+      const matchesBaku =
+        selectedCountry === 'azerbaijan' &&
+        (projectLocation.includes('baku') || projectLocation.includes('bakı'));
+      if (!matchesCountryName && !matchesGeorgianCity && !matchesSyrianCity && !matchesBaku) {
         return false;
       }
     }
@@ -404,6 +413,10 @@ const Projects = () => {
           { value: 'istanbul', label: '🇹🇷 İstanbul' },
           { value: 'trabzon', label: '🇹🇷 Trabzon' },
         ];
+      case 'azerbaijan':
+        return [{ value: 'baku', label: '🇦🇿 Baku — Bakı — باکو' }];
+      case 'syria':
+        return SYRIA_CITY_OPTIONS;
       default:
         return [];
     }
@@ -647,6 +660,8 @@ const Projects = () => {
                     <SelectItem value="uae">🇦🇪 {t('countries.uae', 'United Arab Emirates')}</SelectItem>
                     <SelectItem value="northern-cyprus">🇨🇾 {t('countries.northernCyprus', 'Northern Cyprus (TRNC)')}</SelectItem>
                     <SelectItem value="turkey">🇹🇷 {t('countries.turkey', 'Turkey')}</SelectItem>
+                    <SelectItem value="syria">🇸🇾 Syria</SelectItem>
+                    <SelectItem value="azerbaijan">🇦🇿 Azerbaijan</SelectItem>
                   </SelectContent>
                 </Select>
                 {filterErrors.country && (

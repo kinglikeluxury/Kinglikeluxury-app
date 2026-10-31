@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import LocationSelector from "@/components/property/LocationSelector";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
+import { getSyriaCityDisplayName } from "@shared/property-location";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
@@ -961,7 +962,8 @@ const PropertyForm = () => {
             case 'esentepe': return 'Esentepe';
             case 'istanbul': return 'Istanbul';
             case 'trabzon': return 'Trabzon';
-            default: return city;
+            case 'baku': return 'Baku';
+            default: return getSyriaCityDisplayName(city) || city;
           }
         });
 
@@ -972,6 +974,8 @@ const PropertyForm = () => {
             case 'uae': return 'UAE';
             case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
             case 'turkey': return 'Turkey';
+            case 'syria': return 'Syria';
+            case 'azerbaijan': return 'Azerbaijan';
             default: return country;
           }
         });

@@ -186,6 +186,8 @@ export class DatabaseStorage implements IStorage {
     ownerId?: number;
     location?: string;
     locationContains?: string;
+    countryLocationRegex?: string;
+    cityLocationRegex?: string;
     minPrice?: number;
     maxPrice?: number;
     bedrooms?: number;
@@ -220,6 +222,13 @@ export class DatabaseStorage implements IStorage {
         
         if (filters.locationContains) {
           conditions.push(ilike(properties.location, `%${filters.locationContains}%`));
+        }
+
+        if (filters.countryLocationRegex) {
+          conditions.push(sql`${properties.location} ~* ${filters.countryLocationRegex}`);
+        }
+        if (filters.cityLocationRegex) {
+          conditions.push(sql`${properties.location} ~* ${filters.cityLocationRegex}`);
         }
         
         if (filters.minPrice) {

@@ -3,6 +3,7 @@ import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Property, PROPERTY_TYPES } from "@shared/schema";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import PropertyCard from "@/components/property/PropertyCard";
 import SearchFilters from "@/components/property/SearchFilters";
 import { Button } from "@/components/ui/button";
@@ -73,10 +74,13 @@ const Properties = () => {
     const uaeCities = ["dubai", "sharjah", "rasAlKhaimah", "ras-al-khaimah"];
     const cyprusCities = ["lefkosa", "gazimağusa", "girne", "iskele", "guzelyurt", "esentepe"];
     const turkeyCities = ["istanbul", "trabzon"];
+    const syrianCities = SYRIA_CITY_OPTIONS.map(({ value }) => value);
     if (georgianCities.includes(city)) return "georgia";
     if (uaeCities.includes(city)) return "uae";
     if (cyprusCities.includes(city)) return "northern-cyprus";
     if (turkeyCities.includes(city)) return "turkey";
+    if (syrianCities.includes(city)) return "syria";
+    if (city === "baku") return "azerbaijan";
     return "";
   };
 

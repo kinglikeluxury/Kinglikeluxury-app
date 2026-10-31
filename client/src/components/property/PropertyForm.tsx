@@ -1064,6 +1064,8 @@ const PropertyForm = ({ isAdmin = false }) => {
                                   <SelectItem value="turkey">🇹🇷 Turkey</SelectItem>
                                   <SelectItem value="dubai">🇦🇪 Dubai</SelectItem>
                                   <SelectItem value="north_cyprus">🇨🇾 North Cyprus</SelectItem>
+                                  <SelectItem value="syria">🇸🇾 Syria</SelectItem>
+                                  <SelectItem value="azerbaijan">🇦🇿 Azerbaijan</SelectItem>
                                 </SelectContent>
                               </Select>
                             </FormItem>

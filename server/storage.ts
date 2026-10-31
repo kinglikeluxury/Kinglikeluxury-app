@@ -14,6 +14,7 @@ import {
   PROPERTY_STATUS,
   PROPERTY_TYPES
 } from "@shared/schema";
+import { propertyLocationMatches } from "./propertyLocationFilter";
 
 export interface IStorage {
   // User operations
@@ -34,6 +35,8 @@ export interface IStorage {
     ownerId?: number;
     location?: string;
     locationContains?: string;
+    countryLocationRegex?: string;
+    cityLocationRegex?: string;
     minPrice?: number;
     maxPrice?: number;
     includeAllTypes?: boolean;
@@ -263,6 +266,8 @@ export class MemStorage implements IStorage {
     ownerId?: number;
     location?: string;
     locationContains?: string;
+    countryLocationRegex?: string;
+    cityLocationRegex?: string;
     minPrice?: number;
     maxPrice?: number;
   }): Promise<Property[]> {
@@ -291,6 +296,13 @@ export class MemStorage implements IStorage {
         properties = properties.filter(p => 
           p.location.toLowerCase().includes(filters.locationContains!.toLowerCase())
         );
+      }
+
+      if (filters.countryLocationRegex) {
+        properties = properties.filter((property) => propertyLocationMatches(property.location, {
+          countryRegex: filters.countryLocationRegex!,
+          cityRegex: filters.cityLocationRegex,
+        }));
       }
       
       if (filters.minPrice) {
