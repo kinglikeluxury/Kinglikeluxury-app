@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,6 @@ import { Link } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAutoTranslate, needsTranslation } from "@/hooks/useAutoTranslate";
 import { slugifyProperty } from "@/lib/slugify";
-import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
 
 interface Project {
   id: number | string;
@@ -331,10 +331,13 @@ const Projects = () => {
         georgianCityAliases.some((city) => projectLocation.includes(city));
       const matchesSyrianCity =
         selectedCountry === 'syria' &&
-        SYRIA_CITY_OPTIONS.some(({ value }) => projectLocation.includes(value.replace(/-/g, ' ')));
+        SYRIA_CITY_OPTIONS.some(({ value, label }) =>
+          projectLocation.includes(value.replace(/-/g, ' ')) ||
+          projectLocation.includes(label.split(" — ")[0].toLowerCase()),
+        );
       const matchesBaku =
         selectedCountry === 'azerbaijan' &&
-        (projectLocation.includes('baku') || projectLocation.includes('bakı'));
+        ['baku', 'bakı', 'باکو'].some((city) => projectLocation.includes(city));
       if (!matchesCountryName && !matchesGeorgianCity && !matchesSyrianCity && !matchesBaku) {
         return false;
       }
@@ -350,9 +353,14 @@ const Projects = () => {
         'girne': 'girne', 'iskele': 'skele',
         'guzelyurt': 'güzelyurt', 'esentepe': 'esentepe',
         'istanbul': 'istanbul', 'trabzon': 'trabzon',
+        ...Object.fromEntries(SYRIA_CITY_OPTIONS.map(({ value, label }) => [
+          value,
+          label.split(" — ")[0].toLowerCase(),
+        ])),
       };
       const cityName = cityMap[selectedCity] || selectedCity.toLowerCase().replace(/-/g, ' ');
-      if (!projectLocation.includes(cityName)) {
+      const cityNames = selectedCity === 'baku' ? ['baku', 'bakı', 'باکو'] : [cityName];
+      if (!cityNames.some((name) => projectLocation.includes(name))) {
         return false;
       }
     }
@@ -416,7 +424,10 @@ const Projects = () => {
       case 'azerbaijan':
         return [{ value: 'baku', label: '🇦🇿 Baku — Bakı — باکو' }];
       case 'syria':
-        return SYRIA_CITY_OPTIONS;
+        return SYRIA_CITY_OPTIONS.map((city) => ({
+          ...city,
+          label: `🇸🇾 ${city.label}`,
+        }));
       default:
         return [];
     }

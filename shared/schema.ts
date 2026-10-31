@@ -270,6 +270,38 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 
+// Private AI editorial drafts. This table is intentionally separate from blog_posts:
+// public blog queries and sitemap generation can never see an unpublished draft.
+export const aiBlogDrafts = pgTable("ai_blog_drafts", {
+  id: serial("id").primaryKey(),
+  businessDate: text("business_date").notNull(),
+  country: text("country").notNull(),
+  status: text("status").notNull().default("waiting"),
+  title: text("title").notNull().default(""),
+  content: text("content").notNull().default(""),
+  keywords: jsonb("keywords").notNull().$type<string[]>().default([]),
+  seoDescription: text("seo_description").notNull().default(""),
+  slug: text("slug").notNull().default(""),
+  coverImage: text("cover_image").notNull().default(""),
+  sources: jsonb("sources").notNull().$type<Array<{url:string; title:string; accessedAt:string}>>().default([]),
+  reviewNote: text("review_note"),
+  safeErrorCode: text("safe_error_code"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  publishedPostId: integer("published_post_id").references(() => blogPosts.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqueMarketDay: uniqueIndex("ai_blog_drafts_business_date_country_uq").on(t.businessDate, t.country),
+  statusIdx: index("ai_blog_drafts_status_idx").on(t.status),
+}));
+
+export const aiBlogScheduleSettings = pgTable("ai_blog_schedule_settings", {
+  id: integer("id").primaryKey().default(1),
+  enabled: boolean("enabled").notNull().default(false),
+  timeGeorgia: text("time_georgia").notNull().default("09:00"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Contact Logs — records every WhatsApp contact click
 export const contactLogs = pgTable("contact_logs", {
   id: serial("id").primaryKey(),

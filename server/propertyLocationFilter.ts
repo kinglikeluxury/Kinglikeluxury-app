@@ -29,6 +29,12 @@ const CITY_CODE_ALIASES: Record<string, string> = {
   lefkosa: "Lefkoşa",
   istanbul: "Istanbul",
   baku: "Baku",
+  "bakı": "Baku",
+  "باکو": "Baku",
+};
+
+const CITY_LOCATION_ALIASES: Record<string, string[]> = {
+  Baku: ["Baku", "Bakı", "باکو"],
 };
 
 function escapeRegex(value: string): string {
@@ -46,6 +52,7 @@ function normalizeCountry(country: string): string | undefined {
   if (normalized === "ge") return "georgia";
   if (normalized === "ae") return "uae";
   if (normalized === "tr") return "turkey";
+  if (normalized === "az") return "azerbaijan";
   return COUNTRY_ALIASES[normalized] ? normalized : undefined;
 }
 
@@ -78,10 +85,13 @@ export function buildPropertyLocationFilter(
   const uniqueCityNames = Array.from(new Set(cityNames));
 
   if (cityValue && uniqueCityNames.length === 0) return undefined;
+  const cityLocationNames = Array.from(
+    new Set(uniqueCityNames.flatMap((name) => CITY_LOCATION_ALIASES[name] ?? [name])),
+  );
 
   return {
     countryRegex: tokenRegex(COUNTRY_ALIASES[countryKey]),
-    cityRegex: uniqueCityNames.length ? tokenRegex(uniqueCityNames) : undefined,
+    cityRegex: cityLocationNames.length ? tokenRegex(cityLocationNames) : undefined,
   };
 }
 
@@ -102,8 +112,8 @@ export function propertyLocationMatches(
   );
   const cityAliases = countryKey
     ? (LEGACY_CITIES_BY_COUNTRY[countryKey] ?? []).filter((name) =>
-        filter.cityRegex === tokenRegex([name]),
-      )
+        filter.cityRegex === tokenRegex(CITY_LOCATION_ALIASES[name] ?? [name]),
+      ).flatMap((name) => CITY_LOCATION_ALIASES[name] ?? [name])
     : [];
   const cityMatches = !filter.cityRegex || cityAliases.some((name) => tokens.includes(name.toLowerCase()));
   return cityMatches && countryMatches;

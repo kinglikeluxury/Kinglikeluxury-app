@@ -10,7 +10,10 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "kay:test-schema": "tsx scripts/complete-kay-test-schema.ts",
-    "kay:daily-cycle": "tsx scripts/run-kay-daily-cycle.ts"
+    "kay:daily-cycle": "tsx scripts/run-kay-daily-cycle.ts",
+    "ai-blog:cover": "tsx scripts/prepare-ai-blog-cover.ts",
+    "ai-blog:test-db:verify": "node scripts/ai-blog-test-db-runner.mjs verify",
+    "ai-blog:test-db:migrate": "tsx scripts/ai-blog-test-db.ts migrate"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.17.0",

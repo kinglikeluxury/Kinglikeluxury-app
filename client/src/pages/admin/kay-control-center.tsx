@@ -29,6 +29,9 @@ type Decision = {
   rationale?: string;
   createdAt: string;
   payload?: any;
+  decisionCategory?: "rescue" | "manager_review" | "protection" | "opportunity" | "other";
+  freshness?: "current" | "stale" | "unknown";
+  freshnessReason?: string | null;
 };
 type Employee = {
   id?: number;
@@ -45,6 +48,27 @@ type Control = {
   employeeWorkflow?: Employee[];
   statusIntelligence?: any[];
   operationsHealth?: any;
+  recommendationScheduler?: {
+    enabled: boolean;
+    configuredEnabled: boolean;
+    reason: string | null;
+    intervalMinutes: number;
+    lastCycleStartedAt: string | null;
+    lastCycleCompletedAt: string | null;
+    lastCycleResult: { checked: number; eligible: number; blocked: number; stale: number } | null;
+    persistent?: {
+      enabledObserved: boolean;
+      lastRunAt: string | null;
+      lastResult: "PASS" | "FAIL" | "SKIPPED" | null;
+      checkedCount: number | null;
+      recommendationCount: number | null;
+      eligibleCount: number | null;
+      staleCount: number | null;
+      disabledReason: string | null;
+      errorCode: string | null;
+      updatedAt: string | null;
+    };
+  };
   protectedLeads?: any[];
 };
 type RescuePreview = {
@@ -312,13 +336,41 @@ export default function KayControlCenterPage() {
   const [legacyPreviewLoading, setLegacyPreviewLoading] = useState(false);
   const mode = "recommendation_only";
   const hasDecisionLedger = Array.isArray(control.data?.decisions);
-  const decisions = useMemo(
+  const activeDecisionRecords = useMemo(
     () =>
       (hasDecisionLedger ? control.data?.decisions ?? [] : []).filter(
         (decision) => decision.payload?.state === "ACTIVE",
       ),
     [control.data?.decisions, hasDecisionLedger],
   );
+  const currentDecisions = activeDecisionRecords.filter((decision) => decision.freshness === "current");
+  const staleDecisions = activeDecisionRecords.filter((decision) => decision.freshness === "stale");
+  const unknownFreshnessDecisions = activeDecisionRecords.filter(
+    (decision) => decision.freshness !== "current" && decision.freshness !== "stale",
+  );
+  const decisionGroups = useMemo(() => {
+    const groupOrder = [
+      "rescue",
+      "protection",
+      "opportunity",
+      "manager_review",
+      "other",
+    ] as const;
+    const groupTitles: Record<string, string> = {
+      rescue: "Rescue recommendations",
+      protection: "Protection recommendations",
+      opportunity: "Opportunity observations",
+      manager_review: "Manager reviews",
+      other: "Other decision records",
+    };
+    return groupOrder
+      .map((category) => ({
+        category: category ?? "other",
+        title: groupTitles[category ?? "other"],
+        records: currentDecisions.filter((decision) => (decision.decisionCategory ?? "other") === category),
+      }))
+      .filter((group) => group.records.length > 0);
+  }, [currentDecisions]);
   const loadPreview = async (decision: Decision) => {
     if (!decision.leadId) return;
     setSelected(decision);
@@ -464,10 +516,15 @@ export default function KayControlCenterPage() {
               <p className="text-xs font-bold uppercase tracking-widest text-[#57756e]">
                 Decision ledger
               </p>
-              <h2 className="mt-1 text-2xl font-semibold">Active rescue recommendations</h2>
+              <h2 className="mt-1 text-2xl font-semibold">Active recommendations &amp; decisions</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Only current records count as active. Stale and unknown records remain visible separately; stored statuses are unchanged.
+              </p>
             </div>
-            <Badge variant="outline">
-              {hasDecisionLedger ? `${decisions.length} active` : "Unavailable"}
+            <Badge variant="outline" className="whitespace-nowrap">
+              {hasDecisionLedger
+                ? `${currentDecisions.length} current · ${staleDecisions.length} stale · ${unknownFreshnessDecisions.length} unknown`
+                : "Unavailable"}
             </Badge>
           </div>
           {!hasDecisionLedger ? (
@@ -477,21 +534,57 @@ export default function KayControlCenterPage() {
               retry={() => control.refetch()}
               isFetching={control.isFetching}
             />
-          ) : decisions.length === 0 ? (
+          ) : activeDecisionRecords.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-sm text-slate-600">
-                No active valid rescue decisions require review.
+                No active decision records in this snapshot.
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {decisions.map((decision) => (
-                <DecisionRow
-                  key={decision.id}
-                  decision={decision}
-                  onReview={() => loadPreview(decision)}
-                />
+            <div className="space-y-5">
+              {decisionGroups.map((group) => (
+                <div key={group.category} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-slate-800">{group.title}</h3>
+                    <Badge variant="secondary">{group.records.length} current</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {group.records.map((decision) => (
+                      <DecisionRow
+                        key={decision.id}
+                        decision={decision}
+                        onReview={decision.decisionCategory === "rescue" ? () => loadPreview(decision) : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
+              {staleDecisions.length > 0 && (
+                <div className="space-y-2" data-testid="stale-decision-records">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-amber-900">Stale records · excluded from active</h3>
+                    <Badge variant="outline">{staleDecisions.length}</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {staleDecisions.map((decision) => (
+                      <DecisionRow key={decision.id} decision={decision} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {unknownFreshnessDecisions.length > 0 && (
+                <div className="space-y-2" data-testid="unknown-freshness-decision-records">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-slate-700">Freshness unknown · not counted as current</h3>
+                    <Badge variant="outline">{unknownFreshnessDecisions.length}</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {unknownFreshnessDecisions.map((decision) => (
+                      <DecisionRow key={decision.id} decision={decision} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -516,6 +609,38 @@ export default function KayControlCenterPage() {
                   : "Not available"
               }
             />
+          </CardContent>
+        </Card>
+        <Card className="border-[#bed2cc]" data-testid="kay-recommendation-scheduler-status">
+          <CardHeader>
+            <CardTitle className="text-lg">Kay recommendation scheduler</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              title="Status"
+              value={control.data?.recommendationScheduler?.enabled ? "Enabled" : "Disabled"}
+            />
+            <Metric
+              title="Last run"
+              value={date(control.data?.recommendationScheduler?.persistent?.lastRunAt ?? control.data?.recommendationScheduler?.lastCycleCompletedAt)}
+            />
+            <Metric
+              title="Last result"
+              value={label(control.data?.recommendationScheduler?.persistent?.lastResult)}
+            />
+            <Metric title="Checked" value={control.data?.recommendationScheduler?.persistent?.checkedCount == null ? "Not available" : String(control.data.recommendationScheduler.persistent.checkedCount)} />
+            <Metric title="Recommendations / Eligible" value={
+              control.data?.recommendationScheduler?.persistent?.recommendationCount == null &&
+              control.data?.recommendationScheduler?.persistent?.eligibleCount == null
+                ? "Not available"
+                : `${control.data.recommendationScheduler.persistent.recommendationCount ?? "—"} / ${control.data.recommendationScheduler.persistent.eligibleCount ?? "—"}`
+            } />
+            <Metric title="Stale" value={control.data?.recommendationScheduler?.persistent?.staleCount == null ? "Not available" : String(control.data.recommendationScheduler.persistent.staleCount)} />
+            <Metric
+              title="Disabled reason"
+              value={label(control.data?.recommendationScheduler?.persistent?.disabledReason ?? control.data?.recommendationScheduler?.reason)}
+            />
+            <Metric title="Interval" value={`${control.data?.recommendationScheduler?.intervalMinutes ?? 15} minutes`} />
           </CardContent>
         </Card>
         <LegacyBaselineCard
@@ -1424,34 +1549,60 @@ function DecisionRow({
   onReview,
 }: {
   decision: Decision;
-  onReview: () => void;
+  onReview?: () => void;
 }) {
   const payload = decision.payload ?? {};
+  const decisionLabel =
+    decision.decisionCategory === "rescue"
+      ? "Rescue recommendation"
+      : decision.decisionType === "protection_recommended"
+        ? "Protection recommendation"
+        : decision.decisionType === "protected_lead_review_due"
+          ? "Protection review"
+          : decision.decisionType === "unprotected_opportunity"
+            ? "Opportunity observation"
+            : decision.decisionType === "manager_review"
+              ? "Manager review"
+              : decision.decisionType?.replaceAll("_", " ") || "Decision record";
+  const freshnessLabel =
+    decision.freshness === "stale"
+      ? "Stale · excluded from active"
+      : decision.freshness === "current"
+        ? "Current"
+        : "Freshness unknown";
   return (
-    <Card className="border-l-4 border-l-[#d39b45]">
+    <Card className={`border-l-4 ${decision.freshness === "stale" ? "border-l-[#c58a35] bg-[#fffdf8]" : "border-l-[#5d9588]"}`}>
       <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">Lead {decision.leadId ?? "—"}</span>
-            <Badge className="bg-[#fff1d9] text-[#825a1d] hover:bg-[#fff1d9]">
-              {payload.state ?? "ACTIVE"}
+            <Badge variant="outline" className="border-[#bfd5ce] bg-white text-[#285d53]">
+              {decisionLabel}
+            </Badge>
+            <Badge variant="outline" className={decision.freshness === "stale" ? "border-amber-400 text-amber-900" : "border-slate-300 text-slate-600"}>
+              {freshnessLabel}
             </Badge>
             <span className="text-xs text-slate-500">{date(decision.createdAt)}</span>
           </div>
           <p className="mt-2 text-sm text-slate-600">
             {payload.employee_selection_explanation ??
               decision.rationale ??
-              "Kay identified a rescue review candidate."}
+              "Read-only Kay decision record."}
           </p>
+          {decision.freshnessReason && (
+            <p className="mt-1 text-xs text-amber-900">{decision.freshnessReason}</p>
+          )}
         </div>
         {decision.leadId ? (
           <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={onReview}
-              className="bg-[#17685d] text-white hover:bg-[#10554b]"
-            >
-              View recommendation
-            </Button>
+            {onReview && decision.freshness === "current" && (
+              <Button
+                onClick={onReview}
+                className="bg-[#17685d] text-white hover:bg-[#10554b]"
+              >
+                View rescue recommendation
+              </Button>
+            )}
             <Button asChild variant="outline">
               <Link href={`/admin/crm/${decision.leadId}`}>Open Lead</Link>
             </Button>

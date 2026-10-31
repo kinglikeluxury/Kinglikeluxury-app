@@ -18,13 +18,13 @@ import { slugifyProperty, extractIdFromSlug } from "@/lib/slugify";
 import { useContentProtection } from "@/hooks/use-content-protection";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { HlsVideoPlayer } from "@/components/property/HlsVideoPlayer";
+import { CameraStreamRenderer } from "@/components/property/CameraStreamRenderer";
 
 // ── Live Camera Section component (used inside PropertyDetail) ─────────────
 function LiveCameraSection({ cameras }: { cameras: any[] }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const camera = cameras[activeIdx];
-  if (!camera?.embedUrl) return null;
+  if (!camera) return null;
   return (
     <div className="space-y-3">
       {cameras.length > 1 && (
@@ -46,7 +46,14 @@ function LiveCameraSection({ cameras }: { cameras: any[] }) {
           ))}
         </div>
       )}
-      <HlsVideoPlayer key={camera.id} url={camera.embedUrl} label={camera.label} />
+      {camera.status === "coming_soon" ? (
+        <div className="w-full aspect-video rounded-2xl flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-200 bg-gray-50 px-6 text-center">
+          <Camera className="w-12 h-12 text-gray-300" />
+          <p className="font-semibold text-gray-600">Coming Soon</p>
+        </div>
+      ) : camera.embedUrl ? (
+        <CameraStreamRenderer key={camera.id} url={camera.embedUrl} label={camera.label} />
+      ) : null}
     </div>
   );
 }
@@ -214,7 +221,9 @@ const PropertyDetail = () => {
     queryFn: () => fetch(`/api/live-projects/${propertyId}/cameras`).then(r => r.json()),
     enabled: !!propertyId,
   });
-  const activeLiveCameras = liveCameras.filter((c: any) => c.isActive && c.embedUrl);
+  const publicLiveCameras = liveCameras.filter(
+    (c: any) => c.isActive !== false && (c.status === "active" || c.status === "coming_soon")
+  );
 
   const isLoading = isLoadingProperty || (property?.propertyType === 'project' && isLoadingProject);
 
@@ -685,16 +694,22 @@ const PropertyDetail = () => {
             )}
 
             {/* ── Live Construction Camera Section ─────────────────────── */}
-            {activeLiveCameras.length > 0 && (
+            {publicLiveCameras.length > 0 && (
               <div className="mb-8">
                 <div className="flex items-center gap-3 mb-4">
                   <h3 className="text-xl font-semibold">{t('property.liveCamera', 'Live Construction Camera')}</h3>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wider bg-red-500">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping" />
-                    LIVE
-                  </span>
+                  {publicLiveCameras.some((camera: any) => camera.status === "active") ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wider bg-red-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping" />
+                      LIVE
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-gray-600 text-[10px] font-bold uppercase tracking-wider bg-gray-100">
+                      Coming Soon
+                    </span>
+                  )}
                 </div>
-                <LiveCameraSection cameras={activeLiveCameras} />
+                <LiveCameraSection cameras={publicLiveCameras} />
               </div>
             )}
 

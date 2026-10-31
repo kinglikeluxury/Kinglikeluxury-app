@@ -1,5 +1,6 @@
 _no_deploy/
 uploads/
+/generated-artifacts/ai-blog-covers/
 manual_backups/
 backups/
 attached_assets_unused/

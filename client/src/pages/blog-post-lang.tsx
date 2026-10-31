@@ -35,7 +35,10 @@ export default function BlogPostLang() {
       if (res.status === 301) {
         const data = await res.json();
         if (data.redirect) {
-          navigate(`/${urlLang}/blog/${data.redirect}`, { replace: true } as any);
+          const target = data.redirect.startsWith("/")
+            ? data.redirect
+            : `/${urlLang}/blog/${data.redirect}`;
+          navigate(target, { replace: true } as any);
           return null;
         }
       }
@@ -102,7 +105,8 @@ export default function BlogPostLang() {
     );
   }
 
-  const canonicalUrl = `${BASE_URL}/${urlLang}/blog/${slug}`;
+  const canonicalSlug = post.translations?.[urlLang]?.slug || post.slug || slug;
+  const canonicalUrl = `${BASE_URL}/${urlLang}/blog/${canonicalSlug}`;
   const seoDescription = displayExcerpt || displayTitle;
   const image = post.coverImage || `${BASE_URL}/icons/icon-512.png`;
   const formattedDate = post.createdAt
@@ -134,15 +138,15 @@ export default function BlogPostLang() {
   return (
     <>
       <Helmet>
-        <html lang={urlLang} />
+        <html lang={urlLang} dir={urlLang === "ar" ? "rtl" : "ltr"} />
         <title>{displayTitle} | Kinglike Luxury</title>
         <meta name="description" content={seoDescription} />
         <link rel="canonical" href={canonicalUrl} />
 
         {SUPPORTED_LANGS.map((l) => (
-          <link key={l} rel="alternate" hrefLang={l} href={`${BASE_URL}/${l}/blog/${slug}`} />
+          <link key={l} rel="alternate" hrefLang={l} href={`${BASE_URL}/${l}/blog/${post.translations?.[l]?.slug || post.slug || slug}`} />
         ))}
-        <link rel="alternate" hrefLang="x-default" href={`${BASE_URL}/en/blog/${slug}`} />
+        <link rel="alternate" hrefLang="x-default" href={`${BASE_URL}/en/blog/${post.translations?.en?.slug || post.slug || slug}`} />
 
         <meta property="og:type" content="article" />
         <meta property="og:title" content={`${displayTitle} | Kinglike Luxury`} />

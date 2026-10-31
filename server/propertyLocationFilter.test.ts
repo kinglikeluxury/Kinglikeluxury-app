@@ -13,11 +13,12 @@ describe("property country and city filtering", () => {
     assert.equal(propertyLocationMatches("Latakia, Turkey", filter), false);
   });
 
-  it("limits Azerbaijan filtering to Baku", () => {
-    const filter = buildPropertyLocationFilter("azerbaijan", "baku");
+  it("supports Baku aliases only within Azerbaijan", () => {
+    const filter = buildPropertyLocationFilter("az", "bakı");
     assert.ok(filter);
     assert.equal(propertyLocationMatches("Baku, Azerbaijan", filter), true);
-    assert.equal(propertyLocationMatches("Batumi, Azerbaijan", filter), false);
+    assert.equal(propertyLocationMatches("Bakı, Azerbaijan", filter), true);
+    assert.equal(propertyLocationMatches("Baku, Turkey", filter), false);
     assert.equal(buildPropertyLocationFilter("azerbaijan", "ganja"), undefined);
   });
 
@@ -26,6 +27,19 @@ describe("property country and city filtering", () => {
     assert.ok(filter);
     assert.equal(propertyLocationMatches("Tbilisi, Georgia", filter), true);
     assert.equal(propertyLocationMatches("Tbilisi, Turkey", filter), false);
+  });
+
+  it("preserves existing UAE, Turkey, and Northern Cyprus city matching", () => {
+    const dubai = buildPropertyLocationFilter("uae", "dubai");
+    const trabzon = buildPropertyLocationFilter("tr", "trabzon");
+    const girne = buildPropertyLocationFilter("northern-cyprus", "girne");
+    assert.ok(dubai);
+    assert.ok(trabzon);
+    assert.ok(girne);
+    assert.equal(propertyLocationMatches("Dubai, UAE", dubai), true);
+    assert.equal(propertyLocationMatches("Trabzon, Turkey", trabzon), true);
+    assert.equal(propertyLocationMatches("Girne, Northern Cyprus (TRNC)", girne), true);
+    assert.equal(propertyLocationMatches("Girne, Turkey", girne), false);
   });
 
   it("fails closed for unknown countries and mismatched cities", () => {

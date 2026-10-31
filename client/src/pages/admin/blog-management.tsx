@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, ArrowLeft, Eye, EyeOff, Upload, ImageIcon, X, RefreshCw, Video, Sparkles, CheckCircle2, Clock, AlertCircle, Circle, Link2 } from "lucide-react";
 import { uploadToCloudinary } from "@/lib/cloudinaryUpload";
+import { AiBlogDraftsPanel } from "./AiBlogDraftsPanel";
 
 type BlogPostWithAuthor = BlogPost & { author: { username: string } };
 
@@ -73,7 +74,7 @@ const BlogManagement = () => {
   const [coverType, setCoverType] = useState<"image" | "video">("image");
   const [categories, setCategories] = useState("");
   const [country, setCountry] = useState("georgia");
-  const [published, setPublished] = useState(true);
+  const [published, setPublished] = useState(false);
   const [slug, setSlug] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -207,7 +208,7 @@ const BlogManagement = () => {
     setCoverType("image");
     setCategories("");
     setCountry("georgia");
-    setPublished(true);
+    setPublished(false);
     setSlug("");
     setEditingPost(null);
     setShowForm(false);
@@ -421,6 +422,30 @@ const BlogManagement = () => {
                       <span className="text-xl">🇨🇾</span>
                       N. Cyprus (TRNC)
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setCountry("azerbaijan")}
+                      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                        country === "azerbaijan"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
+                      }`}
+                    >
+                      <span className="text-xl">🇦🇿</span>
+                      Azerbaijan — Baku
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCountry("syria")}
+                      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                        country === "syria"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
+                      }`}
+                    >
+                      <span className="text-xl">🇸🇾</span>
+                      Syria
+                    </button>
                   </div>
                 </div>
 
@@ -626,6 +651,7 @@ const BlogManagement = () => {
           </Card>
         )}
 
+        <AiBlogDraftsPanel />
         <div className="space-y-4">
           {(!posts || posts.length === 0) && !showForm && (
             <Card className="p-12 text-center">
@@ -650,7 +676,7 @@ const BlogManagement = () => {
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="text-lg font-semibold text-[#005476] truncate">{post.title}</h3>
                         <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0">
-                          {(post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : (post as any).country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
+                          {(post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : (post as any).country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : (post as any).country === 'azerbaijan' ? '🇦🇿 Azerbaijan — Baku' : (post as any).country === 'syria' ? '🇸🇾 Syria' : '🇬🇪 Georgia'}
                         </span>
                         {post.published ? (
                           <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full shrink-0">

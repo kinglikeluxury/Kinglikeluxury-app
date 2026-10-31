@@ -9,6 +9,7 @@
 - [Ambassadori browser automation](ambassadori-browser-automation.md) — Playwright + Nix Chromium for headless form-fill; session cookies in DB; false-success fix at startup.
 - [AI Lead Scoring columns](ai-lead-scoring.md) — 4 raw-SQL columns on crm_leads (ai_score, ai_score_category, ai_score_reason, ai_score_updated_at); scores cached in DB, generated fire-and-forget on create/update.
 - [Neon pool concurrent connect() race](neon-pool-concurrent-connect-race.md) — new startup table-bootstrap chains should chain sequentially onto an existing one, not float independently, to avoid an intermittent driver crash.
+- [Neon production permission changes](neon-production-permission-changes.md) — verify runtime host, database, project, and primary branch before narrowly scoped SQL through Neon.
 - [Kinglike Quality Score (KQS) engine](kqs-scoring-engine.md) — read-only lead/campaign quality scoring (0-100) that overrides Meta CPL/CTR with real CRM outcomes; CRM Score weighted 75% vs Meta Score 25%.
 - [Crown Plaza selection verified](crown-plaza-selection-verified.md) — user confirmed apartment selection is correct; future visual changes must leave polygon-to-unit mapping unchanged.
 - [Replit secrets vs stale autoscale deploys](secrets-vs-stale-deploy.md) — a secret existing in Replit Secrets doesn't mean a running autoscale instance has it; only a fresh deploy/restart picks up newly-added secrets.
@@ -32,9 +33,25 @@
 - [Kay direct caller live verification](kay-direct-caller-live-verification.md) — single-browser in-app ring, answer, local Arabic voice, microphone controls, and hangup were confirmed live.
 - [Kay voice branch reconciliation](kay-voice-branch-reconciliation.md) — reconcile an advanced remote voice branch in an isolated worktree and fast-forward only; never force-push over remote features.
 - [RunPod zero-scale drain](runpod-zero-scale-drain.md) — workersMax=0 can leave a worker draining briefly; verify endpoint health reaches all-zero before declaring shutdown.
+- [RunPod queued-job startup](runpod-queued-job-startup.md) — a scale-to-zero endpoint can leave a job queued with all worker counters at zero; never retry before canceling and draining.
 - [Kay recording foundation](kay-recording-foundation.md) — keep audio outside PostgreSQL; admin-only signed playback stays fail-closed until private storage is provisioned.
 - [R2 SigV4 transport](r2-sigv4-transport.md) — R2 Authorization has no comma after the algorithm; empty object requests need zero content length and fetch transport.
 - [Kay browser audio capture](kay-browser-audio-capture.md) — speechSynthesis is audible but not a MediaStream; direct virtual calls must fail closed instead of becoming READY.
 - [Kay Vite audio fixture](kay-vite-audio-fixture.md) — Vite bundles the tracked WAV, while Node tests must avoid importing the binary-bearing component directly.
 - [Kay metadata migration ownership](kay-metadata-migration-ownership.md) — recording metadata schema changes require the dedicated migration-owner connection; runtime Kay writer cannot alter table ownership.
 - [Kay one-turn gateway](kay-one-turn-gateway.md) — Tarek voice tests are notice-gated, exact-socket-bound, database-reserved, and terminal after one attempt.
+- [RunPod remote image builds](runpod-remote-image-build.md) — local Docker cannot extract the CUDA base under its quota; use the repository GitHub Actions build and verify its immutable GHCR tag.
+- [Mobile shell panel sizing](mobile-shell-panel-sizing.md) — when a fixed mobile shell is removed, constrain the page viewport and set nested flex panels to min-height: 0 so chat scrolling stays inside the panel.
+- [Public Arabic font policy](public-arabic-font-policy.md) — public typography is frozen; Tajawal Local remains scoped to Kinglike Family WhatsApp only.
+- [Arabic font reference captures](arabic-font-reference-captures.md) — the older mobile Home preview is a splash capture, not a rendered Home baseline.
+- [Employee WhatsApp boundary](employee-whatsapp-boundary.md) — Employee UI uses independent shared presentation code and employee endpoints, never an Admin-page or Admin-repository import.
+- [Visual QA splash timing](visual-qa-splash-timing.md) — wait for the 3.4s app splash to finish before capturing rendered-route screenshots.
+- [Live camera source routing](live-camera-source-routing.md) — distinguish embed pages from HLS sources; frame-src, connect-src, and media-src must be scoped separately.
+- [Read-only browser diagnostics](readonly-browser-diagnostics.md) — if bundled Playwright Chromium lacks system libraries, use the system Chromium executable without installing packages.
+- [Meta WhatsApp review prototype](meta-whatsapp-review-prototype.md) — honor Builder ES v4 and Session Info v3 exactly; do not add unrequested Meta configuration or integration scope.
+- [Meta sync startup side effect](meta-sync-startup-side-effect.md) — restarting the main app can immediately run the existing Meta lead pull-sync job, even when the processor is disabled.
+- [Meta queue claim fencing](meta-queue-claim-fencing.md) — use exact DB-issued `updated_at` versions for the webhook queue only; keep Pull Sync separate.
+- [Syria market scope](syria-market-scope.md) — Syria real-estate additions must leave Meta, WhatsApp, and background processing unchanged.
+- [Azerbaijan market scope](azerbaijan-market-scope.md) — Azerbaijan support is limited to the country and Baku; preserve Syria and all existing locations.
+- [AI blog draft safety](ai-blog-drafts-safety.md) — keep AI research, writing, images, and scheduling fail-closed until the user approves costs and a dedicated test DB verifies persistence.
+- [Kay isolated Neon test transport](kay-test-neon-websocket.md) — isolated tests using Neon pools must set the `ws` WebSocket constructor before connecting; the normal server bootstrap does this globally.

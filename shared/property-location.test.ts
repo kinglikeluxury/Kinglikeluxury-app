@@ -16,12 +16,16 @@ test("combines a pinned address with the selected Syrian city and country", () =
     location,
     "Dummar Gharbiya Neighborhood, Dummar Municipality, Damascus, Syria",
   );
+  assert.match(location.toLowerCase(), /syria/);
 });
 
-test("does not duplicate city or country already present in a pinned address", () => {
+test("does not duplicate city or country already present in the pinned address", () => {
   const cityName = getSyriaCityDisplayName("damascus");
-  assert.equal(
-    combineLocationParts(["Dummar, Damascus, Syria", cityName, "Syria"]),
+  const location = combineLocationParts([
     "Dummar, Damascus, Syria",
-  );
+    cityName,
+    "Syria",
+  ]);
+
+  assert.equal(location, "Dummar, Damascus, Syria");
 });

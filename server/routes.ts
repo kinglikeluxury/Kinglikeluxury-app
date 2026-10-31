@@ -4,11 +4,21 @@ import { createServer, type Server } from "http";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
 import bcrypt from "bcrypt";
+import { verifyStoredPassword } from "./passwordAuth";
+import {
+  authenticateMetaReviewer,
+  findMetaReviewerByEmail,
+  getMetaReviewerAccount,
+} from "./metaReviewerAccessStore";
+import { createMetaReviewerAccessGuard } from "./metaReviewerAccessGuard";
+import { isMetaReviewDiagnosticMode } from "./metaReviewDiagnosticMode";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
 import pg from "pg";
 const { Pool } = pg;
 import { storage } from "./storage";
+import { canReadBlogPost } from "./blogVisibility";
+import { registerAiBlogDraftRoutes } from "./aiBlogDraftRoutes";
 import { 
   insertUserSchema, 
   insertPropertySchema, 
@@ -44,6 +54,7 @@ import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
+import { getKayRecommendationSchedulerStatusWithPersistence } from "./kayRecommendationScheduler";
 import { getAssistedRescuePreview, listPromiseHandoffs } from "./kayRescueReadService";
 import { getAutoRescueHealth, getAutoRescueReadiness } from "./kayAutoRescueReadService";
 import { requireKayAdmin } from "./kayAuth";
@@ -79,6 +90,8 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     isAdmin: boolean;
+    isMetaReviewer?: boolean;
+    isActive: boolean;
     role: string;
     kayLegacyBaselineConfirmation?: { token: string; adminId: number; fingerprint: string; limit: number; expiresAt: number; candidates: Array<{id:number;status:string;trusted:boolean;existing:boolean}> };
   }
@@ -86,6 +99,43 @@ declare module "express-session" {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // Install session and reviewer authorization before registering any routes.
+  // This ensures even early debug/API handlers cannot bypass reviewer fencing.
+  const isProduction = process.env.NODE_ENV === "production";
+  const sessionMiddleware: RequestHandler = session({
+    cookie: {
+      maxAge: 86400000,
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
+    },
+    store: storage.sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    secret: (() => {
+      const secret = process.env.SESSION_SECRET;
+      if (!secret) {
+        if (process.env.NODE_ENV === "production") {
+          console.error(
+            "[SECURITY] SESSION_SECRET environment variable is NOT set. " +
+            "This is required in production to prevent session forgery. " +
+            "Set SESSION_SECRET in Replit Secrets immediately."
+          );
+        } else {
+          console.warn(
+            "[SECURITY] SESSION_SECRET not set — using insecure dev fallback. " +
+            "Set SESSION_SECRET before deploying to production."
+          );
+        }
+      }
+      return secret || (process.env.NODE_ENV === "production"
+        ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
+        : "dev-only-insecure-fallback-do-not-use-in-production");
+    })(),
+  });
+  app.use(sessionMiddleware);
+  app.use(createMetaReviewerAccessGuard());
 
   // ─── Database Status Debug Endpoint ────────────────────────────────────────
   app.get("/api/debug/database-status", async (_req, res) => {
@@ -212,11 +262,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!post) {
         const redirectPost = await storage.getBlogPostByOldSlug(slug);
         if (redirectPost) {
+          const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+          if (!canReadBlogPost(redirectPost.published, viewer?.isAdmin === true)) {
+            return res.status(404).send("Not found");
+          }
           const localizedSlug = getPostLangSlug(redirectPost, lang);
           return res.redirect(301, `/${lang}/blog/${slugToUrlPath(localizedSlug)}`);
         }
         if (isBot) return res.status(404).send("Not found");
         return next();
+      }
+
+      // Drafts are private, including direct URLs and crawler/server-rendered routes.
+      if (!post.published) {
+        const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+        if (!canReadBlogPost(post.published, viewer?.isAdmin === true)) return res.status(404).send("Not found");
+      }
+
+      // If there is no translation for the requested language and the source is Arabic,
+      // keep the public URL aligned with the Arabic content rather than serving Arabic at /en.
+      const requestedTranslation = post.translations?.[lang];
+      const sourceLooksArabic = /[\u0600-\u06FF]/.test(
+        `${post.title || ""} ${(post.content || "").slice(0, 500)}`,
+      );
+      if (!requestedTranslation && lang !== "ar" && sourceLooksArabic && post.translations?.ar) {
+        const arabicSlug = getPostLangSlug(post, "ar");
+        return res.redirect(301, `/ar/blog/${slugToUrlPath(arabicSlug)}`);
       }
 
       const safe = (s: string) =>
@@ -437,41 +508,6 @@ ${metaTags}
     }
   });
 
-  // Configure sessions with PostgreSQL store
-  const isProduction = process.env.NODE_ENV === "production";
-
-  const sessionMiddleware: RequestHandler = session({
-      cookie: {
-        maxAge: 86400000, // 24 hours
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
-      },
-      store: storage.sessionStore,
-      resave: false,
-      saveUninitialized: false,
-      secret: (() => {
-        const secret = process.env.SESSION_SECRET;
-        if (!secret) {
-          if (process.env.NODE_ENV === "production") {
-            console.error(
-              "[SECURITY] SESSION_SECRET environment variable is NOT set. " +
-              "This is required in production to prevent session forgery. " +
-              "Set SESSION_SECRET in Replit Secrets immediately."
-            );
-          } else {
-            console.warn(
-              "[SECURITY] SESSION_SECRET not set — using insecure dev fallback. " +
-              "Set SESSION_SECRET before deploying to production."
-            );
-          }
-        }
-        return secret || (process.env.NODE_ENV === "production"
-          ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
-          : "dev-only-insecure-fallback-do-not-use-in-production");
-      })(),
-    });
-  app.use(sessionMiddleware);
   registerKayInternalCallRoutes(app, httpServer, sessionMiddleware);
   // Register before the generic Kay gate so direct metadata/playback URLs
   // always reach the live admin middleware, including unauthenticated requests.
@@ -573,18 +609,83 @@ ${metaTags}
       });
     }
   });
+  function sanitizeKayDiagnosticMessage(error: unknown): string | null {
+    const raw = error instanceof Error ? error.message : String(error ?? "");
+    if (!raw) return null;
+    if (/all attempts to open a websocket.*failed/i.test(raw)) return "Neon WebSocket connection failed";
+    if (/password authentication failed/i.test(raw)) return "Database authentication failed";
+    if (/fetch failed/i.test(raw)) return "Database transport fetch failed";
+    const connectionCode = raw.match(/\b(ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH)\b/i)?.[1];
+    if (connectionCode) return `Database connection failed (${connectionCode.toUpperCase()})`;
+
+    const safeIdentifier = `[A-Za-z_][A-Za-z0-9_.]*`;
+    const structuralPatterns: Array<[RegExp, string]> = [
+      [new RegExp(`^permission denied for (table|relation|sequence|schema) "?(${safeIdentifier})"?$`, "i"), "$1 permission denied: $2"],
+      [new RegExp(`^(relation|table) "?(${safeIdentifier})"? does not exist$`, "i"), "$1 missing: $2"],
+      [new RegExp(`^column "?(${safeIdentifier})"? does not exist$`, "i"), "column missing: $1"],
+      [/^current transaction is aborted, commands ignored until end of transaction block$/i, "transaction aborted"],
+      [/^canceling statement due to statement timeout$/i, "database statement timed out"],
+    ];
+    for (const [pattern, replacement] of structuralPatterns) {
+      const match = raw.match(pattern);
+      if (match) return raw.replace(pattern, replacement).slice(0, 180);
+    }
+
+    if (/no pg_hba\.conf entry/i.test(raw)) return "Database host authentication rule rejected the connection";
+    if (/connection terminated unexpectedly/i.test(raw)) return "Database connection terminated unexpectedly";
+    if (/remaining connection slots are reserved/i.test(raw)) return "Database connection limit reached";
+    if (/statement timeout|query timeout|timed out/i.test(raw)) return "Database operation timed out";
+    return "Unclassified error (message redacted)";
+  }
+
+  function kayReadDiagnostic(endpoint: string): RequestHandler {
+    return (req, res, next) => {
+      if (!isMetaReviewDiagnosticMode(process.env)) return next();
+      const correlationId = randomUUID();
+      let capturedError: unknown = null;
+      res.setHeader("X-Kay-Diagnostic-Id", correlationId);
+      (req as any).recordKayDiagnosticError = (error: unknown) => { capturedError = error; };
+      res.once("finish", () => {
+        const error = capturedError as any;
+        const errorClass = error && typeof error === "object" && error.constructor?.name
+          ? String(error.constructor.name).replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 48)
+          : null;
+        const rawCode = error && typeof error === "object" ? error.code : null;
+        const errorCode = typeof rawCode === "string" && /^[A-Za-z0-9_.-]{1,48}$/.test(rawCode)
+          ? rawCode
+          : typeof rawCode === "number" && Number.isFinite(rawCode) ? String(rawCode) : null;
+        console.info("[KayReadDiagnostic]", JSON.stringify({
+          endpoint,
+          status: res.statusCode,
+          correlationId,
+          errorClass,
+          errorCode,
+          errorMessage: capturedError ? sanitizeKayDiagnosticMessage(capturedError) : null,
+        }));
+      });
+      next();
+    };
+  }
+
   // ─── Kay Zero Max — admin-only, observation-only control center ───
   app.get("/api/admin/kay/control", requireKayAdmin, async (_req, res) => {
     try {
       const [control, employeeWorkflow, missionInspection, operationsHealth] = await Promise.all([getKayControlSnapshot(), getKayEmployeeWorkflowSnapshot(), getKayMissionInspection(), getKayOperationsHealth()]);
       const availability = await Promise.all((employeeWorkflow as any[]).map(async employee => ({ employeeId: employee.employee_id, ...(await getKayAvailability(employee.employee_id)) })));
-      res.json({ ...control, employeeWorkflow, missionInspection, operationsHealth, availability });
+      res.json({
+        ...control,
+        employeeWorkflow,
+        missionInspection,
+        operationsHealth,
+        availability,
+        recommendationScheduler: await getKayRecommendationSchedulerStatusWithPersistence(),
+      });
     } catch (err: any) {
       res.status(500).json({ message: "Unable to load Kay control data." });
     }
   });
 
-  app.get("/api/admin/kay/supervisor/snapshot", requireKayAdmin, async (req, res) => {
+  app.get("/api/admin/kay/supervisor/snapshot", kayReadDiagnostic("/api/admin/kay/supervisor/snapshot"), requireKayAdmin, async (req, res) => {
     try {
       const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
       if (employeeId !== undefined && (!Number.isInteger(employeeId) || employeeId < 1)) {
@@ -592,6 +693,7 @@ ${metaTags}
       }
       res.json(await getSupervisorSnapshot(employeeId));
     } catch (err: any) {
+      (req as any).recordKayDiagnosticError?.(err);
       res.status(500).json({ message: "Unable to load Kay supervisor snapshot." });
     }
   });
@@ -938,13 +1040,14 @@ ${metaTags}
     try { res.json(await setPhaseDSettings(req.body, req.session.userId)); } catch { res.status(500).json({ message: "Unable to update Phase D settings." }); }
   });
   app.get("/api/admin/kay/owner-brief", requireKayAdmin, async (_req, res) => res.json(await getOwnerBrief()));
-  app.get("/api/admin/kay/reviews", requireKayAdmin, async (_req, res) => {
+  app.get("/api/admin/kay/reviews", kayReadDiagnostic("/api/admin/kay/reviews"), requireKayAdmin, async (req, res) => {
     try {
       const reviews = await withKayInternalClient(client =>
         client.query(`SELECT * FROM kay_manager_reviews ORDER BY created_at DESC LIMIT 100`)
       );
       res.json({ reviews: reviews.rows, shadow: true });
-    } catch {
+    } catch (err) {
+      (req as any).recordKayDiagnosticError?.(err);
       res.status(503).json({ message: "Kay internal services are currently unavailable.", code: "KAY_INTERNAL_UNAVAILABLE" });
     }
   });
@@ -1529,6 +1632,7 @@ ${metaTags}
 
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
+      req.session.isActive = user.isActive === true;
       req.session.role = user.role ?? "user";
 
       // Fire-and-forget welcome notifications
@@ -1540,6 +1644,8 @@ ${metaTags}
         username: user.username,
         authMethod: user.authMethod,
         isAdmin: user.isAdmin,
+        isActive: user.isActive === true,
+        role: user.role ?? "user",
       };
       if (user.email) userResponse.email = user.email;
       if (user.phoneNumber) userResponse.phoneNumber = user.phoneNumber;
@@ -1573,6 +1679,34 @@ ${metaTags}
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password, phoneNumber, whatsappNumber, facebookId, authMethod } = req.body;
+
+      const reviewerEmail = typeof username === "string" ? username.trim().toLowerCase() : "";
+      const reviewer = isMetaReviewDiagnosticMode()
+        ? findMetaReviewerByEmail(reviewerEmail)
+        : undefined;
+      if (reviewer) {
+        const authenticatedReviewer = typeof password === "string"
+          ? await authenticateMetaReviewer(reviewerEmail, password)
+          : undefined;
+        if (!authenticatedReviewer) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+        req.session.userId = authenticatedReviewer.id;
+        req.session.isAdmin = false;
+        req.session.isMetaReviewer = true;
+        req.session.isActive = true;
+        req.session.role = "meta_reviewer";
+        return res.json({
+          id: authenticatedReviewer.id,
+          username: authenticatedReviewer.username,
+          email: authenticatedReviewer.email,
+          authMethod: "email",
+          isAdmin: false,
+          isMetaReviewer: true,
+          isActive: true,
+          role: "meta_reviewer",
+        });
+      }
       
       // Get user based on auth method
       let user;
@@ -1584,10 +1718,11 @@ ${metaTags}
         }
         
         user = await storage.getUserByUsername(username);
+        if (!user) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
         
-        const _emailPassOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password)
-          : user.password === password;
+        const _emailPassOk = await verifyStoredPassword(password, user.password);
         if (!user || !_emailPassOk) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
@@ -1647,9 +1782,10 @@ ${metaTags}
         }
 
         // Generic error — never reveal whether username/email/phone exists or which field failed
-        const _passOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password!)
-          : user.password === password;
+        if (!user) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+        const _passOk = await verifyStoredPassword(password, user.password);
         if (!user || !_passOk) {
           return res.status(401).json({ message: "Invalid login credentials." });
         }
@@ -1658,10 +1794,18 @@ ${metaTags}
       if (!user) {
         return res.status(401).json({ message: "User not found" });
       }
+
+      if (
+        user.role === "meta_reviewer" &&
+        (user.isAdmin !== true || user.isActive !== true)
+      ) {
+        return res.status(401).json({ message: "Invalid login credentials." });
+      }
       
       // Set session
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
+      req.session.isActive = user.isActive === true;
       req.session.role = user.role ?? "user";
       
       // Return appropriate user data
@@ -1670,6 +1814,7 @@ ${metaTags}
         username: user.username,
         authMethod: user.authMethod,
         isAdmin: user.isAdmin,
+        isActive: user.isActive === true,
         role: user.role ?? "user",
       };
       
@@ -1896,12 +2041,45 @@ ${metaTags}
     if (!req.session.userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
+
+    if (req.session.role === "meta_reviewer") {
+      const reviewer = isMetaReviewDiagnosticMode()
+        ? getMetaReviewerAccount(req.session.userId)
+        : undefined;
+      if (!reviewer || !reviewer.isActive || !reviewer.isMetaReviewer) {
+        req.session.destroy(() => undefined);
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      return res.json({
+        id: reviewer.id,
+        username: reviewer.username,
+        email: reviewer.email,
+        authMethod: "email",
+        isAdmin: false,
+        isMetaReviewer: true,
+        isActive: true,
+        role: "meta_reviewer",
+      });
+    }
     
     const user = await storage.getUser(req.session.userId);
     
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    if (
+      user.role === "meta_reviewer" &&
+      (user.isAdmin !== true || user.isActive !== true)
+    ) {
+      req.session.destroy(() => undefined);
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    // Refresh the trusted session flags from the database on every auth check.
+    req.session.isAdmin = user.isAdmin === true;
+    req.session.isActive = user.isActive === true;
+    req.session.role = user.role ?? "user";
     
     res.json({ 
       id: user.id, 
@@ -1910,6 +2088,7 @@ ${metaTags}
       phoneNumber: user.phoneNumber,
       authMethod: user.authMethod,
       isAdmin: user.isAdmin,
+      isActive: user.isActive === true,
       role: user.role ?? "user",
     });
   });
@@ -1977,6 +2156,8 @@ ${metaTags}
         filters.countryLocationRegex = geoFilter.countryRegex;
         filters.cityLocationRegex = geoFilter.cityRegex;
       } else if (cityQuery) {
+        // Preserve older city-only URLs; all current country/city search submissions
+        // send country and use the strict country-aware path above.
         const locationFilter = getLocationFilter(cityQuery);
         if (locationFilter) filters.locationContains = locationFilter;
       }
@@ -2600,6 +2781,15 @@ ${metaTags}
   // Serve uploaded files
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+  // Same route handlers are injected with production dependencies here and
+  // with isolated local dependencies by the HTTP integration harness.
+  registerAiBlogDraftRoutes(app, {
+    pool,
+    isAuthenticated,
+    isAdmin,
+    getUser: (id) => storage.getUser(id),
+  });
+
   // Blog routes
   app.get("/api/blog", async (req, res) => {
     try {
@@ -2660,12 +2850,32 @@ ${metaTags}
         // Check legacy old slugs
         const redirectPost = await storage.getBlogPostByOldSlug(slug);
         if (redirectPost) {
+          const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+          if (!canReadBlogPost(redirectPost.published, viewer?.isAdmin === true)) {
+            return res.status(404).json({ message: "Blog post not found" });
+          }
           const localizedSlug = langStr
             ? ((redirectPost as any).translations?.[langStr]?.slug || redirectPost.slug)
             : redirectPost.slug;
           return res.status(301).json({ redirect: localizedSlug });
         }
         return res.status(404).json({ message: "Blog post not found" });
+      }
+
+      if (!blogPost.published) {
+        const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+        if (!canReadBlogPost(blogPost.published, viewer?.isAdmin === true)) {
+          return res.status(404).json({ message: "Blog post not found" });
+        }
+      }
+
+      const requestedTranslation = langStr ? blogPost.translations?.[langStr] : undefined;
+      const sourceLooksArabic = /[\u0600-\u06FF]/.test(
+        `${blogPost.title || ""} ${(blogPost.content || "").slice(0, 500)}`,
+      );
+      if (langStr && langStr !== "ar" && !requestedTranslation && sourceLooksArabic && blogPost.translations?.ar) {
+        const arabicSlug = blogPost.translations.ar.slug || blogPost.slug;
+        return res.status(301).json({ redirect: `/ar/blog/${slugToUrlPath(arabicSlug)}` });
       }
 
       if (langStr) {
@@ -2690,6 +2900,13 @@ ${metaTags}
       
       if (!blogPost) {
         return res.status(404).json({ message: "Blog post not found" });
+      }
+
+      if (!blogPost.published) {
+        const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+        if (!canReadBlogPost(blogPost.published, viewer?.isAdmin === true)) {
+          return res.status(404).json({ message: "Blog post not found" });
+        }
       }
       
       if (lang) {
@@ -2772,7 +2989,8 @@ ${metaTags}
         authorId: user.id,
         categories: categories || [],
         country: country || 'georgia',
-        published: published !== false,
+        // Creating a post never publishes it by omission. Publishing must be an explicit admin action.
+        published: published === true,
       };
 
       const validated = insertBlogPostSchema.safeParse(postData);
@@ -2887,6 +3105,13 @@ ${metaTags}
       const blogPost = await storage.updateBlogPost(id, updates);
       if (!blogPost) {
         return res.status(404).json({ message: "Blog post not found" });
+      }
+
+      if (!blogPost.published) {
+        const viewer = req.session?.userId ? await storage.getUser(req.session.userId) : undefined;
+        if (!canReadBlogPost(blogPost.published, viewer?.isAdmin === true)) {
+          return res.status(404).json({ message: "Blog post not found" });
+        }
       }
 
       res.json(blogPost);

@@ -7,6 +7,7 @@ import { useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import type { Property } from '@shared/schema';
 import { slugifyProperty } from '@/lib/slugify';
+import { addOpenStreetMapTiles } from '@/lib/openStreetMapTiles';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 
@@ -35,12 +36,7 @@ const MapView = () => {
       preferCanvas: true,
     }).setView([41.6168, 41.6367], 6);
 
-    // Fast CartoDB Voyager tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
-      maxZoom: 20,
-      subdomains: 'abcd',
-    }).addTo(map);
+    addOpenStreetMapTiles(map);
 
     leafletMapRef.current = map;
 

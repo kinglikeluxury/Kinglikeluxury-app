@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import LocationSelector from "@/components/property/LocationSelector";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
-import { getSyriaCityDisplayName } from "@shared/property-location";
+import { SYRIA_CITY_OPTIONS } from "@shared/syriaLocations";
+import { combineLocationParts, getSyriaCityDisplayName } from "@shared/property-location";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
@@ -406,6 +407,10 @@ const PropertyForm = () => {
           { value: "istanbul", label: "İstanbul" },
           { value: "trabzon", label: "Trabzon" }
         ];
+      case "azerbaijan":
+        return [{ value: "baku", label: "Baku — Bakı — باکو" }];
+      case "syria":
+        return SYRIA_CITY_OPTIONS;
       default:
         return [];
     }
@@ -901,12 +906,6 @@ const PropertyForm = () => {
         !(formData.coordinates?.lat === 0 && formData.coordinates?.lng === 0);
 
       const getLocationString = () => {
-        // A map selection is the source of truth. Do not replace its
-        // reverse-geocoded address with the city dropdown value.
-        if (hasSelectedCoordinates && formData.location.trim()) {
-          return formData.location.trim();
-        }
-
         const cities = formData.city ? formData.city.split(',') : [];
         const countries = formData.country ? formData.country.split(',') : [];
         
@@ -920,6 +919,8 @@ const PropertyForm = () => {
                 case 'uae': return 'UAE';
                 case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
                 case 'turkey': return 'Turkey';
+                case 'syria': return 'Syria';
+                case 'azerbaijan': return 'Azerbaijan';
                 default: return c;
               }
             }).join(', ');
@@ -979,6 +980,16 @@ const PropertyForm = () => {
             default: return country;
           }
         });
+
+        // Preserve the reverse-geocoded pin address and append selected
+        // city/country names so country-based filters can classify the record.
+        if (hasSelectedCoordinates && formData.location.trim()) {
+          return combineLocationParts([
+            formData.location,
+            ...cityNames,
+            ...countryNames,
+          ]);
+        }
 
         // Combine city and country (e.g., "Batumi, Georgia" or "Dubai, UAE")
         return `${cityNames.join(', ')}, ${countryNames.join(', ')}`;
@@ -1511,7 +1522,9 @@ const PropertyForm = () => {
                         { value: 'georgia', label: '🇬🇪 Georgia' },
                         { value: 'uae', label: '🇦🇪 United Arab Emirates' },
                         { value: 'northern-cyprus', label: '🇨🇾 Northern Cyprus (TRNC)' },
-                        { value: 'turkey', label: '🇹🇷 Turkey' }
+                        { value: 'turkey', label: '🇹🇷 Turkey' },
+                        { value: 'syria', label: '🇸🇾 Syria' },
+                        { value: 'azerbaijan', label: '🇦🇿 Azerbaijan' },
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
@@ -1548,7 +1561,7 @@ const PropertyForm = () => {
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.country) ? formData.country : formData.country?.split(',') || []).map((country) => (
                             <Badge key={country} variant="secondary" className="text-xs">
-                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'northern-cyprus' ? '🇨🇾 TRNC' : country === 'turkey' ? '🇹🇷 Turkey' : country}
+                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'northern-cyprus' ? '🇨🇾 TRNC' : country === 'turkey' ? '🇹🇷 Turkey' : country === 'azerbaijan' ? '🇦🇿 Azerbaijan' : country === 'syria' ? '🇸🇾 Syria' : country}
                             </Badge>
                           ))}
                         </div>
@@ -1606,6 +1619,7 @@ const PropertyForm = () => {
                       { value: 'guzelyurt', label: '🇨🇾 Güzelyurt, TRNC', country: 'northern-cyprus' },
                       { value: 'esentepe', label: '🇨🇾 Esentepe, TRNC', country: 'northern-cyprus' },
                       { value: 'istanbul', label: '🇹🇷 İstanbul, Turkey', country: 'turkey' },
+                      { value: 'baku', label: '🇦🇿 Baku — Bakı — باکو, Azerbaijan', country: 'azerbaijan' },
                       { value: 'ankara', label: '🇹🇷 Ankara, Turkey', country: 'turkey' },
                       { value: 'izmir', label: '🇹🇷 İzmir, Turkey', country: 'turkey' },
                       { value: 'bursa', label: '🇹🇷 Bursa, Turkey', country: 'turkey' },
@@ -1686,6 +1700,11 @@ const PropertyForm = () => {
                       { value: 'bayburt', label: '🇹🇷 Bayburt, Turkey', country: 'turkey' },
                       { value: 'osmaniye', label: '🇹🇷 Osmaniye, Turkey', country: 'turkey' },
                       { value: 'kilis', label: '🇹🇷 Kilis, Turkey', country: 'turkey' },
+                      ...SYRIA_CITY_OPTIONS.map((city) => ({
+                        value: city.value,
+                        label: `🇸🇾 ${city.label}, Syria`,
+                        country: 'syria',
+                      })),
                     ];
 
                     const selectedCountry = formData.country as string;

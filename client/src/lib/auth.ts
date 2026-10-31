@@ -1,7 +1,7 @@
 import { apiRequest } from "./queryClient";
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { subscribeToPush, isPushSupported } from "./push-notifications";
+import { syncPushForAuthenticatedUser } from "./push-notifications";
 
 export type User = {
   id: number;
@@ -10,6 +10,8 @@ export type User = {
   phoneNumber: string | null;
   authMethod: string | null;
   isAdmin: boolean;
+  isMetaReviewer?: boolean;
+  isActive: boolean;
   role: string;
 };
 
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const user = await response.json();
           setUser(user);
+          syncPushForAuthenticatedUser(user);
         }
       } catch (error) {
         console.error("Authentication check failed:", error);
@@ -61,10 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         title: "Login successful",
         description: `Welcome back, ${userData.username}!`,
       });
-      // Silently attempt push subscription after login
-      if (isPushSupported()) {
-        subscribeToPush().catch(() => {});
-      }
+      syncPushForAuthenticatedUser(userData);
       return userData;
     } catch (error) {
       toast({

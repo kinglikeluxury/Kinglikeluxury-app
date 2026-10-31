@@ -55,6 +55,7 @@ const Properties = () => {
     const params = new URLSearchParams();
 
     if (filters.type) params.append("type", filters.type);
+    if (filters.country) params.append("country", filters.country);
     if (filters.location) params.append("location", filters.location);
     if (filters.city) params.append("city", filters.city);
     if (filters.minPrice) params.append("minPrice", filters.minPrice);
@@ -71,16 +72,17 @@ const Properties = () => {
 
   const getCountryFromCity = (city: string): string => {
     const georgianCities = ["tbilisi", "batumi", "kutaisi", "rustavi", "zugdidi", "gori", "poti", "telavi", "mtskheta", "kobuleti", "borjomi", "akhaltsikhe", "senaki", "anaklia", "sighnaghi", "ambrolauri", "khashuri", "samtredia", "zestafoni", "chiatura"];
-    const uaeCities = ["dubai", "sharjah", "rasAlKhaimah", "ras-al-khaimah"];
+    const uaeCities = ["dubai", "sharjah", "rasalkhaimah", "ras-al-khaimah"];
     const cyprusCities = ["lefkosa", "gazimağusa", "girne", "iskele", "guzelyurt", "esentepe"];
     const turkeyCities = ["istanbul", "trabzon"];
+    const normalizedCity = city.trim().toLowerCase();
     const syrianCities = SYRIA_CITY_OPTIONS.map(({ value }) => value);
-    if (georgianCities.includes(city)) return "georgia";
-    if (uaeCities.includes(city)) return "uae";
-    if (cyprusCities.includes(city)) return "northern-cyprus";
-    if (turkeyCities.includes(city)) return "turkey";
-    if (syrianCities.includes(city)) return "syria";
-    if (city === "baku") return "azerbaijan";
+    if (georgianCities.includes(normalizedCity)) return "georgia";
+    if (uaeCities.includes(normalizedCity)) return "uae";
+    if (cyprusCities.includes(normalizedCity)) return "northern-cyprus";
+    if (turkeyCities.includes(normalizedCity)) return "turkey";
+    if (syrianCities.includes(normalizedCity)) return "syria";
+    if (["baku", "bakı", "باکو"].includes(normalizedCity)) return "azerbaijan";
     return "";
   };
 
@@ -88,7 +90,7 @@ const Properties = () => {
 
   const searchFilters = {
     type: filters.type || undefined,
-    country: derivedCountry || undefined,
+    country: filters.country || derivedCountry || undefined,
     city: filters.city || undefined,
     location: filters.location || undefined,
     minPrice: filters.minPrice ? parseInt(filters.minPrice) : undefined,

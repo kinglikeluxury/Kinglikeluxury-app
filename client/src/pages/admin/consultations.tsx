@@ -246,8 +246,10 @@ export default function AdminConsultations() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("consultation.admin.allCountries")}</SelectItem>
-                  {["georgia","turkey","dubai","north_cyprus"].map(c => (
-                    <SelectItem key={c} value={c}>{t(`consultation.countries.${c}`)}</SelectItem>
+                  {["georgia","turkey","dubai","north_cyprus","syria"].map(c => (
+                    <SelectItem key={c} value={c}>
+                      {c === "syria" ? "Syria" : t(`consultation.countries.${c}`)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

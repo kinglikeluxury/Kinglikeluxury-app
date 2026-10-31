@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import {
-  WifiOff, CalendarDays, Bot,
+  WifiOff, CalendarDays, Bot, RefreshCw,
   MapPin, ChevronRight, Camera, Globe, Building2, Loader2, Tv, Radio
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { HlsVideoPlayer } from "@/components/property/HlsVideoPlayer";
+import { CameraStreamRenderer } from "@/components/property/CameraStreamRenderer";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type CameraRecord = {
@@ -44,6 +44,31 @@ function LiveBadge({ t }: { t: (k: string, fb: string) => string }) {
       <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping" />
       {t("liveProjects.statusLive", "LIVE")}
     </span>
+  );
+}
+
+function ComingSoonBadge({ t }: { t: (k: string, fb: string) => string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-gray-600 text-[10px] font-bold uppercase tracking-wider bg-gray-100">
+      <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+      {t("liveProjects.statusComingSoon", "Coming Soon")}
+    </span>
+  );
+}
+
+function ComingSoonNotice({ t }: { t: (k: string, fb: string) => string }) {
+  return (
+    <div className="w-full aspect-video rounded-2xl flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-200 bg-gray-50 px-6 text-center">
+      <Tv className="w-12 h-12 text-gray-300" />
+      <div>
+        <p className="font-semibold text-gray-600">
+          {t("liveProjects.statusComingSoon", "Coming Soon")}
+        </p>
+        <p className="text-sm text-gray-400 mt-1">
+          {t("liveProjects.comingSoonDesc", "We'll be adding live construction cameras to our projects soon. Stay tuned!")}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -88,11 +113,13 @@ function CameraFallback({ onRetry, t }: { onRetry: () => void; t: (k: string, fb
 function SingleViewer({ camera, t }: { camera: CameraRecord; t: (k: string, fb: string) => string }) {
   const [retryKey, setRetryKey] = useState(0);
 
+  if (camera.status === "coming_soon") return <ComingSoonNotice t={t} />;
+  if (camera.isActive === false) return null;
   if (!camera.embedUrl) return <CameraFallback onRetry={() => setRetryKey(k => k + 1)} t={t} />;
 
   return (
     <div className="space-y-0">
-      <HlsVideoPlayer
+      <CameraStreamRenderer
         key={`${camera.id}-${retryKey}`}
         url={camera.embedUrl}
         label={camera.label || camera.propertyTitle}
@@ -151,22 +178,24 @@ export default function LiveProjects() {
     queryFn: () => fetch("/api/live-projects").then(r => r.json()),
   });
 
-  // ── Cascading filter derivation ─────────────────────────────────────────
-  const availableCountries = [...new Set(
-    cameras.map(c => c.country).filter(Boolean) as string[]
-  )].sort();
+  const visibleCameras = cameras.filter(camera => camera.isActive !== false);
 
-  const citiesForCountry = [...new Set(
-    cameras
+  // ── Cascading filter derivation ─────────────────────────────────────────
+  const availableCountries = Array.from(new Set(
+    visibleCameras.map(c => c.country).filter(Boolean) as string[]
+  )).sort();
+
+  const citiesForCountry = Array.from(new Set(
+    visibleCameras
       .filter(c => c.country === selectedCountry)
       .map(c => c.city)
       .filter(Boolean) as string[]
-  )].sort();
+  )).sort();
 
   // Group cameras by propertyId for the selected country+city
   const projectsInCity: { propertyId: number; propertyTitle: string; propertyLocation: string; cameras: CameraRecord[] }[] = [];
   const seen = new Set<number>();
-  cameras
+  visibleCameras
     .filter(c => c.country === selectedCountry && c.city === selectedCity)
     .forEach(c => {
       if (!seen.has(c.propertyId)) {
@@ -175,7 +204,7 @@ export default function LiveProjects() {
           propertyId: c.propertyId,
           propertyTitle: c.propertyTitle || `Project #${c.propertyId}`,
           propertyLocation: c.propertyLocation || c.city || "",
-          cameras: cameras.filter(x => x.country === selectedCountry && x.city === selectedCity && x.propertyId === c.propertyId),
+           cameras: visibleCameras.filter(x => x.country === selectedCountry && x.city === selectedCity && x.propertyId === c.propertyId),
         });
       }
     });
@@ -184,6 +213,12 @@ export default function LiveProjects() {
     ? projectsInCity.find(p => p.propertyId === selectedPropertyId)?.cameras ?? []
     : [];
   const selectedProject = projectsInCity.find(p => p.propertyId === selectedPropertyId) ?? null;
+  const selectedProjectActiveCameras = selectedProjectCameras.filter(
+    camera => camera.isActive !== false && camera.status === "active"
+  );
+  const selectedProjectComingSoon = selectedProjectCameras.some(
+    camera => camera.isActive !== false && camera.status === "coming_soon"
+  );
 
   const handleCountrySelect = (country: string) => {
     setSelectedCountry(country);
@@ -216,10 +251,10 @@ export default function LiveProjects() {
           <p className="text-white/80 text-base max-w-lg mx-auto">
             {tr("liveProjects.subtitle", "Watch real-time construction progress on our premium projects via live streaming cameras.")}
           </p>
-          {cameras.length > 0 && (
+          {visibleCameras.length > 0 && (
             <p className="text-white/60 text-sm mt-2">
               {t("liveProjects.projectsAvailable", {
-                count: new Set(cameras.map(c => c.propertyId)).size,
+                count: new Set(visibleCameras.map(c => c.propertyId)).size,
                 defaultValue: "{{count}} live projects available",
               })}
             </p>
@@ -237,7 +272,7 @@ export default function LiveProjects() {
         )}
 
         {/* ── No cameras yet ──────────────────────────────────────────── */}
-        {!isLoading && cameras.length === 0 && (
+        {!isLoading && visibleCameras.length === 0 && (
           <div className="bg-white rounded-2xl shadow-md p-12 text-center">
             <Tv className="w-16 h-16 mx-auto mb-4 text-gray-200" />
             <h2 className="text-xl font-bold text-gray-700 mb-2">
@@ -249,7 +284,7 @@ export default function LiveProjects() {
           </div>
         )}
 
-        {!isLoading && cameras.length > 0 && (
+        {!isLoading && visibleCameras.length > 0 && (
           <div className="space-y-4">
 
             {/* ── STEP 1 — Select Country ──────────────────────────────── */}
@@ -344,7 +379,9 @@ export default function LiveProjects() {
                               <MapPin className="w-3 h-3" /> {proj.propertyLocation}
                             </p>
                             <div className="flex items-center gap-2">
-                              <LiveBadge t={tr} />
+                              {proj.cameras.some(camera => camera.status === "active" && camera.isActive !== false)
+                                ? <LiveBadge t={tr} />
+                                : <ComingSoonBadge t={tr} />}
                               {proj.cameras.length > 1 && (
                                 <span className="text-xs text-gray-400">{proj.cameras.length} cameras</span>
                               )}
@@ -363,13 +400,23 @@ export default function LiveProjects() {
             )}
 
             {/* ── STEP 4 — Live Stream ─────────────────────────────────── */}
-            {selectedProject && selectedProjectCameras.length > 0 && (
+            {selectedProject && selectedProjectActiveCameras.length > 0 && (
               <div className="bg-white rounded-2xl shadow-md p-5">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <Camera className="w-4 h-4 text-[#3bcac4]" />
                   {tr("liveProjects.step4", "4. Live Stream")} — {selectedProject.propertyTitle}
                 </h2>
-                <CameraViewer cameras={selectedProjectCameras} t={tr} />
+                <CameraViewer cameras={selectedProjectActiveCameras} t={tr} />
+              </div>
+            )}
+
+            {selectedProject && selectedProjectActiveCameras.length === 0 && selectedProjectComingSoon && (
+              <div className="bg-white rounded-2xl shadow-md p-5">
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-[#3bcac4]" />
+                  {tr("liveProjects.step4", "4. Live Stream")} — {selectedProject.propertyTitle}
+                </h2>
+                <ComingSoonNotice t={tr} />
               </div>
             )}
 
