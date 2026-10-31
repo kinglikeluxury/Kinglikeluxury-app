@@ -4474,11 +4474,17 @@ ${metaTags}
       // Server-side lead extraction — runs on every turn, reads full conversation history
       let finalScore: "hot" | "warm" | "cold" = currentScore;
       try {
-        const fullHistory: { role: "user" | "assistant"; content: string }[] = [
-          ...msgs,
-          { role: "user", content: message.trim() },
-          { role: "assistant", content: aiResp.message },
-        ];
+        const fullHistory = msgs.reduce<{ role: "user" | "assistant"; content: string }[]>(
+          (history, msg) => {
+            if (msg.role === "user" || msg.role === "assistant") {
+              history.push({ role: msg.role, content: msg.content });
+            }
+            return history;
+          },
+          [],
+        );
+        fullHistory.push({ role: "user", content: message.trim() });
+        fullHistory.push({ role: "assistant", content: aiResp.message });
         const extracted = await extractLeadFromConversation(fullHistory);
         const hasAnyData = Object.values(extracted).some((v) => v !== null);
 

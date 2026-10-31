@@ -2727,7 +2727,7 @@ export default function CrmLeadDetailPage() {
                     <div className="px-5 pb-4">
                       <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                         {aiData!.messages.map((msg, i) => {
-                          const isAssistant = msg.role === "assistant";
+                          const isAssistant = msg.sender === "ai";
                           return (
                             <div key={i} className={`flex ${isAssistant ? "justify-start" : "justify-end"}`}>
                               <div className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs whitespace-pre-wrap break-words leading-relaxed ${
@@ -2741,7 +2741,7 @@ export default function CrmLeadDetailPage() {
                                     : <span className="text-[9px] font-medium">Lead</span>
                                   }
                                 </div>
-                                {msg.content}
+                                {msg.messageText}
                               </div>
                             </div>
                           );

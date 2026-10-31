@@ -39,6 +39,7 @@ import {
   type User,
   type InsertUser,
   type Property,
+  type PropertyWithAgent,
   type InsertProperty,
   type Project,
   type InsertProject,
@@ -115,6 +116,7 @@ export class DatabaseStorage implements IStorage {
         authMethod: users.authMethod,
         isVerified: users.isVerified,
         isAdmin: users.isAdmin,
+        isActive: users.isActive,
         role: users.role,
         createdAt: users.createdAt,
       }).from(users).orderBy(desc(users.createdAt));
@@ -264,57 +266,10 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getPropertyWithAgent(id: number): Promise<(Property & { agent: any }) | undefined> {
+  async getPropertyWithAgent(id: number): Promise<PropertyWithAgent | undefined> {
     const [result] = await db
       .select({
-        // Property fields
-        id: properties.id,
-        title: properties.title,
-        description: properties.description,
-        price: properties.price,
-        location: properties.location,
-        latitude: properties.latitude,
-        longitude: properties.longitude,
-        area: properties.area,
-        bedrooms: properties.bedrooms,
-        bathrooms: properties.bathrooms,
-        floorNumber: properties.floorNumber,
-        propertyType: properties.propertyType,
-        images: properties.images,
-        videos: properties.videos,
-        features: properties.features,
-        amenities: properties.amenities,
-        locationScore: properties.locationScore,
-        valueScore: properties.valueScore,
-        amenitiesScore: properties.amenitiesScore,
-        conditionScore: properties.conditionScore,
-        investmentScore: properties.investmentScore,
-        overallScore: properties.overallScore,
-        status: properties.status,
-        ownerId: properties.ownerId,
-        createdAt: properties.createdAt,
-        updatedAt: properties.updatedAt,
-        listingType: properties.listingType,
-        listingExpiresAt: properties.listingExpiresAt,
-        topRated: properties.topRated,
-        isSold: properties.isSold,
-        priceMax: properties.priceMax,
-        readyStatus: properties.readyStatus,
-        bestPrice: properties.bestPrice,
-        acceptablePrice: properties.acceptablePrice,
-        highPrice: properties.highPrice,
-        landType: properties.landType,
-        landFeatures: properties.landFeatures,
-        titleEn: properties.titleEn,
-        descriptionEn: properties.descriptionEn,
-        paymentMethod: properties.paymentMethod,
-        downPaymentPercent: properties.downPaymentPercent,
-        installmentDuration: properties.installmentDuration,
-        monthlyInstallment: properties.monthlyInstallment,
-        remainingBalance: properties.remainingBalance,
-        paymentNotes: properties.paymentNotes,
-        
-        // Agent fields
+        property: properties,
         agent: {
           id: users.id,
           username: users.username,
@@ -327,8 +282,9 @@ export class DatabaseStorage implements IStorage {
       .from(properties)
       .innerJoin(users, eq(properties.ownerId, users.id))
       .where(eq(properties.id, id));
-    
-    return result;
+
+    if (!result) return undefined;
+    return { ...result.property, agent: result.agent };
   }
 
   async getPropertyById(id: number): Promise<Property | undefined> {
