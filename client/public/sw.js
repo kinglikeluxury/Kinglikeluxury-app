@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinglike-v5';
+const CACHE_NAME = 'kinglike-v6';
 const urlsToCache = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -29,10 +29,12 @@ self.addEventListener('fetch', (event) => {
   // This prevents stale cached responses from masking backend API endpoints.
   if (url.pathname.startsWith('/api/')) return;
 
-  // Leaflet map tiles and reverse geocoding are cross-origin map services.
-  // Do not route them through this cache-first handler: an uncached external
-  // response has no same-origin cache fallback, causing the map to render gray.
+  // Leaflet tiles and reverse geocoding are cross-origin map services.
+  // Let tile requests go directly to the network so a failed service-worker
+  // fetch/cache fallback cannot leave the map without its basemap.
   if (
+    url.hostname === 'tile.openstreetmap.org' ||
+    url.hostname.endsWith('.tile.openstreetmap.org') ||
     url.hostname.endsWith('.basemaps.cartocdn.com') ||
     url.hostname === 'nominatim.openstreetmap.org'
   ) return;

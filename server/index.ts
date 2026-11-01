@@ -119,6 +119,7 @@ app.use(
           "https://res.cloudinary.com",
           "https://lh3.googleusercontent.com",
           "https://graph.facebook.com",
+          "https://tile.openstreetmap.org",
           "https://*.tile.openstreetmap.org",
           "https://flagcdn.com",
           "https://images.unsplash.com",
