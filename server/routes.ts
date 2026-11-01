@@ -60,6 +60,9 @@ import { withKayInternalClient } from "./kayInternalDatabase";
 import { registerKayInternalCallRoutes } from "./kayInternalCallService";
 import { registerKayRecordingRoutes } from "./kayRecordingRoutes";
 import { getSupervisorSnapshot } from "./kaySupervisorIntelligenceService";
+import { createMetaReviewerAccessGuard } from "./metaReviewerAccessGuard";
+import { authenticateMetaReviewer } from "./metaReviewerAccessStore";
+import { getMetaReviewerAccount } from "./metaReviewerAccessStore";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -79,6 +82,8 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     isAdmin: boolean;
+    isMetaReviewer?: boolean;
+    isActive?: boolean;
     role: string;
     kayLegacyBaselineConfirmation?: { token: string; adminId: number; fingerprint: string; limit: number; expiresAt: number; candidates: Array<{id:number;status:string;trusted:boolean;existing:boolean}> };
   }
@@ -472,6 +477,7 @@ ${metaTags}
       })(),
     });
   app.use(sessionMiddleware);
+  app.use(createMetaReviewerAccessGuard());
   registerKayInternalCallRoutes(app, httpServer, sessionMiddleware);
   // Register before the generic Kay gate so direct metadata/playback URLs
   // always reach the live admin middleware, including unauthenticated requests.
@@ -1573,6 +1579,34 @@ ${metaTags}
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password, phoneNumber, whatsappNumber, facebookId, authMethod } = req.body;
+
+      if (authMethod !== "phone" && authMethod !== "whatsapp" && authMethod !== "facebook") {
+        const reviewer = await authenticateMetaReviewer(
+          typeof username === "string" ? username : "",
+          typeof password === "string" ? password : "",
+        );
+        if (reviewer) {
+          req.session.regenerate((sessionError) => {
+            if (sessionError) return res.status(500).json({ message: "Server error" });
+            req.session.userId = reviewer.id;
+            req.session.isAdmin = false;
+            req.session.isMetaReviewer = true;
+            req.session.isActive = true;
+            req.session.role = "meta_reviewer";
+            return res.json({
+              id: reviewer.id,
+              username: reviewer.username,
+              email: reviewer.email,
+              authMethod: "password",
+              isAdmin: false,
+              isActive: true,
+              isMetaReviewer: true,
+              role: "meta_reviewer",
+            });
+          });
+          return;
+        }
+      }
       
       // Get user based on auth method
       let user;
@@ -1896,6 +1930,22 @@ ${metaTags}
     if (!req.session.userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
+    if (req.session.role === "meta_reviewer" && req.session.isMetaReviewer === true) {
+      const reviewer = getMetaReviewerAccount(req.session.userId);
+      if (!reviewer || !reviewer.isActive) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      return res.json({
+        id: reviewer.id,
+        username: reviewer.username,
+        email: reviewer.email,
+        authMethod: "password",
+        isAdmin: false,
+        isActive: true,
+        isMetaReviewer: true,
+        role: "meta_reviewer",
+      });
+    }
     
     const user = await storage.getUser(req.session.userId);
     
@@ -1910,6 +1960,8 @@ ${metaTags}
       phoneNumber: user.phoneNumber,
       authMethod: user.authMethod,
       isAdmin: user.isAdmin,
+      isActive: user.isActive,
+      isMetaReviewer: false,
       role: user.role ?? "user",
     });
   });
