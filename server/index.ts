@@ -43,6 +43,9 @@ import { registerDeveloperRegistrationRoutes, ensureDeveloperRegistrationRouteTa
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
 import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
+import { registerWhatsappInternalRoutes } from "./whatsappInternalRoutes";
+import { registerWhatsappMonitorPrototypeRoutes } from "./whatsappMonitorPrototypeRoutes";
+import { registerMetaReviewWhatsappRoutes } from "./metaReviewWhatsappRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
 import { registerWebinarCampaignRoutes } from "./webinarCampaign";
@@ -56,6 +59,10 @@ import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 
 const app = express();
+const metaSignupCspEnabled =
+  process.env.WHATSAPP_MONITORING_META_PROTOTYPE_ENABLED === "true" &&
+  Boolean(process.env.WHATSAPP_MONITOR_META_APP_ID?.trim()) &&
+  Boolean(process.env.WHATSAPP_MONITOR_META_CONFIG_ID?.trim());
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SITEMAP & ROBOTS — registered ABSOLUTELY FIRST, before CORS, before
@@ -101,6 +108,7 @@ app.use(
           "'unsafe-eval'",
           "https://challenges.cloudflare.com",
           "https://www.googletagmanager.com",
+          ...(metaSignupCspEnabled ? ["https://connect.facebook.net"] : []),
         ],
         styleSrc: [
           "'self'",
@@ -149,6 +157,9 @@ app.use(
           "https://www.googleadservices.com",
           "https://googleads.g.doubleclick.net",
           "https://www.google.com",
+          ...(metaSignupCspEnabled
+            ? ["https://graph.facebook.com", "https://www.facebook.com"]
+            : []),
           "wss:",
           "ws:",
         ],
@@ -157,6 +168,9 @@ app.use(
           "https://challenges.cloudflare.com",
           "https://rtsp.run",
           "https://rtsp.me",
+          ...(metaSignupCspEnabled
+            ? ["https://www.facebook.com", "https://web.facebook.com"]
+            : []),
         ],
         frameAncestors: process.env.NODE_ENV === "production"
           ? ["'self'"]
@@ -207,7 +221,7 @@ app.use(cors(corsOriginFn));
 app.use(express.json({
   limit: "50mb",
   verify: (req: any, _res, buf) => {
-    if (req.path === "/api/webhooks/meta-leads") {
+    if (req.path === "/api/webhooks/meta-leads" || req.path === "/api/meta-review/whatsapp/webhook") {
       req.rawBody = buf;
     }
   },
@@ -241,7 +255,13 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        const isMetaReviewResponse =
+          path.startsWith("/api/admin/meta-review/") ||
+          path.startsWith("/api/admin/meta-reviewer-access") ||
+          path.startsWith("/api/admin/whatsapp-monitor/");
+        if (!isMetaReviewResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
       }
 
       if (logLine.length > 80) {
@@ -263,6 +283,9 @@ app.use((req, res, next) => {
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
   registerWhatsappApiHistoryRoutes(app);
+  registerWhatsappInternalRoutes(app);
+  registerWhatsappMonitorPrototypeRoutes(app);
+  registerMetaReviewWhatsappRoutes(app);
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
   registerBroadcastRoutes(app);

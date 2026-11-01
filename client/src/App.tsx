@@ -56,6 +56,8 @@ import EmailHistoryPage from "@/pages/admin/email-history";
 import WhatsappApiChatHistoryPage from "@/pages/admin/whatsapp-api-chat-history";
 import CrmHealthPage from "@/pages/admin/crm-health";
 import WhatsappConciergeDashboard from "@/pages/admin/whatsapp-concierge-dashboard";
+import WhatsappEmployeeMonitoringPage from "@/pages/admin/whatsapp-employee-monitoring";
+import EmployeeWhatsappPage from "@/pages/employee/whatsapp";
 import EmployeeDashboardPage from "@/pages/admin/employee-dashboard";
 import CrmTasksPage from "@/pages/admin/crm-tasks";
 import AiMarketingCenterPage from "@/pages/admin/ai-marketing-center";
@@ -120,6 +122,8 @@ function Router() {
           <Route path="/admin/email-sequences" component={EmailSequencesPage} />
           <Route path="/admin/email-history" component={EmailHistoryPage} />
           <Route path="/admin/whatsapp-api-chat-history" component={WhatsappApiChatHistoryPage} />
+          <Route path="/admin/whatsapp-monitoring" component={WhatsappEmployeeMonitoringPage} />
+          <Route path="/employee/whatsapp" component={EmployeeWhatsappPage} />
           <Route path="/admin/crm-health" component={CrmHealthPage} />
           <Route path="/admin/whatsapp-concierge" component={WhatsappConciergeDashboard} />
           <Route path="/admin/ai-marketing-center" component={AiMarketingCenterPage} />
