@@ -329,6 +329,15 @@ test("the monitoring page keeps the composer disabled", () => {
   assert.match(source, /Sending is disabled in this mock-only phase/);
 });
 
+test("review login and monitoring entry routes are wired in the client router", () => {
+  const appSource = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+  const loginSource = readFileSync(new URL("../client/src/pages/login.tsx", import.meta.url), "utf8");
+  assert.ok(appSource.includes('path="/login" component={Login}'));
+  assert.ok(appSource.includes('path="/admin/whatsapp-monitoring"'));
+  assert.ok(loginSource.includes('get("redirect")'));
+  assert.ok(loginSource.includes('"/admin/whatsapp-monitoring"'));
+});
+
 test("employee rate limiting remains before live authorization", () => {
   const source = readFileSync(new URL("./whatsappInternalRoutes.ts", import.meta.url), "utf8");
   assert.match(source, /whatsappInternalRateLimit,\s*requireWhatsappEmployee/);

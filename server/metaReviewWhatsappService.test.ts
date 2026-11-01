@@ -214,3 +214,15 @@ test("sender fails closed before network access when test mode is disabled", asy
   assert.equal(fetchCalled, false);
   assert.deepEqual(getMetaReviewWhatsappStatus({}).sendConfigured, false);
 });
+
+test("sender fails closed before network access when test configuration is missing", async () => {
+  let fetchCalled = false;
+  await assert.rejects(
+    sendMetaReviewWhatsappTestTemplate({}, async () => {
+      fetchCalled = true;
+      return { ok: true, status: 200 } as Response;
+    }),
+    /not configured/i,
+  );
+  assert.equal(fetchCalled, false);
+});

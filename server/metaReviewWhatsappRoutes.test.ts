@@ -226,6 +226,25 @@ test("reviewer provisioning hashes credentials and supports disable and delete",
       headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
     });
     assert.equal(blockedCrmApi.status, 403);
+    const blockedEmployeeConversations = await fetch(
+      `${origin}/api/employee/whatsapp/conversations`,
+      { headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) } },
+    );
+    assert.equal(blockedEmployeeConversations.status, 403);
+    const blockedEmployeeArchive = await fetch(`${origin}/api/admin/whatsapp/conversations`, {
+      headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
+    });
+    assert.equal(blockedEmployeeArchive.status, 403);
+    const blockedWhatsappAi = await fetch(`${origin}/api/admin/whatsapp-ai/preview/opening`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-reviewer-session": "true",
+        "x-reviewer-id": String(reviewerId),
+      },
+      body: "{}",
+    });
+    assert.equal(blockedWhatsappAi.status, 403);
     const blockedAdminPage = await fetch(`${origin}/admin/users`, {
       headers: { "x-reviewer-session": "true", "x-reviewer-id": String(reviewerId) },
     });
