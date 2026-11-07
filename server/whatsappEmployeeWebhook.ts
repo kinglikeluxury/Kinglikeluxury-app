@@ -126,6 +126,13 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
 }
 
 let testOnlyPool: pg.Pool | undefined;
+export async function closeWhatsappEmployeeWebhookTestPool(): Promise<void> {
+  if (!testOnlyPool) return;
+  const pool = testOnlyPool;
+  testOnlyPool = undefined;
+  await pool.end();
+}
+
 function getTestOnlyPool(): pg.Pool {
   if (process.env.NODE_ENV !== "test") {
     throw new Error("Employee WhatsApp ingestion is restricted to isolated test processes.");
