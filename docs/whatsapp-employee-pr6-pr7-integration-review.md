@@ -29,9 +29,9 @@ and ungranted-admin denials, revocation, and post-revocation denials.
 
 The SQL integration test applies the unified schema in a temporary PostgreSQL
 schema and checks foreign keys, unique event keys, and row-lock serialization of
-an authorized read with revocation. The HTTP harness also uses a temporary schema
-in a temporary local database. Temporary database processes and data are removed
-after tests.
+an authorized read with revocation. The HTTP harness races a signed webhook
+against employee revocation using a synthetic delay trigger in a temporary
+schema. Temporary database processes and data are removed after tests.
 
 ## Still required before any merge or live traffic
 
