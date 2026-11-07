@@ -4,7 +4,6 @@ import pg from "pg";
 import {
   acceptMetaOnboardingFinish,
   MetaOnboardingRejected,
-  type MetaOnboardingProof,
   type MetaOnboardingVerifier,
   type OnboardingRepository,
 } from "./whatsappMetaOnboardingProof";
@@ -19,6 +18,7 @@ function digest(value: string): string {
 function enabled(verifier?: MetaOnboardingVerifier): boolean {
   // No production route may use the fixture verifier or the test repository.
   return process.env.NODE_ENV === "test" &&
+    process.env.APP_DEPLOYMENT_MODE === "test" &&
     process.env.WHATSAPP_META_ONBOARDING_ENABLED === "true" &&
     verifier !== undefined;
 }
@@ -124,6 +124,11 @@ async function adminActor(req: any, db: pg.Pool): Promise<number | null> {
   return result.rowCount === 1 ? actorId : null;
 }
 
+type RouteOptions = {
+  verifier?: MetaOnboardingVerifier;
+  authorizeAdmin?: (req: any) => Promise<number | null>;
+};
+
 function saveSession(req: any): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof req.session?.save !== "function") return reject(new Error("Server session store unavailable"));
@@ -142,8 +147,15 @@ function noStore(res: any): void {
  */
 export function registerWhatsappMetaOnboardingRoutes(
   app: Express,
-  verifier?: MetaOnboardingVerifier,
+  options?: MetaOnboardingVerifier | RouteOptions,
 ): void {
+  const deps: RouteOptions = options && "exchangeAndVerify" in options
+    ? { verifier: options }
+    : options ?? {};
+  const verifier = deps.verifier;
+  const resolveAdmin = async (req: any, db: pg.Pool) =>
+    deps.authorizeAdmin ? deps.authorizeAdmin(req) : adminActor(req, db);
+
   app.get("/api/admin/whatsapp-meta/onboarding/csrf", async (req: any, res: any) => {
     noStore(res);
     if (!enabled(verifier)) return res.sendStatus(404);
@@ -151,7 +163,7 @@ export function registerWhatsappMetaOnboardingRoutes(
     if (!origin) return res.sendStatus(403);
     try {
       const db = getTestPool();
-      if (!(await adminActor(req, db))) return res.sendStatus(req.session?.userId ? 403 : 401);
+      if (!(await resolveAdmin(req, db))) return res.sendStatus(req.session?.userId ? 403 : 401);
       const csrfToken = randomBytes(32).toString("hex");
       req.session.whatsappMetaStartCsrf = csrfToken;
       await saveSession(req);
@@ -166,7 +178,7 @@ export function registerWhatsappMetaOnboardingRoutes(
     if (!origin) return res.sendStatus(403);
     try {
       const db = getTestPool();
-      const actorId = await adminActor(req, db);
+      const actorId = await resolveAdmin(req, db);
       if (!actorId) return res.sendStatus(req.session?.userId ? 403 : 401);
       const suppliedCsrf = req.get("x-csrf-token");
       const sessionCsrf = req.session?.whatsappMetaStartCsrf;
@@ -195,7 +207,7 @@ export function registerWhatsappMetaOnboardingRoutes(
     if (!origin) return res.sendStatus(403);
     try {
       const db = getTestPool();
-      const actorId = await adminActor(req, db);
+      const actorId = await resolveAdmin(req, db);
       if (!actorId) return res.sendStatus(req.session?.userId ? 403 : 401);
       const sessionHash = digest(req.sessionID);
       const outcome = await acceptMetaOnboardingFinish({

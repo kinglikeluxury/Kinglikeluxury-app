@@ -267,7 +267,16 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
   registerWhatsappEmployeeWebhook(app);
   registerWhatsappEmployeeArchiveRoutes(app);
-  registerWhatsappMetaOnboardingRoutes(app);
+  registerWhatsappMetaOnboardingRoutes(app, {
+    // Re-read the active user from the same storage authority as the real
+    // Express login session. The test-only route gate remains closed here.
+    authorizeAdmin: async (req) => {
+      const actorId = Number(req.session?.userId);
+      if (!Number.isSafeInteger(actorId) || actorId <= 0 || req.session?.isAdmin !== true) return null;
+      const user = await storage.getUser(actorId);
+      return user?.isAdmin && user.isActive ? actorId : null;
+    },
+  });
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);

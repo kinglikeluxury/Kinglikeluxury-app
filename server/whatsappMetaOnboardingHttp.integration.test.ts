@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import express from "express";
+import session from "express-session";
+import { runSyntheticWhatsappOnboardingFlow } from "../client/src/lib/whatsappMetaOnboardingClient";
 import pg from "pg";
 import {
   closeWhatsappMetaOnboardingTestPool,
@@ -33,6 +35,7 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
   let server: ReturnType<ReturnType<typeof express>["listen"]> | undefined;
   const oldEnv = {
     nodeEnv: process.env.NODE_ENV,
+    appMode: process.env.APP_DEPLOYMENT_MODE,
     flag: process.env.WHATSAPP_META_ONBOARDING_ENABLED,
     dbUrl: process.env.WHATSAPP_META_ONBOARDING_TEST_DATABASE_URL,
   };
@@ -46,6 +49,7 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     routeUrl.searchParams.set("options", `-c search_path=${schema}`);
     process.env.WHATSAPP_META_ONBOARDING_TEST_DATABASE_URL = routeUrl.toString();
     process.env.NODE_ENV = "test";
+    process.env.APP_DEPLOYMENT_MODE = "test";
     process.env.WHATSAPP_META_ONBOARDING_ENABLED = "true";
 
     const verifier: MetaOnboardingVerifier = {
@@ -54,22 +58,34 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
         if (input.code === "synthetic-code-concurrent") return {
           ...expectedProof, phoneNumberId: "345679", displayPhoneNumber: "+995555000002",
         };
+        if (input.code === "synthetic-client-flow") return {
+          ...expectedProof, phoneNumberId: "345680", displayPhoneNumber: "+995555000003",
+        };
         return expectedProof;
       },
     };
-    const sessions = new Map<string, any>();
+    const cookies = new Map<string, string>();
     const app = express();
     app.use(express.json({ limit: "8kb" }));
-    app.use((req: any, _res, next) => {
-      req.sessionID = req.header("x-test-session") ?? "";
-      const sessionId = req.sessionID;
-      const userId = Number(req.header("x-test-user-id"));
-      req.session = sessions.get(sessionId) ?? { userId };
-      req.session.save = (callback: (error?: unknown) => void) => {
-        sessions.set(sessionId, { ...req.session, save: undefined });
-        callback();
-      };
-      next();
+    app.use(session({ secret: "synthetic-only-session-secret-for-tests", resave: false, saveUninitialized: false }));
+    app.post("/__test/login", (req: any, res) => {
+      const userId = Number(req.body?.userId);
+      if (![201, 301].includes(userId)) return res.sendStatus(400);
+      req.session.userId = userId;
+      req.session.isAdmin = userId === 301;
+      req.session.role = userId === 301 ? "admin" : "user";
+      req.session.save(() => res.sendStatus(204));
+    });
+    app.post("/__test/rotate-session", (req: any, res) => {
+      const userId = req.session.userId;
+      if (!userId) return res.sendStatus(401);
+      req.session.regenerate((error: unknown) => {
+        if (error) return res.sendStatus(500);
+        req.session.userId = userId;
+        req.session.isAdmin = userId === 301;
+        req.session.role = userId === 301 ? "admin" : "user";
+        req.session.save(() => res.sendStatus(204));
+      });
     });
     registerWhatsappMetaOnboardingRoutes(app, verifier);
     server = app.listen(0, "127.0.0.1");
@@ -80,19 +96,30 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const origin = `http://127.0.0.1:${address.port}`;
-    const adminSession = "synthetic-admin-session-id-301";
+    const adminSession = "admin-cookie";
     const request = (method: string, path: string, userId?: number, body?: unknown,
       sessionId = adminSession, overrides: Record<string, string> = {}) =>
-      fetch(`${origin}${path}`, {
+      (async () => {
+        if (userId && !cookies.has(sessionId)) {
+          const login = await fetch(`${origin}/__test/login`, {
+            method: "POST", headers: { "content-type": "application/json", origin },
+            body: JSON.stringify({ userId }),
+          });
+          assert.equal(login.status, 204);
+          const cookie = login.headers.get("set-cookie")?.split(";")[0];
+          assert.ok(cookie);
+          cookies.set(sessionId, cookie);
+        }
+        return fetch(`${origin}${path}`, {
         method,
         headers: {
-          ...(userId ? { "x-test-user-id": String(userId) } : {}),
-          ...(sessionId ? { "x-test-session": sessionId } : {}),
+          ...(cookies.has(sessionId) ? { cookie: cookies.get(sessionId)! } : {}),
           ...(body === undefined ? {} : { "content-type": "application/json" }),
           origin, ...overrides,
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
+        });
+      })();
     const start = async () => {
       const csrfResponse = await request("GET", "/api/admin/whatsapp-meta/onboarding/csrf", 301);
       assert.equal(csrfResponse.status, 200);
@@ -102,6 +129,15 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
       assert.equal(response.status, 201);
       return { ...(await response.json() as any), startCsrfToken: csrfToken };
     };
+    const clientCookie = () => cookies.get(adminSession)!;
+    const clientFetch: typeof fetch = (input, init) => fetch(new URL(String(input), origin), {
+      ...init,
+      headers: {
+        ...init?.headers,
+        cookie: clientCookie(),
+        origin,
+      },
+    });
     const finishBody = (flow: any, overrides: Record<string, string> = {}) => ({
       flowId: flow.flowId, state: flow.state, code: "synthetic-code-valid",
       businessPortfolioId: expectedProof.businessPortfolioId, wabaId: expectedProof.wabaId,
@@ -132,7 +168,7 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
       { "x-csrf-token": flow.csrfToken });
     assert.equal(wrongState.status, 400);
     const wrongSession = await request("POST", "/api/admin/whatsapp-meta/onboarding/finish", 301,
-      finishBody(flow), "synthetic-other-session-id-301", { "x-csrf-token": flow.csrfToken });
+      finishBody(flow), "other-admin-cookie", { "x-csrf-token": flow.csrfToken });
     assert.equal(wrongSession.status, 400);
     const wrongOrigin = await request("POST", "/api/admin/whatsapp-meta/onboarding/finish", 301,
       finishBody(flow), adminSession, { origin: "http://attacker.invalid", "x-csrf-token": flow.csrfToken });
@@ -143,6 +179,26 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     assert.deepEqual(await valid.json(), { status: "verified_pending_activation" });
     assert.equal((await request("POST", "/api/admin/whatsapp-meta/onboarding/finish", 301,
       finishBody(flow), adminSession, { "x-csrf-token": flow.csrfToken })).status, 400);
+
+    await runSyntheticWhatsappOnboardingFlow(clientFetch, origin, {
+      code: "synthetic-client-flow",
+      businessPortfolioId: expectedProof.businessPortfolioId,
+      wabaId: expectedProof.wabaId,
+      phoneNumberId: "345680",
+      displayPhoneNumber: "+995555000003",
+    });
+
+    const rotated = await start();
+    const oldCookie = cookies.get(adminSession)!;
+    const rotate = await fetch(`${origin}/__test/rotate-session`, {
+      method: "POST", headers: { cookie: oldCookie, origin },
+    });
+    assert.equal(rotate.status, 204);
+    const rotatedCookie = rotate.headers.get("set-cookie")?.split(";")[0];
+    assert.ok(rotatedCookie);
+    cookies.set(adminSession, rotatedCookie);
+    assert.equal((await request("POST", "/api/admin/whatsapp-meta/onboarding/finish", 301,
+      finishBody(rotated), adminSession, { "x-csrf-token": rotated.csrfToken })).status, 400);
 
     const concurrent = await start();
     const attempts = await Promise.all([1, 2].map(() => request(
@@ -176,7 +232,7 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
       finishBody(expired), adminSession, { "x-csrf-token": expired.csrfToken })).status, 400);
 
     const saved = await setup.query("SELECT count(*)::int AS count FROM whatsapp_onboarding_proofs");
-    assert.equal(saved.rows[0].count, 2);
+    assert.equal(saved.rows[0].count, 3);
 
     const priorUrl = process.env.WHATSAPP_META_ONBOARDING_TEST_DATABASE_URL!;
     const unavailable = new URL(priorUrl);
@@ -194,7 +250,7 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     await new Promise<void>(resolve => prodServer.once("listening", resolve));
     const prodAddress = prodServer.address() as any;
     const prodResponse = await fetch(`http://127.0.0.1:${prodAddress.port}/api/admin/whatsapp-meta/onboarding/csrf`, {
-      headers: { origin: `http://127.0.0.1:${prodAddress.port}`, "x-test-user-id": "301", "x-test-session": adminSession },
+      headers: { origin: `http://127.0.0.1:${prodAddress.port}` },
     });
     assert.equal(prodResponse.status, 404);
     await new Promise<void>(resolve => prodServer.close(() => resolve()));
@@ -207,6 +263,8 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     setup.release();
     await pool.end();
     if (oldEnv.nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldEnv.nodeEnv;
+    if (oldEnv.appMode === undefined) delete process.env.APP_DEPLOYMENT_MODE;
+    else process.env.APP_DEPLOYMENT_MODE = oldEnv.appMode;
     if (oldEnv.flag === undefined) delete process.env.WHATSAPP_META_ONBOARDING_ENABLED;
     else process.env.WHATSAPP_META_ONBOARDING_ENABLED = oldEnv.flag;
     if (oldEnv.dbUrl === undefined) delete process.env.WHATSAPP_META_ONBOARDING_TEST_DATABASE_URL;

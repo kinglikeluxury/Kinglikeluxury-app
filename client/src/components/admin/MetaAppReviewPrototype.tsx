@@ -16,6 +16,7 @@ import {
   type MetaWhatsappSignupConfig,
   type MetaWhatsappSignupSessionEvent,
 } from "@/lib/metaWhatsappMonitorSignup";
+import { runSyntheticWhatsappOnboardingFlow } from "@/lib/whatsappMetaOnboardingClient";
 
 type PrototypeConfigResponse = {
   enabled: boolean;
@@ -179,6 +180,10 @@ function getPopupLaunchExceptionDetails(
 }
 
 export default function MetaAppReviewPrototype() {
+  const syntheticOnboardingTestMode =
+    (import.meta as any).env?.VITE_WHATSAPP_ONBOARDING_TEST_MODE === "true";
+  const [syntheticOnboardingState, setSyntheticOnboardingState] = useState<string | null>(null);
+  const [runningSyntheticOnboarding, setRunningSyntheticOnboarding] = useState(false);
   const [configuration, setConfiguration] =
     useState<PrototypeConfigResponse | null>(null);
   const [configurationError, setConfigurationError] = useState(false);
@@ -312,7 +317,7 @@ export default function MetaAppReviewPrototype() {
         }
       : null;
   const canLaunch =
-    Boolean(signupConfig) && sdkStatus === "ready" && !isLaunching;
+    !syntheticOnboardingTestMode && Boolean(signupConfig) && sdkStatus === "ready" && !isLaunching;
   const sdkDiagnosticRows: Array<[string, boolean]> = [
     ["SDK script tag present", sdkDiagnostics.sdkScriptTagPresent],
     ["SDK script load event fired", sdkDiagnostics.sdkScriptLoadEventFired],
@@ -462,6 +467,32 @@ export default function MetaAppReviewPrototype() {
           )}
 
           <div className="flex md:justify-end">
+            {syntheticOnboardingTestMode && (
+              <div className="w-full space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={runningSyntheticOnboarding}
+                  onClick={async () => {
+                    setRunningSyntheticOnboarding(true);
+                    setSyntheticOnboardingState(null);
+                    try {
+                      await runSyntheticWhatsappOnboardingFlow();
+                      setSyntheticOnboardingState("Synthetic flow passed in the isolated test database. It is not a Meta connection.");
+                    } catch {
+                      setSyntheticOnboardingState("Synthetic flow was unavailable or rejected. No Meta request was sent.");
+                    } finally {
+                      setRunningSyntheticOnboarding(false);
+                    }
+                  }}
+                >
+                  {runningSyntheticOnboarding ? "Running isolated test…" : "Run synthetic onboarding test"}
+                </Button>
+                {syntheticOnboardingState && (
+                  <p className="text-xs text-slate-600" role="status">{syntheticOnboardingState}</p>
+                )}
+              </div>
+            )}
             <Button
               type="button"
               onClick={handleLaunch}

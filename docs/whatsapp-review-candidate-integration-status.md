@@ -13,7 +13,8 @@ existing WhatsApp policy pointers were retained.
   remains distinct from actual employee archive records.
 - PR #10 employee webhook, consent/assignment/RBAC archive routes, Coexistence
   echo/edit/revoke normalization, manual schema, and nullable expiry policy.
-- PR #11 inert onboarding verifier contract and manual proof schema.
+- PR #11 test-only Express-session onboarding harness, injectable Meta Graph
+  verifier, and manual proof schema. Staging/production are not enabled.
 - PR #12 append-only audit writer, manual ledger schema, and privilege checks.
 
 ## Blocking integration gaps
@@ -37,10 +38,11 @@ the isolated staging checks and human approvals are complete.
 
 ## Verification performed
 
-- 27/27 synthetic tests passed, including real loopback PostgreSQL tests for
+- 30/30 synthetic tests passed, including real loopback PostgreSQL tests for
   webhook retry idempotency, immutable events, foreign keys, revocation
-  serialization, HMAC, consent/RBAC, Coexistence echo, and onboarding replay/
-  concurrency/expiry checks.
+  serialization, HMAC, consent/RBAC, Coexistence echo, real express-session
+  cookie binding/rotation, onboarding replay/concurrency/expiry, and mocked
+  Meta Graph token/asset/Coexistence verification.
 - Full application build passed.
 - No application workflow, production database, Neon, Railway, Meta, real
   number, or customer conversation was used.

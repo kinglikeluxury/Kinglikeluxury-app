@@ -6,6 +6,7 @@ export type MetaWhatsappSignupConfig = {
 export type MetaWhatsappSignupSessionEvent =
   | {
       kind: "completed";
+      businessPortfolioId?: string;
       wabaId?: string;
       phoneNumberId?: string;
     }
@@ -815,6 +816,7 @@ export function parseMetaWhatsappSignupSessionEvent(
         : {};
     return {
       kind: "completed",
+      businessPortfolioId: safeMetaId(data.business_id),
       wabaId: safeMetaId(data.waba_id),
       phoneNumberId: safeMetaId(data.phone_number_id),
     };
