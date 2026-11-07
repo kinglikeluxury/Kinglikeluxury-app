@@ -42,9 +42,12 @@ not automatically delete or purge records. Legal/product owners must approve the
 retention duration and deletion process before activation; no deletion job is
 included in this draft.
 
-## Not verified
+## Verification boundaries
 
-No local PostgreSQL server was available during development. SQL concurrency,
-foreign-key behavior, webhook/revocation races, and DB-level duplicate handling
-therefore remain unverified. No Meta requests, real accounts, secrets, production
-database, or personal conversations were used.
+The manual schema and synthetic SQL tests were run in an ephemeral loopback
+PostgreSQL instance and an isolated temporary schema. The tests cover the foreign
+key rejection, event-key idempotency, and lock ordering between an authorized
+read and consent revocation. The temporary server/schema were stopped and removed.
+HTTP-level database integration, real webhook delivery, media handling, and
+production/staging migration are not verified. No Meta requests, real accounts,
+secrets, production database, or personal conversations were used.
