@@ -15,10 +15,13 @@ function fixture() {
   let consumed = false;
   let saved = 0;
   const repository: OnboardingRepository = {
-    async consumeFlow(flowId, actorId) {
-      if (flowId !== "flow-id-12345" || actorId !== 7 || consumed) return null;
+    async consumeFlow(input) {
+      if (input.flowId !== "flow-id-12345" || input.actorId !== 7 ||
+          input.sessionHash !== "a".repeat(64) || input.requestOrigin !== "https://app.example" ||
+          input.state !== "state-token-long-enough-for-test-123456" ||
+          input.csrfToken !== "csrf-token-long-12345678901234567890" || consumed) return null;
       consumed = true;
-      return { flowId, actorId, expectedOrigin: "https://app.example/", csrfToken: "csrf-token-long-123", consumedAt: null };
+      return { flowId: input.flowId, actorId: input.actorId, expectedOrigin: "https://app.example/", consumedAt: new Date() };
     },
     async saveVerifiedNumber() { saved++; return "saved"; },
     async revokeNumber() { return true; },
@@ -29,9 +32,11 @@ function fixture() {
   };
   const input = {
     enabled: true,
-    finish: { flowId: "flow-id-12345", code: "one-time-code-value", businessPortfolioId: proof.businessPortfolioId,
+    finish: { flowId: "flow-id-12345", state: "state-token-long-enough-for-test-123456",
+      code: "one-time-code-value", businessPortfolioId: proof.businessPortfolioId,
       wabaId: proof.wabaId, phoneNumberId: proof.phoneNumberId, displayPhoneNumber: proof.displayPhoneNumber },
-    actorId: 7, requestOrigin: "https://app.example", csrfToken: "csrf-token-long-123", repository, verifier,
+    actorId: 7, sessionHash: "a".repeat(64), requestOrigin: "https://app.example",
+    csrfToken: "csrf-token-long-12345678901234567890", repository, verifier,
   };
   return { input, get saved() { return saved; }, get exchanged() { return exchanged; } };
 }
@@ -53,7 +58,11 @@ test("server-side proof is required before a number can be accepted", async () =
 });
 
 test("origin/CSRF mismatch and replay fail closed", async () => {
-  for (const override of [{ requestOrigin: "https://evil.example" }, { csrfToken: "wrong-csrf-token-123" }]) {
+  for (const override of [
+    { requestOrigin: "https://evil.example" },
+    { csrfToken: "wrong-csrf-token-12345678901234567890" },
+    { finish: { ...fixture().input.finish, state: "wrong-state-token-long-123456789012345" } },
+  ]) {
     const f = fixture();
     await assert.rejects(acceptMetaOnboardingFinish({ ...f.input, ...override }),
       (error: unknown) => error instanceof MetaOnboardingRejected && error.code === "FLOW_INVALID");

@@ -18,10 +18,10 @@ existing WhatsApp policy pointers were retained.
 
 ## Blocking integration gaps
 
-- PR #11 still has no HTTP onboarding start/finish route, durable one-time
-  state/nonce repository, atomic replay protection, CSRF session binding, or
-  concrete Meta code-exchange/Graph verifier. Its interface tests do not prove
-  a real Meta relationship or Coexistence eligibility.
+- PR #11 now has test-only HTTP start/finish routes and a durable atomic flow
+  repository. There is still no production verifier, real Meta code exchange,
+  or Graph confirmation; production is hard-disabled and the main app registers
+  no verifier.
 - PR #12 audit is now connected to both existing archive GET routes. Search and
   export routes do not exist yet and cannot be covered until they are added.
 - HTTP coverage includes an admin without a grant, a different employee,
@@ -37,9 +37,10 @@ the isolated staging checks and human approvals are complete.
 
 ## Verification performed
 
-- 26/26 synthetic tests passed, including real loopback PostgreSQL tests for
+- 27/27 synthetic tests passed, including real loopback PostgreSQL tests for
   webhook retry idempotency, immutable events, foreign keys, revocation
-  serialization, HMAC, consent/RBAC, and Coexistence echo eligibility.
+  serialization, HMAC, consent/RBAC, Coexistence echo, and onboarding replay/
+  concurrency/expiry checks.
 - Full application build passed.
 - No application workflow, production database, Neon, Railway, Meta, real
   number, or customer conversation was used.

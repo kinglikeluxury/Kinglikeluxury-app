@@ -58,6 +58,7 @@ import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
+import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
 
 const app = express();
 
@@ -266,6 +267,7 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
   registerWhatsappEmployeeWebhook(app);
   registerWhatsappEmployeeArchiveRoutes(app);
+  registerWhatsappMetaOnboardingRoutes(app);
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
