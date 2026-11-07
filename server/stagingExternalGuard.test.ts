@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import express from "express";
 import test from "node:test";
 import { sendMetaWhatsApp } from "./services/metaWhatsAppService";
@@ -7,10 +8,12 @@ import { createMetaGraphOnboardingVerifier } from "./whatsappMetaGraphVerifier";
 import {
   assertStagingDatabaseIsolation,
   backgroundJobsAllowed,
+  resolveApplicationDatabaseUrl,
   stagingDatabaseIsIsolated,
   stagingExternalHttpMiddleware,
   STAGING_DATABASE_NOT_VERIFIED,
   STAGING_INTEGRATION_BLOCKED,
+  verifyStagingDatabaseConnection,
 } from "./stagingExternalGuard";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 import { sendBulkWhatsApp } from "./whatsappNotificationService";
@@ -149,19 +152,68 @@ test("Staging HTTP gate rejects live webhook, onboarding, activation, Meta, and 
   }
 });
 
-test("Staging database check requires explicit distinct non-Neon host and database identity", () => {
+test("Staging database selects only its designated URL and requires isolated identity confirmations", async () => {
   const base = {
     APP_DEPLOYMENT_MODE: "staging",
     NODE_ENV: "production",
-    NEON_DATABASE_URL: "postgresql://synthetic@stage.db.invalid/kinglike_staging",
-    STAGING_DATABASE_HOST: "stage.db.invalid",
-    STAGING_DATABASE_NAME: "kinglike_staging",
+    APP_STAGING_DATABASE_URL: "postgresql://synthetic@stage.db.invalid/kinglike_staging",
+    APP_STAGING_DATABASE_EXPECTED_HOST: "stage.db.invalid",
+    APP_STAGING_DATABASE_EXPECTED_NAME: "kinglike_staging",
+    APP_STAGING_DATABASE_CONFIRMATION: "synthetic project confirmation",
+    APP_STAGING_STORAGE_CONFIRMATION: "synthetic storage confirmation",
+    NEON_DATABASE_URL: "postgresql://synthetic@prod.db.invalid/kinglike_production",
     PRODUCTION_DATABASE_HOST: "prod.db.invalid",
     PRODUCTION_DATABASE_NAME: "kinglike_production",
   } as NodeJS.ProcessEnv;
+  assert.equal(resolveApplicationDatabaseUrl(base), base.APP_STAGING_DATABASE_URL);
   assert.equal(stagingDatabaseIsIsolated(base), true);
-  assert.equal(stagingDatabaseIsIsolated({ ...base, NEON_DATABASE_URL: "postgresql://x@ep-test.neon.tech/db" }), false);
+  assert.equal(stagingDatabaseIsIsolated({ ...base, APP_STAGING_DATABASE_URL: undefined }), false);
+  assert.equal(stagingDatabaseIsIsolated({ ...base, APP_STAGING_DATABASE_EXPECTED_HOST: undefined }), false);
+  assert.equal(stagingDatabaseIsIsolated({ ...base, APP_STAGING_DATABASE_CONFIRMATION: undefined }), false);
+  assert.equal(stagingDatabaseIsIsolated({ ...base, APP_STAGING_STORAGE_CONFIRMATION: undefined }), false);
+  assert.equal(stagingDatabaseIsIsolated({
+    ...base,
+    NEON_DATABASE_URL: "postgresql://synthetic@stage.db.invalid/kinglike_staging",
+  }), false);
   assert.equal(stagingDatabaseIsIsolated({ ...base, PRODUCTION_DATABASE_HOST: "stage.db.invalid" }), false);
+  assert.equal(stagingDatabaseIsIsolated({ ...base, PRODUCTION_DATABASE_NAME: "kinglike_staging" }), false);
   assert.throws(() => assertStagingDatabaseIsolation({ APP_DEPLOYMENT_MODE: "staging" } as NodeJS.ProcessEnv), new RegExp(STAGING_DATABASE_NOT_VERIFIED));
+  let dbQueries = 0;
+  await verifyStagingDatabaseConnection(async () => {
+    dbQueries++;
+    return { rows: [{ database_name: "kinglike_staging" }] };
+  }, base);
+  assert.equal(dbQueries, 1);
+  await assert.rejects(
+    verifyStagingDatabaseConnection(async () => {
+      dbQueries++;
+      throw new Error("synthetic database unavailable");
+    }, base),
+    new RegExp(STAGING_DATABASE_NOT_VERIFIED),
+  );
+  await assert.rejects(
+    verifyStagingDatabaseConnection(async () => {
+      dbQueries++;
+      return { rows: [{ database_name: "kinglike_staging" }] };
+    }, { APP_DEPLOYMENT_MODE: "staging" } as NodeJS.ProcessEnv),
+    new RegExp(STAGING_DATABASE_NOT_VERIFIED),
+  );
+  assert.equal(dbQueries, 2, "invalid identity must abort before issuing a database query");
+  await assert.rejects(
+    verifyStagingDatabaseConnection(async () => ({ rows: [{ database_name: "kinglike_production" }] }), base),
+    new RegExp(STAGING_DATABASE_NOT_VERIFIED),
+  );
   assert.equal(stagingDatabaseIsIsolated({ APP_DEPLOYMENT_MODE: "production" } as NodeJS.ProcessEnv), true);
+  assert.equal(resolveApplicationDatabaseUrl({
+    APP_DEPLOYMENT_MODE: "production",
+    NODE_ENV: "production",
+    NEON_DATABASE_URL: "postgresql://synthetic@prod.db.invalid/kinglike_production",
+    APP_STAGING_DATABASE_URL: "postgresql://synthetic@stage.db.invalid/kinglike_staging",
+  } as NodeJS.ProcessEnv), "postgresql://synthetic@prod.db.invalid/kinglike_production");
+});
+
+test("Staging skips startup schema work and automatic translation jobs", () => {
+  const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(source, /if \(stagingExternalIsolation\) \{[\s\S]*startup schema\/bootstrap work is disabled[\s\S]*\} else \{\s*for \(const step of bootSteps\)/);
+  assert.match(source, /if \(!stagingExternalIsolation\) \(async \(\) =>/);
 });

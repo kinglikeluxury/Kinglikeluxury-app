@@ -15,17 +15,21 @@ check. Do not infer mode from the internal environment name.
 
 ## Required gates before a staging preview
 
-1. **Database isolation:** provision or designate a staging-only database.
-   Before app startup, the guard compares the active `NEON_DATABASE_URL` host
-   and database name with `STAGING_DATABASE_HOST` / `STAGING_DATABASE_NAME`
-   and `PRODUCTION_DATABASE_HOST` / `PRODUCTION_DATABASE_NAME`. It rejects
-   missing or mismatched identities, a production host/name collision, and
-   `.neon.tech` hosts without printing those values. `NEON_DATABASE_URL` is the
-   application's existing connection variable; it must point to an approved
-   non-Neon staging PostgreSQL provider in this mode. Startup fails before
-   database work when this proof is absent. Do not use a production clone
-   containing personal data, automatic schema creation, or automatic
-   migrations. Seed only synthetic employees, conversations, and consent.
+1. **Database isolation:** provision or designate a staging-only PostgreSQL
+   database. In Staging, `server/db.ts` selects only `APP_STAGING_DATABASE_URL`
+   and uses the standard PostgreSQL driver; it never falls back to
+   `NEON_DATABASE_URL`. Before route registration, bootstrap SQL, or workers,
+   the app requires `APP_STAGING_DATABASE_EXPECTED_HOST` and
+   `APP_STAGING_DATABASE_EXPECTED_NAME` to match that URL, non-empty
+   `APP_STAGING_DATABASE_CONFIRMATION` and `APP_STAGING_STORAGE_CONFIRMATION`,
+   plus distinct `PRODUCTION_DATABASE_HOST` and `PRODUCTION_DATABASE_NAME`.
+   A matching stale `NEON_DATABASE_URL` is rejected. The app then runs a
+   `SELECT current_database()` preflight and requires that name to match the
+   approved Staging identity. Missing identity, URL mismatch, unreadable DB,
+   or returned database mismatch aborts startup with a generic error; identity
+   values and credentials are not logged. Do not use a production clone
+   containing personal data. Only synthetic employees, conversations, and
+   consent may be used for a later review.
 2. **No Meta connection:** leave the Meta prototype disabled; do not inject a
    Graph verifier or Meta credentials. Embedded Signup, token exchange,
    Graph calls, and number activation must stay unavailable.
@@ -56,10 +60,12 @@ check. Do not infer mode from the internal environment name.
 
 1. Confirm project/service identity, database host/name isolation, and the
    runtime `APP_DEPLOYMENT_MODE=staging` value in Railway's UI.
-2. Obtain owner approval for the exact synthetic fixture database and set the
-   four non-secret host/name identity variables only after comparing the
-   active database URL to the approved staging and production identities.
-   Keep Meta, webhook, and outbound-send settings off.
+2. Obtain owner approval for the exact synthetic fixture database. Confirm
+   `APP_STAGING_DATABASE_URL`, its expected host/name, the production host/name
+   used only for collision rejection, and both existing confirmation values
+   in the separate service configuration. Do not copy production database
+   values into the staging URL. Keep Meta, webhook, and outbound-send settings
+   off. No Railway variables were read or changed for this code update.
 3. Implement and review that staging-only fixture provider in a separate PR
    update. It must reject production mode, reject any database not explicitly
    identified as staging, return synthetic records only, and preserve the

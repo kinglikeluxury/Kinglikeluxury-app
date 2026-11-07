@@ -8,6 +8,12 @@ export function isStagingMode(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.APP_DEPLOYMENT_MODE === "staging";
 }
 
+export function resolveApplicationDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  if (env.NODE_ENV === "test") return env.KAY_TEST_DATABASE_URL;
+  if (isStagingMode(env)) return env.APP_STAGING_DATABASE_URL;
+  return env.NEON_DATABASE_URL;
+}
+
 export function assertExternalGatewayAllowed(
   _gateway: ExternalGateway,
   env: NodeJS.ProcessEnv = process.env,
@@ -29,18 +35,26 @@ export function backgroundJobsAllowed(env: NodeJS.ProcessEnv = process.env): boo
 export function stagingDatabaseIsIsolated(env: NodeJS.ProcessEnv = process.env): boolean {
   if (!isStagingMode(env)) return true;
   try {
-    const activeDatabaseUrl = env.NODE_ENV === "test" ? env.KAY_TEST_DATABASE_URL : env.NEON_DATABASE_URL;
+    const activeDatabaseUrl = resolveApplicationDatabaseUrl(env);
     const databaseUrl = new URL(activeDatabaseUrl ?? "");
     const host = databaseUrl.hostname.toLowerCase();
     const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\/+/, "")).toLowerCase();
-    const stagingHost = env.STAGING_DATABASE_HOST?.toLowerCase();
-    const stagingName = env.STAGING_DATABASE_NAME?.toLowerCase();
+    const stagingHost = env.APP_STAGING_DATABASE_EXPECTED_HOST?.toLowerCase();
+    const stagingName = env.APP_STAGING_DATABASE_EXPECTED_NAME?.toLowerCase();
     const productionHost = env.PRODUCTION_DATABASE_HOST?.toLowerCase();
     const productionName = env.PRODUCTION_DATABASE_NAME?.toLowerCase();
-    if (!stagingHost || !stagingName || !productionHost || !productionName) return false;
-    if (host.endsWith(".neon.tech") || host === "neon.tech") return false;
-    return host === stagingHost && databaseName === stagingName &&
-      host !== productionHost && databaseName !== productionName;
+    const confirmation = env.APP_STAGING_DATABASE_CONFIRMATION?.trim();
+    const storageConfirmation = env.APP_STAGING_STORAGE_CONFIRMATION?.trim();
+    if (!stagingHost || !stagingName || !productionHost || !productionName ||
+        !confirmation || !storageConfirmation) return false;
+    if (host !== stagingHost || databaseName !== stagingName) return false;
+    // A stale production URL must never be accepted as Staging's active URL.
+    if (env.NEON_DATABASE_URL) {
+      const productionUrl = new URL(env.NEON_DATABASE_URL);
+      if (productionUrl.hostname.toLowerCase() === host &&
+          decodeURIComponent(productionUrl.pathname.replace(/^\/+/, "")).toLowerCase() === databaseName) return false;
+    }
+    return host !== productionHost && databaseName !== productionName;
   } catch {
     return false;
   }
@@ -48,6 +62,23 @@ export function stagingDatabaseIsIsolated(env: NodeJS.ProcessEnv = process.env):
 
 export function assertStagingDatabaseIsolation(env: NodeJS.ProcessEnv = process.env): void {
   if (isStagingMode(env) && !stagingDatabaseIsIsolated(env)) {
+    throw new Error(STAGING_DATABASE_NOT_VERIFIED);
+  }
+}
+
+export async function verifyStagingDatabaseConnection(
+  query: (sql: string) => Promise<{ rows: Array<{ database_name?: string }> }>,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  assertStagingDatabaseIsolation(env);
+  if (!isStagingMode(env)) return;
+  try {
+    const result = await query("SELECT current_database() AS database_name");
+    const expectedName = env.APP_STAGING_DATABASE_EXPECTED_NAME?.toLowerCase();
+    if (!expectedName || result.rows[0]?.database_name?.toLowerCase() !== expectedName) {
+      throw new Error(STAGING_DATABASE_NOT_VERIFIED);
+    }
+  } catch {
     throw new Error(STAGING_DATABASE_NOT_VERIFIED);
   }
 }

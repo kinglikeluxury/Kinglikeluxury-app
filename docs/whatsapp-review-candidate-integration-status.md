@@ -32,21 +32,31 @@ existing WhatsApp policy pointers were retained.
   writer. The local archive review also filters each conversation by its own
   phone consent and audits before response. A loopback PostgreSQL role test
   verifies the audit connection is non-owner and INSERT-only.
-- A code-only Staging fail-closed guard is implemented. It blocks WhatsApp
-  webhook/onboarding/activation and Meta/Twilio HTTP surfaces, disables the
-  observed WhatsApp send helpers and notification senders, prevents known
-  schedulers/workers/broadcast resume, and fails startup if the active DB URL
-  is Neon, unidentified, or does not match the explicit staging host/name and
-  distinct production host/name. Railway and DB configuration were not read or
-  changed. No staging archive fixture provider was added.
-- Verification proves the named send helpers do not reach fetch, the injected
-  Graph verifier makes zero calls, the HTTP gate rejects the listed routes even
-  with enable flags true, and the DB identity check rejects missing/Neon/
-  colliding identities. Direct provider SDK paths (especially every Resend
-  route and every scheduler entrypoint) have not each been run through a
-  provider-injected integration test. Do not call the guard a complete
-  organization-wide egress boundary; Staging remains NO-GO until those paths
-  are individually verified and the isolated service/database identity is
+- Staging DB selection now uses only `APP_STAGING_DATABASE_URL` with the
+  standard PostgreSQL driver. It requires the app's expected host/name,
+  distinct production host/name, both existing confirmation markers, and a
+  successful `current_database()` preflight before route registration or
+  startup work. A matching `NEON_DATABASE_URL` is rejected rather than used as
+  fallback. Staging skips schema/bootstrap SQL, the production Kay freeze, and
+  automatic translation work. Production/development retain their existing
+  Neon URL and driver. The separate Railway project's variables were not read
+  or changed; its current suitability remains unverified.
+- Local verification connected the selected Staging driver to an ephemeral
+  loopback PostgreSQL database while a different synthetic production URL was
+  present. The DB preflight rejects a missing URL/identity, mismatched or
+  colliding production identity, failed query, and wrong returned database
+  name. This exercises the DB module and preflight, not a full `server/index.ts`
+  boot.
+- HTTP/outbound checks prove named WhatsApp helper calls and mocked Graph
+  verification make zero requests, the HTTP gate rejects listed webhook,
+  onboarding, Twilio OTP and Meta endpoints even with flags enabled, and the
+  central scheduler predicate is false in Staging. The 36-test run includes
+  synthetic PostgreSQL/session/HTTP and verifier suites. However, not every
+  direct Resend/Twilio/web-push SDK call, retry path, and scheduler/worker has
+  been intercepted with an injected provider during an application-level
+  startup test. Therefore this is not proven complete egress containment:
+  staging remains NO-GO until provider call sites and background entrypoints
+  are individually exercised and the isolated service/database identity is
   owner-confirmed.
 - There is no HTTP search/export route in this combined snapshot. No startup
   migration is added.

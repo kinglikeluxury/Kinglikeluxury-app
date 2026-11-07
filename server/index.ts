@@ -35,7 +35,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
 import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
-import { logDatabaseStatus, ensureCrmIndexes, enforceKayProductionSafetyFreeze, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, enforceKayProductionSafetyFreeze, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables, pool } from "./db";
 import { ensureMetaIntelligenceTables } from "./metaIntelligenceSyncService";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { ensureAssignmentCursor } from "./leadAssignmentService";
@@ -60,9 +60,9 @@ import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
 import {
-  assertStagingDatabaseIsolation,
   isStagingMode,
   stagingExternalHttpMiddleware,
+  verifyStagingDatabaseConnection,
 } from "./stagingExternalGuard";
 
 const app = express();
@@ -268,6 +268,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Do not register request handlers, run bootstrap SQL, or start workers until
+  // the selected Staging database accepts a query and reports the designated DB.
+  await verifyStagingDatabaseConnection((sql) => pool.query(sql));
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
@@ -341,10 +344,9 @@ app.use((req, res, next) => {
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  assertStagingDatabaseIsolation();
   // Kay's one-way production freeze must succeed before the process accepts
   // traffic. A failure rejects startup instead of leaving old triggers active.
-  await enforceKayProductionSafetyFreeze();
+  if (!isStagingMode()) await enforceKayProductionSafetyFreeze();
   server.listen(
     {
       port,
@@ -508,11 +510,15 @@ app.use((req, res, next) => {
     },
   ];
 
-  for (const step of bootSteps) {
-    try {
-      await step.run();
-    } catch (err) {
-      console.error(`[DB] ${step.name} failed:`, err);
+  if (stagingExternalIsolation) {
+    console.warn("[StagingIsolation] startup schema/bootstrap work is disabled; pre-provisioned schema is required");
+  } else {
+    for (const step of bootSteps) {
+      try {
+        await step.run();
+      } catch (err) {
+        console.error(`[DB] ${step.name} failed:`, err);
+      }
     }
   }
   // Production incident containment: Kay analysis remains request-driven and
@@ -521,7 +527,7 @@ app.use((req, res, next) => {
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];
-  (async () => {
+  if (!stagingExternalIsolation) (async () => {
     try {
       const posts = await storage.getBlogPosts();
       let updated = 0;
