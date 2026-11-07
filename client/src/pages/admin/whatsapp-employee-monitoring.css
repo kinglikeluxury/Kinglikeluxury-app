@@ -1,0 +1,61 @@
+@font-face {
+  font-family: "Tajawal Local";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../assets/fonts/tajawal/Tajawal-Regular.woff2") format("woff2");
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1,
+    U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF,
+    U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: "Tajawal Local";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../assets/fonts/tajawal/Tajawal-Medium.woff2") format("woff2");
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1,
+    U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF,
+    U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: "Tajawal Local";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../assets/fonts/tajawal/Tajawal-Bold.woff2") format("woff2");
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1,
+    U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF,
+    U+FE70-FE74, U+FE76-FEFC;
+}
+
+.kinglike-family-whatsapp.kinglike-family-whatsapp {
+  font-family: "Tajawal Local", Tahoma, sans-serif !important;
+}
+
+.kinglike-family-whatsapp.kinglike-family-whatsapp :is(
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    p,
+    span,
+    button,
+    input,
+    textarea,
+    label,
+    a
+  ) {
+  font-family: "Tajawal Local", Tahoma, sans-serif !important;
+}
+
+.kinglike-family-whatsapp .whatsapp-composer {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}

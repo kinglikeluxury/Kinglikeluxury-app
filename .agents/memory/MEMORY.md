@@ -38,3 +38,4 @@
 - [Kay Vite audio fixture](kay-vite-audio-fixture.md) — Vite bundles the tracked WAV, while Node tests must avoid importing the binary-bearing component directly.
 - [Kay metadata migration ownership](kay-metadata-migration-ownership.md) — recording metadata schema changes require the dedicated migration-owner connection; runtime Kay writer cannot alter table ownership.
 - [Kay one-turn gateway](kay-one-turn-gateway.md) — Tarek voice tests are notice-gated, exact-socket-bound, database-reserved, and terminal after one attempt.
+- [WhatsApp monitoring preservation](whatsapp-monitoring-preservation.md) — preserve the UI across mainline updates while keeping mock, reviewer, Test WABA, and real employee data separate.
