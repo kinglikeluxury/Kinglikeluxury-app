@@ -20,6 +20,13 @@ export function isApprovedEmployeeWaba(wabaId: string, configuredIds: string): b
 }
 
 let testPool: pg.Pool | undefined;
+export async function closeWhatsappEmployeeArchiveTestPool(): Promise<void> {
+  if (!testPool) return;
+  const pool = testPool;
+  testPool = undefined;
+  await pool.end();
+}
+
 function getTestPool(): pg.Pool {
   if (process.env.NODE_ENV !== "test") throw new Error("Employee archive is restricted to isolated test processes.");
   const connectionString = process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL;
@@ -347,7 +354,7 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
         await client.query("ROLLBACK"); return res.sendStatus(403);
       }
       const owner = await client.query(
-        `SELECT employee_id FROM whatsapp_employee_conversations WHERE id=$1`,
+        `SELECT employee_id,phone_number_id FROM whatsapp_employee_conversations WHERE id=$1`,
         [conversationId],
       );
       if (!owner.rowCount) { await client.query("ROLLBACK"); return res.sendStatus(404); }

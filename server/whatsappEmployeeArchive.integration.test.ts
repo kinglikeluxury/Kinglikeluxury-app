@@ -22,7 +22,7 @@ test("PostgreSQL schema enforces FK, idempotency, and consent revocation seriali
   const pool = new pg.Pool({ connectionString, max: 3, connectionTimeoutMillis: 1500 });
   const schema = `wa_archive_test_${process.pid}_${Date.now()}`;
   const migration = await readFile(
-    new URL("../docs/sql/2026-11-07-whatsapp-employee-archive.sql.txt", import.meta.url),
+    new URL("../docs/sql/2026-11-07-whatsapp-employee-unified.sql.txt", import.meta.url),
     "utf8",
   );
   const connect = async () => {

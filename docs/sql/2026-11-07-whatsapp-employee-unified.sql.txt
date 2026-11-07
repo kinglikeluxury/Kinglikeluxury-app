@@ -1,5 +1,5 @@
--- Manual, test-only schema. Do not run at startup or against Neon/production.
--- Compatible with the additive event/consent identifiers proposed in PR #6.
+-- Single manual schema for the isolated employee webhook + archive review.
+-- Never run at application startup or against Neon/production.
 CREATE TABLE whatsapp_employee_numbers (
   phone_number_id TEXT PRIMARY KEY,
   waba_id TEXT NOT NULL,
