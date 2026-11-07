@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { shouldLogApiResponseBody } from "./apiResponseLogPolicy";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -228,11 +229,12 @@ app.use("/api", (_req, res, next) => {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  const logResponseBody = shouldLogApiResponseBody(path);
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
+    if (logResponseBody) capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
