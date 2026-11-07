@@ -91,6 +91,9 @@ const INITIAL_LOGIN_DIAGNOSTICS: MetaWhatsappLoginAttemptDiagnostics = {
   signupEventType: "none",
   popupLaunchException: false,
 };
+// Live Embedded Signup remains hard-disabled until consent, number ownership,
+// and Meta's per-number verification are independently reviewed.
+const LIVE_SIGNUP_ACTIVATION_APPROVED = false;
 
 function clearSignupTimeout(timeoutRef: SignupTimeoutRef): void {
   if (timeoutRef.current) {
@@ -317,7 +320,8 @@ export default function MetaAppReviewPrototype() {
         }
       : null;
   const canLaunch =
-    !syntheticOnboardingTestMode && Boolean(signupConfig) && sdkStatus === "ready" && !isLaunching;
+    LIVE_SIGNUP_ACTIVATION_APPROVED && !syntheticOnboardingTestMode &&
+    Boolean(signupConfig) && sdkStatus === "ready" && !isLaunching;
   const sdkDiagnosticRows: Array<[string, boolean]> = [
     ["SDK script tag present", sdkDiagnostics.sdkScriptTagPresent],
     ["SDK script load event fired", sdkDiagnostics.sdkScriptLoadEventFired],

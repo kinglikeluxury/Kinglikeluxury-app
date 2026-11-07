@@ -22,6 +22,7 @@ import { SYRIAN_CITY_ENTRIES, toSyriaCityValue } from "@shared/syriaLocations";
 import { buildPropertyLocationFilter } from "./propertyLocationFilter";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
+import { establishAuthenticatedSession } from "./authSession";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 import { sendNewPropertyNotification, sendLeadChangeNotification, sendLeadTaskChangeNotification } from "./emailService";
@@ -1527,9 +1528,7 @@ ${metaTags}
         isVerified: true,
       });
 
-      req.session.userId = user.id;
-      req.session.isAdmin = user.isAdmin;
-      req.session.role = user.role ?? "user";
+      await establishAuthenticatedSession(req, user);
 
       // Fire-and-forget welcome notifications
       sendWelcomeEmail(user).catch(() => {});
@@ -1660,9 +1659,7 @@ ${metaTags}
       }
       
       // Set session
-      req.session.userId = user.id;
-      req.session.isAdmin = user.isAdmin;
-      req.session.role = user.role ?? "user";
+      await establishAuthenticatedSession(req, user);
       
       // Return appropriate user data
       const userResponse: any = {

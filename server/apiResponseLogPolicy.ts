@@ -3,6 +3,7 @@ const SENSITIVE_RESPONSE_PREFIXES = [
   "/api/employee/whatsapp-consents",
   "/api/admin/whatsapp-employees",
   "/api/admin/whatsapp-meta/onboarding",
+  "/api/admin/whatsapp-employee/local-review",
   "/api/webhooks/whatsapp-employee",
 ];
 

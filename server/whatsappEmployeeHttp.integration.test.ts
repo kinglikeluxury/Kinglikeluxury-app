@@ -32,6 +32,8 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
   );
   const setup = await pool.connect();
   let server: ReturnType<ReturnType<typeof express>["listen"]> | undefined;
+  const previousAppMode = process.env.APP_DEPLOYMENT_MODE;
+  const previousReviewMode = process.env.WHATSAPP_EMPLOYEE_LOCAL_REVIEW_MODE;
   try {
     await setup.query(`CREATE SCHEMA "${schema}"`);
     await setup.query(`
@@ -76,7 +78,8 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
         ('5550101','7000101',101,'company','15550000001',true,NOW(),'synthetic-proof-ref',301,201,NOW(),true,NOW(),'synthetic-session-1'),
         ('5550102','7000101',101,'company','15550000001',true,NOW(),'synthetic-proof-ref-2',301,201,NOW(),true,NULL,NULL),
         ('5550103','7000101',102,'company','15550000003',true,NOW(),'synthetic-proof-ref-3',301,201,NOW(),true,NOW(),'synthetic-session-3'),
-        ('5550104','7000999',101,'test','15550000004',true,NOW(),'synthetic-test-ref',301,201,NOW(),true,NOW(),'synthetic-test-session')
+        ('5550104','7000999',101,'test','15550000004',true,NOW(),'synthetic-test-ref',301,201,NOW(),true,NOW(),'synthetic-test-session'),
+        ('5550105','7000999',101,'test','15550000005',true,NOW(),'synthetic-test-ref-5',301,201,NOW(),true,NOW(),'synthetic-test-session-5')
     `);
     await setup.query(`
       INSERT INTO whatsapp_employee_consents
@@ -84,6 +87,26 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       VALUES ('5550101',101,'consented',NOW(),101),('5550102',101,'consented',NOW(),101),
              ('5550104',101,'consented',NOW(),101)
     `);
+    const syntheticConversation = await setup.query(
+      `INSERT INTO whatsapp_employee_conversations(employee_id,phone_number_id,waba_id,contact_wa_id)
+       VALUES (101,'5550104','7000999','synthetic-contact-104') RETURNING id`,
+    );
+    await setup.query(
+      `INSERT INTO whatsapp_employee_events
+        (conversation_id,employee_id,meta_event_key,meta_message_id,event_kind,direction,message_text,source_field)
+       VALUES ($1,101,'synthetic-review:allowed:001','synthetic-message-001','message','inbound','Synthetic review fixture only','messages')`,
+      [syntheticConversation.rows[0].id],
+    );
+    const noConsentConversation = await setup.query(
+      `INSERT INTO whatsapp_employee_conversations(employee_id,phone_number_id,waba_id,contact_wa_id)
+       VALUES (101,'5550105','7000999','synthetic-contact-105') RETURNING id`,
+    );
+    await setup.query(
+      `INSERT INTO whatsapp_employee_events
+        (conversation_id,employee_id,meta_event_key,meta_message_id,event_kind,direction,message_text,source_field)
+       VALUES ($1,101,'synthetic-review:no-consent:002','synthetic-message-002','message','inbound','Must remain hidden','messages')`,
+      [noConsentConversation.rows[0].id],
+    );
     await setup.query("INSERT INTO whatsapp_employee_supervisor_grants (supervisor_id,employee_id,can_read,granted_by) VALUES (201,101,true,301)");
     await setup.query(`
       CREATE FUNCTION delay_race_event() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -104,6 +127,8 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     auditDbUrl.username = "whatsapp_employee_access_audit_writer";
     process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL = auditDbUrl.toString();
     process.env.NODE_ENV = "test";
+    process.env.APP_DEPLOYMENT_MODE = "test";
+    process.env.WHATSAPP_EMPLOYEE_LOCAL_REVIEW_MODE = "true";
     process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED = "true";
     process.env.WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED = "true";
     process.env.WHATSAPP_EMPLOYEE_WEBHOOK_VERIFY_TOKEN = "synthetic-verify-token";
@@ -279,6 +304,25 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       row.related_message_id === "synthetic-echo-1" && row.message_text === null));
     assert.equal(archive.some((row: any) => "media_url" in row || "raw_payload" in row), false);
 
+    assert.equal((await fetch(`${origin}/api/admin/whatsapp-employee/local-review/archive`)).status, 401);
+    assert.equal((await request("GET", "/api/admin/whatsapp-employee/local-review/archive", 201)).status, 403);
+    const localPreview = await request("GET", "/api/admin/whatsapp-employee/local-review/archive", 301);
+    assert.equal(localPreview.status, 200);
+    const localPreviewData = await localPreview.json() as any;
+    assert.equal(localPreviewData.mode, "synthetic_local_review");
+    assert.equal(localPreviewData.conversations.length, 1);
+    assert.equal(localPreviewData.conversations[0].messages[0].text, "Synthetic review fixture only");
+    assert.doesNotMatch(JSON.stringify(localPreviewData), /15550000005|synthetic-contact|Must remain hidden/);
+    const previewAudit = await setup.query(
+      `SELECT outcome,reason_code FROM whatsapp_employee_access_audit
+        WHERE actor_id=301 AND action='archive.read' ORDER BY id DESC LIMIT 1`,
+    );
+    assert.equal(previewAudit.rows[0].outcome, "allowed");
+    assert.equal(previewAudit.rows[0].reason_code, "admin_explicit_grant");
+    process.env.APP_DEPLOYMENT_MODE = "staging";
+    assert.equal((await request("GET", "/api/admin/whatsapp-employee/local-review/archive", 301)).status, 404);
+    process.env.APP_DEPLOYMENT_MODE = "test";
+
     const originalAuditUrl = process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL;
     const unavailableAuditUrl = new URL(originalAuditUrl!);
     unavailableAuditUrl.port = "1";
@@ -287,6 +331,9 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     const blockedByAudit = await request("GET", messagesUrl, 101);
     assert.equal(blockedByAudit.status, 503);
     assert.doesNotMatch(await blockedByAudit.text(), /synthetic echo|race fixture|155500/);
+    const previewBlockedByAudit = await request("GET", "/api/admin/whatsapp-employee/local-review/archive", 301);
+    assert.equal(previewBlockedByAudit.status, 503);
+    assert.doesNotMatch(await previewBlockedByAudit.text(), /Synthetic review fixture|synthetic-contact/);
     process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL = originalAuditUrl;
     await closeWhatsappEmployeeArchiveTestPool();
 
@@ -311,8 +358,10 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     try {
       await verify.query(`SET search_path TO "${schema}"`);
       const stored = await verify.query(`SELECT meta_event_key,direction,source_field FROM whatsapp_employee_events ORDER BY meta_event_key`);
-      assert.equal(stored.rowCount, 6);
-      assert.deepEqual(stored.rows.map((row) => row.direction).sort(), ["inbound", "inbound", "outbound", "outbound", "outbound", "status"]);
+      assert.equal(stored.rowCount, 8);
+      assert.deepEqual(stored.rows.map((row) => row.direction).sort(), [
+        "inbound", "inbound", "inbound", "inbound", "outbound", "outbound", "outbound", "status",
+      ]);
       const audit = await verify.query(
         `SELECT actor_id,action,outcome FROM whatsapp_employee_audit
           WHERE action IN ('consent_revoked','webhook_event') ORDER BY id`,
@@ -350,5 +399,9 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     await setup.query("DROP ROLE IF EXISTS whatsapp_employee_archive_test_runtime");
     setup.release();
     await pool.end();
+    if (previousAppMode === undefined) delete process.env.APP_DEPLOYMENT_MODE;
+    else process.env.APP_DEPLOYMENT_MODE = previousAppMode;
+    if (previousReviewMode === undefined) delete process.env.WHATSAPP_EMPLOYEE_LOCAL_REVIEW_MODE;
+    else process.env.WHATSAPP_EMPLOYEE_LOCAL_REVIEW_MODE = previousReviewMode;
   }
 });

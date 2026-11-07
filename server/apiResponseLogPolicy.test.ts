@@ -9,6 +9,7 @@ test("sensitive employee WhatsApp APIs never put response bodies in application 
     "/api/employee/whatsapp-consents",
     "/api/employee/whatsapp-consents/123",
     "/api/admin/whatsapp-employees/supervisor-grants",
+    "/api/admin/whatsapp-employee/local-review/archive",
     "/api/webhooks/whatsapp-employee",
   ]) {
     assert.equal(shouldLogApiResponseBody(path), false, path);

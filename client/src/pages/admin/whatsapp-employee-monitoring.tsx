@@ -31,6 +31,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MetaAppReviewPrototype from "@/components/admin/MetaAppReviewPrototype";
+import LocalSyntheticArchiveReview, {
+  type LocalArchiveReviewData,
+} from "@/components/admin/LocalSyntheticArchiveReview";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import {
@@ -684,6 +687,11 @@ export default function WhatsappEmployeeMonitoringPage() {
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("employees");
   const [preview, setPreview] = useState<PreviewState>(null);
+  const localArchiveReviewEnabled =
+    (import.meta as any).env?.VITE_WHATSAPP_EMPLOYEE_ARCHIVE_REVIEW_MODE === "true";
+  const [localArchiveReview, setLocalArchiveReview] = useState<LocalArchiveReviewData | null>(null);
+  const [localArchiveReviewError, setLocalArchiveReviewError] = useState<string | null>(null);
+  const [loadingLocalArchiveReview, setLoadingLocalArchiveReview] = useState(false);
   const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
 
   useEffect(() => {
@@ -786,6 +794,28 @@ export default function WhatsappEmployeeMonitoringPage() {
     pushMobilePanel("chat");
   };
 
+  const loadLocalArchiveReview = async () => {
+    setLoadingLocalArchiveReview(true);
+    setLocalArchiveReviewError(null);
+    try {
+      const response = await fetch("/api/admin/whatsapp-employee/local-review/archive", {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error();
+      const data = await response.json() as LocalArchiveReviewData;
+      if (data.mode !== "synthetic_local_review" || data.employee?.id !== "synthetic-101" ||
+          !Array.isArray(data.conversations)) throw new Error();
+      setLocalArchiveReview(data);
+    } catch {
+      setLocalArchiveReviewError("The local synthetic archive is unavailable. No live data was loaded.");
+      setLocalArchiveReview(null);
+    } finally {
+      setLoadingLocalArchiveReview(false);
+    }
+  };
+
   if (isLoading || !user?.isAdmin) {
     return <div className="min-h-[70vh] bg-slate-50" aria-label="Loading admin workspace" />;
   }
@@ -812,6 +842,13 @@ export default function WhatsappEmployeeMonitoringPage() {
         </div>
 
         <MetaAppReviewPrototype />
+        <LocalSyntheticArchiveReview
+          enabled={localArchiveReviewEnabled}
+          loading={loadingLocalArchiveReview}
+          error={localArchiveReviewError}
+          data={localArchiveReview}
+          onLoad={loadLocalArchiveReview}
+        />
 
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-[#005476]/5">
           <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[220px] lg:flex-none", mobilePanel === "employees" ? "flex" : "hidden")}>

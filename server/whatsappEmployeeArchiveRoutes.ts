@@ -7,7 +7,11 @@ import {
   type ArchiveAccessOutcome,
 } from "./whatsappEmployeeAccessAudit";
 
-const enabled = () => process.env.WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED === "true";
+const enabled = () => process.env.NODE_ENV === "test" &&
+  process.env.APP_DEPLOYMENT_MODE === "test" &&
+  process.env.WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED === "true";
+const localReviewEnabled = () => enabled() &&
+  process.env.WHATSAPP_EMPLOYEE_LOCAL_REVIEW_MODE === "true";
 
 export function canReadEmployeeScope(
   actorId: number,
@@ -112,6 +116,7 @@ async function employeeHasActiveConsent(client: pg.PoolClient, employeeId: numbe
        JOIN whatsapp_employee_consents c
          ON c.phone_number_id=n.phone_number_id AND c.employee_id=n.employee_id
       WHERE n.employee_id=$1 AND n.is_active=true
+        AND n.registration_kind='company'
         AND c.status='consented' AND c.revoked_at IS NULL
         AND ($2::text IS NULL OR n.phone_number_id=$2)
       LIMIT 1 FOR SHARE OF n,c`,
@@ -129,6 +134,78 @@ async function activeActor(client: pg.PoolClient, actorId: number): Promise<{ is
 }
 
 export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
+  app.get("/api/admin/whatsapp-employee/local-review/archive", async (req: any, res: any) => {
+    const actorId = authenticated(req, res);
+    if (!actorId) return;
+    if (!localReviewEnabled()) return res.sendStatus(404);
+    const client = await safeConnect();
+    if (!client) return res.sendStatus(503);
+    try {
+      await client.query("BEGIN");
+      const actor = await activeActor(client, actorId);
+      if (!actor?.isAdmin) {
+        await client.query("ROLLBACK");
+        await persistArchiveAccess({
+          actorId, employeeId: 101, action: "archive.read", outcome: "denied", reason: "policy_blocked",
+        });
+        return res.sendStatus(403);
+      }
+      const result = await client.query(
+        `SELECT c.id,e.id AS event_id,e.event_kind,e.direction,e.message_text,e.received_at
+           FROM whatsapp_employee_conversations c
+           JOIN whatsapp_employee_numbers n
+             ON n.phone_number_id=c.phone_number_id AND n.employee_id=c.employee_id
+           JOIN whatsapp_employee_consents consent
+             ON consent.phone_number_id=n.phone_number_id AND consent.employee_id=n.employee_id
+           JOIN whatsapp_employee_events e ON e.conversation_id=c.id AND e.employee_id=c.employee_id
+          WHERE c.employee_id=101 AND n.registration_kind='test' AND n.is_active=true
+            AND consent.status='consented' AND consent.revoked_at IS NULL
+            AND e.meta_event_key LIKE 'synthetic-review:%'
+          ORDER BY c.id,e.received_at,e.id LIMIT 200
+          FOR SHARE OF n,consent`,
+      );
+      const byConversation = new Map<number, any>();
+      for (const row of result.rows) {
+        const id = Number(row.id);
+        const conversation = byConversation.get(id) ?? {
+          id: String(id),
+          label: `Synthetic conversation ${byConversation.size + 1}`,
+          messages: [],
+        };
+        conversation.messages.push({
+          id: String(row.event_id),
+          kind: row.event_kind === "revoke" ? "deleted" : "text",
+          direction: row.direction,
+          text: row.event_kind === "revoke" ? "Synthetic message removed" : String(row.message_text ?? ""),
+          receivedAt: new Date(row.received_at).toISOString(),
+        });
+        byConversation.set(id, conversation);
+      }
+      if (byConversation.size === 0) {
+        await client.query("ROLLBACK");
+        await persistArchiveAccess({
+          actorId, employeeId: 101, action: "archive.read", outcome: "denied",
+          reason: "consent_inactive",
+        });
+        return res.sendStatus(403);
+      }
+      await persistArchiveAccess({
+        actorId, employeeId: 101, action: "archive.read", outcome: "allowed",
+        reason: "admin_explicit_grant", resultCount: byConversation.size,
+      });
+      await client.query("COMMIT");
+      return res.json({
+        mode: "synthetic_local_review",
+        employee: { id: "synthetic-101", label: "Synthetic employee 101" },
+        conversations: Array.from(byConversation.values()),
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      if (error instanceof ArchiveAuditUnavailable) return auditFailureResponse(res);
+      return res.sendStatus(500);
+    } finally { client.release(); }
+  });
+
   app.post("/api/admin/whatsapp-employees/number-assignments", async (req: any, res: any) => {
     const actorId = authenticated(req, res);
     if (!actorId) return;
@@ -383,6 +460,7 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
             SELECT 1 FROM whatsapp_employee_numbers n JOIN whatsapp_employee_consents x
               ON x.phone_number_id=n.phone_number_id AND x.employee_id=n.employee_id
              WHERE n.phone_number_id=c.phone_number_id AND n.is_active=true
+               AND n.registration_kind='company'
                AND x.status='consented' AND x.revoked_at IS NULL)
           ORDER BY c.updated_at DESC LIMIT 100`,
         [employeeId],

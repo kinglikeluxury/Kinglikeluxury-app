@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import express from "express";
 import session from "express-session";
+import connectPg from "connect-pg-simple";
 import { runSyntheticWhatsappOnboardingFlow } from "../client/src/lib/whatsappMetaOnboardingClient";
+import { establishAuthenticatedSession } from "./authSession";
 import pg from "pg";
 import {
   closeWhatsappMetaOnboardingTestPool,
@@ -27,6 +29,7 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
   assert.ok(["localhost", "127.0.0.1", "::1", "[::1]"].includes(dbUrl.hostname));
   assert.match(dbUrl.pathname, /(^|[_-])(test|testing)([_-]|$)/);
   const pool = new pg.Pool({ connectionString, max: 2 });
+  let sessionPool: pg.Pool | undefined;
   const setup = await pool.connect();
   const schema = `wa_onboard_test_${process.pid}_${Date.now()}`;
   const migration = await readFile(
@@ -67,14 +70,32 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     const cookies = new Map<string, string>();
     const app = express();
     app.use(express.json({ limit: "8kb" }));
-    app.use(session({ secret: "synthetic-only-session-secret-for-tests", resave: false, saveUninitialized: false }));
-    app.post("/__test/login", (req: any, res) => {
+    sessionPool = new pg.Pool({ connectionString: routeUrl.toString(), max: 2 });
+    const PgSessionStore = connectPg(session);
+    const sessionStore = new PgSessionStore({
+      pool: sessionPool, tableName: "wa_test_sessions", createTableIfMissing: true,
+    });
+    app.use(session({
+      store: sessionStore,
+      secret: "synthetic-only-session-secret-for-tests",
+      resave: false, saveUninitialized: false,
+      cookie: { httpOnly: true, sameSite: "lax", secure: false },
+    }));
+    app.get("/__test/pre-auth-session", (req: any, res) => {
+      req.session.preAuth = "synthetic";
+      req.session.save(() => res.sendStatus(204));
+    });
+    app.get("/__test/whoami", (req: any, res) =>
+      res.json({ userId: req.session.userId ?? null, role: req.session.role ?? null }));
+    app.post("/__test/login", async (req: any, res) => {
       const userId = Number(req.body?.userId);
       if (![201, 301].includes(userId)) return res.sendStatus(400);
-      req.session.userId = userId;
-      req.session.isAdmin = userId === 301;
-      req.session.role = userId === 301 ? "admin" : "user";
-      req.session.save(() => res.sendStatus(204));
+      try {
+        await establishAuthenticatedSession(req, {
+          id: userId, isAdmin: userId === 301, role: userId === 301 ? "admin" : "user",
+        });
+        return res.sendStatus(204);
+      } catch { return res.sendStatus(500); }
     });
     app.post("/__test/rotate-session", (req: any, res) => {
       const userId = req.session.userId;
@@ -97,6 +118,23 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     assert.ok(address && typeof address === "object");
     const origin = `http://127.0.0.1:${address.port}`;
     const adminSession = "admin-cookie";
+    const preAuth = await fetch(`${origin}/__test/pre-auth-session`);
+    const oldAuthCookie = preAuth.headers.get("set-cookie")?.split(";")[0];
+    assert.ok(oldAuthCookie);
+    const loginAfterPreAuth = await fetch(`${origin}/__test/login`, {
+      method: "POST",
+      headers: { cookie: oldAuthCookie, origin, "content-type": "application/json" },
+      body: JSON.stringify({ userId: 301 }),
+    });
+    assert.equal(loginAfterPreAuth.status, 204);
+    const authenticatedCookie = loginAfterPreAuth.headers.get("set-cookie")?.split(";")[0];
+    assert.ok(authenticatedCookie);
+    assert.notEqual(authenticatedCookie, oldAuthCookie);
+    const oldSessionIdentity = await fetch(`${origin}/__test/whoami`, {
+      headers: { cookie: oldAuthCookie },
+    });
+    assert.deepEqual(await oldSessionIdentity.json(), { userId: null, role: null });
+    cookies.set(adminSession, authenticatedCookie);
     const request = (method: string, path: string, userId?: number, body?: unknown,
       sessionId = adminSession, overrides: Record<string, string> = {}) =>
       (async () => {
@@ -233,6 +271,8 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
 
     const saved = await setup.query("SELECT count(*)::int AS count FROM whatsapp_onboarding_proofs");
     assert.equal(saved.rows[0].count, 3);
+    const storedSessions = await setup.query("SELECT count(*)::int AS count FROM wa_test_sessions");
+    assert.ok(storedSessions.rows[0].count > 0);
 
     const priorUrl = process.env.WHATSAPP_META_ONBOARDING_TEST_DATABASE_URL!;
     const unavailable = new URL(priorUrl);
@@ -255,12 +295,16 @@ test("onboarding HTTP flow uses atomic one-time PostgreSQL state and synthetic v
     assert.equal(prodResponse.status, 404);
     await new Promise<void>(resolve => prodServer.close(() => resolve()));
     process.env.NODE_ENV = "test";
+    process.env.APP_DEPLOYMENT_MODE = "staging";
+    assert.equal((await request("GET", "/api/admin/whatsapp-meta/onboarding/csrf", 301)).status, 404);
+    process.env.APP_DEPLOYMENT_MODE = "test";
   } finally {
     if (server) await new Promise<void>(resolve => server!.close(() => resolve()));
     await closeWhatsappMetaOnboardingTestPool();
     await setup.query("RESET search_path");
     await setup.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     setup.release();
+    await sessionPool?.end();
     await pool.end();
     if (oldEnv.nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldEnv.nodeEnv;
     if (oldEnv.appMode === undefined) delete process.env.APP_DEPLOYMENT_MODE;
