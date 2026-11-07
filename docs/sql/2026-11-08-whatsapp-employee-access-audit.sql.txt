@@ -1,33 +1,19 @@
--- Manual migration artifact only: never run from application startup.
--- Apply through a dedicated schema-migration owner after review.
-CREATE TABLE whatsapp_employee_access_audit (
-  id BIGSERIAL PRIMARY KEY,
-  actor_id BIGINT NOT NULL,
-  employee_id BIGINT NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('archive.read','archive.search','archive.export')),
-  outcome TEXT NOT NULL CHECK (outcome IN ('allowed','denied')),
-  reason_code TEXT NOT NULL CHECK (reason_code IN
-    ('employee_own_scope','supervisor_grant','admin_explicit_grant',
-     'missing_assignment','consent_inactive','scope_denied','policy_blocked')),
-  result_count_bucket TEXT CHECK (result_count_bucket IN ('0','1-10','11-50','51+')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX whatsapp_employee_access_audit_scope_created_idx
-  ON whatsapp_employee_access_audit(employee_id,created_at DESC);
-
-CREATE FUNCTION whatsapp_employee_access_audit_reject_mutation() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN RAISE EXCEPTION 'WhatsApp employee access audit is append-only'; END;
-$$;
-CREATE TRIGGER whatsapp_employee_access_audit_immutable
-  BEFORE UPDATE OR DELETE ON whatsapp_employee_access_audit
-  FOR EACH ROW EXECUTE FUNCTION whatsapp_employee_access_audit_reject_mutation();
-CREATE TRIGGER whatsapp_employee_access_audit_no_truncate
-  BEFORE TRUNCATE ON whatsapp_employee_access_audit
-  FOR EACH STATEMENT EXECUTE FUNCTION whatsapp_employee_access_audit_reject_mutation();
-
--- Operator must create whatsapp_employee_audit_owner NOLOGIN and a dedicated
--- runtime login separately.
--- Grant runtime only INSERT; explicitly revoke SELECT/UPDATE/DELETE/TRUNCATE,
--- ensure it is not a member of the owner role, and verify effective privileges.
--- Keep both audit objects owned by the NOLOGIN migration owner, not runtime.
+-- The access-audit table, index, and immutable triggers are defined in the
+-- canonical manual schema: 2026-11-07-whatsapp-employee-unified.sql.txt.
+-- Do not apply duplicate table DDL from this file.
+--
+-- Operator-only role provisioning template, executed after the canonical
+-- schema is applied and adapted to the selected isolated schema:
+--   CREATE ROLE whatsapp_employee_audit_owner NOLOGIN;
+--   CREATE ROLE whatsapp_employee_access_audit_writer LOGIN;
+--   ALTER TABLE whatsapp_employee_access_audit OWNER TO whatsapp_employee_audit_owner;
+--   ALTER FUNCTION whatsapp_employee_access_audit_reject_mutation()
+--     OWNER TO whatsapp_employee_audit_owner;
+--   REVOKE ALL ON whatsapp_employee_access_audit FROM PUBLIC;
+--   GRANT INSERT ON whatsapp_employee_access_audit TO whatsapp_employee_access_audit_writer;
+--   GRANT USAGE, SELECT ON SEQUENCE whatsapp_employee_access_audit_id_seq
+--     TO whatsapp_employee_access_audit_writer;
+--
+-- Also grant schema USAGE, verify the writer is not owner/member of owner role,
+-- and verify it has no SELECT/UPDATE/DELETE/TRUNCATE privileges. Never perform
+-- these changes from application startup or against production in this PR.

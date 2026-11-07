@@ -22,12 +22,12 @@ existing WhatsApp policy pointers were retained.
   state/nonce repository, atomic replay protection, CSRF session binding, or
   concrete Meta code-exchange/Graph verifier. Its interface tests do not prove
   a real Meta relationship or Coexistence eligibility.
-- PR #12 audit writer is not yet called by the archive routes. Therefore
-  archive reads, search, and export are not currently guaranteed to be audited,
-  and audit failure does not yet block archive responses.
-- The archive route suite does not yet exercise audit-write failure, admin
-  without an explicit grant, or all denial paths with an independently owned
-  INSERT-only audit connection.
+- PR #12 audit is now connected to both existing archive GET routes. Search and
+  export routes do not exist yet and cannot be covered until they are added.
+- HTTP coverage includes an admin without a grant, a different employee,
+  revoked consent, an explicitly granted supervisor, and an unavailable audit
+  writer. A loopback PostgreSQL role test verifies the audit connection is
+  non-owner and INSERT-only.
 - There is no HTTP search/export route in this combined snapshot. No startup
   migration is added.
 
@@ -37,7 +37,7 @@ the isolated staging checks and human approvals are complete.
 
 ## Verification performed
 
-- 26 synthetic tests passed, including real loopback PostgreSQL tests for
+- 26/26 synthetic tests passed, including real loopback PostgreSQL tests for
   webhook retry idempotency, immutable events, foreign keys, revocation
   serialization, HMAC, consent/RBAC, and Coexistence echo eligibility.
 - Full application build passed.

@@ -1,5 +1,11 @@
 import type { Express } from "express";
 import pg from "pg";
+import {
+  recordWhatsappEmployeeArchiveAccess,
+  type ArchiveAccessAction,
+  type ArchiveAccessReason,
+  type ArchiveAccessOutcome,
+} from "./whatsappEmployeeAccessAudit";
 
 const enabled = () => process.env.WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED === "true";
 
@@ -20,11 +26,12 @@ export function isApprovedEmployeeWaba(wabaId: string, configuredIds: string): b
 }
 
 let testPool: pg.Pool | undefined;
+let auditTestPool: pg.Pool | undefined;
 export async function closeWhatsappEmployeeArchiveTestPool(): Promise<void> {
-  if (!testPool) return;
-  const pool = testPool;
+  const pools = [testPool, auditTestPool].filter(Boolean) as pg.Pool[];
   testPool = undefined;
-  await pool.end();
+  auditTestPool = undefined;
+  await Promise.all(pools.map(pool => pool.end()));
 }
 
 function getTestPool(): pg.Pool {
@@ -42,6 +49,42 @@ function getTestPool(): pg.Pool {
 
 async function safeConnect(): Promise<pg.PoolClient | null> {
   try { return await getTestPool().connect(); } catch { return null; }
+}
+
+function getTestAuditPool(): pg.Pool {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("Employee archive audit is restricted to isolated test processes.");
+  }
+  const connectionString = process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL;
+  if (!connectionString) throw new Error("Dedicated insert-only employee audit test connection is not configured.");
+  const parsed = new URL(connectionString);
+  const dbName = parsed.pathname.replace(/^\//, "").toLowerCase();
+  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname) ||
+      !/(^|[_-])(test|testing)([_-]|$)/.test(dbName)) {
+    throw new Error("Employee archive audit requires a loopback test database.");
+  }
+  return auditTestPool ??= new pg.Pool({ connectionString, max: 1, connectionTimeoutMillis: 1200 });
+}
+
+class ArchiveAuditUnavailable extends Error {}
+
+async function persistArchiveAccess(input: {
+  actorId: number;
+  employeeId: number;
+  action: ArchiveAccessAction;
+  outcome: ArchiveAccessOutcome;
+  reason: ArchiveAccessReason;
+  resultCount?: number;
+}): Promise<void> {
+  try {
+    await recordWhatsappEmployeeArchiveAccess(getTestAuditPool(), input);
+  } catch {
+    throw new ArchiveAuditUnavailable();
+  }
+}
+
+function auditFailureResponse(res: any): void {
+  res.status(503).json({ message: "Archive access is temporarily unavailable" });
 }
 
 function authenticated(req: any, res: any): number | null {
@@ -260,7 +303,8 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
     if (!client) return res.sendStatus(503);
     try {
       await client.query("BEGIN");
-      if (!(await activeActor(client, actorId))) {
+      const actor = await activeActor(client, actorId);
+      if (!actor) {
         await client.query("ROLLBACK"); return res.sendStatus(403);
       }
       const number = await client.query(
@@ -309,8 +353,13 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
     if (!client) return res.sendStatus(503);
     try {
       await client.query("BEGIN");
-      if (!(await activeActor(client, actorId))) {
-        await client.query("ROLLBACK"); return res.sendStatus(403);
+      const actor = await activeActor(client, actorId);
+      if (!actor) {
+        await client.query("ROLLBACK");
+        await persistArchiveAccess({
+          actorId, employeeId, action: "archive.read", outcome: "denied", reason: "policy_blocked",
+        });
+        return res.sendStatus(403);
       }
       const consentActive = await employeeHasActiveConsent(client, employeeId);
       const grant = actorId === employeeId ? null : await hasReadGrant(client, actorId, employeeId);
@@ -318,6 +367,10 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
         active: true, canRead: true, employeeId,
       } : null)) {
         await client.query("ROLLBACK");
+        await persistArchiveAccess({
+          actorId, employeeId, action: "archive.read", outcome: "denied",
+          reason: consentActive ? "scope_denied" : "consent_inactive",
+        });
         return res.sendStatus(403);
       }
       const rows = await client.query(
@@ -334,9 +387,19 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
           ORDER BY c.updated_at DESC LIMIT 100`,
         [employeeId],
       );
+      await persistArchiveAccess({
+        actorId, employeeId, action: "archive.read", outcome: "allowed",
+        reason: actorId === employeeId ? "employee_own_scope" :
+          actor.isAdmin ? "admin_explicit_grant" : "supervisor_grant",
+        resultCount: rows.rowCount ?? undefined,
+      });
       await client.query("COMMIT");
       return res.json({ conversations: rows.rows });
-    } catch { await client.query("ROLLBACK"); return res.sendStatus(500); }
+    } catch (error) {
+      await client.query("ROLLBACK");
+      if (error instanceof ArchiveAuditUnavailable) return auditFailureResponse(res);
+      return res.sendStatus(500);
+    }
     finally { client.release(); }
   });
 
@@ -350,8 +413,13 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
     if (!client) return res.sendStatus(503);
     try {
       await client.query("BEGIN");
-      if (!(await activeActor(client, actorId))) {
-        await client.query("ROLLBACK"); return res.sendStatus(403);
+      const actor = await activeActor(client, actorId);
+      if (!actor) {
+        await client.query("ROLLBACK");
+        await persistArchiveAccess({
+          actorId, employeeId: actorId, action: "archive.read", outcome: "denied", reason: "policy_blocked",
+        });
+        return res.sendStatus(403);
       }
       const owner = await client.query(
         `SELECT employee_id,phone_number_id FROM whatsapp_employee_conversations WHERE id=$1`,
@@ -363,16 +431,33 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
       const grant = actorId === employeeId ? null : await hasReadGrant(client, actorId, employeeId);
       if (!canReadEmployeeScope(actorId, employeeId, consentActive, grant ? {
         active: true, canRead: true, employeeId,
-      } : null)) { await client.query("ROLLBACK"); return res.sendStatus(403); }
+      } : null)) {
+        await client.query("ROLLBACK");
+        await persistArchiveAccess({
+          actorId, employeeId, action: "archive.read", outcome: "denied",
+          reason: consentActive ? "scope_denied" : "consent_inactive",
+        });
+        return res.sendStatus(403);
+      }
       const rows = await client.query(
         `SELECT id,event_kind,direction,event_status,message_type,message_text,related_message_id,occurred_at,received_at
            FROM whatsapp_employee_events
            WHERE conversation_id=$1 ORDER BY received_at ASC,id ASC LIMIT 500`,
         [conversationId],
       );
+      await persistArchiveAccess({
+        actorId, employeeId, action: "archive.read", outcome: "allowed",
+        reason: actorId === employeeId ? "employee_own_scope" :
+          actor.isAdmin ? "admin_explicit_grant" : "supervisor_grant",
+        resultCount: rows.rowCount ?? undefined,
+      });
       await client.query("COMMIT");
       return res.json({ messages: rows.rows });
-    } catch { await client.query("ROLLBACK"); return res.sendStatus(500); }
+    } catch (error) {
+      await client.query("ROLLBACK");
+      if (error instanceof ArchiveAuditUnavailable) return auditFailureResponse(res);
+      return res.sendStatus(500);
+    }
     finally { client.release(); }
   });
 }

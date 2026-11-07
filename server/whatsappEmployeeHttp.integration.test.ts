@@ -34,6 +34,13 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
   let server: ReturnType<ReturnType<typeof express>["listen"]> | undefined;
   try {
     await setup.query(`CREATE SCHEMA "${schema}"`);
+    await setup.query(`
+      CREATE ROLE whatsapp_employee_audit_owner NOLOGIN;
+      CREATE ROLE whatsapp_employee_access_audit_writer LOGIN;
+      CREATE ROLE whatsapp_employee_archive_test_runtime LOGIN;
+      GRANT USAGE ON SCHEMA "${schema}" TO whatsapp_employee_audit_owner,
+        whatsapp_employee_access_audit_writer, whatsapp_employee_archive_test_runtime;
+    `);
     await setup.query(`SET search_path TO "${schema}"`);
     await setup.query(`
       CREATE TABLE users (
@@ -44,6 +51,19 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       )
     `);
     await setup.query(migration);
+    await setup.query(`
+      ALTER TABLE whatsapp_employee_access_audit OWNER TO whatsapp_employee_audit_owner;
+      ALTER FUNCTION whatsapp_employee_access_audit_reject_mutation() OWNER TO whatsapp_employee_audit_owner;
+      REVOKE ALL ON whatsapp_employee_access_audit FROM PUBLIC;
+      GRANT INSERT ON whatsapp_employee_access_audit TO whatsapp_employee_access_audit_writer;
+      GRANT USAGE, SELECT ON SEQUENCE whatsapp_employee_access_audit_id_seq TO whatsapp_employee_access_audit_writer;
+      GRANT SELECT ON users TO whatsapp_employee_archive_test_runtime;
+      GRANT SELECT,INSERT,UPDATE ON whatsapp_employee_numbers,whatsapp_employee_consents,
+        whatsapp_employee_supervisor_grants,whatsapp_employee_conversations,whatsapp_employee_audit
+        TO whatsapp_employee_archive_test_runtime;
+      GRANT SELECT,INSERT,UPDATE ON whatsapp_employee_events TO whatsapp_employee_archive_test_runtime;
+      GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO whatsapp_employee_archive_test_runtime;
+    `);
     await setup.query(`
       INSERT INTO users(id,is_admin,role) VALUES
         (101,false,'sub_agent'),(102,false,'sub_agent'),(201,false,'user'),(301,true,'user')
@@ -77,8 +97,12 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     `);
 
     const routeDbUrl = new URL(connectionString);
+    routeDbUrl.username = "whatsapp_employee_archive_test_runtime";
     routeDbUrl.searchParams.set("options", `-c search_path=${schema}`);
     process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL = routeDbUrl.toString();
+    const auditDbUrl = new URL(routeDbUrl);
+    auditDbUrl.username = "whatsapp_employee_access_audit_writer";
+    process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL = auditDbUrl.toString();
     process.env.NODE_ENV = "test";
     process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED = "true";
     process.env.WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED = "true";
@@ -255,6 +279,17 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       row.related_message_id === "synthetic-echo-1" && row.message_text === null));
     assert.equal(archive.some((row: any) => "media_url" in row || "raw_payload" in row), false);
 
+    const originalAuditUrl = process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL;
+    const unavailableAuditUrl = new URL(originalAuditUrl!);
+    unavailableAuditUrl.port = "1";
+    process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL = unavailableAuditUrl.toString();
+    await closeWhatsappEmployeeArchiveTestPool();
+    const blockedByAudit = await request("GET", messagesUrl, 101);
+    assert.equal(blockedByAudit.status, 503);
+    assert.doesNotMatch(await blockedByAudit.text(), /synthetic echo|race fixture|155500/);
+    process.env.WHATSAPP_EMPLOYEE_AUDIT_TEST_DATABASE_URL = originalAuditUrl;
+    await closeWhatsappEmployeeArchiveTestPool();
+
     const racePayload = JSON.stringify({
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "messages", value: {
@@ -288,6 +323,21 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       assert.ok(audit.rows.some((row) => row.outcome === "identity_mismatch"));
       assert.ok(audit.rows.some((row) => row.outcome === "unresolved_reference"));
       assert.ok(audit.rows.filter((row) => row.outcome === "not_consented").length >= 4);
+      const readAudit = await verify.query(
+        `SELECT actor_id,employee_id,action,outcome,reason_code,result_count_bucket
+           FROM whatsapp_employee_access_audit ORDER BY id`,
+      );
+      assert.ok(readAudit.rows.some(row => String(row.actor_id) === "101" && String(row.employee_id) === "101" &&
+        row.action === "archive.read" && row.outcome === "allowed" && row.reason_code === "employee_own_scope"));
+      assert.ok(readAudit.rows.some(row => String(row.actor_id) === "201" && String(row.employee_id) === "101" &&
+        row.action === "archive.read" && row.outcome === "allowed" && row.reason_code === "supervisor_grant"));
+      assert.ok(readAudit.rows.some(row => String(row.actor_id) === "301" && String(row.employee_id) === "101" &&
+        row.outcome === "denied" && row.reason_code === "scope_denied"));
+      assert.ok(readAudit.rows.some(row => String(row.actor_id) === "102" && String(row.employee_id) === "101" &&
+        row.outcome === "denied" && row.reason_code === "scope_denied"));
+      assert.ok(readAudit.rows.some(row => String(row.actor_id) === "101" && String(row.employee_id) === "101" &&
+        row.outcome === "denied" && row.reason_code === "consent_inactive"));
+      assert.equal(readAudit.rows.some(row => "message_text" in row || "query" in row || "payload" in row), false);
     } finally { verify.release(); }
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
@@ -295,6 +345,9 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     await closeWhatsappEmployeeArchiveTestPool();
     await setup.query("RESET search_path");
     await setup.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    await setup.query("DROP ROLE IF EXISTS whatsapp_employee_access_audit_writer");
+    await setup.query("DROP ROLE IF EXISTS whatsapp_employee_audit_owner");
+    await setup.query("DROP ROLE IF EXISTS whatsapp_employee_archive_test_runtime");
     setup.release();
     await pool.end();
   }
