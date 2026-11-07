@@ -63,6 +63,16 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       VALUES ('5550101',101,'consented',NOW(),101),('5550102',101,'consented',NOW(),101)
     `);
     await setup.query("INSERT INTO whatsapp_employee_supervisor_grants (supervisor_id,employee_id,can_read,granted_by) VALUES (201,101,true,301)");
+    await setup.query(`
+      CREATE FUNCTION delay_race_event() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.meta_event_key = 'message:synthetic-race-event' THEN PERFORM pg_sleep(0.3); END IF;
+        RETURN NEW;
+      END
+      $$;
+      CREATE TRIGGER delay_race_event BEFORE INSERT ON whatsapp_employee_events
+        FOR EACH ROW EXECUTE FUNCTION delay_race_event();
+    `);
 
     const routeDbUrl = new URL(connectionString);
     routeDbUrl.searchParams.set("options", `-c search_path=${schema}`);
@@ -172,9 +182,20 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.deepEqual(archive.map((row: any) => row.direction), ["inbound", "status", "outbound"]);
     assert.equal(archive.some((row: any) => "media_url" in row || "raw_payload" in row), false);
 
-    assert.equal((await request(
-      "POST", "/api/employee/whatsapp-consents/5550101", 101, { decision: "revoked" },
-    )).status, 204);
+    const racePayload = JSON.stringify({
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "5550101" },
+        messages: [{ id: "synthetic-race-event", from: "synthetic-contact", type: "text", text: { body: "race fixture" } }],
+      } }] }],
+    });
+    const raceWebhook = signedPost(racePayload);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const revoke = request("POST", "/api/employee/whatsapp-consents/5550101", 101, { decision: "revoked" });
+    const [raceResponse, revokeResponse] = await Promise.all([raceWebhook, revoke]);
+    assert.equal(raceResponse.status, 200);
+    assert.equal(revokeResponse.status, 204);
+
     assert.equal((await signedPost(rawPayload)).status, 200);
     assert.equal((await request("GET", messagesUrl, 101)).status, 403);
 
@@ -182,8 +203,8 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     try {
       await verify.query(`SET search_path TO "${schema}"`);
       const stored = await verify.query(`SELECT meta_event_key,direction,source_field FROM whatsapp_employee_events ORDER BY meta_event_key`);
-      assert.equal(stored.rowCount, 3);
-      assert.deepEqual(stored.rows.map((row) => row.direction).sort(), ["inbound", "outbound", "status"]);
+      assert.equal(stored.rowCount, 4);
+      assert.deepEqual(stored.rows.map((row) => row.direction).sort(), ["inbound", "inbound", "outbound", "status"]);
       const audit = await verify.query(
         `SELECT actor_id,action,outcome FROM whatsapp_employee_audit
           WHERE action IN ('consent_revoked','webhook_event') ORDER BY id`,
