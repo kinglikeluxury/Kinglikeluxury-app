@@ -7,6 +7,7 @@
 
 import { pool } from "./db";
 import { sendQualTextMessage } from "./interactiveMessageHelper";
+import { isStagingMode } from "./stagingExternalGuard";
 import { Resend } from "resend";
 
 // ── Employee contact maps (fallback when DB user.email / phone is unavailable) ─
@@ -118,6 +119,7 @@ async function sendReminderEmail(opts: {
   dueLabel: string;
   assigneeName: string;
 }): Promise<boolean> {
+  if (isStagingMode()) return false;
   const resend = getResend();
   if (!resend) {
     console.warn(`[CrmReminder] email skipped taskId=${opts.taskId} — RESEND_API_KEY not set`);
@@ -320,6 +322,7 @@ async function runTaskReminders(): Promise<void> {
 let _running = false;
 
 export function startCrmTaskReminderScheduler(): void {
+  if (isStagingMode()) return;
   ensureCrmTaskReminderColumn()
     .then(() => runTaskReminders())
     .catch(() => {});

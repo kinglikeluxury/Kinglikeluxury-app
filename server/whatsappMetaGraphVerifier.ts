@@ -1,4 +1,5 @@
 import type { MetaOnboardingProof, MetaOnboardingVerifier } from "./whatsappMetaOnboardingProof";
+import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 
 type GraphFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 export type MetaGraphVerifierConfig = {
@@ -39,6 +40,7 @@ export function createMetaGraphOnboardingVerifier(
 
   return {
     async exchangeAndVerify(input): Promise<MetaOnboardingProof> {
+      assertExternalGatewayAllowed("meta");
       if (!/^\d{5,80}$/.test(input.businessPortfolioId) ||
           !/^\d{5,80}$/.test(input.wabaId) || !/^\d{5,80}$/.test(input.phoneNumberId)) {
         throw new Error("Meta verification unavailable");

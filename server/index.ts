@@ -59,8 +59,14 @@ import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
+import {
+  assertStagingDatabaseIsolation,
+  isStagingMode,
+  stagingExternalHttpMiddleware,
+} from "./stagingExternalGuard";
 
 const app = express();
+app.use(stagingExternalHttpMiddleware);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SITEMAP & ROBOTS — registered ABSOLUTELY FIRST, before CORS, before
@@ -335,6 +341,7 @@ app.use((req, res, next) => {
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
+  assertStagingDatabaseIsolation();
   // Kay's one-way production freeze must succeed before the process accepts
   // traffic. A failure rejects startup instead of leaving old triggers active.
   await enforceKayProductionSafetyFreeze();
@@ -353,8 +360,9 @@ app.use((req, res, next) => {
   server.keepAliveTimeout = 620000;
   server.headersTimeout = 630000;
 
-  const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
-  const metaLeadsProcessorEnabled = process.env.ENABLE_META_LEADS_PROCESSOR === "true";
+  const stagingExternalIsolation = isStagingMode();
+  const schedulersEnabled = !stagingExternalIsolation && process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
+  const metaLeadsProcessorEnabled = !stagingExternalIsolation && process.env.ENABLE_META_LEADS_PROCESSOR === "true";
   if (schedulersEnabled) {
     startScheduler();
     startDailyBackup();
@@ -362,8 +370,12 @@ app.use((req, res, next) => {
     console.log("[Schedulers] Disabled by ENABLE_BACKGROUND_SCHEDULERS — set to 'true' to enable background processing");
   }
   // CRM task reminders are lightweight and user-facing — always run regardless of the heavy-scheduler gate
-  startCrmTaskReminderScheduler();
-  validateMetaWhatsAppConfig();
+  if (!stagingExternalIsolation) {
+    startCrmTaskReminderScheduler();
+    validateMetaWhatsAppConfig();
+  } else {
+    console.warn("[StagingIsolation] external messaging, Meta integrations, webhooks, and scheduled jobs disabled");
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // SEQUENTIAL STARTUP BOOTSTRAP QUEUE
@@ -418,7 +430,7 @@ app.use((req, res, next) => {
       name: "ensureDeveloperRegistrationTables",
       run: async () => {
         await ensureDeveloperRegistrationTables();
-        startDeveloperRegistrationScheduler();
+        if (!stagingExternalIsolation) startDeveloperRegistrationScheduler();
       },
     },
     {
@@ -432,7 +444,7 @@ app.use((req, res, next) => {
       name: "ensureBroadcastTables",
       run: async () => {
         await ensureBroadcastTables();
-        await resumePendingBroadcasts();
+        if (!stagingExternalIsolation) await resumePendingBroadcasts();
       },
     },
     { name: "ensureWhatsAppApiTables", run: () => ensureWhatsAppApiTables() },

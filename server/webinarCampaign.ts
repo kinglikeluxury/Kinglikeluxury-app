@@ -20,6 +20,7 @@
 import type { Express } from "express";
 import crypto from "crypto";
 import { pool } from "./db";
+import { isStagingMode } from "./stagingExternalGuard";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -227,6 +228,7 @@ async function sendEmail(
   htmlBody: string,
   leadId: number | null = null,
 ): Promise<{ ok: boolean; resendId?: string; error?: string }> {
+  if (isStagingMode()) return { ok: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "RESEND_API_KEY not configured" };
 

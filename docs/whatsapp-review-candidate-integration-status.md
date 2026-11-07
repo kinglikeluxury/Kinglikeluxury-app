@@ -32,11 +32,22 @@ existing WhatsApp policy pointers were retained.
   writer. The local archive review also filters each conversation by its own
   phone consent and audits before response. A loopback PostgreSQL role test
   verifies the audit connection is non-owner and INSERT-only.
-- The Railway Staging document is a plan only. The local preview routes reject
-  APP_DEPLOYMENT_MODE=staging; no staging provider, Railway config, DB, or
-  staging-wide outbound-send kill switch was added. The local preview itself
-  has no send controls; Staging remains NO-GO until the wider outbound/webhook
-  isolation is separately reviewed and enforced.
+- A code-only Staging fail-closed guard is implemented. It blocks WhatsApp
+  webhook/onboarding/activation and Meta/Twilio HTTP surfaces, disables the
+  observed WhatsApp send helpers and notification senders, prevents known
+  schedulers/workers/broadcast resume, and fails startup if the active DB URL
+  is Neon, unidentified, or does not match the explicit staging host/name and
+  distinct production host/name. Railway and DB configuration were not read or
+  changed. No staging archive fixture provider was added.
+- Verification proves the named send helpers do not reach fetch, the injected
+  Graph verifier makes zero calls, the HTTP gate rejects the listed routes even
+  with enable flags true, and the DB identity check rejects missing/Neon/
+  colliding identities. Direct provider SDK paths (especially every Resend
+  route and every scheduler entrypoint) have not each been run through a
+  provider-injected integration test. Do not call the guard a complete
+  organization-wide egress boundary; Staging remains NO-GO until those paths
+  are individually verified and the isolated service/database identity is
+  owner-confirmed.
 - There is no HTTP search/export route in this combined snapshot. No startup
   migration is added.
 
@@ -46,12 +57,16 @@ the isolated staging checks and human approvals are complete.
 
 ## Verification performed
 
-- 33/33 synthetic tests passed, including real loopback PostgreSQL tests for
+- 36/36 synthetic tests passed, including real loopback PostgreSQL tests for
   webhook retry idempotency, immutable events, foreign keys, revocation
   serialization, HMAC, consent/RBAC, Coexistence echo, real express-session
   connect-pg-simple cookie persistence/fixation rotation, onboarding
   replay/concurrency/expiry, synthetic archive consent/RBAC/audit ordering and
-  outage, frontend server rendering, and mocked Meta Graph verification.
+  outage, frontend server rendering, mocked Meta Graph verification, and
+  Staging HTTP/outbound/DB guard checks.
 - Full application build passed.
-- No application workflow, production database, Neon, Railway, Meta, real
+- `npm run check` still reports 87 TypeScript diagnostics, matching the prior
+  baseline count; existing diagnostics remain outside the guard changes.
+- No application workflow restart, production database, Neon connection,
+  Railway, Meta, real
   number, or customer conversation was used.

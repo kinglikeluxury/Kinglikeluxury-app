@@ -10,6 +10,7 @@
 
 import { Resend } from "resend";
 import webpush from "web-push";
+import { isStagingMode } from "./stagingExternalGuard";
 
 // ── Web Push (VAPID) ─────────────────────────────────────────────────────────
 const vapidPublicKey  = process.env.VAPID_PUBLIC_KEY;
@@ -38,6 +39,7 @@ export async function sendEmail(opts: {
   signal?: AbortSignal;
   idempotencyKey?: string;
 }): Promise<NotifResult> {
+  if (isStagingMode()) return { sent: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     const err = "RESEND_API_KEY not configured";
@@ -79,6 +81,7 @@ export async function sendPushNotification(
   subscription: { endpoint: string; p256dh: string; auth: string },
   payload: { title: string; body: string; icon?: string; data?: Record<string, any> }
 ): Promise<NotifResult> {
+  if (isStagingMode()) return { sent: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   if (!vapidPublicKey || !vapidPrivateKey) {
     return { sent: false, error: "VAPID keys not configured" };
   }

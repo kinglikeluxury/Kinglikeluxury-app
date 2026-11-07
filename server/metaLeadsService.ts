@@ -9,6 +9,7 @@ import { pickNextSubAgentIdForTx } from "./leadAssignmentService";
 import { validatePhone as vPhone } from "@shared/crmValidation";
 import { sendEmail } from "./notificationService";
 import { sendQualTextMessage } from "./interactiveMessageHelper";
+import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 
 export interface PullSyncResult {
   formsChecked: number;
@@ -68,6 +69,7 @@ export async function fetchLeadFromGraph(
   leadgenId: string,
   timeoutMs = META_QUEUE_GRAPH_TIMEOUT_MS,
 ): Promise<any> {
+  assertExternalGatewayAllowed("meta");
   const accessToken = process.env.META_ACCESS_TOKEN;
   if (!accessToken) throw new Error("META_ACCESS_TOKEN is not configured");
   console.log(`[MetaLeads][Graph] fetchLeadFromGraph called — leadgen_id=${leadgenId}`);
@@ -1114,6 +1116,7 @@ async function processQueue(): Promise<void> {
 }
 
 export function startMetaLeadsProcessor(): void {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   if (queueProcessorStarted) {
     console.warn("[MetaLeads] Queue processor already started — duplicate start ignored");
     return;
@@ -1139,6 +1142,7 @@ async function graphGetPull(url: string): Promise<any> {
 }
 
 export async function pullSyncFromMeta(): Promise<PullSyncResult> {
+  assertExternalGatewayAllowed("meta");
   const token = process.env.META_ACCESS_TOKEN;
   if (!token) throw new Error("META_ACCESS_TOKEN is not configured");
 
@@ -1492,6 +1496,7 @@ async function runPullSync(): Promise<void> {
 }
 
 export function startPullSyncScheduler(): void {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   console.log("[MetaLeads][PullSync] Scheduler started — running every 5 minutes");
   runPullSync();
   setInterval(runPullSync, 5 * 60_000);

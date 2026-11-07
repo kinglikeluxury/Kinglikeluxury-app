@@ -1,7 +1,8 @@
 # WhatsApp monitoring: Railway Staging isolation plan
 
-Status: planning only. Nothing in Railway, Meta, Neon, or any deployed database
-was inspected or changed for this plan.
+Status: code guard implemented; Railway execution remains planning only.
+Nothing in Railway, Meta, Neon, or any deployed database was inspected or
+changed for this plan.
 
 ## Target identity to confirm later
 
@@ -15,18 +16,28 @@ check. Do not infer mode from the internal environment name.
 ## Required gates before a staging preview
 
 1. **Database isolation:** provision or designate a staging-only database.
-   Verify its host and database name against the production values by an
-   authorized owner; fail closed if either is missing, ambiguous, or matches
-   production. Do not use Neon, a production clone containing personal data,
-   automatic schema creation, or automatic migrations. Seed only synthetic
-   employees, synthetic conversations, and synthetic consent records.
+   Before app startup, the guard compares the active `NEON_DATABASE_URL` host
+   and database name with `STAGING_DATABASE_HOST` / `STAGING_DATABASE_NAME`
+   and `PRODUCTION_DATABASE_HOST` / `PRODUCTION_DATABASE_NAME`. It rejects
+   missing or mismatched identities, a production host/name collision, and
+   `.neon.tech` hosts without printing those values. `NEON_DATABASE_URL` is the
+   application's existing connection variable; it must point to an approved
+   non-Neon staging PostgreSQL provider in this mode. Startup fails before
+   database work when this proof is absent. Do not use a production clone
+   containing personal data, automatic schema creation, or automatic
+   migrations. Seed only synthetic employees, conversations, and consent.
 2. **No Meta connection:** leave the Meta prototype disabled; do not inject a
    Graph verifier or Meta credentials. Embedded Signup, token exchange,
    Graph calls, and number activation must stay unavailable.
-3. **No webhook or sends:** disable/unregister the WhatsApp Cloud API webhook,
-   all message send paths, background workers, schedulers, and retry queues.
-   Verify the staging build has no outbound WhatsApp destination or credential
-   before starting it.
+3. **No webhook or sends:** `APP_DEPLOYMENT_MODE=staging` blocks WhatsApp
+   webhook requests, Embedded Signup/admin activation routes, Meta Graph HTTP
+   routes, Twilio OTP routes, and the app's Meta WhatsApp/interactive send
+   helpers. It also prevents the configured schedulers, queue workers, and
+   broadcast resume path from starting. Email and push notification sender
+   entry points are also guarded. Railway flags being accidentally true do not
+   override these code checks. Still keep external credentials absent and
+   webhook delivery disabled at the provider; the code guard is defense in
+   depth, not authorization to configure a live integration.
 4. **Review-only UI:** the local API/archive preview in this PR requires
    `NODE_ENV=test`, `APP_DEPLOYMENT_MODE=test`, and a loopback test database.
    Do not weaken that gate for Staging. The page remains Mock by default and
@@ -45,8 +56,10 @@ check. Do not infer mode from the internal environment name.
 
 1. Confirm project/service identity, database host/name isolation, and the
    runtime `APP_DEPLOYMENT_MODE=staging` value in Railway's UI.
-2. Obtain approval for the exact synthetic fixture database and the narrow
-   staging-only read path; keep Meta, webhook, and outbound-send settings off.
+2. Obtain owner approval for the exact synthetic fixture database and set the
+   four non-secret host/name identity variables only after comparing the
+   active database URL to the approved staging and production identities.
+   Keep Meta, webhook, and outbound-send settings off.
 3. Implement and review that staging-only fixture provider in a separate PR
    update. It must reject production mode, reject any database not explicitly
    identified as staging, return synthetic records only, and preserve the
@@ -60,4 +73,6 @@ check. Do not infer mode from the internal environment name.
    notice/consent, rights review, and a separate activation approval exist.
 
 No staging deployment, restart, migration, secret change, Meta action, or live
-activation is authorized by this document.
+activation is authorized by this document. The separate Staging-only synthetic
+archive provider is still absent; the existing archive preview remains local
+test-only.

@@ -10,6 +10,7 @@
  */
 
 import { pool } from "./db";
+import { isStagingMode } from "./stagingExternalGuard";
 
 const PHONE_NUMBER_ID =
   process.env.WHATSAPP_PHONE_NUMBER_ID ?? "1110445448828325";
@@ -56,6 +57,7 @@ export async function sendInteractiveMessage(
   options: InteractiveOption[],
   listButtonLabel = "اختر",
 ): Promise<InteractiveSendResult> {
+  if (isStagingMode()) return { success: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   const token = getToken();
   if (!token) {
     return { success: false, error: "WHATSAPP_ACCESS_TOKEN not configured" };
@@ -151,6 +153,7 @@ export async function sendQualTextMessage(
   text: string,
   options: QualTextSendOptions = {},
 ): Promise<InteractiveSendResult> {
+  if (isStagingMode()) return { success: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   const token = getToken();
   if (!token) return { success: false, error: "No token" };
 
@@ -269,6 +272,7 @@ export async function sendQualOpenerTemplate(
   phone: string,
   templateName = "kinglike_qual_opener",
 ): Promise<InteractiveSendResult> {
+  if (isStagingMode()) return { success: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   const token = getToken();
   if (!token) return { success: false, error: "No token" };
 

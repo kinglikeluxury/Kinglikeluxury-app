@@ -748,6 +748,7 @@ async function sendOneEmail(
 
 // ─── Process queue ──────────────────────────────────────────────────────────────
 export async function processNurturingQueue(): Promise<void> {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   const client = await pool.connect();
   try {
     // Find due records
@@ -845,6 +846,7 @@ export async function processNurturingQueue(): Promise<void> {
 // ─── Scheduler ──────────────────────────────────────────────────────────────────
 let _schedulerHandle: NodeJS.Timeout | null = null;
 export function startNurturingScheduler(): void {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   if (_schedulerHandle) return;
   // Run every hour
   _schedulerHandle = setInterval(() => {
@@ -1053,6 +1055,9 @@ export async function sendTestNurturingEmail(to: string, sortOrder: number = 1, 
   from?: string;
   error?: string;
 }> {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") {
+    return { ok: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
+  }
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "RESEND_API_KEY not configured" };
 

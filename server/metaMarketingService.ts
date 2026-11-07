@@ -10,6 +10,7 @@
  */
 
 import https from "https";
+import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 
 const META_GRAPH_VERSION = "v21.0";
 const META_GRAPH_BASE    = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
@@ -25,6 +26,8 @@ function resolveAdAccountId(): string | null {
 
 /** GET-only Graph API helper — never issues POST/PUT/DELETE */
 function graphGet(url: string): Promise<{ status: number; data: any }> {
+  try { assertExternalGatewayAllowed("meta"); }
+  catch { return Promise.resolve({ status: 503, data: { error: { message: "STAGING_EXTERNAL_INTEGRATION_DISABLED" } } }); }
   return new Promise((resolve) => {
     https.get(url, (r) => {
       let raw = "";

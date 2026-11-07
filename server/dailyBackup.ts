@@ -6,6 +6,7 @@
  * READ-ONLY — never modifies any data.
  */
 import cron from "node-cron";
+import { isStagingMode } from "./stagingExternalGuard";
 import fs from "fs";
 import path from "path";
 import { pool, getActiveDbHost, getActiveDbName } from "./db";
@@ -150,6 +151,7 @@ export async function runBackup(): Promise<string> {
 }
 
 export function startDailyBackup(): void {
+  if (isStagingMode()) return;
   // Run every day at 2:00 AM
   cron.schedule("0 2 * * *", async () => {
     console.log("[DailyBackup] Starting scheduled backup...");

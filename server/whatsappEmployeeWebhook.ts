@@ -3,7 +3,8 @@ import type { Express } from "express";
 import pg from "pg";
 
 const PATH = "/api/webhooks/whatsapp-employee";
-const enabled = () => process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED === "true";
+const enabled = () => process.env.APP_DEPLOYMENT_MODE !== "staging" &&
+  process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED === "true";
 
 export function verifyWhatsappSignature(raw: Buffer, header: unknown, appSecret: string): boolean {
   if (!Buffer.isBuffer(raw) || typeof header !== "string" || !/^sha256=[a-f0-9]{64}$/i.test(header)) return false;

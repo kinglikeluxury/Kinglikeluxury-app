@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { isStagingMode } from "./stagingExternalGuard";
 import { db } from "./db";
 import { notificationTemplates, notificationLogs, users, crmLeads } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -21,6 +22,7 @@ async function getResendKey(): Promise<string | null> {
 
 let _resend: Resend | null = null;
 async function getResend(): Promise<Resend | null> {
+  if (isStagingMode()) return null;
   if (_resend) return _resend;
   const key = await getResendKey();
   if (!key) return null;

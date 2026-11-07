@@ -1,8 +1,10 @@
 import cron from "node-cron";
 import { sendBulkEmail } from "./emailService";
 import { sendBulkWhatsApp } from "./whatsappNotificationService";
+import { isStagingMode } from "./stagingExternalGuard";
 
 export function startScheduler() {
+  if (isStagingMode()) return;
   // Weekly update — every Monday at 9:00 AM
   cron.schedule("0 9 * * 1", async () => {
     console.log("[Scheduler] Running weekly update notifications...");

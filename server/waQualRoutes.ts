@@ -11,6 +11,7 @@
 
 import { Express } from "express";
 import { pool } from "./db";
+import { rejectStagingExternalRequest } from "./stagingExternalGuard";
 import { getQualSessionForLead, restartQualification } from "./waQualService";
 
 async function requireAdmin(req: any, res: any): Promise<boolean> {
@@ -394,6 +395,7 @@ export function registerWaQualRoutes(app: Express): void {
   // API response including WAMID, WABA ID, Phone Number ID.
   // Does NOT create a wa_qual_session or modify any CRM data.
   app.post("/api/admin/whatsapp-test-send", async (req: any, res: any) => {
+    if (rejectStagingExternalRequest(res)) return;
     if (!(await requireAdmin(req, res))) return;
 
     const phone        = String(req.body?.phone ?? "").replace(/[^0-9]/g, "");
@@ -504,6 +506,7 @@ export function registerWaQualRoutes(app: Express): void {
   // Returns current server-side WABA + phone config and live Meta Graph API
   // responses for phone number details, WABA details, and app subscriptions.
   app.get("/api/admin/whatsapp-audit/config", async (req: any, res: any) => {
+    if (rejectStagingExternalRequest(res)) return;
     if (!(await requireAdmin(req, res))) return;
 
     const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID ?? "1110445448828325";

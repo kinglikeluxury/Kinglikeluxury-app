@@ -43,6 +43,7 @@ import { fileURLToPath } from "url";
 import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate, sendEmailOtp } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
+import { rejectStagingExternalRequest, isStagingMode } from "./stagingExternalGuard";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { getAssistedRescuePreview, listPromiseHandoffs } from "./kayRescueReadService";
@@ -996,6 +997,7 @@ ${metaTags}
 
   // Twilio configuration check — admin only, no credential values returned
   app.get("/api/admin/twilio-status", isAuthenticated, isAdmin, async (_req, res) => {
+    if (rejectStagingExternalRequest(res)) return;
     res.json({
       ok: true,
       twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
@@ -1155,6 +1157,7 @@ ${metaTags}
 
   // Send verification code — WhatsApp first, SMS fallback via Messaging Service
   app.post("/api/auth/send-verification", async (req, res) => {
+    if (rejectStagingExternalRequest(res)) return;
     const ip = getClientIp(req);
     const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     try {
@@ -1308,6 +1311,7 @@ ${metaTags}
 
   // Send password-reset OTP — supports phone (WhatsApp/SMS + email fallback) and email
   app.post("/api/auth/send-reset-otp", async (req, res) => {
+    if (rejectStagingExternalRequest(res)) return;
     const ip = getClientIp(req);
     const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     const GENERIC_OK = { message: "If an account exists, a verification code will be sent." };
@@ -3412,6 +3416,10 @@ ${metaTags}
       const email = typeof r === "string" ? r : r.email;
       if (!email) continue;
       try {
+        if (isStagingMode()) {
+          results.push({ email, status: "failed", error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" });
+          continue;
+        }
         const result = await resend.emails.send({
           from: "Kinglike Luxury <info@kinglikeluxury.app>",
           to: email,
@@ -4293,7 +4301,7 @@ ${metaTags}
               });
             } catch (_) {}
             const resendKey = process.env.RESEND_API_KEY;
-            if (resendKey) {
+            if (resendKey && !isStagingMode()) {
               try {
                 const { Resend } = await import("resend");
                 const resend = new Resend(resendKey);
