@@ -1,0 +1,33 @@
+-- Manual migration artifact only: never run from application startup.
+-- Apply through a dedicated schema-migration owner after review.
+CREATE TABLE whatsapp_employee_access_audit (
+  id BIGSERIAL PRIMARY KEY,
+  actor_id BIGINT NOT NULL,
+  employee_id BIGINT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('archive.read','archive.search','archive.export')),
+  outcome TEXT NOT NULL CHECK (outcome IN ('allowed','denied')),
+  reason_code TEXT NOT NULL CHECK (reason_code IN
+    ('employee_own_scope','supervisor_grant','admin_explicit_grant',
+     'missing_assignment','consent_inactive','scope_denied','policy_blocked')),
+  result_count_bucket TEXT CHECK (result_count_bucket IN ('0','1-10','11-50','51+')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX whatsapp_employee_access_audit_scope_created_idx
+  ON whatsapp_employee_access_audit(employee_id,created_at DESC);
+
+CREATE FUNCTION whatsapp_employee_access_audit_reject_mutation() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION 'WhatsApp employee access audit is append-only'; END;
+$$;
+CREATE TRIGGER whatsapp_employee_access_audit_immutable
+  BEFORE UPDATE OR DELETE ON whatsapp_employee_access_audit
+  FOR EACH ROW EXECUTE FUNCTION whatsapp_employee_access_audit_reject_mutation();
+CREATE TRIGGER whatsapp_employee_access_audit_no_truncate
+  BEFORE TRUNCATE ON whatsapp_employee_access_audit
+  FOR EACH STATEMENT EXECUTE FUNCTION whatsapp_employee_access_audit_reject_mutation();
+
+-- Operator must create whatsapp_employee_audit_owner NOLOGIN and a dedicated
+-- runtime login separately.
+-- Grant runtime only INSERT; explicitly revoke SELECT/UPDATE/DELETE/TRUNCATE,
+-- ensure it is not a member of the owner role, and verify effective privileges.
+-- Keep both audit objects owned by the NOLOGIN migration owner, not runtime.
