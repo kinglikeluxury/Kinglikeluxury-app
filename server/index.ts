@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { registerWhatsappEmployeeArchiveRoutes } from "./whatsappEmployeeArchiveRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -261,6 +262,7 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
   registerWhatsappEmployeeWebhook(app);
+  registerWhatsappEmployeeArchiveRoutes(app);
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
