@@ -1,0 +1,63 @@
+-- Explicit, manually reviewed test migration. Never run at application startup.
+-- It creates test schema only when applied to a dedicated local test DB.
+-- Runtime refuses non-test processes and non-loopback/non-test database names.
+CREATE TABLE whatsapp_employee_numbers (
+  phone_number_id TEXT PRIMARY KEY,
+  waba_id TEXT NOT NULL,
+  employee_id INTEGER NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  business_authorized_at TIMESTAMPTZ,
+  coexistence_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (phone_number_id, waba_id, employee_id)
+);
+
+CREATE TABLE whatsapp_employee_consents (
+  phone_number_id TEXT NOT NULL,
+  employee_id INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('consented','revoked')),
+  consented_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  PRIMARY KEY (phone_number_id, employee_id)
+);
+
+CREATE TABLE whatsapp_employee_conversations (
+  id BIGSERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL,
+  phone_number_id TEXT NOT NULL,
+  waba_id TEXT NOT NULL,
+  contact_wa_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (employee_id, phone_number_id, contact_wa_id)
+);
+
+CREATE TABLE whatsapp_employee_events (
+  id BIGSERIAL PRIMARY KEY,
+  conversation_id BIGINT NOT NULL REFERENCES whatsapp_employee_conversations(id),
+  employee_id INTEGER NOT NULL,
+  meta_event_key TEXT NOT NULL UNIQUE,
+  meta_message_id TEXT NOT NULL,
+  event_kind TEXT NOT NULL CHECK (event_kind IN ('message','status')),
+  direction TEXT NOT NULL CHECK (direction IN ('inbound','outbound','status')),
+  event_status TEXT,
+  message_type TEXT,
+  message_text TEXT,
+  source_field TEXT NOT NULL CHECK (source_field IN ('messages','smb_message_echoes')),
+  occurred_at TIMESTAMPTZ,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX whatsapp_employee_events_conversation_idx
+  ON whatsapp_employee_events (conversation_id, received_at DESC);
+
+CREATE TABLE whatsapp_employee_audit (
+  id BIGSERIAL PRIMARY KEY,
+  employee_id INTEGER,
+  action TEXT NOT NULL,
+  phone_number_id TEXT,
+  waba_id TEXT,
+  meta_event_key TEXT,
+  outcome TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (action, meta_event_key, outcome)
+);
