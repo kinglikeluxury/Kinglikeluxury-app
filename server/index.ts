@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { registerWhatsappEmployeeArchiveRoutes } from "./whatsappEmployeeArchiveRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -259,6 +260,7 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+  registerWhatsappEmployeeArchiveRoutes(app);
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
