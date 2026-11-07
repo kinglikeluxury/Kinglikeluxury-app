@@ -69,7 +69,7 @@ CREATE TABLE whatsapp_employee_events (
   source_field TEXT NOT NULL CHECK (source_field IN ('messages','smb_message_echoes')),
   occurred_at TIMESTAMPTZ,
   received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '90 days'),
+  expires_at TIMESTAMPTZ NULL,
   media_mime_type TEXT,
   media_size_bytes BIGINT CHECK (media_size_bytes IS NULL OR media_size_bytes >= 0),
   media_sha256 TEXT CHECK (media_sha256 IS NULL OR media_sha256 ~ '^[a-f0-9]{64}$')

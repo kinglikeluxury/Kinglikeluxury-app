@@ -37,10 +37,11 @@ eligibility must be reviewed separately before any echo is admitted.
 
 ## Retention
 
-The schema proposes a 90-day `expires_at` value and an index for review. It does
-not automatically delete or purge records. Legal/product owners must approve the
-retention duration and deletion process before activation; no deletion job is
-included in this draft.
+At the owner's direction, `expires_at` is nullable and has no automatic 90-day
+default. No purge or automatic deletion job is included. Open-ended retention
+still requires a documented purpose/lawful basis, periodic necessity review,
+applicable rights handling, and access/audit controls. A future deletion process
+requires separate owner/legal approval.
 
 ## Verification boundaries
 

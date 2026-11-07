@@ -77,6 +77,16 @@ test("PostgreSQL schema enforces FK, idempotency, and consent revocation seriali
       } finally { client.release(); }
     });
 
+    await t.test("events have no automatic expiry unless one is explicitly set", async () => {
+      const client = await connect();
+      try {
+        const result = await client.query(
+          `SELECT expires_at FROM whatsapp_employee_events WHERE meta_event_key = 'synthetic-event-1'`,
+        );
+        assert.equal(result.rows[0]?.expires_at, null);
+      } finally { client.release(); }
+    });
+
     await t.test("foreign keys reject an unregistered employee", async () => {
       const client = await connect();
       try {

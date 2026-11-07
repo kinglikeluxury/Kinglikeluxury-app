@@ -39,8 +39,9 @@ schema. Temporary database processes and data are removed after tests.
   not independently prove ownership.
 - Test real route-level provisioning and role changes; Coexistence remains false
   and needs per-number Meta eligibility verification.
-- Agree a retention/deletion policy. The current 90-day expiry is only a proposal;
-  no purge process exists.
+- Owner decision: do not apply a fixed 90-day expiry. `expires_at` is nullable
+  with no default and no purge process. This is not a legal exemption; document
+  periodic necessity review, rights handling, access controls, and audit.
 - Review DB grants/audit immutability, run staging-only migration review, and
   separately graduate the mock UI in PR #5 after APIs are approved.
 - No real Meta requests, production/staging DBs, secrets, phone numbers, or
