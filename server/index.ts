@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { registerWhatsappEmployeeArchiveRoutes } from "./whatsappEmployeeArchiveRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -54,6 +55,7 @@ import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
+import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 
 const app = express();
 
@@ -207,7 +209,7 @@ app.use(cors(corsOriginFn));
 app.use(express.json({
   limit: "50mb",
   verify: (req: any, _res, buf) => {
-    if (req.path === "/api/webhooks/meta-leads") {
+    if (req.path === "/api/webhooks/meta-leads" || req.path === "/api/webhooks/whatsapp-employee") {
       req.rawBody = buf;
     }
   },
@@ -259,6 +261,8 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+  registerWhatsappEmployeeWebhook(app);
+  registerWhatsappEmployeeArchiveRoutes(app);
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
