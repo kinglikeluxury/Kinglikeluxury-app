@@ -50,17 +50,19 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     `);
     await setup.query(`
       INSERT INTO whatsapp_employee_numbers
-        (phone_number_id,waba_id,employee_id,is_active,business_authorized_at,authorization_reference,
-         authorized_by,activated_by,activated_at,coexistence_enabled)
+        (phone_number_id,waba_id,employee_id,registration_kind,display_phone_number,is_active,business_authorized_at,authorization_reference,
+         authorized_by,activated_by,activated_at,coexistence_enabled,coexistence_verified_at,coexistence_verification_ref)
       VALUES
-        ('5550101','7000101',101,true,NOW(),'synthetic-proof-ref',301,201,NOW(),true),
-        ('5550102','7000101',101,true,NOW(),'synthetic-proof-ref-2',301,201,NOW(),false),
-        ('5550103','7000101',102,true,NOW(),'synthetic-proof-ref-3',301,201,NOW(),true)
+        ('5550101','7000101',101,'company','15550000001',true,NOW(),'synthetic-proof-ref',301,201,NOW(),true,NOW(),'synthetic-session-1'),
+        ('5550102','7000101',101,'company','15550000001',true,NOW(),'synthetic-proof-ref-2',301,201,NOW(),true,NULL,NULL),
+        ('5550103','7000101',102,'company','15550000003',true,NOW(),'synthetic-proof-ref-3',301,201,NOW(),true,NOW(),'synthetic-session-3'),
+        ('5550104','7000999',101,'test','15550000004',true,NOW(),'synthetic-test-ref',301,201,NOW(),true,NOW(),'synthetic-test-session')
     `);
     await setup.query(`
       INSERT INTO whatsapp_employee_consents
         (phone_number_id,employee_id,status,consented_at,last_actor_id)
-      VALUES ('5550101',101,'consented',NOW(),101),('5550102',101,'consented',NOW(),101)
+      VALUES ('5550101',101,'consented',NOW(),101),('5550102',101,'consented',NOW(),101),
+             ('5550104',101,'consented',NOW(),101)
     `);
     await setup.query("INSERT INTO whatsapp_employee_supervisor_grants (supervisor_id,employee_id,can_read,granted_by) VALUES (201,101,true,301)");
     await setup.query(`
@@ -136,10 +138,13 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [
         { field: "messages", value: { metadata: { phone_number_id: "5550101" },
-          messages: [{ id: "synthetic-in-1", from: "synthetic-contact", type: "text", text: { body: "synthetic inbound" }, timestamp: "1730000000" }],
-          statuses: [{ id: "synthetic-out-1", recipient_id: "synthetic-contact", status: "delivered", timestamp: "1730000001" }] } },
-        { field: "smb_message_echoes", value: { metadata: { phone_number_id: "5550101" },
-          messages: [{ id: "synthetic-echo-1", from: "synthetic-contact", type: "text", text: { body: "synthetic echo" }, timestamp: "1730000002" }] } },
+          contacts: [{ wa_id: "15550000002", user_id: "synthetic-user-2" }],
+          messages: [{ id: "synthetic-in-1", from: "15550000002", type: "text", text: { body: "synthetic inbound" }, timestamp: "1730000000" }],
+          statuses: [{ id: "synthetic-out-1", recipient_id: "15550000002", status: "delivered", timestamp: "1730000001" }] } },
+        { field: "smb_message_echoes", value: { metadata: { phone_number_id: "5550101", display_phone_number: "15550000001" },
+          contacts: [{ wa_id: "15550000002", user_id: "synthetic-user-2" }],
+          message_echoes: [{ id: "synthetic-echo-1", from: "15550000001", to: "15550000002", to_user_id: "synthetic-user-2",
+            type: "text", text: { body: "synthetic echo" }, timestamp: "1730000002" }] } },
       ] }],
     };
     const rawPayload = JSON.stringify(payload);
@@ -149,11 +154,46 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal((await accepted.text()), "EVENT_RECEIVED");
     assert.equal((await signedPost(rawPayload)).status, 200);
 
+    const editAndRevokePayload = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
+        metadata: { phone_number_id: "5550101", display_phone_number: "15550000001" },
+        contacts: [{ wa_id: "15550000002", user_id: "synthetic-user-2" }],
+        message_echoes: [
+          { id: "synthetic-edit-1", from: "15550000001", to: "15550000002", to_user_id: "synthetic-user-2",
+            type: "edit", edit: { original_message_id: "synthetic-echo-1",
+              message: { type: "image", image: { caption: "synthetic edited caption", id: "synthetic-media", url: "https://invalid.example/signed" } } } },
+          { id: "synthetic-revoke-1", from: "15550000001", to: "15550000002", to_user_id: "synthetic-user-2",
+            type: "revoke", revoke: { original_message_id: "synthetic-echo-1" } },
+        ],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(editAndRevokePayload))).status, 200);
+    const identitySwitchPayload = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
+        metadata: { phone_number_id: "5550101", display_phone_number: "15550000001" },
+        message_echoes: [{ id: "synthetic-echo-1", from: "15550000001", to: "15550000099",
+          to_user_id: "synthetic-user-99", type: "text", text: { body: "identity switch must not store" } }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(identitySwitchPayload))).status, 200);
+    const unresolvedEdit = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
+        metadata: { phone_number_id: "5550101", display_phone_number: "15550000001" },
+        message_echoes: [{ id: "synthetic-unresolved-edit", from: "15550000001", to: "15550000002",
+          to_user_id: "synthetic-user-2", type: "edit",
+          edit: { original_message_id: "missing-original", message: { type: "text", text: { body: "must not store" } } } }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(unresolvedEdit))).status, 200);
+
     const unconsentedPayload = {
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "messages", value: {
         metadata: { phone_number_id: "5550103" },
-        messages: [{ id: "synthetic-unconsented", from: "synthetic-contact-2", type: "text", text: { body: "must not store" } }],
+        messages: [{ id: "synthetic-unconsented", from: "15550000003", type: "text", text: { body: "must not store" } }],
       } }] }],
     };
     assert.equal((await signedPost(JSON.stringify(unconsentedPayload))).status, 200);
@@ -162,10 +202,38 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
         metadata: { phone_number_id: "5550102" },
-        messages: [{ id: "synthetic-ineligible-echo", from: "synthetic-contact", type: "text", text: { body: "must not store" } }],
+        metadata: { phone_number_id: "5550102", display_phone_number: "15550000001" },
+        message_echoes: [{ id: "synthetic-ineligible-echo", from: "15550000001", to: "15550000002",
+          to_user_id: "synthetic-user-2", type: "text", text: { body: "must not store" } }],
       } }] }],
     };
     assert.equal((await signedPost(JSON.stringify(ineligibleEcho))).status, 200);
+
+    const testWabaPayload = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000999", changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "5550104" },
+        messages: [{ id: "synthetic-test-waba-event", from: "15550000004", type: "text", text: { body: "must not store" } }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(testWabaPayload))).status, 200);
+    const unauthorizedWabaPayload = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7999999", changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "5550101" },
+        messages: [{ id: "synthetic-unauthorized-waba", from: "15550000002", type: "text", text: { body: "must not store" } }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(unauthorizedWabaPayload))).status, 200);
+    const wrongBusinessDisplayPayload = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
+        metadata: { phone_number_id: "5550101", display_phone_number: "15559999999" },
+        message_echoes: [{ id: "synthetic-wrong-display", from: "15559999999", to: "15550000002",
+          to_user_id: "synthetic-user-2", type: "text", text: { body: "must not store" } }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(wrongBusinessDisplayPayload))).status, 200);
 
     const conversationResult = await request(
       "GET", "/api/whatsapp-employee/archive/employees/101/conversations", 101,
@@ -179,14 +247,19 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 301)).status, 403);
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 201)).status, 200);
     const archive = (await (await request("GET", messagesUrl, 101)).json() as any).messages;
-    assert.deepEqual(archive.map((row: any) => row.direction), ["inbound", "status", "outbound"]);
+    assert.equal(archive.length, 5);
+    assert.ok(archive.some((row: any) => row.event_kind === "message" && row.message_text === "synthetic echo"));
+    assert.ok(archive.some((row: any) => row.event_kind === "edit" &&
+      row.related_message_id === "synthetic-echo-1" && row.message_text === "synthetic edited caption"));
+    assert.ok(archive.some((row: any) => row.event_kind === "revoke" &&
+      row.related_message_id === "synthetic-echo-1" && row.message_text === null));
     assert.equal(archive.some((row: any) => "media_url" in row || "raw_payload" in row), false);
 
     const racePayload = JSON.stringify({
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "messages", value: {
         metadata: { phone_number_id: "5550101" },
-        messages: [{ id: "synthetic-race-event", from: "synthetic-contact", type: "text", text: { body: "race fixture" } }],
+        messages: [{ id: "synthetic-race-event", from: "15550000002", type: "text", text: { body: "race fixture" } }],
       } }] }],
     });
     const raceWebhook = signedPost(racePayload);
@@ -203,8 +276,8 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     try {
       await verify.query(`SET search_path TO "${schema}"`);
       const stored = await verify.query(`SELECT meta_event_key,direction,source_field FROM whatsapp_employee_events ORDER BY meta_event_key`);
-      assert.equal(stored.rowCount, 4);
-      assert.deepEqual(stored.rows.map((row) => row.direction).sort(), ["inbound", "inbound", "outbound", "status"]);
+      assert.equal(stored.rowCount, 6);
+      assert.deepEqual(stored.rows.map((row) => row.direction).sort(), ["inbound", "inbound", "outbound", "outbound", "outbound", "status"]);
       const audit = await verify.query(
         `SELECT actor_id,action,outcome FROM whatsapp_employee_audit
           WHERE action IN ('consent_revoked','webhook_event') ORDER BY id`,
@@ -212,7 +285,9 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       assert.ok(audit.rows.some((row) => row.actor_id === 101 && row.action === "consent_revoked"));
       assert.ok(audit.rows.some((row) => row.outcome === "stored"));
       assert.ok(audit.rows.some((row) => row.outcome === "duplicate"));
-      assert.ok(audit.rows.filter((row) => row.outcome === "not_consented").length >= 3);
+      assert.ok(audit.rows.some((row) => row.outcome === "identity_mismatch"));
+      assert.ok(audit.rows.some((row) => row.outcome === "unresolved_reference"));
+      assert.ok(audit.rows.filter((row) => row.outcome === "not_consented").length >= 4);
     } finally { verify.release(); }
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));

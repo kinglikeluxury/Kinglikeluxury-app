@@ -4,6 +4,8 @@ CREATE TABLE whatsapp_employee_numbers (
   phone_number_id TEXT PRIMARY KEY,
   waba_id TEXT NOT NULL,
   employee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  registration_kind TEXT NOT NULL CHECK (registration_kind IN ('company','test')),
+  display_phone_number TEXT,
   is_active BOOLEAN NOT NULL DEFAULT FALSE,
   business_authorized_at TIMESTAMPTZ,
   authorization_reference TEXT,
@@ -11,6 +13,8 @@ CREATE TABLE whatsapp_employee_numbers (
   activated_by INTEGER REFERENCES users(id) ON DELETE RESTRICT,
   activated_at TIMESTAMPTZ,
   coexistence_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  coexistence_verified_at TIMESTAMPTZ,
+  coexistence_verification_ref TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (phone_number_id,waba_id,employee_id),
   UNIQUE (phone_number_id,employee_id)
@@ -46,6 +50,7 @@ CREATE TABLE whatsapp_employee_conversations (
   phone_number_id TEXT NOT NULL,
   waba_id TEXT NOT NULL,
   contact_wa_id TEXT NOT NULL,
+  contact_user_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (employee_id,phone_number_id,contact_wa_id),
@@ -61,13 +66,14 @@ CREATE TABLE whatsapp_employee_events (
   employee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   meta_event_key TEXT NOT NULL UNIQUE,
   meta_message_id TEXT NOT NULL,
-  event_kind TEXT NOT NULL CHECK (event_kind IN ('message','status')),
+  event_kind TEXT NOT NULL CHECK (event_kind IN ('message','status','edit','revoke')),
   direction TEXT NOT NULL CHECK (direction IN ('inbound','outbound','status')),
   event_status TEXT,
   message_type TEXT,
   message_text TEXT,
   source_field TEXT NOT NULL CHECK (source_field IN ('messages','smb_message_echoes')),
   occurred_at TIMESTAMPTZ,
+  related_message_id TEXT,
   received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   expires_at TIMESTAMPTZ NULL,
   media_mime_type TEXT,
@@ -77,6 +83,19 @@ CREATE TABLE whatsapp_employee_events (
 CREATE INDEX whatsapp_employee_events_conversation_received_idx
   ON whatsapp_employee_events(conversation_id,received_at DESC);
 CREATE INDEX whatsapp_employee_events_expiry_idx ON whatsapp_employee_events(expires_at);
+
+CREATE FUNCTION whatsapp_employee_reject_event_mutation() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'WhatsApp employee event and audit rows are append-only';
+END;
+$$;
+CREATE TRIGGER whatsapp_employee_events_append_only
+  BEFORE UPDATE OR DELETE ON whatsapp_employee_events
+  FOR EACH ROW EXECUTE FUNCTION whatsapp_employee_reject_event_mutation();
+CREATE TRIGGER whatsapp_employee_events_no_truncate
+  BEFORE TRUNCATE ON whatsapp_employee_events
+  FOR EACH STATEMENT EXECUTE FUNCTION whatsapp_employee_reject_event_mutation();
 
 CREATE TABLE whatsapp_employee_audit (
   id BIGSERIAL PRIMARY KEY,
@@ -93,3 +112,9 @@ CREATE TABLE whatsapp_employee_audit (
 );
 CREATE INDEX whatsapp_employee_audit_scope_created_idx
   ON whatsapp_employee_audit(employee_id,created_at DESC);
+CREATE TRIGGER whatsapp_employee_audit_append_only
+  BEFORE UPDATE OR DELETE ON whatsapp_employee_audit
+  FOR EACH ROW EXECUTE FUNCTION whatsapp_employee_reject_event_mutation();
+CREATE TRIGGER whatsapp_employee_audit_no_truncate
+  BEFORE TRUNCATE ON whatsapp_employee_audit
+  FOR EACH STATEMENT EXECUTE FUNCTION whatsapp_employee_reject_event_mutation();

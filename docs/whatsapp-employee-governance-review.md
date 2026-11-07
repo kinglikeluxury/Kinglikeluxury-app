@@ -63,12 +63,21 @@ until the business owner and privacy review explicitly approve scope.
 
 Meta's `smb_message_echoes` payload uses `value.message_echoes[]`; each echo's
 `from` is the business display number and its `to`/`to_user_id` identifies the
-customer. PR #8's parser instead reads `value.messages[]` for this field and
-uses `from` as the contact ID. Thus the synthetic echo fixture is not a faithful
-Meta fixture: real echoes will not be ingested correctly. Meta also emits `edit`
-and `revoke` echo types; the current normalized event model does not apply those
-changes to the archived original message. Do not claim Coexistence echo support
-until tests use the official field names/semantics and cover edit/revoke.
+customer. PR #8's parser mismatch is corrected in this branch. Synthetic tests
+cover text/image/document echoes, `from` matching both the payload and registered
+company display numbers, `to` and
+BSUID matching, and duplicate identity rejection. Documented `edit` and `revoke`
+events are retained as separate event rows linked by `original_message_id`; they
+do not overwrite or delete the archived original. Such events are accepted only
+when the referenced outbound message exists in the same employee/phone/customer
+conversation. Unknown shapes and unresolved references are rejected fail-closed.
+This does not establish global WhatsApp edit/delete semantics or Meta eligibility.
+
+The Coexistence gate now requires a company registration plus a verification
+timestamp/reference, exact registered WABA/phone IDs, and current employee
+consent. The application still does not obtain or cryptographically validate
+those evidence fields from Embedded Signup/Meta; they are not proof by themselves.
+Keep real traffic disabled until a trusted onboarding verification path exists.
 
 ## Employee/customer privacy and lawful basis
 
@@ -118,10 +127,12 @@ not implement data-subject erase requests or legal exceptions.
   case-specific, authorized, reasoned, time-limited, access-restricted and reviewed;
   Article 17 describes blocking while the reason exists, including evidence needs.
 - Article 27(4) requires registration of electronic operations including access,
-  disclosure/transfer and deletion. PR #8 audits consent/assignment/webhook writes,
-  but archive reads/exports are not logged, and its audit table is not append-only
-  or privilege-separated. Add read/export actor, scope, time, purpose, outcome and
-  correlation ID; keep message content and customer identifiers out of logs.
+  disclosure/transfer and deletion. This branch adds database triggers rejecting
+  UPDATE/DELETE on event and audit rows, but a database owner can alter or disable
+  those triggers. Production still needs a non-owner runtime role and independently
+  controlled audit storage. Archive reads/exports are not logged yet; add actor,
+  scope, time, purpose, outcome and correlation ID without message content or
+  customer identifiers.
 - Article 31 calls for a prior impact assessment in specified high-risk cases and
   for the stated mandatory categories. The controller/DPO/legal advisor should
   determine applicability before launch; assess employee monitoring, volume,
@@ -142,9 +153,8 @@ does not change PR #8. Before merging that guard with PR #8, verify the combined
 routes and make sure reverse proxies, error handlers, analytics, traces, and
 exports do not capture request/response bodies or signed media URLs.
 
-Consent rows are mutable (re-consent overwrites row fields), while the audit table
-has no append-only database privilege/trigger or independently held digest. A
-database administrator can alter evidence. A production design needs a separately
+Consent rows are mutable (re-consent overwrites row fields), and a database owner
+can alter or disable append-only triggers. A production design needs a separately
 controlled append-only audit writer, restricted runtime grants, and periodic
 integrity verification; the current audit table should not be called tamper-proof.
 
@@ -157,9 +167,9 @@ evidence:
    notice, employee opt-in/revocation handling, and rights-request workflow.
 2. Company proves portfolio/WABA/number control; authorized owner completes
    Embedded Signup v4 session and the asset IDs are independently verified.
-3. Coexistence eligibility is verified per number; real echo fixtures including
-   `message_echoes`, edit, and revoke pass tests; no personal number/history is
-   imported.
+3. Coexistence eligibility is verified per number through a trusted onboarding
+   record; synthetic echo fixtures including `message_echoes`, edit, and revoke
+   pass tests; no personal number/history is imported.
 4. Retention, backup deletion, rights requests, legal holds, cross-border processor
    safeguards, audit access logging, and append-only privileges are approved and
    tested in isolated staging.

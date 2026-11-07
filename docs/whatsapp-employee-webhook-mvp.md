@@ -13,16 +13,22 @@ send messages, call the Meta Graph API, or expose a conversation archive.
 - The SQL file under `docs/sql/` is not run automatically.
 - A phone number must be explicitly active, marked business-authorized, and have
   non-revoked employee consent. Coexistence echo events additionally require the
-  number's `coexistence_enabled` registration.
+  company registration, `coexistence_enabled`, and a recorded verification
+  timestamp/reference; these fields remain fail-closed records, not Meta proof.
 - No raw webhook body is persisted. Only normalized fields are stored.
 
 ## Supported webhook shapes
 
-`messages` text/media metadata and delivery/read status events are normalized.
-`smb_message_echoes` are treated as outbound echoes only for an explicitly
-Coexistence-enabled number. The implementation does not contact Meta to determine
-Coexistence eligibility; that must be established and recorded by a separate,
-reviewed onboarding process.
+`messages` text/media captions and delivery/read status events are normalized.
+`smb_message_echoes` uses Meta's `message_echoes` array; the business display
+number is checked against `from`, and `to`/`to_user_id` is used for the customer.
+The display number must also match the company registration for the exact WABA
+and phone-number ID.
+Documented `edit`/`revoke` notices are separate immutable event rows linked to an
+existing outbound message; they never rewrite/delete that message. Unsupported
+types or unresolved originals are rejected. The implementation does not contact
+Meta to establish Coexistence eligibility; a trusted onboarding verification
+process remains a pre-production requirement.
 
 ## Not included
 

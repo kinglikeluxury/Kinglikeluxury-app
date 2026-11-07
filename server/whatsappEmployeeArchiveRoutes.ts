@@ -110,8 +110,8 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
       if (!target.rowCount) { await client.query("ROLLBACK"); return res.sendStatus(404); }
       await client.query(
         `INSERT INTO whatsapp_employee_numbers
-          (phone_number_id,waba_id,employee_id,is_active,authorization_reference,authorized_by,business_authorized_at)
-         VALUES ($1,$2,$3,false,$4,$5,NOW())`,
+          (phone_number_id,waba_id,employee_id,registration_kind,is_active,authorization_reference,authorized_by,business_authorized_at)
+         VALUES ($1,$2,$3,'company',false,$4,$5,NOW())`,
         [phoneNumberId.trim(), wabaId.trim(), Number(employeeId), authorizationReference.trim(), actorId],
       );
       await client.query(
@@ -365,9 +365,9 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
         active: true, canRead: true, employeeId,
       } : null)) { await client.query("ROLLBACK"); return res.sendStatus(403); }
       const rows = await client.query(
-        `SELECT id,direction,event_status,message_type,message_text,occurred_at,received_at
+        `SELECT id,event_kind,direction,event_status,message_type,message_text,related_message_id,occurred_at,received_at
            FROM whatsapp_employee_events
-          WHERE conversation_id=$1 ORDER BY received_at ASC LIMIT 500`,
+           WHERE conversation_id=$1 ORDER BY received_at ASC,id ASC LIMIT 500`,
         [conversationId],
       );
       await client.query("COMMIT");

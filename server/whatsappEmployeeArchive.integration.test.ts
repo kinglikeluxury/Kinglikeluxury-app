@@ -47,8 +47,8 @@ test("PostgreSQL schema enforces FK, idempotency, and consent revocation seriali
     await setup.query(`INSERT INTO users(id) VALUES (101),(102),(201)`);
     await setup.query(`
       INSERT INTO whatsapp_employee_numbers
-        (phone_number_id,waba_id,employee_id,is_active,business_authorized_at,authorized_by)
-      VALUES ('5550101','7000101',101,true,NOW(),201)
+        (phone_number_id,waba_id,employee_id,registration_kind,is_active,business_authorized_at,authorized_by)
+      VALUES ('5550101','7000101',101,'company',true,NOW(),201)
     `);
     await setup.query(`
       INSERT INTO whatsapp_employee_consents
@@ -84,6 +84,32 @@ test("PostgreSQL schema enforces FK, idempotency, and consent revocation seriali
           `SELECT expires_at FROM whatsapp_employee_events WHERE meta_event_key = 'synthetic-event-1'`,
         );
         assert.equal(result.rows[0]?.expires_at, null);
+      } finally { client.release(); }
+    });
+
+    await t.test("event and audit rows reject replacement or deletion", async () => {
+      const client = await connect();
+      try {
+        const audit = await client.query(
+          `INSERT INTO whatsapp_employee_audit(action,outcome) VALUES ('synthetic_append_only','recorded') RETURNING id`,
+        );
+        const isAppendOnly = (error: any) => error?.code === "P0001";
+        await assert.rejects(
+          client.query(`UPDATE whatsapp_employee_events SET message_text='replacement' WHERE meta_event_key='synthetic-event-1'`),
+          isAppendOnly,
+        );
+        await assert.rejects(
+          client.query(`DELETE FROM whatsapp_employee_events WHERE meta_event_key='synthetic-event-1'`),
+          isAppendOnly,
+        );
+        await assert.rejects(
+          client.query(`UPDATE whatsapp_employee_audit SET outcome='replaced' WHERE id=$1`, [audit.rows[0].id]),
+          isAppendOnly,
+        );
+        await assert.rejects(
+          client.query(`TRUNCATE TABLE whatsapp_employee_audit`),
+          isAppendOnly,
+        );
       } finally { client.release(); }
     });
 
