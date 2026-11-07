@@ -13,7 +13,6 @@ import {
   STAGING_INTEGRATION_BLOCKED,
 } from "./stagingExternalGuard";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
-import { sendEmail, sendPushNotification } from "./notificationService";
 import { sendBulkWhatsApp } from "./whatsappNotificationService";
 import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 
@@ -25,6 +24,7 @@ test("Staging blocks WhatsApp and Graph send helpers before any HTTP request", a
   try {
     process.env.APP_DEPLOYMENT_MODE = "staging";
     process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED = "true";
+    const { sendEmail, sendPushNotification } = await import("./notificationService");
     globalThis.fetch = (async () => {
       outboundCalls++;
       throw new Error("network must not be reached");

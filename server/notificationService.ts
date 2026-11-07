@@ -13,8 +13,8 @@ import webpush from "web-push";
 import { isStagingMode } from "./stagingExternalGuard";
 
 // ── Web Push (VAPID) ─────────────────────────────────────────────────────────
-const vapidPublicKey  = process.env.VAPID_PUBLIC_KEY;
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+const vapidPublicKey  = isStagingMode() ? undefined : process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = isStagingMode() ? undefined : process.env.VAPID_PRIVATE_KEY;
 const vapidSubject    = process.env.VAPID_SUBJECT || "mailto:info@kinglikeluxury.app";
 
 if (vapidPublicKey && vapidPrivateKey) {
