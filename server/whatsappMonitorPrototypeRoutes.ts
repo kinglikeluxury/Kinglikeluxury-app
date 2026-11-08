@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { evaluateSyntheticWhatsappStagingReadiness } from "./whatsappStagingReadiness";
+import { inspectWhatsappCoexistenceReadiness } from "./whatsappCoexistenceReadiness";
 
 export type WhatsappMonitorPrototypeEnvironment = Record<string, string | undefined>;
 
@@ -47,6 +48,23 @@ export function registerWhatsappMonitorPrototypeRoutes(app: Express): void {
         return;
       }
       res.json(evaluateSyntheticWhatsappStagingReadiness());
+    },
+  );
+  // Read-only security gate: a healthy Meta TEST WABA does not authorize
+  // enrollment or historical chat access for an actual employee.
+  app.get(
+    "/api/admin/staging/whatsapp-coexistence-readiness",
+    (req: Request, res: Response) => {
+      res.setHeader("Cache-Control", "no-store");
+      if (process.env.APP_DEPLOYMENT_MODE !== "staging") {
+        res.sendStatus(404);
+        return;
+      }
+      if (req.session?.isAdmin !== true) {
+        res.status(403).json({ message: "Admin access required" });
+        return;
+      }
+      res.json(inspectWhatsappCoexistenceReadiness());
     },
   );
 }
