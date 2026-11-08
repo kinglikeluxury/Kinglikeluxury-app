@@ -32,3 +32,8 @@ jobs:
           APP_DEPLOYMENT_MODE: ci-test-disabled
           WHATSAPP_META_TEST_WEBHOOK_ENABLED: "false"
         run: node --import tsx --test server/metaTestWebhook.test.ts
+      - name: Build app bundle without any Meta connection
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_META_TEST_WEBHOOK_ENABLED: "false"
+        run: npm run build
