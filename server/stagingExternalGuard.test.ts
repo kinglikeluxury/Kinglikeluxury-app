@@ -19,6 +19,9 @@ import {
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 import { sendBulkWhatsApp } from "./whatsappNotificationService";
 import { pullSyncFromMeta, startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
+import { startBroadcastRunner, resumePendingBroadcasts, sendBroadcastTestEmail } from "./broadcastService";
+import { processNurturingQueue, sendTestNurturingEmail, startNurturingScheduler } from "./emailNurturingService";
+import { pool } from "./db";
 import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 
 test("Staging blocks WhatsApp and Graph send helpers before any HTTP request", async () => {
@@ -128,6 +131,59 @@ test("Staging disables direct Meta lead sync and worker entry points", async () 
     else process.env.META_LEAD_PULL_SYNC_ENABLED = oldMetaFlag;
     if (oldMetaToken === undefined) delete process.env.META_ACCESS_TOKEN;
     else process.env.META_ACCESS_TOKEN = oldMetaToken;
+  }
+});
+
+test("Staging blocks direct nurturing and broadcast sender entry points", async () => {
+  const oldMode = process.env.APP_DEPLOYMENT_MODE;
+  const oldResendKey = process.env.RESEND_API_KEY;
+  const oldQuery = pool.query;
+  const oldConnect = pool.connect;
+  const oldSetInterval = globalThis.setInterval;
+  const oldSetTimeout = globalThis.setTimeout;
+  let databaseCalls = 0;
+  let timerCalls = 0;
+  try {
+    process.env.APP_DEPLOYMENT_MODE = "staging";
+    process.env.RESEND_API_KEY = "synthetic-only-placeholder";
+    (pool as any).query = async () => {
+      databaseCalls++;
+      throw new Error("database must not be reached");
+    };
+    (pool as any).connect = async () => {
+      databaseCalls++;
+      throw new Error("database must not be reached");
+    };
+    (globalThis as any).setInterval = () => {
+      timerCalls++;
+      return {} as NodeJS.Timeout;
+    };
+    (globalThis as any).setTimeout = () => {
+      timerCalls++;
+      return {} as NodeJS.Timeout;
+    };
+
+    startNurturingScheduler();
+    await processNurturingQueue();
+    assert.deepEqual(await sendTestNurturingEmail("synthetic@example.invalid"), {
+      ok: false, error: STAGING_INTEGRATION_BLOCKED,
+    });
+    await startBroadcastRunner(123);
+    await resumePendingBroadcasts();
+    assert.deepEqual(await sendBroadcastTestEmail(123, "synthetic@example.invalid"), {
+      ok: false, error: STAGING_INTEGRATION_BLOCKED,
+    });
+    assert.equal(databaseCalls, 0);
+    assert.equal(timerCalls, 0);
+  } finally {
+    (pool as any).query = oldQuery;
+    (pool as any).connect = oldConnect;
+    globalThis.setInterval = oldSetInterval;
+    globalThis.setTimeout = oldSetTimeout;
+    if (oldMode === undefined) delete process.env.APP_DEPLOYMENT_MODE;
+    else process.env.APP_DEPLOYMENT_MODE = oldMode;
+    if (oldResendKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = oldResendKey;
   }
 });
 
