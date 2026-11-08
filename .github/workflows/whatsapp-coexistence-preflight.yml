@@ -1,0 +1,43 @@
+name: WhatsApp Coexistence fail-closed preflight
+
+on:
+  push:
+    paths:
+      - "server/whatsappCoexistenceReadiness.ts"
+      - "server/whatsappCoexistenceReadiness.test.ts"
+      - "server/whatsappMonitorPrototypeRoutes.ts"
+      - ".github/workflows/whatsapp-coexistence-preflight.yml"
+  pull_request:
+    paths:
+      - "server/whatsappCoexistenceReadiness.ts"
+      - "server/whatsappCoexistenceReadiness.test.ts"
+      - "server/whatsappMonitorPrototypeRoutes.ts"
+      - ".github/workflows/whatsapp-coexistence-preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install offline-safe test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert employee onboarding is still fail-closed
+        env:
+          APP_DEPLOYMENT_MODE: staging
+          WHATSAPP_META_ONBOARDING_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+        run: node --import tsx --test server/whatsappCoexistenceReadiness.test.ts
+      - name: Build without external Meta calls
+        env:
+          APP_DEPLOYMENT_MODE: staging
+          WHATSAPP_META_ONBOARDING_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+        run: npm run build
