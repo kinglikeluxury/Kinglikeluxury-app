@@ -60,6 +60,7 @@ import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 import { createMetaTestWebhookRoutes } from "./metaTestWebhook";
 import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
+import { registerStagingWhatsappOnboardingRoutes } from "./whatsappStagingOnboardingRoutes";
 import {
   isStagingMode,
   stagingExternalHttpMiddleware,
@@ -282,6 +283,18 @@ app.use((req, res, next) => {
   registerWhatsappMetaOnboardingRoutes(app, {
     // Re-read the active user from the same storage authority as the real
     // Express login session. The test-only route gate remains closed here.
+    authorizeAdmin: async (req) => {
+      const actorId = Number(req.session?.userId);
+      if (!Number.isSafeInteger(actorId) || actorId <= 0 || req.session?.isAdmin !== true) return null;
+      const user = await storage.getUser(actorId);
+      return user?.isAdmin && user.isActive ? actorId : null;
+    },
+  });
+  // Staging-only and disabled by default. No live verifier is injected here,
+  // so all real employee onboarding endpoints return 404 in this release.
+  // A separately reviewed release must wire Meta Graph verification.
+  registerStagingWhatsappOnboardingRoutes(app, {
+    db: pool,
     authorizeAdmin: async (req) => {
       const actorId = Number(req.session?.userId);
       if (!Number.isSafeInteger(actorId) || actorId <= 0 || req.session?.isAdmin !== true) return null;
