@@ -140,7 +140,9 @@ test("synthetic verified flow is CSRF, origin, admin, portfolio and phone scoped
   await new Promise<void>(resolve => listener.once("listening", resolve));
   const port = (listener.address() as any).port;
   const base = `http://127.0.0.1:${port}/api/admin/staging/whatsapp-verified-signup`;
-  const headers = { origin: "https://staging.example.invalid", host: "staging.example.invalid",
+  // Browser-facing origin is HTTPS while the isolated loopback transport is HTTP.
+  // Match the actual Host header; do not override forbidden Host header in fetch.
+  const headers = { origin: `https://127.0.0.1:${port}`,
     "content-type": "application/json" };
   const call = (method: string, path: string, body?: unknown, csrf?: string) => fetch(base+path, {
     method, headers: { ...headers, ...(csrf ? { "x-csrf-token": csrf } : {}) },
