@@ -20,6 +20,7 @@ import {
   Play,
   Search,
   Send,
+  Settings2,
   Smile,
   Square,
   Trash2,
@@ -680,7 +681,8 @@ export default function WhatsappEmployeeMonitoringPage() {
   const t = (key: string, fallback: string): string =>
     String(translate(key, { defaultValue: fallback }));
   const { user, isLoading } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const isSettingsView = location === "/admin/whatsapp-monitoring/settings";
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
   const [selectedConversationId, setSelectedConversationId] = useState(MOCK_CONVERSATIONS[0]?.id ?? "");
   const [search, setSearch] = useState("");
@@ -820,38 +822,76 @@ export default function WhatsappEmployeeMonitoringPage() {
     return <div className="min-h-[70vh] bg-slate-50" aria-label="Loading admin workspace" />;
   }
 
-  return (
-    <div className="kinglike-family-whatsapp flex h-auto min-h-[calc(100dvh-4rem)] flex-col overflow-y-auto bg-[#f4f8f8] px-3 pb-3 pt-6 sm:h-[calc(100dvh-4rem)] sm:min-h-0 sm:overflow-hidden sm:p-5 lg:p-7">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col sm:min-h-0">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#3bcac4]">
-              <MessageCircle className="h-4 w-4" />
-              {t("whatsappMonitoring.adminLabel", "Admin workspace")}
+  if (isSettingsView) {
+    return (
+      <div className="kinglike-family-whatsapp min-h-[100dvh] bg-[#f4f8f8] p-3 sm:p-6 lg:p-8">
+        <div className="mx-auto w-full max-w-[1200px]">
+          <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#159f9a]">
+                {t("whatsappMonitoring.adminLabel", "Admin workspace")}
+              </p>
+              <h1 className="mt-1 text-2xl font-bold text-[#005476] sm:text-3xl">
+                {t("whatsappMonitoring.settingsTitle", "Meta & archive review settings")}
+              </h1>
+              <p className="mt-1 text-sm text-slate-600">
+                {t("whatsappMonitoring.settingsDescription", "Review-only diagnostics. Real WhatsApp onboarding and message sending remain disabled.")}
+              </p>
             </div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#005476] sm:text-3xl">
-              {t("whatsappMonitoring.title", "Kinglike Family WhatsApp")}
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              {t("whatsappMonitoring.subtitle", "A safe mock archive for reviewing employee conversations.")}
-            </p>
+            <Button type="button" variant="outline" className="gap-2 border-[#005476]/20 bg-white text-[#005476]" onClick={() => navigate("/admin/whatsapp-monitoring")}>
+              {isRtl ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+              {t("whatsappMonitoring.backToConversations", "Back to conversations")}
+            </Button>
+          </header>
+          <div className="space-y-4">
+            <MetaAppReviewPrototype />
+            <LocalSyntheticArchiveReview
+              enabled={localArchiveReviewEnabled}
+              loading={loadingLocalArchiveReview}
+              error={localArchiveReviewError}
+              data={localArchiveReview}
+              onLoad={loadLocalArchiveReview}
+            />
           </div>
-          <Badge variant="outline" className="border-[#3bcac4] bg-white text-[#005476]">
-            {t("whatsappMonitoring.mockOnly", "Mock data only")}
-          </Badge>
         </div>
+      </div>
+    );
+  }
 
-        <MetaAppReviewPrototype />
-        <LocalSyntheticArchiveReview
-          enabled={localArchiveReviewEnabled}
-          loading={loadingLocalArchiveReview}
-          error={localArchiveReviewError}
-          data={localArchiveReview}
-          onLoad={loadLocalArchiveReview}
-        />
+  return (
+    <div className="kinglike-family-whatsapp flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-[#f4f8f8] px-2 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-4">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1800px] flex-1 flex-col">
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#005476] text-white">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold tracking-tight text-[#005476] sm:text-xl">
+                {t("whatsappMonitoring.title", "Kinglike Family WhatsApp")}
+              </h1>
+              <p className="text-xs text-slate-500">
+                {t("whatsappMonitoring.subtitle", "A safe mock archive for reviewing employee conversations.")}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="border-[#3bcac4] bg-white text-[#005476]">
+              {t("whatsappMonitoring.mockOnly", "Mock data only")}
+            </Badge>
+            <Button type="button" variant="outline" size="sm" className="gap-2 border-[#005476]/20 bg-white text-[#005476]" onClick={() => navigate("/admin/whatsapp-monitoring/settings")}>
+              <Settings2 className="h-4 w-4" />
+              {t("whatsappMonitoring.metaSettings", "Meta settings")}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" className="gap-2 text-[#005476]" onClick={() => navigate("/admin/dashboard")}>
+              {isRtl ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+              {t("whatsappMonitoring.backToAdmin", "Admin")}
+            </Button>
+          </div>
+        </header>
 
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-[#005476]/5">
-          <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[220px] lg:flex-none", mobilePanel === "employees" ? "flex" : "hidden")}>
+          <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[240px] lg:flex-none xl:w-[270px]", mobilePanel === "employees" ? "flex" : "hidden")}>
             <EmployeePanel
               employees={MOCK_EMPLOYEES}
               selectedEmployeeId={selectedEmployeeId}
@@ -860,7 +900,7 @@ export default function WhatsappEmployeeMonitoringPage() {
               t={t}
             />
           </div>
-          <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[340px] lg:flex-none", mobilePanel === "conversations" ? "flex" : "hidden")}>
+          <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[350px] lg:flex-none xl:w-[390px]", mobilePanel === "conversations" ? "flex" : "hidden")}>
             <ConversationPanel
               conversations={filteredConversations}
               selectedConversationId={selectedConversationId}
