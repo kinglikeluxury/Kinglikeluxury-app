@@ -1,0 +1,19 @@
+-- The access-audit table, index, and immutable triggers are defined in the
+-- canonical manual schema: 2026-11-07-whatsapp-employee-unified.sql.txt.
+-- Do not apply duplicate table DDL from this file.
+--
+-- Operator-only role provisioning template, executed after the canonical
+-- schema is applied and adapted to the selected isolated schema:
+--   CREATE ROLE whatsapp_employee_audit_owner NOLOGIN;
+--   CREATE ROLE whatsapp_employee_access_audit_writer LOGIN;
+--   ALTER TABLE whatsapp_employee_access_audit OWNER TO whatsapp_employee_audit_owner;
+--   ALTER FUNCTION whatsapp_employee_access_audit_reject_mutation()
+--     OWNER TO whatsapp_employee_audit_owner;
+--   REVOKE ALL ON whatsapp_employee_access_audit FROM PUBLIC;
+--   GRANT INSERT ON whatsapp_employee_access_audit TO whatsapp_employee_access_audit_writer;
+--   GRANT USAGE, SELECT ON SEQUENCE whatsapp_employee_access_audit_id_seq
+--     TO whatsapp_employee_access_audit_writer;
+--
+-- Also grant schema USAGE, verify the writer is not owner/member of owner role,
+-- and verify it has no SELECT/UPDATE/DELETE/TRUNCATE privileges. Never perform
+-- these changes from application startup or against production in this PR.

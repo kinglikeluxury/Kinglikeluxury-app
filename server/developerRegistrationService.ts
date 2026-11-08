@@ -737,6 +737,7 @@ export async function backfillOrigamiRecordsForExistingLeads(daysBack = 10): Pro
 let _schedulerRunning = false;
 
 export function startDeveloperRegistrationScheduler(): void {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   // Ensure the column exists before the first run, then proceed
   ensureAutoRegColumn()
     .catch(() => {})

@@ -7,11 +7,14 @@ import { eq, desc, asc, and, lte, count } from "drizzle-orm";
 import { recordLeadReceived, getAlertStatus, pullSyncFromMeta } from "./metaLeadsService";
 import { handleInboundMessage as waQualHandleInbound } from "./waQualService";
 import { storage } from "./storage";
+import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 
 const META_GRAPH_VERSION = "v19.0";
 const META_GRAPH_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 
 function graphGet(path: string): Promise<{ status: number; data: any }> {
+  try { assertExternalGatewayAllowed("meta"); }
+  catch { return Promise.resolve({ status: 503, data: { error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" } }); }
   return new Promise((resolve) => {
     https.get(`${META_GRAPH_BASE}${path}`, (r) => {
       let raw = "";

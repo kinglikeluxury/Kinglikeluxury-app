@@ -12,11 +12,12 @@ import { notificationTemplates, notificationLogs, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getOrCreateTemplate } from "./emailService";
 import { sendMetaWhatsApp, isMetaWhatsAppConfigured } from "./services/metaWhatsAppService";
+import { isStagingMode } from "./stagingExternalGuard";
 
 // ── Re-export so callers that check this flag still work ──────────────────────
 
 export function isWhatsAppConfigured(): boolean {
-  return isMetaWhatsAppConfigured();
+  return !isStagingMode() && isMetaWhatsAppConfigured();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ async function logNotification(params: {
   status:    string;
   error?:    string;
 }) {
+  if (isStagingMode()) return;
   try {
     await db.insert(notificationLogs).values(params);
   } catch { /* non-critical */ }
@@ -84,6 +86,7 @@ export async function sendWelcomeWhatsApp(user: {
   phoneNumber?:   string | null;
   whatsappNumber?: string | null;
 }) {
+  if (isStagingMode()) return;
   const phone = user.whatsappNumber || user.phoneNumber;
   if (!phone) return;
 
@@ -113,6 +116,7 @@ export async function sendWelcomeWhatsApp(user: {
 }
 
 export async function sendBulkWhatsApp(trigger: "weekly_update" | "inactive_reminder") {
+  if (isStagingMode()) return { sent: 0, failed: 0, skipped: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   if (!isMetaWhatsAppConfigured()) {
     console.log("[WhatsApp] Meta not configured — skipping bulk", trigger);
     return { sent: 0, failed: 0, skipped: "not configured" };

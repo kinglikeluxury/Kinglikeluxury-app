@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { cloudinary } from '../cloudinaryService';
+import { isStagingMode } from '../stagingExternalGuard';
 
 let canvasModule: any = null;
 try {
@@ -56,7 +57,7 @@ async function initWatermarkOverlay(): Promise<void> {
   }
 }
 
-initWatermarkOverlay().catch(() => {});
+if (!isStagingMode()) initWatermarkOverlay().catch(() => {});
 
 function applyCloudinaryWatermark(imageUrl: string): string {
   if (!imageUrl.includes('res.cloudinary.com')) return imageUrl;

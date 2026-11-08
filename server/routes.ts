@@ -22,6 +22,7 @@ import { SYRIAN_CITY_ENTRIES, toSyriaCityValue } from "@shared/syriaLocations";
 import { buildPropertyLocationFilter } from "./propertyLocationFilter";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
+import { establishAuthenticatedSession } from "./authSession";
 import { z } from "zod";
 import { processImages } from "./utils/imageProcessing";
 import { sendNewPropertyNotification, sendLeadChangeNotification, sendLeadTaskChangeNotification } from "./emailService";
@@ -42,6 +43,7 @@ import { fileURLToPath } from "url";
 import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate, sendEmailOtp } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
+import { guardResendClient, guardTwilioClient, rejectStagingExternalRequest, isStagingMode } from "./stagingExternalGuard";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { getAssistedRescuePreview, listPromiseHandoffs } from "./kayRescueReadService";
@@ -995,6 +997,7 @@ ${metaTags}
 
   // Twilio configuration check — admin only, no credential values returned
   app.get("/api/admin/twilio-status", isAuthenticated, isAdmin, async (_req, res) => {
+    if (rejectStagingExternalRequest(res)) return;
     res.json({
       ok: true,
       twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
@@ -1003,7 +1006,7 @@ ${metaTags}
 
   // Twilio client
   const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-    ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+    ? guardTwilioClient(Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN))
     : null;
 
   // ── Email OTP store (server-side only, never exposed to client) ────────────
@@ -1154,6 +1157,7 @@ ${metaTags}
 
   // Send verification code — WhatsApp first, SMS fallback via Messaging Service
   app.post("/api/auth/send-verification", async (req, res) => {
+    if (rejectStagingExternalRequest(res)) return;
     const ip = getClientIp(req);
     const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     try {
@@ -1307,6 +1311,7 @@ ${metaTags}
 
   // Send password-reset OTP — supports phone (WhatsApp/SMS + email fallback) and email
   app.post("/api/auth/send-reset-otp", async (req, res) => {
+    if (rejectStagingExternalRequest(res)) return;
     const ip = getClientIp(req);
     const ua = String(req.headers['user-agent'] || '').slice(0, 300);
     const GENERIC_OK = { message: "If an account exists, a verification code will be sent." };
@@ -1527,9 +1532,7 @@ ${metaTags}
         isVerified: true,
       });
 
-      req.session.userId = user.id;
-      req.session.isAdmin = user.isAdmin;
-      req.session.role = user.role ?? "user";
+      await establishAuthenticatedSession(req, user);
 
       // Fire-and-forget welcome notifications
       sendWelcomeEmail(user).catch(() => {});
@@ -1584,6 +1587,9 @@ ${metaTags}
         }
         
         user = await storage.getUserByUsername(username);
+        if (!user) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
         
         const _emailPassOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
           ? await bcrypt.compare(password, user.password)
@@ -1647,6 +1653,9 @@ ${metaTags}
         }
 
         // Generic error — never reveal whether username/email/phone exists or which field failed
+        if (!user) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
         const _passOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
           ? await bcrypt.compare(password, user.password!)
           : user.password === password;
@@ -1660,9 +1669,7 @@ ${metaTags}
       }
       
       // Set session
-      req.session.userId = user.id;
-      req.session.isAdmin = user.isAdmin;
-      req.session.role = user.role ?? "user";
+      await establishAuthenticatedSession(req, user);
       
       // Return appropriate user data
       const userResponse: any = {
@@ -3408,13 +3415,17 @@ ${metaTags}
   </div>
 </div>`;
 
-    const resend = new Resend(RESEND_KEY);
+    const resend = guardResendClient(new Resend(RESEND_KEY));
     const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
 
     for (const r of recipients) {
       const email = typeof r === "string" ? r : r.email;
       if (!email) continue;
       try {
+        if (isStagingMode()) {
+          results.push({ email, status: "failed", error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" });
+          continue;
+        }
         const result = await resend.emails.send({
           from: "Kinglike Luxury <info@kinglikeluxury.app>",
           to: email,
@@ -4296,10 +4307,10 @@ ${metaTags}
               });
             } catch (_) {}
             const resendKey = process.env.RESEND_API_KEY;
-            if (resendKey) {
+            if (resendKey && !isStagingMode()) {
               try {
                 const { Resend } = await import("resend");
-                const resend = new Resend(resendKey);
+                const resend = guardResendClient(new Resend(resendKey));
                 await resend.emails.send({
                   from: "noreply@kinglikeluxury.com",
                   to: "admin@kinglikeluxury.com",
@@ -6888,30 +6899,34 @@ ${metaTags}
 
   // ── One-time startup: backfill country for leads that have a phone but no country ──
   // Runs silently in the background after server starts; never blocks startup.
-  setImmediate(async () => {
-    try {
-      const rows = await pool.query<{ id: number; phone: string }>(
-        "SELECT id, phone FROM crm_leads WHERE (country IS NULL OR country = '') AND phone IS NOT NULL AND phone != '' ORDER BY id ASC"
-      );
-      if (rows.rows.length === 0) return;
-      let backfilled = 0;
-      for (const row of rows.rows) {
-        const result = vPhone(row.phone);
-        if (result.valid && result.country) {
-          await pool.query(
-            "UPDATE crm_leads SET country=$1, updated_at=NOW() WHERE id=$2 AND (country IS NULL OR country = '')",
-            [result.country, row.id]
-          );
-          backfilled++;
+  // Staging uses a pre-provisioned, potentially schema-minimal database, so skip
+  // this implicit data mutation there along with the other startup jobs.
+  if (!isStagingMode()) {
+    setImmediate(async () => {
+      try {
+        const rows = await pool.query<{ id: number; phone: string }>(
+          "SELECT id, phone FROM crm_leads WHERE (country IS NULL OR country = '') AND phone IS NOT NULL AND phone != '' ORDER BY id ASC"
+        );
+        if (rows.rows.length === 0) return;
+        let backfilled = 0;
+        for (const row of rows.rows) {
+          const result = vPhone(row.phone);
+          if (result.valid && result.country) {
+            await pool.query(
+              "UPDATE crm_leads SET country=$1, updated_at=NOW() WHERE id=$2 AND (country IS NULL OR country = '')",
+              [result.country, row.id]
+            );
+            backfilled++;
+          }
         }
+        if (backfilled > 0) {
+          console.log(`[CountryBackfill] Auto-detected country for ${backfilled} lead(s) from phone prefix`);
+        }
+      } catch (err: any) {
+        console.error(`[CountryBackfill] Failed: ${err.message}`);
       }
-      if (backfilled > 0) {
-        console.log(`[CountryBackfill] Auto-detected country for ${backfilled} lead(s) from phone prefix`);
-      }
-    } catch (err: any) {
-      console.error(`[CountryBackfill] Failed: ${err.message}`);
-    }
-  });
+    });
+  }
 
   // ── AI Marketing Center routes ────────────────────────────────────────────
 

@@ -14,6 +14,7 @@
 //     Permissions, or any existing AI Marketing table/route.
 
 import { pool } from "./db";
+import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 import { computeKqsForAllLeads, buildKqsEntityTable } from "./kqsEngine";
 
 // ── Table bootstrap (new tables only, additive columns only) ───────────────
@@ -158,6 +159,7 @@ async function fetchMetaAccountCurrency(): Promise<string> {
     if (!raw || !token) return "USD";
     const acct = raw.startsWith("act_") ? raw : `act_${raw}`;
     const url = `https://graph.facebook.com/v19.0/${acct}?fields=currency&access_token=${encodeURIComponent(token)}`;
+    assertExternalGatewayAllowed("meta");
     const res = await fetch(url);
     const json: any = await res.json();
     if (json?.currency && typeof json.currency === "string") {

@@ -199,6 +199,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     highlight: true,
   },
   {
+    labelKey: "admin.whatsappEmployeeMonitoring",
+    labelFallback: "WhatsApp Employee Monitoring",
+    path: "/admin/whatsapp-monitoring",
+    Icon: MessageCircle,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  },
+  {
     labelKey: "admin.crmHealth",
     labelFallback: "CRM Health Dashboard",
     path: "/admin/crm-health",

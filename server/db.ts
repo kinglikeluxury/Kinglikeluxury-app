@@ -1,31 +1,41 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
+import pg from "pg";
+import { drizzle as drizzlePostgres } from "drizzle-orm/node-postgres";
 import ws from "ws";
 import * as schema from "@shared/schema";
 import { KAY_MISSION_SCOPE_FENCE_SQL } from "./kayMissionScopeFenceSql";
+import { isStagingMode, resolveApplicationDatabaseUrl, stagingDatabaseIsIsolated } from "./stagingExternalGuard";
 
 neonConfig.webSocketConstructor = ws;
 
 /**
- * Production database connection.
+ * Application database connection.
  *
- * Production/development use NEON_DATABASE_URL. A test process can only use
- * KAY_TEST_DATABASE_URL, so production credentials need not exist in its
- * environment.
+ * Production/development keep the existing Neon connection. Tests use only
+ * KAY_TEST_DATABASE_URL. Staging uses its explicitly designated PostgreSQL
+ * URL and never falls back to NEON_DATABASE_URL.
  */
-const neonDatabaseUrl = process.env.NODE_ENV === "test"
-  ? process.env.KAY_TEST_DATABASE_URL
-  : process.env.NEON_DATABASE_URL;
+const databaseUrl = resolveApplicationDatabaseUrl();
+const stagingMode = isStagingMode();
+
+if (stagingMode && !stagingDatabaseIsIsolated()) {
+  throw new Error("STAGING_DATABASE_ISOLATION_NOT_VERIFIED");
+}
 
 // Safe startup log — confirms var is set without exposing credentials
 {
-  const url = neonDatabaseUrl;
+  const url = databaseUrl;
   if (url) {
     try {
       const parsed = new URL(url);
       console.log("[DB] ACTIVE_DB: SET");
-      console.log("[DB] Host:", parsed.hostname);
-      console.log("[DB] Database:", parsed.pathname.replace(/^\//, ""));
+      if (!stagingMode) {
+        console.log("[DB] Host:", parsed.hostname);
+        console.log("[DB] Database:", parsed.pathname.replace(/^\//, ""));
+      } else {
+        console.log("[DB] Staging database target selected (identity values withheld)");
+      }
     } catch {
       console.log("[DB] ACTIVE_DB: SET (URL parse failed)");
     }
@@ -34,26 +44,40 @@ const neonDatabaseUrl = process.env.NODE_ENV === "test"
   }
 }
 
-if (!neonDatabaseUrl) {
+if (!databaseUrl) {
   throw new Error(
     process.env.NODE_ENV === "test"
       ? "KAY_TEST_DATABASE_URL is required for test processes; production credentials are never a test fallback."
-      : "NEON_DATABASE_URL is not set."
+      : stagingMode
+        ? "APP_STAGING_DATABASE_URL is required in Staging; production database fallback is disabled."
+        : "NEON_DATABASE_URL is not set."
   );
 }
 
-export const pool = new Pool({
-  connectionString: neonDatabaseUrl,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
+// The Railway staging database may be a regular PostgreSQL service rather
+// than Neon. Keep the production driver untouched; use node-postgres only for
+// this separately designated Staging URL.
+export const pool = stagingMode
+  ? new pg.Pool({
+      connectionString: databaseUrl,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    })
+  : new NeonPool({
+      connectionString: databaseUrl,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
 
-pool.on('error', (err) => {
+export const db = stagingMode
+  ? drizzlePostgres({ client: pool as pg.Pool, schema }) as unknown as ReturnType<typeof drizzleNeon>
+  : drizzleNeon({ client: pool as InstanceType<typeof NeonPool>, schema });
+
+pool.on('error', (err: Error) => {
   console.error('[DB] Unexpected pool error:', err);
 });
-
-export const db = drizzle({ client: pool, schema });
 
 /**
  * One-way production safety operation. It removes Kay triggers from real CRM
@@ -94,7 +118,7 @@ export async function enforceKayProductionSafetyFreeze(): Promise<void> {
 /** Returns the active database host for logging. */
 export function getActiveDbHost(): string {
   try {
-    return new URL(neonDatabaseUrl!).hostname;
+    return new URL(databaseUrl!).hostname;
   } catch {
     return 'unknown';
   }
@@ -103,7 +127,7 @@ export function getActiveDbHost(): string {
 /** Returns the active database name for logging. */
 export function getActiveDbName(): string {
   try {
-    return new URL(neonDatabaseUrl!).pathname.replace('/', '');
+    return new URL(databaseUrl!).pathname.replace('/', '');
   } catch {
     return 'unknown';
   }

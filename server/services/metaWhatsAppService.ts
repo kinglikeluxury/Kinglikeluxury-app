@@ -18,6 +18,7 @@
  */
 
 import { pool } from "../db";
+import { isStagingMode } from "../stagingExternalGuard";
 
 const PHONE_NUMBER_ID =
   process.env.WHATSAPP_PHONE_NUMBER_ID ?? "1110445448828325";
@@ -70,6 +71,7 @@ export async function sendMetaWhatsApp(
   message:  string,
   context?: string
 ): Promise<MetaSendResult> {
+  if (isStagingMode()) return { success: false, recipient: "", error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   const token     = getToken();
   const recipient = toMetaPhone(phone);
   const tag       = `[MetaWhatsApp]${context ? `[${context}]` : ""}`;

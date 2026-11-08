@@ -1,0 +1,38 @@
+-- Manual, review-only schema for server-verified onboarding evidence.
+-- Do not execute at startup or against production. Provision with a dedicated
+-- migration owner; runtime roles must not own this table or its constraints.
+CREATE TABLE whatsapp_onboarding_proofs (
+  id BIGSERIAL PRIMARY KEY,
+  business_portfolio_id TEXT NOT NULL CHECK (business_portfolio_id ~ '^[0-9]{5,80}$'),
+  waba_id TEXT NOT NULL CHECK (waba_id ~ '^[0-9]{5,80}$'),
+  phone_number_id TEXT NOT NULL UNIQUE CHECK (phone_number_id ~ '^[0-9]{5,80}$'),
+  display_phone_number TEXT NOT NULL CHECK (display_phone_number ~ '^\+[1-9][0-9]{7,14}$'),
+  ownership_verified BOOLEAN NOT NULL CHECK (ownership_verified),
+  coexistence_verified BOOLEAN NOT NULL CHECK (coexistence_verified),
+  permissions TEXT[] NOT NULL,
+  verified_by BIGINT NOT NULL,
+  verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ,
+  revoked_by BIGINT,
+  revocation_reason TEXT CHECK (revocation_reason IN ('owner_revoked','permission_lost')),
+  CHECK ((revoked_at IS NULL) = (revoked_by IS NULL))
+);
+CREATE UNIQUE INDEX whatsapp_onboarding_one_active_phone
+  ON whatsapp_onboarding_proofs(phone_number_id) WHERE revoked_at IS NULL;
+
+CREATE TABLE whatsapp_onboarding_flows (
+  flow_id UUID PRIMARY KEY,
+  actor_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  session_hash TEXT NOT NULL CHECK (session_hash ~ '^[a-f0-9]{64}$'),
+  origin TEXT NOT NULL,
+  state_hash TEXT NOT NULL CHECK (state_hash ~ '^[a-f0-9]{64}$'),
+  csrf_hash TEXT NOT NULL CHECK (csrf_hash ~ '^[a-f0-9]{64}$'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ
+);
+CREATE INDEX whatsapp_onboarding_flows_expiry_idx
+  ON whatsapp_onboarding_flows(expires_at);
+
+-- Only hashes of the session binding, state, and CSRF token are stored.
+-- Never persist auth codes, access tokens, or callback payloads here.

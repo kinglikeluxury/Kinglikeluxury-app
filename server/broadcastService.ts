@@ -6,6 +6,7 @@
 
 import { pool } from "./db";
 import { Resend } from "resend";
+import { guardResendClient } from "./stagingExternalGuard";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -222,6 +223,7 @@ async function getResendKey(): Promise<string | null> {
 // ── Batch runner ──────────────────────────────────────────────────────────────
 
 export async function startBroadcastRunner(broadcastId: number): Promise<void> {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   if (activeRunners.has(broadcastId)) {
     const handle = activeRunners.get(broadcastId)!;
     handle.paused = false;
@@ -251,7 +253,7 @@ export async function startBroadcastRunner(broadcastId: number): Promise<void> {
         activeRunners.delete(broadcastId);
         return;
       }
-      const resend = new Resend(resendKey);
+      const resend = guardResendClient(new Resend(resendKey));
 
       while (true) {
         if (handle.stopped) break;
@@ -413,6 +415,7 @@ export function stopBroadcastRunner(broadcastId: number): boolean {
 // ── Resume any running broadcasts on server startup ──────────────────────────
 
 export async function resumePendingBroadcasts(): Promise<void> {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   try {
     const result = await pool.query(
       "SELECT id FROM email_broadcasts WHERE status IN ('running','approved') ORDER BY id ASC",
@@ -433,6 +436,9 @@ export async function sendBroadcastTestEmail(
   toEmail: string,
   firstName?: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") {
+    return { ok: false, error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
+  }
   const resendKey = await getResendKey();
   if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured" };
 
@@ -447,7 +453,7 @@ export async function sendBroadcastTestEmail(
     firstName: firstName ?? "Admin",
   });
 
-  const resend = new Resend(resendKey);
+  const resend = guardResendClient(new Resend(resendKey));
   const r = await resend.emails.send({
     from: "Kinglike Luxury <info@kinglikeluxury.app>",
     to: toEmail,

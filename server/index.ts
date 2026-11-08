@@ -29,11 +29,13 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { shouldLogApiResponseBody } from "./apiResponseLogPolicy";
+import { registerWhatsappEmployeeArchiveRoutes } from "./whatsappEmployeeArchiveRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
 import { startCrmTaskReminderScheduler } from "./crmTaskReminderService";
-import { logDatabaseStatus, ensureCrmIndexes, enforceKayProductionSafetyFreeze, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables } from "./db";
+import { logDatabaseStatus, ensureCrmIndexes, enforceKayProductionSafetyFreeze, ensureMetaLeadsTables, ensureWhatsappAiTables, ensureDeveloperRegistrationTables, ensureWhatsAppApiTables, ensureWaQualTables, ensureAiMarketingTables, ensureAiMarketingRevenueTables, ensureAiCampaignAttributionTables, ensureAiCreativeAttributionTable, ensureAiCreativeDraftsTable, ensureAiCampaignDraftTables, ensureProjectMarketingTables, ensureLearningEngineTables, pool } from "./db";
 import { ensureMetaIntelligenceTables } from "./metaIntelligenceSyncService";
 import { startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { ensureAssignmentCursor } from "./leadAssignmentService";
@@ -43,6 +45,7 @@ import { registerDeveloperRegistrationRoutes, ensureDeveloperRegistrationRouteTa
 import { startDeveloperRegistrationScheduler } from "./developerRegistrationService";
 import { registerEmailNurturingRoutes } from "./emailNurturingRoutes";
 import { registerWhatsappApiHistoryRoutes } from "./whatsappApiHistoryRoutes";
+import { registerWhatsappMonitorPrototypeRoutes } from "./whatsappMonitorPrototypeRoutes";
 import { registerWaQualRoutes } from "./waQualRoutes";
 import { startWaQualScheduler } from "./waQualScheduler";
 import { registerWebinarCampaignRoutes } from "./webinarCampaign";
@@ -54,8 +57,16 @@ import { generateSitemapXml } from "./sitemapGenerator";
 import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
+import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
+import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
+import {
+  isStagingMode,
+  stagingExternalHttpMiddleware,
+  verifyStagingDatabaseConnection,
+} from "./stagingExternalGuard";
 
 const app = express();
+app.use(stagingExternalHttpMiddleware);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SITEMAP & ROBOTS — registered ABSOLUTELY FIRST, before CORS, before
@@ -207,7 +218,7 @@ app.use(cors(corsOriginFn));
 app.use(express.json({
   limit: "50mb",
   verify: (req: any, _res, buf) => {
-    if (req.path === "/api/webhooks/meta-leads") {
+    if (req.path === "/api/webhooks/meta-leads" || req.path === "/api/webhooks/whatsapp-employee") {
       req.rawBody = buf;
     }
   },
@@ -228,11 +239,12 @@ app.use("/api", (_req, res, next) => {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  const logResponseBody = shouldLogApiResponseBody(path);
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
+    if (logResponseBody) capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
@@ -256,13 +268,29 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Do not register request handlers, run bootstrap SQL, or start workers until
+  // the selected Staging database accepts a query and reports the designated DB.
+  await verifyStagingDatabaseConnection((sql) => pool.query(sql));
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+  registerWhatsappEmployeeWebhook(app);
+  registerWhatsappEmployeeArchiveRoutes(app);
+  registerWhatsappMetaOnboardingRoutes(app, {
+    // Re-read the active user from the same storage authority as the real
+    // Express login session. The test-only route gate remains closed here.
+    authorizeAdmin: async (req) => {
+      const actorId = Number(req.session?.userId);
+      if (!Number.isSafeInteger(actorId) || actorId <= 0 || req.session?.isAdmin !== true) return null;
+      const user = await storage.getUser(actorId);
+      return user?.isAdmin && user.isActive ? actorId : null;
+    },
+  });
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
   registerWhatsappApiHistoryRoutes(app);
+  registerWhatsappMonitorPrototypeRoutes(app);
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
   registerBroadcastRoutes(app);
@@ -318,7 +346,7 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000", 10);
   // Kay's one-way production freeze must succeed before the process accepts
   // traffic. A failure rejects startup instead of leaving old triggers active.
-  await enforceKayProductionSafetyFreeze();
+  if (!isStagingMode()) await enforceKayProductionSafetyFreeze();
   server.listen(
     {
       port,
@@ -334,8 +362,9 @@ app.use((req, res, next) => {
   server.keepAliveTimeout = 620000;
   server.headersTimeout = 630000;
 
-  const schedulersEnabled = process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
-  const metaLeadsProcessorEnabled = process.env.ENABLE_META_LEADS_PROCESSOR === "true";
+  const stagingExternalIsolation = isStagingMode();
+  const schedulersEnabled = !stagingExternalIsolation && process.env.ENABLE_BACKGROUND_SCHEDULERS === "true";
+  const metaLeadsProcessorEnabled = !stagingExternalIsolation && process.env.ENABLE_META_LEADS_PROCESSOR === "true";
   if (schedulersEnabled) {
     startScheduler();
     startDailyBackup();
@@ -343,8 +372,12 @@ app.use((req, res, next) => {
     console.log("[Schedulers] Disabled by ENABLE_BACKGROUND_SCHEDULERS — set to 'true' to enable background processing");
   }
   // CRM task reminders are lightweight and user-facing — always run regardless of the heavy-scheduler gate
-  startCrmTaskReminderScheduler();
-  validateMetaWhatsAppConfig();
+  if (!stagingExternalIsolation) {
+    startCrmTaskReminderScheduler();
+    validateMetaWhatsAppConfig();
+  } else {
+    console.warn("[StagingIsolation] external messaging, Meta integrations, webhooks, and scheduled jobs disabled");
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // SEQUENTIAL STARTUP BOOTSTRAP QUEUE
@@ -399,7 +432,7 @@ app.use((req, res, next) => {
       name: "ensureDeveloperRegistrationTables",
       run: async () => {
         await ensureDeveloperRegistrationTables();
-        startDeveloperRegistrationScheduler();
+        if (!stagingExternalIsolation) startDeveloperRegistrationScheduler();
       },
     },
     {
@@ -413,7 +446,7 @@ app.use((req, res, next) => {
       name: "ensureBroadcastTables",
       run: async () => {
         await ensureBroadcastTables();
-        await resumePendingBroadcasts();
+        if (!stagingExternalIsolation) await resumePendingBroadcasts();
       },
     },
     { name: "ensureWhatsAppApiTables", run: () => ensureWhatsAppApiTables() },
@@ -477,11 +510,15 @@ app.use((req, res, next) => {
     },
   ];
 
-  for (const step of bootSteps) {
-    try {
-      await step.run();
-    } catch (err) {
-      console.error(`[DB] ${step.name} failed:`, err);
+  if (stagingExternalIsolation) {
+    console.warn("[StagingIsolation] startup schema/bootstrap work is disabled; pre-provisioned schema is required");
+  } else {
+    for (const step of bootSteps) {
+      try {
+        await step.run();
+      } catch (err) {
+        console.error(`[DB] ${step.name} failed:`, err);
+      }
     }
   }
   // Production incident containment: Kay analysis remains request-driven and
@@ -490,7 +527,7 @@ app.use((req, res, next) => {
 
   // ─── Auto-retranslate blog posts for newly added languages ───────────────
   const NEW_LANGS = ["fa", "nl", "de", "sv", "fr", "it"];
-  (async () => {
+  if (!stagingExternalIsolation) (async () => {
     try {
       const posts = await storage.getBlogPosts();
       let updated = 0;

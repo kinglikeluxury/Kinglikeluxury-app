@@ -14,6 +14,7 @@
 
 import { pool } from "./db";
 import { Resend } from "resend";
+import { guardResendClient, isStagingMode } from "./stagingExternalGuard";
 
 const ADMIN_EMAIL = "info@kinglikeluxury.app";
 const FROM        = "Kinglike Luxury <info@kinglikeluxury.app>";
@@ -101,11 +102,12 @@ async function logEntry(params: {
 async function sendViaResend(
   to: string, subject: string, html: string
 ): Promise<{ id?: string; error?: string }> {
+  if (isStagingMode()) return { error: "STAGING_EXTERNAL_INTEGRATION_DISABLED" };
   const key = process.env.RESEND_API_KEY;
   if (!key) return { error: "RESEND_API_KEY not configured" };
   if (!to?.trim()) return { error: "No recipient email" };
   try {
-    const resend = new Resend(key);
+    const resend = guardResendClient(new Resend(key));
     const result = await resend.emails.send({ from: FROM, to, subject, html });
     if (result.error) return { error: result.error.message };
     return { id: result.data?.id ?? undefined };

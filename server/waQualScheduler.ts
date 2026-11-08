@@ -23,6 +23,7 @@ const POLL_MS = 30 * 60 * 1000; // 30 min
 let _started = false;
 
 export function startWaQualScheduler(): void {
+  if (process.env.APP_DEPLOYMENT_MODE === "staging") return;
   if (_started) return;
   _started = true;
   console.log("[WaQualScheduler] Started — polling every 30 min");
