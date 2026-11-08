@@ -327,7 +327,7 @@ test("Staging blocks direct nurturing and broadcast sender entry points", async 
   }
 });
 
-test("Staging HTTP gate rejects live webhook, onboarding, activation, Meta, and Twilio routes", async () => {
+test("Staging HTTP gate rejects message, campaign, webhook, Meta, and Twilio entry points", async () => {
   const oldMode = process.env.APP_DEPLOYMENT_MODE;
   const oldWebhookFlag = process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED;
   const oldSchedulerFlag = process.env.ENABLE_BACKGROUND_SCHEDULERS;
@@ -354,6 +354,15 @@ test("Staging HTTP gate rejects live webhook, onboarding, activation, Meta, and 
       "/api/auth/send-verification",
       "/api/auth/send-reset-otp",
       "/api/admin/twilio-status",
+      "/api/webhooks/email-nurturing",
+      "/api/admin/email-campaign",
+      "/api/admin/email-campaigns/webinar/setup-and-test",
+      "/api/admin/email-campaigns/webinar/send-approved",
+      "/api/admin/email-nurturing/send-test",
+      "/api/admin/email-nurturing/lead/123/start",
+      "/api/admin/broadcast/123/send-test",
+      "/api/admin/broadcast/123/approve",
+      "/api/admin/broadcast/123/resume",
       "/api/admin/meta-leads/token-test",
       "/api/admin/ai-marketing/meta-read-test",
     ]) {
@@ -378,6 +387,15 @@ test("Staging HTTP gate rejects live webhook, onboarding, activation, Meta, and 
       "/api/auth/send-verification",
       "/api/auth/send-reset-otp",
       "/api/admin/twilio-status",
+      "/api/webhooks/email-nurturing",
+      "/api/admin/email-campaign",
+      "/api/admin/email-campaigns/webinar/setup-and-test",
+      "/api/admin/email-campaigns/webinar/send-approved",
+      "/api/admin/email-nurturing/send-test",
+      "/api/admin/email-nurturing/lead/123/start",
+      "/api/admin/broadcast/123/send-test",
+      "/api/admin/broadcast/123/approve",
+      "/api/admin/broadcast/123/resume",
       "/api/admin/meta-leads/token-test",
       "/api/admin/ai-marketing/meta-read-test",
     ]) {

@@ -133,6 +133,7 @@ export function stagingExternalHttpMiddleware(
   const path = req.path.toLowerCase();
   const blocked =
     path.startsWith("/api/webhooks/whatsapp") ||
+    path === "/api/webhooks/email-nurturing" ||
     path.startsWith("/api/admin/whatsapp-meta") ||
     path.startsWith("/api/admin/whatsapp-monitor") ||
     path === "/api/admin/whatsapp-test-send" ||
@@ -141,6 +142,12 @@ export function stagingExternalHttpMiddleware(
     path === "/api/auth/send-verification" ||
     path === "/api/auth/send-reset-otp" ||
     path === "/api/admin/twilio-status" ||
+    path === "/api/admin/email-campaign" ||
+    path === "/api/admin/email-campaigns/webinar/setup-and-test" ||
+    path === "/api/admin/email-campaigns/webinar/send-approved" ||
+    path === "/api/admin/email-nurturing/send-test" ||
+    /^\/api\/admin\/email-nurturing\/lead\/[^/]+\/start$/.test(path) ||
+    /^\/api\/admin\/broadcast\/[^/]+\/(send-test|approve|resume)$/.test(path) ||
     path.startsWith("/api/admin/meta-leads") ||
     path.startsWith("/api/admin/ai-marketing/meta-") ||
     path.startsWith("/api/admin/ai-marketing/meta-intelligence/");
