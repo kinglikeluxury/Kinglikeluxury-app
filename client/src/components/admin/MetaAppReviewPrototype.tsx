@@ -17,6 +17,7 @@ import {
   type MetaWhatsappSignupSessionEvent,
 } from "@/lib/metaWhatsappMonitorSignup";
 import { runSyntheticWhatsappOnboardingFlow } from "@/lib/whatsappMetaOnboardingClient";
+import { MetaSignupCompletionBridge } from "@/lib/metaSignupCompletionBridge";
 
 type PrototypeConfigResponse = {
   enabled: boolean;
@@ -201,6 +202,8 @@ export default function MetaAppReviewPrototype() {
     useState<PopupLaunchExceptionDetails | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [sessionEvent, setSessionEvent] = useState<PrototypeStatus | null>(null);
+  const [browserOnlyHandshake, setBrowserOnlyHandshake] = useState(false);
+  const signupBridgeRef = useRef(new MetaSignupCompletionBridge());
   const signupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionEventReceivedRef = useRef(false);
   const signupAttemptActiveRef = useRef(false);
@@ -288,7 +291,12 @@ export default function MetaAppReviewPrototype() {
           }));
         },
       );
-      if (!parsed) return;
+      // Ignore unsolicited Meta postMessages outside a user-started signup.
+      if (!parsed || !signupAttemptActiveRef.current) return;
+      signupBridgeRef.current.acceptSessionEvent(parsed);
+      // Discard the ephemeral code immediately: this review screen is never
+      // allowed to send a real number to Meta or the backend.
+      if (signupBridgeRef.current.takeReady()) setBrowserOnlyHandshake(true);
       sessionEventReceivedRef.current = true;
       signupAttemptActiveRef.current = false;
       clearSignupTimeout(signupTimeoutRef);
@@ -299,6 +307,7 @@ export default function MetaAppReviewPrototype() {
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
+      signupBridgeRef.current.clear();
       signupAttemptActiveRef.current = false;
       clearSignupTimeout(signupTimeoutRef);
       loginDiagnosticAttemptActiveRef.current = false;
@@ -346,6 +355,7 @@ export default function MetaAppReviewPrototype() {
     }
 
     signupAttemptActiveRef.current = false;
+    signupBridgeRef.current.clear();
     clearSignupTimeout(signupTimeoutRef);
     setIsLaunching(false);
     if (result === "cancelled") {
@@ -361,6 +371,8 @@ export default function MetaAppReviewPrototype() {
     if (!signupConfig || sdkStatus !== "ready" || isLaunching) return;
     const attemptId = signupAttemptIdRef.current + 1;
     signupAttemptIdRef.current = attemptId;
+    signupBridgeRef.current.begin();
+    setBrowserOnlyHandshake(false);
     setLoginDiagnostics(INITIAL_LOGIN_DIAGNOSTICS);
     setPopupLaunchExceptionDetails(null);
     loginDiagnosticAttemptActiveRef.current = true;
@@ -380,6 +392,7 @@ export default function MetaAppReviewPrototype() {
       if (signupAttemptIdRef.current !== attemptId) return;
       signupTimeoutRef.current = null;
       signupAttemptActiveRef.current = false;
+      signupBridgeRef.current.clear();
       if (sessionEventReceivedRef.current) return;
       setIsLaunching(false);
       setSessionEvent({ kind: "timeout" });
@@ -397,10 +410,15 @@ export default function MetaAppReviewPrototype() {
           ...current,
           ...diagnostics,
         }));
+      }, (code) => {
+        if (signupAttemptIdRef.current !== attemptId) return;
+        signupBridgeRef.current.acceptLoginResponse({ authResponse: { code } });
+        if (signupBridgeRef.current.takeReady()) setBrowserOnlyHandshake(true);
       });
     } catch (error: unknown) {
       setPopupLaunchExceptionDetails(getPopupLaunchExceptionDetails(error));
       signupAttemptActiveRef.current = false;
+      signupBridgeRef.current.clear();
       clearSignupTimeout(signupTimeoutRef);
       setIsLaunching(false);
       setSessionEvent({ kind: "error" });
@@ -615,6 +633,13 @@ export default function MetaAppReviewPrototype() {
               </div>
             </dl>
           </div>
+
+          {browserOnlyHandshake && (
+            <p className="text-xs text-slate-600" role="status">
+              Meta SDK code and signup session were paired in memory, then discarded.
+              No server verification, employee enrollment, or chat access occurred.
+            </p>
+          )}
 
           {sessionEvent?.kind === "completed" && (
             <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" role="status">
