@@ -1,0 +1,34 @@
+name: WhatsApp isolated test WABA webhook (synthetic only)
+
+on:
+  push:
+    paths:
+      - "server/metaTestWebhook.ts"
+      - "server/metaTestWebhook.test.ts"
+      - ".github/workflows/whatsapp-test-webhook-isolation.yml"
+  pull_request:
+    paths:
+      - "server/metaTestWebhook.ts"
+      - "server/metaTestWebhook.test.ts"
+      - ".github/workflows/whatsapp-test-webhook-isolation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-test-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test isolated webhook with synthetic signed payloads
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_META_TEST_WEBHOOK_ENABLED: "false"
+        run: node --import tsx --test server/metaTestWebhook.test.ts
