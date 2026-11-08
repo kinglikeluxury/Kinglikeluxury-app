@@ -1,0 +1,31 @@
+name: WhatsApp Meta Test WABA read-only probe tests
+
+on:
+  push:
+    paths:
+      - "scripts/meta-test-waba-readiness.mjs"
+      - "scripts/meta-test-waba-readiness.test.mjs"
+      - ".github/workflows/whatsapp-meta-test-waba-readonly.yml"
+  pull_request:
+    paths:
+      - "scripts/meta-test-waba-readiness.mjs"
+      - "scripts/meta-test-waba-readiness.test.mjs"
+      - ".github/workflows/whatsapp-meta-test-waba-readonly.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate local-only Meta read-only preflight with fake Graph
+        env:
+          APP_DEPLOYMENT_MODE: ci-synthetic-test
+          WHATSAPP_META_TEST_READ_ONLY: DISABLED
+        run: node --test scripts/meta-test-waba-readiness.test.mjs
