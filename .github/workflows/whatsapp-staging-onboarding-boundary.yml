@@ -1,0 +1,49 @@
+name: WhatsApp verified Staging signup boundary (synthetic only)
+
+on:
+  push:
+    paths:
+      - "server/whatsappStagingOnboardingRoutes.ts"
+      - "server/whatsappStagingOnboardingRoutes.test.ts"
+      - "server/apiResponseLogPolicy.ts"
+      - "server/apiResponseLogPolicy.test.ts"
+      - "server/index.ts"
+      - ".github/workflows/whatsapp-staging-onboarding-boundary.yml"
+  pull_request:
+    paths:
+      - "server/whatsappStagingOnboardingRoutes.ts"
+      - "server/whatsappStagingOnboardingRoutes.test.ts"
+      - "server/apiResponseLogPolicy.ts"
+      - "server/apiResponseLogPolicy.test.ts"
+      - "server/index.ts"
+      - ".github/workflows/whatsapp-staging-onboarding-boundary.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install test/build dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify Staging signup guard and synthetic HTTP behavior
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+          WHATSAPP_META_ONBOARDING_ENABLED: "false"
+        run: node --import tsx --test server/whatsappStagingOnboardingRoutes.test.ts server/apiResponseLogPolicy.test.ts
+      - name: Compile frontend and backend without external connections
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+          WHATSAPP_META_ONBOARDING_ENABLED: "false"
+        run: npm run build
