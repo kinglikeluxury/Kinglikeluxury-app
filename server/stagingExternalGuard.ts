@@ -21,6 +21,47 @@ export function assertExternalGatewayAllowed(
   if (isStagingMode(env)) throw new Error(STAGING_INTEGRATION_BLOCKED);
 }
 
+export async function guardedExternalCall<T>(
+  gateway: ExternalGateway,
+  send: () => T | Promise<T>,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<T> {
+  assertExternalGatewayAllowed(gateway, env);
+  return await send();
+}
+
+export function guardResendClient<T extends { emails: { send: (...args: any[]) => any } }>(client: T): T {
+  return new Proxy(client, {
+    get(target, property, receiver) {
+      if (property !== "emails") return Reflect.get(target, property, receiver);
+      const emails = Reflect.get(target, property, receiver);
+      return new Proxy(emails, {
+        get(emailTarget, emailProperty, emailReceiver) {
+          const method = Reflect.get(emailTarget, emailProperty, emailReceiver);
+          if (emailProperty !== "send" || typeof method !== "function") return method;
+          return (...args: any[]) => guardedExternalCall("notifications", () => method.apply(emailTarget, args));
+        },
+      });
+    },
+  });
+}
+
+export function guardTwilioClient<T extends { messages: { create: (...args: any[]) => any } }>(client: T): T {
+  return new Proxy(client, {
+    get(target, property, receiver) {
+      if (property !== "messages") return Reflect.get(target, property, receiver);
+      const messages = Reflect.get(target, property, receiver);
+      return new Proxy(messages, {
+        get(messageTarget, messageProperty, messageReceiver) {
+          const method = Reflect.get(messageTarget, messageProperty, messageReceiver);
+          if (messageProperty !== "create" || typeof method !== "function") return method;
+          return (...args: any[]) => guardedExternalCall("twilio", () => method.apply(messageTarget, args));
+        },
+      });
+    },
+  });
+}
+
 export function rejectStagingExternalRequest(res: Response): boolean {
   if (!isStagingMode()) return false;
   res.setHeader("Cache-Control", "no-store");

@@ -10,7 +10,7 @@
 
 import { Resend } from "resend";
 import webpush from "web-push";
-import { isStagingMode } from "./stagingExternalGuard";
+import { guardResendClient, guardedExternalCall, isStagingMode } from "./stagingExternalGuard";
 
 // ── Web Push (VAPID) ─────────────────────────────────────────────────────────
 const vapidPublicKey  = isStagingMode() ? undefined : process.env.VAPID_PUBLIC_KEY;
@@ -50,7 +50,7 @@ export async function sendEmail(opts: {
     return { sent: false, error: "No recipient email" };
   }
   try {
-    const resend = new Resend(key);
+    const resend = guardResendClient(new Resend(key));
     const result = await resend.emails.send(
       {
         from: "Kinglike Luxury <info@kinglikeluxury.app>",
@@ -90,7 +90,7 @@ export async function sendPushNotification(
       endpoint: subscription.endpoint,
       keys: { p256dh: subscription.p256dh, auth: subscription.auth },
     };
-    await webpush.sendNotification(pushSub, JSON.stringify(payload));
+    await guardedExternalCall("notifications", () => webpush.sendNotification(pushSub, JSON.stringify(payload)));
     console.log(`[Push] ✓ Sent to endpoint ${subscription.endpoint.slice(0, 60)}…`);
     return { sent: true };
   } catch (err: any) {

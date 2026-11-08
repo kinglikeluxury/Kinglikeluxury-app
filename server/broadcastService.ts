@@ -6,6 +6,7 @@
 
 import { pool } from "./db";
 import { Resend } from "resend";
+import { guardResendClient } from "./stagingExternalGuard";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -252,7 +253,7 @@ export async function startBroadcastRunner(broadcastId: number): Promise<void> {
         activeRunners.delete(broadcastId);
         return;
       }
-      const resend = new Resend(resendKey);
+      const resend = guardResendClient(new Resend(resendKey));
 
       while (true) {
         if (handle.stopped) break;
@@ -452,7 +453,7 @@ export async function sendBroadcastTestEmail(
     firstName: firstName ?? "Admin",
   });
 
-  const resend = new Resend(resendKey);
+  const resend = guardResendClient(new Resend(resendKey));
   const r = await resend.emails.send({
     from: "Kinglike Luxury <info@kinglikeluxury.app>",
     to: toEmail,

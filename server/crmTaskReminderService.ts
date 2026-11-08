@@ -7,7 +7,7 @@
 
 import { pool } from "./db";
 import { sendQualTextMessage } from "./interactiveMessageHelper";
-import { isStagingMode } from "./stagingExternalGuard";
+import { guardResendClient, isStagingMode } from "./stagingExternalGuard";
 import { Resend } from "resend";
 
 // ── Employee contact maps (fallback when DB user.email / phone is unavailable) ─
@@ -29,7 +29,7 @@ let _resend: Resend | null = null;
 function getResend(): Resend | null {
   const key = process.env.RESEND_API_KEY;
   if (!key) return null;
-  if (!_resend) _resend = new Resend(key);
+  if (!_resend) _resend = guardResendClient(new Resend(key));
   return _resend;
 }
 

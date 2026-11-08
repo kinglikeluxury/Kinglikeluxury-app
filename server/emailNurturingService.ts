@@ -6,6 +6,7 @@
 
 import crypto from "crypto";
 import { pool } from "./db";
+import { guardResendClient } from "./stagingExternalGuard";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const UNSUBSCRIBE_SECRET = process.env.EMAIL_NURTURING_UNSUBSCRIBE_SECRET || "kinglike-unsub-secret-2024";
@@ -722,7 +723,7 @@ async function sendOneEmail(
       return false;
     }
     const { Resend } = await import("resend");
-    const resend = new Resend(key);
+    const resend = guardResendClient(new Resend(key));
 
     const result = await resend.emails.send({
       from,
@@ -1084,7 +1085,7 @@ export async function sendTestNurturingEmail(to: string, sortOrder: number = 1, 
     const bodyText = fillTemplate(template.body_text || "", vars);
 
     const { Resend } = await import("resend");
-    const resend = new Resend(key);
+    const resend = guardResendClient(new Resend(key));
     const result = await resend.emails.send({
       from,
       to: [to],

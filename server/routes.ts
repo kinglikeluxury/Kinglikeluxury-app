@@ -43,7 +43,7 @@ import { fileURLToPath } from "url";
 import Twilio from "twilio";
 import { sendWelcomeEmail, sendBulkEmail, isEmailConfigured, getOrCreateTemplate, sendEmailOtp } from "./emailService";
 import { sendWelcomeWhatsApp, sendBulkWhatsApp, isWhatsAppConfigured } from "./whatsappNotificationService";
-import { rejectStagingExternalRequest, isStagingMode } from "./stagingExternalGuard";
+import { guardResendClient, guardTwilioClient, rejectStagingExternalRequest, isStagingMode } from "./stagingExternalGuard";
 import { db, getActiveDbHost, getActiveDbName, pool } from "./db";
 import { getKayControlSnapshot, setKayMode, validateKayModeUpdate, getRescueSettings, rescueSettingsSchema, setLeadProtection, enqueueKayEvaluationScan, runKayShadowEvaluator } from "./kayService";
 import { getAssistedRescuePreview, listPromiseHandoffs } from "./kayRescueReadService";
@@ -1006,7 +1006,7 @@ ${metaTags}
 
   // Twilio client
   const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-    ? Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+    ? guardTwilioClient(Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN))
     : null;
 
   // ── Email OTP store (server-side only, never exposed to client) ────────────
@@ -3409,7 +3409,7 @@ ${metaTags}
   </div>
 </div>`;
 
-    const resend = new Resend(RESEND_KEY);
+    const resend = guardResendClient(new Resend(RESEND_KEY));
     const results: { email: string; status: "sent" | "failed"; error?: string }[] = [];
 
     for (const r of recipients) {
@@ -4304,7 +4304,7 @@ ${metaTags}
             if (resendKey && !isStagingMode()) {
               try {
                 const { Resend } = await import("resend");
-                const resend = new Resend(resendKey);
+                const resend = guardResendClient(new Resend(resendKey));
                 await resend.emails.send({
                   from: "noreply@kinglikeluxury.com",
                   to: "admin@kinglikeluxury.com",

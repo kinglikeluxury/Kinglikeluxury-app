@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { isStagingMode } from "./stagingExternalGuard";
+import { guardResendClient, isStagingMode } from "./stagingExternalGuard";
 import { db } from "./db";
 import { notificationTemplates, notificationLogs, users, crmLeads } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -9,6 +9,7 @@ const { Pool } = pg;
 const FROM = "Kinglike Luxury <info@kinglikeluxury.app>";
 
 async function getResendKey(): Promise<string | null> {
+  if (isStagingMode()) return null;
   const key = process.env.RESEND_API_KEY;
   if (key) return key;
   try {
@@ -26,7 +27,7 @@ async function getResend(): Promise<Resend | null> {
   if (_resend) return _resend;
   const key = await getResendKey();
   if (!key) return null;
-  _resend = new Resend(key);
+  _resend = guardResendClient(new Resend(key));
   return _resend;
 }
 
