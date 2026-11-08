@@ -1,0 +1,45 @@
+name: WhatsApp Embedded Signup completion bridge (synthetic)
+
+on:
+  push:
+    paths:
+      - "client/src/lib/metaSignupCompletionBridge.ts"
+      - "client/src/lib/metaWhatsappMonitorSignup.ts"
+      - "client/src/components/admin/MetaAppReviewPrototype.tsx"
+      - "server/metaSignupCompletionBridge.test.ts"
+      - ".github/workflows/whatsapp-signup-completion-bridge.yml"
+  pull_request:
+    paths:
+      - "client/src/lib/metaSignupCompletionBridge.ts"
+      - "client/src/lib/metaWhatsappMonitorSignup.ts"
+      - "client/src/components/admin/MetaAppReviewPrototype.tsx"
+      - "server/metaSignupCompletionBridge.test.ts"
+      - ".github/workflows/whatsapp-signup-completion-bridge.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify order-independence and cancellation without live Meta
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_META_ONBOARDING_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+        run: node --import tsx --test server/metaSignupCompletionBridge.test.ts
+      - name: Bundle static review UI without enabling signup
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_META_ONBOARDING_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+        run: npm run build

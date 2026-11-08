@@ -1,3 +1,5 @@
+import { readMetaSignupAuthorizationCode } from "./metaSignupCompletionBridge";
+
 export type MetaWhatsappSignupConfig = {
   appId: string;
   configId: string;
@@ -699,6 +701,7 @@ export function launchMetaWhatsappBusinessAppSignup(
   onDiagnosticsUpdate?: (
     update: Partial<MetaWhatsappLoginAttemptDiagnostics>,
   ) => void,
+  onEphemeralAuthorizationCode?: (code: string) => void,
 ): void {
   const sdk = window.FB;
   if (!sdk || initializedAppId !== config.appId) {
@@ -737,7 +740,20 @@ export function launchMetaWhatsappBusinessAppSignup(
           callbackFired: true,
           ...responseDiagnostics,
         });
-        onLoginResult(classifyMetaWhatsappLoginResponse(response));
+        const result = classifyMetaWhatsappLoginResponse(response);
+        if (result === "authorized" && onEphemeralAuthorizationCode) {
+          const code = readMetaSignupAuthorizationCode(response);
+          if (code) {
+            try {
+              // Hand to a short-lived in-memory bridge; never log, store, or
+              // expose auth codes through React state or diagnostics.
+              onEphemeralAuthorizationCode(code);
+            } catch {
+              // A diagnostic listener must not interrupt Meta's callback.
+            }
+          }
+        }
+        onLoginResult(result);
       },
       {
         config_id: config.configId,
