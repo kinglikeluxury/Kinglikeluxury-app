@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import express from "express";
+import https from "node:https";
 import test from "node:test";
 import { sendMetaWhatsApp } from "./services/metaWhatsAppService";
 import { sendInteractiveMessage, sendQualOpenerTemplate, sendQualTextMessage } from "./interactiveMessageHelper";
@@ -17,16 +18,19 @@ import {
 } from "./stagingExternalGuard";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 import { sendBulkWhatsApp } from "./whatsappNotificationService";
+import { pullSyncFromMeta, startMetaLeadsProcessor, startPullSyncScheduler } from "./metaLeadsService";
 import { assertExternalGatewayAllowed } from "./stagingExternalGuard";
 
 test("Staging blocks WhatsApp and Graph send helpers before any HTTP request", async () => {
   const oldMode = process.env.APP_DEPLOYMENT_MODE;
   const oldFlag = process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED;
+  const oldResendKey = process.env.RESEND_API_KEY;
   const oldFetch = globalThis.fetch;
   let outboundCalls = 0;
   try {
     process.env.APP_DEPLOYMENT_MODE = "staging";
     process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED = "true";
+    process.env.RESEND_API_KEY = "synthetic-only-placeholder";
     const { sendEmail, sendPushNotification } = await import("./notificationService");
     globalThis.fetch = (async () => {
       outboundCalls++;
@@ -43,6 +47,8 @@ test("Staging blocks WhatsApp and Graph send helpers before any HTTP request", a
     assert.deepEqual(await sendEmail({ to: "synthetic@example.invalid", subject: "fixture", html: "fixture" }), {
       sent: false, error: STAGING_INTEGRATION_BLOCKED,
     });
+    const { sendEmailOtp } = await import("./emailService");
+    await assert.rejects(sendEmailOtp("synthetic@example.invalid", "000000"), /Email service not configured/);
     assert.deepEqual(await sendPushNotification(
       { endpoint: "https://push.invalid/fixture", p256dh: "synthetic", auth: "synthetic" },
       { title: "fixture", body: "fixture" },
@@ -75,6 +81,53 @@ test("Staging blocks WhatsApp and Graph send helpers before any HTTP request", a
     else process.env.APP_DEPLOYMENT_MODE = oldMode;
     if (oldFlag === undefined) delete process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED;
     else process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED = oldFlag;
+    if (oldResendKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = oldResendKey;
+  }
+});
+
+test("Staging disables direct Meta lead sync and worker entry points", async () => {
+  const oldMode = process.env.APP_DEPLOYMENT_MODE;
+  const oldSchedulerFlag = process.env.ENABLE_BACKGROUND_SCHEDULERS;
+  const oldMetaFlag = process.env.META_LEAD_PULL_SYNC_ENABLED;
+  const oldMetaToken = process.env.META_ACCESS_TOKEN;
+  const oldGet = https.get;
+  const oldSetInterval = globalThis.setInterval;
+  let outboundCalls = 0;
+  let timerCalls = 0;
+  try {
+    process.env.APP_DEPLOYMENT_MODE = "staging";
+    process.env.ENABLE_BACKGROUND_SCHEDULERS = "true";
+    process.env.META_LEAD_PULL_SYNC_ENABLED = "true";
+    process.env.META_ACCESS_TOKEN = "synthetic-only-placeholder";
+    (https as any).get = () => {
+      outboundCalls++;
+      throw new Error("network must not be reached");
+    };
+    (globalThis as any).setInterval = () => {
+      timerCalls++;
+      return {} as NodeJS.Timeout;
+    };
+
+    startMetaLeadsProcessor();
+    startPullSyncScheduler();
+    await assert.rejects(
+      pullSyncFromMeta(),
+      new RegExp(STAGING_INTEGRATION_BLOCKED),
+    );
+    assert.equal(outboundCalls, 0);
+    assert.equal(timerCalls, 0);
+  } finally {
+    https.get = oldGet;
+    globalThis.setInterval = oldSetInterval;
+    if (oldMode === undefined) delete process.env.APP_DEPLOYMENT_MODE;
+    else process.env.APP_DEPLOYMENT_MODE = oldMode;
+    if (oldSchedulerFlag === undefined) delete process.env.ENABLE_BACKGROUND_SCHEDULERS;
+    else process.env.ENABLE_BACKGROUND_SCHEDULERS = oldSchedulerFlag;
+    if (oldMetaFlag === undefined) delete process.env.META_LEAD_PULL_SYNC_ENABLED;
+    else process.env.META_LEAD_PULL_SYNC_ENABLED = oldMetaFlag;
+    if (oldMetaToken === undefined) delete process.env.META_ACCESS_TOKEN;
+    else process.env.META_ACCESS_TOKEN = oldMetaToken;
   }
 });
 

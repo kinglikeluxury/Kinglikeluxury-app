@@ -6893,30 +6893,34 @@ ${metaTags}
 
   // ── One-time startup: backfill country for leads that have a phone but no country ──
   // Runs silently in the background after server starts; never blocks startup.
-  setImmediate(async () => {
-    try {
-      const rows = await pool.query<{ id: number; phone: string }>(
-        "SELECT id, phone FROM crm_leads WHERE (country IS NULL OR country = '') AND phone IS NOT NULL AND phone != '' ORDER BY id ASC"
-      );
-      if (rows.rows.length === 0) return;
-      let backfilled = 0;
-      for (const row of rows.rows) {
-        const result = vPhone(row.phone);
-        if (result.valid && result.country) {
-          await pool.query(
-            "UPDATE crm_leads SET country=$1, updated_at=NOW() WHERE id=$2 AND (country IS NULL OR country = '')",
-            [result.country, row.id]
-          );
-          backfilled++;
+  // Staging uses a pre-provisioned, potentially schema-minimal database, so skip
+  // this implicit data mutation there along with the other startup jobs.
+  if (!isStagingMode()) {
+    setImmediate(async () => {
+      try {
+        const rows = await pool.query<{ id: number; phone: string }>(
+          "SELECT id, phone FROM crm_leads WHERE (country IS NULL OR country = '') AND phone IS NOT NULL AND phone != '' ORDER BY id ASC"
+        );
+        if (rows.rows.length === 0) return;
+        let backfilled = 0;
+        for (const row of rows.rows) {
+          const result = vPhone(row.phone);
+          if (result.valid && result.country) {
+            await pool.query(
+              "UPDATE crm_leads SET country=$1, updated_at=NOW() WHERE id=$2 AND (country IS NULL OR country = '')",
+              [result.country, row.id]
+            );
+            backfilled++;
+          }
         }
+        if (backfilled > 0) {
+          console.log(`[CountryBackfill] Auto-detected country for ${backfilled} lead(s) from phone prefix`);
+        }
+      } catch (err: any) {
+        console.error(`[CountryBackfill] Failed: ${err.message}`);
       }
-      if (backfilled > 0) {
-        console.log(`[CountryBackfill] Auto-detected country for ${backfilled} lead(s) from phone prefix`);
-      }
-    } catch (err: any) {
-      console.error(`[CountryBackfill] Failed: ${err.message}`);
-    }
-  });
+    });
+  }
 
   // ── AI Marketing Center routes ────────────────────────────────────────────
 
