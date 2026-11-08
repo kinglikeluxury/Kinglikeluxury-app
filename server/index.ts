@@ -58,6 +58,7 @@ import { storage } from "./storage";
 import { translateText, detectLanguage } from "./translate";
 import { validateMetaWhatsAppConfig } from "./services/metaWhatsAppService";
 import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
+import { createMetaTestWebhookRoutes } from "./metaTestWebhook";
 import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
 import {
   isStagingMode,
@@ -67,6 +68,8 @@ import {
 
 const app = express();
 app.use(stagingExternalHttpMiddleware);
+// Pre-JSON-parser raw receiver, disabled until specifically configured for Meta TEST WABA.
+const metaTestWebhook = createMetaTestWebhookRoutes(app);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SITEMAP & ROBOTS — registered ABSOLUTELY FIRST, before CORS, before
@@ -291,6 +294,8 @@ app.use((req, res, next) => {
   registerEmailNurturingRoutes(app);
   registerWhatsappApiHistoryRoutes(app);
   registerWhatsappMonitorPrototypeRoutes(app);
+  // Admin-only aggregate counters; registered after regular session/auth routes.
+  metaTestWebhook.registerAdminStatus();
   registerWaQualRoutes(app);
   registerWebinarCampaignRoutes(app);
   registerBroadcastRoutes(app);
