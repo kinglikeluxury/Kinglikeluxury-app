@@ -1587,6 +1587,9 @@ ${metaTags}
         }
         
         user = await storage.getUserByUsername(username);
+        if (!user) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
         
         const _emailPassOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
           ? await bcrypt.compare(password, user.password)
@@ -1650,6 +1653,9 @@ ${metaTags}
         }
 
         // Generic error — never reveal whether username/email/phone exists or which field failed
+        if (!user) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
         const _passOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
           ? await bcrypt.compare(password, user.password!)
           : user.password === password;
