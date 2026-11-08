@@ -84,7 +84,7 @@ export function evaluateSyntheticWhatsappStagingReadiness() {
     inboundParsed: events.some(event =>
       event.eventKey === "message:fixture-in" && event.direction === "inbound"),
     deliveryStatusParsed: events.some(event =>
-      event.eventKey === "status:fixture-out" && event.direction === "status"),
+      event.eventKey === "status:fixture-out:delivered:1760000001" && event.direction === "status"),
     coexistenceEchoParsed: events.some(event =>
       event.eventKey === "echo:message:fixture-echo" && event.direction === "outbound"),
     untrustedObjectRejected: normalizeWhatsappWebhook({ ...fixture, object: "page" }).length === 0,
