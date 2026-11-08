@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { evaluateSyntheticWhatsappStagingReadiness } from "./whatsappStagingReadiness";
 
 export type WhatsappMonitorPrototypeEnvironment = Record<string, string | undefined>;
 
@@ -29,6 +30,23 @@ export function registerWhatsappMonitorPrototypeRoutes(app: Express): void {
 
       res.setHeader("Cache-Control", "no-store");
       res.json(getWhatsappMonitorPrototypeConfig(process.env));
+    },
+  );
+  // Synthetic parser smoke test only: no Meta, phone access, DB, or outbound calls.
+  // Separate route avoids the global Staging block on live WhatsApp integrations.
+  app.get(
+    "/api/admin/staging/whatsapp-synthetic-readiness",
+    (req: Request, res: Response) => {
+      res.setHeader("Cache-Control", "no-store");
+      if (process.env.APP_DEPLOYMENT_MODE !== "staging") {
+        res.sendStatus(404);
+        return;
+      }
+      if (req.session?.isAdmin !== true) {
+        res.status(403).json({ message: "Admin access required" });
+        return;
+      }
+      res.json(evaluateSyntheticWhatsappStagingReadiness());
     },
   );
 }
