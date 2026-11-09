@@ -412,6 +412,19 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal(queueReceipt.rows[0].status,"processed");
     assert.equal(queueReceipt.rows[0].payload_ciphertext,null);
 
+    const ownScopes=await request("GET","/api/whatsapp-employee/archive/scopes",101);
+    assert.equal(ownScopes.status,200);
+    assert.deepEqual((await ownScopes.json() as any).employeeIds,[101]);
+    const supervisorScopes=await request("GET","/api/whatsapp-employee/archive/scopes",201);
+    assert.equal(supervisorScopes.status,200);
+    assert.deepEqual((await supervisorScopes.json() as any).employeeIds,[101]);
+    const ungrantedAdminScopes=await request("GET","/api/whatsapp-employee/archive/scopes",301);
+    assert.equal(ungrantedAdminScopes.status,200);
+    assert.deepEqual((await ungrantedAdminScopes.json() as any).employeeIds,[]);
+    const noConsentScopes=await request("GET","/api/whatsapp-employee/archive/scopes",102);
+    assert.equal(noConsentScopes.status,200);
+    assert.deepEqual((await noConsentScopes.json() as any).employeeIds,[]);
+
     const conversationResult = await request(
       "GET", "/api/whatsapp-employee/archive/employees/101/conversations", 101,
     );
