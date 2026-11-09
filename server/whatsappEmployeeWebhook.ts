@@ -92,13 +92,13 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
         let relatedMessageId: string | null = null;
         let contentType: unknown = msg.type;
         let content: any = msg;
-        if (echo && msg.type === "edit") {
+        if (msg.type === "edit") {
           relatedMessageId = typeof msg.edit?.original_message_id === "string" ? msg.edit.original_message_id : null;
           content = msg.edit?.message;
           contentType = content?.type;
           if (!relatedMessageId || (contentType !== "text" && !isEmployeeWhatsappMediaKind(contentType))) continue;
           kind = "edit";
-        } else if (echo && msg.type === "revoke") {
+        } else if (msg.type === "revoke") {
           relatedMessageId = typeof msg.revoke?.original_message_id === "string" ? msg.revoke.original_message_id : null;
           if (!relatedMessageId) continue;
           kind = "revoke";
@@ -197,9 +197,9 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
     if (event.relatedMessageId) {
       const original = await client.query(
         `SELECT id FROM whatsapp_employee_events
-          WHERE conversation_id=$1 AND meta_message_id=$2 AND direction='outbound' AND event_kind='message'
+          WHERE conversation_id=$1 AND meta_message_id=$2 AND direction=$3 AND event_kind='message'
           LIMIT 1 FOR SHARE`,
-        [conversation.rows[0].id,event.relatedMessageId],
+        [conversation.rows[0].id,event.relatedMessageId,event.direction],
       );
       if (!original.rowCount) {
         await client.query(
@@ -207,8 +207,14 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
            VALUES ($1,'webhook_event',$2,$3,$4,'unresolved_reference') ON CONFLICT DO NOTHING`,
           [employeeId,event.phoneNumberId,event.wabaId,event.eventKey],
         );
-        await client.query("COMMIT");
-        return "unresolved_reference";
+        if (event.kind !== "revoke") {
+          // Edits without an original cannot be interpreted safely.
+          await client.query("COMMIT");
+          return "unresolved_reference";
+        }
+        // A signed revoke may arrive before its original message. Keep a
+        // separate immutable revoke event so the archive can mark the
+        // original whenever it arrives later, without rewriting its body.
       }
     }
     const saved = await client.query(
