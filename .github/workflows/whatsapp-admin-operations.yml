@@ -1,0 +1,50 @@
+name: Admin WhatsApp operations dashboard (read only)
+
+on:
+  push:
+    paths:
+      - "client/src/pages/admin/whatsapp-employee-operations.tsx"
+      - "client/src/lib/adminNavItems.ts"
+      - "client/src/App.tsx"
+      - "server/whatsappOperationsStatusRoutes.ts"
+      - "server/whatsappOperationsStatusRoutes.test.ts"
+      - "server/index.ts"
+      - ".github/workflows/whatsapp-admin-operations.yml"
+  pull_request:
+    paths:
+      - "client/src/pages/admin/whatsapp-employee-operations.tsx"
+      - "client/src/lib/adminNavItems.ts"
+      - "client/src/App.tsx"
+      - "server/whatsappOperationsStatusRoutes.ts"
+      - "server/whatsappOperationsStatusRoutes.test.ts"
+      - "server/index.ts"
+      - ".github/workflows/whatsapp-admin-operations.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test read-only status and API authorization
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+        run: node --import tsx --test server/whatsappOperationsStatusRoutes.test.ts server/whatsappStagingProofDb.test.ts
+      - name: Build admin page without connecting Meta
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
+          WHATSAPP_STAGING_META_GRAPH_VERIFIER_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+        run: npm run build
