@@ -83,7 +83,7 @@ export function stagingProofRepository(db: Pick<Pool, "query">):
   return {
     async createFlow(input) {
       await db.query(
-        `INSERT INTO whatsapp_onboarding_flows
+        `INSERT INTO kinglike_whatsapp.whatsapp_onboarding_flows
           (flow_id, actor_id, session_hash, origin, state_hash, csrf_hash, expires_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [input.flowId, input.actorId, input.sessionHash, input.origin,
@@ -92,7 +92,7 @@ export function stagingProofRepository(db: Pick<Pool, "query">):
     },
     async consumeFlow(input) {
       const result = await db.query(
-        `UPDATE whatsapp_onboarding_flows SET consumed_at=NOW()
+        `UPDATE kinglike_whatsapp.whatsapp_onboarding_flows SET consumed_at=NOW()
           WHERE flow_id=$1 AND actor_id=$2 AND session_hash=$3 AND origin=$4
             AND state_hash=$5 AND csrf_hash=$6 AND expires_at>NOW() AND consumed_at IS NULL
           RETURNING flow_id, actor_id, origin, consumed_at`,
@@ -106,7 +106,7 @@ export function stagingProofRepository(db: Pick<Pool, "query">):
     async saveVerifiedNumber(proof, actorId) {
       try {
         await db.query(
-          `INSERT INTO whatsapp_onboarding_proofs
+          `INSERT INTO kinglike_whatsapp.whatsapp_onboarding_proofs
             (business_portfolio_id, waba_id, phone_number_id, display_phone_number,
              ownership_verified, coexistence_verified, permissions, verified_by)
             VALUES ($1,$2,$3,$4,true,true,$5,$6)`,
@@ -121,7 +121,7 @@ export function stagingProofRepository(db: Pick<Pool, "query">):
     },
     async revokeNumber(phoneNumberId, actorId, reason) {
       const result = await db.query(
-        `UPDATE whatsapp_onboarding_proofs
+        `UPDATE kinglike_whatsapp.whatsapp_onboarding_proofs
           SET revoked_at=NOW(), revoked_by=$2, revocation_reason=$3
           WHERE phone_number_id=$1 AND revoked_at IS NULL`,
         [phoneNumberId, actorId, reason],

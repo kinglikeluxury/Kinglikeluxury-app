@@ -62,6 +62,7 @@ import { createMetaTestWebhookRoutes } from "./metaTestWebhook";
 import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
 import { registerStagingWhatsappOnboardingRoutes } from "./whatsappStagingOnboardingRoutes";
 import { createStagingMetaOnboardingVerifier } from "./whatsappStagingMetaVerifier";
+import { openWhatsappStagingProofDb } from "./whatsappStagingProofDb";
 import {
   isStagingMode,
   stagingExternalHttpMiddleware,
@@ -291,12 +292,20 @@ app.use((req, res, next) => {
       return user?.isAdmin && user.isActive ? actorId : null;
     },
   });
-  // Staging-only: real Meta Graph proof verifier is inert unless every
-  // independent business/app/phone, notice, owner-approval and DB isolation
-  // gate is satisfied. Default remains 404; no number is activated here.
+  // Only a separately authenticated, least-privilege proof DB is eligible.
+  // Never fall back to pool (the regular application database).
+  const whatsappProofDb = await openWhatsappStagingProofDb();
+  if (isStagingMode() && process.env.WHATSAPP_STAGING_PROOF_PREFLIGHT_ENABLED === "true") {
+    // Deliberately log only the yes/no result; never credentials, SQL, or IDs.
+    log(whatsappProofDb
+      ? "[WhatsApp] isolated proof DB preflight OK; real enrollment still disabled"
+      : "[WhatsApp] isolated proof DB preflight BLOCKED; real enrollment disabled");
+  }
   registerStagingWhatsappOnboardingRoutes(app, {
-    db: pool,
-    verifier: createStagingMetaOnboardingVerifier(),
+    db: whatsappProofDb ?? {
+      query: async () => { throw new Error("WhatsApp proof database is unavailable"); },
+    },
+    verifier: whatsappProofDb ? createStagingMetaOnboardingVerifier() : undefined,
     authorizeAdmin: async (req) => {
       const actorId = Number(req.session?.userId);
       if (!Number.isSafeInteger(actorId) || actorId <= 0 || req.session?.isAdmin !== true) return null;
