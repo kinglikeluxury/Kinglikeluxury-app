@@ -15,7 +15,8 @@ export type PendingMetaSignupFinish = {
   code: string;
   businessPortfolioId: string;
   wabaId: string;
-  phoneNumberId: string;
+  /** Optional in Coexistence FINISH; server must discover exact approved phone. */
+  phoneNumberId?: string;
 };
 
 const ID = /^\d{5,80}$/;
@@ -39,11 +40,11 @@ function validIds(event: MetaWhatsappSignupSessionEvent): MetaSignupIds | null {
   if (event.kind !== "completed" ||
       !ID.test(event.businessPortfolioId ?? "") ||
       !ID.test(event.wabaId ?? "") ||
-      !ID.test(event.phoneNumberId ?? "")) return null;
+      (event.phoneNumberId != null && !ID.test(event.phoneNumberId))) return null;
   return {
     businessPortfolioId: event.businessPortfolioId!,
     wabaId: event.wabaId!,
-    phoneNumberId: event.phoneNumberId!,
+    ...(event.phoneNumberId ? { phoneNumberId: event.phoneNumberId } : {}),
   };
 }
 
