@@ -420,6 +420,58 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
     finally { client.release(); }
   });
 
+  // List only scopes actually accessible to this actor after live consent/grant checks.
+  // Admin status alone does NOT bypass the explicit per-employee grant.
+  app.get("/api/whatsapp-employee/archive/scopes", async (req: any, res: any) => {
+    const actorId = authenticated(req,res);
+    if (!actorId) return;
+    if (!enabled()) return res.sendStatus(404);
+    const client = await safeConnect();
+    if (!client) return res.sendStatus(503);
+    try {
+      await client.query("BEGIN");
+      const actor = await activeActor(client,actorId);
+      if (!actor) {
+        await client.query("ROLLBACK");
+        await persistArchiveAccess({actorId,employeeId:actorId,action:"archive.search",outcome:"denied",reason:"policy_blocked"});
+        return res.sendStatus(403);
+      }
+      const result = await client.query(
+        `SELECT DISTINCT n.employee_id
+          FROM whatsapp_employee_numbers n
+          JOIN whatsapp_employee_consents c
+            ON c.phone_number_id=n.phone_number_id AND c.employee_id=n.employee_id
+         WHERE n.registration_kind='company' AND n.is_active=true
+           AND c.status='consented' AND c.revoked_at IS NULL
+           AND (n.employee_id=$1 OR EXISTS (
+             SELECT 1 FROM whatsapp_employee_supervisor_grants g
+              WHERE g.supervisor_id=$1 AND g.employee_id=n.employee_id
+                AND g.can_read=true AND g.revoked_at IS NULL
+           ))
+         ORDER BY n.employee_id LIMIT 100`,
+        [actorId],
+      );
+      for (const row of result.rows) {
+        const employeeId=Number(row.employee_id);
+        await persistArchiveAccess({actorId,employeeId,action:"archive.search",
+          outcome:"allowed",
+          reason:employeeId===actorId ? "employee_own_scope" :
+            actor.isAdmin ? "admin_explicit_grant" : "supervisor_grant",
+          resultCount:result.rowCount ?? 0});
+      }
+      if (!result.rowCount) {
+        await persistArchiveAccess({actorId,employeeId:actorId,action:"archive.search",
+          outcome:"denied",reason:"scope_denied",resultCount:0});
+      }
+      await client.query("COMMIT");
+      return res.json({employeeIds:result.rows.map(x=>Number(x.employee_id))});
+    } catch (error) {
+      await client.query("ROLLBACK");
+      if (error instanceof ArchiveAuditUnavailable) return auditFailureResponse(res);
+      return res.sendStatus(500);
+    } finally { client.release(); }
+  });
+
   app.get("/api/whatsapp-employee/archive/employees/:employeeId/conversations", async (req: any, res: any) => {
     const actorId = authenticated(req, res);
     if (!actorId) return;
