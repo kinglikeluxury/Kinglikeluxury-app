@@ -105,7 +105,7 @@ export function inspectEmployeeArchiveReadiness(
   const expectedDatabase = env.WHATSAPP_EMPLOYEE_ARCHIVE_EXPECTED_NAME?.trim().toLowerCase() ?? "";
 
   checks.archiveDbIdentity = !!(
-    archive && audit && app && expectedHost.endsWith(".railway.internal") &&
+    checks.isolatedApp && archive && audit && app && expectedHost.endsWith(".railway.internal") &&
     archive.host === expectedHost && archive.database === expectedDatabase &&
     archive.host !== app.host && archive.database !== app.database &&
     (!neon || (archive.host !== neon.host && archive.database !== neon.database)) &&
