@@ -13,6 +13,19 @@
   recurring Railway database/storage costs and network/access review.
 - No public TCP proxy must be added. Private Railway networking only.
 
+## Private media bucket staged, not active
+
+- Proposed Railway object-storage bucket: **kinglike-whatsapp-employee-media-staging**;
+  bucket ID `0ff155e9-2cc4-4eb5-b44a-b0a7b70852ae`, region `sjc`.
+- Bucket is also **STAGED** in the same pending Railway patch. It is not
+  provisioned or authorized for any app yet. No access keys were created in
+  the app or repo, and no file has been uploaded.
+- Before activation, require a private-only access-policy review, strict
+  employee/conversation-scoped object names, malware checks, MIME/size and
+  digest validation, encrypted object persistence, retention/legal deletion,
+  credential rotation and audited authorized retrieval. Do not use public
+  media URLs or Cloudinary for employee archives.
+
 ## Existing schema mismatch addressed
 
 The prior canonical schema contains \`REFERENCES users(id)\`, and archive API
@@ -75,5 +88,5 @@ until then live reads and writes remain OFF.
 - Live media file storage, chunked history sync and backlog alerts remain
   separate explicit readiness gates. An encrypted queue alone is not enough.
 
-**Current state: database STAGED only; migration NOT APPLIED; real numbers
+**Current state: database and media bucket STAGED only; migration NOT APPLIED; real numbers
 NOT CONNECTED; no changes to production/main.**
