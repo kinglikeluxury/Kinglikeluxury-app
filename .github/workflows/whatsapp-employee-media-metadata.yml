@@ -8,6 +8,9 @@ on:
       - "server/whatsappEmployeeWebhook.ts"
       - "server/whatsappEmployeeArchiveRuntimeGuard.ts"
       - "server/whatsappEmployeeArchiveRuntimeGuard.test.ts"
+      - "server/whatsappArchiveDbMigration.integration.test.ts"
+      - "docs/sql/2026-11-09-whatsapp-archive-00-isolated-principals.sql.txt"
+      - "docs/sql/2026-11-09-whatsapp-archive-03-roles.sql.txt"
       - "server/whatsappEmployeeArchiveRuntimeGuard.integration.test.ts"
       - "server/whatsappOperationsStatusRoutes.ts"
       - "client/src/pages/admin/whatsapp-employee-operations.tsx"
@@ -33,6 +36,9 @@ on:
       - "server/whatsappEmployeeWebhook.ts"
       - "server/whatsappEmployeeArchiveRuntimeGuard.ts"
       - "server/whatsappEmployeeArchiveRuntimeGuard.test.ts"
+      - "server/whatsappArchiveDbMigration.integration.test.ts"
+      - "docs/sql/2026-11-09-whatsapp-archive-00-isolated-principals.sql.txt"
+      - "docs/sql/2026-11-09-whatsapp-archive-03-roles.sql.txt"
       - "server/whatsappEmployeeArchiveRuntimeGuard.integration.test.ts"
       - "server/whatsappOperationsStatusRoutes.ts"
       - "client/src/pages/admin/whatsapp-employee-operations.tsx"
@@ -95,6 +101,7 @@ jobs:
         run: |
           node --import tsx --test server/whatsappEmployeeHttp.integration.test.ts
           node --import tsx --test server/whatsappEmployeeDurableInbox.integration.test.ts
+          node --import tsx --test server/whatsappArchiveDbMigration.integration.test.ts
       - name: Compile existing Kinglike application (no deployment)
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled
