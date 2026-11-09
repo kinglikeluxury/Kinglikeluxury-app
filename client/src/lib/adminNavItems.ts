@@ -199,6 +199,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     highlight: true,
   },
   {
+    labelKey: "admin.whatsappEmployeeChats",
+    labelFallback: "محادثات واتساب الموظفين",
+    path: "/admin/whatsapp-monitoring",
+    Icon: MessageCircle,
+    iconColorHex: "#005476",
+    highlight: true,
+  },
+  {
     labelKey: "admin.whatsappEmployeeOperations",
     labelFallback: "إدارة واتساب الموظفين",
     path: "/admin/whatsapp-employee-operations",
