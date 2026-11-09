@@ -1,0 +1,94 @@
+name: WhatsApp employee media metadata guard
+
+on:
+  push:
+    paths:
+      - "server/whatsappEmployeeMedia.ts"
+      - "server/whatsappEmployeeMedia.test.ts"
+      - "server/whatsappEmployeeWebhook.ts"
+      - "server/whatsappEmployeeWebhook.test.ts"
+      - "server/whatsappEmployeeHttp.integration.test.ts"
+      - "server/whatsappEmployeeDurableInbox.ts"
+      - "server/whatsappEmployeeDurableInbox.integration.test.ts"
+      - "docs/sql/2026-11-09-whatsapp-employee-durable-inbox.sql.txt"
+      - "server/whatsappPrivateMediaVault.ts"
+      - "server/whatsappPrivateMediaVault.test.ts"
+      - "server/whatsappHistorySyncPreflight.ts"
+      - "server/whatsappHistorySyncPreflight.test.ts"
+      - "client/src/components/whatsapp/WhatsAppMonitoringWorkspace.tsx"
+      - "client/src/components/whatsapp/WhatsappEmployeeLiveArchive.tsx"
+      - "client/src/pages/admin/whatsapp-employee-monitoring.tsx"
+      - "client/src/lib/whatsappEmployeeMonitoringMock.ts"
+      - "server/whatsappEmployeeArchiveRoutes.ts"
+      - ".github/workflows/whatsapp-employee-media-metadata.yml"
+  pull_request:
+    paths:
+      - "server/whatsappEmployeeMedia.ts"
+      - "server/whatsappEmployeeMedia.test.ts"
+      - "server/whatsappEmployeeWebhook.ts"
+      - "server/whatsappEmployeeWebhook.test.ts"
+      - "server/whatsappEmployeeHttp.integration.test.ts"
+      - "server/whatsappEmployeeDurableInbox.ts"
+      - "server/whatsappEmployeeDurableInbox.integration.test.ts"
+      - "docs/sql/2026-11-09-whatsapp-employee-durable-inbox.sql.txt"
+      - "server/whatsappPrivateMediaVault.ts"
+      - "server/whatsappPrivateMediaVault.test.ts"
+      - "server/whatsappHistorySyncPreflight.ts"
+      - "server/whatsappHistorySyncPreflight.test.ts"
+      - "client/src/components/whatsapp/WhatsAppMonitoringWorkspace.tsx"
+      - "client/src/components/whatsapp/WhatsappEmployeeLiveArchive.tsx"
+      - "client/src/pages/admin/whatsapp-employee-monitoring.tsx"
+      - "client/src/lib/whatsappEmployeeMonitoringMock.ts"
+      - "server/whatsappEmployeeArchiveRoutes.ts"
+      - ".github/workflows/whatsapp-employee-media-metadata.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-media-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: kinglike_whatsapp_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kinglike_whatsapp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate media-only parser and webhook safety
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED: "false"
+          WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
+        run: node --import tsx --test server/whatsappEmployeeMedia.test.ts server/whatsappEmployeeWebhook.test.ts server/whatsappPrivateMediaVault.test.ts server/whatsappHistorySyncPreflight.test.ts
+      - name: Verify signed webhook, PostgreSQL persistence and archive RBAC (synthetic only)
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_EMPLOYEE_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/kinglike_whatsapp_test
+        run: |
+          node --import tsx --test server/whatsappEmployeeHttp.integration.test.ts
+          node --import tsx --test server/whatsappEmployeeDurableInbox.integration.test.ts
+      - name: Compile existing Kinglike application (no deployment)
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED: "false"
+          WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
+        run: npm run build

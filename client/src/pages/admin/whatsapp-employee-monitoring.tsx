@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MetaAppReviewPrototype from "@/components/admin/MetaAppReviewPrototype";
+import WhatsappEmployeeLiveArchive from "@/components/whatsapp/WhatsappEmployeeLiveArchive";
 import LocalSyntheticArchiveReview, {
   type LocalArchiveReviewData,
 } from "@/components/admin/LocalSyntheticArchiveReview";
@@ -683,6 +684,7 @@ export default function WhatsappEmployeeMonitoringPage() {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
   const isSettingsView = location === "/admin/whatsapp-monitoring/settings";
+  const [archiveMode, setArchiveMode] = useState<"preview" | "live">("preview");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
   const [selectedConversationId, setSelectedConversationId] = useState(MOCK_CONVERSATIONS[0]?.id ?? "");
   const [search, setSearch] = useState("");
@@ -871,14 +873,18 @@ export default function WhatsappEmployeeMonitoringPage() {
                 {t("whatsappMonitoring.title", "Kinglike Family WhatsApp")}
               </h1>
               <p className="text-xs text-slate-500">
-                {t("whatsappMonitoring.subtitle", "A safe mock archive for reviewing employee conversations.")}
+                {archiveMode === "live" ? "الأرشيف الحقيقي المحمي بالصلاحيات" : "معاينة تجريبية، وليست محادثات الموظفين المتصلة"}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-[#3bcac4] bg-white text-[#005476]">
-              {t("whatsappMonitoring.mockOnly", "Mock data only")}
+              {archiveMode === "live" ? "أرشيف فعلي • البيانات بحسب الصلاحيات" : t("whatsappMonitoring.mockOnly", "Mock data only")}
             </Badge>
+            <Button type="button" variant={archiveMode === "live" ? "default" : "outline"} size="sm" className="gap-2" onClick={() => setArchiveMode(mode => mode === "live" ? "preview" : "live")}>
+              <Archive className="h-4 w-4" />
+              {archiveMode === "live" ? "العودة للمعاينة" : "فتح الأرشيف الحقيقي"}
+            </Button>
             <Button type="button" variant="outline" size="sm" className="gap-2 border-[#005476]/20 bg-white text-[#005476]" onClick={() => navigate("/admin/whatsapp-monitoring/settings")}>
               <Settings2 className="h-4 w-4" />
               {t("whatsappMonitoring.metaSettings", "Meta settings")}
@@ -890,6 +896,7 @@ export default function WhatsappEmployeeMonitoringPage() {
           </div>
         </header>
 
+        {archiveMode === "live" ? <WhatsappEmployeeLiveArchive /> : (
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-[#005476]/5">
           <div className={cn("min-h-0 min-w-0 flex-1 lg:flex lg:w-[240px] lg:flex-none xl:w-[270px]", mobilePanel === "employees" ? "flex" : "hidden")}>
             <EmployeePanel
@@ -925,6 +932,7 @@ export default function WhatsappEmployeeMonitoringPage() {
             />
           </div>
         </div>
+        )}
       </div>
 
       {preview && (

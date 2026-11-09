@@ -104,3 +104,59 @@ test("requires company authorization and active employee consent; Coexistence ec
   assert.equal(isEligibleRegistration(registration, "smb_message_echoes", "15559999999"), false);
   assert.equal(isEligibleRegistration(registration, "smb_message_echoes", "+1 555 000 0001"), true);
 });
+
+test("captures voice/sticker media metadata without exposing Meta media handles", () => {
+  const payload = {
+    object: "whatsapp_business_account",
+    entry: [{ id: "synthetic-waba", changes: [{
+      field: "messages", value: {
+        metadata: { phone_number_id: "synthetic-business-phone" },
+        messages: [
+          { id: "wamid-audio", from: "15550000002", type: "audio",
+            audio: { mime_type: "audio/ogg", sha256: Buffer.alloc(32, 1).toString("base64"),
+              id: "private-media-handle", url: "https://untrusted.example/media" } },
+          { id: "wamid-sticker", from: "15550000002", type: "sticker",
+            sticker: { mime_type: "image/webp", file_size: 42 } },
+        ],
+      },
+    }] }],
+  };
+  const events = normalizeWhatsappWebhook(payload);
+  assert.equal(events.length, 2);
+  assert.deepEqual(events.map((e) => e.messageType), ["audio", "sticker"]);
+  assert.equal(events[0].mediaMimeType, "audio/ogg");
+  assert.equal(events[0].mediaSha256, Buffer.alloc(32, 1).toString("hex"));
+  assert.equal(events[1].mediaSizeBytes, 42);
+  assert.equal(events[0].text, null);
+  assert.equal(JSON.stringify(events).includes("private-media-handle"), false);
+  assert.equal(JSON.stringify(events).includes("untrusted.example"), false);
+});
+
+
+test("normalizes a customer revoke separately without overwriting original message content", () => {
+  const payload = {
+    object: "whatsapp_business_account",
+    entry: [{ id: "synthetic-waba", changes: [{
+      field: "messages",
+      value: {
+        metadata: { phone_number_id: "synthetic-phone" },
+        contacts: [{ wa_id: "15550000002" }],
+        messages: [
+          { id: "wamid-original", from: "15550000002", type: "text",
+            text: { body: "original content retained" }, timestamp: "100" },
+          { id: "wamid-revoke", from: "15550000002", type: "revoke",
+            revoke: { original_message_id: "wamid-original" }, timestamp: "101" },
+        ],
+      },
+    }] }],
+  };
+  const events = normalizeWhatsappWebhook(payload);
+  assert.equal(events.length, 2);
+  assert.equal(events[0].kind, "message");
+  assert.equal(events[0].text, "original content retained");
+  assert.equal(events[1].kind, "revoke");
+  assert.equal(events[1].direction, "inbound");
+  assert.equal(events[1].relatedMessageId, "wamid-original");
+  assert.equal(events[1].text, null);
+  assert.equal(events[1].eventKey, "message:wamid-revoke");
+});

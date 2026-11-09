@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Express } from "express";
 import pg from "pg";
+import { isEmployeeWhatsappMediaKind, normalizeEmployeeWhatsappMedia } from "./whatsappEmployeeMedia";
 
 const PATH = "/api/webhooks/whatsapp-employee";
 const enabled = () => process.env.APP_DEPLOYMENT_MODE !== "staging" &&
@@ -20,6 +21,7 @@ type NormalizedEvent = {
   kind: "message" | "status" | "edit" | "revoke"; direction: "inbound" | "outbound" | "status";
   metaMessageId: string; eventStatus: string | null; messageType: string | null;
   text: string | null; occurredAt: string | null; sourceField: string; relatedMessageId: string | null;
+  mediaMimeType: string | null; mediaSizeBytes: number | null; mediaSha256: string | null;
 };
 
 export function isEligibleRegistration(
@@ -90,18 +92,19 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
         let relatedMessageId: string | null = null;
         let contentType: unknown = msg.type;
         let content: any = msg;
-        if (echo && msg.type === "edit") {
+        if (msg.type === "edit") {
           relatedMessageId = typeof msg.edit?.original_message_id === "string" ? msg.edit.original_message_id : null;
           content = msg.edit?.message;
           contentType = content?.type;
-          if (!relatedMessageId || !["text", "image", "video", "document"].includes(String(contentType))) continue;
+          if (!relatedMessageId || (contentType !== "text" && !isEmployeeWhatsappMediaKind(contentType))) continue;
           kind = "edit";
-        } else if (echo && msg.type === "revoke") {
+        } else if (msg.type === "revoke") {
           relatedMessageId = typeof msg.revoke?.original_message_id === "string" ? msg.revoke.original_message_id : null;
           if (!relatedMessageId) continue;
           kind = "revoke";
-        } else if (!["text", "image", "video", "document"].includes(msg.type)) continue;
+        } else if (msg.type !== "text" && !isEmployeeWhatsappMediaKind(msg.type)) continue;
         const text = kind === "revoke" ? null : messageText(contentType, content);
+        const media = kind === "revoke" ? null : normalizeEmployeeWhatsappMedia(contentType, content);
         const ts = msg.timestamp ? String(msg.timestamp) : null;
         const contactWaId = digits(customer) ? String(customer) : `bsuid:${msg.to_user_id}`;
         events.push({
@@ -110,6 +113,8 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
           businessDisplayPhoneNumber: echo ? String(value?.metadata?.display_phone_number ?? "") : null,
           kind, direction: echo ? "outbound" : "inbound", metaMessageId: String(msg.id),
           eventStatus: null, messageType: String(contentType), text, occurredAt: ts, sourceField: field, relatedMessageId,
+          mediaMimeType: media?.mimeType ?? null, mediaSizeBytes: media?.sizeBytes ?? null,
+          mediaSha256: media?.sha256Hex ?? null,
         });
       }
       for (const status of !echo && Array.isArray(value.statuses) ? value.statuses : []) {
@@ -121,11 +126,84 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
           kind: "status", direction: "status",
           metaMessageId: String(status.id), eventStatus: String(status.status), messageType: null,
           text: null, occurredAt: ts, sourceField: field, relatedMessageId: null,
+          mediaMimeType: null, mediaSizeBytes: null, mediaSha256: null,
         });
       }
     }
   }
   return events;
+}
+
+/**
+ * Isolated end-to-end test bridge:
+ * encrypted durable inbox -> existing authorized, idempotent event archiver.
+ *
+ * Safe by construction: NEVER usable by a running Staging/production server.
+ * A real pilot needs a separately reviewed DI worker with a dedicated archive
+ * DB role, audit and persisted consent. It must not use this test-only pool.
+ */
+export async function archiveQueuedWhatsappEmployeePayloadForTest(
+  raw: Buffer,
+  scope: {
+    employeeId: number;
+    wabaId: string;
+    phoneNumberId: string;
+    displayPhoneNumber: string;
+  },
+): Promise<number> {
+  if (process.env.NODE_ENV !== "test" || process.env.APP_DEPLOYMENT_MODE !== "test" ||
+      process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED !== "true" ||
+      !Buffer.isBuffer(raw) || raw.length === 0 || raw.length > 1024 * 1024 ||
+      !Number.isSafeInteger(scope?.employeeId) || scope.employeeId < 1) {
+    throw new Error("Employee queue archiver is disabled outside isolated tests.");
+  }
+  let payload: any;
+  try { payload = JSON.parse(raw.toString("utf8")); }
+  catch { throw new Error("Malformed signed employee queue payload"); }
+  if (payload?.object !== "whatsapp_business_account" ||
+      !Array.isArray(payload.entry) || payload.entry.length === 0) {
+    throw new Error("Invalid employee queue object");
+  }
+  let supportedChanges = 0;
+  for (const entry of payload.entry) {
+    if (entry?.id !== scope.wabaId || !Array.isArray(entry.changes)) {
+      throw new Error("Wrong or missing employee WABA");
+    }
+    for (const change of entry.changes) {
+      // Never acknowledge history before a separate durable history importer
+      // has been implemented and verified. No history rows can be silently lost.
+      if (change?.field === "history" || change?.field === "smb_app_state_sync") {
+        throw new Error("Employee history or contact import is not available");
+      }
+      if (change?.field !== "messages" && change?.field !== "smb_message_echoes") continue;
+      supportedChanges++;
+      if (change?.value?.metadata?.phone_number_id !== scope.phoneNumberId ||
+          (change?.value?.metadata?.display_phone_number !== undefined &&
+           String(change.value.metadata.display_phone_number).replace(/\D/g, "") !== scope.displayPhoneNumber)) {
+        throw new Error("Employee phone identity mismatch");
+      }
+    }
+  }
+  if (!supportedChanges) throw new Error("No supported employee message changes");
+  const events = normalizeWhatsappWebhook(payload);
+  if (!events.length || events.some(e =>
+    e.wabaId !== scope.wabaId || e.phoneNumberId !== scope.phoneNumberId ||
+    (e.businessDisplayPhoneNumber !== null &&
+     e.businessDisplayPhoneNumber.replace(/\D/g,"") !== scope.displayPhoneNumber))) {
+    throw new Error("Employee event identity mismatch");
+  }
+  // At-least-once replay is safe: persistEvent uses unique Meta event keys,
+  // transactionally validates current registration/consent, and audits outcome.
+  // Individual events may commit before an exception. Retry deduplicates those.
+  let stored = 0;
+  for (const event of events) {
+    const outcome = await persistEvent(event);
+    if (outcome === "identity_mismatch" || outcome === "not_consented") {
+      throw new Error("Employee archive policy rejected event");
+    }
+    if (outcome === "stored") stored++;
+  }
+  return stored;
 }
 
 async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplicate" | "not_consented" | "identity_mismatch" | "unresolved_reference"> {
@@ -191,9 +269,9 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
     if (event.relatedMessageId) {
       const original = await client.query(
         `SELECT id FROM whatsapp_employee_events
-          WHERE conversation_id=$1 AND meta_message_id=$2 AND direction='outbound' AND event_kind='message'
+          WHERE conversation_id=$1 AND meta_message_id=$2 AND direction=$3 AND event_kind='message'
           LIMIT 1 FOR SHARE`,
-        [conversation.rows[0].id,event.relatedMessageId],
+        [conversation.rows[0].id,event.relatedMessageId,event.direction],
       );
       if (!original.rowCount) {
         await client.query(
@@ -201,19 +279,28 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
            VALUES ($1,'webhook_event',$2,$3,$4,'unresolved_reference') ON CONFLICT DO NOTHING`,
           [employeeId,event.phoneNumberId,event.wabaId,event.eventKey],
         );
-        await client.query("COMMIT");
-        return "unresolved_reference";
+        if (event.kind !== "revoke") {
+          // Edits without an original cannot be interpreted safely.
+          await client.query("COMMIT");
+          return "unresolved_reference";
+        }
+        // A signed revoke may arrive before its original message. Keep a
+        // separate immutable revoke event so the archive can mark the
+        // original whenever it arrives later, without rewriting its body.
       }
     }
     const saved = await client.query(
       `INSERT INTO whatsapp_employee_events
         (conversation_id, employee_id, meta_event_key, meta_message_id, event_kind, direction,
-         event_status, message_type, message_text, source_field, occurred_at,related_message_id)
+         event_status, message_type, message_text, source_field, occurred_at, related_message_id,
+         media_mime_type, media_size_bytes, media_sha256)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-         CASE WHEN $11::text ~ '^[0-9]+$' THEN to_timestamp($11::double precision) ELSE NULL END,$12)
+         CASE WHEN $11::text ~ '^[0-9]+$' THEN to_timestamp($11::double precision) ELSE NULL END,
+         $12,$13,$14,$15)
        ON CONFLICT (meta_event_key) DO NOTHING RETURNING id`,
       [conversation.rows[0].id, employeeId, event.eventKey, event.metaMessageId, event.kind,
-       event.direction,event.eventStatus,event.messageType,event.text,event.sourceField,event.occurredAt,event.relatedMessageId],
+       event.direction,event.eventStatus,event.messageType,event.text,event.sourceField,event.occurredAt,event.relatedMessageId,
+       event.mediaMimeType,event.mediaSizeBytes,event.mediaSha256],
     );
     if (!saved.rowCount) {
       const winner = await client.query(

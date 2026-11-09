@@ -9,9 +9,11 @@ import {
   registerWhatsappEmployeeArchiveRoutes,
 } from "./whatsappEmployeeArchiveRoutes";
 import {
+  archiveQueuedWhatsappEmployeePayloadForTest,
   closeWhatsappEmployeeWebhookTestPool,
   registerWhatsappEmployeeWebhook,
 } from "./whatsappEmployeeWebhook";
+import { createEmployeeWhatsappDurableInbox, EmployeeInboxRejected } from "./whatsappEmployeeDurableInbox";
 
 const connectionString = process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL;
 
@@ -53,6 +55,10 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       )
     `);
     await setup.query(migration);
+    const durableInboxSchema = await readFile(
+      new URL("../docs/sql/2026-11-09-whatsapp-employee-durable-inbox.sql.txt",import.meta.url),"utf8",
+    );
+    await setup.query(durableInboxSchema);
     await setup.query(`
       ALTER TABLE whatsapp_employee_access_audit OWNER TO whatsapp_employee_audit_owner;
       ALTER FUNCTION whatsapp_employee_access_audit_reject_mutation() OWNER TO whatsapp_employee_audit_owner;
@@ -138,7 +144,7 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     const app = express();
     app.use(express.json({
       verify: (req: any, _res, body) => {
-        if (req.path === "/api/webhooks/whatsapp-employee") req.rawBody = Buffer.from(body);
+        if (req.path === "/api/webhooks/whatsapp-employee" || req.path === "/api/test/whatsapp-durable-webhook") req.rawBody = Buffer.from(body);
       },
     }));
     app.use((req: any, _res, next) => {
@@ -147,6 +153,43 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     });
     registerWhatsappEmployeeWebhook(app);
     registerWhatsappEmployeeArchiveRoutes(app);
+    const companyScope = {
+      employeeId:101,wabaId:"7000101",phoneNumberId:"5550101",displayPhoneNumber:"15550000001",
+    };
+    const secureInbox = createEmployeeWhatsappDurableInbox({
+      db:pool,encryptionKey:Buffer.alloc(32,11),dedupeKey:Buffer.alloc(32,12),
+      metaAppSecret:"synthetic-meta-app-secret",maxAttempts:3,leaseSeconds:10,
+      authorizeScope:async s => {
+        const authorization=await setup.query(
+          "SELECT n.employee_id FROM whatsapp_employee_numbers n JOIN whatsapp_employee_consents c"+
+          " ON c.phone_number_id=n.phone_number_id AND c.employee_id=n.employee_id"+
+          " WHERE n.employee_id=$1 AND n.waba_id=$2 AND n.phone_number_id=$3"+
+          " AND n.display_phone_number=$4 AND n.registration_kind='company'"+
+          " AND n.is_active=true AND n.business_authorized_at IS NOT NULL"+
+          " AND c.status='consented' AND c.revoked_at IS NULL LIMIT 1",
+          [s.employeeId,s.wabaId,s.phoneNumberId,s.displayPhoneNumber],
+        );
+        return authorization.rowCount === 1;
+      },
+      consume:async (raw,s) => {
+        await archiveQueuedWhatsappEmployeePayloadForTest(raw,s);
+      },
+    });
+    // ONLY in this loopback test harness; NEVER register these routes in app startup.
+    app.post("/api/test/whatsapp-durable-webhook",async (req:any,res:any)=>{
+      try {
+        const result=await secureInbox.enqueueSigned(
+          req.rawBody,req.get("x-hub-signature-256"),companyScope,
+        );
+        res.status(200).json({result});
+      } catch (error) {
+        res.sendStatus(error instanceof EmployeeInboxRejected ? 401 : 503);
+      }
+    });
+    app.post("/api/test/whatsapp-durable-drain",async (_req:any,res:any)=>{
+      try { res.json({result:await secureInbox.processOne()}); }
+      catch { res.sendStatus(503); }
+    });
     server = app.listen(0, "127.0.0.1");
     await new Promise<void>((resolve, reject) => {
       server!.once("listening", resolve);
@@ -203,6 +246,20 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal((await accepted.text()), "EVENT_RECEIVED");
     assert.equal((await signedPost(rawPayload)).status, 200);
 
+    const voicePayload = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "5550101" },
+        messages: [{
+          id: "synthetic-audio-1", from: "15550000002", type: "audio",
+          audio: { mime_type: "audio/ogg", file_size: 3456,
+            sha256: Buffer.alloc(32, 7).toString("base64"),
+            id: "secret-media-id", url: "https://untrusted.example/temporary" },
+        }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(voicePayload))).status, 200);
+
     const editAndRevokePayload = {
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
@@ -218,6 +275,39 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       } }] }],
     };
     assert.equal((await signedPost(JSON.stringify(editAndRevokePayload))).status, 200);
+
+    // Confirmed inbound customer revoke: retain the original, append an immutable
+    // event, and expose a deletion marker only after a signed Meta notification.
+    const customerRevoke = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "5550101" },
+        messages: [{ id: "synthetic-in-revoke-1", from: "15550000002", type: "revoke",
+          revoke: { original_message_id: "synthetic-in-1" }, timestamp: "1730000003" }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(customerRevoke))).status, 200);
+
+    // Out-of-order business revoke arrives BEFORE its original. Retain this
+    // verified tombstone so a delayed original is later marked, not lost.
+    const makeBusinessEcho = (msg: Record<string, unknown>) => ({
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
+        metadata: { phone_number_id: "5550101", display_phone_number: "15550000001" },
+        message_echoes: [{
+          from: "15550000001", to: "15550000002", to_user_id: "synthetic-user-2", ...msg,
+        }],
+      } }] }],
+    });
+    assert.equal((await signedPost(JSON.stringify(makeBusinessEcho({
+      id: "synthetic-echo-revoke-first", type: "revoke",
+      revoke: { original_message_id: "synthetic-echo-later" },
+    })))).status, 200);
+    assert.equal((await signedPost(JSON.stringify(makeBusinessEcho({
+      id: "synthetic-echo-later", type: "text",
+      text: { body: "original after verified revoke stays preserved" },
+    })))).status, 200);
+
     const identitySwitchPayload = {
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
@@ -284,6 +374,57 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     };
     assert.equal((await signedPost(JSON.stringify(wrongBusinessDisplayPayload))).status, 200);
 
+    const durablePayload = JSON.stringify({
+      object:"whatsapp_business_account",
+      entry:[{id:"7000101",changes:[{field:"messages",value:{
+        metadata:{phone_number_id:"5550101",display_phone_number:"15550000001"},
+        messages:[
+          {id:"durable-original",from:"15550000002",type:"text",
+            text:{body:"Company archive retains this after a verified deletion"}},
+          {id:"durable-revoke",from:"15550000002",type:"revoke",
+            revoke:{original_message_id:"durable-original"}},
+        ],
+      }}]}],
+    });
+    const durableSignature="sha256="+crypto.createHmac("sha256","synthetic-meta-app-secret")
+      .update(Buffer.from(durablePayload)).digest("hex");
+    const durableUrl=origin+"/api/test/whatsapp-durable-webhook";
+    const sendDurable=(sig=durableSignature)=>fetch(durableUrl,{
+      method:"POST",
+      headers:{"content-type":"application/json","x-hub-signature-256":sig},
+      body:durablePayload,
+    });
+    assert.equal((await sendDurable("sha256="+"0".repeat(64))).status,401);
+    const queued=await sendDurable();
+    assert.equal(queued.status,200);
+    assert.deepEqual(await queued.json(),{result:"accepted"});
+    const replay=await sendDurable();
+    assert.deepEqual(await replay.json(),{result:"duplicate"});
+    const worker=await fetch(origin+"/api/test/whatsapp-durable-drain",{method:"POST"});
+    assert.equal(worker.status,200);
+    assert.deepEqual(await worker.json(),{result:"processed"});
+    const noWork=await fetch(origin+"/api/test/whatsapp-durable-drain",{method:"POST"});
+    assert.deepEqual(await noWork.json(),{result:"empty"});
+    const queueReceipt=await pool.query(
+      "SELECT status,payload_ciphertext FROM kinglike_whatsapp.whatsapp_employee_inbox",
+    );
+    assert.equal(queueReceipt.rowCount,1);
+    assert.equal(queueReceipt.rows[0].status,"processed");
+    assert.equal(queueReceipt.rows[0].payload_ciphertext,null);
+
+    const ownScopes=await request("GET","/api/whatsapp-employee/archive/scopes",101);
+    assert.equal(ownScopes.status,200);
+    assert.deepEqual((await ownScopes.json() as any).employeeIds,[101]);
+    const supervisorScopes=await request("GET","/api/whatsapp-employee/archive/scopes",201);
+    assert.equal(supervisorScopes.status,200);
+    assert.deepEqual((await supervisorScopes.json() as any).employeeIds,[101]);
+    const ungrantedAdminScopes=await request("GET","/api/whatsapp-employee/archive/scopes",301);
+    assert.equal(ungrantedAdminScopes.status,200);
+    assert.deepEqual((await ungrantedAdminScopes.json() as any).employeeIds,[]);
+    const noConsentScopes=await request("GET","/api/whatsapp-employee/archive/scopes",102);
+    assert.equal(noConsentScopes.status,200);
+    assert.deepEqual((await noConsentScopes.json() as any).employeeIds,[]);
+
     const conversationResult = await request(
       "GET", "/api/whatsapp-employee/archive/employees/101/conversations", 101,
     );
@@ -296,13 +437,36 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 301)).status, 403);
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 201)).status, 200);
     const archive = (await (await request("GET", messagesUrl, 101)).json() as any).messages;
-    assert.equal(archive.length, 5);
+    assert.equal(archive.length, 11);
     assert.ok(archive.some((row: any) => row.event_kind === "message" && row.message_text === "synthetic echo"));
     assert.ok(archive.some((row: any) => row.event_kind === "edit" &&
       row.related_message_id === "synthetic-echo-1" && row.message_text === "synthetic edited caption"));
     assert.ok(archive.some((row: any) => row.event_kind === "revoke" &&
       row.related_message_id === "synthetic-echo-1" && row.message_text === null));
     assert.equal(archive.some((row: any) => "media_url" in row || "raw_payload" in row), false);
+    const voice = archive.find((row: any) => row.message_type === "audio");
+    assert.ok(voice);
+    assert.equal(voice.media_mime_type, "audio/ogg");
+    assert.equal(Number(voice.media_size_bytes), 3456);
+    assert.equal(voice.media_sha256, Buffer.alloc(32, 7).toString("hex"));
+    assert.doesNotMatch(JSON.stringify(archive), /secret-media-id|untrusted.example/);
+
+    const markedOutgoing = archive.find((row: any) => row.message_text === "synthetic echo");
+    assert.equal(markedOutgoing?.deletion_status, "meta_revoke_reported");
+    assert.ok(markedOutgoing?.deletion_observed_at);
+    assert.equal(markedOutgoing?.message_text, "synthetic echo");
+    const markedIncoming = archive.find((row: any) => row.message_text === "synthetic inbound");
+    assert.equal(markedIncoming?.deletion_status, "meta_revoke_reported");
+    assert.equal(markedIncoming?.message_text, "synthetic inbound");
+    const outOfOrder = archive.find((row: any) => row.message_text === "original after verified revoke stays preserved");
+    assert.equal(outOfOrder?.deletion_status, "meta_revoke_reported");
+    assert.ok(outOfOrder?.deletion_observed_at);
+    assert.equal(voice?.deletion_status, "not_reported");
+    const durableOriginal=archive.find((m:any)=>m.message_text ===
+      "Company archive retains this after a verified deletion");
+    assert.equal(durableOriginal?.deletion_status,"meta_revoke_reported");
+    assert.ok(durableOriginal?.deletion_observed_at);
+    assert.equal(durableOriginal?.event_kind,"message");
 
     assert.equal((await fetch(`${origin}/api/admin/whatsapp-employee/local-review/archive`)).status, 401);
     assert.equal((await request("GET", "/api/admin/whatsapp-employee/local-review/archive", 201)).status, 403);
@@ -358,9 +522,10 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     try {
       await verify.query(`SET search_path TO "${schema}"`);
       const stored = await verify.query(`SELECT meta_event_key,direction,source_field FROM whatsapp_employee_events ORDER BY meta_event_key`);
-      assert.equal(stored.rowCount, 8);
+      assert.equal(stored.rowCount, 14);
       assert.deepEqual(stored.rows.map((row) => row.direction).sort(), [
-        "inbound", "inbound", "inbound", "inbound", "outbound", "outbound", "outbound", "status",
+        "inbound", "inbound", "inbound", "inbound", "inbound", "inbound", "inbound", "inbound",
+        "outbound", "outbound", "outbound", "outbound", "outbound", "status",
       ]);
       const audit = await verify.query(
         `SELECT actor_id,action,outcome FROM whatsapp_employee_audit
@@ -394,6 +559,7 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     await closeWhatsappEmployeeArchiveTestPool();
     await setup.query("RESET search_path");
     await setup.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    await setup.query("DROP SCHEMA IF EXISTS kinglike_whatsapp CASCADE");
     await setup.query("DROP ROLE IF EXISTS whatsapp_employee_access_audit_writer");
     await setup.query("DROP ROLE IF EXISTS whatsapp_employee_audit_owner");
     await setup.query("DROP ROLE IF EXISTS whatsapp_employee_archive_test_runtime");
