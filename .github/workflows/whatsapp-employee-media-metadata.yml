@@ -16,6 +16,8 @@ on:
       - "server/whatsappHistorySyncPreflight.ts"
       - "server/whatsappHistorySyncPreflight.test.ts"
       - "client/src/components/whatsapp/WhatsAppMonitoringWorkspace.tsx"
+      - "client/src/components/whatsapp/WhatsappEmployeeLiveArchive.tsx"
+      - "client/src/pages/admin/whatsapp-employee-monitoring.tsx"
       - "client/src/lib/whatsappEmployeeMonitoringMock.ts"
       - "server/whatsappEmployeeArchiveRoutes.ts"
       - ".github/workflows/whatsapp-employee-media-metadata.yml"
@@ -34,6 +36,8 @@ on:
       - "server/whatsappHistorySyncPreflight.ts"
       - "server/whatsappHistorySyncPreflight.test.ts"
       - "client/src/components/whatsapp/WhatsAppMonitoringWorkspace.tsx"
+      - "client/src/components/whatsapp/WhatsappEmployeeLiveArchive.tsx"
+      - "client/src/pages/admin/whatsapp-employee-monitoring.tsx"
       - "client/src/lib/whatsappEmployeeMonitoringMock.ts"
       - "server/whatsappEmployeeArchiveRoutes.ts"
       - ".github/workflows/whatsapp-employee-media-metadata.yml"
@@ -78,7 +82,9 @@ jobs:
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled
           WHATSAPP_EMPLOYEE_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/kinglike_whatsapp_test
-        run: node --import tsx --test server/whatsappEmployeeHttp.integration.test.ts server/whatsappEmployeeDurableInbox.integration.test.ts
+        run: |
+          node --import tsx --test server/whatsappEmployeeHttp.integration.test.ts
+          node --import tsx --test server/whatsappEmployeeDurableInbox.integration.test.ts
       - name: Compile existing Kinglike application (no deployment)
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled

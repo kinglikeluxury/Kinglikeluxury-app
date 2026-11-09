@@ -134,6 +134,78 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
   return events;
 }
 
+/**
+ * Isolated end-to-end test bridge:
+ * encrypted durable inbox -> existing authorized, idempotent event archiver.
+ *
+ * Safe by construction: NEVER usable by a running Staging/production server.
+ * A real pilot needs a separately reviewed DI worker with a dedicated archive
+ * DB role, audit and persisted consent. It must not use this test-only pool.
+ */
+export async function archiveQueuedWhatsappEmployeePayloadForTest(
+  raw: Buffer,
+  scope: {
+    employeeId: number;
+    wabaId: string;
+    phoneNumberId: string;
+    displayPhoneNumber: string;
+  },
+): Promise<number> {
+  if (process.env.NODE_ENV !== "test" || process.env.APP_DEPLOYMENT_MODE !== "test" ||
+      process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED !== "true" ||
+      !Buffer.isBuffer(raw) || raw.length === 0 || raw.length > 1024 * 1024 ||
+      !Number.isSafeInteger(scope?.employeeId) || scope.employeeId < 1) {
+    throw new Error("Employee queue archiver is disabled outside isolated tests.");
+  }
+  let payload: any;
+  try { payload = JSON.parse(raw.toString("utf8")); }
+  catch { throw new Error("Malformed signed employee queue payload"); }
+  if (payload?.object !== "whatsapp_business_account" ||
+      !Array.isArray(payload.entry) || payload.entry.length === 0) {
+    throw new Error("Invalid employee queue object");
+  }
+  let supportedChanges = 0;
+  for (const entry of payload.entry) {
+    if (entry?.id !== scope.wabaId || !Array.isArray(entry.changes)) {
+      throw new Error("Wrong or missing employee WABA");
+    }
+    for (const change of entry.changes) {
+      // Never acknowledge history before a separate durable history importer
+      // has been implemented and verified. No history rows can be silently lost.
+      if (change?.field === "history" || change?.field === "smb_app_state_sync") {
+        throw new Error("Employee history or contact import is not available");
+      }
+      if (change?.field !== "messages" && change?.field !== "smb_message_echoes") continue;
+      supportedChanges++;
+      if (change?.value?.metadata?.phone_number_id !== scope.phoneNumberId ||
+          (change?.value?.metadata?.display_phone_number !== undefined &&
+           String(change.value.metadata.display_phone_number).replace(/\D/g, "") !== scope.displayPhoneNumber)) {
+        throw new Error("Employee phone identity mismatch");
+      }
+    }
+  }
+  if (!supportedChanges) throw new Error("No supported employee message changes");
+  const events = normalizeWhatsappWebhook(payload);
+  if (!events.length || events.some(e =>
+    e.wabaId !== scope.wabaId || e.phoneNumberId !== scope.phoneNumberId ||
+    (e.businessDisplayPhoneNumber !== null &&
+     e.businessDisplayPhoneNumber.replace(/\D/g,"") !== scope.displayPhoneNumber))) {
+    throw new Error("Employee event identity mismatch");
+  }
+  // At-least-once replay is safe: persistEvent uses unique Meta event keys,
+  // transactionally validates current registration/consent, and audits outcome.
+  // Individual events may commit before an exception. Retry deduplicates those.
+  let stored = 0;
+  for (const event of events) {
+    const outcome = await persistEvent(event);
+    if (outcome === "identity_mismatch" || outcome === "not_consented") {
+      throw new Error("Employee archive policy rejected event");
+    }
+    if (outcome === "stored") stored++;
+  }
+  return stored;
+}
+
 async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplicate" | "not_consented" | "identity_mismatch" | "unresolved_reference"> {
   const client = await getTestOnlyPool().connect();
   try {
