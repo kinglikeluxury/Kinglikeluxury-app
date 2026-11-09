@@ -45,7 +45,9 @@ export function createMetaGraphOnboardingVerifier(
       // release-time guard. All other callers retain the global egress block.
       assertGraphAllowed();
       if (!/^\d{5,80}$/.test(input.businessPortfolioId) ||
-          !/^\d{5,80}$/.test(input.wabaId) || !/^\d{5,80}$/.test(input.phoneNumberId)) {
+          !/^\d{5,80}$/.test(input.wabaId) ||
+          (input.phoneNumberId !== undefined && !/^\d{5,80}$/.test(input.phoneNumberId)) ||
+          !/^\+[1-9]\d{7,14}$/.test(input.displayPhoneNumber)) {
         throw new Error("Meta verification unavailable");
       }
       const exchangeUrl = new URL(`${base}/oauth/access_token`);
@@ -71,25 +73,35 @@ export function createMetaGraphOnboardingVerifier(
           !["whatsapp_business_management", "whatsapp_business_messaging"]
             .every(scope => scopes.includes(scope))) throw new Error("Meta verification unavailable");
 
-      const [sharedAccounts, numbers, phone] = await Promise.all([
+      // Coexistence FINISH can omit phone_number_id. Discover it from the
+      // server-authorized WABA, and require EXACTLY ONE approved phone match.
+      const [sharedAccounts, numbers] = await Promise.all([
         get(`${input.businessPortfolioId}/client_whatsapp_business_accounts`, businessToken, { fields: "id" }),
         get(`${input.wabaId}/phone_numbers`, businessToken, { fields: "id,display_phone_number" }),
-        get(input.phoneNumberId, businessToken, {
-          fields: "id,display_phone_number,is_on_biz_app,platform_type",
-        }),
       ]);
       const portfolioOwnsWaba = rows(sharedAccounts).some(row => row.id === input.wabaId);
-      const listedPhone = rows(numbers).some(row =>
-        row.id === input.phoneNumberId && row.display_phone_number === input.displayPhoneNumber);
-      if (!portfolioOwnsWaba || !listedPhone || phone.id !== input.phoneNumberId ||
-          phone.display_phone_number !== input.displayPhoneNumber ||
+      const sameNumber = (value: unknown): boolean =>
+        typeof value === "string" &&
+        value.replace(/\D/g, "") === input.displayPhoneNumber.replace(/\D/g, "");
+      const matchingNumbers = rows(numbers).filter(row =>
+        typeof row.id === "string" && /^\d{5,80}$/.test(row.id) &&
+        sameNumber(row.display_phone_number) &&
+        (input.phoneNumberId === undefined || row.id === input.phoneNumberId));
+      if (!portfolioOwnsWaba || matchingNumbers.length !== 1) {
+        throw new Error("Meta verification unavailable");
+      }
+      const verifiedPhoneId = matchingNumbers[0].id as string;
+      const phone = await get(verifiedPhoneId, businessToken, {
+        fields: "id,display_phone_number,is_on_biz_app,platform_type",
+      });
+      if (phone.id !== verifiedPhoneId || !sameNumber(phone.display_phone_number) ||
           phone.is_on_biz_app !== true || phone.platform_type !== "CLOUD_API") {
         throw new Error("Meta verification unavailable");
       }
       return {
         businessPortfolioId: input.businessPortfolioId,
         wabaId: input.wabaId,
-        phoneNumberId: input.phoneNumberId,
+        phoneNumberId: verifiedPhoneId,
         displayPhoneNumber: input.displayPhoneNumber,
         coexistence: "verified",
         grantedPermissions: scopes,
