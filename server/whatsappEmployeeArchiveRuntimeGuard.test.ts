@@ -53,7 +53,7 @@ test("valid staging DB identity, two roles and independent keys are necessary bu
   assert.equal(result.public.checks.archiveDbIdentity,true);
   assert.equal(result.public.checks.separateAuditRole,true);
   assert.equal(result.public.checks.independentCryptoKeys,true);
-  assert.equal(result.public.status,"blocked");
+  assert.equal(result.public.status,"configured_not_verified");
   assert.deepEqual(result.public.blockers,["archive_schema_or_grants_not_verified"]);
   assert.ok(result.privateConfig);
   const serialized = JSON.stringify(result.public);
