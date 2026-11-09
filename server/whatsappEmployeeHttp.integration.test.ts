@@ -232,6 +232,39 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
       } }] }],
     };
     assert.equal((await signedPost(JSON.stringify(editAndRevokePayload))).status, 200);
+
+    // Confirmed inbound customer revoke: retain the original, append an immutable
+    // event, and expose a deletion marker only after a signed Meta notification.
+    const customerRevoke = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "5550101" },
+        messages: [{ id: "synthetic-in-revoke-1", from: "15550000002", type: "revoke",
+          revoke: { original_message_id: "synthetic-in-1" }, timestamp: "1730000003" }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(customerRevoke))).status, 200);
+
+    // Out-of-order business revoke arrives BEFORE its original. Retain this
+    // verified tombstone so a delayed original is later marked, not lost.
+    const makeBusinessEcho = (msg: Record<string, unknown>) => ({
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
+        metadata: { phone_number_id: "5550101", display_phone_number: "15550000001" },
+        message_echoes: [{
+          from: "15550000001", to: "15550000002", to_user_id: "synthetic-user-2", ...msg,
+        }],
+      } }] }],
+    });
+    assert.equal((await signedPost(JSON.stringify(makeBusinessEcho({
+      id: "synthetic-echo-revoke-first", type: "revoke",
+      revoke: { original_message_id: "synthetic-echo-later" },
+    })))).status, 200);
+    assert.equal((await signedPost(JSON.stringify(makeBusinessEcho({
+      id: "synthetic-echo-later", type: "text",
+      text: { body: "original after verified revoke stays preserved" },
+    })))).status, 200);
+
     const identitySwitchPayload = {
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
@@ -310,7 +343,7 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 301)).status, 403);
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 201)).status, 200);
     const archive = (await (await request("GET", messagesUrl, 101)).json() as any).messages;
-    assert.equal(archive.length, 6);
+    assert.equal(archive.length, 9);
     assert.ok(archive.some((row: any) => row.event_kind === "message" && row.message_text === "synthetic echo"));
     assert.ok(archive.some((row: any) => row.event_kind === "edit" &&
       row.related_message_id === "synthetic-echo-1" && row.message_text === "synthetic edited caption"));
@@ -323,6 +356,18 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal(Number(voice.media_size_bytes), 3456);
     assert.equal(voice.media_sha256, Buffer.alloc(32, 7).toString("hex"));
     assert.doesNotMatch(JSON.stringify(archive), /secret-media-id|untrusted.example/);
+
+    const markedOutgoing = archive.find((row: any) => row.message_text === "synthetic echo");
+    assert.equal(markedOutgoing?.deletion_status, "meta_revoke_reported");
+    assert.ok(markedOutgoing?.deletion_observed_at);
+    assert.equal(markedOutgoing?.message_text, "synthetic echo");
+    const markedIncoming = archive.find((row: any) => row.message_text === "synthetic inbound");
+    assert.equal(markedIncoming?.deletion_status, "meta_revoke_reported");
+    assert.equal(markedIncoming?.message_text, "synthetic inbound");
+    const outOfOrder = archive.find((row: any) => row.message_text === "original after verified revoke stays preserved");
+    assert.equal(outOfOrder?.deletion_status, "meta_revoke_reported");
+    assert.ok(outOfOrder?.deletion_observed_at);
+    assert.equal(voice?.deletion_status, "not_reported");
 
     assert.equal((await fetch(`${origin}/api/admin/whatsapp-employee/local-review/archive`)).status, 401);
     assert.equal((await request("GET", "/api/admin/whatsapp-employee/local-review/archive", 201)).status, 403);
@@ -378,9 +423,10 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     try {
       await verify.query(`SET search_path TO "${schema}"`);
       const stored = await verify.query(`SELECT meta_event_key,direction,source_field FROM whatsapp_employee_events ORDER BY meta_event_key`);
-      assert.equal(stored.rowCount, 9);
+      assert.equal(stored.rowCount, 12);
       assert.deepEqual(stored.rows.map((row) => row.direction).sort(), [
-        "inbound", "inbound", "inbound", "inbound", "inbound", "outbound", "outbound", "outbound", "status",
+        "inbound", "inbound", "inbound", "inbound", "inbound", "inbound",
+        "outbound", "outbound", "outbound", "outbound", "outbound", "status",
       ]);
       const audit = await verify.query(
         `SELECT actor_id,action,outcome FROM whatsapp_employee_audit

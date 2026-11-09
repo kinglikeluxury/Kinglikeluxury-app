@@ -8,6 +8,12 @@ on:
       - "server/whatsappEmployeeWebhook.ts"
       - "server/whatsappEmployeeWebhook.test.ts"
       - "server/whatsappEmployeeHttp.integration.test.ts"
+      - "server/whatsappPrivateMediaVault.ts"
+      - "server/whatsappPrivateMediaVault.test.ts"
+      - "server/whatsappHistorySyncPreflight.ts"
+      - "server/whatsappHistorySyncPreflight.test.ts"
+      - "client/src/components/whatsapp/WhatsAppMonitoringWorkspace.tsx"
+      - "client/src/lib/whatsappEmployeeMonitoringMock.ts"
       - "server/whatsappEmployeeArchiveRoutes.ts"
       - ".github/workflows/whatsapp-employee-media-metadata.yml"
   pull_request:
@@ -17,6 +23,12 @@ on:
       - "server/whatsappEmployeeWebhook.ts"
       - "server/whatsappEmployeeWebhook.test.ts"
       - "server/whatsappEmployeeHttp.integration.test.ts"
+      - "server/whatsappPrivateMediaVault.ts"
+      - "server/whatsappPrivateMediaVault.test.ts"
+      - "server/whatsappHistorySyncPreflight.ts"
+      - "server/whatsappHistorySyncPreflight.test.ts"
+      - "client/src/components/whatsapp/WhatsAppMonitoringWorkspace.tsx"
+      - "client/src/lib/whatsappEmployeeMonitoringMock.ts"
       - "server/whatsappEmployeeArchiveRoutes.ts"
       - ".github/workflows/whatsapp-employee-media-metadata.yml"
 
@@ -55,7 +67,7 @@ jobs:
           WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
           WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED: "false"
           WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
-        run: node --import tsx --test server/whatsappEmployeeMedia.test.ts server/whatsappEmployeeWebhook.test.ts
+        run: node --import tsx --test server/whatsappEmployeeMedia.test.ts server/whatsappEmployeeWebhook.test.ts server/whatsappPrivateMediaVault.test.ts server/whatsappHistorySyncPreflight.test.ts
       - name: Verify signed webhook, PostgreSQL persistence and archive RBAC (synthetic only)
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled

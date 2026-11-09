@@ -518,10 +518,25 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
         return res.sendStatus(403);
       }
       const rows = await client.query(
-        `SELECT id,event_kind,direction,event_status,message_type,message_text,related_message_id,occurred_at,received_at,
-                  media_mime_type,media_size_bytes,media_sha256
-           FROM whatsapp_employee_events
-           WHERE conversation_id=$1 ORDER BY received_at ASC,id ASC LIMIT 500`,
+        `SELECT e.id,e.event_kind,e.direction,e.event_status,e.message_type,e.message_text,
+                  e.related_message_id,e.occurred_at,e.received_at,
+                  e.media_mime_type,e.media_size_bytes,e.media_sha256,
+                  CASE WHEN e.event_kind='message' AND EXISTS (
+                    SELECT 1 FROM whatsapp_employee_events r
+                     WHERE r.conversation_id=e.conversation_id
+                       AND r.event_kind='revoke'
+                       AND r.direction=e.direction
+                       AND r.related_message_id=e.meta_message_id
+                  ) THEN 'meta_revoke_reported' ELSE 'not_reported' END AS deletion_status,
+                  CASE WHEN e.event_kind='message' THEN (
+                    SELECT MIN(r.received_at) FROM whatsapp_employee_events r
+                     WHERE r.conversation_id=e.conversation_id
+                       AND r.event_kind='revoke'
+                       AND r.direction=e.direction
+                       AND r.related_message_id=e.meta_message_id
+                  ) ELSE NULL END AS deletion_observed_at
+           FROM whatsapp_employee_events e
+           WHERE e.conversation_id=$1 ORDER BY e.received_at ASC,e.id ASC LIMIT 500`,
         [conversationId],
       );
       await persistArchiveAccess({
