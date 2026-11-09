@@ -7,6 +7,7 @@ on:
       - "server/whatsappEmployeeMedia.test.ts"
       - "server/whatsappEmployeeWebhook.ts"
       - "server/whatsappEmployeeWebhook.test.ts"
+      - "server/whatsappEmployeeHttp.integration.test.ts"
       - "server/whatsappEmployeeArchiveRoutes.ts"
       - ".github/workflows/whatsapp-employee-media-metadata.yml"
   pull_request:
@@ -15,6 +16,7 @@ on:
       - "server/whatsappEmployeeMedia.test.ts"
       - "server/whatsappEmployeeWebhook.ts"
       - "server/whatsappEmployeeWebhook.test.ts"
+      - "server/whatsappEmployeeHttp.integration.test.ts"
       - "server/whatsappEmployeeArchiveRoutes.ts"
       - ".github/workflows/whatsapp-employee-media-metadata.yml"
 
@@ -25,6 +27,20 @@ jobs:
   synthetic-media-only:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: kinglike_whatsapp_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kinglike_whatsapp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,6 +56,11 @@ jobs:
           WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED: "false"
           WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
         run: node --import tsx --test server/whatsappEmployeeMedia.test.ts server/whatsappEmployeeWebhook.test.ts
+      - name: Verify signed webhook, PostgreSQL persistence and archive RBAC (synthetic only)
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_EMPLOYEE_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/kinglike_whatsapp_test
+        run: node --import tsx --test server/whatsappEmployeeHttp.integration.test.ts
       - name: Compile existing Kinglike application (no deployment)
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled
