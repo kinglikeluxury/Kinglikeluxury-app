@@ -138,3 +138,49 @@ test("with missing approval the database factory is never called", async () => {
   assert.equal(pool, null);
   assert.equal(called, false);
 });
+
+test("read-only preflight checks dedicated DB with all real Meta onboarding flags disabled", async () => {
+  const env = {
+    ...validEnv,
+    WHATSAPP_STAGING_PROOF_PREFLIGHT_ENABLED: "true",
+    WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false",
+    WHATSAPP_STAGING_META_GRAPH_VERIFIER_ENABLED: "false",
+    WHATSAPP_STAGING_GRAPH_PILOT_OWNER_APPROVED: "false",
+    WHATSAPP_STAGING_EMPLOYEE_NOTICE_REVIEWED: "false",
+  };
+  let queries = 0;
+  let closed = false;
+  const db = await openWhatsappStagingProofDb(env, () => ({
+    async query(sql: string) {
+      queries++;
+      if (sql.startsWith("SELECT current_database()")) return { rows: [{
+        database_name: "railway", runtime_role: "wa_proof_runtime",
+        is_superuser: false, database_owner: "postgres",
+      }] };
+      if (sql.includes("FROM pg_tables")) return { rows: [
+        { tablename: "whatsapp_onboarding_flows", tableowner: "postgres" },
+        { tablename: "whatsapp_onboarding_proofs", tableowner: "postgres" },
+      ] };
+      if (sql.includes("has_schema_privilege")) return { rows: [{
+        schema_usage: true, flow_select: true, flow_insert: true, flow_update: true,
+        proof_select: true, proof_insert: true, proof_update: true,
+      }] };
+      throw new Error("Unexpected query");
+    },
+    async end() { closed = true; },
+  }));
+  assert.ok(db);
+  assert.equal(queries, 3);
+  await db.end();
+  assert.equal(closed, true);
+  assert.equal(
+    resolveWhatsappProofDbConfig({ ...env, APP_DEPLOYMENT_MODE: "production" }), null,
+  );
+  let invoked = false;
+  const deny = await openWhatsappStagingProofDb(
+    { ...env, APP_DEPLOYMENT_MODE: "production" },
+    () => { invoked = true; throw Error("must not reach production DB"); },
+  );
+  assert.equal(deny, null);
+  assert.equal(invoked, false);
+});
