@@ -1,25 +1,32 @@
 # Dedicated WhatsApp employee archive DB — activation checklist (9 Nov 2026)
 
-## Infrastructure staged, not activated
+## Infrastructure activated in isolated Staging (9 Nov 2026)
 
 - Project: **Kinglike-Web-Staging** (not the separate production Kinglike project).
 - Proposed Railway database: **Postgres-92tK**; service ID
   \`9d6724d9-8353-427b-9c78-9fac8e2e9068\`.
 - PostgreSQL template \`postgres\` (Railway Templates; Postgres SSL image v18),
   dedicated persistent volume, \`POSTGRES_DB=kinglike_whatsapp_archive\`.
-- The entire proposed Railway change is in **STAGED** state. No service instance,
-  network traffic, volume, invoice for its runtime, or DB tables are activated
-  until the staged patch is committed. **Do not commit** before approving any
-  recurring Railway database/storage costs and network/access review.
+- The owner explicitly approved the potential Railway service/storage charges.
+  The staged patch was committed on 9 Nov 2026. Railway confirmed **SUCCESS**
+  for deployment `a4846d2f-7ab5-4d02-8ee0-fbecdc259cf6`;
+  PostgreSQL is **online**, one running replica, zero crashes/warnings.
+- The service has **no public service domains or TCP proxies** as verified after
+  deployment. Its dedicated persistent volume is attached, with Railway
+  reporting a 50,000 MB volume. Consumption and costs may now accrue.
+- **DATABASE SCHEMA IS NOT MIGRATED**: no employee records, message archives,
+  privileges or user identities were copied or activated. Do not infer table
+  readiness from service health.
 - No public TCP proxy must be added. Private Railway networking only.
 
 ## Private media bucket staged, not active
 
 - Proposed Railway object-storage bucket: **kinglike-whatsapp-employee-media-staging**;
   bucket ID `0ff155e9-2cc4-4eb5-b44a-b0a7b70852ae`, region `sjc`.
-- Bucket is also **STAGED** in the same pending Railway patch. It is not
-  provisioned or authorized for any app yet. No access keys were created in
-  the app or repo, and no file has been uploaded.
+- Bucket is **LIVE** in the isolated Staging environment after the same
+  approved patch was committed; it is **not connected to the app**. No access
+  keys were placed in GitHub or configured on the app and no file has been
+  uploaded by this workflow.
 - Before activation, require a private-only access-policy review, strict
   employee/conversation-scoped object names, malware checks, MIME/size and
   digest validation, encrypted object persistence, retention/legal deletion,
@@ -88,5 +95,6 @@ until then live reads and writes remain OFF.
 - Live media file storage, chunked history sync and backlog alerts remain
   separate explicit readiness gates. An encrypted queue alone is not enough.
 
-**Current state: database and media bucket STAGED only; migration NOT APPLIED; real numbers
-NOT CONNECTED; no changes to production/main.**
+**Current state: separate database and media bucket LIVE on the Staging project;
+migration NOT APPLIED; all employee numbers NOT CONNECTED; no changes to
+the main Kinglike production service.**
