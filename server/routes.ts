@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
 import bcrypt from "bcrypt";
+import { hashAccountPassword, verifyAccountPassword } from "./passwordSecurity";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
 import pg from "pg";
@@ -1447,7 +1448,7 @@ ${metaTags}
       if (!code || !newPassword) {
         return res.status(400).json({ message: "Code and new password are required" });
       }
-      if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      if (typeof newPassword !== 'string' || newPassword.length < 8) {
         return res.status(400).json({ message: "Password must be at least 6 characters" });
       }
 
@@ -1477,7 +1478,7 @@ ${metaTags}
         return res.status(404).json({ message: "Account not found" });
       }
 
-      await storage.updateUserPassword(user.id, newPassword);
+      await storage.updateUserPassword(user.id, await hashAccountPassword(newPassword));
       res.json({ success: true });
     } catch (error: any) {
       console.error("Reset password error:", error);
@@ -1493,7 +1494,7 @@ ${metaTags}
       if (!username || typeof username !== 'string' || username.length < 3) {
         return res.status(400).json({ message: "Username must be at least 3 characters" });
       }
-      if (!password || typeof password !== 'string' || password.length < 6) {
+      if (!password || typeof password !== 'string' || password.length < 8) {
         return res.status(400).json({ message: "Password must be at least 6 characters" });
       }
 
@@ -1522,7 +1523,7 @@ ${metaTags}
 
       const user = await storage.createUser({
         username,
-        password,
+        password: await hashAccountPassword(password),
         email: email || null,
         phoneNumber: phoneNumber || null,
         whatsappNumber: null,
@@ -1558,14 +1559,15 @@ ${metaTags}
     try {
       const userId = req.session.userId!;
       const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Both passwords are required" });
+      if (typeof currentPassword !== "string" || !currentPassword ||
+          typeof newPassword !== "string" || newPassword.length < 8) {
+        return res.status(400).json({ message: "Valid current password and new password (at least 8 characters) are required" });
       }
       const user = await storage.getUser(userId);
-      if (!user || user.password !== currentPassword) {
+      if (!user || !await verifyAccountPassword(currentPassword, user.password)) {
         return res.status(401).json({ message: "Current password is incorrect" });
       }
-      await storage.updateUserPassword(userId, newPassword);
+      await storage.updateUserPassword(userId, await hashAccountPassword(newPassword));
       res.json({ success: true });
     } catch (error) {
       console.error("Change password error:", error);
@@ -1591,9 +1593,7 @@ ${metaTags}
           return res.status(401).json({ message: "Invalid credentials" });
         }
         
-        const _emailPassOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password)
-          : user.password === password;
+        const _emailPassOk = await verifyAccountPassword(password, user.password);
         if (!user || !_emailPassOk) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
@@ -1656,9 +1656,7 @@ ${metaTags}
         if (!user) {
           return res.status(401).json({ message: "Invalid login credentials." });
         }
-        const _passOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password!)
-          : user.password === password;
+        const _passOk = await verifyAccountPassword(password, user.password);
         if (!user || !_passOk) {
           return res.status(401).json({ message: "Invalid login credentials." });
         }
