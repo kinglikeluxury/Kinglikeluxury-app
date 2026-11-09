@@ -203,6 +203,20 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal((await accepted.text()), "EVENT_RECEIVED");
     assert.equal((await signedPost(rawPayload)).status, 200);
 
+    const voicePayload = {
+      object: "whatsapp_business_account",
+      entry: [{ id: "7000101", changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "5550101" },
+        messages: [{
+          id: "synthetic-audio-1", from: "15550000002", type: "audio",
+          audio: { mime_type: "audio/ogg", file_size: 3456,
+            sha256: Buffer.alloc(32, 7).toString("base64"),
+            id: "secret-media-id", url: "https://untrusted.example/temporary" },
+        }],
+      } }] }],
+    };
+    assert.equal((await signedPost(JSON.stringify(voicePayload))).status, 200);
+
     const editAndRevokePayload = {
       object: "whatsapp_business_account",
       entry: [{ id: "7000101", changes: [{ field: "smb_message_echoes", value: {
@@ -296,13 +310,19 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 301)).status, 403);
     assert.equal((await request("GET", "/api/whatsapp-employee/archive/employees/101/conversations", 201)).status, 200);
     const archive = (await (await request("GET", messagesUrl, 101)).json() as any).messages;
-    assert.equal(archive.length, 5);
+    assert.equal(archive.length, 6);
     assert.ok(archive.some((row: any) => row.event_kind === "message" && row.message_text === "synthetic echo"));
     assert.ok(archive.some((row: any) => row.event_kind === "edit" &&
       row.related_message_id === "synthetic-echo-1" && row.message_text === "synthetic edited caption"));
     assert.ok(archive.some((row: any) => row.event_kind === "revoke" &&
       row.related_message_id === "synthetic-echo-1" && row.message_text === null));
     assert.equal(archive.some((row: any) => "media_url" in row || "raw_payload" in row), false);
+    const voice = archive.find((row: any) => row.message_type === "audio");
+    assert.ok(voice);
+    assert.equal(voice.media_mime_type, "audio/ogg");
+    assert.equal(Number(voice.media_size_bytes), 3456);
+    assert.equal(voice.media_sha256, Buffer.alloc(32, 7).toString("hex"));
+    assert.doesNotMatch(JSON.stringify(archive), /secret-media-id|untrusted.example/);
 
     assert.equal((await fetch(`${origin}/api/admin/whatsapp-employee/local-review/archive`)).status, 401);
     assert.equal((await request("GET", "/api/admin/whatsapp-employee/local-review/archive", 201)).status, 403);
@@ -358,9 +378,9 @@ test("local HTTP flow: signed webhooks, consent, Coexistence, audit, and archive
     try {
       await verify.query(`SET search_path TO "${schema}"`);
       const stored = await verify.query(`SELECT meta_event_key,direction,source_field FROM whatsapp_employee_events ORDER BY meta_event_key`);
-      assert.equal(stored.rowCount, 8);
+      assert.equal(stored.rowCount, 9);
       assert.deepEqual(stored.rows.map((row) => row.direction).sort(), [
-        "inbound", "inbound", "inbound", "inbound", "outbound", "outbound", "outbound", "status",
+        "inbound", "inbound", "inbound", "inbound", "inbound", "outbound", "outbound", "outbound", "status",
       ]);
       const audit = await verify.query(
         `SELECT actor_id,action,outcome FROM whatsapp_employee_audit

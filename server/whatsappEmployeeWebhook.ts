@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Express } from "express";
 import pg from "pg";
+import { isEmployeeWhatsappMediaKind, normalizeEmployeeWhatsappMedia } from "./whatsappEmployeeMedia";
 
 const PATH = "/api/webhooks/whatsapp-employee";
 const enabled = () => process.env.APP_DEPLOYMENT_MODE !== "staging" &&
@@ -20,6 +21,7 @@ type NormalizedEvent = {
   kind: "message" | "status" | "edit" | "revoke"; direction: "inbound" | "outbound" | "status";
   metaMessageId: string; eventStatus: string | null; messageType: string | null;
   text: string | null; occurredAt: string | null; sourceField: string; relatedMessageId: string | null;
+  mediaMimeType: string | null; mediaSizeBytes: number | null; mediaSha256: string | null;
 };
 
 export function isEligibleRegistration(
@@ -94,14 +96,15 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
           relatedMessageId = typeof msg.edit?.original_message_id === "string" ? msg.edit.original_message_id : null;
           content = msg.edit?.message;
           contentType = content?.type;
-          if (!relatedMessageId || !["text", "image", "video", "document"].includes(String(contentType))) continue;
+          if (!relatedMessageId || (contentType !== "text" && !isEmployeeWhatsappMediaKind(contentType))) continue;
           kind = "edit";
         } else if (echo && msg.type === "revoke") {
           relatedMessageId = typeof msg.revoke?.original_message_id === "string" ? msg.revoke.original_message_id : null;
           if (!relatedMessageId) continue;
           kind = "revoke";
-        } else if (!["text", "image", "video", "document"].includes(msg.type)) continue;
+        } else if (msg.type !== "text" && !isEmployeeWhatsappMediaKind(msg.type)) continue;
         const text = kind === "revoke" ? null : messageText(contentType, content);
+        const media = kind === "revoke" ? null : normalizeEmployeeWhatsappMedia(contentType, content);
         const ts = msg.timestamp ? String(msg.timestamp) : null;
         const contactWaId = digits(customer) ? String(customer) : `bsuid:${msg.to_user_id}`;
         events.push({
@@ -110,6 +113,8 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
           businessDisplayPhoneNumber: echo ? String(value?.metadata?.display_phone_number ?? "") : null,
           kind, direction: echo ? "outbound" : "inbound", metaMessageId: String(msg.id),
           eventStatus: null, messageType: String(contentType), text, occurredAt: ts, sourceField: field, relatedMessageId,
+          mediaMimeType: media?.mimeType ?? null, mediaSizeBytes: media?.sizeBytes ?? null,
+          mediaSha256: media?.sha256Hex ?? null,
         });
       }
       for (const status of !echo && Array.isArray(value.statuses) ? value.statuses : []) {
@@ -121,6 +126,7 @@ export function normalizeWhatsappWebhook(payload: any): NormalizedEvent[] {
           kind: "status", direction: "status",
           metaMessageId: String(status.id), eventStatus: String(status.status), messageType: null,
           text: null, occurredAt: ts, sourceField: field, relatedMessageId: null,
+          mediaMimeType: null, mediaSizeBytes: null, mediaSha256: null,
         });
       }
     }
@@ -208,12 +214,15 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
     const saved = await client.query(
       `INSERT INTO whatsapp_employee_events
         (conversation_id, employee_id, meta_event_key, meta_message_id, event_kind, direction,
-         event_status, message_type, message_text, source_field, occurred_at,related_message_id)
+         event_status, message_type, message_text, source_field, occurred_at, related_message_id,
+         media_mime_type, media_size_bytes, media_sha256)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-         CASE WHEN $11::text ~ '^[0-9]+$' THEN to_timestamp($11::double precision) ELSE NULL END,$12)
+         CASE WHEN $11::text ~ '^[0-9]+$' THEN to_timestamp($11::double precision) ELSE NULL END,
+         $12,$13,$14,$15)
        ON CONFLICT (meta_event_key) DO NOTHING RETURNING id`,
       [conversation.rows[0].id, employeeId, event.eventKey, event.metaMessageId, event.kind,
-       event.direction,event.eventStatus,event.messageType,event.text,event.sourceField,event.occurredAt,event.relatedMessageId],
+       event.direction,event.eventStatus,event.messageType,event.text,event.sourceField,event.occurredAt,event.relatedMessageId,
+       event.mediaMimeType,event.mediaSizeBytes,event.mediaSha256],
     );
     if (!saved.rowCount) {
       const winner = await client.query(
