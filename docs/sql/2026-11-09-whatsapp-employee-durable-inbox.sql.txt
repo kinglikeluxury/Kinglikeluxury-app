@@ -1,0 +1,42 @@
+-- MANUAL, REVIEW-ONLY schema for a future isolated employee WhatsApp inbox.
+-- DO NOT run on production, Neon, general CRM DB or the existing Meta proof DB.
+-- Provision a dedicated least-privilege archive/inbox DB and separate owner/runtime roles.
+-- All payload bytes are AES-256-GCM encrypted by the application BEFORE INSERT.
+-- This schema provides a durable at-least-once queue, NOT a working live connection.
+
+CREATE SCHEMA IF NOT EXISTS kinglike_whatsapp;
+
+CREATE TABLE kinglike_whatsapp.whatsapp_employee_inbox (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  employee_id INTEGER NOT NULL CHECK (employee_id > 0),
+  waba_id TEXT NOT NULL CHECK (waba_id ~ '^[0-9]{4,24}$'),
+  phone_number_id TEXT NOT NULL CHECK (phone_number_id ~ '^[0-9]{4,24}$'),
+  delivery_key TEXT NOT NULL CHECK (delivery_key ~ '^[a-f0-9]{64}$'),
+  payload_ciphertext BYTEA,
+  payload_iv BYTEA CHECK (octet_length(payload_iv) = 12),
+  payload_tag BYTEA CHECK (octet_length(payload_tag) = 16),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','processing','retry','processed','blocked','dead_letter')),
+  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  available_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  locked_until TIMESTAMPTZ,
+  lease_token UUID,
+  last_error_class TEXT CHECK (last_error_class IS NULL OR
+    last_error_class IN ('PROCESS_FAILED','CONSENT_REVOKED','DECRYPT_FAILED')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  processed_at TIMESTAMPTZ,
+  UNIQUE (employee_id, waba_id, phone_number_id, delivery_key),
+  CHECK (status <> 'processed' OR
+    (payload_ciphertext IS NULL AND payload_iv IS NULL AND payload_tag IS NULL
+      AND processed_at IS NOT NULL)),
+  CHECK (status <> 'processing' OR (locked_until IS NOT NULL AND lease_token IS NOT NULL))
+);
+
+CREATE INDEX whatsapp_employee_inbox_work_idx
+  ON kinglike_whatsapp.whatsapp_employee_inbox(status,available_at,id)
+  WHERE status IN ('pending','retry','processing');
+
+-- No grants here. A separately reviewed migration must create non-owner runtime
+-- and migration roles, GRANT only required INSERT/SELECT/UPDATE, deny DELETE,
+-- TRUNCATE and DDL to the runtime, configure encryption-key management and
+-- apply a retention policy to processed/dead-letter metadata.
