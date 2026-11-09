@@ -98,3 +98,35 @@ test("explicit clear wipes pending session and cannot accidentally complete", ()
   assert.equal(bridge.acceptSessionEvent(finish), false);
   assert.equal(bridge.takeReady(), null);
 });
+
+test("Coexistence FINISH without phone number ID retains code for server discovery", () => {
+  const bridge = new MetaSignupCompletionBridge();
+  bridge.begin();
+  const withoutPhone = {
+    kind: "completed" as const,
+    businessPortfolioId: "123456789",
+    wabaId: "234567891",
+  };
+  assert.equal(bridge.acceptSessionEvent(withoutPhone), true);
+  assert.equal(bridge.acceptLoginResponse(auth), true);
+  assert.deepEqual(bridge.takeReady(), {
+    code,
+    businessPortfolioId: withoutPhone.businessPortfolioId,
+    wabaId: withoutPhone.wabaId,
+  });
+  assert.equal(bridge.takeReady(), null);
+});
+
+test("Coexistence still refuses invalid phone ID, untrusted portfolio and WABA", () => {
+  for (const event of [
+    { ...finish, phoneNumberId: "not-id" },
+    { kind: "completed" as const, businessPortfolioId: "invalid", wabaId: "234567891" },
+    { kind: "completed" as const, businessPortfolioId: "123456789", wabaId: "bad" },
+  ]) {
+    const bridge = new MetaSignupCompletionBridge();
+    bridge.begin();
+    bridge.acceptLoginResponse(auth);
+    assert.equal(bridge.acceptSessionEvent(event), false);
+    assert.equal(bridge.takeReady(), null);
+  }
+});
