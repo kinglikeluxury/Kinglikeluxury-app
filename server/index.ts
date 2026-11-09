@@ -63,6 +63,7 @@ import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRo
 import { registerStagingWhatsappOnboardingRoutes } from "./whatsappStagingOnboardingRoutes";
 import { createStagingMetaOnboardingVerifier } from "./whatsappStagingMetaVerifier";
 import { openWhatsappStagingProofDb } from "./whatsappStagingProofDb";
+import { runSyntheticWhatsappProofE2E } from "./whatsappStagingSyntheticProofE2E";
 import {
   isStagingMode,
   stagingExternalHttpMiddleware,
@@ -295,6 +296,18 @@ app.use((req, res, next) => {
   // Only a separately authenticated, least-privilege proof DB is eligible.
   // Never fall back to pool (the regular application database).
   const whatsappProofDb = await openWhatsappStagingProofDb();
+  if (isStagingMode() && process.env.WHATSAPP_STAGING_SYNTHETIC_PROOF_PROBE_ENABLED === "true") {
+    if (!whatsappProofDb) {
+      throw new Error("[WhatsApp] synthetic proof probe BLOCKED: dedicated Staging DB is not available");
+    }
+    // Manual, rollback-only pilot: a fake Meta verifier, no API credentials,
+    // no live enrollment and no retained rows. A failed probe aborts startup.
+    const proofProbe = await runSyntheticWhatsappProofE2E(whatsappProofDb as any);
+    if (proofProbe.status !== "synthetic_verified_rolled_back") {
+      throw new Error("[WhatsApp] synthetic proof probe failed");
+    }
+    log("[WhatsApp] synthetic onboarding E2E OK; rollback verified; zero records; Meta disabled");
+  }
   if (isStagingMode() && process.env.WHATSAPP_STAGING_PROOF_PREFLIGHT_ENABLED === "true") {
     // Deliberately log only the yes/no result; never credentials, SQL, or IDs.
     log(whatsappProofDb
