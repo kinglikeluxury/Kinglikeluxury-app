@@ -1,0 +1,26 @@
+-- 00: Standalone *minimal* user identities for the dedicated WhatsApp archive DB.
+-- REVIEW-ONLY. Execute only on the NEW dedicated Railway archive PostgreSQL.
+--
+-- The canonical employee archive schema (2026-11-07) currently references
+-- public.users(id); that table does not exist in the separate archive DB.
+-- This minimal principal table resolves the foreign keys WITHOUT copying
+-- names, emails, contact information, passwords, sessions, CRM, or other PII.
+--
+-- Initially EMPTY: fail closed. No employees, admins or grants are active.
+-- A separate authorized, audited identity sync must later reconcile these
+-- rows with the real app on every access; do not hand-enter "is_admin=true"
+-- or treat a stale mirror as authorization.
+CREATE TABLE public.users (
+  id INTEGER PRIMARY KEY CHECK (id > 0),
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+  role TEXT NOT NULL DEFAULT 'inactive' CHECK (role IN ('inactive', 'sub_agent', 'admin')),
+  verified_at TIMESTAMPTZ,
+  CHECK (NOT is_admin OR role = 'admin')
+);
+
+COMMENT ON TABLE public.users IS
+  'Minimal non-PII app identity mirror for archive foreign keys; not an authentication authority';
+
+-- No seed records, triggers, accounts or privileges are created here.
+-- Never run against the main Kinglike app database, where users already exists.
