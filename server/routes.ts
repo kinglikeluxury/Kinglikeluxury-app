@@ -3,7 +3,6 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
-import bcrypt from "bcrypt";
 import { hashAccountPassword, verifyAccountPassword } from "./passwordSecurity";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
@@ -1449,7 +1448,7 @@ ${metaTags}
         return res.status(400).json({ message: "Code and new password are required" });
       }
       if (typeof newPassword !== 'string' || newPassword.length < 8) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
       }
 
       const INVALID = { message: "Invalid or expired verification code" };
@@ -1495,7 +1494,7 @@ ${metaTags}
         return res.status(400).json({ message: "Username must be at least 3 characters" });
       }
       if (!password || typeof password !== 'string' || password.length < 8) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
       }
 
       // Check username uniqueness
@@ -6836,9 +6835,9 @@ ${metaTags}
     try {
       const { username, email, password } = req.body;
       if (!username?.trim()) return res.status(400).json({ message: "Username is required" });
-      if (!password || password.length < 6)
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
-      const hashedPassword = await bcrypt.hash(password, 10);
+      if (typeof password !== "string" || password.length < 8)
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      const hashedPassword = await hashAccountPassword(password);
       const agent = await storage.createUser({
         username: username.trim(),
         password: hashedPassword,
