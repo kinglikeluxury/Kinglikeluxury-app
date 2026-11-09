@@ -61,6 +61,7 @@ import { registerWhatsappEmployeeWebhook } from "./whatsappEmployeeWebhook";
 import { createMetaTestWebhookRoutes } from "./metaTestWebhook";
 import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRoutes";
 import { registerStagingWhatsappOnboardingRoutes } from "./whatsappStagingOnboardingRoutes";
+import { createStagingMetaOnboardingVerifier } from "./whatsappStagingMetaVerifier";
 import {
   isStagingMode,
   stagingExternalHttpMiddleware,
@@ -290,11 +291,12 @@ app.use((req, res, next) => {
       return user?.isAdmin && user.isActive ? actorId : null;
     },
   });
-  // Staging-only and disabled by default. No live verifier is injected here,
-  // so all real employee onboarding endpoints return 404 in this release.
-  // A separately reviewed release must wire Meta Graph verification.
+  // Staging-only: real Meta Graph proof verifier is inert unless every
+  // independent business/app/phone, notice, owner-approval and DB isolation
+  // gate is satisfied. Default remains 404; no number is activated here.
   registerStagingWhatsappOnboardingRoutes(app, {
     db: pool,
+    verifier: createStagingMetaOnboardingVerifier(),
     authorizeAdmin: async (req) => {
       const actorId = Number(req.session?.userId);
       if (!Number.isSafeInteger(actorId) || actorId <= 0 || req.session?.isAdmin !== true) return null;
