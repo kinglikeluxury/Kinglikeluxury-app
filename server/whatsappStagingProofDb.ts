@@ -74,7 +74,12 @@ export async function openWhatsappStagingProofDb(
       ssl: false, // Railway private-network PostgreSQL; no public endpoint.
     }) as ProofDbClient,
 ): Promise<ProofDbClient | null> {
-  if (!stagingSignupPolicy(env)) return null;
+  // Diagnostic-only preflight can verify the dedicated DB without approving
+  // Meta onboarding, employee consent, phone linking, or any message ingestion.
+  // The verified-signup routes still require their independent policy/verifier.
+  const diagnosticOnly = env.APP_DEPLOYMENT_MODE === "staging" &&
+    env.WHATSAPP_STAGING_PROOF_PREFLIGHT_ENABLED === "true";
+  if (!diagnosticOnly && !stagingSignupPolicy(env)) return null;
   const config = resolveWhatsappProofDbConfig(env);
   if (!config) return null;
 
