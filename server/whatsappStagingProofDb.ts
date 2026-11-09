@@ -81,10 +81,18 @@ export async function openWhatsappStagingProofDb(
   let pool: ProofDbClient | undefined;
   try {
     pool = poolFactory(config);
-    const identity = await pool.query("SELECT current_database() AS database_name, current_user AS runtime_role");
+    const identity = await pool.query(
+      "SELECT current_database() AS database_name, current_user AS runtime_role, " +
+      "(SELECT rolsuper FROM pg_roles WHERE rolname=current_user) AS is_superuser, " +
+      "(SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname=current_database()) AS database_owner",
+    );
     const name = String(identity.rows[0]?.database_name ?? "").toLowerCase();
     const role = String(identity.rows[0]?.runtime_role ?? "");
-    if (name !== config.expectedName || !role || role === "postgres") throw new Error("DB identity");
+    if (name !== config.expectedName || !role || role === "postgres" ||
+        identity.rows[0]?.is_superuser !== false ||
+        role === String(identity.rows[0]?.database_owner ?? "")) {
+      throw new Error("Dedicated DB runtime role is not least-privilege");
+    }
 
     const tables = await pool.query(
       "SELECT tablename, tableowner FROM pg_tables WHERE schemaname='kinglike_whatsapp' ORDER BY tablename",
@@ -98,11 +106,16 @@ export async function openWhatsappStagingProofDb(
 
     const grants = await pool.query(
       "SELECT has_schema_privilege(current_user, 'kinglike_whatsapp', 'USAGE') AS schema_usage, " +
-      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_flows', 'SELECT, INSERT, UPDATE') AS flow_access, " +
-      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_proofs', 'SELECT, INSERT, UPDATE') AS proof_access",
+      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_flows', 'SELECT') AS flow_select, " +
+      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_flows', 'INSERT') AS flow_insert, " +
+      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_flows', 'UPDATE') AS flow_update, " +
+      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_proofs', 'SELECT') AS proof_select, " +
+      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_proofs', 'INSERT') AS proof_insert, " +
+      "has_table_privilege(current_user, 'kinglike_whatsapp.whatsapp_onboarding_proofs', 'UPDATE') AS proof_update",
     );
-    if (grants.rows[0]?.schema_usage !== true ||
-        grants.rows[0]?.flow_access !== true || grants.rows[0]?.proof_access !== true) {
+    const grantNames = ["schema_usage", "flow_select", "flow_insert", "flow_update",
+      "proof_select", "proof_insert", "proof_update"] as const;
+    if (grantNames.some(name => grants.rows[0]?.[name] !== true)) {
       throw new Error("Runtime grants are missing");
     }
     return pool;
