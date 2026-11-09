@@ -1,0 +1,63 @@
+name: WhatsApp isolated PostgreSQL proof schema and signup
+
+on:
+  push:
+    paths:
+      - "docs/sql/2026-11-08-whatsapp-onboarding-proof.sql.txt"
+      - "server/whatsappMetaOnboardingHttp.integration.test.ts"
+      - "server/whatsappStagingOnboardingRoutes.ts"
+      - "server/whatsappStagingOnboardingRoutes.test.ts"
+      - "server/whatsappMetaOnboardingProof.ts"
+      - ".github/workflows/whatsapp-isolated-postgres-migration-ci.yml"
+  pull_request:
+    paths:
+      - "docs/sql/2026-11-08-whatsapp-onboarding-proof.sql.txt"
+      - "server/whatsappMetaOnboardingHttp.integration.test.ts"
+      - "server/whatsappStagingOnboardingRoutes.ts"
+      - "server/whatsappStagingOnboardingRoutes.test.ts"
+      - "server/whatsappMetaOnboardingProof.ts"
+      - ".github/workflows/whatsapp-isolated-postgres-migration-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-schema-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-ci-password-not-for-real-databases
+          POSTGRES_DB: wa_onboarding_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d wa_onboarding_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NODE_ENV: test
+      APP_DEPLOYMENT_MODE: test
+      WHATSAPP_META_ONBOARDING_ENABLED: "true"
+      WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+      WHATSAPP_META_ONBOARDING_TEST_DATABASE_URL: postgresql://postgres:synthetic-ci-password-not-for-real-databases@127.0.0.1:5432/wa_onboarding_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate actual PostgreSQL onboarding migrations, replay and sessions
+        run: node --import tsx --test server/whatsappMetaOnboardingHttp.integration.test.ts server/whatsappMetaOnboardingProof.test.ts
+      - name: Validate disabled staging routes, phone allowlist and log suppression
+        run: node --import tsx --test server/whatsappStagingOnboardingRoutes.test.ts server/apiResponseLogPolicy.test.ts
+      - name: Build application with employee access off
+        env:
+          WHATSAPP_META_ONBOARDING_ENABLED: "false"
+        run: npm run build
