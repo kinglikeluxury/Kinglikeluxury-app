@@ -63,6 +63,7 @@ import { registerWhatsappMetaOnboardingRoutes } from "./whatsappMetaOnboardingRo
 import { registerStagingWhatsappOnboardingRoutes } from "./whatsappStagingOnboardingRoutes";
 import { createStagingMetaOnboardingVerifier } from "./whatsappStagingMetaVerifier";
 import { openWhatsappStagingProofDb } from "./whatsappStagingProofDb";
+import { registerWhatsappOperationsStatusRoutes } from "./whatsappOperationsStatusRoutes";
 import { runSyntheticWhatsappProofE2E } from "./whatsappStagingSyntheticProofE2E";
 import {
   isStagingMode,
@@ -314,6 +315,15 @@ app.use((req, res, next) => {
       ? "[WhatsApp] isolated proof DB preflight OK; real enrollment still disabled"
       : "[WhatsApp] isolated proof DB preflight BLOCKED; real enrollment disabled");
   }
+  registerWhatsappOperationsStatusRoutes(app, {
+    proofDb: whatsappProofDb,
+    authorizeAdmin: async req => {
+      const actorId = Number(req.session?.userId);
+      if (!Number.isSafeInteger(actorId) || actorId <= 0 || req.session?.isAdmin !== true) return null;
+      const user = await storage.getUser(actorId);
+      return user?.isAdmin && user.isActive ? actorId : null;
+    },
+  });
   registerStagingWhatsappOnboardingRoutes(app, {
     db: whatsappProofDb ?? {
       query: async () => { throw new Error("WhatsApp proof database is unavailable"); },
