@@ -167,14 +167,20 @@ test("isolated PostgreSQL durable inbox: HMAC, idempotence, encryption, retry, l
     await t.test("expired worker lease is reclaimed and concurrent consumers do not double-claim",async () => {
       const raw=syntheticRaw("m-lease");
       await inbox.enqueueSigned(raw,signature(raw),scope);
+      const leaseBefore=await pool.query("SELECT id FROM "+inboxTable+
+        " WHERE status='pending'");
+      assert.equal(leaseBefore.rowCount,1);
+      const id=leaseBefore.rows[0].id;
       await pool.query("UPDATE "+inboxTable+
         " SET status='processing',lease_token='11111111-1111-4111-8111-111111111111',"+
-        " locked_until=now()-interval '1 second',attempt_count=1 WHERE status='pending'");
+        " locked_until=now()-interval '1 second',attempt_count=1 WHERE id=$1",[id]);
       const result=await Promise.all([inbox.processOne(),inbox.processOne()]);
       assert.deepEqual(result.sort(),["empty","processed"].sort());
       const lease=await pool.query("SELECT status,attempt_count FROM "+inboxTable+
-        " WHERE status='processed' AND attempt_count=2");
+        " WHERE id=$1",[id]);
       assert.equal(lease.rowCount,1);
+      assert.equal(lease.rows[0].status,"processed");
+      assert.equal(lease.rows[0].attempt_count,2);
     });
 
     await t.test("errors never persist raw message text in worker error classifications",async () => {
