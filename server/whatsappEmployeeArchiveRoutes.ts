@@ -518,7 +518,8 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
         return res.sendStatus(403);
       }
       const rows = await client.query(
-        `SELECT id,event_kind,direction,event_status,message_type,message_text,related_message_id,occurred_at,received_at
+        `SELECT id,event_kind,direction,event_status,message_type,message_text,related_message_id,occurred_at,received_at,
+                  media_mime_type,media_size_bytes,media_sha256
            FROM whatsapp_employee_events
            WHERE conversation_id=$1 ORDER BY received_at ASC,id ASC LIMIT 500`,
         [conversationId],
