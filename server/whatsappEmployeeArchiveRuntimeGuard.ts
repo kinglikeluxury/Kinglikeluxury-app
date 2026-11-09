@@ -148,7 +148,8 @@ export function inspectEmployeeArchiveReadiness(
   if (!checks.databaseGrants) blockers.push("archive_schema_or_grants_not_verified");
   const status = env.APP_DEPLOYMENT_MODE !== "staging" || !checks.runtimeFlag
     ? "disabled"
-    : blockers.length ? "blocked" : "configured_not_verified";
+    : blockers.length === 1 && blockers[0] === "archive_schema_or_grants_not_verified"
+      ? "configured_not_verified" : "blocked";
 
   const publicSummary: SafeArchiveReadiness = {
     status, blockers, checks,
@@ -217,4 +218,39 @@ export async function verifyEmployeeArchiveDatabaseGrants(
     // Never log host, secrets, SQL error or identity details.
     return false;
   }
+}
+
+
+/**
+ * The audit writer is an independent INSERT-ONLY role, not the archive worker.
+ * A valid archive-worker preflight MUST also verify this audit connection.
+ */
+export async function verifyEmployeeArchiveAuditRole(
+  query: (sql: string) => Promise<{ rows: Array<Record<string, unknown>> }>,
+  expectedDatabase: string,
+): Promise<boolean> {
+  try {
+    const identity = await query(
+      "SELECT current_database() AS database_name, current_user AS audit_role, " +
+      "(SELECT rolsuper FROM pg_roles WHERE rolname=current_user) AS is_superuser, " +
+      "(SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname=current_database()) AS db_owner",
+    );
+    const role = identity.rows[0] ?? {};
+    if (role.database_name !== expectedDatabase || !role.audit_role ||
+        role.audit_role === role.db_owner || role.audit_role === "postgres" ||
+        role.is_superuser !== false) return false;
+    const privilege = await query(
+      "SELECT " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','INSERT') AS can_insert, " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','SELECT') AS can_select, " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','UPDATE') AS can_update, " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','DELETE') AS can_delete, " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','TRUNCATE') AS can_truncate, " +
+      "EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='whatsapp_employee_access_audit'::regclass " +
+      "AND tgname='whatsapp_employee_access_audit_immutable' AND tgenabled='O') AS immutable_trigger",
+    );
+    const p = privilege.rows[0] ?? {};
+    return p.can_insert === true && p.immutable_trigger === true &&
+      ["can_select","can_update","can_delete","can_truncate"].every(key=>p[key]===false);
+  } catch { return false; }
 }
