@@ -295,6 +295,12 @@ app.use((req, res, next) => {
   // Only a separately authenticated, least-privilege proof DB is eligible.
   // Never fall back to pool (the regular application database).
   const whatsappProofDb = await openWhatsappStagingProofDb();
+  if (isStagingMode() && process.env.WHATSAPP_STAGING_PROOF_PREFLIGHT_ENABLED === "true") {
+    // Deliberately log only the yes/no result; never credentials, SQL, or IDs.
+    log(whatsappProofDb
+      ? "[WhatsApp] isolated proof DB preflight OK; real enrollment still disabled"
+      : "[WhatsApp] isolated proof DB preflight BLOCKED; real enrollment disabled");
+  }
   registerStagingWhatsappOnboardingRoutes(app, {
     db: whatsappProofDb ?? {
       query: async () => { throw new Error("WhatsApp proof database is unavailable"); },
