@@ -54,7 +54,7 @@ export function createStagingMetaOnboardingVerifier(
   );
 
   return {
-    exchangeAndVerify(input) {
+    async exchangeAndVerify(input) {
       if (input.businessPortfolioId !== APPROVED_PORTFOLIO_ID ||
           input.displayPhoneNumber !== env.WHATSAPP_STAGING_APPROVED_EMPLOYEE_PHONE) {
         throw new Error("Unapproved company portfolio or employee phone");
