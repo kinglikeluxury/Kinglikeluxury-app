@@ -87,12 +87,12 @@ test("synthetic verified flow is CSRF, origin, admin, portfolio and phone scoped
   let verifierCalls = 0;
   const fakeDb = {
     async query(sql: string, values: any[] = []) {
-      if (sql.startsWith("INSERT INTO whatsapp_onboarding_flows")) {
+      if (sql.startsWith("INSERT INTO kinglike_whatsapp.whatsapp_onboarding_flows")) {
         row.set(values[0], { actorId: values[1], sessionHash: values[2], origin: values[3],
           stateHash: values[4], csrfHash: values[5], expiresAt: values[6], consumed: false });
         return { rowCount: 1, rows: [] };
       }
-      if (sql.startsWith("UPDATE whatsapp_onboarding_flows")) {
+      if (sql.startsWith("UPDATE kinglike_whatsapp.whatsapp_onboarding_flows")) {
         const flow = row.get(values[0]);
         if (!flow || flow.consumed || flow.actorId !== values[1] ||
             flow.sessionHash !== values[2] || flow.origin !== values[3] ||
@@ -101,7 +101,7 @@ test("synthetic verified flow is CSRF, origin, admin, portfolio and phone scoped
         return { rows: [{ flow_id: values[0], actor_id: flow.actorId,
           origin: flow.origin, consumed_at: new Date() }], rowCount: 1 };
       }
-      if (sql.startsWith("INSERT INTO whatsapp_onboarding_proofs")) {
+      if (sql.startsWith("INSERT INTO kinglike_whatsapp.whatsapp_onboarding_proofs")) {
         saved.push(values);
         return { rowCount: 1, rows: [] };
       }
