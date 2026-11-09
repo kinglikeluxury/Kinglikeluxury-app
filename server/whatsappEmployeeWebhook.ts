@@ -217,101 +217,12 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
          event_status, message_type, message_text, source_field, occurred_at, related_message_id,
          media_mime_type, media_size_bytes, media_sha256)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-         CASE WHEN $11::text ~ '^[0-9]+
+         CASE WHEN $11::text ~ '^[0-9]+$' THEN to_timestamp($11::double precision) ELSE NULL END,
+         $12,$13,$14,$15)
        ON CONFLICT (meta_event_key) DO NOTHING RETURNING id`,
       [conversation.rows[0].id, employeeId, event.eventKey, event.metaMessageId, event.kind,
        event.direction,event.eventStatus,event.messageType,event.text,event.sourceField,event.occurredAt,event.relatedMessageId,
        event.mediaMimeType,event.mediaSizeBytes,event.mediaSha256],
-    );
-    if (!saved.rowCount) {
-      const winner = await client.query(
-        `SELECT e.employee_id,c.phone_number_id,c.waba_id,c.contact_wa_id,c.contact_user_id
-           FROM whatsapp_employee_events e JOIN whatsapp_employee_conversations c ON c.id=e.conversation_id
-          WHERE e.meta_event_key=$1`,
-        [event.eventKey],
-      );
-      const row = winner.rows[0];
-      const sameIdentity = !!row && Number(row.employee_id) === employeeId &&
-        row.phone_number_id === event.phoneNumberId && row.waba_id === event.wabaId &&
-        row.contact_wa_id === event.contactWaId &&
-        (!row.contact_user_id || !event.contactUserId || row.contact_user_id === event.contactUserId);
-      if (!sameIdentity) {
-        await client.query("ROLLBACK");
-        return "identity_mismatch";
-      }
-    }
-    await client.query(
-      `INSERT INTO whatsapp_employee_audit (employee_id, action, phone_number_id, waba_id, meta_event_key, outcome)
-       VALUES ($1, 'webhook_event', $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
-      [employeeId, event.phoneNumberId, event.wabaId, event.eventKey, saved.rowCount ? "stored" : "duplicate"],
-    );
-    await client.query("COMMIT");
-    return saved.rowCount ? "stored" : "duplicate";
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-let testOnlyPool: pg.Pool | undefined;
-export async function closeWhatsappEmployeeWebhookTestPool(): Promise<void> {
-  if (!testOnlyPool) return;
-  const pool = testOnlyPool;
-  testOnlyPool = undefined;
-  await pool.end();
-}
-
-function getTestOnlyPool(): pg.Pool {
-  if (process.env.NODE_ENV !== "test") {
-    throw new Error("Employee WhatsApp ingestion is restricted to isolated test processes.");
-  }
-  const connectionString = process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL;
-  if (!connectionString) throw new Error("Dedicated WhatsApp employee test database is not configured.");
-  const parsed = new URL(connectionString);
-  const databaseName = parsed.pathname.replace(/^\//, "").toLowerCase();
-  const loopback = ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
-  if (!loopback || !/(^|[_-])(test|testing)([_-]|$)/.test(databaseName)) {
-    throw new Error("WhatsApp employee tests require a loopback database with a test-only name.");
-  }
-  return testOnlyPool ??= new pg.Pool({ connectionString, max: 1, connectionTimeoutMillis: 1500 });
-}
-
-export function registerWhatsappEmployeeWebhook(app: Express): void {
-  app.get(PATH, (req, res) => {
-    if (!enabled()) return res.sendStatus(404);
-    const verifyToken = process.env.WHATSAPP_EMPLOYEE_WEBHOOK_VERIFY_TOKEN;
-    if (!verifyToken || req.query["hub.mode"] !== "subscribe" || req.query["hub.verify_token"] !== verifyToken) {
-      return res.sendStatus(403);
-    }
-    return res.status(200).type("text/plain").send(String(req.query["hub.challenge"] ?? ""));
-  });
-
-  app.post(PATH, async (req: any, res) => {
-    if (!enabled()) return res.sendStatus(404);
-    const secret = process.env.WHATSAPP_EMPLOYEE_META_APP_SECRET;
-    if (!secret || !Buffer.isBuffer(req.rawBody) ||
-        !verifyWhatsappSignature(req.rawBody, req.get("x-hub-signature-256"), secret)) {
-      return res.sendStatus(401);
-    }
-    let payload: unknown;
-    try { payload = JSON.parse(req.rawBody.toString("utf8")); }
-    catch { return res.sendStatus(400); }
-    const events = normalizeWhatsappWebhook(payload);
-    try {
-      for (const event of events) await persistEvent(event);
-      return res.status(200).send("EVENT_RECEIVED");
-    } catch {
-      return res.sendStatus(500);
-    }
-  });
-}
- THEN to_timestamp($11::double precision) ELSE NULL END,
-         $12,$13,$14,$15)
-       ON CONFLICT (meta_event_key) DO NOTHING RETURNING id`,
-      [conversation.rows[0].id, employeeId, event.eventKey, event.metaMessageId, event.kind,
-       event.direction,event.eventStatus,event.messageType,event.text,event.sourceField,event.occurredAt,event.relatedMessageId],
     );
     if (!saved.rowCount) {
       const winner = await client.query(
