@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   inspectEmployeeArchiveReadiness,
   verifyEmployeeArchiveDatabaseGrants,
+  verifyEmployeeArchiveAuditRole,
 } from "./whatsappEmployeeArchiveRuntimeGuard";
 
 const key = (byte: number) => Buffer.alloc(32,byte).toString("base64");
@@ -141,4 +142,26 @@ test("separate archive DB role must not be owner and must be unable to mutate ar
     fakeDb(identity,tables,grants).query,"neondb"),false);
   assert.equal(await verifyEmployeeArchiveDatabaseGrants(
     async () => {throw new Error("secret database connection refused");},"whatsapp_archive"),false);
+});
+
+
+test("audit role must be non-owner, insert-only and protected by immutable trigger",async () => {
+  const current = {database_name:"whatsapp_archive",audit_role:"auditwriter",
+    is_superuser:false,db_owner:"db_owner"};
+  const p = {can_insert:true,can_select:false,can_update:false,
+    can_delete:false,can_truncate:false,immutable_trigger:true};
+  const reader = (values: Array<Record<string,unknown>>) => {
+    let i=0;
+    return async (sql: string) => {
+      assert.ok(sql.trim().startsWith("SELECT"));
+      return {rows:[values[i++]]};
+    };
+  };
+  assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,p]),"whatsapp_archive"),true);
+  assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,{...p,can_select:true}]),"whatsapp_archive"),false);
+  assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,{...p,can_update:true}]),"whatsapp_archive"),false);
+  assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,{...p,immutable_trigger:false}]),"whatsapp_archive"),false);
+  assert.equal(await verifyEmployeeArchiveAuditRole(reader([{...current,audit_role:"db_owner"},p]),"whatsapp_archive"),false);
+  assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,p]),"kinglike_staging"),false);
+  assert.equal(await verifyEmployeeArchiveAuditRole(async () => {throw Error("SQL secrets");},"whatsapp_archive"),false);
 });
