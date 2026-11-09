@@ -23,6 +23,7 @@ function rows(value: unknown): Array<Record<string, unknown>> {
 export function createMetaGraphOnboardingVerifier(
   config: MetaGraphVerifierConfig,
   graphFetch: GraphFetch = fetch,
+  assertGraphAllowed: () => void = () => assertExternalGatewayAllowed("meta"),
 ): MetaOnboardingVerifier {
   if (!validConfig(config)) throw new Error("Meta Graph verifier configuration is invalid");
   const base = `https://graph.facebook.com/${config.graphApiVersion}`;
@@ -40,7 +41,9 @@ export function createMetaGraphOnboardingVerifier(
 
   return {
     async exchangeAndVerify(input): Promise<MetaOnboardingProof> {
-      assertExternalGatewayAllowed("meta");
+      // Dedicated staging proof verification can supply a narrower, explicit
+      // release-time guard. All other callers retain the global egress block.
+      assertGraphAllowed();
       if (!/^\d{5,80}$/.test(input.businessPortfolioId) ||
           !/^\d{5,80}$/.test(input.wabaId) || !/^\d{5,80}$/.test(input.phoneNumberId)) {
         throw new Error("Meta verification unavailable");
