@@ -100,3 +100,23 @@ test("missing required permission, ownership proof, Coexistence proof, and dupli
   await assert.rejects(acceptMetaOnboardingFinish(f.input),
     (error: unknown) => error instanceof MetaOnboardingRejected && error.code === "DUPLICATE_OWNERSHIP");
 });
+
+test("Coexistence can omit browser phone ID but must verify exact server-returned phone", async () => {
+  const f = fixture();
+  const input = {
+    ...f.input,
+    finish: { ...f.input.finish, phoneNumberId: undefined },
+  };
+  assert.deepEqual(await acceptMetaOnboardingFinish(input), {
+    status: "verified_pending_activation",
+    phoneNumberId: proof.phoneNumberId,
+  });
+  assert.equal(f.saved, 1);
+  const bad = fixture();
+  bad.input.verifier.exchangeAndVerify = async () => ({ ...proof, phoneNumberId: "INVALID" });
+  await assert.rejects(acceptMetaOnboardingFinish({
+    ...bad.input,
+    finish: { ...bad.input.finish, phoneNumberId: undefined },
+  }), (e: unknown) => e instanceof MetaOnboardingRejected && e.code === "META_PROOF_FAILED");
+  assert.equal(bad.saved, 0);
+});

@@ -34,7 +34,7 @@ export interface MetaOnboardingVerifier {
     code: string;
     businessPortfolioId: string;
     wabaId: string;
-    phoneNumberId: string;
+    phoneNumberId?: string;
     displayPhoneNumber: string;
   }): Promise<MetaOnboardingProof>;
 }
@@ -68,7 +68,7 @@ export async function acceptMetaOnboardingFinish(input: {
   enabled: boolean;
   finish: {
     flowId: string; state: string; code: string; businessPortfolioId: string; wabaId: string;
-    phoneNumberId: string; displayPhoneNumber: string;
+    phoneNumberId?: string; displayPhoneNumber: string;
   };
   actorId: number;
   sessionHash: string;
@@ -84,7 +84,8 @@ export async function acceptMetaOnboardingFinish(input: {
       typeof finish.state !== "string" || finish.state.length < 32 ||
       typeof input.csrfToken !== "string" || input.csrfToken.length < 32 ||
       typeof input.sessionHash !== "string" || !/^[a-f0-9]{64}$/.test(input.sessionHash) ||
-      !ID.test(finish.businessPortfolioId) || !ID.test(finish.wabaId) || !ID.test(finish.phoneNumberId) ||
+      !ID.test(finish.businessPortfolioId) || !ID.test(finish.wabaId) ||
+      (finish.phoneNumberId !== undefined && !ID.test(finish.phoneNumberId)) ||
       !E164.test(finish.displayPhoneNumber) || !Number.isSafeInteger(input.actorId) || input.actorId <= 0) {
     throw new MetaOnboardingRejected("INVALID_FINISH");
   }
@@ -117,7 +118,8 @@ export async function acceptMetaOnboardingFinish(input: {
   }
   const permissions = new Set(proof.grantedPermissions);
   if (!proof.ownershipVerified || proof.businessPortfolioId !== finish.businessPortfolioId ||
-      proof.wabaId !== finish.wabaId || proof.phoneNumberId !== finish.phoneNumberId ||
+      proof.wabaId !== finish.wabaId || !ID.test(proof.phoneNumberId) ||
+      (finish.phoneNumberId !== undefined && proof.phoneNumberId !== finish.phoneNumberId) ||
       proof.displayPhoneNumber !== finish.displayPhoneNumber || proof.coexistence !== "verified" ||
       REQUIRED_PERMISSIONS.some(permission => !permissions.has(permission))) {
     throw new MetaOnboardingRejected("META_PROOF_FAILED");

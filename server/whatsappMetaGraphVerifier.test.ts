@@ -83,3 +83,49 @@ test("Graph adapter rejects unconfigured or malformed API versions without makin
     throw new Error("must not call network");
   }));
 });
+
+test("Coexistence missing phone ID is discovered only from exactly one verified WABA number", async () => {
+  const fixture = graphFixture();
+  const verifier = createMetaGraphOnboardingVerifier(config, fixture.graphFetch);
+  const proof = await verifier.exchangeAndVerify({ ...input, phoneNumberId: undefined });
+  assert.equal(proof.phoneNumberId, input.phoneNumberId);
+  assert.equal(proof.displayPhoneNumber, input.displayPhoneNumber);
+  assert.equal(proof.coexistence, "verified");
+  assert.equal(fixture.requests.length, 5);
+  assert.equal(fixture.requests[4].url.pathname, "/v27.0/" + input.phoneNumberId);
+});
+
+test("Coexistence discovery rejects mismatched WABA numbers, duplicates or unverified phone", async () => {
+  for (const bad of ["wrong-number", "duplicate", "coexistence-disabled", "wrong-portfolio"]) {
+    const graphFetch = async (request: string | URL) => {
+      const url = new URL(String(request));
+      let result: unknown;
+      if (url.pathname.endsWith("/oauth/access_token")) {
+        result = { access_token: "synthetic-business-token-never-persisted" };
+      } else if (url.pathname.endsWith("/debug_token")) {
+        result = { data: { is_valid: true, app_id: config.appId, scopes: requiredScopes } };
+      } else if (url.pathname.endsWith("/client_whatsapp_business_accounts")) {
+        result = { data: [{ id: bad === "wrong-portfolio" ? "999999" : input.wabaId }] };
+      } else if (url.pathname.endsWith("/phone_numbers")) {
+        const row = {
+          id: input.phoneNumberId,
+          display_phone_number: bad === "wrong-number" ? "+995555000002" : input.displayPhoneNumber,
+        };
+        result = { data: bad === "duplicate" ? [row, { ...row, id: "999998888" }] : [row] };
+      } else if (url.pathname.endsWith("/" + input.phoneNumberId)) {
+        result = { id: input.phoneNumberId, display_phone_number: input.displayPhoneNumber,
+          is_on_biz_app: bad !== "coexistence-disabled", platform_type: "CLOUD_API" };
+      } else {
+        throw Error("Unexpected synthetic Graph request");
+      }
+      return new Response(JSON.stringify(result), { status: 200 });
+    };
+    const verifier = createMetaGraphOnboardingVerifier(config, graphFetch);
+    await assert.rejects(verifier.exchangeAndVerify({ ...input, phoneNumberId: undefined }), bad);
+  }
+});
+
+test("Browser-supplied incorrect phone ID cannot override Meta's trusted ID", async () => {
+  const verifier = createMetaGraphOnboardingVerifier(config, graphFixture().graphFetch);
+  await assert.rejects(verifier.exchangeAndVerify({ ...input, phoneNumberId: "999998888" }));
+});

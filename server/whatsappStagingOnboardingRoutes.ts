@@ -71,7 +71,8 @@ function finishBodyValid(value: unknown, policy: NonNullable<ReturnType<typeof s
   const x = value as Record<string, unknown>;
   return x.businessPortfolioId === policy.approvedPortfolio &&
     x.displayPhoneNumber === policy.approvedPhone &&
-    ID.test(String(x.wabaId ?? "")) && ID.test(String(x.phoneNumberId ?? ""));
+    ID.test(String(x.wabaId ?? "")) &&
+    (x.phoneNumberId === undefined || (typeof x.phoneNumberId === "string" && ID.test(x.phoneNumberId)));
 }
 
 /** SQL stays manual; no migration or table creation is performed here. */
