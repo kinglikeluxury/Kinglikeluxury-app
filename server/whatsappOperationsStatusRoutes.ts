@@ -1,5 +1,6 @@
 import type { Express, Request } from "express";
 import pg from "pg";
+import { identitySyncRuntimeConfig } from "./whatsappEmployeeIdentitySyncRuntime";
 import { inspectEmployeeArchiveReadiness, verifyEmployeeArchiveDatabaseGrants, verifyEmployeeArchiveAuditRole } from "./whatsappEmployeeArchiveRuntimeGuard";
 import type { ProofDbClient } from "./whatsappStagingProofDb";
 import { metaTestWebhookConfig } from "./metaTestWebhook";
@@ -13,6 +14,7 @@ export type WhatsappOperationsReadiness = {
   testWebhook: "configured" | "not_configured";
   realEnrollment: "disabled" | "awaiting_separate_review";
   employeeMonitoring: "disabled";
+  identitySyncRuntime: "disabled" | "configured_not_running";
   employeeNumbersConnected: "not_verified";
   previousSyntheticResults: "see_ci_logs";
   nextStep: "meta_eligibility_and_privacy_review";
@@ -136,6 +138,9 @@ export function registerWhatsappOperationsStatusRoutes(
       realEnrollment: env.WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED === "true"
         ? "awaiting_separate_review" : "disabled",
       employeeMonitoring: "disabled",
+      // A private config alone never starts a worker or verifies consent.
+      identitySyncRuntime: identitySyncRuntimeConfig(env)
+        ? "configured_not_running" : "disabled",
       employeeNumbersConnected: "not_verified",
       previousSyntheticResults: "see_ci_logs",
       nextStep: "meta_eligibility_and_privacy_review",
