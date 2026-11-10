@@ -11,6 +11,7 @@ export type WhatsappOperationsStatus = {
   testWebhook: "configured" | "not_configured";
   realEnrollment: "disabled" | "awaiting_separate_review";
   employeeMonitoring: "disabled";
+  identitySyncRuntime: "disabled" | "configured_not_running";
   employeeNumbersConnected: "not_verified";
   previousSyntheticResults: "see_ci_logs";
   nextStep: "meta_eligibility_and_privacy_review";
@@ -194,6 +195,11 @@ export default function WhatsappEmployeeOperationsPage() {
             <SafeCard title="مراقبة المحادثات الفعلية"
               good={false} value="غير مفعّلة"
               detail="لا توجد صلاحية لقراءة محادثات سامر أو غيره عبر هذه الصفحة." />
+            <SafeCard title="مزامنة هويات الموظفين"
+              good={false}
+              value={status?.identitySyncRuntime === "configured_not_running"
+                ? "الإعدادات مهيأة — غير مشغّلة" : "مقفلة حالياً"}
+              detail="لا يوجد تشغيل دوري أو اتصال بهويات الموظفين حالياً. سحب الموافقة يوقف صلاحية الأرشيف عند تطبيقه عبر المصدر المعتمد." />
           </div>
         </section>
 
