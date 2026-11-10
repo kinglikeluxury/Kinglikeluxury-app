@@ -193,10 +193,21 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
     const db=await deps.db.connect();
     try{
       await verifyRole(db);
+      // A repeatedly crashing worker can leave an expired 'processing' lease
+      // without executing retry(). Do not re-claim that row indefinitely.
+      // Finalize exhausted abandoned leases without ever deleting ciphertext.
+      await db.query(
+        "UPDATE "+TABLE+" SET status='dead_letter',locked_until=NULL,"+
+        "lease_token=NULL,last_error_class=COALESCE(last_error_class,'IMPORT_FAILED')"+
+        " WHERE attempt_count >= $1 AND ("+
+        " (status IN ('pending','retry') AND available_at<=NOW()) OR"+
+        " (status='processing' AND locked_until<NOW()))",
+        [maxAttempts],
+      );
       const token=randomUUID();
       const r=await db.query([
         "WITH next_job AS (SELECT id FROM "+TABLE,
-        "WHERE ((status IN ('pending','retry') AND available_at<=NOW())",
+        "WHERE attempt_count<$3 AND ((status IN ('pending','retry') AND available_at<=NOW())",
         " OR (status='processing' AND locked_until<NOW()))",
         "ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)",
         "UPDATE "+TABLE+" h SET status='processing',attempt_count=h.attempt_count+1,",
@@ -205,7 +216,7 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
         "h.waba_id,h.phone_number_id,h.chunk_key,h.content_digest,h.kind,",
         "h.payload_ciphertext,h.payload_iv,h.payload_tag,h.lease_token,h.attempt_count,",
         "h.phase,h.chunk_order,h.progress,h.thread_count,h.message_count",
-      ].join(" "),[token,leaseSeconds]);
+      ].join(" "),[token,leaseSeconds,maxAttempts]);
       return (r.rows[0] as Job|undefined)??null;
     }finally{db.release();}
   }
