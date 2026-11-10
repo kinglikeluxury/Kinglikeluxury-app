@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import pg from "pg";
 import { readFile } from "node:fs/promises";
 import { assertWhatsappEmployeeAuditWriter } from "./whatsappEmployeeAccessAudit";
+import { syncOneVerifiedArchivePrincipal } from "./whatsappEmployeeIdentityMirror";
 
 const url=process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL;
 
@@ -92,6 +93,34 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
       await auditRoleClient.query("ROLLBACK");
     }finally{
       auditRoleClient.release();
+    }
+
+    // Exercise the real isolated NOLOGIN identity-sync role without enabling
+    // credentials or retaining any identities after transaction ROLLBACK.
+    const mirrorClient=await pool.connect();
+    try{
+      await mirrorClient.query("BEGIN");
+      await mirrorClient.query("SET LOCAL ROLE kinglike_wa_archive_identitysync");
+      const accepted=await syncOneVerifiedArchivePrincipal(
+        mirrorClient as any,
+        {id:501,isActive:true,isAdmin:false,role:"sub_agent"},
+        {expectedDatabase:"kinglike_whatsapp_archive",approved:true},
+      );
+      assert.equal(accepted,"eligible");
+      const revoked=await syncOneVerifiedArchivePrincipal(
+        mirrorClient as any,
+        {id:501,isActive:false,isAdmin:false,role:"sub_agent"},
+        {expectedDatabase:"kinglike_whatsapp_archive",approved:true},
+      );
+      assert.equal(revoked,"inactive");
+      const mirrorRow=await mirrorClient.query(
+        "SELECT is_active,is_admin,role FROM public.users WHERE id=501");
+      assert.deepEqual(mirrorRow.rows[0],{
+        is_active:false,is_admin:false,role:"inactive",
+      });
+      await mirrorClient.query("ROLLBACK");
+    }finally{
+      mirrorClient.release();
     }
 
     const owner=await pool.query("SELECT tableowner FROM pg_tables WHERE schemaname='public' AND tablename='whatsapp_employee_events'");
