@@ -65,3 +65,27 @@ test("archive readiness is completely hidden outside Staging",async () => {
     assert.equal(result.status,404);
   } finally { await stop(server); }
 });
+
+
+test("admin Staging operations status reports sync disabled and reveals no connection credentials",async()=>{
+  const env:NodeJS.ProcessEnv={
+    APP_DEPLOYMENT_MODE:"staging",
+    WHATSAPP_EMPLOYEE_IDENTITY_SYNC_DATABASE_URL:
+      "postgresql://unapproved:secret-value@private.railway.internal/kinglike_whatsapp_archive",
+    WHATSAPP_EMPLOYEE_IDENTITY_SYNC_ENABLED:"false",
+  };
+  const {server,origin}=await openTestStatus(env);
+  try {
+    const path="/api/admin/staging/whatsapp-operations-status";
+    assert.equal((await fetch(origin+path)).status,403);
+    const r=await fetch(origin+path,{headers:{"x-synthetic-admin":"yes"}});
+    assert.equal(r.status,200);
+    assert.match(r.headers.get("cache-control")??"",/no-store/);
+    const payload=await r.json() as Record<string,unknown>;
+    assert.equal(payload.employeeMonitoring,"disabled");
+    assert.equal(payload.employeeNumbersConnected,"not_verified");
+    assert.equal(payload.identitySyncRuntime,"disabled");
+    assert.ok(!JSON.stringify(payload).includes("secret-value"));
+    assert.ok(!JSON.stringify(payload).includes("unapproved"));
+  } finally {await stop(server);}
+});
