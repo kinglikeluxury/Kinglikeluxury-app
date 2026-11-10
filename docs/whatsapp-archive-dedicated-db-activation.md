@@ -33,6 +33,30 @@
   credential rotation and audited authorized retrieval. Do not use public
   media URLs or Cloudinary for employee archives.
 
+## Verified schema deployment — 10 November 2026
+
+- Owner's continuation authorized applying the reviewed schema to the separate
+  Staging archive service **Postgres-92tK** only.
+- A one-off private Railway Function, `whatsapp-archive-bootstrap-once`, ran four
+  pinned SQL artifacts inside a **single PostgreSQL transaction** with an
+  advisory lock and refused non-Staging/Neon/app/proof identity mismatches.
+- Railway migration deployment `4cad4aad-198f-4830-a3ea-b143d5efd70a`
+  concluded `SUCCESS`, with explicit marker
+  `ARCHIVE_MIGRATION_SUCCESS`. The script verified the empty identity,
+  phone, message and inbox tables; exactly four `NOLOGIN` non-superuser
+  roles; append-only event/access-audit triggers; and denial of event
+  UPDATE/DELETE privileges to the worker.
+- The temporary migration Function was **deleted** after success so it no
+  longer stores a superuser connection reference. No application service
+  was redeployed as part of this migration.
+- Independent Railway health check: archive PostgreSQL and Staging application
+  both `Online`, one replica each, zero errors/warnings; media bucket `Live`.
+  No public database endpoint was created.
+- **Live employee numbers remain unconnected and all archive data tables
+  remain empty.** Roles are still `NOLOGIN`, with no employee identity
+  synchronization or real Meta event ingress configured. No history/media
+  content has been imported.
+
 ## Existing schema mismatch addressed
 
 The prior canonical schema contains \`REFERENCES users(id)\`, and archive API
