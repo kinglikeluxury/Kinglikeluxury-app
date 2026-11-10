@@ -31,6 +31,7 @@ import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { shouldLogApiResponseBody } from "./apiResponseLogPolicy";
 import { registerWhatsappEmployeeArchiveRoutes } from "./whatsappEmployeeArchiveRoutes";
+import { registerWhatsappEmployeeLiveArchiveReadRoutes } from "./whatsappEmployeeArchiveLiveRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -283,6 +284,19 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
   registerWhatsappEmployeeWebhook(app);
+  // Real read-only archive routes are registered only after every independent
+  // Staging privacy/Meta gate and private least-privilege DB URL is verified.
+  // This remains OFF on current Staging. Production never registers them.
+  // Source-of-truth account state is read from the actual Kinglike app DB.
+  registerWhatsappEmployeeLiveArchiveReadRoutes(app,{
+    authorizeCurrentActor: async (req) => {
+      const actorId=Number(req.session?.userId);
+      if(!Number.isSafeInteger(actorId)||actorId<1)return null;
+      const user=await storage.getUser(actorId);
+      if(!user?.isActive)return null;
+      return {id:actorId,isAdmin:user.isAdmin===true};
+    },
+  });
   registerWhatsappEmployeeArchiveRoutes(app);
   registerWhatsappMetaOnboardingRoutes(app, {
     // Re-read the active user from the same storage authority as the real

@@ -67,7 +67,9 @@ export async function assertWhatsappEmployeeAuditWriter(db: AuditQueryable): Pro
     has_table_privilege(current_user,'whatsapp_employee_access_audit','TRUNCATE') AS can_truncate,
     EXISTS (SELECT 1 FROM pg_class WHERE oid='whatsapp_employee_access_audit'::regclass
       AND relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)) AS owns_table,
-    pg_has_role(current_user,'whatsapp_employee_audit_owner','MEMBER') AS member_of_owner,
+    pg_has_role((SELECT oid FROM pg_roles WHERE rolname=current_user),
+      (SELECT relowner FROM pg_class WHERE oid='whatsapp_employee_access_audit'::regclass),
+      'MEMBER') AS member_of_owner,
     EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='whatsapp_employee_access_audit'::regclass
       AND tgname='whatsapp_employee_access_audit_immutable' AND tgenabled='O') AS trigger_enabled`);
   const row = result.rows[0];
