@@ -23,6 +23,9 @@ export type LiveArchiveActor = Readonly<{ id: number; isAdmin: boolean }>;
 export type ArchiveReaderDependencies = Readonly<{
   archive: ArchiveQueryable;
   audit: AuditQueryable;
+  // Always re-check current employee status against the real Kinglike app DB.
+  // The archive mirror is never an authentication or employment authority.
+  verifyCurrentSubject: (employeeId: number) => Promise<boolean>;
 }>;
 export class LiveArchiveDenied extends Error {
   constructor() { super("Archive access is not permitted"); this.name="LiveArchiveDenied"; }
@@ -66,6 +69,12 @@ const CONVERSATION_JOINS=[
 ].join(" ");
 
 export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies) {
+  if(typeof deps.verifyCurrentSubject!=="function")throw new LiveArchiveDenied();
+  async function employeeCurrentlyAllowed(employeeId:number):Promise<boolean> {
+    if(!validId(employeeId))return false;
+    // Intentionally propagate an app-DB outage: the HTTP adapter denies with 503.
+    return (await deps.verifyCurrentSubject(employeeId)) === true;
+  }
   async function audit(actor: LiveArchiveActor, employeeId: number,
     action: ArchiveAccessAction, outcome: ArchiveAccessOutcome,
     reason: ArchiveAccessReason, count?: number) {
@@ -98,7 +107,14 @@ export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies
       "SELECT DISTINCT n.employee_id "+NUMBER_SCOPE+
       " ORDER BY n.employee_id ASC LIMIT 100",[actor.id],
     );
-    const ids=rows.rows.map(x=>Number(x.employee_id)).filter(validId);
+    const ids:number[]=[];
+    for(const candidate of rows.rows.map(x=>Number(x.employee_id)).filter(validId)) {
+      if(await employeeCurrentlyAllowed(candidate)) {
+        ids.push(candidate);
+      } else {
+        await audit(actor,candidate,"archive.search","denied","policy_blocked",0);
+      }
+    }
     if(!ids.length){
       await audit(actor,actor.id,"archive.search","denied","scope_denied",0);
       return {employeeIds:[]};
@@ -122,6 +138,10 @@ export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies
       await audit(actor,employeeId,action,"denied","scope_denied",0);
       throw new LiveArchiveDenied();
     }
+    if(!(await employeeCurrentlyAllowed(employeeId))){
+      await audit(actor,employeeId,action,"denied","policy_blocked",0);
+      throw new LiveArchiveDenied();
+    }
   }
   async function conversations(actor: LiveArchiveActor, employeeId: number) {
     await authorizedEmployee(actor,employeeId,"archive.search");
@@ -135,6 +155,10 @@ export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies
       "AND (n.employee_id=$1 OR "+GRANT+")",
       "ORDER BY c.updated_at DESC,c.id DESC LIMIT 100",
     ].join(" "),[actor.id,employeeId]);
+    if(!(await employeeCurrentlyAllowed(employeeId))){
+      await audit(actor,employeeId,"archive.search","denied","policy_blocked",0);
+      throw new LiveArchiveDenied();
+    }
     await audit(actor,employeeId,"archive.search","allowed",accessReason(actor,employeeId),
       result.rows.length);
     return {conversations:result.rows};
@@ -156,6 +180,10 @@ export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies
       await audit(actor,actor.id,"archive.read","denied","scope_denied",0);
       throw new LiveArchiveDenied();
     }
+    if(!(await employeeCurrentlyAllowed(employeeId))){
+      await audit(actor,employeeId,"archive.read","denied","policy_blocked",0);
+      throw new LiveArchiveDenied();
+    }
     const result=await deps.archive.query([
       "SELECT e.id,e.event_kind,e.direction,e.event_status,e.message_type,",
       "e.message_text,e.related_message_id,e.occurred_at,e.received_at,",
@@ -173,6 +201,11 @@ export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies
       "WHERE e.conversation_id=$1 AND e.employee_id=$2",
       "ORDER BY e.received_at ASC,e.id ASC LIMIT 500",
     ].join(" "),[conversationId,employeeId]);
+    // Verify again just before returning the content to narrow revocation races.
+    if(!(await employeeCurrentlyAllowed(employeeId))){
+      await audit(actor,employeeId,"archive.read","denied","policy_blocked",0);
+      throw new LiveArchiveDenied();
+    }
     await audit(actor,employeeId,"archive.read","allowed",
       accessReason(actor,employeeId),result.rows.length);
     return {messages:result.rows};
