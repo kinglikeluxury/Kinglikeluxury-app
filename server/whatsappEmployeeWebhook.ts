@@ -372,6 +372,7 @@ export function createRestrictedStagingWhatsappEmployeeConsumer(
   employeeId:number;wabaId:string;phoneNumberId:string;displayPhoneNumber:string
 })=>Promise<number>) {
   const required=[
+    "WHATSAPP_EMPLOYEE_ARCHIVE_STAGING_RUNTIME_ENABLED",
     "WHATSAPP_EMPLOYEE_ARCHIVE_WORKER_ENABLED",
     "WHATSAPP_EMPLOYEE_ARCHIVE_EMPLOYEE_NOTICE_APPROVED",
     "WHATSAPP_EMPLOYEE_ARCHIVE_CUSTOMER_NOTICE_APPROVED",
