@@ -85,6 +85,11 @@ export function createAuditedIdentitySync(
     const desired=await desiredSource();
     const principal=normalizeArchivePrincipal(desired);
     return await tx.transact(async db=>{
+      // Serialize concurrent updates for this principal. A late activation
+      // must not overwrite a consent revocation from another worker.
+      // Transaction-scoped advisory lock releases on COMMIT or ROLLBACK.
+      await db.query("SELECT pg_advisory_xact_lock($1::integer,$2::integer)",
+        [762022,employeeId]);
       if(!(await verifyIsolatedIdentitySyncRole(db,"kinglike_whatsapp_archive"))) {
         throw new IdentityMirrorRefused();
       }
