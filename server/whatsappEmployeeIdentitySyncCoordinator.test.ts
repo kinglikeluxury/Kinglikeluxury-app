@@ -19,6 +19,7 @@ const proof={
 function fixture(){
   let current:KinglikePrincipal|null={id:101,isActive:true,isAdmin:false,role:"sub_agent"};
   let admin=true,consent=true,auditDown=false;
+  let consentChecks=0,revokeOnSecondCheck=false;
   let row:null|{id:number;active:boolean;role:string}=null;
   let audits:Array<{actor:number;subject:number;action:string}>=[];
   let commits=0,rollbacks=0;
@@ -60,7 +61,10 @@ function fixture(){
   const worker=createAuditedIdentitySync(tx,{
     currentAdmin:async()=>admin,
     currentPerson:async()=>current,
-    hasEmployeeConsent:async()=>consent,
+    hasEmployeeConsent:async()=>{
+      consentChecks++;
+      return consent && !(revokeOnSecondCheck && consentChecks===2);
+    },
   });
   return {
     worker,get row(){return row;},get audits(){return audits;},
@@ -68,6 +72,7 @@ function fixture(){
     setCurrent(x:KinglikePrincipal|null){current=x;},
     setAdmin(x:boolean){admin=x;},setConsent(x:boolean){consent=x;},
     setAuditDown(x:boolean){auditDown=x;},
+    revokeBetweenChecks(){consentChecks=0;revokeOnSecondCheck=true;},
   };
 }
 test("employee activation and subsequent revocation are atomically audited with numeric IDs only",async()=>{
@@ -89,17 +94,38 @@ test("ordinary app visitor is never mirrored or logged in archive",async()=>{
   assert.equal(x.row,null);
   assert.deepEqual(x.audits,[]);
 });
-test("revoked consent, unapproved policy and ineligible admin fail closed",async()=>{
+test("withdrawn consent deactivates existing employee mirror while leaving app account active",async()=>{
+  const x=fixture();
+  assert.equal(await x.worker.refreshOne(301,101,true),"eligible");
+  x.setConsent(false);
+  assert.equal(await x.worker.refreshOne(301,101,true),"inactive");
+  assert.deepEqual(x.row,{id:101,active:false,role:"inactive"});
+  assert.deepEqual(x.audits.map(a=>a.action),["activate","deactivate"]);
+});
+test("withdrawn consent on an unmirrored person creates no archive identity or log",async()=>{
   const x=fixture();
   x.setConsent(false);
-  await assert.rejects(x.worker.refreshOne(301,101,true),IdentityMirrorRefused);
-  x.setConsent(true);x.setAdmin(false);
+  assert.equal(await x.worker.refreshOne(301,101,true),"not_mirrored");
+  assert.equal(x.row,null);
+  assert.deepEqual(x.audits,[]);
+});
+test("admin and policy restrictions still reject any identity mutation",async()=>{
+  const x=fixture();
+  x.setAdmin(false);
   await assert.rejects(x.worker.refreshOne(301,101,true),IdentityMirrorRefused);
   x.setAdmin(true);
   await assert.rejects(x.worker.refreshOne(301,101,false),IdentityMirrorRefused);
   await assert.rejects(x.worker.refreshOne(301,-1,true),IdentityMirrorRefused);
   assert.equal(x.row,null);
   assert.deepEqual(x.audits,[]);
+});
+test("consent withdrawal between verification passes rolls back the activation",async()=>{
+  const x=fixture();
+  x.revokeBetweenChecks();
+  await assert.rejects(x.worker.refreshOne(301,101,true),IdentityMirrorRefused);
+  assert.equal(x.row,null);
+  assert.deepEqual(x.audits,[]);
+  assert.equal(x.rollbacks,1);
 });
 test("failed immutable audit INSERT rolls back identity activation",async()=>{
   const x=fixture();
