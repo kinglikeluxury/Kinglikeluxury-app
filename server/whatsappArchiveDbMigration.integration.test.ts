@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
 import { readFile } from "node:fs/promises";
+import { assertWhatsappEmployeeAuditWriter } from "./whatsappEmployeeAccessAudit";
 
 const url=process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL;
 
@@ -77,6 +78,21 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
       "sync_event_read"];
     yes.forEach(k=>assert.equal(p[k],true,k));
     no.forEach(k=>assert.equal(p[k],false,k));
+
+
+    // The real isolated archive uses the NOLOGIN role
+    // kinglike_wa_archive_auditwriter, not the legacy synthetic owner name.
+    // SET LOCAL ROLE exercises the exact SQL permission guard without enabling
+    // real role logins or writing a customer or employee access record.
+    const auditRoleClient=await pool.connect();
+    try{
+      await auditRoleClient.query("BEGIN");
+      await auditRoleClient.query("SET LOCAL ROLE kinglike_wa_archive_auditwriter");
+      await assertWhatsappEmployeeAuditWriter(auditRoleClient as any);
+      await auditRoleClient.query("ROLLBACK");
+    }finally{
+      auditRoleClient.release();
+    }
 
     const owner=await pool.query("SELECT tableowner FROM pg_tables WHERE schemaname='public' AND tablename='whatsapp_employee_events'");
     assert.equal(owner.rowCount,1);
