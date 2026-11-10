@@ -1,0 +1,37 @@
+-- 04: One-time isolated Staging archive identity-sync audit extension.
+-- Apply ONLY to Kinglike-Web-Staging / Postgres-92tK / kinglike_whatsapp_archive.
+-- Requires 00/01/02/03 SQL and NO real employee-number activation.
+-- Append-only ledger contains ONLY internal integer IDs and state transitions.
+-- Keep identity sync login NOLOGIN until required notices/permissions approved.
+
+BEGIN;
+
+CREATE TABLE public.whatsapp_employee_identity_sync_audit (
+  id BIGSERIAL PRIMARY KEY,
+  actor_id INTEGER NOT NULL CHECK (actor_id > 0),
+  employee_id INTEGER NOT NULL CHECK (employee_id > 0),
+  action TEXT NOT NULL CHECK (action IN ('activate','deactivate')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX whatsapp_employee_identity_sync_audit_employee_time_idx
+  ON public.whatsapp_employee_identity_sync_audit(employee_id,created_at DESC);
+
+CREATE TRIGGER whatsapp_employee_identity_sync_audit_immutable
+  BEFORE UPDATE OR DELETE ON public.whatsapp_employee_identity_sync_audit
+  FOR EACH ROW EXECUTE FUNCTION public.whatsapp_employee_reject_event_mutation();
+CREATE TRIGGER whatsapp_employee_identity_sync_audit_no_truncate
+  BEFORE TRUNCATE ON public.whatsapp_employee_identity_sync_audit
+  FOR EACH STATEMENT EXECUTE FUNCTION public.whatsapp_employee_reject_event_mutation();
+
+REVOKE ALL ON TABLE public.whatsapp_employee_identity_sync_audit FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.whatsapp_employee_identity_sync_audit_id_seq FROM PUBLIC;
+GRANT INSERT ON public.whatsapp_employee_identity_sync_audit
+  TO kinglike_wa_archive_identitysync;
+GRANT USAGE,SELECT ON SEQUENCE public.whatsapp_employee_identity_sync_audit_id_seq
+  TO kinglike_wa_archive_identitysync;
+
+COMMIT;
+
+-- This migration does not create or activate any identity, number, login,
+-- webhook or monitoring permission. DO NOT grant SELECT on the audit table
+-- to identitysync or grant event/CRM access to that role.
