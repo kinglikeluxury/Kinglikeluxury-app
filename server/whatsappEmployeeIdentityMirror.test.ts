@@ -17,18 +17,23 @@ const roleProof={
   events_read:false,events_insert:false,audit_read:false,audit_insert:false,inbox_read:false,
 };
 function fixture(overrides:Record<string,unknown>={},refuseInsert=false){
-  const writes:unknown[][]=[];
+  const writes:Array<{kind:"upsert"|"disable";values:unknown[]}>=[];
   const db:IdentityMirrorDb={
     async query(sql,values){
       if(sql.includes("has_table_privilege")) {
         assert.equal(sql.trim().startsWith("SELECT"),true);
         return {rows:[{...roleProof,...overrides}],rowCount:1};
       }
+      assert.ok(!sql.includes("email")&&!sql.includes("phone")&&!sql.includes("password"));
+      if(sql.startsWith("UPDATE public.users SET")) {
+        assert.ok(sql.includes("WHERE id=$1"));
+        writes.push({kind:"disable",values:[...(values??[])]});
+        return {rows:[],rowCount:0};
+      }
       assert.equal(sql.startsWith("INSERT INTO public.users"),true);
       assert.ok(sql.includes("ON CONFLICT(id) DO UPDATE"));
       assert.ok(sql.includes("verified_at=NOW()"));
-      assert.ok(!sql.includes("email")&&!sql.includes("phone")&&!sql.includes("password"));
-      writes.push([...(values ?? [])]);
+      writes.push({kind:"upsert",values:[...(values ?? [])]});
       return {rows:refuseInsert?[]:[{id:values?.[0]}],rowCount:refuseInsert?0:1};
     },
   };
@@ -61,17 +66,17 @@ test("identity sync requires prior approval, role verification and writes only s
     {id:101,isActive:true,isAdmin:false,role:"sub_agent"},
     {expectedDatabase:"kinglike_whatsapp_archive",approved:true});
   assert.equal(state,"eligible");
-  assert.deepEqual(writes[0],[101,true,false,"sub_agent"]);
+  assert.deepEqual(writes[0],{kind:"upsert",values:[101,true,false,"sub_agent"]});
   const disabled=await syncOneVerifiedArchivePrincipal(db,
     {id:101,isActive:false,isAdmin:false,role:"sub_agent"},
     {expectedDatabase:"kinglike_whatsapp_archive",approved:true});
   assert.equal(disabled,"inactive");
-  assert.deepEqual(writes[1],[101,false,false,"inactive"]);
+  assert.deepEqual(writes[1],{kind:"disable",values:[101]});
   const visitor=await syncOneVerifiedArchivePrincipal(db,
     {id:201,isActive:true,isAdmin:false,role:"user"},
     {expectedDatabase:"kinglike_whatsapp_archive",approved:true});
   assert.equal(visitor,"inactive");
-  assert.deepEqual(writes[2],[201,false,false,"inactive"]);
+  assert.deepEqual(writes[2],{kind:"disable",values:[201]});
 });
 test("sync refuses owner, elevated, message-reading, mutation and wrong DB roles",async()=>{
   for(const override of [
