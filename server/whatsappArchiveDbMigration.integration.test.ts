@@ -254,6 +254,33 @@ test("isolated archive schema grants history importer immutable event INSERT and
         " SET status='imported',imported_at=NOW() WHERE chunk_key=$1",
         ["a".repeat(64)]);
       assert.equal(imported.rowCount,1);
+      // Prove dead-lettering expired, exhausted importer leases is possible
+      // with restricted STATUS grants (and no payload mutation).
+      await historyClient.query(
+        "UPDATE kinglike_whatsapp.whatsapp_employee_history_chunks"+
+        " SET status='processing',attempt_count=6,"+
+        " locked_until=NOW()-interval '1 minute',"+
+        " lease_token='00000000-0000-4000-8000-000000000001'::uuid"+
+        " WHERE chunk_key=$1",["a".repeat(64)],
+      );
+      const expired=await historyClient.query(
+        "UPDATE kinglike_whatsapp.whatsapp_employee_history_chunks"+
+        " SET status='dead_letter',locked_until=NULL,lease_token=NULL,"+
+        " last_error_class=COALESCE(last_error_class,'IMPORT_FAILED')"+
+        " WHERE attempt_count >= $1 AND ("+
+        " (status IN ('pending','retry') AND available_at<=NOW()) OR"+
+        " (status='processing' AND locked_until<NOW()))",[6],
+      );
+      assert.equal(expired.rowCount,1);
+      const left=await historyClient.query(
+        "SELECT status,last_error_class,payload_ciphertext"+
+        " FROM kinglike_whatsapp.whatsapp_employee_history_chunks WHERE chunk_key=$1",
+        ["a".repeat(64)],
+      );
+      assert.equal(left.rows[0].status,"dead_letter");
+      assert.equal(left.rows[0].last_error_class,"IMPORT_FAILED");
+      assert.deepEqual(left.rows[0].payload_ciphertext,
+        Buffer.from("synthetic-encrypted-bytes"));
       await historyClient.query("SAVEPOINT restricted_history_write");
       await assert.rejects(historyClient.query(
         "UPDATE kinglike_whatsapp.whatsapp_employee_history_chunks"+
