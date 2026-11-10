@@ -302,3 +302,19 @@ test("non-exhausted crashed lease is safely reclaimed and imported once",async()
   assert.equal(f.events.size,2);
   assert.equal(f.jobs[0].attempt_count,3);
 });
+
+
+test("same Meta ID with conflicting historical text is not treated as a harmless duplicate",async()=>{
+  const f=fixture();
+  assert.equal(await f.importer.processOne(),"imported");
+  const before=f.events.get("message:wamid.IN")?.message_text;
+  const second=seal(chunk([
+    message("wamid.IN",customer,"FORGED DIFFERENT CONTENT"),
+  ]),"2","c".repeat(64));
+  f.addJob(second);
+  assert.equal(await f.importer.processOne(),"retry");
+  assert.equal(f.events.size,2);
+  assert.equal(f.events.get("message:wamid.IN")?.message_text,before);
+  assert.equal(f.jobs[1].status,"retry");
+  assert.equal(f.audits.length,1);
+});
