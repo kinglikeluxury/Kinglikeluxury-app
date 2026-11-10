@@ -15,6 +15,9 @@ export type WhatsappOperationsReadiness = {
   realEnrollment: "disabled" | "awaiting_separate_review";
   employeeMonitoring: "disabled";
   identitySyncRuntime: "disabled" | "configured_not_running";
+  // Code exists, but there is no pool, role LOGIN, Meta receipt or importer job.
+  historyImporter: "code_ready_not_running";
+  historyCompleteness: "not_verified";
   employeeNumbersConnected: "not_verified";
   previousSyntheticResults: "see_ci_logs";
   nextStep: "meta_eligibility_and_privacy_review";
@@ -141,6 +144,8 @@ export function registerWhatsappOperationsStatusRoutes(
       // A private config alone never starts a worker or verifies consent.
       identitySyncRuntime: identitySyncRuntimeConfig(env)
         ? "configured_not_running" : "disabled",
+      historyImporter: "code_ready_not_running",
+      historyCompleteness: "not_verified",
       employeeNumbersConnected: "not_verified",
       previousSyntheticResults: "see_ci_logs",
       nextStep: "meta_eligibility_and_privacy_review",
