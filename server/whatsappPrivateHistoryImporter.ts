@@ -64,7 +64,12 @@ function parseMessages(chunk:any,scope:HistoryInboxScope,maxMessages:number):Par
   const output:ParsedHistoryMessage[]=[];
   const seen=new Set<string>();
   for(const thread of chunk.threads){
-    if(!thread||typeof thread!=="object"||!Array.isArray(thread.messages))fail();
+    // Meta/provider variants sometimes carry outbound history in a separate
+    // array. Do not silently mark this chunk imported if that is unhandled.
+    if(!thread||typeof thread!=="object"||!Array.isArray(thread.messages) ||
+       (Array.isArray(thread.message_echoes) && thread.message_echoes.length>0) ||
+       (thread.message_echoes!==undefined && !Array.isArray(thread.message_echoes)))
+      fail();
     const contact=digits(thread.id);
     if(!/^[0-9]{8,24}$/.test(contact) || contact===scope.displayPhoneNumber)fail();
     if(thread.messages.length>maxMessages)fail();
