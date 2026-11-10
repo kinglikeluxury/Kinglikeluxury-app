@@ -73,12 +73,16 @@ function matchesSignedPayload(raw: Buffer, scope: EmployeeInboxScope): boolean {
       !Array.isArray(payload.entry) || payload.entry.length < 1 ||
       payload.entry.length > 20) return false;
   let relevant = 0;
-  const kinds = new Set(["messages", "smb_message_echoes", "history"]);
+  // History/contact sync is a separate one-time Meta workflow; silently
+  // ACKing it into the ordinary queue would risk permanent data loss.
+  const kinds = new Set(["messages", "smb_message_echoes"]);
   for (const entry of payload.entry) {
     if (entry?.id !== scope.wabaId || !Array.isArray(entry.changes) ||
         entry.changes.length > 50) return false;
     for (const change of entry.changes) {
-      if (!kinds.has(change?.field)) continue;
+      // Fail closed for ANY unhandled field, including history and
+      // smb_app_state_sync, even if mixed with normal messages.
+      if (!kinds.has(change?.field)) return false;
       const meta = change?.value?.metadata;
       if (meta?.phone_number_id !== scope.phoneNumberId ||
           (meta.display_phone_number !== undefined &&
