@@ -61,8 +61,25 @@ function fixture(opts?:{job?:Row;role?:Record<string,any>;authorize?:boolean}){
   const client={
     async query(sql:string,p:unknown[]=[]):Promise<any>{
       if(sql.includes("current_database() AS db"))return {rows:[proof],rowCount:1};
+      if(sql.startsWith("UPDATE kinglike_whatsapp.whatsapp_employee_history_chunks SET status='dead_letter'")){
+        const max=Number(p[0]);
+        let count=0;
+        for(const row of jobs){
+          const eligible=["pending","retry"].includes(row.status) ||
+            (row.status==="processing" && row.locked_until &&
+             new Date(row.locked_until).getTime()<Date.now());
+          if(eligible && row.attempt_count>=max){
+            row.status="dead_letter";row.locked_until=null;row.lease_token=null;
+            row.last_error_class??="IMPORT_FAILED";count++;
+          }
+        }
+        return {rows:[],rowCount:count};
+      }
       if(sql.startsWith("WITH next_job AS")){
-        const next=jobs.find(x=>["pending","retry"].includes(x.status));
+        const next=jobs.find(x=>(["pending","retry"].includes(x.status) ||
+          (x.status==="processing" && x.locked_until &&
+           new Date(x.locked_until).getTime()<Date.now())) &&
+          x.attempt_count<Number(p[2]));
         if(!next)return {rows:[],rowCount:0};
         next.status="processing";next.attempt_count++;
         next.lease_token=p[0];
@@ -260,4 +277,28 @@ test("a too-large encrypted history payload is rejected before decryption",async
   f.jobs[0].payload_ciphertext=Buffer.alloc(8*1024*1024+1);
   assert.equal(await f.importer.processOne(),"retry");
   assert.equal(f.events.size,0);
+});
+
+
+test("exhausted crashed history lease becomes dead-letter without endlessly retrying",async()=>{
+  const f=fixture();
+  f.jobs[0].status="processing";
+  f.jobs[0].attempt_count=6;
+  f.jobs[0].locked_until=new Date(Date.now()-60000).toISOString();
+  assert.equal(await f.importer.processOne(),"empty");
+  assert.equal(f.jobs[0].status,"dead_letter");
+  assert.equal(f.jobs[0].last_error_class,"IMPORT_FAILED");
+  assert.equal(f.events.size,0);
+  assert.deepEqual(f.counters(),{commits:0,rollbacks:0});
+});
+
+test("non-exhausted crashed lease is safely reclaimed and imported once",async()=>{
+  const f=fixture();
+  f.jobs[0].status="processing";
+  f.jobs[0].attempt_count=2;
+  f.jobs[0].locked_until=new Date(Date.now()-60000).toISOString();
+  assert.equal(await f.importer.processOne(),"imported");
+  assert.equal(f.jobs[0].status,"imported");
+  assert.equal(f.events.size,2);
+  assert.equal(f.jobs[0].attempt_count,3);
 });
