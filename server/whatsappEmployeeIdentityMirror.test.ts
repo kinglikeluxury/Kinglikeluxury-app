@@ -28,7 +28,7 @@ function fixture(overrides:Record<string,unknown>={},refuseInsert=false){
       assert.ok(sql.includes("ON CONFLICT(id) DO UPDATE"));
       assert.ok(sql.includes("verified_at=NOW()"));
       assert.ok(!sql.includes("email")&&!sql.includes("phone")&&!sql.includes("password"));
-      writes.push([...values??[]]);
+      writes.push([...(values ?? [])]);
       return {rows:refuseInsert?[]:[{id:values?.[0]}],rowCount:refuseInsert?0:1};
     },
   };
