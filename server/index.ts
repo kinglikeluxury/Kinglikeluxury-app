@@ -296,6 +296,14 @@ app.use((req, res, next) => {
       if(!user?.isActive)return null;
       return {id:actorId,isAdmin:user.isAdmin===true};
     },
+    verifyCurrentSubject: async (employeeId) => {
+      if(!Number.isSafeInteger(employeeId)||employeeId<=0)return false;
+      // Current employee status is fetched from the real application DB,
+      // never inferred from a stale archive identity mirror.
+      const subject=await storage.getUser(employeeId);
+      return subject?.isActive===true &&
+        subject.isAdmin!==true && subject.role==="sub_agent";
+    },
   });
   registerWhatsappEmployeeArchiveRoutes(app);
   registerWhatsappMetaOnboardingRoutes(app, {

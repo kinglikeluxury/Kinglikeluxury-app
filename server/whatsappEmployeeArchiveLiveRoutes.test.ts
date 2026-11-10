@@ -43,6 +43,7 @@ test("read-only gateway is not registered by default or outside isolated Staging
   assert.equal(registerWhatsappEmployeeLiveArchiveReadRoutes(app,{
     env:{APP_DEPLOYMENT_MODE:"staging"},
     authorizeCurrentActor:async()=>null,
+    verifyCurrentSubject:async()=>false,
   }),false);
 });
 

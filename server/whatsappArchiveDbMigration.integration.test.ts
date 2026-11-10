@@ -94,6 +94,32 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
       auditRoleClient.release();
     }
 
+    // Exercise the real isolated NOLOGIN identity-sync role without enabling
+    // credentials or retaining any identities after transaction ROLLBACK.
+    const mirrorClient=await pool.connect();
+    try{
+      await mirrorClient.query("BEGIN");
+      await mirrorClient.query("SET LOCAL ROLE kinglike_wa_archive_identitysync");
+      // Use only the approved principal columns. This test's isolated database
+      // name intentionally differs from the live guard's required database.
+      await mirrorClient.query(
+        "INSERT INTO public.users(id,is_active,is_admin,role,verified_at)"+
+        " VALUES (501,true,false,'sub_agent',NOW())");
+      await mirrorClient.query(
+        "INSERT INTO public.users(id,is_active,is_admin,role,verified_at)"+
+        " VALUES (501,false,false,'inactive',NOW()) ON CONFLICT(id) DO UPDATE"+
+        " SET is_active=EXCLUDED.is_active,is_admin=EXCLUDED.is_admin,"+
+        " role=EXCLUDED.role,verified_at=NOW()");
+      const mirrorRow=await mirrorClient.query(
+        "SELECT is_active,is_admin,role FROM public.users WHERE id=501");
+      assert.deepEqual(mirrorRow.rows[0],{
+        is_active:false,is_admin:false,role:"inactive",
+      });
+      await mirrorClient.query("ROLLBACK");
+    }finally{
+      mirrorClient.release();
+    }
+
     const owner=await pool.query("SELECT tableowner FROM pg_tables WHERE schemaname='public' AND tablename='whatsapp_employee_events'");
     assert.equal(owner.rowCount,1);
     assert.equal(roles.includes(owner.rows[0].tableowner),false,"archive role must not own event table");

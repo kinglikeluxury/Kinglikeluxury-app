@@ -6,9 +6,9 @@ import {
 } from "./whatsappEmployeeArchiveReadService";
 import type {AuditQueryable} from "./whatsappEmployeeAccessAudit";
 
-type Flags = { mirror?: boolean; consent?: boolean; grant?: boolean; auditDown?: boolean };
+type Flags = { mirror?: boolean; consent?: boolean; grant?: boolean; auditDown?: boolean; currentSubject?:boolean };
 function fixture(flags: Flags={}) {
-  const all={mirror:true,consent:true,grant:true,auditDown:false,...flags};
+  const all={mirror:true,consent:true,grant:true,auditDown:false,currentSubject:true,...flags};
   const queries:string[]=[];
   const logged:Array<{actorId:number;employeeId:number;action:string;outcome:string;reason:string}>=[];
   const sample=[
@@ -48,7 +48,9 @@ function fixture(flags: Flags={}) {
       throw Error("Unexpected write outside audit ledger");
     },
   };
-  return {service:createEmployeeArchiveReadService({archive,audit}),queries,logged};
+  return {service:createEmployeeArchiveReadService({
+    archive,audit,verifyCurrentSubject:async()=>all.currentSubject,
+  }),queries,logged};
 }
 
 test("own consented Coexistence scope displays archived original beside verified revoke",async()=>{
@@ -96,4 +98,13 @@ test("invalid actor and conversation identifiers fail closed",async()=>{
   const {service}=fixture();
   await assert.rejects(service.scopes({id:0,isAdmin:false}),LiveArchiveDenied);
   await assert.rejects(service.messages({id:101,isAdmin:false},-1),LiveArchiveDenied);
+});
+
+
+test("app source-of-truth deactivation overrides stale archive consent/grants",async()=>{
+  const {service,logged}=fixture({currentSubject:false});
+  await assert.rejects(service.conversations({id:301,isAdmin:true},101),LiveArchiveDenied);
+  await assert.rejects(service.messages({id:301,isAdmin:true},7),LiveArchiveDenied);
+  assert.deepEqual(await service.scopes({id:301,isAdmin:true}),{employeeIds:[]});
+  assert.ok(logged.some(x=>x.reason==="policy_blocked"&&x.outcome==="denied"));
 });

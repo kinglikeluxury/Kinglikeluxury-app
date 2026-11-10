@@ -110,10 +110,15 @@ function idParam(s:unknown):number|null{
 
 export function registerWhatsappEmployeeLiveArchiveReadRoutes(
   app:Express,
-  options:{env?:NodeJS.ProcessEnv;authorizeCurrentActor:LiveArchiveCurrentActor},
+  options:{
+    env?:NodeJS.ProcessEnv;
+    authorizeCurrentActor:LiveArchiveCurrentActor;
+    verifyCurrentSubject:(employeeId:number)=>Promise<boolean>;
+  },
 ):boolean{
   const config=liveArchiveReadConfig(options.env??process.env);
   if(!config) return false;
+  if(typeof options.verifyCurrentSubject!=="function")return false;
   // Pools are lazy; no DB traffic during application startup/import.
   const readerPool=new pg.Pool({
     connectionString:config.readerUrl,max:2,connectionTimeoutMillis:1800,
@@ -123,7 +128,9 @@ export function registerWhatsappEmployeeLiveArchiveReadRoutes(
     connectionString:config.auditUrl,max:2,connectionTimeoutMillis:1800,
     idleTimeoutMillis:3500,ssl:false,
   });
-  const service=createEmployeeArchiveReadService({archive:readerPool,audit:auditPool});
+  const service=createEmployeeArchiveReadService({
+    archive:readerPool,audit:auditPool,verifyCurrentSubject:options.verifyCurrentSubject,
+  });
 
   async function read(req:any,res:any,action:(actor:LiveArchiveActor)=>Promise<unknown>) {
     res.setHeader("Cache-Control","no-store");
