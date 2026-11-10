@@ -107,7 +107,7 @@ const tables = { identity_principals:true,inbox:true,events:true,numbers:true,co
 const grants = {
   schema_use:true,schema_create:false,public_schema_create:false,
   principals_read:true,principals_insert:false,principals_update:false,principals_delete:false,
-  inbox_read:true,inbox_insert:true,inbox_update:true,
+  inbox_read:true,inbox_insert:true,inbox_update:true,inbox_payload_cleanup:true,inbox_identity_update:false,
   inbox_delete:false,inbox_truncate:false,
   events_read:true,events_insert:true,events_update:false,
   events_delete:false,events_truncate:false,
