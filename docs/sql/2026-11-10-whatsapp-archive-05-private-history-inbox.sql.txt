@@ -81,7 +81,8 @@ REVOKE ALL ON SEQUENCE kinglike_whatsapp.whatsapp_employee_history_chunks_id_seq
 -- immutable duplicate identity, never read ciphertext or change/delete rows.
 GRANT INSERT ON kinglike_whatsapp.whatsapp_employee_history_chunks
   TO kinglike_wa_archive_worker;
-GRANT SELECT (content_digest) ON kinglike_whatsapp.whatsapp_employee_history_chunks
+GRANT SELECT (employee_id,waba_id,phone_number_id,chunk_key,content_digest)
+  ON kinglike_whatsapp.whatsapp_employee_history_chunks
   TO kinglike_wa_archive_worker;
 GRANT USAGE ON SEQUENCE kinglike_whatsapp.whatsapp_employee_history_chunks_id_seq
   TO kinglike_wa_archive_worker;
