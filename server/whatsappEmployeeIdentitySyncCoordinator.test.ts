@@ -25,6 +25,10 @@ function fixture(){
   let commits=0,rollbacks=0;
   const q:IdentityMirrorDb={
     async query(sql,params=[]){
+      if(sql.startsWith("SELECT pg_advisory_xact_lock")) {
+        assert.deepEqual(params,[762022,101]);
+        return {rows:[{}],rowCount:1};
+      }
       if(sql.includes("has_table_privilege"))return {rows:[proof],rowCount:1};
       if(sql==="SELECT id FROM public.users WHERE id=$1")
         return {rows:row?.id===params[0]?[{id:row.id}]:[],rowCount:row?.id===params[0]?1:0};
