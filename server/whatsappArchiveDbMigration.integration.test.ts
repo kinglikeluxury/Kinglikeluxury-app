@@ -166,6 +166,40 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
       "SELECT message_text FROM whatsapp_employee_events WHERE meta_event_key='message:synthetic-original'",
     );
     assert.equal(original.rows[0].message_text,"original preserved");
+    // Prove the actual NOLOGIN worker can archive with its column-scoped
+    // grants, without UPDATE permission on immutable event/original rows.
+    const worker=await pool.connect();
+    try {
+      await worker.query("BEGIN");
+      await worker.query("SET LOCAL ROLE kinglike_wa_archive_worker");
+      const registration=await worker.query(
+        "SELECT employee_id FROM whatsapp_employee_numbers WHERE phone_number_id='5550101' LIMIT 1");
+      assert.equal(registration.rows[0].employee_id,101);
+      const saved=await worker.query(
+        "INSERT INTO whatsapp_employee_events(conversation_id,employee_id,"+
+        "meta_event_key,meta_message_id,event_kind,direction,source_field,message_text)"+
+        " VALUES ($1,101,'worker-role:original','worker-role-id','message',"+
+        "'inbound','messages','worker preserved original')"+
+        " ON CONFLICT(meta_event_key) DO NOTHING RETURNING id",[created.rows[0].id]);
+      assert.equal(saved.rowCount,1);
+      const revoke=await worker.query(
+        "INSERT INTO whatsapp_employee_events(conversation_id,employee_id,"+
+        "meta_event_key,meta_message_id,event_kind,direction,source_field,related_message_id)"+
+        " VALUES ($1,101,'worker-role:revoke','worker-role-revoke-id','revoke',"+
+        "'inbound','messages','worker-role-id')"+
+        " ON CONFLICT(meta_event_key) DO NOTHING RETURNING id",[created.rows[0].id]);
+      assert.equal(revoke.rowCount,1);
+      const marked=await worker.query(
+        "SELECT e.message_text,EXISTS(SELECT 1 FROM whatsapp_employee_events r"+
+        " WHERE r.conversation_id=e.conversation_id AND r.event_kind='revoke'"+
+        " AND r.related_message_id=e.meta_message_id AND r.direction=e.direction) AS deleted"+
+        " FROM whatsapp_employee_events e WHERE e.meta_event_key='worker-role:original'");
+      assert.equal(marked.rows[0].message_text,"worker preserved original");
+      assert.equal(marked.rows[0].deleted,true);
+      await worker.query("ROLLBACK");
+    } finally {worker.release();}
+
+
   }finally{
     await pool.end();
   }

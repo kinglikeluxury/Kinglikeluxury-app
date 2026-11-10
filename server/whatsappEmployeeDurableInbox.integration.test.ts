@@ -86,6 +86,29 @@ test("isolated PostgreSQL durable inbox: HMAC, idempotence, encryption, retry, l
       assert.equal(count.n,0);
     });
 
+    await t.test("never ACK history or contact sync into the message-only durable inbox",async()=>{
+      const original=JSON.parse(syntheticRaw("not-a-real-message").toString("utf8"));
+      for(const type of ["history","smb_app_state_sync","unrecognized_field"]){
+        const payload=structuredClone(original);
+        payload.entry[0].changes[0].field=type;
+        const body=Buffer.from(JSON.stringify(payload));
+        await assert.rejects(inbox.enqueueSigned(body,signature(body),scope),
+          EmployeeInboxRejected);
+      }
+      // A mixed batch must not accept the message and silently lose history.
+      const mixed=structuredClone(original);
+      mixed.entry[0].changes.push({
+        field:"history",
+        value:{metadata:{phone_number_id:scope.phoneNumberId,
+          display_phone_number:scope.displayPhoneNumber},history:[]},
+      });
+      const body=Buffer.from(JSON.stringify(mixed));
+      await assert.rejects(inbox.enqueueSigned(body,signature(body),scope),
+        EmployeeInboxRejected);
+      const r=await pool.query("SELECT count(*)::int AS count FROM "+inboxTable);
+      assert.equal(r.rows[0].count,0);
+    });
+
     await t.test("persist signed payload encrypted, deduplicate retry and drain only once",async () => {
       const raw = syntheticRaw("m-original");
       assert.equal(await inbox.enqueueSigned(raw,signature(raw),scope),"accepted");
