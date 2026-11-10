@@ -119,9 +119,16 @@ export function createPrivateWhatsappHistoryInbox(deps:Readonly<{
       if(error instanceof InvalidHistoryPayload)reject();
       throw new HistoryInboxRefused();
     }
-    if((await deps.authorizeScope(scope))!==true)reject();
-
-    const client=await deps.db.connect();
+    // If authorization or database connect fails, erase temporary plaintext
+    // buffers even though nothing is acknowledged or stored.
+    let client:HistoryClient;
+    try {
+      if((await deps.authorizeScope(scope))!==true)reject();
+      client=await deps.db.connect();
+    }catch{
+      for(const item of items)item.plain.fill(0);
+      throw new HistoryInboxRefused();
+    }
     let transaction=false;
     let accepted=0,duplicates=0,declined=0;
     try {
@@ -170,6 +177,8 @@ export function createPrivateWhatsappHistoryInbox(deps:Readonly<{
         if(summary.kind==="declined")declined++;
         plain.fill(0);
       }
+      // Validate consent one last time immediately before durable ACK.
+      if((await deps.authorizeScope(scope))!==true)reject();
       await client.query("COMMIT");transaction=false;
       return {accepted,duplicates,declined};
     }catch{
