@@ -100,10 +100,10 @@ export function createAuditedIdentitySync(
       },{approved:true,expectedDatabase:"kinglike_whatsapp_archive"});
       const record=await db.query(
         "INSERT INTO public.whatsapp_employee_identity_sync_audit"+
-        " (actor_id,employee_id,action) VALUES ($1,$2,$3) RETURNING id",
+        " (actor_id,employee_id,action) VALUES ($1,$2,$3)",
         [actorId,employeeId,result==="eligible"?"activate":"deactivate"],
       );
-      if(record.rows.length!==1)throw new IdentityMirrorRefused();
+      if(record.rowCount!==1)throw new IdentityMirrorRefused();
       return result;
     });
   }
