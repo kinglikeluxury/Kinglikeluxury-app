@@ -10,7 +10,7 @@ const url=process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL;
  * This destructive test is limited to a disposable CI PostgreSQL container.
  * No Neon, Railway, app or non-test DB is accepted even if configured.
  */
-test("isolated archive migration creates five NOLOGIN scoped roles including encrypted history importer",{
+test("isolated archive schema grants history importer immutable event INSERT and forbids mutation",{
   skip:!url || process.env.CI !== "true",
 },async()=>{
   assert.ok(url);
@@ -26,6 +26,7 @@ test("isolated archive migration creates five NOLOGIN scoped roles including enc
     "../docs/sql/2026-11-09-whatsapp-archive-03-roles.sql.txt",
     "../docs/sql/2026-11-10-whatsapp-archive-04-identity-audit.sql.txt",
     "../docs/sql/2026-11-10-whatsapp-archive-05-private-history-inbox.sql.txt",
+    "../docs/sql/2026-11-10-whatsapp-archive-06-history-import-grants.sql.txt",
   ];
   try{
     for(const filename of files){
@@ -81,17 +82,23 @@ test("isolated archive migration creates five NOLOGIN scoped roles including enc
         "has_column_privilege('kinglike_wa_history_importer','kinglike_whatsapp.whatsapp_employee_history_chunks','status','UPDATE') AS history_importer_status_update",
         "has_column_privilege('kinglike_wa_history_importer','kinglike_whatsapp.whatsapp_employee_history_chunks','payload_ciphertext','UPDATE') AS history_importer_payload_update",
         "has_table_privilege('kinglike_wa_history_importer','whatsapp_employee_events','SELECT') AS history_importer_events_read",
+        "has_table_privilege('kinglike_wa_history_importer','whatsapp_employee_events','INSERT') AS history_importer_events_insert",
+        "has_table_privilege('kinglike_wa_history_importer','whatsapp_employee_events','UPDATE') AS history_importer_events_update",
+        "has_table_privilege('kinglike_wa_history_importer','whatsapp_employee_events','DELETE') AS history_importer_events_delete",
+        "has_table_privilege('kinglike_wa_history_importer','whatsapp_employee_conversations','INSERT') AS history_importer_conversations_insert",
       ].join(", "),
     );
     const p=grants.rows[0];
     const yes=["worker_identity_read","worker_event_insert","worker_queue_insert",
       "reader_event_select","audit_insert","sync_identity_insert","sync_audit_insert",
       "history_worker_insert","history_worker_key_read","history_importer_read",
-      "history_importer_status_update"];
+      "history_importer_status_update","history_importer_events_read",
+      "history_importer_events_insert","history_importer_conversations_insert"];
     const no=["worker_identity_update","worker_event_update","worker_event_delete",
       "worker_access_audit_insert","reader_event_insert","audit_select","audit_delete",
       "sync_event_read","sync_audit_read","sync_audit_update",
-      "history_worker_payload_read","history_importer_payload_update","history_importer_events_read"];
+      "history_worker_payload_read","history_importer_payload_update",
+      "history_importer_events_update","history_importer_events_delete"];
     yes.forEach(k=>assert.equal(p[k],true,k));
     no.forEach(k=>assert.equal(p[k],false,k));
 
@@ -256,6 +263,34 @@ test("isolated archive migration creates five NOLOGIN scoped roles including enc
       await historyClient.query("ROLLBACK TO SAVEPOINT restricted_history_write");
       await historyClient.query("ROLLBACK");
     } finally {historyClient.release();}
+
+    // The literal history source label must be accepted while archived
+    // originals remain immutable and the importer cannot modify them.
+    const sourceCheck=await pool.query(
+      "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint"+
+      " WHERE conname='whatsapp_employee_events_source_field_check'");
+    assert.equal(sourceCheck.rowCount,1);
+    assert.match(sourceCheck.rows[0].definition,/history/);
+    const sourceWriter=await pool.connect();
+    try{
+      await sourceWriter.query("BEGIN");
+      await sourceWriter.query("SET LOCAL ROLE kinglike_wa_history_importer");
+      const result=await sourceWriter.query(
+        "INSERT INTO whatsapp_employee_events(conversation_id,employee_id,"+
+        "meta_event_key,meta_message_id,event_kind,direction,source_field,message_text)"+
+        " VALUES ($1,101,'synthetic-history-06','wamid.h06','message',"+
+        "'inbound','history','preserved from history') RETURNING id",
+        [created.rows[0].id],
+      );
+      assert.equal(result.rowCount,1);
+      await sourceWriter.query("SAVEPOINT denied_history_edit");
+      await assert.rejects(sourceWriter.query(
+        "UPDATE whatsapp_employee_events SET message_text='tamper'"+
+        " WHERE meta_event_key='synthetic-history-06'"),/permission denied|append-only/);
+      await sourceWriter.query("ROLLBACK TO SAVEPOINT denied_history_edit");
+      await sourceWriter.query("ROLLBACK");
+    }finally{sourceWriter.release();}
+
     const count=await pool.query(
       "SELECT COUNT(*)::int AS count FROM kinglike_whatsapp.whatsapp_employee_history_chunks");
     assert.equal(count.rows[0].count,0);
