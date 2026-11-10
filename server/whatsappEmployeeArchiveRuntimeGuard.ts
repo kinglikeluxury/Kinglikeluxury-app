@@ -203,7 +203,9 @@ export async function verifyEmployeeArchiveDatabaseGrants(
       "has_schema_privilege(current_user,'kinglike_whatsapp','CREATE') AS schema_create, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','SELECT') AS inbox_read, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','INSERT') AS inbox_insert, " +
-      "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','UPDATE') AS inbox_update, " +
+      "has_column_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','status','UPDATE') AS inbox_update, " +
+      "has_column_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','payload_ciphertext','UPDATE') AS inbox_payload_cleanup, " +
+      "has_column_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','employee_id','UPDATE') AS inbox_identity_update, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','DELETE') AS inbox_delete, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','TRUNCATE') AS inbox_truncate, " +
       "has_table_privilege(current_user,'whatsapp_employee_events','SELECT') AS events_read, " +
@@ -217,11 +219,11 @@ export async function verifyEmployeeArchiveDatabaseGrants(
       "has_table_privilege(current_user,'whatsapp_employee_access_audit','DELETE') AS audit_delete",
     );
     const p = grants.rows[0] ?? {};
-    const positives = ["schema_use","principals_read","inbox_read","inbox_insert","inbox_update",
+    const positives = ["schema_use","principals_read","inbox_read","inbox_insert","inbox_update","inbox_payload_cleanup",
       "events_read","events_insert"];
     const negatives = ["schema_create","public_schema_create",
       "principals_insert","principals_update","principals_delete",
-      "inbox_delete","inbox_truncate","events_update","events_delete",
+      "inbox_identity_update","inbox_delete","inbox_truncate","events_update","events_delete",
       "events_truncate","audit_read","audit_insert","audit_update","audit_delete"];
     return positives.every(key => p[key] === true) &&
       negatives.every(key => p[key] === false);
