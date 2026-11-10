@@ -10,7 +10,7 @@ const url=process.env.WHATSAPP_EMPLOYEE_TEST_DATABASE_URL;
  * This destructive test is limited to a disposable CI PostgreSQL container.
  * No Neon, Railway, app or non-test DB is accepted even if configured.
  */
-test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox and immutable audit",{
+test("isolated archive migration creates five NOLOGIN scoped roles including encrypted history importer",{
   skip:!url || process.env.CI !== "true",
 },async()=>{
   assert.ok(url);
@@ -25,6 +25,7 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
     "../docs/sql/2026-11-09-whatsapp-employee-durable-inbox.sql.txt",
     "../docs/sql/2026-11-09-whatsapp-archive-03-roles.sql.txt",
     "../docs/sql/2026-11-10-whatsapp-archive-04-identity-audit.sql.txt",
+    "../docs/sql/2026-11-10-whatsapp-archive-05-private-history-inbox.sql.txt",
   ];
   try{
     for(const filename of files){
@@ -40,12 +41,13 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
       "kinglike_wa_archive_reader",
       "kinglike_wa_archive_auditwriter",
       "kinglike_wa_archive_identitysync",
+      "kinglike_wa_history_importer",
     ];
     const roleResult=await pool.query(
       "SELECT rolname,rolcanlogin,rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=ANY($1::text[])",
       [roles],
     );
-    assert.equal(roleResult.rowCount,4);
+    assert.equal(roleResult.rowCount,5);
     for(const role of roleResult.rows) {
       assert.equal(role.rolcanlogin,false);
       assert.equal(role.rolsuper,false);
@@ -72,14 +74,24 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
         "has_table_privilege('kinglike_wa_archive_identitysync','whatsapp_employee_identity_sync_audit','INSERT') AS sync_audit_insert",
         "has_table_privilege('kinglike_wa_archive_identitysync','whatsapp_employee_identity_sync_audit','SELECT') AS sync_audit_read",
         "has_table_privilege('kinglike_wa_archive_identitysync','whatsapp_employee_identity_sync_audit','UPDATE') AS sync_audit_update",
+        "has_table_privilege('kinglike_wa_archive_worker','kinglike_whatsapp.whatsapp_employee_history_chunks','INSERT') AS history_worker_insert",
+        "has_column_privilege('kinglike_wa_archive_worker','kinglike_whatsapp.whatsapp_employee_history_chunks','chunk_key','SELECT') AS history_worker_key_read",
+        "has_column_privilege('kinglike_wa_archive_worker','kinglike_whatsapp.whatsapp_employee_history_chunks','payload_ciphertext','SELECT') AS history_worker_payload_read",
+        "has_table_privilege('kinglike_wa_history_importer','kinglike_whatsapp.whatsapp_employee_history_chunks','SELECT') AS history_importer_read",
+        "has_column_privilege('kinglike_wa_history_importer','kinglike_whatsapp.whatsapp_employee_history_chunks','status','UPDATE') AS history_importer_status_update",
+        "has_column_privilege('kinglike_wa_history_importer','kinglike_whatsapp.whatsapp_employee_history_chunks','payload_ciphertext','UPDATE') AS history_importer_payload_update",
+        "has_table_privilege('kinglike_wa_history_importer','whatsapp_employee_events','SELECT') AS history_importer_events_read",
       ].join(", "),
     );
     const p=grants.rows[0];
     const yes=["worker_identity_read","worker_event_insert","worker_queue_insert",
-      "reader_event_select","audit_insert","sync_identity_insert","sync_audit_insert"];
+      "reader_event_select","audit_insert","sync_identity_insert","sync_audit_insert",
+      "history_worker_insert","history_worker_key_read","history_importer_read",
+      "history_importer_status_update"];
     const no=["worker_identity_update","worker_event_update","worker_event_delete",
       "worker_access_audit_insert","reader_event_insert","audit_select","audit_delete",
-      "sync_event_read","sync_audit_read","sync_audit_update"];
+      "sync_event_read","sync_audit_read","sync_audit_update",
+      "history_worker_payload_read","history_importer_payload_update","history_importer_events_read"];
     yes.forEach(k=>assert.equal(p[k],true,k));
     no.forEach(k=>assert.equal(p[k],false,k));
 
@@ -198,6 +210,55 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
       assert.equal(marked.rows[0].deleted,true);
       await worker.query("ROLLBACK");
     } finally {worker.release();}
+
+
+    // Test actual PostgreSQL grant behavior, immutability and duplicate
+    // phase/order semantics under the NOLOGIN roles, rollback all fixtures.
+    const historyClient=await pool.connect();
+    try {
+      await historyClient.query("BEGIN");
+      await historyClient.query("SET LOCAL ROLE kinglike_wa_archive_worker");
+      const fields=[
+        "employee_id,waba_id,phone_number_id,chunk_key,content_digest,",
+        "kind,phase,chunk_order,progress,thread_count,message_count,",
+        "payload_ciphertext,payload_iv,payload_tag",
+      ].join("");
+      const sql="INSERT INTO kinglike_whatsapp.whatsapp_employee_history_chunks("+
+        fields+") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)"+
+        " ON CONFLICT(employee_id,waba_id,phone_number_id,chunk_key) DO NOTHING";
+      const args=[101,"7000101","5550101","a".repeat(64),"b".repeat(64),
+        "chunk",0,1,100,1,1,Buffer.from("synthetic-encrypted-bytes"),
+        Buffer.alloc(12,1),Buffer.alloc(16,2)];
+      assert.equal((await historyClient.query(sql,args)).rowCount,1);
+      assert.equal((await historyClient.query(sql,args)).rowCount,0);
+      const q=await historyClient.query(
+        "SELECT content_digest FROM kinglike_whatsapp.whatsapp_employee_history_chunks"+
+        " WHERE employee_id=101 AND waba_id='7000101' AND phone_number_id='5550101'"+
+        " AND chunk_key=$1",["a".repeat(64)]);
+      assert.equal(q.rows[0].content_digest.trim(),"b".repeat(64));
+      await historyClient.query("SAVEPOINT restricted_history_read");
+      await assert.rejects(historyClient.query(
+        "SELECT payload_ciphertext FROM kinglike_whatsapp.whatsapp_employee_history_chunks"
+      ),/permission denied/);
+      await historyClient.query("ROLLBACK TO SAVEPOINT restricted_history_read");
+      await historyClient.query("SET LOCAL ROLE kinglike_wa_history_importer");
+      const imported=await historyClient.query(
+        "UPDATE kinglike_whatsapp.whatsapp_employee_history_chunks"+
+        " SET status='imported',imported_at=NOW() WHERE chunk_key=$1",
+        ["a".repeat(64)]);
+      assert.equal(imported.rowCount,1);
+      await historyClient.query("SAVEPOINT restricted_history_write");
+      await assert.rejects(historyClient.query(
+        "UPDATE kinglike_whatsapp.whatsapp_employee_history_chunks"+
+        " SET payload_ciphertext=$1 WHERE chunk_key=$2",
+        [Buffer.from("tampered"),"a".repeat(64)]
+      ),/permission denied|immutable/i);
+      await historyClient.query("ROLLBACK TO SAVEPOINT restricted_history_write");
+      await historyClient.query("ROLLBACK");
+    } finally {historyClient.release();}
+    const count=await pool.query(
+      "SELECT COUNT(*)::int AS count FROM kinglike_whatsapp.whatsapp_employee_history_chunks");
+    assert.equal(count.rows[0].count,0);
 
 
   }finally{
