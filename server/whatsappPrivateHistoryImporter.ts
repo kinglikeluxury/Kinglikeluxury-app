@@ -35,6 +35,12 @@ type Job= {
   payload_tag:Buffer;
   lease_token:string;
   attempt_count:number;
+  // Immutable summary from the signed, preflight-validated history inbox.
+  phase:number|null;
+  chunk_order:number|null;
+  progress:number|null;
+  thread_count:number;
+  message_count:number;
 };
 type ParsedHistoryMessage = {
   messageId:string;contact:string;direction:"inbound"|"outbound";kind:string;
@@ -118,6 +124,29 @@ function parseMessages(chunk:any,scope:HistoryInboxScope,maxMessages:number):Par
   return output;
 }
 
+function validateHistoryCompleteness(job:Job,chunk:any,messages:ParsedHistoryMessage[]):void {
+  // No per-chunk progress flag proves that all past messages arrived.
+  // At minimum, require that THIS claimed chunk was imported in full.
+  if(job.kind==="declined") {
+    if(job.phase!==null || job.chunk_order!==null || job.progress!==null ||
+       job.thread_count!==0 || job.message_count!==0 ||
+       !Array.isArray(chunk?.errors) || chunk.errors.length!==1 ||
+       chunk.errors[0]?.code!==2593109 || chunk.threads!==undefined ||
+       messages.length!==0)fail();
+    return;
+  }
+  if(job.kind!=="chunk" || chunk?.errors!==undefined ||
+     !Array.isArray(chunk?.threads) ||
+     !Number.isSafeInteger(job.phase) ||
+     !Number.isSafeInteger(job.chunk_order) ||
+     !Number.isSafeInteger(job.progress) ||
+     Number(chunk?.metadata?.phase)!==job.phase ||
+     Number(chunk?.metadata?.chunk_order)!==job.chunk_order ||
+     Number(chunk?.metadata?.progress)!==job.progress ||
+     job.thread_count!==chunk.threads.length ||
+     job.message_count!==messages.length)fail();
+}
+
 export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
   db:Connection;
   encryptionKey:Buffer; // SAME private history key as encrypted history inbox
@@ -164,18 +193,30 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
     const db=await deps.db.connect();
     try{
       await verifyRole(db);
+      // A repeatedly crashing worker can leave an expired 'processing' lease
+      // without executing retry(). Do not re-claim that row indefinitely.
+      // Finalize exhausted abandoned leases without ever deleting ciphertext.
+      await db.query(
+        "UPDATE "+TABLE+" SET status='dead_letter',locked_until=NULL,"+
+        "lease_token=NULL,last_error_class=COALESCE(last_error_class,'IMPORT_FAILED')"+
+        " WHERE attempt_count >= $1 AND ("+
+        " (status IN ('pending','retry') AND available_at<=NOW()) OR"+
+        " (status='processing' AND locked_until<NOW()))",
+        [maxAttempts],
+      );
       const token=randomUUID();
       const r=await db.query([
         "WITH next_job AS (SELECT id FROM "+TABLE,
-        "WHERE ((status IN ('pending','retry') AND available_at<=NOW())",
+        "WHERE attempt_count<$3 AND ((status IN ('pending','retry') AND available_at<=NOW())",
         " OR (status='processing' AND locked_until<NOW()))",
         "ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)",
         "UPDATE "+TABLE+" h SET status='processing',attempt_count=h.attempt_count+1,",
         "lease_token=$1::uuid,locked_until=NOW()+($2::int * interval '1 second')",
         "FROM next_job WHERE h.id=next_job.id RETURNING h.id,h.employee_id,",
         "h.waba_id,h.phone_number_id,h.chunk_key,h.content_digest,h.kind,",
-        "h.payload_ciphertext,h.payload_iv,h.payload_tag,h.lease_token,h.attempt_count",
-      ].join(" "),[token,leaseSeconds]);
+        "h.payload_ciphertext,h.payload_iv,h.payload_tag,h.lease_token,h.attempt_count,",
+        "h.phase,h.chunk_order,h.progress,h.thread_count,h.message_count",
+      ].join(" "),[token,leaseSeconds,maxAttempts]);
       return (r.rows[0] as Job|undefined)??null;
     }finally{db.release();}
   }
@@ -238,6 +279,8 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
         }
         reason="DECRYPT_FAILED";
         if(!Buffer.isBuffer(job.payload_ciphertext)||
+           job.payload_ciphertext.length===0 ||
+           job.payload_ciphertext.length>8*1024*1024 ||
            !Buffer.isBuffer(job.payload_iv)||job.payload_iv.length!==12||
            !Buffer.isBuffer(job.payload_tag)||job.payload_tag.length!==16)fail();
         const decipher=createDecipheriv("aes-256-gcm",deps.encryptionKey,job.payload_iv);
@@ -248,8 +291,7 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
         if(digest(chunk)!==String(job.content_digest).trim())fail();
         reason="UNSUPPORTED";
         const messages=job.kind==="declined"?[]:parseMessages(chunk,scope,maxMessages);
-        if(job.kind==="declined" &&
-           !(Array.isArray(chunk.errors)&&chunk.errors.some((e:any)=>e?.code===2593109)))fail();
+        validateHistoryCompleteness(job,chunk,messages);
         reason="IMPORT_FAILED";
         for(const msg of messages){
           const conv=await client.query(
@@ -284,6 +326,8 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
           if(inserted.rowCount===0){
             const existing=await client.query(
               "SELECT e.employee_id,e.meta_message_id,e.event_kind,e.direction,"+
+              " e.message_type,e.message_text,e.media_mime_type,e.media_size_bytes,"+
+              " e.media_sha256,"+
               " c.phone_number_id,c.waba_id,c.contact_wa_id"+
               " FROM whatsapp_employee_events e JOIN whatsapp_employee_conversations c"+
               " ON c.id=e.conversation_id WHERE e.meta_event_key=$1",
@@ -293,7 +337,18 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
             if(!e||Number(e.employee_id)!==scope.employeeId||
               e.meta_message_id!==msg.messageId ||e.event_kind!=="message"||
               e.direction!==msg.direction||e.phone_number_id!==scope.phoneNumberId||
-              e.waba_id!==scope.wabaId||e.contact_wa_id!==msg.contact)fail();
+              e.waba_id!==scope.wabaId||e.contact_wa_id!==msg.contact ||
+              (e.message_type!==null && e.message_type!==undefined &&
+                e.message_type!==msg.kind) ||
+              (e.message_text!==null && e.message_text!==undefined &&
+                e.message_text!==msg.text) ||
+              (e.media_mime_type && msg.mimeType &&
+                e.media_mime_type!==msg.mimeType) ||
+              (e.media_size_bytes!==null && e.media_size_bytes!==undefined &&
+                msg.sizeBytes!==null &&
+                Number(e.media_size_bytes)!==msg.sizeBytes) ||
+              (e.media_sha256 && msg.sha256 &&
+                String(e.media_sha256).toLowerCase()!==msg.sha256))fail();
           }else if(inserted.rowCount!==1)fail();
         }
         if((await deps.authorizeScope(scope))!==true){

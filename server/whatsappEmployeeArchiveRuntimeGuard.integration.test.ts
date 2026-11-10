@@ -85,6 +85,8 @@ test("admin Staging operations status reports sync disabled and reveals no conne
     assert.equal(payload.employeeMonitoring,"disabled");
     assert.equal(payload.employeeNumbersConnected,"not_verified");
     assert.equal(payload.identitySyncRuntime,"disabled");
+    assert.equal(payload.historyImporter,"code_ready_not_running");
+    assert.equal(payload.historyCompleteness,"not_verified");
     assert.ok(!JSON.stringify(payload).includes("secret-value"));
     assert.ok(!JSON.stringify(payload).includes("unapproved"));
   } finally {await stop(server);}

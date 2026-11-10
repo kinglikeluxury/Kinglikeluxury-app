@@ -12,6 +12,8 @@ export type WhatsappOperationsStatus = {
   realEnrollment: "disabled" | "awaiting_separate_review";
   employeeMonitoring: "disabled";
   identitySyncRuntime: "disabled" | "configured_not_running";
+  historyImporter: "code_ready_not_running";
+  historyCompleteness: "not_verified";
   employeeNumbersConnected: "not_verified";
   previousSyntheticResults: "see_ci_logs";
   nextStep: "meta_eligibility_and_privacy_review";
@@ -200,6 +202,11 @@ export default function WhatsappEmployeeOperationsPage() {
               value={status?.identitySyncRuntime === "configured_not_running"
                 ? "الإعدادات مهيأة — غير مشغّلة" : "مقفلة حالياً"}
               detail="لا يوجد تشغيل دوري أو اتصال بهويات الموظفين حالياً. سحب الموافقة يوقف صلاحية الأرشيف عند تطبيقه عبر المصدر المعتمد." />
+            <SafeCard title="استيراد سجل واتساب السابق"
+              good={false}
+              value={status?.historyImporter === "code_ready_not_running"
+                ? "المستورد جاهز برمجياً — غير مشغّل" : "لم يتم التحقق"}
+              detail="دفعات التاريخ المشفرة قابلة للاستيراد بعد الربط المصرّح به. لم تبدأ أي عملية استيراد حقيقية، ولا يمكن تأكيد اكتمال التاريخ من دفعة واحدة، حتى إن كانت نسبة التقدم 100%." />
           </div>
         </section>
 
