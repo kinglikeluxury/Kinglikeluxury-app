@@ -1,0 +1,42 @@
+-- 06: Scoped Coexistence history importer grants and honest source label.
+-- Apply only to dedicated Kinglike-Web-Staging/Postgres-92tK DB
+-- kinglike_whatsapp_archive AFTER migration 05.
+-- NOLOGIN role remains NOLOGIN. No real number, messages, webhook or secret.
+BEGIN;
+
+-- Previous source-field check intentionally rejected history before its
+-- separate durable queue and audited importer existed.
+ALTER TABLE public.whatsapp_employee_events
+  DROP CONSTRAINT whatsapp_employee_events_source_field_check;
+ALTER TABLE public.whatsapp_employee_events
+  ADD CONSTRAINT whatsapp_employee_events_source_field_check
+    CHECK(source_field IN ('messages','smb_message_echoes','history'));
+
+-- Historical importer needs only:
+--  - read active company authorization / consent and current mirrored role;
+--  - find/create chat threads and append original immutable messages;
+--  - mark leased history chunks imported, retry, blocked, or dead letter;
+--  - append a non-content import audit.
+-- It can NEVER UPDATE or DELETE an archived message or a conversation.
+GRANT SELECT ON public.users,public.whatsapp_employee_numbers,
+  public.whatsapp_employee_consents,public.whatsapp_employee_conversations,
+  public.whatsapp_employee_events
+  TO kinglike_wa_history_importer;
+GRANT INSERT ON public.whatsapp_employee_conversations,
+  public.whatsapp_employee_events,public.whatsapp_employee_audit
+  TO kinglike_wa_history_importer;
+GRANT USAGE,SELECT ON SEQUENCE public.whatsapp_employee_conversations_id_seq,
+  public.whatsapp_employee_events_id_seq,public.whatsapp_employee_audit_id_seq
+  TO kinglike_wa_history_importer;
+
+-- Explicit defensive revocation: history importing must never be a means to
+-- activate employee numbers, alter consent, or change earlier message text.
+REVOKE UPDATE,DELETE,TRUNCATE ON public.whatsapp_employee_events
+  FROM kinglike_wa_history_importer;
+REVOKE UPDATE,DELETE,TRUNCATE ON public.whatsapp_employee_conversations
+  FROM kinglike_wa_history_importer;
+REVOKE ALL ON public.whatsapp_employee_supervisor_grants
+  FROM kinglike_wa_history_importer;
+
+COMMIT;
+-- Importer LOGIN and real Meta history requests remain forbidden by default.
