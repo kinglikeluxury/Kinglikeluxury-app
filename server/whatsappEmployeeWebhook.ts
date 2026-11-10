@@ -169,6 +169,12 @@ async function archiveScopedPayload(
   scope: {employeeId:number;wabaId:string;phoneNumberId:string;displayPhoneNumber:string},
   db: Pick<pg.Pool,"connect">,
 ): Promise<number> {
+  if(!Buffer.isBuffer(raw) || raw.length===0 || raw.length>1024*1024 ||
+     !Number.isSafeInteger(scope?.employeeId) || scope.employeeId<1 ||
+     !/^[0-9]{4,24}$/.test(scope.wabaId) ||
+     !/^[0-9]{4,24}$/.test(scope.phoneNumberId) ||
+     !/^[0-9]{8,24}$/.test(scope.displayPhoneNumber))
+    throw new Error("Employee queue scope invalid");
   let payload: any;
   try { payload = JSON.parse(raw.toString("utf8")); }
   catch { throw new Error("Malformed signed employee queue payload"); }
@@ -209,7 +215,7 @@ async function archiveScopedPayload(
   // Individual events may commit before an exception. Retry deduplicates those.
   let stored = 0;
   for (const event of events) {
-    const outcome = await persistEvent(event,db);
+    const outcome = await persistEvent(event,db,scope.employeeId);
     if (outcome === "identity_mismatch" || outcome === "not_consented") {
       throw new Error("Employee archive policy rejected event");
     }
@@ -219,7 +225,7 @@ async function archiveScopedPayload(
 }
 
 async function persistEvent(event: NormalizedEvent,
-  db: Pick<pg.Pool,"connect">,
+  db: Pick<pg.Pool,"connect">,expectedEmployeeId: number,
 ): Promise<"stored" | "duplicate" | "not_consented" | "identity_mismatch" | "unresolved_reference"> {
   const client = await db.connect();
   try {
@@ -245,6 +251,10 @@ async function persistEvent(event: NormalizedEvent,
       return "not_consented";
     }
     const employeeId = Number(registration.rows[0].employee_id);
+    if(employeeId!==expectedEmployeeId) {
+      await client.query("ROLLBACK");
+      return "identity_mismatch";
+    }
     const existing = await client.query(
       `SELECT e.employee_id,c.phone_number_id,c.waba_id,c.contact_wa_id,c.contact_user_id
          FROM whatsapp_employee_events e JOIN whatsapp_employee_conversations c ON c.id=e.conversation_id
