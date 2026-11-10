@@ -203,3 +203,16 @@ test("unsupported media types fail closed and leave encrypted chunk available fo
   assert.equal(f.events.size,0);
   assert.equal(f.jobs[0].status,"retry");
 });
+
+test("separate outbound history arrays are not silently marked imported",async()=>{
+  const payload={
+    metadata:{phase:0,chunk_order:3,progress:100},
+    threads:[{id:customer,messages:[],
+      message_echoes:[message("wamid.hidden",business,"must not be discarded",customer)]}],
+  };
+  const f=fixture({job:seal(payload)});
+  assert.equal(await f.importer.processOne(),"retry");
+  assert.equal(f.jobs[0].status,"retry");
+  assert.equal(f.events.size,0);
+  assert.equal(f.audits.length,0);
+});
