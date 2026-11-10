@@ -10,6 +10,18 @@
 - A real PostgreSQL transaction binds upsert/deactivation and ledger insertion together. If ledger writing fails, roll back all changes. An ordinary customer who has never had an archive identity produces no row in the archive or ledger.
 - Unit tests and disposable PostgreSQL migration tests cover the role grant, immutable trigger, denied ledger read, consent revocation and transaction-failure rollback.
 
+## Verified Staging schema application
+
+- On 10 November 2026 the reviewed SQL 04 migration was applied to **only**
+  Postgres-92tK / `kinglike_whatsapp_archive` via a single-use, private
+  Railway Function, deployment `992c6588-6b9d-4118-a37e-7051167f56ea`.
+- Railway reported `SUCCESS` and the explicit
+  `WA_IDENTITY_AUDIT_MIGRATION_SUCCESS` marker; 0 identity audit rows,
+  identitysync role **NOLOGIN**, immutable trigger enabled and INSERT-only grant
+  verified. The migration was transaction-bound and rejected wrong DB identity.
+- The one-time Function was deleted after success; no app secrets, worker role
+  logins or real employee identifiers were deployed.
+
 ## What remains OFF
 
 - The Staging app contains **no public refresh route or scheduler**. This module opens no database by itself.
