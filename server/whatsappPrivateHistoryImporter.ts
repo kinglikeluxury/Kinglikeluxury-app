@@ -326,6 +326,8 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
           if(inserted.rowCount===0){
             const existing=await client.query(
               "SELECT e.employee_id,e.meta_message_id,e.event_kind,e.direction,"+
+              " e.message_type,e.message_text,e.media_mime_type,e.media_size_bytes,"+
+              " e.media_sha256,"+
               " c.phone_number_id,c.waba_id,c.contact_wa_id"+
               " FROM whatsapp_employee_events e JOIN whatsapp_employee_conversations c"+
               " ON c.id=e.conversation_id WHERE e.meta_event_key=$1",
@@ -335,7 +337,18 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
             if(!e||Number(e.employee_id)!==scope.employeeId||
               e.meta_message_id!==msg.messageId ||e.event_kind!=="message"||
               e.direction!==msg.direction||e.phone_number_id!==scope.phoneNumberId||
-              e.waba_id!==scope.wabaId||e.contact_wa_id!==msg.contact)fail();
+              e.waba_id!==scope.wabaId||e.contact_wa_id!==msg.contact ||
+              (e.message_type!==null && e.message_type!==undefined &&
+                e.message_type!==msg.kind) ||
+              (e.message_text!==null && e.message_text!==undefined &&
+                e.message_text!==msg.text) ||
+              (e.media_mime_type && msg.mimeType &&
+                e.media_mime_type!==msg.mimeType) ||
+              (e.media_size_bytes!==null && e.media_size_bytes!==undefined &&
+                msg.sizeBytes!==null &&
+                Number(e.media_size_bytes)!==msg.sizeBytes) ||
+              (e.media_sha256 && msg.sha256 &&
+                String(e.media_sha256).toLowerCase()!==msg.sha256))fail();
           }else if(inserted.rowCount!==1)fail();
         }
         if((await deps.authorizeScope(scope))!==true){
