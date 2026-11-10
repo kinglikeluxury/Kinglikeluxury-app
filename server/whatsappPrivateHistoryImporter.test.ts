@@ -32,7 +32,13 @@ function seal(plain:any, id="1",chunkKey="a".repeat(64)):Row {
     chunk_key:chunkKey,content_digest:digest,
     kind:Array.isArray(plain.errors)?"declined":"chunk",
     payload_ciphertext:cipher,payload_iv:iv,payload_tag:encrypt.getAuthTag(),
-    attempt_count:0,status:"pending",lease_token:null};
+    attempt_count:0,status:"pending",lease_token:null,
+    phase:Array.isArray(plain.errors)?null:plain.metadata?.phase,
+    chunk_order:Array.isArray(plain.errors)?null:plain.metadata?.chunk_order,
+    progress:Array.isArray(plain.errors)?null:plain.metadata?.progress,
+    thread_count:Array.isArray(plain.threads)?plain.threads.length:0,
+    message_count:Array.isArray(plain.threads)
+      ?plain.threads.reduce((n:number,t:any)=>n+(Array.isArray(t.messages)?t.messages.length:0),0):0};
 }
 
 function fixture(opts?:{job?:Row;role?:Record<string,any>;authorize?:boolean}){
@@ -215,4 +221,43 @@ test("separate outbound history arrays are not silently marked imported",async()
   assert.equal(f.jobs[0].status,"retry");
   assert.equal(f.events.size,0);
   assert.equal(f.audits.length,0);
+});
+
+
+test("mismatched immutable message count blocks premature history import",async()=>{
+  const f=fixture();
+  f.jobs[0].message_count=3; // signed/preflight summary claimed three
+  assert.equal(await f.importer.processOne(),"retry");
+  assert.equal(f.events.size,0);
+  assert.equal(f.audits.length,0);
+  assert.equal(f.jobs[0].status,"retry");
+});
+
+test("mismatched phase/order/progress and thread counts are refused without partial archive",async()=>{
+  for(const change of [
+    {phase:2},{chunk_order:2},{progress:50},{thread_count:2},
+  ]){
+    const f=fixture();
+    Object.assign(f.jobs[0],change);
+    assert.equal(await f.importer.processOne(),"retry");
+    assert.equal(f.events.size,0);
+    assert.equal(f.audits.length,0);
+  }
+});
+
+test("a history sharing decline cannot hide a message-bearing thread",async()=>{
+  const d={errors:[{code:2593109}],threads:[{id:customer,messages:[
+    message("wamid.hidden",customer,"SHOULD_NOT_BE_LOST"),
+  ]}]};
+  const f=fixture({job:seal(d)});
+  assert.equal(await f.importer.processOne(),"retry");
+  assert.equal(f.events.size,0);
+  assert.equal(f.audits.length,0);
+});
+
+test("a too-large encrypted history payload is rejected before decryption",async()=>{
+  const f=fixture();
+  f.jobs[0].payload_ciphertext=Buffer.alloc(8*1024*1024+1);
+  assert.equal(await f.importer.processOne(),"retry");
+  assert.equal(f.events.size,0);
 });
