@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Express } from "express";
 import pg from "pg";
+import { stagingDatabaseIsIsolated } from "./stagingExternalGuard";
 import { isEmployeeWhatsappMediaKind, normalizeEmployeeWhatsappMedia } from "./whatsappEmployeeMedia";
 
 const PATH = "/api/webhooks/whatsapp-employee";
@@ -157,6 +158,17 @@ export async function archiveQueuedWhatsappEmployeePayloadForTest(
       !Number.isSafeInteger(scope?.employeeId) || scope.employeeId < 1) {
     throw new Error("Employee queue archiver is disabled outside isolated tests.");
   }
+  return archiveScopedPayload(raw,scope,getTestOnlyPool());
+}
+
+/** Core writer remains hidden behind the isolated test guard or an explicitly
+ * verified private archive-worker factory. No app DB fallback is permitted.
+ */
+async function archiveScopedPayload(
+  raw: Buffer,
+  scope: {employeeId:number;wabaId:string;phoneNumberId:string;displayPhoneNumber:string},
+  db: Pick<pg.Pool,"connect">,
+): Promise<number> {
   let payload: any;
   try { payload = JSON.parse(raw.toString("utf8")); }
   catch { throw new Error("Malformed signed employee queue payload"); }
@@ -197,7 +209,7 @@ export async function archiveQueuedWhatsappEmployeePayloadForTest(
   // Individual events may commit before an exception. Retry deduplicates those.
   let stored = 0;
   for (const event of events) {
-    const outcome = await persistEvent(event);
+    const outcome = await persistEvent(event,db);
     if (outcome === "identity_mismatch" || outcome === "not_consented") {
       throw new Error("Employee archive policy rejected event");
     }
@@ -206,8 +218,10 @@ export async function archiveQueuedWhatsappEmployeePayloadForTest(
   return stored;
 }
 
-async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplicate" | "not_consented" | "identity_mismatch" | "unresolved_reference"> {
-  const client = await getTestOnlyPool().connect();
+async function persistEvent(event: NormalizedEvent,
+  db: Pick<pg.Pool,"connect">,
+): Promise<"stored" | "duplicate" | "not_consented" | "identity_mismatch" | "unresolved_reference"> {
+  const client = await db.connect();
   try {
     await client.query("BEGIN");
     const registration = await client.query(
@@ -218,7 +232,7 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
          JOIN whatsapp_employee_consents c
            ON c.phone_number_id=n.phone_number_id AND c.employee_id=n.employee_id
         WHERE n.phone_number_id=$1 AND n.waba_id=$2
-        LIMIT 1 FOR SHARE OF n, c`,
+        LIMIT 1`,
       [event.phoneNumberId, event.wabaId],
     );
     if (!isEligibleRegistration(registration.rows[0], event.sourceField, event.businessDisplayPhoneNumber)) {
@@ -234,7 +248,7 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
     const existing = await client.query(
       `SELECT e.employee_id,c.phone_number_id,c.waba_id,c.contact_wa_id,c.contact_user_id
          FROM whatsapp_employee_events e JOIN whatsapp_employee_conversations c ON c.id=e.conversation_id
-        WHERE e.meta_event_key=$1 FOR UPDATE`,
+        WHERE e.meta_event_key=$1`,
       [event.eventKey],
     );
     if (existing.rowCount) {
@@ -270,7 +284,7 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
       const original = await client.query(
         `SELECT id FROM whatsapp_employee_events
           WHERE conversation_id=$1 AND meta_message_id=$2 AND direction=$3 AND event_kind='message'
-          LIMIT 1 FOR SHARE`,
+          LIMIT 1`,
         [conversation.rows[0].id,event.relatedMessageId,event.direction],
       );
       if (!original.rowCount) {
@@ -332,6 +346,60 @@ async function persistEvent(event: NormalizedEvent): Promise<"stored" | "duplica
   } finally {
     client.release();
   }
+}
+
+
+/**
+ * Restricted Staging worker-consumer adapter. Requires a separately created
+ * PRIVATE archive pool authenticating as kinglike_wa_archive_worker.
+ * It NEVER registers HTTP routes, starts a worker, sends a Meta request or
+ * connects to a database merely by being imported.
+ */
+export function createRestrictedStagingWhatsappEmployeeConsumer(
+  db: Pick<pg.Pool,"connect">,
+  env: NodeJS.ProcessEnv=process.env,
+): null | ((raw:Buffer,scope:{
+  employeeId:number;wabaId:string;phoneNumberId:string;displayPhoneNumber:string
+})=>Promise<number>) {
+  const required=[
+    "WHATSAPP_EMPLOYEE_ARCHIVE_WORKER_ENABLED",
+    "WHATSAPP_EMPLOYEE_ARCHIVE_EMPLOYEE_NOTICE_APPROVED",
+    "WHATSAPP_EMPLOYEE_ARCHIVE_CUSTOMER_NOTICE_APPROVED",
+    "WHATSAPP_EMPLOYEE_ARCHIVE_RETENTION_POLICY_APPROVED",
+    "WHATSAPP_EMPLOYEE_ARCHIVE_META_VERIFICATION_APPROVED",
+    "WHATSAPP_EMPLOYEE_ARCHIVE_HISTORY_IMPORT_READY",
+    "WHATSAPP_EMPLOYEE_ARCHIVE_PRIVATE_MEDIA_READY",
+  ];
+  if(env.APP_DEPLOYMENT_MODE!=="staging" ||
+     !stagingDatabaseIsIsolated(env) ||
+     required.some(flag=>env[flag]!=="true") ||
+     !db || typeof db.connect!=="function")return null;
+
+  return async(raw,scope)=>{
+    const client=await db.connect();
+    try {
+      const v=await client.query([
+        "SELECT current_database() AS db,current_user AS role,",
+        "(SELECT rolsuper FROM pg_roles WHERE rolname=current_user) AS superuser,",
+        "(SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname=current_database()) AS owner,",
+        "has_table_privilege(current_user,'whatsapp_employee_events','INSERT') AS can_insert,",
+        "has_table_privilege(current_user,'whatsapp_employee_events','SELECT') AS can_read,",
+        "has_table_privilege(current_user,'whatsapp_employee_events','UPDATE') AS can_update,",
+        "has_table_privilege(current_user,'whatsapp_employee_events','DELETE') AS can_delete,",
+        "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','INSERT') AS inbox_insert,",
+        "has_schema_privilege(current_user,'public','CREATE') AS can_create",
+      ].join(" "));
+      const r=v.rows[0]??{};
+      if(r.db!=="kinglike_whatsapp_archive" ||
+         r.role!=="kinglike_wa_archive_worker" ||
+         r.role===r.owner || r.superuser!==false ||
+         r.can_insert!==true || r.can_read!==true ||
+         r.inbox_insert!==true ||
+         r.can_update!==false || r.can_delete!==false ||
+         r.can_create!==false)throw Error("Restricted archive worker role refused");
+    } finally { client.release(); }
+    return archiveScopedPayload(raw,scope,db);
+  };
 }
 
 let testOnlyPool: pg.Pool | undefined;
