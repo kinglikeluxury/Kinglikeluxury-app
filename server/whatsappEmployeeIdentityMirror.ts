@@ -108,6 +108,16 @@ export async function syncOneVerifiedArchivePrincipal(
   if(!(await verifyIsolatedIdentitySyncRole(db,options.expectedDatabase))) {
     throw new IdentityMirrorRefused();
   }
+  if(!principal.isActive) {
+    // Ordinary clients MUST NOT be copied to the employee archive. Only
+    // invalidate a previously mirrored ID if one already exists.
+    await db.query(
+      "UPDATE public.users SET is_active=false,is_admin=false,"+
+      " role='inactive',verified_at=NOW() WHERE id=$1",
+      [principal.id],
+    );
+    return "inactive";
+  }
   const result=await db.query([
     "INSERT INTO public.users(id,is_active,is_admin,role,verified_at)",
     "VALUES($1,$2,$3,$4,NOW())",
@@ -117,5 +127,5 @@ export async function syncOneVerifiedArchivePrincipal(
     "RETURNING id",
   ].join(" "),[principal.id,principal.isActive,principal.isAdmin,principal.role]);
   if(result.rowCount!==1 && result.rows.length!==1)throw new IdentityMirrorRefused();
-  return principal.isActive?"eligible":"inactive";
+  return "eligible";
 }
