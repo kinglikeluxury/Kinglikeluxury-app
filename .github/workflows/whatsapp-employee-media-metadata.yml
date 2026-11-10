@@ -35,6 +35,8 @@ on:
       - "server/whatsappEmployeeIdentityMirror.test.ts"
       - "server/whatsappEmployeeIdentitySyncCoordinator.ts"
       - "server/whatsappEmployeeIdentitySyncCoordinator.test.ts"
+      - "server/whatsappEmployeeIdentitySyncRuntime.ts"
+      - "server/whatsappEmployeeIdentitySyncRuntime.test.ts"
       - "docs/sql/2026-11-10-whatsapp-archive-04-identity-audit.sql.txt"
       - "server/whatsappEmployeeArchiveLiveRoutes.ts"
       - "server/whatsappEmployeeArchiveLiveRoutes.test.ts"
@@ -74,6 +76,8 @@ on:
       - "server/whatsappEmployeeIdentityMirror.test.ts"
       - "server/whatsappEmployeeIdentitySyncCoordinator.ts"
       - "server/whatsappEmployeeIdentitySyncCoordinator.test.ts"
+      - "server/whatsappEmployeeIdentitySyncRuntime.ts"
+      - "server/whatsappEmployeeIdentitySyncRuntime.test.ts"
       - "docs/sql/2026-11-10-whatsapp-archive-04-identity-audit.sql.txt"
       - "server/whatsappEmployeeArchiveLiveRoutes.ts"
       - "server/whatsappEmployeeArchiveLiveRoutes.test.ts"
@@ -115,7 +119,7 @@ jobs:
           WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
           WHATSAPP_EMPLOYEE_ARCHIVE_ENABLED: "false"
           WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
-        run: node --import tsx --test server/whatsappEmployeeMedia.test.ts server/whatsappEmployeeWebhook.test.ts server/whatsappPrivateMediaVault.test.ts server/whatsappHistorySyncPreflight.test.ts server/whatsappEmployeeArchiveRuntimeGuard.test.ts server/whatsappEmployeeArchiveRuntimeGuard.integration.test.ts server/whatsappEmployeeArchiveReadService.test.ts server/whatsappEmployeeArchiveLiveRoutes.test.ts server/whatsappEmployeeIdentityMirror.test.ts server/whatsappEmployeeIdentitySyncCoordinator.test.ts
+        run: node --import tsx --test server/whatsappEmployeeMedia.test.ts server/whatsappEmployeeWebhook.test.ts server/whatsappPrivateMediaVault.test.ts server/whatsappHistorySyncPreflight.test.ts server/whatsappEmployeeArchiveRuntimeGuard.test.ts server/whatsappEmployeeArchiveRuntimeGuard.integration.test.ts server/whatsappEmployeeArchiveReadService.test.ts server/whatsappEmployeeArchiveLiveRoutes.test.ts server/whatsappEmployeeIdentityMirror.test.ts server/whatsappEmployeeIdentitySyncCoordinator.test.ts server/whatsappEmployeeIdentitySyncRuntime.test.ts
       - name: Verify signed webhook, PostgreSQL persistence and archive RBAC (synthetic only)
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled

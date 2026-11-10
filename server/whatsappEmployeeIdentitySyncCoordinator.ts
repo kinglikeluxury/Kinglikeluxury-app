@@ -66,16 +66,30 @@ export function createAuditedIdentitySync(
       !Number.isSafeInteger(employeeId)||employeeId<=0||
       employeeId>2147483647||!policyApproved)throw new IdentityMirrorRefused();
     if(!(await source.currentAdmin(actorId)))throw new IdentityMirrorRefused();
-    const latest=await source.currentPerson(employeeId);
-    if(latest!==null && latest.id!==employeeId)throw new IdentityMirrorRefused();
-    const principal=normalizeArchivePrincipal(latest??{
-      id:employeeId,isActive:false,isAdmin:false,role:"inactive",
-    });
-    if(principal.isActive && !principal.isAdmin &&
-      !(await source.hasEmployeeConsent(employeeId))) {
-      throw new IdentityMirrorRefused();
+    // Consent withdrawal MUST deactivate an existing archive principal:
+    // do not refuse the revocation merely because the app account remains active.
+    // The app account itself is never modified.
+    async function desiredSource():Promise<KinglikePrincipal> {
+      const current=await source.currentPerson(employeeId);
+      if(current!==null && current.id!==employeeId)throw new IdentityMirrorRefused();
+      const actual=current??{
+        id:employeeId,isActive:false,isAdmin:false,role:"inactive",
+      };
+      const normalized=normalizeArchivePrincipal(actual);
+      if(normalized.isActive && !normalized.isAdmin &&
+         (await source.hasEmployeeConsent(employeeId))!==true) {
+        return {id:employeeId,isActive:false,isAdmin:false,role:"inactive"};
+      }
+      return actual;
     }
+    const desired=await desiredSource();
+    const principal=normalizeArchivePrincipal(desired);
     return await tx.transact(async db=>{
+      // Serialize concurrent updates for this principal. A late activation
+      // must not overwrite a consent revocation from another worker.
+      // Transaction-scoped advisory lock releases on COMMIT or ROLLBACK.
+      await db.query("SELECT pg_advisory_xact_lock($1::integer,$2::integer)",
+        [762022,employeeId]);
       if(!(await verifyIsolatedIdentitySyncRole(db,"kinglike_whatsapp_archive"))) {
         throw new IdentityMirrorRefused();
       }
@@ -86,18 +100,12 @@ export function createAuditedIdentitySync(
       }
       // Recheck active status/consent immediately before database mutation.
       if(!(await source.currentAdmin(actorId)))throw new IdentityMirrorRefused();
-      const currentAgain=await source.currentPerson(employeeId);
-      if(currentAgain!==null && currentAgain.id!==employeeId)throw new IdentityMirrorRefused();
-      const now=normalizeArchivePrincipal(currentAgain??{
-        id:employeeId,isActive:false,isAdmin:false,role:"inactive",
-      });
-      if(now.isActive && !now.isAdmin &&
-        !(await source.hasEmployeeConsent(employeeId)))throw new IdentityMirrorRefused();
+      const secondDesired=await desiredSource();
+      const now=normalizeArchivePrincipal(secondDesired);
       if(now.isActive!==principal.isActive || now.isAdmin!==principal.isAdmin ||
         now.role!==principal.role)throw new IdentityMirrorRefused();
-      const result=await syncOneVerifiedArchivePrincipal(db,currentAgain??{
-        id:employeeId,isActive:false,isAdmin:false,role:"inactive",
-      },{approved:true,expectedDatabase:"kinglike_whatsapp_archive"});
+      const result=await syncOneVerifiedArchivePrincipal(db,secondDesired,
+        {approved:true,expectedDatabase:"kinglike_whatsapp_archive"});
       const record=await db.query(
         "INSERT INTO public.whatsapp_employee_identity_sync_audit"+
         " (actor_id,employee_id,action) VALUES ($1,$2,$3)",
