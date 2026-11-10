@@ -35,6 +35,12 @@ type Job= {
   payload_tag:Buffer;
   lease_token:string;
   attempt_count:number;
+  // Immutable summary from the signed, preflight-validated history inbox.
+  phase:number|null;
+  chunk_order:number|null;
+  progress:number|null;
+  thread_count:number;
+  message_count:number;
 };
 type ParsedHistoryMessage = {
   messageId:string;contact:string;direction:"inbound"|"outbound";kind:string;
@@ -118,6 +124,29 @@ function parseMessages(chunk:any,scope:HistoryInboxScope,maxMessages:number):Par
   return output;
 }
 
+function validateHistoryCompleteness(job:Job,chunk:any,messages:ParsedHistoryMessage[]):void {
+  // No per-chunk progress flag proves that all past messages arrived.
+  // At minimum, require that THIS claimed chunk was imported in full.
+  if(job.kind==="declined") {
+    if(job.phase!==null || job.chunk_order!==null || job.progress!==null ||
+       job.thread_count!==0 || job.message_count!==0 ||
+       !Array.isArray(chunk?.errors) || chunk.errors.length!==1 ||
+       chunk.errors[0]?.code!==2593109 || chunk.threads!==undefined ||
+       messages.length!==0)fail();
+    return;
+  }
+  if(job.kind!=="chunk" || chunk?.errors!==undefined ||
+     !Array.isArray(chunk?.threads) ||
+     !Number.isSafeInteger(job.phase) ||
+     !Number.isSafeInteger(job.chunk_order) ||
+     !Number.isSafeInteger(job.progress) ||
+     Number(chunk?.metadata?.phase)!==job.phase ||
+     Number(chunk?.metadata?.chunk_order)!==job.chunk_order ||
+     Number(chunk?.metadata?.progress)!==job.progress ||
+     job.thread_count!==chunk.threads.length ||
+     job.message_count!==messages.length)fail();
+}
+
 export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
   db:Connection;
   encryptionKey:Buffer; // SAME private history key as encrypted history inbox
@@ -174,7 +203,8 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
         "lease_token=$1::uuid,locked_until=NOW()+($2::int * interval '1 second')",
         "FROM next_job WHERE h.id=next_job.id RETURNING h.id,h.employee_id,",
         "h.waba_id,h.phone_number_id,h.chunk_key,h.content_digest,h.kind,",
-        "h.payload_ciphertext,h.payload_iv,h.payload_tag,h.lease_token,h.attempt_count",
+        "h.payload_ciphertext,h.payload_iv,h.payload_tag,h.lease_token,h.attempt_count,",
+        "h.phase,h.chunk_order,h.progress,h.thread_count,h.message_count",
       ].join(" "),[token,leaseSeconds]);
       return (r.rows[0] as Job|undefined)??null;
     }finally{db.release();}
@@ -238,6 +268,8 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
         }
         reason="DECRYPT_FAILED";
         if(!Buffer.isBuffer(job.payload_ciphertext)||
+           job.payload_ciphertext.length===0 ||
+           job.payload_ciphertext.length>8*1024*1024 ||
            !Buffer.isBuffer(job.payload_iv)||job.payload_iv.length!==12||
            !Buffer.isBuffer(job.payload_tag)||job.payload_tag.length!==16)fail();
         const decipher=createDecipheriv("aes-256-gcm",deps.encryptionKey,job.payload_iv);
@@ -248,8 +280,7 @@ export function createPrivateWhatsappHistoryImporter(deps:Readonly<{
         if(digest(chunk)!==String(job.content_digest).trim())fail();
         reason="UNSUPPORTED";
         const messages=job.kind==="declined"?[]:parseMessages(chunk,scope,maxMessages);
-        if(job.kind==="declined" &&
-           !(Array.isArray(chunk.errors)&&chunk.errors.some((e:any)=>e?.code===2593109)))fail();
+        validateHistoryCompleteness(job,chunk,messages);
         reason="IMPORT_FAILED";
         for(const msg of messages){
           const conv=await client.query(
