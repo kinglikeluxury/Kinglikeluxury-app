@@ -24,6 +24,7 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
     "../docs/sql/2026-11-07-whatsapp-employee-unified.sql.txt",
     "../docs/sql/2026-11-09-whatsapp-employee-durable-inbox.sql.txt",
     "../docs/sql/2026-11-09-whatsapp-archive-03-roles.sql.txt",
+    "../docs/sql/2026-11-10-whatsapp-archive-04-identity-audit.sql.txt",
   ];
   try{
     for(const filename of files){
@@ -68,14 +69,17 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
         "has_table_privilege('kinglike_wa_archive_auditwriter','whatsapp_employee_access_audit','DELETE') AS audit_delete",
         "has_table_privilege('kinglike_wa_archive_identitysync','public.users','INSERT') AS sync_identity_insert",
         "has_table_privilege('kinglike_wa_archive_identitysync','whatsapp_employee_events','SELECT') AS sync_event_read",
+        "has_table_privilege('kinglike_wa_archive_identitysync','whatsapp_employee_identity_sync_audit','INSERT') AS sync_audit_insert",
+        "has_table_privilege('kinglike_wa_archive_identitysync','whatsapp_employee_identity_sync_audit','SELECT') AS sync_audit_read",
+        "has_table_privilege('kinglike_wa_archive_identitysync','whatsapp_employee_identity_sync_audit','UPDATE') AS sync_audit_update",
       ].join(", "),
     );
     const p=grants.rows[0];
     const yes=["worker_identity_read","worker_event_insert","worker_queue_insert",
-      "reader_event_select","audit_insert","sync_identity_insert"];
+      "reader_event_select","audit_insert","sync_identity_insert","sync_audit_insert"];
     const no=["worker_identity_update","worker_event_update","worker_event_delete",
       "worker_access_audit_insert","reader_event_insert","audit_select","audit_delete",
-      "sync_event_read"];
+      "sync_event_read","sync_audit_read","sync_audit_update"];
     yes.forEach(k=>assert.equal(p[k],true,k));
     no.forEach(k=>assert.equal(p[k],false,k));
 
@@ -110,6 +114,14 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
         " VALUES (501,false,false,'inactive',NOW()) ON CONFLICT(id) DO UPDATE"+
         " SET is_active=EXCLUDED.is_active,is_admin=EXCLUDED.is_admin,"+
         " role=EXCLUDED.role,verified_at=NOW()");
+      await mirrorClient.query(
+        "INSERT INTO public.whatsapp_employee_identity_sync_audit(actor_id,employee_id,action)"+
+        " VALUES (301,501,'deactivate')");
+      await mirrorClient.query("SAVEPOINT denied_identity_audit_read");
+      await assert.rejects(mirrorClient.query(
+        "SELECT * FROM public.whatsapp_employee_identity_sync_audit"),/permission denied/);
+      // A denied statement aborts the transaction; use a SAVEPOINT for tests.
+      await mirrorClient.query("ROLLBACK TO SAVEPOINT denied_identity_audit_read");
       const mirrorRow=await mirrorClient.query(
         "SELECT is_active,is_admin,role FROM public.users WHERE id=501");
       assert.deepEqual(mirrorRow.rows[0],{
@@ -120,6 +132,11 @@ test("isolated archive migration creates four NOLOGIN scoped roles, secure inbox
       mirrorClient.release();
     }
 
+    const immutability=await pool.query(
+      "SELECT (SELECT COUNT(*)::int FROM pg_trigger"+
+      " WHERE tgrelid='whatsapp_employee_identity_sync_audit'::regclass"+
+      " AND tgname='whatsapp_employee_identity_sync_audit_immutable' AND tgenabled='O') AS enabled");
+    assert.equal(immutability.rows[0].enabled,1);
     const owner=await pool.query("SELECT tableowner FROM pg_tables WHERE schemaname='public' AND tablename='whatsapp_employee_events'");
     assert.equal(owner.rowCount,1);
     assert.equal(roles.includes(owner.rows[0].tableowner),false,"archive role must not own event table");

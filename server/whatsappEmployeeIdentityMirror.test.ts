@@ -15,6 +15,8 @@ const roleProof={
   active_update:true,admin_update:true,role_update:true,verified_update:true,
   identity_update:false,principal_delete:false,schema_create:false,
   events_read:false,events_insert:false,audit_read:false,audit_insert:false,inbox_read:false,
+  identity_audit_insert:true,identity_audit_read:false,identity_audit_update:false,
+  identity_audit_delete:false,identity_audit_immutable:true,
 };
 function fixture(overrides:Record<string,unknown>={},refuseInsert=false){
   const writes:Array<{kind:"upsert"|"disable";values:unknown[]}>=[];
@@ -84,6 +86,8 @@ test("sync refuses owner, elevated, message-reading, mutation and wrong DB roles
     {superuser:true},{events_read:true},{events_insert:true},
     {audit_insert:true},{audit_read:true},{identity_update:true},
     {principal_delete:true},{schema_create:true},{inbox_read:true},
+    {identity_audit_insert:false},{identity_audit_immutable:false},
+    {identity_audit_read:true},{identity_audit_update:true},{identity_audit_delete:true},
     {verified_update:false},{principal_insert:false},{db:"neondb"},
   ]) {
     const {db,writes}=fixture(override);

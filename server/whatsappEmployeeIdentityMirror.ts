@@ -56,16 +56,25 @@ export async function verifyIsolatedIdentitySyncRole(
       "has_table_privilege(current_user,'whatsapp_employee_events','INSERT') AS events_insert,",
       "has_table_privilege(current_user,'whatsapp_employee_access_audit','SELECT') AS audit_read,",
       "has_table_privilege(current_user,'whatsapp_employee_access_audit','INSERT') AS audit_insert,",
-      "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','SELECT') AS inbox_read",
+      "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','SELECT') AS inbox_read,",
+      "has_table_privilege(current_user,'whatsapp_employee_identity_sync_audit','INSERT') AS identity_audit_insert,",
+      "has_table_privilege(current_user,'whatsapp_employee_identity_sync_audit','SELECT') AS identity_audit_read,",
+      "has_table_privilege(current_user,'whatsapp_employee_identity_sync_audit','UPDATE') AS identity_audit_update,",
+      "has_table_privilege(current_user,'whatsapp_employee_identity_sync_audit','DELETE') AS identity_audit_delete,",
+      "EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='whatsapp_employee_identity_sync_audit'::regclass",
+      " AND tgname='whatsapp_employee_identity_sync_audit_immutable' AND tgenabled='O') AS identity_audit_immutable",
     ].join(" "));
     const v=x.rows[0]??{};
     return v.db===expectedDatabase &&
       v.role==="kinglike_wa_archive_identitysync" &&
       v.role!==v.dbowner && v.superuser===false &&
       ["principal_read","principal_insert","active_update","admin_update",
-        "role_update","verified_update"].every(k=>v[k]===true) &&
+        "role_update","verified_update","identity_audit_insert","identity_audit_immutable"]
+        .every(k=>v[k]===true) &&
       ["identity_update","principal_delete","schema_create","events_read",
-        "events_insert","audit_read","audit_insert","inbox_read"].every(k=>v[k]===false);
+        "events_insert","audit_read","audit_insert","inbox_read",
+        "identity_audit_read","identity_audit_update","identity_audit_delete"]
+        .every(k=>v[k]===false);
   } catch { return false; }
 }
 
