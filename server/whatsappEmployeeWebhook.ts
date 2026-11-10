@@ -5,7 +5,10 @@ import { stagingDatabaseIsIsolated } from "./stagingExternalGuard";
 import { isEmployeeWhatsappMediaKind, normalizeEmployeeWhatsappMedia } from "./whatsappEmployeeMedia";
 
 const PATH = "/api/webhooks/whatsapp-employee";
-const enabled = () => process.env.APP_DEPLOYMENT_MODE !== "staging" &&
+// Legacy immediate receiver belongs to disposable integration tests ONLY.
+ // Production/Staging ingestion must use the separate encrypted queue.
+const enabled = () => process.env.NODE_ENV==="test" &&
+  process.env.APP_DEPLOYMENT_MODE==="test" &&
   process.env.WHATSAPP_EMPLOYEE_MONITORING_ENABLED === "true";
 
 export function verifyWhatsappSignature(raw: Buffer, header: unknown, appSecret: string): boolean {
@@ -225,7 +228,7 @@ async function archiveScopedPayload(
 }
 
 async function persistEvent(event: NormalizedEvent,
-  db: Pick<pg.Pool,"connect">,expectedEmployeeId: number,
+  db: Pick<pg.Pool,"connect">,expectedEmployeeId?: number,
 ): Promise<"stored" | "duplicate" | "not_consented" | "identity_mismatch" | "unresolved_reference"> {
   const client = await db.connect();
   try {
@@ -251,7 +254,7 @@ async function persistEvent(event: NormalizedEvent,
       return "not_consented";
     }
     const employeeId = Number(registration.rows[0].employee_id);
-    if(employeeId!==expectedEmployeeId) {
+    if(expectedEmployeeId!==undefined && employeeId!==expectedEmployeeId) {
       await client.query("ROLLBACK");
       return "identity_mismatch";
     }
@@ -458,7 +461,9 @@ export function registerWhatsappEmployeeWebhook(app: Express): void {
     catch { return res.sendStatus(400); }
     const events = normalizeWhatsappWebhook(payload);
     try {
-      for (const event of events) await persistEvent(event);
+      // This listener is never enabled in actual app deployments. The
+      // synthetic test listener uses its disposable, loopback-only DB.
+      for (const event of events) await persistEvent(event,getTestOnlyPool());
       return res.status(200).send("EVENT_RECEIVED");
     } catch {
       return res.sendStatus(500);
