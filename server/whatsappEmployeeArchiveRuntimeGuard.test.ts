@@ -53,7 +53,7 @@ test("valid staging DB identity, two roles and independent keys are necessary bu
   assert.equal(result.public.checks.archiveDbIdentity,true);
   assert.equal(result.public.checks.separateAuditRole,true);
   assert.equal(result.public.checks.independentCryptoKeys,true);
-  assert.equal(result.public.status,"blocked");
+  assert.equal(result.public.status,"configured_not_verified");
   assert.deepEqual(result.public.blockers,["archive_schema_or_grants_not_verified"]);
   assert.ok(result.privateConfig);
   const serialized = JSON.stringify(result.public);
@@ -103,13 +103,15 @@ const identity = {
   database_name:"whatsapp_archive",runtime_role:"runtime_worker",
   is_superuser:false,db_owner:"db_owner",
 };
-const tables = { inbox:true,events:true,numbers:true,consents:true,audit:true };
+const tables = { identity_principals:true,inbox:true,events:true,numbers:true,consents:true,audit:true };
 const grants = {
-  schema_use:true,schema_create:false,
-  inbox_read:true,inbox_insert:true,inbox_update:true,
+  schema_use:true,schema_create:false,public_schema_create:false,
+  principals_read:true,principals_insert:false,principals_update:false,principals_delete:false,
+  inbox_read:true,inbox_insert:true,inbox_update:true,inbox_payload_cleanup:true,inbox_identity_update:false,
   inbox_delete:false,inbox_truncate:false,
   events_read:true,events_insert:true,events_update:false,
-  events_delete:false,events_truncate:false,audit_delete:false,
+  events_delete:false,events_truncate:false,
+  audit_read:false,audit_insert:false,audit_update:false,audit_delete:false,
 };
 
 function fakeDb(id: Record<string,unknown>, t: Record<string,unknown>, g: Record<string,unknown>) {
@@ -134,6 +136,12 @@ test("separate archive DB role must not be owner and must be unable to mutate ar
     fakeDb({...identity,runtime_role:"db_owner"},tables,grants).query,"whatsapp_archive"),false);
   assert.equal(await verifyEmployeeArchiveDatabaseGrants(
     fakeDb(identity,{...tables,inbox:false},grants).query,"whatsapp_archive"),false);
+  assert.equal(await verifyEmployeeArchiveDatabaseGrants(
+    fakeDb(identity,{...tables,identity_principals:false},grants).query,"whatsapp_archive"),false);
+  assert.equal(await verifyEmployeeArchiveDatabaseGrants(
+    fakeDb(identity,tables,{...grants,principals_update:true}).query,"whatsapp_archive"),false);
+  assert.equal(await verifyEmployeeArchiveDatabaseGrants(
+    fakeDb(identity,tables,{...grants,audit_read:true}).query,"whatsapp_archive"),false);
   assert.equal(await verifyEmployeeArchiveDatabaseGrants(
     fakeDb(identity,tables,{...grants,events_delete:true}).query,"whatsapp_archive"),false);
   assert.equal(await verifyEmployeeArchiveDatabaseGrants(

@@ -105,7 +105,7 @@ export function inspectEmployeeArchiveReadiness(
   const expectedDatabase = env.WHATSAPP_EMPLOYEE_ARCHIVE_EXPECTED_NAME?.trim().toLowerCase() ?? "";
 
   checks.archiveDbIdentity = !!(
-    archive && audit && app && expectedHost.endsWith(".railway.internal") &&
+    checks.isolatedApp && archive && audit && app && expectedHost.endsWith(".railway.internal") &&
     archive.host === expectedHost && archive.database === expectedDatabase &&
     archive.host !== app.host && archive.database !== app.database &&
     (!neon || (archive.host !== neon.host && archive.database !== neon.database)) &&
@@ -183,7 +183,8 @@ export async function verifyEmployeeArchiveDatabaseGrants(
         row.runtime_role === "postgres" || row.is_superuser !== false) return false;
 
     const tables = await query(
-      "SELECT to_regclass('kinglike_whatsapp.whatsapp_employee_inbox') IS NOT NULL AS inbox, " +
+      "SELECT to_regclass('public.users') IS NOT NULL AS identity_principals, " +
+      "to_regclass('kinglike_whatsapp.whatsapp_employee_inbox') IS NOT NULL AS inbox, " +
       "to_regclass('whatsapp_employee_events') IS NOT NULL AS events, " +
       "to_regclass('whatsapp_employee_numbers') IS NOT NULL AS numbers, " +
       "to_regclass('whatsapp_employee_consents') IS NOT NULL AS consents, " +
@@ -194,10 +195,17 @@ export async function verifyEmployeeArchiveDatabaseGrants(
     const grants = await query(
       "SELECT " +
       "has_schema_privilege(current_user,'kinglike_whatsapp','USAGE') AS schema_use, " +
+      "has_schema_privilege(current_user,'public','CREATE') AS public_schema_create, " +
+      "has_table_privilege(current_user,'public.users','SELECT') AS principals_read, " +
+      "has_table_privilege(current_user,'public.users','INSERT') AS principals_insert, " +
+      "has_table_privilege(current_user,'public.users','UPDATE') AS principals_update, " +
+      "has_table_privilege(current_user,'public.users','DELETE') AS principals_delete, " +
       "has_schema_privilege(current_user,'kinglike_whatsapp','CREATE') AS schema_create, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','SELECT') AS inbox_read, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','INSERT') AS inbox_insert, " +
-      "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','UPDATE') AS inbox_update, " +
+      "has_column_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','status','UPDATE') AS inbox_update, " +
+      "has_column_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','payload_ciphertext','UPDATE') AS inbox_payload_cleanup, " +
+      "has_column_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','employee_id','UPDATE') AS inbox_identity_update, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','DELETE') AS inbox_delete, " +
       "has_table_privilege(current_user,'kinglike_whatsapp.whatsapp_employee_inbox','TRUNCATE') AS inbox_truncate, " +
       "has_table_privilege(current_user,'whatsapp_employee_events','SELECT') AS events_read, " +
@@ -205,13 +213,18 @@ export async function verifyEmployeeArchiveDatabaseGrants(
       "has_table_privilege(current_user,'whatsapp_employee_events','UPDATE') AS events_update, " +
       "has_table_privilege(current_user,'whatsapp_employee_events','DELETE') AS events_delete, " +
       "has_table_privilege(current_user,'whatsapp_employee_events','TRUNCATE') AS events_truncate, " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','SELECT') AS audit_read, " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','INSERT') AS audit_insert, " +
+      "has_table_privilege(current_user,'whatsapp_employee_access_audit','UPDATE') AS audit_update, " +
       "has_table_privilege(current_user,'whatsapp_employee_access_audit','DELETE') AS audit_delete",
     );
     const p = grants.rows[0] ?? {};
-    const positives = ["schema_use","inbox_read","inbox_insert","inbox_update",
+    const positives = ["schema_use","principals_read","inbox_read","inbox_insert","inbox_update","inbox_payload_cleanup",
       "events_read","events_insert"];
-    const negatives = ["schema_create","inbox_delete","inbox_truncate",
-      "events_update","events_delete","events_truncate","audit_delete"];
+    const negatives = ["schema_create","public_schema_create",
+      "principals_insert","principals_update","principals_delete",
+      "inbox_identity_update","inbox_delete","inbox_truncate","events_update","events_delete",
+      "events_truncate","audit_read","audit_insert","audit_update","audit_delete"];
     return positives.every(key => p[key] === true) &&
       negatives.every(key => p[key] === false);
   } catch {
