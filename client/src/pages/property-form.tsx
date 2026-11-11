@@ -1693,12 +1693,13 @@ const PropertyForm = () => {
                       { value: 'bayburt', label: '🇹🇷 Bayburt, Turkey', country: 'turkey' },
                       { value: 'osmaniye', label: '🇹🇷 Osmaniye, Turkey', country: 'turkey' },
                       { value: 'kilis', label: '🇹🇷 Kilis, Turkey', country: 'turkey' },
+                      { value: 'baku', label: `🇦🇿 ${t('cities.baku', 'Baku')}, Azerbaijan`, country: 'azerbaijan', searchTerms: 'Baku Bakı Bakü Bakou Bakoe باكو باکو Баку באקו ბაქო 巴库' },
                     ];
 
                     const selectedCountry = formData.country as string;
                     const filtered = allCities
                       .filter(c => !selectedCountry || c.country === selectedCountry)
-                      .filter(c => c.label.toLowerCase().includes(citySearch.toLowerCase()));
+                      .filter(c => `${c.label} ${c.searchTerms || ''}`.toLowerCase().includes(citySearch.toLowerCase()));
 
                     const selectedCities = Array.isArray(formData.city)
                       ? formData.city
