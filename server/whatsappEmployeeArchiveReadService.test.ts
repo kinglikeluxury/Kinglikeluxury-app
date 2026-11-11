@@ -6,10 +6,11 @@ import {
 } from "./whatsappEmployeeArchiveReadService";
 import type {AuditQueryable} from "./whatsappEmployeeAccessAudit";
 
-type Flags = { mirror?: boolean; consent?: boolean; grant?: boolean; auditDown?: boolean; currentSubject?:boolean };
+type Flags = { mirror?: boolean; consent?: boolean; grant?: boolean; auditDown?: boolean; currentSubject?:boolean; revokeAfterRead?:boolean };
 function fixture(flags: Flags={}) {
   const all={mirror:true,consent:true,grant:true,auditDown:false,currentSubject:true,...flags};
   const queries:string[]=[];
+  let sensitiveReadDone=false;
   const logged:Array<{actorId:number;employeeId:number;action:string;outcome:string;reason:string}>=[];
   const sample=[
     {id:33,conversation_id:7,event_kind:"message",direction:"outbound",message_text:"Synthetic original retained",
@@ -23,12 +24,17 @@ function fixture(flags: Flags={}) {
       if(sql.includes("SELECT DISTINCT n.employee_id"))
         return {rows:all.consent&&all.grant?[{employee_id:101}]:[]};
       if(sql.includes("SELECT 1 FROM whatsapp_employee_numbers"))
-        return {rows:all.consent&&all.grant?[{one:1}]:[]};
+        return {rows:all.consent&&all.grant&&!(all.revokeAfterRead&&sensitiveReadDone)?[{one:1}]:[]};
       if(sql.includes("SELECT c.employee_id"))
-        return {rows:all.consent&&all.grant?[{employee_id:101}]:[]};
-      if(sql.includes("SELECT c.id,c.contact_wa_id"))
+        return {rows:all.consent&&all.grant&&!(all.revokeAfterRead&&sensitiveReadDone)?[{employee_id:101}]:[]};
+      if(sql.includes("SELECT c.id,c.contact_wa_id")){
+        sensitiveReadDone=true;
         return {rows:all.consent&&all.grant?[{id:7,contact_wa_id:"synthetic-customer",updated_at:"2026-11-10"}]:[]};
-      if(sql.includes("SELECT e.id,e.event_kind"))return {rows:sample};
+      }
+      if(sql.includes("SELECT e.id,e.event_kind")){
+        sensitiveReadDone=true;
+        return {rows:sample};
+      }
       throw Error("unexpected SELECT query:"+sql.slice(0,35));
     },
   };
@@ -107,4 +113,17 @@ test("app source-of-truth deactivation overrides stale archive consent/grants",a
   await assert.rejects(service.messages({id:301,isAdmin:true},7),LiveArchiveDenied);
   assert.deepEqual(await service.scopes({id:301,isAdmin:true}),{employeeIds:[]});
   assert.ok(logged.some(x=>x.reason==="policy_blocked"&&x.outcome==="denied"));
+});
+
+
+test("revoking consent during the SELECT prevents final conversation and message disclosure",async()=>{
+  const actor={id:101,isAdmin:false};
+  const messages=fixture({revokeAfterRead:true});
+  await assert.rejects(messages.service.messages(actor,7),LiveArchiveDenied);
+  assert.ok(messages.logged.some(x=>x.action==="archive.read"&&x.outcome==="denied"));
+  assert.ok(!messages.logged.some(x=>x.action==="archive.read"&&x.outcome==="allowed"));
+  const conv=fixture({revokeAfterRead:true});
+  await assert.rejects(conv.service.conversations(actor,101),LiveArchiveDenied);
+  assert.ok(conv.logged.some(x=>x.action==="archive.search"&&x.outcome==="denied"));
+  assert.ok(!conv.logged.some(x=>x.action==="archive.search"&&x.outcome==="allowed"));
 });
