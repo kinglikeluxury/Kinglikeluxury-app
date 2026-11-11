@@ -155,7 +155,14 @@ export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies
       "AND (n.employee_id=$1 OR "+GRANT+")",
       "ORDER BY c.updated_at DESC,c.id DESC LIMIT 100",
     ].join(" "),[actor.id,employeeId]);
-    if(!(await employeeCurrentlyAllowed(employeeId))){
+    // Consent/grants may be revoked while fetching conversations. Re-check
+    // the current archive scope as well as the app employee source of truth.
+    const stillScoped=await deps.archive.query(
+      "SELECT 1 "+NUMBER_SCOPE+" AND n.employee_id=$2 LIMIT 1",
+      [actor.id,employeeId],
+    );
+    if(!(await actorIsCurrent(actor)) || !stillScoped.rows.length ||
+        !(await employeeCurrentlyAllowed(employeeId))){
       await audit(actor,employeeId,"archive.search","denied","policy_blocked",0);
       throw new LiveArchiveDenied();
     }
@@ -201,8 +208,16 @@ export function createEmployeeArchiveReadService(deps: ArchiveReaderDependencies
       "WHERE e.conversation_id=$1 AND e.employee_id=$2",
       "ORDER BY e.received_at ASC,e.id ASC LIMIT 500",
     ].join(" "),[conversationId,employeeId]);
-    // Verify again just before returning the content to narrow revocation races.
-    if(!(await employeeCurrentlyAllowed(employeeId))){
+    // Recheck current actor, company registration, consent and supervisor
+    // grant AFTER loading messages: never return stale-authorized content.
+    const stillScoped=await deps.archive.query([
+      "SELECT c.employee_id",CONVERSATION_JOINS,
+      "WHERE c.id=$2 AND "+COMPANY,
+      "AND (n.employee_id=$1 OR "+GRANT+") LIMIT 1",
+    ].join(" "),[actor.id,conversationId]);
+    if(!(await actorIsCurrent(actor)) ||
+       Number(stillScoped.rows[0]?.employee_id)!==employeeId ||
+       !(await employeeCurrentlyAllowed(employeeId))){
       await audit(actor,employeeId,"archive.read","denied","policy_blocked",0);
       throw new LiveArchiveDenied();
     }
