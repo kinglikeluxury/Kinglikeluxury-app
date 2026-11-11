@@ -249,9 +249,9 @@ export async function verifyEmployeeArchiveAuditRole(
       "(SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname=current_database()) AS db_owner",
     );
     const role = identity.rows[0] ?? {};
-    if (role.database_name !== expectedDatabase || !role.audit_role ||
-        role.audit_role === role.db_owner || role.audit_role === "postgres" ||
-        role.is_superuser !== false) return false;
+    if (role.database_name !== expectedDatabase ||
+        role.audit_role !== "kinglike_wa_archive_auditwriter" ||
+        role.audit_role === role.db_owner || role.is_superuser !== false) return false;
     const privilege = await query(
       "SELECT " +
       "has_table_privilege(current_user,'whatsapp_employee_access_audit','INSERT') AS can_insert, " +

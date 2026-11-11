@@ -154,7 +154,7 @@ test("separate archive DB role must not be owner and must be unable to mutate ar
 
 
 test("audit role must be non-owner, insert-only and protected by immutable trigger",async () => {
-  const current = {database_name:"whatsapp_archive",audit_role:"auditwriter",
+  const current = {database_name:"whatsapp_archive",audit_role:"kinglike_wa_archive_auditwriter",
     is_superuser:false,db_owner:"db_owner"};
   const p = {can_insert:true,can_select:false,can_update:false,
     can_delete:false,can_truncate:false,immutable_trigger:true};
@@ -166,6 +166,7 @@ test("audit role must be non-owner, insert-only and protected by immutable trigg
     };
   };
   assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,p]),"whatsapp_archive"),true);
+  assert.equal(await verifyEmployeeArchiveAuditRole(reader([{...current,audit_role:"other_unprivileged_role"},p]),"whatsapp_archive"),false);
   assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,{...p,can_select:true}]),"whatsapp_archive"),false);
   assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,{...p,can_update:true}]),"whatsapp_archive"),false);
   assert.equal(await verifyEmployeeArchiveAuditRole(reader([current,{...p,immutable_trigger:false}]),"whatsapp_archive"),false);
