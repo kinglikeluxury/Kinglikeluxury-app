@@ -128,6 +128,11 @@ export default function WhatsappEmployeeLiveArchive() {
           !response.employeeIds.every(x => Number.isSafeInteger(x) && x > 0)) {
         throw new Error("temporary");
       }
+      // Always clear previous private content while revalidating scope grants.
+      setConversations([]);
+      setConversationId(null);
+      setMessages([]);
+      setLastUpdated(null);
       setEmployeeIds(response.employeeIds);
       setEmployeeId(current => current && response.employeeIds.includes(current) ?
         current : response.employeeIds[0] ?? null);
@@ -136,7 +141,9 @@ export default function WhatsappEmployeeLiveArchive() {
       setEmployeeIds([]);
       setEmployeeId(null);
       setConversations([]);
+      setConversationId(null);
       setMessages([]);
+      setLastUpdated(null);
       setError(err instanceof Error ? err.message : "temporary");
     } finally {
       setLoading(false);
@@ -230,7 +237,14 @@ export default function WhatsappEmployeeLiveArchive() {
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[180px_260px_minmax(0,1fr)]">
           <nav aria-label="الموظفون المخوّلون" className="max-h-40 overflow-y-auto rounded-lg border lg:max-h-none">
             {employeeIds.map(id => (
-              <button key={id} type="button" onClick={() => setEmployeeId(id)}
+              <button key={id} type="button" onClick={() => {
+                if (employeeId === id) return;
+                setConversations([]);
+                setConversationId(null);
+                setMessages([]);
+                setLastUpdated(null);
+                setEmployeeId(id);
+              }}
                 className={"block w-full border-b p-3 text-start text-sm " +
                   (employeeId === id ? "bg-[#e7f8f7] font-semibold text-[#005476]" : "hover:bg-slate-50")}>
                 موظف #{id}
@@ -241,7 +255,12 @@ export default function WhatsappEmployeeLiveArchive() {
             {conversations.length === 0 &&
               <p className="p-3 text-sm text-slate-500">لا توجد محادثات مؤرشفة لهذا الموظف.</p>}
             {conversations.map(c => (
-              <button key={c.id} type="button" onClick={() => setConversationId(c.id)}
+              <button key={c.id} type="button" onClick={() => {
+                if (conversationId === c.id) return;
+                setMessages([]);
+                setLastUpdated(null);
+                setConversationId(c.id);
+              }}
                 className={"block w-full border-b p-3 text-start text-sm " +
                   (conversationId === c.id ? "bg-[#e7f8f7]" : "hover:bg-slate-50")}>
                 <span dir="ltr" className="block truncate font-medium text-[#005476]">{c.contact_wa_id}</span>
