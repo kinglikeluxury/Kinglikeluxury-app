@@ -1,5 +1,6 @@
 import type { Express, Request } from "express";
 import pg from "pg";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { identitySyncRuntimeConfig } from "./whatsappEmployeeIdentitySyncRuntime";
 import { inspectEmployeeArchiveReadiness, verifyEmployeeArchiveDatabaseGrants, verifyEmployeeArchiveAuditRole } from "./whatsappEmployeeArchiveRuntimeGuard";
 import type { ProofDbClient } from "./whatsappStagingProofDb";
@@ -134,6 +135,70 @@ export function registerWhatsappOperationsStatusRoutes(
   },
 ): void {
   const env = deps.env ?? process.env;
+  /**
+   * Admin-only, isolated staging, in-memory encryption self-test. Uses fresh
+   * synthetic bytes and the configured secret keys; never reads/writes
+   * conversation data, opens a DB connection or starts Meta ingestion.
+   */
+  app.get("/api/admin/staging/whatsapp-archive-crypto-probe",async(req,res)=>{
+    res.setHeader("Cache-Control","no-store");
+    res.setHeader("Pragma","no-cache");
+    if (!isStagingMode(env) || !stagingDatabaseIsIsolated(env))
+      return res.sendStatus(404);
+    let actorId:number|null;
+    try { actorId=await deps.authorizeAdmin(req); }
+    catch { return res.sendStatus(503); }
+    if (!Number.isSafeInteger(actorId) || !actorId || actorId<1)
+      return res.sendStatus(403);
+    const decode=(value:string|undefined):Buffer|null=>{
+      if (!value || !/^[A-Za-z0-9+/]{43}=$/.test(value))return null;
+      const key=Buffer.from(value,"base64");
+      return key.length===32 && key.toString("base64")===value &&
+        !key.equals(Buffer.alloc(32)) ? key:null;
+    };
+    const aes=decode(env.WHATSAPP_EMPLOYEE_INBOX_AES_KEY_B64);
+    const hmac=decode(env.WHATSAPP_EMPLOYEE_INBOX_HMAC_KEY_B64);
+    if (!aes || !hmac || aes.equals(hmac))return res.json({
+      environment:"isolated_staging",crypto:"configuration_blocked",
+      persistentWrites:0,liveArchive:"disabled",
+    });
+    let passed=false;
+    const plaintext=randomBytes(64),iv=randomBytes(12);
+    try {
+      const digest=createHmac("sha256",hmac).update(plaintext).digest();
+      const cipher=createCipheriv("aes-256-gcm",aes,iv);
+      cipher.setAAD(digest);
+      const ciphertext=Buffer.concat([cipher.update(plaintext),cipher.final()]);
+      const tag=cipher.getAuthTag();
+      const decipher=createDecipheriv("aes-256-gcm",aes,iv);
+      decipher.setAAD(digest);
+      decipher.setAuthTag(tag);
+      const restored=Buffer.concat([decipher.update(ciphertext),decipher.final()]);
+      let tamperingRejected=false;
+      const tampered=Buffer.from(ciphertext);
+      tampered[0]^=1;
+      try {
+        const corrupted=createDecipheriv("aes-256-gcm",aes,iv);
+        corrupted.setAAD(digest);
+        corrupted.setAuthTag(tag);
+        corrupted.update(tampered);
+        corrupted.final();
+      } catch { tamperingRejected=true; }
+      passed=timingSafeEqual(restored,plaintext) && tamperingRejected;
+      restored.fill(0);
+      ciphertext.fill(0);
+      tampered.fill(0);
+      digest.fill(0);
+    }catch{passed=false;}
+    finally{plaintext.fill(0);iv.fill(0);}
+    return res.json({
+      environment:"isolated_staging",crypto:passed?"passed":"failed",
+      algorithm:"AES-256-GCM",independentMac:"HMAC-SHA256",
+      tamperProtection:passed?"passed":"failed",
+      persistentWrites:0,liveArchive:"disabled",
+    });
+  });
+
   // Explicit admin-only, staging-only, SELECT-only credential probe.
   // Works independently of consent/Meta/runtime flags; it never enables those.
   app.get("/api/admin/staging/whatsapp-archive-credential-probe", async (req, res) => {
