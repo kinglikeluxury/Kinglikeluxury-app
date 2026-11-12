@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "client/src/pages/admin/whatsapp-employee-operations.tsx"
+      - "client/src/components/admin/WhatsappSyntheticConversationReview.tsx"
+      - "client/src/components/admin/WhatsappSyntheticConversationReview.test.tsx"
       - "client/src/lib/adminNavItems.ts"
       - "client/src/App.tsx"
       - "server/whatsappOperationsStatusRoutes.ts"
@@ -13,6 +15,8 @@ on:
   pull_request:
     paths:
       - "client/src/pages/admin/whatsapp-employee-operations.tsx"
+      - "client/src/components/admin/WhatsappSyntheticConversationReview.tsx"
+      - "client/src/components/admin/WhatsappSyntheticConversationReview.test.tsx"
       - "client/src/lib/adminNavItems.ts"
       - "client/src/App.tsx"
       - "server/whatsappOperationsStatusRoutes.ts"
@@ -40,7 +44,7 @@ jobs:
           APP_DEPLOYMENT_MODE: ci-test-disabled
           WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
           WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
-        run: node --import tsx --test server/whatsappOperationsStatusRoutes.test.ts server/whatsappStagingProofDb.test.ts
+        run: node --import tsx --test server/whatsappOperationsStatusRoutes.test.ts server/whatsappStagingProofDb.test.ts client/src/components/admin/WhatsappSyntheticConversationReview.test.tsx
       - name: Build admin page without connecting Meta
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled
