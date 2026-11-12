@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin } from 'lucide-react';
+import { addOpenStreetMapTiles } from '@/lib/openStreetMapTiles';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -11,6 +12,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const CITY_CENTERS: Record<string, { lat: number; lng: number; zoom: number }> = {
+  baku: { lat: 40.4093, lng: 49.8671, zoom: 12 },
   batumi: { lat: 41.6168, lng: 41.6367, zoom: 13 },
   tbilisi: { lat: 41.7151, lng: 44.8271, zoom: 12 },
   dubai: { lat: 25.2048, lng: 55.2708, zoom: 12 },
@@ -88,12 +90,7 @@ const LocationSelector = ({ onLocationSelect, selectedLocation, className = "", 
           scrollWheelZoom: true,
         }).setView([startLat, startLng], center.zoom);
 
-        // Fast CartoDB Voyager tiles — better performance on mobile
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
-          maxZoom: 20,
-          subdomains: 'abcd',
-        }).addTo(map);
+        addOpenStreetMapTiles(map);
 
         leafletMapRef.current = map;
 
