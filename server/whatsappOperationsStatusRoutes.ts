@@ -22,7 +22,7 @@ export function stagingArchiveCredentialProbeConfig(env: NodeJS.ProcessEnv):
       const url = new URL(raw);
       if (!["postgresql:", "postgres:"].includes(url.protocol) ||
           url.hostname.toLowerCase() !== host ||
-          decodeURIComponent(url.pathname.replace(/^\\/+/, "")).toLowerCase() !== database ||
+          decodeURIComponent(url.pathname.slice(1)).toLowerCase() !== database ||
           decodeURIComponent(url.username) !== user || !url.password || url.hash ||
           url.search || (url.port && url.port !== "5432")) return null;
       return url;
@@ -37,7 +37,7 @@ export function stagingArchiveCredentialProbeConfig(env: NodeJS.ProcessEnv):
     try {
       const url = new URL(raw);
       if (url.hostname.toLowerCase() === host ||
-          decodeURIComponent(url.pathname.replace(/^\\/+/, "")).toLowerCase() === database)
+          decodeURIComponent(url.pathname.slice(1)).toLowerCase() === database)
         return null;
     } catch { return null; }
   }
