@@ -199,6 +199,138 @@ export function registerWhatsappOperationsStatusRoutes(
     });
   });
 
+  /**
+   * Explicit POST-only, admin-only Staging smoke test of the real *isolated*
+   * archive worker connection. Inserts only synthetic ENCRYPTED bytes within a
+   * transaction and always ROLLBACKs. It never calls Meta, archives a message,
+   * enrolls a phone or touches application/production databases.
+   *
+   * Requires same-origin browser request with a non-simple custom header to
+   * prevent cross-origin form POSTs from triggering any DB operation.
+   */
+  app.post("/api/admin/staging/whatsapp-archive-inbox-rollback-probe",async(req,res)=>{
+    res.setHeader("Cache-Control","no-store");
+    res.setHeader("Pragma","no-cache");
+    if (!isStagingMode(env) || !stagingDatabaseIsIsolated(env))
+      return res.sendStatus(404);
+    let actorId:number|null;
+    try { actorId=await deps.authorizeAdmin(req); }
+    catch { return res.sendStatus(503); }
+    if (!Number.isSafeInteger(actorId)||!actorId||actorId<1)
+      return res.sendStatus(403);
+    const origin=req.get("origin");
+    const fetchSite=req.get("sec-fetch-site");
+    let originMatches=true;
+    if(origin){
+      try{
+        const parsed=new URL(origin);
+        originMatches=(parsed.protocol==="https:"||parsed.protocol==="http:") &&
+          parsed.host===req.get("host");
+      }catch{originMatches=false;}
+    }
+    if(req.get("x-kinglike-staging-probe")!=="synthetic-rollback" ||
+       !originMatches || (fetchSite && fetchSite!=="same-origin"))
+      return res.sendStatus(403);
+    const config=stagingArchiveWorkerProbeConfig(env);
+    const decode=(value:string|undefined):Buffer|null=>{
+      if(!value||!/^[A-Za-z0-9+/]{43}=$/.test(value))return null;
+      const key=Buffer.from(value,"base64");
+      return key.length===32&&key.toString("base64")===value &&
+        !key.equals(Buffer.alloc(32))?key:null;
+    };
+    const aes=decode(env.WHATSAPP_EMPLOYEE_INBOX_AES_KEY_B64);
+    const hmac=decode(env.WHATSAPP_EMPLOYEE_INBOX_HMAC_KEY_B64);
+    if(!config || !aes || !hmac || aes.equals(hmac))
+      return res.json({environment:"isolated_staging",
+        inbox:"configuration_blocked",rowsPersisted:0,liveArchive:"disabled"});
+    const client=new pg.Client({connectionString:config.workerUrl,
+      connectionTimeoutMillis:2500,ssl:false});
+    const synthetic=randomBytes(96);
+    const iv=randomBytes(12);
+    const scopeTag=Buffer.from("kinglike:isolated-staging:rollback-test","utf8");
+    const deliveryKey=createHmac("sha256",hmac).update(synthetic).update(iv).digest("hex");
+    const cipher=createCipheriv("aes-256-gcm",aes,iv);
+    cipher.setAAD(scopeTag);
+    const ciphertext=Buffer.concat([cipher.update(synthetic),cipher.final()]);
+    const tag=cipher.getAuthTag();
+    let transactionOpen=false,inserted=false,duplicatePrevented=false;
+    let cipherVerified=false,rolledBack=false,rowsPersisted:number|null=null;
+    const table="kinglike_whatsapp.whatsapp_employee_inbox";
+    try{
+      await client.connect();
+      const identity=await client.query(
+        "SELECT current_user AS role_name,current_database() AS db_name");
+      if(identity.rows[0]?.role_name!=="kinglike_wa_archive_worker"||
+         identity.rows[0]?.db_name!==config.database)
+        throw new Error("ISOLATION_FAILURE");
+      // Verify grants before any attempt to insert (no fallback or escalation).
+      if(!await verifyEmployeeArchiveDatabaseGrants(
+          sql=>client.query(sql),config.database))
+        throw new Error("PRIVILEGES_FAILURE");
+      await client.query("BEGIN");
+      transactionOpen=true;
+      const sql="INSERT INTO "+table+
+        " (employee_id,waba_id,phone_number_id,display_phone_number,"+
+        "delivery_key,payload_ciphertext,payload_iv,payload_tag) "+
+        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8) "+
+        "ON CONFLICT (employee_id,waba_id,phone_number_id,delivery_key) "+
+        "DO NOTHING RETURNING id";
+      // Synthetic, reserved identifiers: not real WABA or employee contacts.
+      const args=[2147483647,"999999999999999999999999","888888888888888888888888",
+        "777777777777777777777777",deliveryKey,ciphertext,iv,tag];
+      const first=await client.query(sql,args);
+      const second=await client.query(sql,args);
+      inserted=first.rowCount===1;
+      duplicatePrevented=second.rowCount===0;
+      const stored=await client.query(
+        "SELECT payload_ciphertext,payload_iv,payload_tag "+
+        "FROM "+table+" WHERE delivery_key=$1",[deliveryKey]);
+      const row=stored.rows[0];
+      if(stored.rowCount===1 && row &&
+          Buffer.isBuffer(row.payload_ciphertext) &&
+          Buffer.isBuffer(row.payload_iv) &&
+          Buffer.isBuffer(row.payload_tag) &&
+          !row.payload_ciphertext.equals(synthetic)){
+        const decipher=createDecipheriv("aes-256-gcm",aes,row.payload_iv);
+        decipher.setAAD(scopeTag);
+        decipher.setAuthTag(row.payload_tag);
+        const plaintext=Buffer.concat([
+          decipher.update(row.payload_ciphertext),decipher.final()]);
+        cipherVerified=plaintext.length===synthetic.length &&
+          timingSafeEqual(plaintext,synthetic);
+        plaintext.fill(0);
+      }
+    }catch{
+      // No DB details, SQL, keys, row content or raw errors in public output.
+    }finally{
+      if(transactionOpen){
+        try{await client.query("ROLLBACK");rolledBack=true;}catch{}
+      }
+      if(rolledBack){
+        try{
+          const result=await client.query(
+            "SELECT count(*)::int AS n FROM "+table+" WHERE delivery_key=$1",
+            [deliveryKey]);
+          rowsPersisted=Number(result.rows[0]?.n);
+        }catch{}
+      }
+      await client.end().catch(()=>undefined);
+      synthetic.fill(0);
+      ciphertext.fill(0);
+      iv.fill(0);
+      tag.fill(0);
+    }
+    const passed=inserted&&duplicatePrevented&&cipherVerified&&
+      rolledBack&&rowsPersisted===0;
+    return res.json({environment:"isolated_staging",
+      inbox:passed?"passed":"failed",
+      insert:inserted?"passed":"failed",
+      deduplication:duplicatePrevented?"passed":"failed",
+      encryptionAtRest:cipherVerified?"passed":"failed",
+      rollback:rolledBack?"passed":"failed",
+      rowsPersisted,liveArchive:"disabled"});
+  });
+
   // Explicit admin-only, staging-only, SELECT-only credential probe.
   // Works independently of consent/Meta/runtime flags; it never enables those.
   app.get("/api/admin/staging/whatsapp-archive-credential-probe", async (req, res) => {

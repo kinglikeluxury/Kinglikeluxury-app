@@ -93,6 +93,40 @@ const isolated:NodeJS.ProcessEnv = {
     "postgresql://kinglike_wa_archive_auditwriter:synthetic-audit@archive-staging.railway.internal:5432/kinglike_whatsapp_archive",
 };
 
+test("synthetic Railway inbox rollback probe is POST-only, admin-only and fails closed",async()=>{
+  const endpoint="/api/admin/staging/whatsapp-archive-inbox-rollback-probe";
+  const env={...isolated,
+    WHATSAPP_EMPLOYEE_INBOX_AES_KEY_B64:Buffer.alloc(32,11).toString("base64"),
+    WHATSAPP_EMPLOYEE_INBOX_HMAC_KEY_B64:Buffer.alloc(32,12).toString("base64"),
+  };
+  await withServer(env,101,null,async base=>{
+    assert.equal((await fetch(base+endpoint)).status,404);
+    assert.equal((await fetch(base+endpoint,{method:"POST"})).status,403);
+    assert.equal((await fetch(base+endpoint,{
+      method:"POST",headers:{"x-kinglike-staging-probe":"synthetic-rollback",
+        Origin:"https://attacker.example","Sec-Fetch-Site":"cross-site"},
+    })).status,403);
+    const response=await fetch(base+endpoint,{method:"POST",
+      headers:{"x-kinglike-staging-probe":"synthetic-rollback",
+        Origin:base,"Sec-Fetch-Site":"same-origin"}});
+    assert.equal(response.status,200);
+    const body=await response.json();
+    assert.equal(body.inbox,"configuration_blocked");
+    assert.equal(body.rowsPersisted,0);
+    assert.equal(body.liveArchive,"disabled");
+  });
+  await withServer({...env,APP_DEPLOYMENT_MODE:"production"},101,null,async base=>{
+    const response=await fetch(base+endpoint,{
+      method:"POST",headers:{"x-kinglike-staging-probe":"synthetic-rollback"}});
+    assert.equal(response.status,404);
+  });
+  await withServer(env,null,null,async base=>{
+    const response=await fetch(base+endpoint,{
+      method:"POST",headers:{"x-kinglike-staging-probe":"synthetic-rollback"}});
+    assert.equal(response.status,403);
+  });
+});
+
 test("isolated staging crypto self-test is admin-only and never persists synthetic messages",async()=>{
   const endpoint="/api/admin/staging/whatsapp-archive-crypto-probe";
   const config={...isolated,
