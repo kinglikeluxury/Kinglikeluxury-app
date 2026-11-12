@@ -189,18 +189,27 @@ export function registerWhatsappOperationsStatusRoutes(
     });
     const pool = new pg.Pool({connectionString:config.workerUrl,max:1,
       connectionTimeoutMillis:1800,idleTimeoutMillis:1000,ssl:false});
-    let passed=false;
+    let authenticated=false;
+    let grantsVerified=false;
     try {
-      const identity = await pool.query("SELECT current_user AS role_name");
-      passed = identity.rows[0]?.role_name === "kinglike_wa_archive_worker" &&
-        await verifyEmployeeArchiveDatabaseGrants(sql=>pool.query(sql),config.database);
+      const identity = await pool.query(
+        "SELECT current_user AS role_name, current_database() AS database_name");
+      authenticated = identity.rows[0]?.role_name === "kinglike_wa_archive_worker" &&
+        identity.rows[0]?.database_name === config.database;
+      if (authenticated) {
+        grantsVerified = await verifyEmployeeArchiveDatabaseGrants(
+          sql=>pool.query(sql),config.database);
+      }
     } catch {
-      // Avoid exposing SQL, credentials or private infrastructure identifiers.
+      // Never expose SQL errors, private network addresses or credentials.
     } finally {
       await pool.end().catch(()=>undefined);
     }
     return res.status(200).json({
-      environment:"isolated_staging",worker:passed?"passed":"failed",
+      environment:"isolated_staging",
+      worker:authenticated && grantsVerified?"passed":"failed",
+      connection:authenticated?"passed":"failed",
+      privileges:grantsVerified?"passed":authenticated?"failed":"not_tested",
       liveArchive:"disabled",messagesWritten:0,
     });
   });
