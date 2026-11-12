@@ -46,6 +46,30 @@ export function stagingArchiveCredentialProbeConfig(env: NodeJS.ProcessEnv):
   return {readerUrl:rawReader, auditUrl:rawAudit, database};
 }
 
+/** Staging-only connection identity; does not start a worker or enable message ingress. */
+export function stagingArchiveWorkerProbeConfig(env: NodeJS.ProcessEnv):
+  { workerUrl: string; database: string } | null {
+  const base = stagingArchiveCredentialProbeConfig(env);
+  if (!base) return null;
+  const raw = env.WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL;
+  if (!raw || raw === base.readerUrl || raw === base.auditUrl) return null;
+  try {
+    const worker = new URL(raw);
+    const reader = new URL(base.readerUrl);
+    const audit = new URL(base.auditUrl);
+    if (!["postgresql:", "postgres:"].includes(worker.protocol) ||
+        worker.hostname.toLowerCase() !== reader.hostname.toLowerCase() ||
+        decodeURIComponent(worker.pathname.slice(1)).toLowerCase() !== base.database ||
+        decodeURIComponent(worker.username) !== "kinglike_wa_archive_worker" ||
+        !worker.password || worker.hash || worker.search ||
+        (worker.port && worker.port !== "5432") ||
+        decodeURIComponent(worker.password) === decodeURIComponent(reader.password) ||
+        decodeURIComponent(worker.password) === decodeURIComponent(audit.password))
+      return null;
+    return {workerUrl:raw,database:base.database};
+  } catch { return null; }
+}
+
 export type WhatsappOperationsReadiness = {
   environment: "isolated_staging";
   checkedAt: string;
@@ -112,6 +136,39 @@ export function registerWhatsappOperationsStatusRoutes(
       reader:readerOk ? "passed" : "failed",
       audit:auditOk ? "passed" : readerOk ? "failed" : "not_tested",
       liveArchive:"disabled",
+    });
+  });
+
+  // No external Meta calls or database writes. The worker stays dormant.
+  app.get("/api/admin/staging/whatsapp-archive-worker-probe", async (req,res) => {
+    res.setHeader("Cache-Control","no-store");
+    res.setHeader("Pragma","no-cache");
+    if (!isStagingMode(env)) return res.sendStatus(404);
+    let actorId:number|null;
+    try { actorId = await deps.authorizeAdmin(req); }
+    catch { return res.sendStatus(503); }
+    if (!Number.isSafeInteger(actorId) || !actorId || actorId < 1)
+      return res.sendStatus(403);
+    const config = stagingArchiveWorkerProbeConfig(env);
+    if (!config) return res.status(200).json({
+      environment:"isolated_staging",worker:"configuration_blocked",
+      liveArchive:"disabled",messagesWritten:0,
+    });
+    const pool = new pg.Pool({connectionString:config.workerUrl,max:1,
+      connectionTimeoutMillis:1800,idleTimeoutMillis:1000,ssl:false});
+    let passed=false;
+    try {
+      const identity = await pool.query("SELECT current_user AS role_name");
+      passed = identity.rows[0]?.role_name === "kinglike_wa_archive_worker" &&
+        await verifyEmployeeArchiveDatabaseGrants(sql=>pool.query(sql),config.database);
+    } catch {
+      // Avoid exposing SQL, credentials or private infrastructure identifiers.
+    } finally {
+      await pool.end().catch(()=>undefined);
+    }
+    return res.status(200).json({
+      environment:"isolated_staging",worker:passed?"passed":"failed",
+      liveArchive:"disabled",messagesWritten:0,
     });
   });
 
