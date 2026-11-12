@@ -158,7 +158,7 @@ test("worker probe blocker is coarse and never exposes a URL or password",()=>{
     [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:undefined},"worker_url_missing"],
     [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"synthetic-unresolved-reference"},"worker_url_invalid"],
     [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://other:synthetic-worker@archive-staging.railway.internal/kinglike_whatsapp_archive"},"worker_identity_mismatch"],
-    [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://kinglike_wa_archive_worker:synthetic-reader@archive-staging.railway.internal/kinglike_whatsapp_archive"},"worker_secret_invalid"],
+    [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://kinglike_wa_archive_worker:synthetic-reader@archive-staging.railway.internal/kinglike_whatsapp_archive"},"worker_password_reused"],
   ];
   for (const [env,expected] of cases) {
     const outcome=stagingArchiveWorkerProbeBlocker(env);
