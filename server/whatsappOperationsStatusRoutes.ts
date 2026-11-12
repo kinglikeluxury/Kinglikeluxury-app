@@ -7,6 +7,7 @@ import type { ProofDbClient } from "./whatsappStagingProofDb";
 import { metaTestWebhookConfig } from "./metaTestWebhook";
 import { isStagingMode, stagingDatabaseIsIsolated } from "./stagingExternalGuard";
 import { verifyLiveArchiveReader } from "./whatsappEmployeeArchiveLiveRoutes";
+import { inspectStagingOneNumberPilot } from "./whatsappSingleNumberPilotReadiness";
 
 /** Credential-only smoke test. Never authorizes live archive runtime or reads message data. */
 export function stagingArchiveCredentialProbeConfig(env: NodeJS.ProcessEnv):
@@ -329,6 +330,26 @@ export function registerWhatsappOperationsStatusRoutes(
       encryptionAtRest:cipherVerified?"passed":"failed",
       rollback:rolledBack?"passed":"failed",
       rowsPersisted,liveArchive:"disabled"});
+  });
+
+  /**
+   * Configuration-only inspection for a future ONE-PHONE Meta Coexistence
+   * pilot. No Graph API calls, employee phone IDs, customer messages or writes.
+   * The actual consent and Meta eligibility must be independently verified.
+   */
+  app.get("/api/admin/staging/whatsapp-one-number-pilot-readiness",async(req,res)=>{
+    res.setHeader("Cache-Control","no-store");
+    res.setHeader("Pragma","no-cache");
+    if(!isStagingMode(env) || !stagingDatabaseIsIsolated(env))return res.sendStatus(404);
+    let actorId:number|null;
+    try{actorId=await deps.authorizeAdmin(req);}
+    catch{return res.sendStatus(503);}
+    if(!Number.isSafeInteger(actorId)||!actorId||actorId<1)return res.sendStatus(403);
+    const report=inspectStagingOneNumberPilot(env,{
+      workerConfigured:stagingArchiveWorkerProbeConfig(env)!==null,
+      readerAuditConfigured:stagingArchiveCredentialProbeConfig(env)!==null,
+    });
+    return res.status(200).json(report);
   });
 
   // Explicit admin-only, staging-only, SELECT-only credential probe.
