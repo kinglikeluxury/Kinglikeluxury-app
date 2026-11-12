@@ -9,6 +9,8 @@ on:
       - "client/src/lib/adminNavItems.ts"
       - "client/src/App.tsx"
       - "server/whatsappOperationsStatusRoutes.ts"
+      - "server/whatsappSingleNumberPilotReadiness.ts"
+      - "server/whatsappSingleNumberPilotReadiness.test.ts"
       - "server/whatsappOperationsStatusRoutes.test.ts"
       - "server/index.ts"
       - ".github/workflows/whatsapp-admin-operations.yml"
@@ -20,6 +22,8 @@ on:
       - "client/src/lib/adminNavItems.ts"
       - "client/src/App.tsx"
       - "server/whatsappOperationsStatusRoutes.ts"
+      - "server/whatsappSingleNumberPilotReadiness.ts"
+      - "server/whatsappSingleNumberPilotReadiness.test.ts"
       - "server/whatsappOperationsStatusRoutes.test.ts"
       - "server/index.ts"
       - ".github/workflows/whatsapp-admin-operations.yml"
@@ -44,7 +48,7 @@ jobs:
           APP_DEPLOYMENT_MODE: ci-test-disabled
           WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
           WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
-        run: node --import tsx --test server/whatsappOperationsStatusRoutes.test.ts server/whatsappStagingProofDb.test.ts client/src/components/admin/WhatsappSyntheticConversationReview.test.tsx
+        run: node --import tsx --test server/whatsappOperationsStatusRoutes.test.ts server/whatsappStagingProofDb.test.ts client/src/components/admin/WhatsappSyntheticConversationReview.test.tsx server/whatsappSingleNumberPilotReadiness.test.ts
       - name: Build admin page without connecting Meta
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled
