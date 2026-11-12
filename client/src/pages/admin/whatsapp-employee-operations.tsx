@@ -80,6 +80,38 @@ export default function WhatsappEmployeeOperationsPage() {
   const [archiveReadiness, setArchiveReadiness] = useState<ArchiveReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rollbackProbeRunning,setRollbackProbeRunning]=useState(false);
+  const [rollbackProbeResult,setRollbackProbeResult]=useState<{
+    inbox:string;insert?:string;deduplication?:string;
+    encryptionAtRest?:string;rollback?:string;rowsPersisted:number|null;
+    liveArchive:string;
+  }|null>(null);
+  const [rollbackProbeError,setRollbackProbeError]=useState<string|null>(null);
+
+  const runRollbackProbe=useCallback(async()=>{
+    if(!user?.isAdmin || rollbackProbeRunning)return;
+    setRollbackProbeRunning(true);
+    setRollbackProbeResult(null);
+    setRollbackProbeError(null);
+    try{
+      const response=await fetch("/api/admin/staging/whatsapp-archive-inbox-rollback-probe",{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"x-kinglike-staging-probe":"synthetic-rollback",
+          Accept:"application/json"},
+      });
+      if(!response.ok)throw new Error("تعذّر إجراء الفحص الآمن.");
+      const result=await response.json();
+      if(result.environment!=="isolated_staging" ||
+         result.liveArchive!=="disabled" ||
+         !["passed","failed","configuration_blocked"].includes(result.inbox) ||
+         (result.rowsPersisted!==null && result.rowsPersisted!==0)){
+        throw new Error("نتيجة غير متوقعة. راجع صلاحيات القاعدة قبل أي اختبار آخر.");
+      }
+      setRollbackProbeResult(result);
+    }catch(e){
+      setRollbackProbeError(e instanceof Error?e.message:"تعذّر إكمال الاختبار.");
+    }finally{setRollbackProbeRunning(false);}
+  },[user?.isAdmin,rollbackProbeRunning]);
 
   const reload = useCallback(async () => {
     if (!user?.isAdmin) return;
@@ -241,6 +273,33 @@ export default function WhatsappEmployeeOperationsPage() {
                 مؤشرات الموافقة أعلاه تعتمد على الإعدادات، ولا تثبت موافقة فعلية من الموظف أو Meta بذاتها.
               </p>
             </>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="اختبار التخزين المشفر التجريبي">
+          <h2 className="text-lg font-bold text-[#005476]">اختبار تخزين الأرشيف المعزول</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            يفحص إدخال بيانات مشفّرة وهمية إلى قاعدة Staging داخل معاملة يتم التراجع عنها بالكامل.
+            لا يتصل بواتساب أو أرقام الموظفين، ولا يحفظ محادثات فعلية.
+          </p>
+          <button type="button" onClick={()=>void runRollbackProbe()} disabled={rollbackProbeRunning}
+            className="mt-4 rounded-xl bg-[#005476] px-5 py-3 text-sm font-semibold text-white hover:bg-[#006483] disabled:opacity-50">
+            {rollbackProbeRunning?"جارٍ اختبار المعاملة...":"تشغيل اختبار التخزين الآمن"}
+          </button>
+          {rollbackProbeResult && (
+            <div role="status" className="mt-3 rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+              <p>النتيجة: <b>{rollbackProbeResult.inbox==="passed"?"ناجح":
+                rollbackProbeResult.inbox==="configuration_blocked"?"إعدادات غير مكتملة":"فشل الاختبار"}</b></p>
+              <p>إدخال: {rollbackProbeResult.insert??"لم يُختبر"}،
+                منع التكرار: {rollbackProbeResult.deduplication??"لم يُختبر"}،
+                تشفير: {rollbackProbeResult.encryptionAtRest??"لم يُختبر"}،
+                إلغاء المعاملة: {rollbackProbeResult.rollback??"لم يُختبر"}</p>
+              <p>الصفوف الباقية: {rollbackProbeResult.rowsPersisted===null?"لم يمكن التحقق":
+                rollbackProbeResult.rowsPersisted}</p>
+            </div>
+          )}
+          {rollbackProbeError && (
+            <p role="alert" className="mt-3 text-sm text-amber-800">{rollbackProbeError}</p>
           )}
         </section>
 
