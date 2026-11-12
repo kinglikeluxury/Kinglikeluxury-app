@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
+import WhatsappSyntheticConversationReview from "@/components/admin/WhatsappSyntheticConversationReview";
 import { Activity, ArrowUpRight, CheckCircle2, Database, ExternalLink, LockKeyhole, MessageCircle, RefreshCcw, ShieldCheck } from "lucide-react";
 
 export type WhatsappOperationsStatus = {
@@ -302,6 +303,8 @@ export default function WhatsappEmployeeOperationsPage() {
             <p role="alert" className="mt-3 text-sm text-amber-800">{rollbackProbeError}</p>
           )}
         </section>
+
+        <WhatsappSyntheticConversationReview />
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
           <div className="mb-4 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-[#005476]" /><h2 className="text-lg font-bold text-[#005476]">خطة ربط الموظفين</h2></div>
