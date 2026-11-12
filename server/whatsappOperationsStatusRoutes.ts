@@ -53,7 +53,8 @@ export function stagingArchiveCredentialProbeConfig(env: NodeJS.ProcessEnv):
  */
 export function stagingArchiveWorkerProbeBlocker(env: NodeJS.ProcessEnv):
   "staging_boundary" | "reader_audit_configuration" | "worker_url_missing" |
-  "worker_url_invalid" | "worker_identity_mismatch" | "worker_secret_invalid" | null {
+  "worker_url_invalid" | "worker_identity_mismatch" | "worker_password_missing" |
+  "worker_password_reused" | null {
   if (env.APP_DEPLOYMENT_MODE !== "staging" || !stagingDatabaseIsIsolated(env))
     return "staging_boundary";
   const base = stagingArchiveCredentialProbeConfig(env);
@@ -71,10 +72,11 @@ export function stagingArchiveWorkerProbeBlocker(env: NodeJS.ProcessEnv):
         decodeURIComponent(worker.pathname.slice(1)).toLowerCase() !== base.database ||
         decodeURIComponent(worker.username) !== "kinglike_wa_archive_worker")
       return "worker_identity_mismatch";
-    if (!worker.password || raw === base.readerUrl || raw === base.auditUrl ||
+    if (!worker.password) return "worker_password_missing";
+    if (raw === base.readerUrl || raw === base.auditUrl ||
         decodeURIComponent(worker.password) === decodeURIComponent(reader.password) ||
         decodeURIComponent(worker.password) === decodeURIComponent(audit.password))
-      return "worker_secret_invalid";
+      return "worker_password_reused";
     return null;
   } catch { return "worker_url_invalid"; }
 }
