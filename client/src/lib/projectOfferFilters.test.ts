@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   filterProjectOfferProjects,
+  isBakuProjectLocation,
   parseProjectLocation,
 } from "./projectOfferFilters";
 
@@ -35,6 +36,31 @@ test("uses explicit Baku location evidence for district-only records", () => {
     filterProjectOfferProjects([panorama], "Azerbaijan", "Baku").map((project) => project.title),
     ["Panorama by Elie Saab"],
   );
+});
+
+test("recognizes both Baku projects from Sabunchu district plus project Baku evidence", () => {
+  const projects = [
+    {
+      title: "Panorama by Elie Saab",
+      location: "Sabunchu Raion",
+      description: "🇦🇿 PANORAMA BY ELIE SAAB | BAKU",
+      projectStatus: "Now Selling",
+    },
+    {
+      title: "Reportage Hights",
+      location: "Əsəd Əhmədov küç., Sabunchu Raion",
+      description: "🇦🇿🌊 REPORTAGE HEIGHTS | BAKU",
+      projectStatus: "Now Selling",
+    },
+  ];
+  assert.deepEqual(
+    filterProjectOfferProjects(projects, "Azerbaijan", "Baku").map((project) => project.title),
+    ["Panorama by Elie Saab", "Reportage Hights"],
+  );
+  for (const project of projects) {
+    assert.equal(isBakuProjectLocation(project.location, `${project.title}\n${project.description}`), true);
+  }
+  assert.equal(isBakuProjectLocation("Sabunchu Raion", "District residential development"), false);
 });
 
 test("preserves existing country filters", () => {

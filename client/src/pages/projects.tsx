@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
 import { formatPricePerMeterRange, getPricePerMeterLabels } from "@shared/price-per-meter";
+import { isBakuProjectLocation, normalizeLocationPart, parseProjectLocationWithEvidence } from "@/lib/projectOfferFilters";
 import { 
   MapPin, 
   Search, 
@@ -301,6 +302,10 @@ const Projects = () => {
 
     const projectLocation = (propertyData.location || project.location || '').toLowerCase();
     const projectTitle = (propertyData.title || project.title || '').toLowerCase();
+    const parsedLocation = parseProjectLocationWithEvidence(
+      propertyData.location || project.location || '',
+      `${propertyData.title || project.title || ''}\n${propertyData.description || project.description || ''}`,
+    );
 
     if (searchTerm && !projectTitle.includes(searchTerm.toLowerCase()) &&
         !projectLocation.includes(searchTerm.toLowerCase())) {
@@ -327,7 +332,7 @@ const Projects = () => {
         SYRIA_CITY_OPTIONS.some(({ value }) => projectLocation.includes(value.replace(/-/g, ' ')));
       const matchesBaku =
         selectedCountry === 'azerbaijan' &&
-        (projectLocation.includes('baku') || projectLocation.includes('bakı'));
+        isBakuProjectLocation(projectLocation, `${projectTitle}\n${propertyData.description || project.description || ''}`);
       if (!matchesCountryName && !matchesGeorgianCity && !matchesSyrianCity && !matchesBaku) {
         return false;
       }
@@ -345,7 +350,11 @@ const Projects = () => {
         'istanbul': 'istanbul', 'trabzon': 'trabzon',
       };
       const cityName = cityMap[selectedCity] || selectedCity.toLowerCase().replace(/-/g, ' ');
-      if (!projectLocation.includes(cityName)) {
+      const matchesSelectedBaku =
+        selectedCountry === 'azerbaijan' &&
+        (selectedCity === 'baku' || selectedCity === 'Baku') &&
+        isBakuProjectLocation(projectLocation, `${projectTitle}\n${propertyData.description || project.description || ''}`);
+      if (!matchesSelectedBaku && !projectLocation.includes(cityName)) {
         return false;
       }
     }

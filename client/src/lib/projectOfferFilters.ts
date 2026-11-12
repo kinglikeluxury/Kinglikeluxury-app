@@ -64,6 +64,11 @@ function hasExplicitBakuLocationEvidence(text: string): boolean {
   );
 }
 
+function isSabunchuDistrict(location: string): boolean {
+  const normalized = normalizeLocationPart(location);
+  return normalized.includes("sabunchu raion") || normalized.includes("sabuncu rayonu");
+}
+
 export function parseProjectLocationWithEvidence(
   location: string,
   evidenceText = "",
@@ -79,11 +84,11 @@ export function parseProjectLocationWithEvidence(
     .map((part) => countryEntries.find((entry) => entry.normalized === part)?.country)
     .find(Boolean);
 
-  if (
-    hasExplicitBakuLocationEvidence(evidenceText) &&
-    !cityMatch &&
-    !countryMatch
-  ) {
+  const hasBakuDescriptionEvidence =
+    hasExplicitBakuLocationEvidence(evidenceText) ||
+    (isSabunchuDistrict(location) && /\b(?:baku|bakı|باكو)\b/i.test(evidenceText));
+
+  if (hasBakuDescriptionEvidence && !cityMatch && (!countryMatch || isSabunchuDistrict(location))) {
     return { country: "Azerbaijan", city: "Baku" };
   }
 
@@ -91,6 +96,14 @@ export function parseProjectLocationWithEvidence(
     city: cityMatch?.city || parts[0] || "",
     country: countryMatch || cityMatch?.country || parts[parts.length - 1] || "",
   };
+}
+
+export function isBakuProjectLocation(location: string, evidenceText = ""): boolean {
+  const parsed = parseProjectLocationWithEvidence(location, evidenceText);
+  return (
+    normalizeLocationPart(parsed.country) === normalizeLocationPart("Azerbaijan") &&
+    normalizeLocationPart(parsed.city) === normalizeLocationPart("Baku")
+  );
 }
 
 export interface ProjectOfferProject {
@@ -179,12 +192,23 @@ export function filterProjectOfferProjects<T extends ProjectOfferProject>(
       project.location ?? "",
       `${project.title ?? ""}\n${project.description ?? ""}`,
     );
+    const isSelectedBaku =
+      normalizeLocationPart(selectedCountry) === normalizeLocationPart("Azerbaijan") &&
+      normalizeLocationPart(selectedCity) === normalizeLocationPart("Baku");
     const matchesCountry =
       !selectedCountry ||
-      normalizeLocationPart(location.country) === normalizeLocationPart(selectedCountry);
+      normalizeLocationPart(location.country) === normalizeLocationPart(selectedCountry) ||
+      (isSelectedBaku && isBakuProjectLocation(
+        project.location ?? "",
+        `${project.title ?? ""}\n${project.description ?? ""}`,
+      ));
     const matchesCity =
       !selectedCity ||
-      normalizeLocationPart(location.city) === normalizeLocationPart(selectedCity);
+      normalizeLocationPart(location.city) === normalizeLocationPart(selectedCity) ||
+      (isSelectedBaku && isBakuProjectLocation(
+        project.location ?? "",
+        `${project.title ?? ""}\n${project.description ?? ""}`,
+      ));
 
     // projectStatus describes marketing/sales status and is not a reliable
     // construction-stage field, so it must not hide a correctly located Baku project.
