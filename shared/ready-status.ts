@@ -1,7 +1,7 @@
 export const RENOVATED_WITHOUT_EQUIPMENT_FURNITURE = {
   value: "renovated_without_equipment_furniture",
   labels: {
-    ar: "تم تجديدها دون معدات أو أثاث",
+    ar: "تشطيب كامل بدون أثاث وكهربائيات",
     en: "Renovated without equipments & Furniture",
     ru: "Отремонтирована без оборудования и мебели",
     ka: "გარემონტებული ტექნიკისა და ავეჯის გარეშე",

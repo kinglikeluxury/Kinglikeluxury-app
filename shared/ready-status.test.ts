@@ -9,7 +9,7 @@ test("the new ready status retains its exact English option text", () => {
     "Renovated without equipments & Furniture",
   );
   assert.equal(getReadyStatusLabel("en-US"), "Renovated without equipments & Furniture");
-  assert.equal(getReadyStatusLabel("ar"), "تم تجديدها دون معدات أو أثاث");
+  assert.equal(getReadyStatusLabel("ar"), "تشطيب كامل بدون أثاث وكهربائيات");
 });
 
 test("the existing property schema accepts and round-trips the new ready status", () => {
