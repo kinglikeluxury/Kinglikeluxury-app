@@ -13,6 +13,11 @@ on:
       - "server/whatsappSingleNumberPilotReadiness.test.ts"
       - "server/whatsappOperationsStatusRoutes.test.ts"
       - "server/index.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.test.ts"
+      - "client/src/pages/employee/whatsapp-meta-verification.tsx"
+      - "client/src/components/layout/Navbar.tsx"
+      - "client/src/components/layout/MobileDrawer.tsx"
       - ".github/workflows/whatsapp-admin-operations.yml"
   pull_request:
     paths:
@@ -26,6 +31,11 @@ on:
       - "server/whatsappSingleNumberPilotReadiness.test.ts"
       - "server/whatsappOperationsStatusRoutes.test.ts"
       - "server/index.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.test.ts"
+      - "client/src/pages/employee/whatsapp-meta-verification.tsx"
+      - "client/src/components/layout/Navbar.tsx"
+      - "client/src/components/layout/MobileDrawer.tsx"
       - ".github/workflows/whatsapp-admin-operations.yml"
 
 permissions:
@@ -48,7 +58,7 @@ jobs:
           APP_DEPLOYMENT_MODE: ci-test-disabled
           WHATSAPP_STAGING_VERIFIED_SIGNUP_ENABLED: "false"
           WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
-        run: node --import tsx --test server/whatsappOperationsStatusRoutes.test.ts server/whatsappStagingProofDb.test.ts client/src/components/admin/WhatsappSyntheticConversationReview.test.tsx server/whatsappSingleNumberPilotReadiness.test.ts
+        run: node --import tsx --test server/whatsappOperationsStatusRoutes.test.ts server/whatsappStagingProofDb.test.ts client/src/components/admin/WhatsappSyntheticConversationReview.test.tsx server/whatsappSingleNumberPilotReadiness.test.ts server/whatsappEmployeeSelfVerificationRoutes.test.ts
       - name: Build admin page without connecting Meta
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled
