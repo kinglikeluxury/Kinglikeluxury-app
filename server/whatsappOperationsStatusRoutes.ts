@@ -4,7 +4,47 @@ import { identitySyncRuntimeConfig } from "./whatsappEmployeeIdentitySyncRuntime
 import { inspectEmployeeArchiveReadiness, verifyEmployeeArchiveDatabaseGrants, verifyEmployeeArchiveAuditRole } from "./whatsappEmployeeArchiveRuntimeGuard";
 import type { ProofDbClient } from "./whatsappStagingProofDb";
 import { metaTestWebhookConfig } from "./metaTestWebhook";
-import { isStagingMode } from "./stagingExternalGuard";
+import { isStagingMode, stagingDatabaseIsIsolated } from "./stagingExternalGuard";
+import { verifyLiveArchiveReader } from "./whatsappEmployeeArchiveLiveRoutes";
+
+/** Credential-only smoke test. Never authorizes live archive runtime or reads message data. */
+export function stagingArchiveCredentialProbeConfig(env: NodeJS.ProcessEnv):
+  { readerUrl: string; auditUrl: string; database: string } | null {
+  if (env.APP_DEPLOYMENT_MODE !== "staging" || !stagingDatabaseIsIsolated(env)) return null;
+  const host = env.WHATSAPP_EMPLOYEE_ARCHIVE_EXPECTED_HOST?.trim().toLowerCase();
+  const database = env.WHATSAPP_EMPLOYEE_ARCHIVE_EXPECTED_NAME?.trim().toLowerCase();
+  if (!host?.endsWith(".railway.internal") || database !== "kinglike_whatsapp_archive") return null;
+  const rawReader = env.WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL;
+  const rawAudit = env.WHATSAPP_EMPLOYEE_ARCHIVE_AUDIT_DATABASE_URL;
+  if (!rawReader || !rawAudit || rawReader === rawAudit) return null;
+  function safeUrl(raw: string, user: string): URL | null {
+    try {
+      const url = new URL(raw);
+      if (!["postgresql:", "postgres:"].includes(url.protocol) ||
+          url.hostname.toLowerCase() !== host ||
+          decodeURIComponent(url.pathname.replace(/^\\/+/, "")).toLowerCase() !== database ||
+          decodeURIComponent(url.username) !== user || !url.password || url.hash ||
+          url.search || (url.port && url.port !== "5432")) return null;
+      return url;
+    } catch { return null; }
+  }
+  const reader = safeUrl(rawReader, "kinglike_wa_archive_reader");
+  const audit = safeUrl(rawAudit, "kinglike_wa_archive_auditwriter");
+  if (!reader || !audit || reader.password === audit.password) return null;
+  for (const raw of [env.APP_STAGING_DATABASE_URL, env.NEON_DATABASE_URL,
+                     env.WHATSAPP_STAGING_PROOF_DATABASE_URL]) {
+    if (!raw) continue;
+    try {
+      const url = new URL(raw);
+      if (url.hostname.toLowerCase() === host ||
+          decodeURIComponent(url.pathname.replace(/^\\/+/, "")).toLowerCase() === database)
+        return null;
+    } catch { return null; }
+  }
+  if (host === env.PRODUCTION_DATABASE_HOST?.trim().toLowerCase() ||
+      database === env.PRODUCTION_DATABASE_NAME?.trim().toLowerCase()) return null;
+  return {readerUrl:rawReader, auditUrl:rawAudit, database};
+}
 
 export type WhatsappOperationsReadiness = {
   environment: "isolated_staging";
@@ -36,6 +76,45 @@ export function registerWhatsappOperationsStatusRoutes(
   },
 ): void {
   const env = deps.env ?? process.env;
+  // Explicit admin-only, staging-only, SELECT-only credential probe.
+  // Works independently of consent/Meta/runtime flags; it never enables those.
+  app.get("/api/admin/staging/whatsapp-archive-credential-probe", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
+    if (!isStagingMode(env)) return res.sendStatus(404);
+    let actorId: number | null;
+    try { actorId = await deps.authorizeAdmin(req); }
+    catch { return res.sendStatus(503); }
+    if (!Number.isSafeInteger(actorId) || !actorId || actorId <= 0) return res.sendStatus(403);
+    const config = stagingArchiveCredentialProbeConfig(env);
+    if (!config) return res.status(200).json({
+      environment:"isolated_staging",status:"configuration_blocked",
+      reader:"not_tested",audit:"not_tested",liveArchive:"disabled",
+    });
+    const reader = new pg.Pool({connectionString:config.readerUrl,max:1,
+      connectionTimeoutMillis:1800,idleTimeoutMillis:1000,ssl:false});
+    const audit = new pg.Pool({connectionString:config.auditUrl,max:1,
+      connectionTimeoutMillis:1800,idleTimeoutMillis:1000,ssl:false});
+    let readerOk = false;
+    let auditOk = false;
+    try {
+      readerOk = await verifyLiveArchiveReader(sql=>reader.query(sql),config.database);
+      if (readerOk) auditOk = await verifyEmployeeArchiveAuditRole(
+        sql=>audit.query(sql),config.database);
+    } catch {
+      // No DB errors, server names or connection details in response.
+    } finally {
+      await Promise.allSettled([reader.end(),audit.end()]);
+    }
+    return res.status(200).json({
+      environment:"isolated_staging",
+      status:readerOk && auditOk ? "passed" : "failed",
+      reader:readerOk ? "passed" : "failed",
+      audit:auditOk ? "passed" : readerOk ? "failed" : "not_tested",
+      liveArchive:"disabled",
+    });
+  });
+
   /**
    * Separate, admin-only, read-only archive readiness inspection.
    * Never connect to a DB unless explicit Staging configuration passes ALL
