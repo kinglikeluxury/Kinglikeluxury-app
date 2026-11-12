@@ -220,9 +220,16 @@ export function registerWhatsappOperationsStatusRoutes(
       return res.sendStatus(403);
     const origin=req.get("origin");
     const fetchSite=req.get("sec-fetch-site");
+    let originMatches=true;
+    if(origin){
+      try{
+        const parsed=new URL(origin);
+        originMatches=(parsed.protocol==="https:"||parsed.protocol==="http:") &&
+          parsed.host===req.get("host");
+      }catch{originMatches=false;}
+    }
     if(req.get("x-kinglike-staging-probe")!=="synthetic-rollback" ||
-       (origin && origin !== req.protocol+"://"+req.get("host")) ||
-       (fetchSite && fetchSite!=="same-origin"))
+       !originMatches || (fetchSite && fetchSite!=="same-origin"))
       return res.sendStatus(403);
     const config=stagingArchiveWorkerProbeConfig(env);
     const decode=(value:string|undefined):Buffer|null=>{
