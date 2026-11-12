@@ -47,6 +47,38 @@ export function stagingArchiveCredentialProbeConfig(env: NodeJS.ProcessEnv):
 }
 
 /** Staging-only connection identity; does not start a worker or enable message ingress. */
+/**
+ * Return only a coarse nonsecret cause for a failed staging worker URL.
+ * No URL, hostname, username, password or raw SQL error is returned.
+ */
+export function stagingArchiveWorkerProbeBlocker(env: NodeJS.ProcessEnv):
+  "staging_boundary" | "reader_audit_configuration" | "worker_url_missing" |
+  "worker_url_invalid" | "worker_identity_mismatch" | "worker_secret_invalid" | null {
+  if (env.APP_DEPLOYMENT_MODE !== "staging" || !stagingDatabaseIsIsolated(env))
+    return "staging_boundary";
+  const base = stagingArchiveCredentialProbeConfig(env);
+  if (!base) return "reader_audit_configuration";
+  const raw = env.WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL;
+  if (!raw) return "worker_url_missing";
+  try {
+    const worker = new URL(raw);
+    const reader = new URL(base.readerUrl);
+    const audit = new URL(base.auditUrl);
+    if (!["postgresql:", "postgres:"].includes(worker.protocol) ||
+        !worker.hostname || !worker.username || worker.hash || worker.search ||
+        (worker.port && worker.port !== "5432")) return "worker_url_invalid";
+    if (worker.hostname.toLowerCase() !== reader.hostname.toLowerCase() ||
+        decodeURIComponent(worker.pathname.slice(1)).toLowerCase() !== base.database ||
+        decodeURIComponent(worker.username) !== "kinglike_wa_archive_worker")
+      return "worker_identity_mismatch";
+    if (!worker.password || raw === base.readerUrl || raw === base.auditUrl ||
+        decodeURIComponent(worker.password) === decodeURIComponent(reader.password) ||
+        decodeURIComponent(worker.password) === decodeURIComponent(audit.password))
+      return "worker_secret_invalid";
+    return null;
+  } catch { return "worker_url_invalid"; }
+}
+
 export function stagingArchiveWorkerProbeConfig(env: NodeJS.ProcessEnv):
   { workerUrl: string; database: string } | null {
   const base = stagingArchiveCredentialProbeConfig(env);
@@ -152,6 +184,7 @@ export function registerWhatsappOperationsStatusRoutes(
     const config = stagingArchiveWorkerProbeConfig(env);
     if (!config) return res.status(200).json({
       environment:"isolated_staging",worker:"configuration_blocked",
+      blocker:stagingArchiveWorkerProbeBlocker(env),
       liveArchive:"disabled",messagesWritten:0,
     });
     const pool = new pg.Pool({connectionString:config.workerUrl,max:1,
