@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import express from "express";
-import { registerWhatsappOperationsStatusRoutes, stagingArchiveCredentialProbeConfig } from "./whatsappOperationsStatusRoutes";
+import { registerWhatsappOperationsStatusRoutes, stagingArchiveCredentialProbeConfig, stagingArchiveWorkerProbeConfig } from "./whatsappOperationsStatusRoutes";
 
 const BASE = "/api/admin/staging/whatsapp-operations-status";
 async function withServer(
@@ -129,4 +129,37 @@ test("credential probe is unavailable outside staging and rejects non-admin acto
       assert.equal(body.liveArchive,"disabled");
       assert.equal(JSON.stringify(body).includes("synthetic-audit"),false);
     });
+});
+
+test("worker-only preflight requires exact isolated restricted worker credential",()=>{
+  const valid = {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:
+    "postgresql://kinglike_wa_archive_worker:synthetic-worker@archive-staging.railway.internal:5432/kinglike_whatsapp_archive"};
+  assert.ok(stagingArchiveWorkerProbeConfig(valid));
+  const invalid:NodeJS.ProcessEnv[] = [
+    {...valid,APP_DEPLOYMENT_MODE:"production"},
+    {...valid,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:undefined},
+    {...valid,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:valid.WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL},
+    {...valid,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:valid.WHATSAPP_EMPLOYEE_ARCHIVE_AUDIT_DATABASE_URL},
+    {...valid,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://postgres:x@archive-staging.railway.internal/kinglike_whatsapp_archive"},
+    {...valid,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://kinglike_wa_archive_worker:x@ep-live.neon.tech/neondb"},
+    {...valid,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://kinglike_wa_archive_worker:synthetic-reader@archive-staging.railway.internal/kinglike_whatsapp_archive"},
+    {...valid,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://kinglike_wa_archive_worker:x@archive-staging.railway.internal/kinglike_whatsapp_archive?options=unsafe"},
+  ];
+  invalid.forEach(x=>assert.equal(stagingArchiveWorkerProbeConfig(x),null));
+});
+
+test("worker probe rejects production and unauthenticated users and stays dormant",async()=>{
+  const endpoint="/api/admin/staging/whatsapp-archive-worker-probe";
+  await withServer({...isolated,APP_DEPLOYMENT_MODE:"production"},101,null,
+    async base=>assert.equal((await fetch(base+endpoint)).status,404));
+  await withServer(isolated,null,null,
+    async base=>assert.equal((await fetch(base+endpoint)).status,403));
+  await withServer(isolated,101,null,async base=>{
+    const r=await fetch(base+endpoint);
+    assert.equal(r.status,200);
+    const body=await r.json();
+    assert.equal(body.worker,"configuration_blocked");
+    assert.equal(body.liveArchive,"disabled");
+    assert.equal(body.messagesWritten,0);
+  });
 });
