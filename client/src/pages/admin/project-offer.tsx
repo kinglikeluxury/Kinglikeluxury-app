@@ -11,7 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslation } from "react-i18next";
-import { COUNTRY_CITY_MAP, filterProjectOfferProjects } from "@/lib/projectOfferFilters";
+import i18n from "@/lib/i18n";
+import {
+  COUNTRY_CITY_MAP,
+  filterProjectOfferProjects,
+  formatProjectOfferLocation,
+  normalizeLocationPart,
+  PROJECT_OFFER_FLAG_CODES,
+  resolveProjectOfferLocation,
+} from "@/lib/projectOfferFilters";
 import { FileDown, X, Building2, ChevronDown } from "lucide-react";
 import jsPDF from "jspdf";
 import { toPng } from "html-to-image";
@@ -719,6 +727,32 @@ export default function ProjectOfferPage() {
   const filteredProjects = filterProjectOfferProjects(allProjects, selectedCountry, selectedCity);
 
   const selectedProject = allProjects.find((p) => p.id === selectedProjectId);
+  const offerLocation = resolveProjectOfferLocation(
+    selectedCountry,
+    selectedCity,
+    selectedProject?.location || "",
+    selectedProject?.description || "",
+    selectedProject?.title || "",
+  );
+  const offerLocationLabel = formatProjectOfferLocation(
+    offerLocation,
+    pdfLang,
+    (category, canonicalName, language) => {
+      const englishNames = (i18n.getResourceBundle("en", "common") as any)?.[category] ?? {};
+      const englishCountryName =
+        category === "countries" && canonicalName === "UAE"
+          ? "United Arab Emirates"
+          : canonicalName;
+      const resourceKey = Object.entries(englishNames).find(
+        ([, label]) =>
+          normalizeLocationPart(String(label)) === normalizeLocationPart(englishCountryName),
+      )?.[0];
+      if (!resourceKey) return canonicalName;
+      return i18n.getFixedT(language, "common")(`${category}.${resourceKey}`, {
+        defaultValue: canonicalName,
+      });
+    },
+  );
 
   const totalPrice       = totalArea && pricePerMeter ? parseFloat(totalArea) * parseFloat(pricePerMeter) : 0;
   const discountVal      = discountPercent && parseFloat(discountPercent) > 0 ? parseFloat(discountPercent) : 0;
@@ -759,20 +793,73 @@ export default function ProjectOfferPage() {
   const fmt = (n: number) => new Intl.NumberFormat("en-US").format(Math.round(n));
   const isRTL = pdfLang === "ar" || pdfLang === "he";
 
-  /* ── Draw Georgia flag on a canvas → base64 PNG ── */
-  const makeGeorgiaFlagB64 = (): string => {
+  /* ── Draw the selected project's country flag → base64 PNG ── */
+  const makeCountryFlagB64 = (country: string): string => {
+    if (!PROJECT_OFFER_FLAG_CODES[country]) return "";
     const c = document.createElement("canvas");
     c.width = 90; c.height = 60;
     const ctx = c.getContext("2d")!;
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 90, 60);
-    ctx.fillStyle = "#FF0000";
-    ctx.fillRect(37, 0, 16, 60);   // vertical bar
-    ctx.fillRect(0, 22, 90, 16);   // horizontal bar
-    // four small crosses
-    const cross = (x: number, y: number) => {
-      ctx.fillRect(x + 5, y, 6, 15); ctx.fillRect(x, y + 5, 16, 5);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, 90, 60);
+
+    const star = (x: number, y: number, outer: number, inner: number, color: string, points = 5) => {
+      ctx.beginPath();
+      for (let i = 0; i < points * 2; i++) {
+        const radius = i % 2 === 0 ? outer : inner;
+        const angle = (i * Math.PI) / points - Math.PI / 2;
+        const px = x + Math.cos(angle) * radius;
+        const py = y + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
     };
-    cross(4, 2); cross(52, 2); cross(4, 43); cross(52, 43);
+
+    const crescent = (x: number, y: number, color: string, background: string, radius = 15) => {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + radius * 0.38, y - radius * 0.14, radius * 0.82, 0, Math.PI * 2);
+      ctx.fillStyle = background;
+      ctx.fill();
+    };
+
+    if (country === "Georgia") {
+      ctx.fillStyle = "#FF0000";
+      ctx.fillRect(37, 0, 16, 60);
+      ctx.fillRect(0, 22, 90, 16);
+      const cross = (x: number, y: number) => {
+        ctx.fillRect(x + 5, y, 6, 15);
+        ctx.fillRect(x, y + 5, 16, 5);
+      };
+      cross(4, 2); cross(52, 2); cross(4, 43); cross(52, 43);
+    } else if (country === "Azerbaijan") {
+      ctx.fillStyle = "#00B5E2"; ctx.fillRect(0, 0, 90, 20);
+      ctx.fillStyle = "#EF3340"; ctx.fillRect(0, 20, 90, 20);
+      ctx.fillStyle = "#509E2F"; ctx.fillRect(0, 40, 90, 20);
+      crescent(43, 30, "#fff", "#EF3340", 10);
+      star(57, 30, 6, 2.7, "#fff");
+    } else if (country === "Turkey") {
+      ctx.fillStyle = "#E30A17"; ctx.fillRect(0, 0, 90, 60);
+      crescent(37, 30, "#fff", "#E30A17", 17);
+      star(58, 30, 8, 3.4, "#fff");
+    } else if (country === "UAE") {
+      ctx.fillStyle = "#00732F"; ctx.fillRect(22, 0, 68, 20);
+      ctx.fillStyle = "#fff"; ctx.fillRect(22, 20, 68, 20);
+      ctx.fillStyle = "#000"; ctx.fillRect(22, 40, 68, 20);
+      ctx.fillStyle = "#FF0000"; ctx.fillRect(0, 0, 22, 60);
+    } else if (country === "Northern Cyprus (TRNC)") {
+      ctx.fillStyle = "#E30A17";
+      ctx.fillRect(0, 4, 90, 6);
+      ctx.fillRect(0, 50, 90, 6);
+      crescent(40, 30, "#E30A17", "#fff", 12);
+      star(61, 30, 7, 3, "#E30A17");
+    }
+
     return c.toDataURL("image/png");
   };
 
@@ -830,7 +917,7 @@ export default function ProjectOfferPage() {
       flushSync(() => {
         setB64Images(loaded);
         setFloorPlanB64(fpB64);
-        setFlagB64(makeGeorgiaFlagB64());
+        setFlagB64(makeCountryFlagB64(offerLocation.country));
         setSilkHighlightB64(silkB64);
         setPetraHighlightB64(petraB64);
         setAmbassadoriHighlightB64(ambB64);
@@ -1339,6 +1426,8 @@ export default function ProjectOfferPage() {
             b64Images={b64Images}
             floorPlanB64={floorPlanB64}
             flagB64={flagB64}
+            flagAlt={PROJECT_OFFER_FLAG_CODES[offerLocation.country] || ""}
+            locationLabel={offerLocationLabel}
             lang={pdfLang}
             isRTL={isRTL}
             apartmentType={apartmentType}
@@ -1384,7 +1473,7 @@ export default function ProjectOfferPage() {
 /* ─── PDF Template Component ──────────────────────────────────────────────── */
 
 function PDFTemplate({
-  project, b64Images, floorPlanB64, flagB64, lang, isRTL,
+  project, b64Images, floorPlanB64, flagB64, flagAlt, locationLabel, lang, isRTL,
   apartmentType, selectedBlock, selectedFloors, apartmentNumber, totalArea, pricePerMeter,
   totalPrice, discountVal, discountedPrice, paymentPercent, downPayment,
   secondPaymentPercent, secondPaymentAmount, secondPaymentDate,
@@ -1507,11 +1596,15 @@ function PDFTemplate({
             {flagB64 && (
               <img
                 src={flagB64}
-                alt="GE"
+                alt={flagAlt || "Project country"}
                 style={{ width: 34, height: 23, objectFit: "fill", border: "1px solid #e2e8f0", borderRadius: 2, flexShrink: 0 }}
               />
             )}
-            <span>باتومي - جورجيا</span>
+            {locationLabel && (
+              <span dir={dir} style={{ direction: dir, unicodeBidi: "isolate" }}>
+                {locationLabel}
+              </span>
+            )}
           </div>
         </div>
       </div>
