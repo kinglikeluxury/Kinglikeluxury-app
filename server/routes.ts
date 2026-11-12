@@ -20,6 +20,7 @@ import {
 } from "@shared/schema";
 import { SYRIAN_CITY_ENTRIES, toSyriaCityValue } from "@shared/syriaLocations";
 import { buildPropertyLocationFilter } from "./propertyLocationFilter";
+import { isValidPricePerMeterRange } from "@shared/price-per-meter";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
 import { z } from "zod";
@@ -2103,6 +2104,9 @@ ${metaTags}
   app.post("/api/properties", isAuthenticated, async (req, res) => {
     try {
       const propertyData = insertPropertySchema.parse(req.body);
+      if (!isValidPricePerMeterRange(propertyData.pricePerMeterMin, propertyData.pricePerMeterMax)) {
+        return res.status(400).json({ message: "Maximum price per m² must be at least the minimum." });
+      }
       
       const dedupeKey = `${req.session.userId}-${propertyData.title}-${propertyData.propertyType}`;
       const lastSubmission = recentSubmissions.get(dedupeKey);
@@ -2185,6 +2189,9 @@ ${metaTags}
     try {
       const id = parseInt(req.params.id);
       const propertyData = insertPropertySchema.parse(req.body);
+      if (!isValidPricePerMeterRange(propertyData.pricePerMeterMin, propertyData.pricePerMeterMax)) {
+        return res.status(400).json({ message: "Maximum price per m² must be at least the minimum." });
+      }
       
       // Get existing property to check ownership
       const existingProperty = await storage.getPropertyById(id);

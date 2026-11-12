@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { formatPricePerMeterRange, getPricePerMeterLabels } from "@shared/price-per-meter";
 import { User, useAuth } from "@/lib/auth";
 import { Property, PropertyWithAgent, Project } from "@shared/schema";
 import { RENOVATED_WITHOUT_EQUIPMENT_FURNITURE } from "@shared/ready-status";
@@ -746,6 +747,16 @@ const PropertyDetail = () => {
                         <span className="font-medium">{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
+                        const manualRange = formatPricePerMeterRange(property.pricePerMeterMin, property.pricePerMeterMax, i18n.language);
+                        if (manualRange) {
+                          return (
+                            <div className="flex flex-col p-4 bg-gradient-to-br from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
+                              <span className="text-gray-500 text-sm">{getPricePerMeterLabels(i18n.language).range}</span>
+                              <span className="font-bold text-[#005476]">{manualRange}</span>
+                            </div>
+                          );
+                        }
+                        if (property.propertyType === "project") return null;
                         const prices = String(property.price || '').split(',').map(s => parseFloat(s.replace(/[^0-9.]/g, ''))).filter(v => v > 0);
                         const areas = String(property.area || '').split(',').map(s => parseFloat(s)).filter(v => v > 0);
                         // Correct: starts from = lowest price / smallest area
@@ -1032,6 +1043,16 @@ const PropertyDetail = () => {
                         <span>{getAreaDisplay(property.area)} m²</span>
                       </div>
                       {(() => {
+                        const manualRange = formatPricePerMeterRange(property.pricePerMeterMin, property.pricePerMeterMax, i18n.language);
+                        if (manualRange) {
+                          return (
+                            <div className="flex justify-between items-center py-1 px-2 bg-gradient-to-r from-[#3bcac4]/10 to-[#005476]/10 rounded-lg border border-[#3bcac4]/20">
+                              <span className="text-gray-600 font-medium">💡 {getPricePerMeterLabels(i18n.language).range}</span>
+                              <span className="font-bold text-[#005476]">{manualRange}</span>
+                            </div>
+                          );
+                        }
+                        if (property.propertyType === "project") return null;
                         const prices = String(property.price || '').split(',').map(s => parseFloat(s.replace(/[^0-9.]/g, ''))).filter(v => v > 0);
                         const areas = String(property.area || '').split(',').map(s => parseFloat(s)).filter(v => v > 0);
                         // Correct: starts from = lowest price / smallest area
