@@ -299,8 +299,6 @@ export class DatabaseStorage implements IStorage {
         topRated: properties.topRated,
         isSold: properties.isSold,
         priceMax: properties.priceMax,
-        pricePerMeterMin: properties.pricePerMeterMin,
-        pricePerMeterMax: properties.pricePerMeterMax,
         readyStatus: properties.readyStatus,
         bestPrice: properties.bestPrice,
         acceptablePrice: properties.acceptablePrice,

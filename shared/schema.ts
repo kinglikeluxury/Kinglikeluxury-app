@@ -124,8 +124,6 @@ export const properties = pgTable("properties", {
   highPrice: boolean("high_price").default(false),
   isSold: boolean("is_sold").default(false).notNull(),
   priceMax: integer("price_max"),
-  pricePerMeterMin: integer("price_per_meter_min"),
-  pricePerMeterMax: integer("price_per_meter_max"),
   landType: text("land_type"), // "agricultural" | "non-agricultural" — only for land type
   landFeatures: jsonb("land_features").$type<string[]>().default([]), // electricity, water, etc.
   paymentMethod: text("payment_method"), // "cash" | "installments"
@@ -183,8 +181,6 @@ export const insertPropertySchema = createInsertSchema(properties)
     monthlyInstallment: z.number().optional().nullable(),
     remainingBalance: z.number().optional().nullable(),
     paymentNotes: z.string().optional().nullable(),
-    pricePerMeterMin: z.number().int().positive().optional().nullable(),
-    pricePerMeterMax: z.number().int().positive().optional().nullable(),
   });
 
 // Project details (for construction projects)

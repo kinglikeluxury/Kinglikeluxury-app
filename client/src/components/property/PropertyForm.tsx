@@ -3,7 +3,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
-import { getPricePerMeterLabels } from "@shared/price-per-meter";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -52,8 +51,6 @@ const formSchema = insertPropertySchema.extend({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(20, "Description must be at least 20 characters"),
   price: z.number().min(1, "Price must be greater than 0"),
-  pricePerMeterMin: z.number().int().positive().optional().nullable(),
-  pricePerMeterMax: z.number().int().positive().optional().nullable(),
   area: z.string().min(1, "Area is required"),
   location: z.string().min(3, "Location must be at least 3 characters"),
   images: z.array(z.string()).min(1, "At least one image URL is required"),
@@ -87,10 +84,6 @@ const formSchema = insertPropertySchema.extend({
   liveThumbnail: z.string().optional().nullable(),
   liveCountry: z.string().optional().nullable(),
   liveCity: z.string().optional().nullable(),
-}).superRefine((data, ctx) => {
-  if (data.pricePerMeterMin != null && data.pricePerMeterMax != null && data.pricePerMeterMax < data.pricePerMeterMin) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["pricePerMeterMax"], message: "Maximum must be at least the minimum." });
-  }
 });
 
 const PropertyForm = ({ isAdmin = false }) => {
@@ -141,8 +134,6 @@ const PropertyForm = ({ isAdmin = false }) => {
       title: "",
       description: "",
       price: 0,
-      pricePerMeterMin: null,
-      pricePerMeterMax: null,
       area: "",
       location: "",
       propertyType: isAdmin ? PROPERTY_TYPES.PROJECT : PROPERTY_TYPES.APARTMENT,
@@ -195,8 +186,6 @@ const PropertyForm = ({ isAdmin = false }) => {
         title: existingProperty.title || "",
         description: existingProperty.description || "",
         price: existingProperty.price || 0,
-        pricePerMeterMin: (existingProperty as any).pricePerMeterMin ?? null,
-        pricePerMeterMax: (existingProperty as any).pricePerMeterMax ?? null,
         area: existingProperty.area || "0",
         location: existingProperty.location || "",
         propertyType: (existingProperty.propertyType as typeof PROPERTY_TYPES[keyof typeof PROPERTY_TYPES]) || PROPERTY_TYPES.APARTMENT,
@@ -545,33 +534,6 @@ const PropertyForm = ({ isAdmin = false }) => {
                   </FormItem>
                 )}
               />
-
-              {(propertyType === PROPERTY_TYPES.PROJECT || propertyType === PROPERTY_TYPES.APARTMENT) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
-                  {(["pricePerMeterMin", "pricePerMeterMax"] as const).map((fieldName) => (
-                    <FormField
-                      key={fieldName}
-                      control={form.control}
-                      name={fieldName}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{getPricePerMeterLabels(i18n.language)[fieldName === "pricePerMeterMin" ? "min" : "max"]} (USD)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={field.value ?? ""}
-                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
 
               {(propertyType === PROPERTY_TYPES.APARTMENT ||
                 propertyType === PROPERTY_TYPES.VILLA) && (

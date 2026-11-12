@@ -19,8 +19,7 @@ import {
   crmLeads, kaySettings, kayEvents,
 } from "@shared/schema";
 import { SYRIAN_CITY_ENTRIES, toSyriaCityValue } from "@shared/syriaLocations";
-import { buildPropertyLocationFilter } from "./propertyLocationFilter";
-import { isValidPricePerMeterRange } from "@shared/price-per-meter";
+import { registerPropertyProjectReadRoutes } from "./propertyProjectReadRoutes";
 import { validatePhone as vPhone, validateEmail as vEmail } from "@shared/crmValidation";
 import session from "express-session";
 import { z } from "zod";
@@ -1917,120 +1916,7 @@ ${metaTags}
   });
 
   // Property routes
-  app.get("/api/properties", async (req, res) => {
-    try {
-      const { 
-        type, 
-        status = PROPERTY_STATUS.APPROVED, // Default to showing only approved properties
-        location,
-        minPrice,
-        maxPrice,
-        includeAll
-      } = req.query;
-      let filters: any = { status };
-
-      // includeAll=true bypasses project exclusion (used by map view)
-      if (includeAll === 'true') {
-        filters.includeAllTypes = true;
-      }
-      
-      // Handle apartment subtypes (studio, one-bedroom, etc.) by converting to proper filters
-      if (type) {
-        switch (type) {
-          case 'studio':
-            filters.type = 'apartment';
-            filters.bedrooms = 0; // Studio = 0 bedrooms
-            break;
-          case 'one-bedroom':
-            filters.type = 'apartment';
-            filters.bedrooms = 1;
-            break;
-          case 'two-bedrooms':
-            filters.type = 'apartment';
-            filters.bedrooms = 2;
-            break;
-          case 'three-bedrooms':
-            filters.type = 'apartment';
-            filters.bedrooms = 3;
-            break;
-          case 'doublex':
-            filters.type = 'apartment';
-            // Doublex can have various bedroom counts, so no bedroom filter
-            break;
-          default:
-            // Handle regular property types (apartment, villa, land, project)
-            filters.type = type as string;
-            break;
-        }
-      }
-      
-      if (location && location !== 'any') filters.location = location as string;
-      if (minPrice) filters.minPrice = parseInt(minPrice as string);
-      if (maxPrice) filters.maxPrice = parseInt(maxPrice as string);
-      
-      const countryQuery = typeof req.query.country === "string" ? req.query.country : "";
-      const cityQuery = typeof req.query.city === "string" && req.query.city !== "any"
-        ? req.query.city
-        : "";
-
-      if (countryQuery && countryQuery !== "any") {
-        const geoFilter = buildPropertyLocationFilter(countryQuery, cityQuery || undefined);
-        if (!geoFilter) return res.json([]);
-        filters.countryLocationRegex = geoFilter.countryRegex;
-        filters.cityLocationRegex = geoFilter.cityRegex;
-      } else if (cityQuery) {
-        const locationFilter = getLocationFilter(cityQuery);
-        if (locationFilter) filters.locationContains = locationFilter;
-      }
-      
-      // If admin is requesting, allow getting all statuses
-      if (req.session.isAdmin && req.query.status) {
-        // If admin requests status=all, don't filter by status at all
-        if (req.query.status === 'all') {
-          delete filters.status;
-        } else {
-          filters.status = req.query.status as string;
-        }
-      }
-      
-      // If regular user is requesting their own properties, include their pending ones
-      if (req.session.userId && !req.session.isAdmin && req.query.myProperties) {
-        filters = {
-          ownerId: req.session.userId
-        };
-      }
-      
-      const properties = await storage.getProperties(filters);
-      
-      // Sort properties to prioritize featured listings (VIP and Super VIP)
-      const sortedProperties = properties.sort((a, b) => {
-        // First, check if listings are still active (not expired)
-        const now = new Date();
-        const aIsActive = !a.listingExpiresAt || new Date(a.listingExpiresAt) > now;
-        const bIsActive = !b.listingExpiresAt || new Date(b.listingExpiresAt) > now;
-        
-        // If listing is expired, treat it as regular
-        const aListingType = aIsActive ? a.listingType : 'regular';
-        const bListingType = bIsActive ? b.listingType : 'regular';
-        
-        // Prioritization order: super_vip > vip > regular
-        const priorities = { 'super_vip': 3, 'vip': 2, 'regular': 1 };
-        const aPriority = priorities[aListingType as keyof typeof priorities] || 1;
-        const bPriority = priorities[bListingType as keyof typeof priorities] || 1;
-        
-        if (aPriority !== bPriority) {
-          return bPriority - aPriority; // Higher priority first
-        }
-        
-        // If same priority, sort by creation date (newest first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-      
-      res.json(sortedProperties);
-    } catch (error) {
-      res.status(500).json({ message: "Server error" });
-    }
-  });
+  registerPropertyProjectReadRoutes(app, storage, getLocationFilter);
 
   app.get("/api/properties/:id", async (req, res) => {
     try {
@@ -2104,10 +1990,6 @@ ${metaTags}
   app.post("/api/properties", isAuthenticated, async (req, res) => {
     try {
       const propertyData = insertPropertySchema.parse(req.body);
-      if (!isValidPricePerMeterRange(propertyData.pricePerMeterMin, propertyData.pricePerMeterMax)) {
-        return res.status(400).json({ message: "Maximum price per m² must be at least the minimum." });
-      }
-      
       const dedupeKey = `${req.session.userId}-${propertyData.title}-${propertyData.propertyType}`;
       const lastSubmission = recentSubmissions.get(dedupeKey);
       const now = Date.now();
@@ -2189,10 +2071,6 @@ ${metaTags}
     try {
       const id = parseInt(req.params.id);
       const propertyData = insertPropertySchema.parse(req.body);
-      if (!isValidPricePerMeterRange(propertyData.pricePerMeterMin, propertyData.pricePerMeterMax)) {
-        return res.status(400).json({ message: "Maximum price per m² must be at least the minimum." });
-      }
-      
       // Get existing property to check ownership
       const existingProperty = await storage.getPropertyById(id);
       if (!existingProperty) {
@@ -2394,55 +2272,6 @@ ${metaTags}
   });
 
   // Project routes
-  app.get("/api/projects", async (req, res) => {
-    try {
-      // Get both dedicated projects and project-type properties
-      const [dedicatedProjects, projectProperties] = await Promise.all([
-        storage.getProjects(),
-        storage.getPropertiesByType(PROPERTY_TYPES.PROJECT)
-      ]);
-      
-      // Get property IDs that already have dedicated project records to avoid duplicates
-      const dedicatedPropertyIds = new Set(dedicatedProjects.map(project => project.propertyId));
-      
-      // Filter out properties that already have dedicated project records
-      const standaloneProjectProperties = projectProperties.filter(
-        property => !dedicatedPropertyIds.has(property.id)
-      );
-      
-      // Transform standalone project-type properties to project format for display
-      const propertyProjects = standaloneProjectProperties.map(property => ({
-        id: `property-${property.id}`, // Unique ID to avoid conflicts with dedicated projects
-        propertyId: property.id,
-        developer: property.title, // Use title as developer
-        completionDate: 'Q4 2024', // Default completion
-        projectStatus: 'Now Selling', // Default status
-        createdAt: property.createdAt,
-        property: property,
-        // Include property fields for backward compatibility
-        title: property.title,
-        description: property.description,
-        price: property.price,
-        location: property.location,
-        area: property.area,
-        bedrooms: property.bedrooms,
-        bathrooms: property.bathrooms,
-        features: property.features || [],
-        amenities: property.amenities || [],
-        images: property.images || [],
-        videos: property.videos || [],
-        status: property.status,
-        ownerId: property.ownerId
-      }));
-      
-      // Combine and return all projects (dedicated projects + standalone project properties)
-      const allProjects = [...dedicatedProjects, ...propertyProjects];
-      res.json(allProjects);
-    } catch (error) {
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
   app.get("/api/projects/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

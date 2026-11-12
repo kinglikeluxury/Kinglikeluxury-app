@@ -13,7 +13,7 @@ test("the new ready status retains its exact English option text", () => {
   assert.equal(getReadyStatusLabel("ar"), "تشطيب كامل بدون أثاث وكهربائيات");
 });
 
-test("the existing property schema accepts and round-trips the new ready status", () => {
+test("the existing property schema accepts ready status and strips unavailable price-range fields", () => {
   const status = RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.value;
   const created = insertPropertySchema.parse({
     title: "Sample project",
@@ -31,15 +31,15 @@ test("the existing property schema accepts and round-trips the new ready status"
   });
 
   assert.equal(created.readyStatus, status);
-  assert.equal(created.pricePerMeterMin, 1700);
-  assert.equal(created.pricePerMeterMax, 2100);
+  assert.equal("pricePerMeterMin" in created, false);
+  assert.equal("pricePerMeterMax" in created, false);
   const reopenedForEdit = insertPropertySchema.parse({
     ...created,
     readyStatus: created.readyStatus,
   });
   assert.equal(reopenedForEdit.readyStatus, status);
-  assert.equal(reopenedForEdit.pricePerMeterMin, 1700);
-  assert.equal(reopenedForEdit.pricePerMeterMax, 2100);
+  assert.equal("pricePerMeterMin" in reopenedForEdit, false);
+  assert.equal("pricePerMeterMax" in reopenedForEdit, false);
 });
 
 test("manual price-per-meter ranges validate and never calculate from totals or area", () => {

@@ -15,7 +15,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
-import { formatPricePerMeterRange, getPricePerMeterLabels } from "@shared/price-per-meter";
 import { filterPublicProjects } from "@/lib/publicProjectFilters";
 import { 
   MapPin, 
@@ -186,12 +185,6 @@ const ProjectCard = ({ project, getPriceRange }: { project: Project; getPriceRan
               <div className="flex items-center text-sm text-gray-500">
                 <Home className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                 {propertyData.area} {t('projects.sqm', 'sqm')}
-              </div>
-            )}
-            {formatPricePerMeterRange((propertyData as any).pricePerMeterMin, (propertyData as any).pricePerMeterMax, i18n.language) && (
-              <div className="flex items-center text-sm font-semibold text-[#005476]">
-                <span className="mr-1.5">💡</span>
-                {getPricePerMeterLabels(i18n.language).range}: {formatPricePerMeterRange((propertyData as any).pricePerMeterMin, (propertyData as any).pricePerMeterMax, i18n.language)}
               </div>
             )}
             {propertyData.bedrooms && (

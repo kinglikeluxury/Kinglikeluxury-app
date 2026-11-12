@@ -13,7 +13,6 @@ import { PROPERTY_TYPES, type Property } from "@shared/schema";
 import { getReadyStatusLabel, RENOVATED_WITHOUT_EQUIPMENT_FURNITURE } from "@shared/ready-status";
 import { getSyriaCityDisplayName } from "@shared/property-location";
 import { useTranslation } from "react-i18next";
-import { getPricePerMeterLabels } from "@shared/price-per-meter";
 import { ArrowLeft, Upload, X, Plus, Map, List, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
 import { PhotoUploader } from "@/components/PhotoUploader";
@@ -74,8 +73,6 @@ const PropertyForm = () => {
     description: '',
     descriptionEn: '',
     price: '',
-    pricePerMeterMin: '',
-    pricePerMeterMax: '',
     location: '',
     country: '',
     city: '',
@@ -212,8 +209,6 @@ const PropertyForm = () => {
         description: existingProperty.description || '',
         descriptionEn: (existingProperty as any).descriptionEn || '',
         price: existingProperty.price?.toString() || '',
-        pricePerMeterMin: (existingProperty as any).pricePerMeterMin?.toString() || '',
-        pricePerMeterMax: (existingProperty as any).pricePerMeterMax?.toString() || '',
         location: existingProperty.location || '',
         country,
         city,
@@ -1023,8 +1018,6 @@ const PropertyForm = () => {
           const prices = String(formData.price).split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
           return prices.length > 1 ? Math.max(...prices) : null;
         })(),
-        pricePerMeterMin: formData.pricePerMeterMin ? parseInt(formData.pricePerMeterMin, 10) : null,
-        pricePerMeterMax: formData.pricePerMeterMax ? parseInt(formData.pricePerMeterMax, 10) : null,
         area: formData.area || String(parseInt(String(formData.price).split(',')[0]) || 100),
         bedrooms: (() => {
           if (propertyType === 'land') return null;
@@ -1471,31 +1464,9 @@ const PropertyForm = () => {
                 </div>
               )}
 
-              {(propertyType === 'project' || propertyType === 'apartment') && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="pricePerMeterMin">{getPricePerMeterLabels(i18n.language).min} (USD)</Label>
-                    <Input id="pricePerMeterMin" type="number" min="1" step="1" inputMode="numeric"
-                      value={formData.pricePerMeterMin}
-                      onChange={(e) => handleInputChange('pricePerMeterMin', toEnglishDigits(e.target.value).replace(/[^0-9]/g, ''))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="pricePerMeterMax">{getPricePerMeterLabels(i18n.language).max} (USD)</Label>
-                    <Input id="pricePerMeterMax" type="number" min="1" step="1" inputMode="numeric"
-                      value={formData.pricePerMeterMax}
-                      onChange={(e) => handleInputChange('pricePerMeterMax', toEnglishDigits(e.target.value).replace(/[^0-9]/g, ''))} />
-                  </div>
-                  {formData.pricePerMeterMin && formData.pricePerMeterMax &&
-                    parseInt(formData.pricePerMeterMax, 10) < parseInt(formData.pricePerMeterMin, 10) && (
-                      <p className="sm:col-span-2 text-sm text-red-600">{getPricePerMeterLabels(i18n.language).max} must be at least the minimum.</p>
-                    )}
-                </div>
-              )}
-
               {/* Price per m² — auto calculated by pairing each price with its area */}
               {(() => {
                 if (propertyType === 'project') return null;
-                if (formData.pricePerMeterMin && formData.pricePerMeterMax) return null;
                 const prices = String(formData.price || '').split(',').map(s => parseInt(s.replace(/[^0-9]/g, ''))).filter(Boolean);
                 const areas = String(formData.area || '').split(',').map(s => parseInt(s)).filter(Boolean);
                 // Pair each price with its corresponding area, find minimum price/m²
