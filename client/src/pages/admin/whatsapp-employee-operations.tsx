@@ -52,6 +52,43 @@ const ARCHIVE_CHECKS: { key: keyof ArchiveReadiness["checks"]; title: string }[]
   { key:"runtimeFlag",title:"إذن تشغيل نسخة Staging" },
 ];
 
+type PilotGate =
+  | "isolated_staging" | "worker_credentials_configured"
+  | "reader_audit_credentials_configured" | "independent_keys_configured"
+  | "employee_notice_attested" | "customer_notice_attested"
+  | "retention_policy_attested" | "meta_verification_attested"
+  | "history_pipeline_attested" | "private_media_attested"
+  | "contacts_pipeline_attested" | "signed_queue_attested"
+  | "pilot_enabled_attested" | "pilot_identifiers_configured"
+  | "pilot_differs_from_test_waba";
+type OneNumberPilot = {
+  environment:"isolated_staging";
+  mode:"blocked"|"configuration_complete_not_connected";
+  checks:Record<PilotGate,boolean>;
+  blockers:PilotGate[];
+  metaTestAccount:"not_a_live_employee_connection";
+  employeeNumberConnection:"not_verified";
+  signedCallback:"not_registered_by_this_report";
+  realMessageDelivery:"not_verified";
+};
+const PILOT_GATES:ReadonlyArray<{key:PilotGate;label:string}>=[
+  {key:"isolated_staging",label:"العزل عن إنتاج Kinglike"},
+  {key:"worker_credentials_configured",label:"إعداد حساب تخزين الأرشيف"},
+  {key:"reader_audit_credentials_configured",label:"إعداد القراءة والتدقيق"},
+  {key:"independent_keys_configured",label:"مفتاحا التشفير مستقلان"},
+  {key:"pilot_identifiers_configured",label:"معرّفات الرقم الواحد من Meta"},
+  {key:"pilot_differs_from_test_waba",label:"عدم الخلط بين الرقم الحقيقي وحساب TEST"},
+  {key:"employee_notice_attested",label:"توثيق إخطار الموظف وموافقته"},
+  {key:"customer_notice_attested",label:"الأساس القانوني وإخطار العملاء"},
+  {key:"retention_policy_attested",label:"اعتماد سياسة الاحتفاظ والحذف"},
+  {key:"meta_verification_attested",label:"التحقق من أهلية Coexistence لدى Meta"},
+  {key:"history_pipeline_attested",label:"استيراد المحادثات السابقة الآمن"},
+  {key:"private_media_attested",label:"تخزين الوسائط داخل مخزن خاص"},
+  {key:"contacts_pipeline_attested",label:"المزامنة الآمنة لجهات الاتصال"},
+  {key:"signed_queue_attested",label:"اكتمال مسار الاستقبال الموقّع"},
+  {key:"pilot_enabled_attested",label:"إذن تشغيل تجربة الرقم الواحد"},
+];
+
 const REPO = "https://github.com/kinglikeluxury/Kinglikeluxury-app";
 const RAILWAY = "https://railway.com/project/8386a5b5-4964-4b37-b2fa-e7177d78111e";
 
@@ -79,6 +116,7 @@ export default function WhatsappEmployeeOperationsPage() {
   const [, navigate] = useLocation();
   const [status, setStatus] = useState<WhatsappOperationsStatus | null>(null);
   const [archiveReadiness, setArchiveReadiness] = useState<ArchiveReadiness | null>(null);
+  const [singleNumberPilot,setSingleNumberPilot]=useState<OneNumberPilot|null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rollbackProbeRunning,setRollbackProbeRunning]=useState(false);
@@ -155,9 +193,25 @@ export default function WhatsappEmployeeOperationsPage() {
         // Never imply readiness when separate diagnostic is absent.
         setArchiveReadiness(null);
       }
+      // Explicitly read only; never enroll a number or contact Meta.
+      try {
+        const response=await fetch("/api/admin/staging/whatsapp-one-number-pilot-readiness",{
+          credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"},
+        });
+        if(!response.ok)throw new Error("unavailable");
+        const result=await response.json() as OneNumberPilot;
+        if(result.environment!=="isolated_staging" ||
+           result.employeeNumberConnection!=="not_verified" ||
+           result.realMessageDelivery!=="not_verified" ||
+           result.metaTestAccount!=="not_a_live_employee_connection" ||
+           !Array.isArray(result.blockers) || !result.checks)
+          throw new Error("invalid");
+        setSingleNumberPilot(result);
+      }catch{setSingleNumberPilot(null);}
     } catch (cause) {
       setStatus(null);
       setArchiveReadiness(null);
+      setSingleNumberPilot(null);
       setError(cause instanceof Error ? cause.message : "تعذر قراءة الحالة.");
     } finally {
       setLoading(false);
@@ -302,6 +356,50 @@ export default function WhatsappEmployeeOperationsPage() {
           {rollbackProbeError && (
             <p role="alert" className="mt-3 text-sm text-amber-800">{rollbackProbeError}</p>
           )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="جاهزية تجربة رقم واتساب واحد">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-[#005476]">تجربة ربط رقم موظف واحد — سامر أولاً</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                فحص متطلبات الربط المصرّح به عبر Meta Coexistence. لا يسحب محادثات،
+                ولا يفتح حسابات الموظفين أو يربط الهاتف تلقائياً.
+              </p>
+            </div>
+            <StatusIndicator good={false} label="لم يُتحقق من ربط رقم حقيقي"/>
+          </div>
+          {!singleNumberPilot ? (
+            <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+              فحص التجربة غير متاح. لا يُسمح ببدء الربط قبل التحقق.
+            </p>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {PILOT_GATES.map(gate=>(
+                  <div key={gate.key} className="flex items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                    <span>{gate.label}</span>
+                    <StatusIndicator good={singleNumberPilot.checks[gate.key]}
+                      label={singleNumberPilot.checks[gate.key]?"مهيأ أو مُصرّح به في الإعدادات":"غير مكتمل"}/>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-xs leading-6 text-slate-500">
+                هذه مؤشرات إعدادات وليست إثباتاً قانونياً للموافقة أو الأهلية لدى Meta.
+                إذا اكتملت كلها، يبقى إثبات ربط الهاتف واستقبال الرسالة الحقيقية مستقلاً.
+              </p>
+            </>
+          )}
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+            <b>قبل ضغط أي زر اتصال حقيقي:</b> تأكيد ملكية رقم الشركة، وتوثيق موافقة الموظف،
+            وإشعار العملاء، والتحقق من أن Meta تعرض خيار
+            «Connect your existing WhatsApp Business app» بدلاً من مسار نقل الرقم الذي قد يعطل التطبيق.
+            عملية التأكيد الأخيرة تتم من هاتف الموظف نفسه.
+          </div>
+          <button disabled type="button" title="لم تكتمل أدلة الربط والموافقات ولا استقبال الوسائط والتاريخ"
+            className="mt-4 cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-bold text-slate-500">
+            ربط رقم سامر الحقيقي — مقفل حتى اكتمال التحقق
+          </button>
         </section>
 
         <WhatsappSyntheticConversationReview />
