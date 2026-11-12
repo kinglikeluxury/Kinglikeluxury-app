@@ -26,6 +26,7 @@ import {
   TrendingUp, MousePointerClick, Eye, Hash,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
+import { useTranslation } from "react-i18next";
 import type { CrmLead, CrmNote, CrmTask, CrmProject, WhatsappAiConversation, WhatsappAiMessage, WhatsappAiAgentReport } from "@shared/schema";
 
 interface NoteWithUser extends CrmNote { authorName?: string | null }
@@ -92,13 +93,14 @@ const STATUSES = [
   "no_answer_4","new_fresh_after_3_no_answer",
 ];
 const SOURCES = ["meta","website","whatsapp","excel","manual"];
-const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates"];
+const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates", "Azerbaijan"];
 
 const CITY_SUGGESTIONS: Record<string, string[]> = {
   "Georgia":              ["Batumi", "Tbilisi", "Gonio", "Kvariati", "Kobuleti", "Bakuriani", "Gudauri", "Kutaisi", "Other"],
   "Turkey":               ["Istanbul", "Antalya", "Bodrum", "Fethiye", "Alanya", "Ankara", "Bursa", "Other"],
   "Northern Cyprus":      ["Iskele", "Kyrenia", "Esentepe", "Famagusta", "Tatlisu", "Lefke", "Nicosia", "Other"],
   "United Arab Emirates": ["Dubai", "Abu Dhabi", "Ras Al Khaimah", "Sharjah", "Ajman", "Other"],
+  "Azerbaijan":           ["Baku"],
 };
 
 function genMonths(): string[] {
@@ -258,6 +260,7 @@ export default function CrmLeadDetailPage() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/admin/crm/:id");
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
 
   // Back-to-CRM helper.
   // Primary destination is ALWAYS the explicit route /admin/crm.
@@ -978,7 +981,7 @@ export default function CrmLeadDetailPage() {
                         {currentCountries.length > 0 ? (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {currentCountries.map(c => (
-                              <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40">{c}</span>
+                              <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40">{c === "Azerbaijan" ? t("countries.azerbaijan") : c}</span>
                             ))}
                           </div>
                         ) : (
@@ -1014,7 +1017,7 @@ export default function CrmLeadDetailPage() {
                             }`}
                           >
                             {selected && <X className="h-2.5 w-2.5" />}
-                            {name}
+                            {name === "Azerbaijan" ? t("countries.azerbaijan") : name}
                           </button>
                         );
                       })}
@@ -1075,7 +1078,7 @@ export default function CrmLeadDetailPage() {
                         {currentCities.length > 0 ? (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {currentCities.map(c => (
-                              <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40">{c}</span>
+                              <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#3bcac4]/15 text-[#005476] border border-[#3bcac4]/40">{c === "Baku" ? t("cities.baku") : c}</span>
                             ))}
                           </div>
                         ) : (
@@ -1227,7 +1230,7 @@ export default function CrmLeadDetailPage() {
                             }`}
                           >
                             {selected && <X className="h-2.5 w-2.5" />}
-                            {name}
+                            {name === "Baku" ? t("cities.baku") : name}
                           </button>
                         );
                       })}

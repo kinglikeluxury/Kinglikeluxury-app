@@ -25,6 +25,7 @@ import {
   FileText, Bot,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
+import { useTranslation } from "react-i18next";
 import type { CrmLead, CrmProject } from "@shared/schema";
 
 interface CrmLeadWithAssignee extends CrmLead { assigneeName?: string | null }
@@ -102,13 +103,14 @@ const STATUSES = [
 ];
 const SOURCES = ["meta","website","whatsapp","excel","manual"];
 
-const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates"];
+const INTERESTED_COUNTRIES = ["Georgia", "Turkey", "Northern Cyprus", "United Arab Emirates", "Azerbaijan"];
 
 const CITY_SUGGESTIONS: Record<string, string[]> = {
   "Georgia":              ["Batumi", "Tbilisi", "Gonio", "Kvariati", "Kobuleti", "Bakuriani", "Gudauri", "Kutaisi", "Other"],
   "Turkey":               ["Istanbul", "Antalya", "Bodrum", "Fethiye", "Alanya", "Ankara", "Bursa", "Other"],
   "Northern Cyprus":      ["Iskele", "Kyrenia", "Esentepe", "Famagusta", "Tatlisu", "Lefke", "Nicosia", "Other"],
   "United Arab Emirates": ["Dubai", "Abu Dhabi", "Ras Al Khaimah", "Sharjah", "Ajman", "Other"],
+  "Azerbaijan":           ["Baku"],
 };
 
 function genMonths(): string[] {
@@ -256,6 +258,7 @@ export default function CrmLeadsPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Initialise filters from URL query params so they survive navigation
   const qs = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -982,7 +985,7 @@ export default function CrmLeadsPage() {
                     <SelectTrigger><SelectValue placeholder="Select country..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">— Not specified —</SelectItem>
-                      {INTERESTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {INTERESTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c === "Azerbaijan" ? t("countries.azerbaijan") : c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {form.leadSource === "meta" && (
@@ -1006,7 +1009,7 @@ export default function CrmLeadsPage() {
                       <SelectContent>
                         <SelectItem value="__none__">— Not specified —</SelectItem>
                         {CITY_SUGGESTIONS[form.interestedCountry].map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                          <SelectItem key={c} value={c}>{c === "Baku" ? t("cities.baku") : c}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1451,7 +1454,7 @@ export default function CrmLeadsPage() {
                         {lead.interestedCountry ? (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                             <Globe className="h-3 w-3" />
-                            <span className="truncate max-w-[120px]">{lead.interestedCountry}</span>
+                            <span className="truncate max-w-[120px]">{lead.interestedCountry.split(";").map(c => c.trim()).filter(Boolean).map(c => c === "Azerbaijan" ? t("countries.azerbaijan") : c).join("; ")}</span>
                           </div>
                         ) : null}
                         {!lead.projectInterest && !lead.interestedCountry && (

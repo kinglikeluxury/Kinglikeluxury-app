@@ -376,7 +376,8 @@
     "georgia": "Gürcüstan",
     "uae": "Birləşmiş Ərəb Əmirlikləri",
     "northernCyprus": "Şimali Kipr (KKTC)",
-    "turkey": "Turkey"
+    "turkey": "Turkey",
+    "azerbaijan": "Azərbaycan"
   },
   "cities": {
     "batumi": "Batum",
@@ -391,7 +392,8 @@
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "Bakı"
   },
   "commission": {
     "title": "Komisyon Müqaviləsi — Platformanın 3% haqqı",

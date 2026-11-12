@@ -383,7 +383,8 @@
     "georgia": "Géorgie",
     "uae": "Émirats arabes unis",
     "northernCyprus": "Chypre du Nord (TRNC)",
-    "turkey": "Turquie"
+    "turkey": "Turquie",
+    "azerbaijan": "Azerbaïdjan"
   },
   "cities": {
     "batumi": "Batoumi",
@@ -398,7 +399,8 @@
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe",
     "istanbul": "Istanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "Bakou"
   },
   "commission": {
     "title": "Accord de commission — Frais de plateforme de 3%",

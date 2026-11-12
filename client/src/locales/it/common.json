@@ -376,7 +376,8 @@
     "georgia": "Georgia",
     "uae": "Emirati Arabi Uniti",
     "northernCyprus": "Cipro del Nord (KKTC)",
-    "turkey": "Turkey"
+    "turkey": "Turkey",
+    "azerbaijan": "Azerbaigian"
   },
   "cities": {
     "batumi": "Batumi",
@@ -391,7 +392,8 @@
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "Baku"
   },
   "commission": {
     "title": "Accordo di Commissione — 3% della Piattaforma",

@@ -377,7 +377,8 @@
     "georgia": "საქართველო",
     "uae": "არაბთა გაერთიანებული საამიროები",
     "northernCyprus": "ჩრდილოეთ კვიპროსი (KKTC)",
-    "turkey": "Turkey"
+    "turkey": "Turkey",
+    "azerbaijan": "აზერბაიჯანი"
   },
   "cities": {
     "batumi": "ბათუმი",
@@ -392,7 +393,8 @@
     "guzelyurt": "გიუზელიურთი",
     "esentepe": "ესენტეფე",
     "istanbul": "İstanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "ბაქო"
   },
   "commission": {
     "title": "საკომისიო შეთანხმება — პლატფორმის 3%",

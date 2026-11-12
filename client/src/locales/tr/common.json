@@ -377,7 +377,8 @@
     "georgia": "Gürcistan",
     "uae": "Birleşik Arap Emirlikleri",
     "northernCyprus": "Kuzey Kıbrıs (KKTC)",
-    "turkey": "Turkey"
+    "turkey": "Turkey",
+    "azerbaijan": "Azerbaycan"
   },
   "cities": {
     "batumi": "Batum",
@@ -392,7 +393,8 @@
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "Bakü"
   },
   "commission": {
     "title": "Komisyon Sözleşmesi — Platform %3 Ücreti",

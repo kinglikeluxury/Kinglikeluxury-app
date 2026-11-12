@@ -383,7 +383,8 @@
     "georgia": "Georgien",
     "uae": "Förenade Arabemiraten",
     "northernCyprus": "Norra Cypern (TRNC)",
-    "turkey": "Turkiet"
+    "turkey": "Turkiet",
+    "azerbaijan": "Azerbajdzjan"
   },
   "cities": {
     "batumi": "Batumi",
@@ -398,7 +399,8 @@
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe",
     "istanbul": "Istanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "Baku"
   },
   "commission": {
     "title": "Provisionsavtal — 3% plattformsavgift",

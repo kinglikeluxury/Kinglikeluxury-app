@@ -381,7 +381,8 @@
     "georgia": "گرجستان",
     "uae": "امارات متحده عربی",
     "northernCyprus": "قبرس شمالی (TRNC)",
-    "turkey": "ترکیه"
+    "turkey": "ترکیه",
+    "azerbaijan": "آذربایجان"
   },
   "cities": {
     "batumi": "باتومی",
@@ -396,7 +397,8 @@
     "guzelyurt": "گوزلیورت",
     "esentepe": "اسن‌تپه",
     "istanbul": "استانبول",
-    "trabzon": "طرابوزان"
+    "trabzon": "طرابوزان",
+    "baku": "باکو"
   },
   "commission": {
     "title": "توافق‌نامه کمیسیون — ۳٪ کارمزد پلتفرم",

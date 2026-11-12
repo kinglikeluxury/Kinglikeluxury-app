@@ -376,7 +376,8 @@
     "georgia": "גאורגיה",
     "uae": "איחוד האמירויות הערביות",
     "northernCyprus": "קפריסין הצפונית (KKTC)",
-    "turkey": "Turkey"
+    "turkey": "Turkey",
+    "azerbaijan": "אזרבייג'ן"
   },
   "cities": {
     "batumi": "באטומי",
@@ -391,7 +392,8 @@
     "guzelyurt": "גוזליורט",
     "esentepe": "אסנטפה",
     "istanbul": "İstanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "באקו"
   },
   "commission": {
     "title": "הסכם עמלה — 3% דמי פלטפורמה",

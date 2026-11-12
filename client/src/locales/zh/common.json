@@ -376,7 +376,8 @@
     "georgia": "格鲁吉亚",
     "uae": "阿拉伯联合酋长国",
     "northernCyprus": "北塞浦路斯 (KKTC)",
-    "turkey": "Turkey"
+    "turkey": "Turkey",
+    "azerbaijan": "阿塞拜疆"
   },
   "cities": {
     "batumi": "巴统",
@@ -391,7 +392,8 @@
     "guzelyurt": "居泽尔于尔特",
     "esentepe": "埃森特佩",
     "istanbul": "İstanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "巴库"
   },
   "commission": {
     "title": "佣金协议 — 平台3%费用",

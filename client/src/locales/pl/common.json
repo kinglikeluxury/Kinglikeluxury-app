@@ -376,7 +376,8 @@
     "georgia": "Gruzja",
     "uae": "Zjednoczone Emiraty Arabskie",
     "northernCyprus": "Cypr Północny (KKTC)",
-    "turkey": "Turkey"
+    "turkey": "Turkey",
+    "azerbaijan": "Azerbejdżan"
   },
   "cities": {
     "batumi": "Batumi",
@@ -391,7 +392,8 @@
     "guzelyurt": "Güzelyurt",
     "esentepe": "Esentepe",
     "istanbul": "İstanbul",
-    "trabzon": "Trabzon"
+    "trabzon": "Trabzon",
+    "baku": "Baku"
   },
   "commission": {
     "title": "Umowa Prowizji — 3% opłata platformy",

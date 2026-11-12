@@ -196,6 +196,9 @@ const PropertyForm = () => {
         country = 'turkey';
         if (location.includes('Istanbul')) city = 'istanbul';
         else if (location.includes('Trabzon')) city = 'trabzon';
+      } else if (/Azerbaijan|Azərbaycan|أذربيجان/i.test(location)) {
+        country = 'azerbaijan';
+        if (/Baku|Bakı/i.test(location)) city = 'baku';
       }
 
       // Update all form data
@@ -406,6 +409,8 @@ const PropertyForm = () => {
           { value: "istanbul", label: "İstanbul" },
           { value: "trabzon", label: "Trabzon" }
         ];
+      case "azerbaijan":
+        return [{ value: "baku", label: "Baku" }];
       default:
         return [];
     }
@@ -920,6 +925,7 @@ const PropertyForm = () => {
                 case 'uae': return 'UAE';
                 case 'northern-cyprus': return 'Northern Cyprus (TRNC)';
                 case 'turkey': return 'Turkey';
+                case 'azerbaijan': return 'Azerbaijan';
                 default: return c;
               }
             }).join(', ');
@@ -1511,7 +1517,8 @@ const PropertyForm = () => {
                         { value: 'georgia', label: '🇬🇪 Georgia' },
                         { value: 'uae', label: '🇦🇪 United Arab Emirates' },
                         { value: 'northern-cyprus', label: '🇨🇾 Northern Cyprus (TRNC)' },
-                        { value: 'turkey', label: '🇹🇷 Turkey' }
+                        { value: 'turkey', label: '🇹🇷 Turkey' },
+                        { value: 'azerbaijan', label: `🇦🇿 ${t('countries.azerbaijan', 'Azerbaijan')}` }
                       ].map((countryOption) => {
                         const currentCountries = Array.isArray(formData.country) ? formData.country : (formData.country ? [formData.country] : []);
                         const isSelected = currentCountries.includes(countryOption.value);
@@ -1548,7 +1555,7 @@ const PropertyForm = () => {
                         <div className="flex flex-wrap gap-1">
                           {(Array.isArray(formData.country) ? formData.country : formData.country?.split(',') || []).map((country) => (
                             <Badge key={country} variant="secondary" className="text-xs">
-                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'northern-cyprus' ? '🇨🇾 TRNC' : country === 'turkey' ? '🇹🇷 Turkey' : country}
+                              {country === 'georgia' ? '🇬🇪 Georgia' : country === 'uae' ? '🇦🇪 UAE' : country === 'northern-cyprus' ? '🇨🇾 TRNC' : country === 'turkey' ? '🇹🇷 Turkey' : country === 'azerbaijan' ? `🇦🇿 ${t('countries.azerbaijan', 'Azerbaijan')}` : country}
                             </Badge>
                           ))}
                         </div>
@@ -1686,12 +1693,13 @@ const PropertyForm = () => {
                       { value: 'bayburt', label: '🇹🇷 Bayburt, Turkey', country: 'turkey' },
                       { value: 'osmaniye', label: '🇹🇷 Osmaniye, Turkey', country: 'turkey' },
                       { value: 'kilis', label: '🇹🇷 Kilis, Turkey', country: 'turkey' },
+                      { value: 'baku', label: `🇦🇿 ${t('cities.baku', 'Baku')}, Azerbaijan`, country: 'azerbaijan', searchTerms: 'Baku Bakı Bakü Bakou Bakoe باكو باکو Баку באקו ბაქო 巴库' },
                     ];
 
                     const selectedCountry = formData.country as string;
                     const filtered = allCities
                       .filter(c => !selectedCountry || c.country === selectedCountry)
-                      .filter(c => c.label.toLowerCase().includes(citySearch.toLowerCase()));
+                      .filter(c => `${c.label} ${c.searchTerms || ''}`.toLowerCase().includes(citySearch.toLowerCase()));
 
                     const selectedCities = Array.isArray(formData.city)
                       ? formData.city
