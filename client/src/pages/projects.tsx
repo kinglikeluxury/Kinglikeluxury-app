@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -15,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
 import { formatPricePerMeterRange, getPricePerMeterLabels } from "@shared/price-per-meter";
-import { isBakuProjectLocation, normalizeLocationPart, parseProjectLocationWithEvidence } from "@/lib/projectOfferFilters";
+import { filterPublicProjects } from "@/lib/publicProjectFilters";
 import { 
   MapPin, 
   Search, 
@@ -291,100 +292,15 @@ const Projects = () => {
   });
 
   const requiredFieldsFilled = selectedCountry && selectedCountry !== '' && selectedCountry !== 'all';
-
-  // Filter projects based on criteria
-  const filteredProjects = !requiredFieldsFilled ? [] : projects.filter((project: Project) => {
-    const propertyData = project.property || project;
-    const projectStatus = propertyData.status || project.status;
-    if (!user?.isAdmin && projectStatus !== 'approved') {
-      return false;
-    }
-
-    const projectLocation = (propertyData.location || project.location || '').toLowerCase();
-    const projectTitle = (propertyData.title || project.title || '').toLowerCase();
-    const parsedLocation = parseProjectLocationWithEvidence(
-      propertyData.location || project.location || '',
-      `${propertyData.title || project.title || ''}\n${propertyData.description || project.description || ''}`,
-    );
-
-    if (searchTerm && !projectTitle.includes(searchTerm.toLowerCase()) &&
-        !projectLocation.includes(searchTerm.toLowerCase())) {
-      return false;
-    }
-
-    if (selectedCountry && selectedCountry !== 'all' && selectedCountry !== 'any') {
-      const countryNameMap: Record<string, string> = {
-        'georgia': 'georgia',
-        'uae': 'uae',
-        'northern-cyprus': 'northern cyprus',
-        'turkey': 'turkey',
-        'syria': 'syria',
-        'azerbaijan': 'azerbaijan',
-      };
-      const countryName = countryNameMap[selectedCountry] || selectedCountry.replace(/-/g, ' ');
-      const matchesCountryName = projectLocation.includes(countryName);
-      const georgianCityAliases = ['batumi', 'tbilisi', 'kobuleti'];
-      const matchesGeorgianCity =
-        selectedCountry === 'georgia' &&
-        georgianCityAliases.some((city) => projectLocation.includes(city));
-      const matchesSyrianCity =
-        selectedCountry === 'syria' &&
-        SYRIA_CITY_OPTIONS.some(({ value }) => projectLocation.includes(value.replace(/-/g, ' ')));
-      const matchesBaku =
-        selectedCountry === 'azerbaijan' &&
-        isBakuProjectLocation(projectLocation, `${projectTitle}\n${propertyData.description || project.description || ''}`);
-      if (!matchesCountryName && !matchesGeorgianCity && !matchesSyrianCity && !matchesBaku) {
-        return false;
-      }
-    }
-
-    if (selectedCity && selectedCity !== 'all' && selectedCity !== 'any') {
-      const cityMap: Record<string, string> = {
-        'batumi': 'batumi', 'tbilisi': 'tbilisi',
-        'dubai': 'dubai', 'sharjah': 'sharjah',
-        'rasAlKhaimah': 'ras al khaimah', 'ras-al-khaimah': 'ras al khaimah',
-        'abu-dhabi': 'abu dhabi',
-        'lefkosa': 'lefkoşa', 'gazimağusa': 'gazimağusa',
-        'girne': 'girne', 'iskele': 'skele',
-        'guzelyurt': 'güzelyurt', 'esentepe': 'esentepe',
-        'istanbul': 'istanbul', 'trabzon': 'trabzon',
-      };
-      const cityName = cityMap[selectedCity] || selectedCity.toLowerCase().replace(/-/g, ' ');
-      const matchesSelectedBaku =
-        selectedCountry === 'azerbaijan' &&
-        (selectedCity === 'baku' || selectedCity === 'Baku') &&
-        isBakuProjectLocation(projectLocation, `${projectTitle}\n${propertyData.description || project.description || ''}`);
-      if (!matchesSelectedBaku && !projectLocation.includes(cityName)) {
-        return false;
-      }
-    }
-
-    const projectPrice = propertyData.price || project.price || 0;
-    if (minPrice !== null && projectPrice < minPrice) return false;
-    if (maxPrice !== null && projectPrice > maxPrice) return false;
-
-    const projectBedrooms = propertyData.bedrooms || project.bedrooms;
-    if (bedroomCount && bedroomCount !== 'any' && projectBedrooms !== parseInt(bedroomCount)) {
-      return false;
-    }
-
-    if (selectedDeliveryYear && selectedDeliveryYear !== 'any') {
-      const completionDate = project.completionDate || '';
-      const yearMatch = completionDate.match(/\d{4}/);
-      if (yearMatch) {
-        const projectYear = parseInt(yearMatch[0]);
-        const [rangeStart, rangeEnd] = selectedDeliveryYear.split('-').map(Number);
-        if (rangeEnd) {
-          if (projectYear < rangeStart || projectYear > rangeEnd) return false;
-        } else {
-          if (projectYear !== rangeStart) return false;
-        }
-      } else {
-        return false;
-      }
-    }
-
-    return true;
+  const filteredProjects = filterPublicProjects(projects, {
+    searchTerm,
+    selectedCountry,
+    selectedCity,
+    minPrice,
+    maxPrice,
+    bedroomCount,
+    selectedDeliveryYear,
+    isAdmin: !!user?.isAdmin,
   });
 
   // Get cities based on selected country
@@ -501,6 +417,7 @@ const Projects = () => {
 
   // Count active filters
   const activeFiltersCount = [
+    searchTerm,
     selectedCountry,
     selectedCity,
     selectedDeliveryYear && selectedDeliveryYear !== 'any' ? selectedDeliveryYear : '',
@@ -592,6 +509,18 @@ const Projects = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+              <div className="md:col-span-3">
+                <Label htmlFor="project-search" className="mb-1 block">
+                  {t('projects.searchProjects', 'Search projects')}
+                </Label>
+                <Input
+                  id="project-search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder={t('projects.searchProjectsPlaceholder', 'Search by project, city, or country')}
+                />
+              </div>
 
               {/* Price Range — Min / Max */}
               <div className="md:col-span-3">
