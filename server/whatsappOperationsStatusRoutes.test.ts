@@ -93,6 +93,35 @@ const isolated:NodeJS.ProcessEnv = {
     "postgresql://kinglike_wa_archive_auditwriter:synthetic-audit@archive-staging.railway.internal:5432/kinglike_whatsapp_archive",
 };
 
+test("isolated staging crypto self-test is admin-only and never persists synthetic messages",async()=>{
+  const endpoint="/api/admin/staging/whatsapp-archive-crypto-probe";
+  const config={...isolated,
+    WHATSAPP_EMPLOYEE_INBOX_AES_KEY_B64:Buffer.alloc(32,1).toString("base64"),
+    WHATSAPP_EMPLOYEE_INBOX_HMAC_KEY_B64:Buffer.alloc(32,2).toString("base64"),
+  };
+  await withServer(config,101,null,async base=>{
+    const response=await fetch(base+endpoint);
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get("cache-control"),"no-store");
+    const data=await response.json();
+    assert.equal(data.crypto,"passed");
+    assert.equal(data.tamperProtection,"passed");
+    assert.equal(data.persistentWrites,0);
+    assert.equal(data.liveArchive,"disabled");
+    assert.equal(JSON.stringify(data).includes(config.WHATSAPP_EMPLOYEE_INBOX_AES_KEY_B64!),false);
+  });
+  await withServer({...config,WHATSAPP_EMPLOYEE_INBOX_HMAC_KEY_B64:config.WHATSAPP_EMPLOYEE_INBOX_AES_KEY_B64},
+    101,null,async base=>{
+      const data=await (await fetch(base+endpoint)).json();
+      assert.equal(data.crypto,"configuration_blocked");
+      assert.equal(data.persistentWrites,0);
+    });
+  await withServer({...config,APP_DEPLOYMENT_MODE:"production"},101,null,
+    async base=>assert.equal((await fetch(base+endpoint)).status,404));
+  await withServer(config,null,null,
+    async base=>assert.equal((await fetch(base+endpoint)).status,403));
+});
+
 test("archive credential probe config works with all live flags disabled, strictly isolated",()=>{
   assert.ok(stagingArchiveCredentialProbeConfig(isolated));
   const negative:NodeJS.ProcessEnv[] = [
