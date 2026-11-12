@@ -314,6 +314,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {renderItem({ label: "Dashboard", path: "/admin/employee-dashboard", icon: LayoutDashboard, highlight: true })}
                 {renderItem({ label: "Kinglike CRM", path: "/admin/crm", icon: Crown, highlight: true })}
                 {renderItem({ label: "Tasks / المهام", path: "/admin/crm/tasks", icon: ListTodo, highlight: true })}
+                {renderItem({ label: "وثّق رقم الواتساب في ميتا", path: "/employee/whatsapp-meta-verification", icon: Shield, highlight: true })}
               </div>
             </div>
           )}
