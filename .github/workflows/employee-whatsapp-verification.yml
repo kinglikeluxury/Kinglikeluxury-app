@@ -1,0 +1,49 @@
+name: Employee Meta WhatsApp verification safe UI
+
+on:
+  pull_request:
+    paths:
+      - "client/src/App.tsx"
+      - "client/src/components/layout/Navbar.tsx"
+      - "client/src/components/layout/MobileDrawer.tsx"
+      - "client/src/pages/employee/whatsapp-meta-verification.tsx"
+      - "server/index.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.test.ts"
+      - ".github/workflows/employee-whatsapp-verification.yml"
+  push:
+    paths:
+      - "client/src/App.tsx"
+      - "client/src/components/layout/Navbar.tsx"
+      - "client/src/components/layout/MobileDrawer.tsx"
+      - "client/src/pages/employee/whatsapp-meta-verification.tsx"
+      - "server/index.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.ts"
+      - "server/whatsappEmployeeSelfVerificationRoutes.test.ts"
+      - ".github/workflows/employee-whatsapp-verification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies without running app or external services
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert employee-only GET, no Meta writes or cancellation
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          ENABLE_BACKGROUND_SCHEDULERS: "false"
+        run: node --import tsx --test server/whatsappEmployeeSelfVerificationRoutes.test.ts
+      - name: Compile application without deploying
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          ENABLE_BACKGROUND_SCHEDULERS: "false"
+        run: npm run build

@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import {registerEmployeeWhatsappVerificationRoutes} from "./whatsappEmployeeSelfVerificationRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -259,6 +260,18 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+  // Read-only self-service status for the current authenticated CRM employee.
+  // No Meta enrollment, message access, cancellation or disconnection.
+  registerEmployeeWhatsappVerificationRoutes(app,{
+    currentActor:async(req)=>{
+      const userId=Number(req.session?.userId);
+      if(!Number.isSafeInteger(userId)||userId<1)return null;
+      const actor=await storage.getUser(userId);
+      if(!actor)return null;
+      return {id:actor.id,isActive:actor.isActive===true,
+        isAdmin:actor.isAdmin===true,role:actor.role??null};
+    },
+  });
   registerWhatsappAiRoutes(app);
   registerDeveloperRegistrationRoutes(app);
   registerEmailNurturingRoutes(app);
