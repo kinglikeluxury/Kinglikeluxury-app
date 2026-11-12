@@ -65,6 +65,7 @@ import { registerStagingWhatsappOnboardingRoutes } from "./whatsappStagingOnboar
 import { createStagingMetaOnboardingVerifier } from "./whatsappStagingMetaVerifier";
 import { openWhatsappStagingProofDb } from "./whatsappStagingProofDb";
 import { registerWhatsappOperationsStatusRoutes } from "./whatsappOperationsStatusRoutes";
+import { registerEmployeeWhatsappVerificationRoutes } from "./whatsappEmployeeSelfVerificationRoutes";
 import { runSyntheticWhatsappProofE2E } from "./whatsappStagingSyntheticProofE2E";
 import {
   isStagingMode,
@@ -306,6 +307,18 @@ app.use((req, res, next) => {
     },
   });
   registerWhatsappEmployeeArchiveRoutes(app);
+  // A current employee may inspect ONLY their own pending Meta verification.
+  // Never a phone-activation, cancellation, archive or Meta Graph endpoint.
+  registerEmployeeWhatsappVerificationRoutes(app,{
+    currentActor:async(req)=>{
+      const actorId=Number(req.session?.userId);
+      if(!Number.isSafeInteger(actorId)||actorId<1)return null;
+      const actor=await storage.getUser(actorId);
+      if(!actor)return null;
+      return {id:actor.id,isActive:actor.isActive===true,
+        isAdmin:actor.isAdmin===true,role:actor.role??null};
+    },
+  });
   registerWhatsappMetaOnboardingRoutes(app, {
     // Re-read the active user from the same storage authority as the real
     // Express login session. The test-only route gate remains closed here.
