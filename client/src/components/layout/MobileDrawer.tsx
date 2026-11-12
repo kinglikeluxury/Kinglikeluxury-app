@@ -8,6 +8,7 @@ import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { isCrmEmployeeRole } from "@shared/crmRoles";
 import { useFavorites } from "@/hooks/use-favorites";
 import { languages, getLanguageName } from "@/lib/i18n";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
@@ -305,7 +306,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           </div>
 
           {/* Sub-Agent CRM section */}
-          {user?.role === "sub_agent" && (
+          {user && isCrmEmployeeRole(user.role) && (
             <div className="mb-2">
               <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Sales CRM

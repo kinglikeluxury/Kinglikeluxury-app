@@ -27,6 +27,7 @@ import {
 import { SiWhatsapp } from "react-icons/si";
 import { useTranslation } from "react-i18next";
 import type { CrmLead, CrmProject } from "@shared/schema";
+import { CRM_EMPLOYEE_ROLE } from "@shared/crmRoles";
 
 interface CrmLeadWithAssignee extends CrmLead { assigneeName?: string | null }
 interface CrmProjectOption extends CrmProject { source?: "property" | "legacy" }
@@ -313,7 +314,7 @@ export default function CrmLeadsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<{ phone?: string; email?: string }>({});
   const [subAgentsOpen, setSubAgentsOpen] = useState(false);
-  const [subAgentForm, setSubAgentForm] = useState({ username: "", email: "", password: "" });
+  const [subAgentForm, setSubAgentForm] = useState({ username: "", email: "", password: "", role: "sub_agent" });
 
   // ── Import / Export state ──────────────────────────────────────────────────
   interface ImportPreviewRow {
@@ -357,7 +358,8 @@ export default function CrmLeadsPage() {
   const [bulkAssignTarget, setBulkAssignTarget] = useState<string>("__unassign__");
 
   // Non-hook computations (safe before hooks)
-  const isSubAgent = user?.role === "sub_agent";
+  const isCrmEmployee = user?.role === CRM_EMPLOYEE_ROLE;
+  const isSubAgent = user?.role === "sub_agent" || isCrmEmployee;
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
 
   const params = new URLSearchParams();
@@ -453,7 +455,7 @@ export default function CrmLeadsPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const { data: subAgents = [] } = useQuery<{ id: number; username: string; email: string | null }[]>({
+  const { data: subAgents = [] } = useQuery<{ id: number; username: string; email: string | null; role: string }[]>({
     queryKey: ["/api/admin/crm/sub-agents"],
     queryFn: () => fetch("/api/admin/crm/sub-agents").then(r => r.json()),
     enabled: !!user?.isAdmin,
@@ -463,8 +465,8 @@ export default function CrmLeadsPage() {
     mutationFn: (data: typeof subAgentForm) => apiRequest("POST", "/api/admin/crm/sub-agents", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/sub-agents"] });
-      toast({ title: "Sub-agent created successfully" });
-      setSubAgentForm({ username: "", email: "", password: "" });
+      toast({ title: subAgentForm.role === CRM_EMPLOYEE_ROLE ? "CRM employee created" : "Sub-agent created successfully" });
+      setSubAgentForm({ username: "", email: "", password: "", role: "sub_agent" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -835,23 +837,23 @@ export default function CrmLeadsPage() {
             </DialogContent>
           </Dialog>}
 
-          {/* Manage Sub-Agents — admin only */}
+          {/* Manage CRM staff — admin only */}
           {user?.isAdmin && (
             <Dialog open={subAgentsOpen} onOpenChange={setSubAgentsOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
-                  <Users className="h-4 w-4" /> Sub-Agents
+                  <Users className="h-4 w-4" /> CRM Staff
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle className="text-[#005476] flex items-center gap-2">
-                    <Users className="h-4 w-4" /> Manage Sub-Agents
+                    <Users className="h-4 w-4" /> Manage CRM Staff
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3 mt-2">
                   {subAgents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No sub-agents yet.</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">No CRM staff yet.</p>
                   ) : (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                       {subAgents.map(a => (
@@ -860,7 +862,7 @@ export default function CrmLeadsPage() {
                             <p className="text-sm font-medium text-[#005476]">{a.username}</p>
                             {a.email && <p className="text-xs text-muted-foreground">{a.email}</p>}
                           </div>
-                          <Badge variant="outline" className="text-xs border-[#3bcac4] text-[#3bcac4]">Sub-Agent</Badge>
+                          <Badge variant="outline" className="text-xs border-[#3bcac4] text-[#3bcac4]">{a.role === CRM_EMPLOYEE_ROLE ? "CRM Employee" : "Sub-Agent"}</Badge>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -879,14 +881,21 @@ export default function CrmLeadsPage() {
                     </div>
                   )}
                   <div className="pt-2 border-t space-y-2">
-                    <p className="text-xs font-semibold text-[#005476] uppercase tracking-wide">Add New Sub-Agent</p>
+                    <p className="text-xs font-semibold text-[#005476] uppercase tracking-wide">Add CRM Staff Account</p>
+                    <Select value={subAgentForm.role} onValueChange={role => setSubAgentForm(f => ({ ...f, role }))}>
+                      <SelectTrigger><SelectValue placeholder="Account type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sub_agent">Sub-Agent</SelectItem>
+                        <SelectItem value={CRM_EMPLOYEE_ROLE}>CRM Employee</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Input
                       placeholder="Username"
                       value={subAgentForm.username}
                       onChange={e => setSubAgentForm(f => ({ ...f, username: e.target.value }))}
                     />
                     <Input
-                      placeholder="Email (optional)"
+                      placeholder={subAgentForm.role === CRM_EMPLOYEE_ROLE ? "Work email (required)" : "Email (optional)"}
                       type="email"
                       value={subAgentForm.email}
                       onChange={e => setSubAgentForm(f => ({ ...f, email: e.target.value }))}
@@ -899,12 +908,12 @@ export default function CrmLeadsPage() {
                     />
                     <Button
                       className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476]"
-                      disabled={!subAgentForm.username.trim() || !subAgentForm.password || createSubAgentMutation.isPending}
+                      disabled={!subAgentForm.username.trim() || !subAgentForm.password || (subAgentForm.role === CRM_EMPLOYEE_ROLE && !subAgentForm.email.trim()) || createSubAgentMutation.isPending}
                       onClick={() => createSubAgentMutation.mutate(subAgentForm)}
                     >
                       {createSubAgentMutation.isPending
                         ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : "Create Sub-Agent"}
+                        : subAgentForm.role === CRM_EMPLOYEE_ROLE ? "Create CRM Employee" : "Create Sub-Agent"}
                     </Button>
                   </div>
                 </div>
@@ -912,9 +921,9 @@ export default function CrmLeadsPage() {
             </Dialog>
           )}
 
-          {/* New Lead — admin only */}
+          {/* New Lead — admin and CRM employees */}
           <Dialog open={newLeadOpen} onOpenChange={v => { setNewLeadOpen(v); if (!v) { setForm(EMPTY_FORM); setFormErrors({}); } }}>
-            {!isSubAgent && (
+            {(!isSubAgent || isCrmEmployee) && (
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4] gap-1.5">
                   <Plus className="h-4 w-4" /> New Lead

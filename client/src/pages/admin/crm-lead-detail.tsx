@@ -5,6 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { validatePhone, validateEmail } from "@shared/crmValidation";
+import { CRM_EMPLOYEE_ROLE } from "@shared/crmRoles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -310,7 +311,7 @@ export default function CrmLeadDetailPage() {
   const [cityMultiPicked, setCityMultiPicked] = useState<string[]>([]);
 
   // Non-hook computations (safe before hooks)
-  const isSubAgent = user?.role === "sub_agent";
+  const isSubAgent = user?.role === "sub_agent" || user?.role === CRM_EMPLOYEE_ROLE;
   const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isSubAgent);
   // ── ALL hooks before any conditional return (Rules of Hooks) ────────────
   const { data: lead, isLoading, error: leadError } = useQuery<LeadDetail>({
@@ -1818,7 +1819,7 @@ export default function CrmLeadDetailPage() {
             </Card>
           )}
           {/* Sub-agent: Transfer Lead — only for leads assigned to this sub-agent */}
-          {!user?.isAdmin && isSubAgent && (
+          {user?.role === "sub_agent" && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-[#005476] flex items-center gap-1.5">

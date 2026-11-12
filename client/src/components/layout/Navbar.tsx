@@ -10,6 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
+import { isCrmEmployeeRole } from "@shared/crmRoles";
 import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Crown, LayoutDashboard, ListTodo } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -205,7 +206,7 @@ const Navbar = () => {
                       </DropdownMenuItem>
 
                       {/* Sub-Agent CRM section */}
-                      {user.role === "sub_agent" && (
+                      {isCrmEmployeeRole(user.role) && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel className="text-xs text-gray-400 font-semibold uppercase">Sales CRM</DropdownMenuLabel>

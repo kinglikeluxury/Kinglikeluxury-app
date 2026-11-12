@@ -60,6 +60,7 @@ import { withKayInternalClient } from "./kayInternalDatabase";
 import { registerKayInternalCallRoutes } from "./kayInternalCallService";
 import { registerKayRecordingRoutes } from "./kayRecordingRoutes";
 import { getSupervisorSnapshot } from "./kaySupervisorIntelligenceService";
+import { canAccessCrmLead, CRM_EMPLOYEE_ROLE, isCrmEmployeeRole } from "@shared/crmRoles";
 
 import { notificationTemplates, notificationLogs } from "@shared/schema";
 import { eq, and, desc, inArray, count as sqlCount, sql as drizzleSql } from "drizzle-orm";
@@ -4484,18 +4485,19 @@ ${metaTags}
   // ── Kinglike CRM Admin Endpoints ──────────────────────────────────────────
 
   // CRM access helpers
-  const isCrmUser = (req: any) => req.session.isAdmin || req.session.role === "sub_agent";
+  const isCrmEmployee = (req: any) => isCrmEmployeeRole(req.session.role);
+  const isCrmUser = (req: any) => req.session.isAdmin || isCrmEmployee(req);
   const canAccessLead = async (req: any, leadId: number): Promise<boolean> => {
     if (req.session.isAdmin) return true;
     const lead = await storage.getCrmLead(leadId);
-    return lead?.assignedTo === req.session.userId;
+    return canAccessCrmLead(false, req.session.userId, lead?.assignedTo);
   };
 
   /** GET /api/admin/crm/stats — scoped lead counts (admin: global, sub_agent: own) */
   app.get("/api/admin/crm/stats", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try {
-      const isAgent = !req.session.isAdmin && req.session.role === "sub_agent";
+      const isAgent = !req.session.isAdmin && isCrmEmployee(req);
       const uid = req.session.userId as number;
       const scope = isAgent ? eq(crmLeads.assignedTo, uid) : undefined;
 
@@ -4800,7 +4802,7 @@ ${metaTags}
       let agentId: number;
       if (req.session.isAdmin && req.query.agentId) {
         agentId = Number(req.query.agentId);
-      } else if (req.session.role === "sub_agent") {
+      } else if (isCrmEmployee(req)) {
         agentId = req.session.userId;
       } else if (req.session.isAdmin) {
         // Admin with no agentId: show global totals (agentId = 0 = all)
@@ -5023,7 +5025,7 @@ ${metaTags}
       if (search) filters.search = search;
       if (status) filters.status = splitParam(status);
       if (source) filters.source = splitParam(source);
-      if (!req.session.isAdmin && req.session.role === "sub_agent") {
+      if (!req.session.isAdmin && isCrmEmployee(req)) {
         // Sub-agents can only see leads assigned to them — backend-enforced
         filters.assignedTo = [req.session.userId];
       } else if (assignedTo) {
@@ -5047,7 +5049,7 @@ ${metaTags}
 
   /** POST /api/admin/crm/leads — create a new lead */
   app.post("/api/admin/crm/leads", isAuthenticated, async (req: any, res) => {
-    if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && req.session.role !== CRM_EMPLOYEE_ROLE) return res.status(403).json({ message: "Forbidden" });
     try {
       const {
         fullName, firstName, lastName, phone, email, country, city,
@@ -5071,7 +5073,9 @@ ${metaTags}
 
       const { pickNextSubAgentIdForTx: pickAgentTx } = await import("./leadAssignmentService");
       const { lead, autoAssignedTo } = await db.transaction(async (tx) => {
-        const agentId = await pickAgentTx(tx, "Manual CRM");
+        const agentId = req.session.isAdmin
+          ? await pickAgentTx(tx, "Manual CRM")
+          : req.session.userId as number;
         const [newLead] = await tx.insert(crmLeads).values({
           fullName, firstName, lastName, phone, email,
           country: country || (phone ? (phoneResult.country || null) : null),
@@ -6170,7 +6174,7 @@ ${metaTags}
 
       const { users } = await import("../shared/schema");
       // Sub-agents may only export leads assigned to themselves
-      const isAgent = !req.session.isAdmin && req.session.role === "sub_agent";
+      const isAgent = !req.session.isAdmin && isCrmEmployee(req);
       const exportWhere = isAgent
         ? and(inArray(crmLeads.id, ids), eq(crmLeads.assignedTo, req.session.userId as number))
         : inArray(crmLeads.id, ids);
@@ -6264,8 +6268,8 @@ ${metaTags}
           .select({ id: users.id, isAdmin: users.isAdmin, role: users.role })
           .from(users)
           .where(eq(users.id, Number(assignedTo)));
-        if (!target || (!target.isAdmin && target.role !== "sub_agent")) {
-          return res.status(400).json({ message: "Leads can only be assigned to admin or sub_agent users" });
+        if (!target || (!target.isAdmin && !isCrmEmployeeRole(target.role))) {
+          return res.status(400).json({ message: "Leads can only be assigned to CRM employees or admins" });
         }
       }
 
@@ -6274,7 +6278,7 @@ ${metaTags}
       if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
 
       // Sub-agents may only update leads assigned to themselves
-      const isAgent = !req.session.isAdmin && req.session.role === "sub_agent";
+      const isAgent = !req.session.isAdmin && isCrmEmployee(req);
       const bulkWhere = isAgent
         ? and(inArray(crmLeads.id, ids), eq(crmLeads.assignedTo, req.session.userId as number))
         : inArray(crmLeads.id, ids);
@@ -6381,7 +6385,7 @@ ${metaTags}
   /** GET /api/admin/crm/leads/:id — lead detail with notes + assignee */
   app.get("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    const _notesOnlyViewIds = [24, 29];
+    const _notesOnlyViewIds = req.session.role === "sub_agent" ? [24, 29] : [];
     if (!_notesOnlyViewIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
@@ -6396,7 +6400,7 @@ ${metaTags}
   /** PATCH /api/admin/crm/leads/:id — update any lead fields */
   app.patch("/api/admin/crm/leads/:id", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    const _notesOnlyPatchIds = [24, 29];
+    const _notesOnlyPatchIds = req.session.role === "sub_agent" ? [24, 29] : [];
     if (!req.session.isAdmin && !_notesOnlyPatchIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     // Meta Attribution fields are protected — non-admins cannot modify them
@@ -6414,7 +6418,7 @@ ${metaTags}
         delete req.body.assignedTo;
       }
 
-      // Admins: validate assignedTo is an admin or sub_agent (not a regular user)
+      // Admins may assign leads only to admins or CRM staff accounts.
       if (req.session.isAdmin && req.body.assignedTo != null) {
         const { db } = await import("./db");
         const { users } = await import("../shared/schema");
@@ -6423,8 +6427,8 @@ ${metaTags}
           .select({ id: users.id, isAdmin: users.isAdmin, role: users.role })
           .from(users)
           .where(eq(users.id, Number(req.body.assignedTo)));
-        if (!target || (!target.isAdmin && target.role !== "sub_agent")) {
-          return res.status(400).json({ message: "Leads can only be assigned to admin or sub_agent users" });
+        if (!target || (!target.isAdmin && !isCrmEmployeeRole(target.role))) {
+          return res.status(400).json({ message: "Leads can only be assigned to CRM employees or admins" });
         }
       }
 
@@ -6442,7 +6446,7 @@ ${metaTags}
       ];
       const _isNoReasonFieldChange = _bodyKeys.length > 0 && _bodyKeys.every((k: string) => SUB_AGENT_NO_REASON_FIELDS.includes(k));
       const _isRoutineStatusChange  = _bodyKeys.length === 1 && _bodyKeys[0] === "status" && !REQUIRES_REASON_STATUSES.includes(req.body.status);
-      if (!req.session.isAdmin && req.session.role === "sub_agent" && !_comment && !_isNoReasonFieldChange && !_isRoutineStatusChange) {
+      if (!req.session.isAdmin && isCrmEmployee(req) && !_comment && !_isNoReasonFieldChange && !_isRoutineStatusChange) {
         return res.status(400).json({ message: "A comment/reason is required for all changes" });
       }
 
@@ -6600,21 +6604,23 @@ ${metaTags}
 
   /**
    * POST /api/admin/crm/leads/:id/reassign
-   * Reassign a lead to a different admin or sub_agent.
-   * Both admin and sub_agent may call this endpoint.
+   * Reassign a lead to a different admin or CRM staff account.
+   * Admin and existing sub-agent roles may call this endpoint.
    * Sub-agent rules (backend-enforced):
    *   - Lead must currently be assigned to the calling sub-agent.
-   *   - targetId must be an admin or sub_agent user (not a regular user).
+   *   - targetId must be an admin or CRM staff user (not a regular user).
    *   - targetId cannot be null (sub-agents cannot set Unassigned).
    *   - comment is mandatory.
    * Admin rules:
-   *   - May reassign any lead to any admin or sub_agent.
+   *   - May reassign any lead to any admin or CRM staff user.
    *   - May set targetId = null (Unassigned).
    *   - comment is optional.
    * Always saves a [Reassignment] timeline note with old/new assignee, comment, changer, timestamp.
    */
   app.post("/api/admin/crm/leads/:id/reassign", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.session.isAdmin && req.session.role === CRM_EMPLOYEE_ROLE)
+      return res.status(403).json({ message: "Only admins can reassign CRM employee leads" });
     const leadId = Number(req.params.id);
     const { targetId, comment } = req.body as { targetId: number | null; comment?: string };
     const trimmedComment = (comment ?? "").trim();
@@ -6651,8 +6657,8 @@ ${metaTags}
           .select({ id: users.id, username: users.username, isAdmin: users.isAdmin, role: users.role })
           .from(users)
           .where(eq(users.id, Number(targetId)));
-        if (!target || (!target.isAdmin && target.role !== "sub_agent")) {
-          return res.status(400).json({ message: "Leads can only be assigned to admin or sub_agent users" });
+        if (!target || (!target.isAdmin && !isCrmEmployeeRole(target.role))) {
+          return res.status(400).json({ message: "Leads can only be assigned to CRM employees or admins" });
         }
         targetUser = target;
       }
@@ -6697,7 +6703,7 @@ ${metaTags}
   /** POST /api/admin/crm/leads/:id/notes — add a note to a lead */
   app.post("/api/admin/crm/leads/:id/notes", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
-    const _notesOnlyNoteIds = [24, 29];
+    const _notesOnlyNoteIds = req.session.role === "sub_agent" ? [24, 29] : [];
     if (!req.session.isAdmin && !_notesOnlyNoteIds.includes(req.session.userId) && !await canAccessLead(req, Number(req.params.id)))
       return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     try {
@@ -6738,6 +6744,8 @@ ${metaTags}
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     const leadId = Number(req.params.leadId);
     const noteId = Number(req.params.noteId);
+    if (!req.session.isAdmin && !await canAccessLead(req, leadId))
+      return res.status(403).json({ message: "Access denied: lead not assigned to you" });
     const { note: newText } = req.body;
     if (!newText?.trim()) return res.status(400).json({ message: "Note text cannot be blank" });
     try {
@@ -6772,7 +6780,7 @@ ${metaTags}
 
   // ── Sub-Agent Management ─────────────────────────────────────────────────
 
-  /** GET /api/admin/crm/assignable-agents — list users who can be assigned leads (admins + sub_agents only) */
+  /** GET /api/admin/crm/assignable-agents — list admins and CRM staff eligible for lead ownership */
   app.get("/api/admin/crm/assignable-agents", isAuthenticated, async (req: any, res) => {
     if (!isCrmUser(req)) return res.status(403).json({ message: "Forbidden" });
     try {
@@ -6782,7 +6790,7 @@ ${metaTags}
       const agents = await db
         .select({ id: users.id, username: users.username, role: users.role })
         .from(users)
-        .where(or(eq(users.isAdmin, true), eq(users.role, "sub_agent")));
+        .where(or(eq(users.isAdmin, true), eq(users.role, "sub_agent"), eq(users.role, CRM_EMPLOYEE_ROLE)));
       res.json(agents);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -6795,11 +6803,11 @@ ${metaTags}
     try {
       const { db } = await import("./db");
       const { users } = await import("../shared/schema");
-      const { eq } = await import("drizzle-orm");
+      const { inArray } = await import("drizzle-orm");
       const agents = await db
-        .select({ id: users.id, username: users.username, email: users.email })
+        .select({ id: users.id, username: users.username, email: users.email, role: users.role })
         .from(users)
-        .where(eq(users.role, "sub_agent"));
+        .where(inArray(users.role, ["sub_agent", CRM_EMPLOYEE_ROLE]));
       res.json(agents);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -6814,7 +6822,7 @@ ${metaTags}
       const { users } = await import("../shared/schema");
       const { eq, and } = await import("drizzle-orm");
       await db.delete(users)
-        .where(and(eq(users.id, Number(req.params.id)), eq(users.role, "sub_agent")));
+        .where(and(eq(users.id, Number(req.params.id)), inArray(users.role, ["sub_agent", CRM_EMPLOYEE_ROLE])));
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -6825,10 +6833,18 @@ ${metaTags}
   app.post("/api/admin/crm/sub-agents", isAuthenticated, async (req: any, res) => {
     if (!req.session.isAdmin) return res.status(403).json({ message: "Forbidden" });
     try {
-      const { username, email, password } = req.body;
+      const { username, email, password, role = "sub_agent" } = req.body;
       if (!username?.trim()) return res.status(400).json({ message: "Username is required" });
       if (!password || password.length < 6)
         return res.status(400).json({ message: "Password must be at least 6 characters" });
+      if (role !== "sub_agent" && role !== CRM_EMPLOYEE_ROLE)
+        return res.status(400).json({ message: "Invalid CRM employee role" });
+      if (role === CRM_EMPLOYEE_ROLE && !email?.trim())
+        return res.status(400).json({ message: "Email is required for CRM employees" });
+      if (email?.trim()) {
+        const emailResult = vEmail(email);
+        if (!emailResult.valid) return res.status(400).json({ message: emailResult.error ?? "Invalid email address" });
+      }
       const hashedPassword = await bcrypt.hash(password, 10);
       const agent = await storage.createUser({
         username: username.trim(),
@@ -6840,7 +6856,7 @@ ${metaTags}
         authMethod: "email",
         isAdmin: false,
         isVerified: true,
-        role: "sub_agent",
+        role,
       });
       res.status(201).json({ id: agent.id, username: agent.username, email: agent.email, role: agent.role });
     } catch (err: any) {

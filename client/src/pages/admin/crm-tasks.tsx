@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { isCrmEmployeeRole } from "@shared/crmRoles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -255,7 +256,7 @@ export default function CrmTasksPage() {
   const [page, setPage] = useState(1);
   const [completingId, setCompletingId] = useState<number | null>(null);
 
-  const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || user.role === "sub_agent");
+  const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isCrmEmployeeRole(user.role));
   const isAdmin = !!user?.isAdmin;
 
   useEffect(() => {

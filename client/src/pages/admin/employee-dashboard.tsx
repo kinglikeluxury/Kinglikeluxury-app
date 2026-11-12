@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { isCrmEmployeeRole } from "@shared/crmRoles";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -149,7 +150,7 @@ export default function EmployeeDashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
 
-  const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || user.role === "sub_agent");
+  const isCrmAuthorized = !authLoading && !!user && (!!user.isAdmin || isCrmEmployeeRole(user.role));
 
   useEffect(() => {
     if (!authLoading && !isCrmAuthorized) navigate("/");
