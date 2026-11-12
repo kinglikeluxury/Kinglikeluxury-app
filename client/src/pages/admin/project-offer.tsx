@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslation } from "react-i18next";
+import { COUNTRY_CITY_MAP, filterProjectOfferProjects } from "@/lib/projectOfferFilters";
 import { FileDown, X, Building2, ChevronDown } from "lucide-react";
 import jsPDF from "jspdf";
 import { toPng } from "html-to-image";
@@ -661,6 +662,7 @@ const buildOnePeninsulaHighlight = async (aptNum: string): Promise<string> => {
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function ProjectOfferPage() {
+  const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -707,50 +709,13 @@ export default function ProjectOfferPage() {
     location: p.property?.location || p.location || "",
     images: p.property?.images || p.images || [],
     developer: p.developer || "",
+    projectStatus: p.projectStatus || "",
   }));
-
-  // These options are also used to recognize cities embedded in full street
-  // addresses, e.g. "Odysseas Dimitriadis Street, Tamari, Batumi".
-  // Hardcoded countries and cities — not dependent on existing project data
-  const COUNTRY_CITY_MAP: Record<string, string[]> = {
-    "Georgia": ["Tbilisi", "Batumi", "Kutaisi", "Rustavi", "Zugdidi", "Gori", "Poti", "Telavi", "Mtskheta", "Kobuleti", "Borjomi", "Akhaltsikhe", "Senaki", "Anaklia", "Sighnaghi", "Ambrolauri", "Khashuri", "Samtredia", "Zestafoni", "Chiatura"],
-    "UAE": ["Dubai", "Sharjah", "Ras Al Khaimah", "Abu Dhabi", "Ajman", "Fujairah", "Umm Al Quwain"],
-    "Northern Cyprus (TRNC)": ["Lefkoşa (Nicosia)", "Gazimağusa (Famagusta)", "Girne (Kyrenia)", "İskele", "Güzelyurt", "Esentepe"],
-    "Turkey": ["İstanbul", "Trabzon", "Ankara", "İzmir", "Antalya", "Bursa", "Alanya", "Mersin"],
-  };
-
-  const normalizeLocationPart = (value: string) => value.trim().toLocaleLowerCase();
-  const locationCities = Object.entries(COUNTRY_CITY_MAP).flatMap(([country, cityList]) =>
-    cityList.map((city) => ({ country, city, normalized: normalizeLocationPart(city) })),
-  );
-
-  const locParts = (loc: string) => {
-    const parts = loc.split(",").map((s: string) => s.trim()).filter(Boolean);
-    const normalizedParts = parts.map(normalizeLocationPart);
-    const cityMatch = [...normalizedParts]
-      .reverse()
-      .map((part) => locationCities.find((entry) => entry.normalized === part))
-      .find(Boolean);
-    const countryMatch = [...normalizedParts]
-      .reverse()
-      .map((part) => Object.keys(COUNTRY_CITY_MAP).find(
-        (country) => normalizeLocationPart(country) === part,
-      ))
-      .find(Boolean);
-
-    return {
-      city: cityMatch?.city || parts[0] || "",
-      country: countryMatch || cityMatch?.country || parts[parts.length - 1] || "",
-    };
-  };
 
   const countries = Object.keys(COUNTRY_CITY_MAP);
   const cities    = selectedCountry ? (COUNTRY_CITY_MAP[selectedCountry] || []) : [];
 
-  const filteredProjects = allProjects.filter((p) => {
-    const lp = locParts(p.location);
-    return (!selectedCountry || lp.country === selectedCountry) && (!selectedCity || lp.city === selectedCity);
-  });
+  const filteredProjects = filterProjectOfferProjects(allProjects, selectedCountry, selectedCity);
 
   const selectedProject = allProjects.find((p) => p.id === selectedProjectId);
 
@@ -961,14 +926,22 @@ export default function ProjectOfferPage() {
                 <Label className="text-xs text-gray-500 mb-1 block">الدولة</Label>
                 <Select value={selectedCountry} onValueChange={(v) => { setSelectedCountry(v); setSelectedCity(""); setSelectedProjectId(null); }}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="اختر" /></SelectTrigger>
-                  <SelectContent>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{countries.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c === "Azerbaijan" ? `🇦🇿 ${t("countries.azerbaijan", "Azerbaijan")}` : c}
+                    </SelectItem>
+                  ))}</SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-xs text-gray-500 mb-1 block">المدينة</Label>
                 <Select value={selectedCity} onValueChange={(v) => { setSelectedCity(v); setSelectedProjectId(null); }}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="اختر" /></SelectTrigger>
-                  <SelectContent>{cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{cities.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c === "Baku" ? t("cities.baku", "Baku") : c}
+                    </SelectItem>
+                  ))}</SelectContent>
                 </Select>
               </div>
             </div>
