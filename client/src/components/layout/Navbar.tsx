@@ -233,6 +233,12 @@ const Navbar = () => {
                               Tasks / المهام
                             </Link>
                           </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/employee/whatsapp-meta-verification" className="flex items-center gap-2">
+                              <Shield className="w-3.5 h-3.5 text-[#005476]" />
+                              وثّق رقم الواتساب في ميتا
+                            </Link>
+                          </DropdownMenuItem>
                         </>
                       )}
 
