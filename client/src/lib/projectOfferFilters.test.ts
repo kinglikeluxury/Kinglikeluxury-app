@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   filterProjectOfferProjects,
-  isUnderConstructionStatus,
   parseProjectLocation,
 } from "./projectOfferFilters";
 
@@ -12,7 +11,7 @@ test("recognizes Baku whether the database stores city only or city and country"
   }
 });
 
-test("Baku selection includes only database projects marked under construction", () => {
+test("Baku selection does not mistake the sales status for construction stage", () => {
   const projects = [
     { title: "Baku Building", location: "Baku", projectStatus: "Under Construction" },
     { title: "Baku Listing", location: "Baku, Azerbaijan", projectStatus: "Now Selling" },
@@ -21,14 +20,24 @@ test("Baku selection includes only database projects marked under construction",
 
   assert.deepEqual(
     filterProjectOfferProjects(projects, "Azerbaijan", "Baku").map((project) => project.title),
-    ["Baku Building"],
+    ["Baku Building", "Baku Listing"],
   );
 });
 
-test("supports construction status formatting variants and preserves existing country filters", () => {
-  assert.equal(isUnderConstructionStatus("under_construction"), true);
-  assert.equal(isUnderConstructionStatus("UNDER-CONSTRUCTION"), true);
+test("uses explicit Baku location evidence for district-only records", () => {
+  const panorama = {
+    title: "Panorama by Elie Saab",
+    location: "Sabunchu Raion",
+    description: "Location: Baku, Azerbaijan – First coastline.",
+    projectStatus: "Now Selling",
+  };
+  assert.deepEqual(
+    filterProjectOfferProjects([panorama], "Azerbaijan", "Baku").map((project) => project.title),
+    ["Panorama by Elie Saab"],
+  );
+});
 
+test("preserves existing country filters", () => {
   const projects = [
     { title: "Istanbul", location: "Istanbul, Turkey", projectStatus: "Now Selling" },
     { title: "Batumi", location: "Street 1, Batumi", projectStatus: "Now Selling" },

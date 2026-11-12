@@ -707,6 +707,7 @@ export default function ProjectOfferPage() {
     id: p.propertyId || p.id,
     title: p.property?.title || p.title || "",
     location: p.property?.location || p.location || "",
+    description: p.property?.description || p.description || "",
     images: p.property?.images || p.images || [],
     developer: p.developer || "",
     projectStatus: p.projectStatus || "",

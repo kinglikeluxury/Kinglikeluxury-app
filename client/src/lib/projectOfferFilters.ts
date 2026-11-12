@@ -64,11 +64,16 @@ export function parseProjectLocation(location: string): { country: string; city:
 
 export interface ProjectOfferProject {
   location: string;
+  description?: string | null;
+  title?: string | null;
   projectStatus?: string | null;
 }
 
-export function isUnderConstructionStatus(status: string | null | undefined): boolean {
-  return normalizeLocationPart(status ?? "").replace(/[\s_-]+/g, " ") === "under construction";
+function hasExplicitBakuLocationEvidence(text: string): boolean {
+  return (
+    /\blocation\s*:\s*(?:baku|bakı)(?:\s*,\s*(?:azerbaijan|azərbaycan))?/i.test(text) ||
+    /\b(?:baku|bakı)\s*,\s*(?:azerbaijan|azərbaycan)\b/i.test(text)
+  );
 }
 
 export function filterProjectOfferProjects<T extends ProjectOfferProject>(
@@ -76,12 +81,19 @@ export function filterProjectOfferProjects<T extends ProjectOfferProject>(
   selectedCountry: string,
   selectedCity: string,
 ): T[] {
-  const isBakuConstructionFilter =
+  const isBakuSelection =
     normalizeLocationPart(selectedCountry) === normalizeLocationPart("Azerbaijan") &&
     normalizeLocationPart(selectedCity) === normalizeLocationPart("Baku");
 
   return projects.filter((project) => {
-    const location = parseProjectLocation(project.location ?? "");
+    let location = parseProjectLocation(project.location ?? "");
+    if (
+      isBakuSelection &&
+      normalizeLocationPart(location.city) !== normalizeLocationPart("Baku") &&
+      hasExplicitBakuLocationEvidence(`${project.title ?? ""}\n${project.description ?? ""}`)
+    ) {
+      location = { country: "Azerbaijan", city: "Baku" };
+    }
     const matchesCountry =
       !selectedCountry ||
       normalizeLocationPart(location.country) === normalizeLocationPart(selectedCountry);
@@ -89,10 +101,8 @@ export function filterProjectOfferProjects<T extends ProjectOfferProject>(
       !selectedCity ||
       normalizeLocationPart(location.city) === normalizeLocationPart(selectedCity);
 
-    return (
-      matchesCountry &&
-      matchesCity &&
-      (!isBakuConstructionFilter || isUnderConstructionStatus(project.projectStatus))
-    );
+    // projectStatus describes marketing/sales status and is not a reliable
+    // construction-stage field, so it must not hide a correctly located Baku project.
+    return matchesCountry && matchesCity;
   });
 }
