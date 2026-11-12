@@ -8,6 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
 import { insertPropertySchema, PROPERTY_TYPES, type Property } from "@shared/schema";
+import { RENOVATED_WITHOUT_EQUIPMENT_FURNITURE } from "@shared/ready-status";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -790,6 +791,9 @@ const PropertyForm = ({ isAdmin = false }) => {
                         <SelectItem value="white_frame">🏗️ Ready to move in as White Frame</SelectItem>
                         <SelectItem value="green_frame">🌿 Ready to move in as Green Frame</SelectItem>
                         <SelectItem value="black_frame">⬛ Ready to move in as Black Frame</SelectItem>
+                        <SelectItem value={RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.value}>
+                          {RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.en}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

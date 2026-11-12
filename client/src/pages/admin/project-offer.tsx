@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslation } from "react-i18next";
+import { RENOVATED_WITHOUT_EQUIPMENT_FURNITURE } from "@shared/ready-status";
 import i18n from "@/lib/i18n";
 import {
   COUNTRY_CITY_MAP,
@@ -79,6 +80,19 @@ const DELIVERY_TYPES = [
   { value: "full",        ar: "تشطيب كامل (جاهز للسكن والاستثمار)", en: "Fully Finished (Move-in & Investment Ready)", ru: "Полная отделка (под ключ)", ka: "სრული გათავება", az: "Tam bitmiş", tr: "Tam Bitişli (Hazır)", zh: "精装交付", pl: "Pełne wykończenie", he: "גמר מלא (מוכן למגורים)", it: "Completamente rifinito" },
   { value: "full_nofurn", ar: "تشطيب كامل (بدون مفروشات)", en: "Fully Finished (Unfurnished)", ru: "Полная отделка (без مبلمان)", ka: "სრული გათავება (ავეჯის გარეშე)", az: "Tam bitmiş (mebelssiz)", tr: "Tam Bitişli (Mobilyasız)", zh: "精装交付（无家具）", pl: "Pełne wykończenie (bez mebli)", he: "גמר מלא (ללא ריהוט)", it: "Completamente rifinito (non arredato)" },
   { value: "furnished",   ar: "تشطيب كامل مع الفرش والكهربائيات (تسليم على المفتاح)", en: "Fully Finished with Furniture & Appliances (Turnkey)", ru: "Полностью меблирован (под ключ)", ka: "სრულად ავეჯით", az: "Tam mebelli (açar təhvil)", tr: "Tam Eşyalı (Anahtar Teslim)", zh: "全装带家具交付", pl: "W pełni umeblowany (pod klucz)", he: "מרוהט במלואו (מפתח ביד)", it: "Arredato (chiavi in mano)" },
+  {
+    value: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.value,
+    ar: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.ar,
+    en: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.en,
+    ru: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.ru,
+    ka: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.ka,
+    az: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.az,
+    tr: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.tr,
+    zh: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.zh,
+    pl: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.pl,
+    he: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.he,
+    it: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels.it,
+  },
 ];
 
 const LANGUAGES = [

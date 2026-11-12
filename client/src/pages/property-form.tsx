@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import LocationSelector from "@/components/property/LocationSelector";
 import { PROPERTY_TYPES, type Property } from "@shared/schema";
+import { getReadyStatusLabel, RENOVATED_WITHOUT_EQUIPMENT_FURNITURE } from "@shared/ready-status";
 import { getSyriaCityDisplayName } from "@shared/property-location";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Upload, X, Plus, Map, List, MapPin, Star } from "lucide-react";
@@ -38,7 +39,7 @@ const toEnglishDigits = (str: string): string => {
 
 const PropertyForm = () => {
   const { user, isLoading } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   
@@ -2633,6 +2634,9 @@ const PropertyForm = () => {
                     <SelectItem value="white_frame">🏗️ {t('readyStatus.whiteFrame', 'Ready to move in as White Frame')}</SelectItem>
                     <SelectItem value="green_frame">🌿 {t('readyStatus.greenFrame', 'Green Frame')}</SelectItem>
                     <SelectItem value="black_frame">⬛ {t('readyStatus.blackFrame', 'Ready to move in as Black Frame')}</SelectItem>
+                    <SelectItem value={RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.value}>
+                      {getReadyStatusLabel(i18n.language)}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

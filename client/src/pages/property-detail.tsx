@@ -4,6 +4,7 @@ import { useRoute, Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { User, useAuth } from "@/lib/auth";
 import { Property, PropertyWithAgent, Project } from "@shared/schema";
+import { RENOVATED_WITHOUT_EQUIPMENT_FURNITURE } from "@shared/ready-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,6 +64,7 @@ const READY_STATUS_LABELS: Record<string, Record<string, string>> = {
   white_frame: { ar: 'تشطيب أبيض',        en: 'White Frame',  ru: 'Белый каркас',      ka: 'თეთრი კარკასი',      az: 'Ağ karkasla',       tr: 'Beyaz Çerçeve',     zh: '白框交付',      pl: 'Stan biały',             he: 'מסגרת לבנה',      it: 'Struttura bianca' },
   green_frame: { ar: 'تسليم على الأخضر',  en: 'Green Frame',  ru: 'Зелёный каркас',    ka: 'მწვანე კარკასი',     az: 'Yaşıl karkasla',    tr: 'Yeşil Çerçeve',     zh: '绿框交付',      pl: 'Stan surowy zielony',    he: 'מסגרת ירוקה',     it: 'Struttura verde'  },
   black_frame: { ar: 'هيكل خام',          en: 'Black Frame',  ru: 'Чёрный каркас',     ka: 'შავი კარკასი',       az: 'Qara karkasla',     tr: 'Siyah Çerçeve',     zh: '毛坯交付',      pl: 'Stan surowy czarny',     he: 'מסגרת שחורה',     it: 'Struttura nera'   },
+  [RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.value]: RENOVATED_WITHOUT_EQUIPMENT_FURNITURE.labels,
 };
 
 const READY_STATUS_ICONS: Record<string, string> = {
