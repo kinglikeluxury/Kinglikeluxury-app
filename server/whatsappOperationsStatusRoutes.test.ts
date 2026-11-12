@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import express from "express";
-import { registerWhatsappOperationsStatusRoutes } from "./whatsappOperationsStatusRoutes";
+import { registerWhatsappOperationsStatusRoutes, stagingArchiveCredentialProbeConfig } from "./whatsappOperationsStatusRoutes";
 
 const BASE = "/api/admin/staging/whatsapp-operations-status";
 async function withServer(
@@ -75,4 +75,58 @@ test("missing proof DB reports unknown; never invents healthy counts", async () 
     assert.equal(result.proofDatabase, "unavailable");
     assert.equal(result.employeeNumbersConnected, "not_verified");
   });
+});
+
+const isolated:NodeJS.ProcessEnv = {
+  APP_DEPLOYMENT_MODE:"staging",
+  APP_STAGING_DATABASE_URL:"postgresql://app:example@app-staging.railway.internal/kinglike_staging",
+  APP_STAGING_DATABASE_EXPECTED_HOST:"app-staging.railway.internal",
+  APP_STAGING_DATABASE_EXPECTED_NAME:"kinglike_staging",
+  APP_STAGING_DATABASE_CONFIRMATION:"yes",APP_STAGING_STORAGE_CONFIRMATION:"yes",
+  NEON_DATABASE_URL:"postgresql://prod:example@ep-live.neon.tech/neondb",
+  PRODUCTION_DATABASE_HOST:"ep-live.neon.tech",PRODUCTION_DATABASE_NAME:"neondb",
+  WHATSAPP_EMPLOYEE_ARCHIVE_EXPECTED_HOST:"archive-staging.railway.internal",
+  WHATSAPP_EMPLOYEE_ARCHIVE_EXPECTED_NAME:"kinglike_whatsapp_archive",
+  WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL:
+    "postgresql://kinglike_wa_archive_reader:synthetic-reader@archive-staging.railway.internal:5432/kinglike_whatsapp_archive",
+  WHATSAPP_EMPLOYEE_ARCHIVE_AUDIT_DATABASE_URL:
+    "postgresql://kinglike_wa_archive_auditwriter:synthetic-audit@archive-staging.railway.internal:5432/kinglike_whatsapp_archive",
+};
+
+test("archive credential probe config works with all live flags disabled, strictly isolated",()=>{
+  assert.ok(stagingArchiveCredentialProbeConfig(isolated));
+  const negative:NodeJS.ProcessEnv[] = [
+    {...isolated,APP_DEPLOYMENT_MODE:"production"},
+    {...isolated,APP_STAGING_DATABASE_URL:isolated.NEON_DATABASE_URL},
+    {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_EXPECTED_HOST:"example.com"},
+    {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL:isolated.NEON_DATABASE_URL},
+    {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL:isolated.WHATSAPP_EMPLOYEE_ARCHIVE_AUDIT_DATABASE_URL},
+    {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_AUDIT_DATABASE_URL:
+      "postgresql://postgres:x@archive-staging.railway.internal/kinglike_whatsapp_archive"},
+    {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_AUDIT_DATABASE_URL:
+      "postgresql://kinglike_wa_archive_auditwriter:synthetic-reader@archive-staging.railway.internal/kinglike_whatsapp_archive"},
+    {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL:
+      "postgresql://kinglike_wa_archive_reader:x@archive-staging.railway.internal/neondb"},
+    {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL:
+      "postgresql://kinglike_wa_archive_reader:x@archive-staging.railway.internal/kinglike_whatsapp_archive?sslmode=disable"},
+  ];
+  negative.forEach(env=>assert.equal(stagingArchiveCredentialProbeConfig(env),null));
+});
+
+test("credential probe is unavailable outside staging and rejects non-admin actors",async()=>{
+  const endpoint="/api/admin/staging/whatsapp-archive-credential-probe";
+  await withServer({...isolated,APP_DEPLOYMENT_MODE:"production"},101,null,
+    async base=>assert.equal((await fetch(base+endpoint)).status,404));
+  await withServer(isolated,null,null,
+    async base=>assert.equal((await fetch(base+endpoint)).status,403));
+  await withServer({...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL:undefined},101,null,
+    async base=>{
+      const r=await fetch(base+endpoint);
+      assert.equal(r.status,200);
+      const body=await r.json();
+      assert.equal(body.status,"configuration_blocked");
+      assert.equal(body.reader,"not_tested");
+      assert.equal(body.liveArchive,"disabled");
+      assert.equal(JSON.stringify(body).includes("synthetic-audit"),false);
+    });
 });
