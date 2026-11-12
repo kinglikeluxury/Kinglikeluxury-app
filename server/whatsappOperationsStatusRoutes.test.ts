@@ -156,6 +156,28 @@ test("isolated staging crypto self-test is admin-only and never persists synthet
     async base=>assert.equal((await fetch(base+endpoint)).status,403));
 });
 
+test("one-number Meta pilot readiness is admin-only, isolated and never claims live connection",async()=>{
+  const endpoint="/api/admin/staging/whatsapp-one-number-pilot-readiness";
+  await withServer(isolated,101,null,async base=>{
+    const response=await fetch(base+endpoint);
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get("cache-control"),"no-store");
+    const data=await response.json();
+    assert.equal(data.environment,"isolated_staging");
+    assert.equal(data.mode,"blocked");
+    assert.equal(data.employeeNumberConnection,"not_verified");
+    assert.equal(data.realMessageDelivery,"not_verified");
+    assert.ok(data.blockers.includes("meta_verification_attested"));
+    assert.equal(JSON.stringify(data).includes("synthetic-reader"),false);
+  });
+  await withServer({...isolated,APP_DEPLOYMENT_MODE:"production"},101,null,async base=>{
+    assert.equal((await fetch(base+endpoint)).status,404);
+  });
+  await withServer(isolated,null,null,async base=>{
+    assert.equal((await fetch(base+endpoint)).status,403);
+  });
+});
+
 test("archive credential probe config works with all live flags disabled, strictly isolated",()=>{
   assert.ok(stagingArchiveCredentialProbeConfig(isolated));
   const negative:NodeJS.ProcessEnv[] = [
