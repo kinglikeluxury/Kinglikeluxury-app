@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import express from "express";
-import { registerWhatsappOperationsStatusRoutes, stagingArchiveCredentialProbeConfig, stagingArchiveWorkerProbeConfig } from "./whatsappOperationsStatusRoutes";
+import { registerWhatsappOperationsStatusRoutes, stagingArchiveCredentialProbeConfig, stagingArchiveWorkerProbeConfig, stagingArchiveWorkerProbeBlocker } from "./whatsappOperationsStatusRoutes";
 
 const BASE = "/api/admin/staging/whatsapp-operations-status";
 async function withServer(
@@ -148,6 +148,25 @@ test("worker-only preflight requires exact isolated restricted worker credential
   invalid.forEach(x=>assert.equal(stagingArchiveWorkerProbeConfig(x),null));
 });
 
+test("worker probe blocker is coarse and never exposes a URL or password",()=>{
+  const good = {...isolated,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:
+    "postgresql://kinglike_wa_archive_worker:synthetic-worker@archive-staging.railway.internal:5432/kinglike_whatsapp_archive"};
+  const cases:Array<[NodeJS.ProcessEnv,string|null]> = [
+    [good,null],
+    [{...good,APP_DEPLOYMENT_MODE:"production"},"staging_boundary"],
+    [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_READER_DATABASE_URL:undefined},"reader_audit_configuration"],
+    [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:undefined},"worker_url_missing"],
+    [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"synthetic-unresolved-reference"},"worker_url_invalid"],
+    [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://other:synthetic-worker@archive-staging.railway.internal/kinglike_whatsapp_archive"},"worker_identity_mismatch"],
+    [{...good,WHATSAPP_EMPLOYEE_ARCHIVE_DATABASE_URL:"postgresql://kinglike_wa_archive_worker:synthetic-reader@archive-staging.railway.internal/kinglike_whatsapp_archive"},"worker_secret_invalid"],
+  ];
+  for (const [env,expected] of cases) {
+    const outcome=stagingArchiveWorkerProbeBlocker(env);
+    assert.equal(outcome,expected);
+    assert.ok(!JSON.stringify(outcome).includes("synthetic-worker"));
+  }
+});
+
 test("worker probe rejects production and unauthenticated users and stays dormant",async()=>{
   const endpoint="/api/admin/staging/whatsapp-archive-worker-probe";
   await withServer({...isolated,APP_DEPLOYMENT_MODE:"production"},101,null,
@@ -159,6 +178,7 @@ test("worker probe rejects production and unauthenticated users and stays dorman
     assert.equal(r.status,200);
     const body=await r.json();
     assert.equal(body.worker,"configuration_blocked");
+    assert.equal(body.blocker,"worker_url_missing");
     assert.equal(body.liveArchive,"disabled");
     assert.equal(body.messagesWritten,0);
   });
