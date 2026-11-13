@@ -8,6 +8,7 @@ on:
       - "server/whatsappContactStateDurableInbox.test.ts"
       - "server/whatsappContactStateProcessor.ts"
       - "server/whatsappContactStateProcessor.test.ts"
+      - "server/whatsappCoexistenceThreeQueues.integration.test.ts"
       - "scripts/staging-wa-contact-sync-schema-review.sql"
       - ".github/workflows/whatsapp-coexistence-contact-state.yml"
   push:
@@ -18,6 +19,7 @@ on:
       - "server/whatsappContactStateDurableInbox.test.ts"
       - "server/whatsappContactStateProcessor.ts"
       - "server/whatsappContactStateProcessor.test.ts"
+      - "server/whatsappCoexistenceThreeQueues.integration.test.ts"
       - "scripts/staging-wa-contact-sync-schema-review.sql"
       - ".github/workflows/whatsapp-coexistence-contact-state.yml"
 permissions:
@@ -39,7 +41,7 @@ jobs:
           APP_DEPLOYMENT_MODE: ci-test-disabled
           WHATSAPP_EMPLOYEE_ARCHIVE_PILOT_ENABLED: "false"
           WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
-        run: node --import tsx --test server/whatsappPilotSignedWebhookAdapter.test.ts server/whatsappContactStateDurableInbox.test.ts server/whatsappContactStateProcessor.test.ts
+        run: node --import tsx --test server/whatsappPilotSignedWebhookAdapter.test.ts server/whatsappContactStateDurableInbox.test.ts server/whatsappContactStateProcessor.test.ts server/whatsappCoexistenceThreeQueues.integration.test.ts
       - name: Build without deployments
         env:
           APP_DEPLOYMENT_MODE: ci-test-disabled
