@@ -90,7 +90,7 @@ export class DatabaseStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     if (!email) return undefined;
     return await withRetry(async () => {
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const [user] = await db.select().from(users).where(sql`lower(${users.email}) = ${email.trim().toLowerCase()}`);
       return user;
     });
   }
@@ -587,22 +587,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async verifyCode(phoneNumber: string, code: string): Promise<boolean> {
-    const [record] = await db
-      .select()
-      .from(verificationCodes)
+    const verified = await db
+      .update(verificationCodes)
+      .set({ verified: true })
       .where(
         and(
           eq(verificationCodes.phoneNumber, phoneNumber),
           eq(verificationCodes.code, code),
+          eq(verificationCodes.verified, false),
           gte(verificationCodes.expiresAt, new Date())
         )
-      );
-    if (!record) return false;
-    await db
-      .update(verificationCodes)
-      .set({ verified: true })
-      .where(eq(verificationCodes.id, record.id));
-    return true;
+      )
+      .returning({ id: verificationCodes.id });
+    return verified.length > 0;
   }
 
   async isPhoneVerified(phoneNumber: string): Promise<boolean> {
@@ -612,7 +609,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(verificationCodes.phoneNumber, phoneNumber),
-          eq(verificationCodes.verified, true)
+          eq(verificationCodes.verified, true),
+          gte(verificationCodes.expiresAt, new Date())
         )
       );
     return !!record;

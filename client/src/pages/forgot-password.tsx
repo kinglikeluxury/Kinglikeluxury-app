@@ -8,6 +8,7 @@ import { Link, useLocation } from 'wouter';
 import { Loader2, CheckCircle, Eye, EyeOff, ArrowLeft, Phone, Mail } from 'lucide-react';
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 import { useTranslation } from 'react-i18next';
+import { configuredTurnstileSiteKey, parseHttpError } from '@shared/authFlowUtils';
 
 declare global {
   interface Window {
@@ -40,7 +41,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   // ── Cloudflare Turnstile ─────────────────────────────────────────────────
-  const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string) || '1x00000000000000000000AA';
+  const TURNSTILE_SITE_KEY = configuredTurnstileSiteKey(import.meta.env.VITE_TURNSTILE_SITE_KEY);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
   const turnstileRef = useRef<HTMLDivElement>(null);
@@ -48,6 +49,7 @@ export default function ForgotPasswordPage() {
 
   // Load Turnstile script once
   useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
     if (document.getElementById('cf-turnstile-script')) return;
     const script = document.createElement('script');
     script.id = 'cf-turnstile-script';
@@ -61,7 +63,7 @@ export default function ForgotPasswordPage() {
   }, []);
 
   const renderTurnstile = useCallback(() => {
-    if (!turnstileRef.current || !window.turnstile) return;
+    if (!TURNSTILE_SITE_KEY || !turnstileRef.current || !window.turnstile) return;
     if (turnstileWidgetId.current) {
       try { window.turnstile.remove(turnstileWidgetId.current); } catch {}
       turnstileWidgetId.current = null;
@@ -110,12 +112,18 @@ export default function ForgotPasswordPage() {
         turnstileToken,
         ...(method === 'phone' ? { phoneNumber: fullPhone() } : { email: email.trim() }),
       });
-      toast({ title: t('auth.ifAccountExists') });
+      toast({ title: t('auth.recoveryDeliveryUnconfirmed'), description: t('auth.deliveryUnconfirmed') });
       setStep('verify');
     } catch (e: any) {
-      resetTurnstile();
-      // Never expose provider errors — show generic message
-      toast({ title: t('auth.sendFailed'), description: t('auth.ifAccountExists'), variant: 'destructive' });
+      const apiError = parseHttpError(e);
+      if (apiError.status === 403) {
+        resetTurnstile();
+        toast({ title: t('auth.securityCheckFailed'), description: t('auth.securityCheckRetry'), variant: 'destructive' });
+      } else if (apiError.status === 429) {
+        toast({ title: t('auth.rateLimited'), description: t('auth.rateLimitedRetry'), variant: 'destructive' });
+      } else {
+        toast({ title: t('auth.recoveryUnavailable'), description: t('auth.deliveryRetry'), variant: 'destructive' });
+      }
     } finally {
       setLoading(false);
     }
@@ -160,7 +168,14 @@ export default function ForgotPasswordPage() {
       });
       setStep('done');
     } catch (e: any) {
-      toast({ title: t('auth.invalidCode'), description: e.message || '', variant: 'destructive' });
+      const apiError = parseHttpError(e);
+      if (apiError.status === 429) {
+        toast({ title: t('auth.rateLimited'), description: t('auth.rateLimitedRetry'), variant: 'destructive' });
+      } else if (apiError.status && apiError.status >= 500) {
+        toast({ title: t('auth.recoveryUnavailable'), description: t('auth.deliveryRetry'), variant: 'destructive' });
+      } else {
+        toast({ title: t('auth.invalidCode'), description: t('auth.invalidCodeDesc'), variant: 'destructive' });
+      }
     } finally {
       setLoading(false);
     }
@@ -250,7 +265,11 @@ export default function ForgotPasswordPage() {
               )}
 
               {/* Cloudflare Turnstile challenge */}
-              <div className="flex flex-col items-center gap-1.5">
+              {!TURNSTILE_SITE_KEY ? (
+                <p role="alert" className="text-sm text-destructive text-center">
+                  {t('auth.securityConfigUnavailable')}
+                </p>
+              ) : <div className="flex flex-col items-center gap-1.5">
                 <div
                   key={turnstileKey}
                   ref={turnstileRef}
@@ -261,12 +280,12 @@ export default function ForgotPasswordPage() {
                     {t('auth.completeCaptcha') || 'Complete the security check above to continue'}
                   </p>
                 )}
-              </div>
+              </div>}
 
               <Button
                 className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476] hover:from-[#005476] hover:to-[#3bcac4]"
                 onClick={handleSendCode}
-                disabled={loading || !turnstileToken}
+                disabled={loading || !turnstileToken || !TURNSTILE_SITE_KEY}
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 {loading ? t('auth.sending') : t('auth.sendCode')}

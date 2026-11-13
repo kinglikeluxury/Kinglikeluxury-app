@@ -24,6 +24,7 @@ import { CheckCircle, Loader2, MessageCircle, Smartphone, Mail, Eye, EyeOff, Shi
 import { CountryCodePicker } from '@/components/ui/country-code-picker';
 import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
+import { configuredTurnstileSiteKey, parseHttpError } from '@shared/authFlowUtils';
 
 // ISO2 → dial code mapping for auto-detection
 const COUNTRY_DIAL: Record<string, string> = {
@@ -62,6 +63,7 @@ export default function RegisterPage() {
 
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneAlreadyRegistered, setPhoneAlreadyRegistered] = useState(false);
+  const [emailAlreadyRegistered, setEmailAlreadyRegistered] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [sendingCode, setSendingCode] = useState(false);
@@ -73,6 +75,7 @@ export default function RegisterPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [countdown, setCountdown] = useState(FALLBACK_SECONDS);
   const [emailFallbackActive, setEmailFallbackActive] = useState(false);
+  const [emailFallbackFailed, setEmailFallbackFailed] = useState(false);
   const [emailOtpSending, setEmailOtpSending] = useState(false);
   const [smsFailed, setSmsFailed] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -83,7 +86,7 @@ export default function RegisterPage() {
   const turnstileRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetId = useRef<string | null>(null);
 
-  const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string) || '1x00000000000000000000AA';
+  const TURNSTILE_SITE_KEY = configuredTurnstileSiteKey(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
   const form = useForm<RegistrationValues>({
     resolver: zodResolver(registrationSchema),
@@ -104,6 +107,7 @@ export default function RegisterPage() {
 
   // Load Cloudflare Turnstile script once
   useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
     if (document.getElementById('cf-turnstile-script')) return;
     const script = document.createElement('script');
     script.id = 'cf-turnstile-script';
@@ -118,7 +122,7 @@ export default function RegisterPage() {
 
   // Render Turnstile widget whenever the container mounts or turnstileKey changes
   const renderTurnstile = useCallback(() => {
-    if (!turnstileRef.current || !window.turnstile) return;
+    if (!TURNSTILE_SITE_KEY || !turnstileRef.current || !window.turnstile) return;
     if (turnstileWidgetId.current) {
       try { window.turnstile.remove(turnstileWidgetId.current); } catch {}
       turnstileWidgetId.current = null;
@@ -179,11 +183,13 @@ export default function RegisterPage() {
     const emailValue = form.getValues('email');
     if (!emailValue) return;
     setEmailOtpSending(true);
+    setEmailFallbackFailed(false);
     try {
       await apiRequest('POST', '/api/auth/send-email-otp', { email: emailValue });
       setEmailFallbackActive(true);
     } catch (err: any) {
-      console.warn('[Email OTP] Failed to send email fallback:', err.message);
+      setEmailFallbackFailed(true);
+      console.warn('[Email OTP] Email fallback was not confirmed:', parseHttpError(err));
     } finally {
       setEmailOtpSending(false);
     }
@@ -219,7 +225,20 @@ export default function RegisterPage() {
     } catch (error: any) {
       // CASE 1: SMS failed instantly (Twilio error, geo restriction, etc.)
       // Move to OTP entry stage immediately and send Email OTP right now — no 10s wait.
-      console.warn('[SMS] Send failed, triggering email OTP fallback immediately:', error.message);
+      const apiError = parseHttpError(error);
+      if (apiError.status === 403 || apiError.status === 429) {
+        toast({
+          title: apiError.status === 403 ? t('auth.securityCheckFailed') : t('auth.rateLimited'),
+          description: apiError.status === 403 ? t('auth.securityCheckRetry') : t('auth.rateLimitedRetry'),
+          variant: 'destructive',
+        });
+        if (apiError.status === 403) {
+          setTurnstileToken(null);
+          setTurnstileKey((key) => key + 1);
+        }
+        return;
+      }
+      console.warn('[SMS] Delivery failed; attempting email fallback:', apiError);
       setSmsFailed(true);
       setVerificationSent(true);
       setSentMethod(null);
@@ -279,10 +298,19 @@ export default function RegisterPage() {
       toast({ title: `✅ ${t('auth.successMsg')}` });
       setLocation(redirectTo);
     } catch (error: any) {
-      if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
+      const apiError = parseHttpError(error);
+      if (apiError.code === 'EMAIL_ALREADY_REGISTERED') {
+        setEmailAlreadyRegistered(true);
+      } else if (apiError.code === 'PHONE_ALREADY_REGISTERED' || error.message?.includes('already registered')) {
         setPhoneAlreadyRegistered(true);
+      } else if (apiError.status === 400) {
+        toast({ title: t('auth.invalidCode'), description: t('auth.invalidCodeDesc'), variant: 'destructive' });
+      } else if (apiError.status === 403) {
+        toast({ title: t('auth.securityCheckFailed'), description: t('auth.securityCheckRetry'), variant: 'destructive' });
+      } else if (apiError.status === 429) {
+        toast({ title: t('auth.rateLimited'), description: t('auth.rateLimitedRetry'), variant: 'destructive' });
       } else {
-        toast({ title: t('auth.invalidCode'), description: error.message || '', variant: 'destructive' });
+        toast({ title: t('auth.registrationFailed'), description: t('auth.registrationRetry'), variant: 'destructive' });
       }
     } finally {
       setVerifyingCode(false);
@@ -292,6 +320,8 @@ export default function RegisterPage() {
   const handleReset = () => {
     setVerificationSent(false);
     setEmailFallbackActive(false);
+    setEmailFallbackFailed(false);
+    setEmailAlreadyRegistered(false);
     setSmsFailed(false);
     setVerificationCode('');
     setCountdown(FALLBACK_SECONDS);
@@ -364,6 +394,10 @@ export default function RegisterPage() {
                       placeholder="you@example.com"
                       disabled={verificationSent}
                       {...field}
+                      onChange={(event) => {
+                        field.onChange(event);
+                        setEmailAlreadyRegistered(false);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -444,7 +478,12 @@ export default function RegisterPage() {
               )}
 
               {/* Cloudflare Turnstile security challenge */}
-              {!verificationSent && privacyAccepted && (
+              {!TURNSTILE_SITE_KEY && (
+                <p role="alert" className="text-sm text-destructive text-center">
+                  {t('auth.securityConfigUnavailable')}
+                </p>
+              )}
+              {!verificationSent && privacyAccepted && TURNSTILE_SITE_KEY && (
                 <div className="flex flex-col items-center gap-1.5">
                   <div
                     key={turnstileKey}
@@ -469,7 +508,7 @@ export default function RegisterPage() {
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                   onClick={handleSendCode}
-                  disabled={sendingCode || !privacyAccepted || !turnstileToken}
+                  disabled={sendingCode || !privacyAccepted || !turnstileToken || !TURNSTILE_SITE_KEY}
                 >
                   {sendingCode && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {sendingCode ? t('auth.sending') : t('auth.sendCode')}
@@ -515,6 +554,19 @@ export default function RegisterPage() {
                     <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-purple-50 text-purple-700">
                       <Mail className="h-3.5 w-3.5 shrink-0" />
                       {smsFailed ? t('auth.smsFailedEmailSent') : t('auth.sentViaEmail')}
+                    </div>
+                  )}
+                  {emailFallbackFailed && (
+                    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                      <p>{t('auth.emailFallbackDeliveryFailed')}</p>
+                      <button
+                        type="button"
+                        className="mt-2 font-medium underline"
+                        onClick={triggerEmailFallback}
+                        disabled={emailOtpSending}
+                      >
+                        {emailOtpSending ? t('auth.emailSending') : t('auth.resend')}
+                      </button>
                     </div>
                   )}
 
@@ -601,6 +653,20 @@ export default function RegisterPage() {
                       {t('auth.useDifferentNumber')}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {emailAlreadyRegistered && (
+                <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                  <p className="text-sm font-medium text-amber-800 text-center">
+                    {t('auth.emailAlreadyRegistered')}
+                  </p>
+                  <Button type="button" className="w-full bg-gradient-to-r from-[#3bcac4] to-[#005476]" onClick={() => setLocation('/login')}>
+                    {t('auth.useLogin')}
+                  </Button>
+                  <Button type="button" variant="outline" className="w-full border-[#3bcac4] text-[#3bcac4]" onClick={() => setLocation('/forgot-password')}>
+                    {t('auth.forgotPassword')}
+                  </Button>
                 </div>
               )}
 

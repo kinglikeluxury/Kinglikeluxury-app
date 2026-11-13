@@ -221,8 +221,11 @@ export async function sendEmailOtp(email: string, code: string): Promise<void> {
     html,
     text: `Your Kinglike Luxury verification code is: ${code}\n\nValid for 10 minutes.`,
   });
-  if (result.error) throw new Error(result.error.message);
-  console.log(`[Email] ✅ Email OTP sent to ${email}`);
+  if (result.error) {
+    const safeError = new Error("Email OTP delivery failed") as Error & { providerCode?: string };
+    safeError.providerCode = String((result.error as any).name || (result.error as any).statusCode || "provider_error");
+    throw safeError;
+  }
 }
 
 export async function sendNewPropertyNotification(property: {

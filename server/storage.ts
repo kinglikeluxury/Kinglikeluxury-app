@@ -208,7 +208,7 @@ export class MemStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.email === email
+      (user) => user.email?.trim().toLowerCase() === email.trim().toLowerCase()
     );
   }
 
@@ -490,15 +490,16 @@ export class MemStorage implements IStorage {
   async verifyCode(phoneNumber: string, code: string): Promise<boolean> {
     const record = this.verificationCodes.get(phoneNumber);
     if (!record) return false;
+    if (record.verified) return false;
     if (record.code !== code) return false;
-    if (new Date() > record.expiresAt) return false;
+    if (Date.now() >= record.expiresAt.getTime()) return false;
     record.verified = true;
     return true;
   }
 
   async isPhoneVerified(phoneNumber: string): Promise<boolean> {
     const record = this.verificationCodes.get(phoneNumber);
-    return record?.verified === true;
+    return Boolean(record?.verified && Date.now() < record.expiresAt.getTime());
   }
 
   async createContactLog(_data: {

@@ -1,6 +1,7 @@
 import type { Express, Request, Response, RequestHandler } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import { randomInt } from "node:crypto";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
 import bcrypt from "bcrypt";
@@ -35,6 +36,7 @@ import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment"
 // } from "./objectStorage";
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
+import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail, registrationConflictResponse, uniqueUserFieldFromError } from "@shared/authFlowUtils";
 
 import path from "path";
 import fs from "fs";
@@ -1048,10 +1050,23 @@ ${metaTags}
     return `${id.slice(0, 4)}****${id.slice(-3)}`;
   }
 
+  function safeOtpErrorDiagnostic(error: unknown): string {
+    if (!error || typeof error !== "object") return "unknown_error";
+    const value = error as { name?: unknown; code?: unknown; providerCode?: unknown; status?: unknown; statusCode?: unknown };
+    const safe = (part: unknown) => String(part ?? "").replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 40);
+    return [
+      value.name && `name=${safe(value.name)}`,
+      (value.providerCode || value.code) && `code=${safe(value.providerCode || value.code)}`,
+      (value.statusCode || value.status) && `status=${safe(value.statusCode || value.status)}`,
+    ].filter(Boolean).join(" ") || "provider_error";
+  }
+
   // Per-identifier (phone / email) rate limit: max 3 per 15 min
   const smsOtpRateLimit   = new Map<string, number[]>();
   const emailOtpRateLimit = new Map<string, number[]>();
+  const emailOtpVerifyRateLimit = new Map<string, number[]>();
   const passwordResetRateLimit = new Map<string, number[]>();
+  const passwordResetVerifyRateLimit = new Map<string, number[]>();
 
   function checkOtpRateLimit(
     map: Map<string, number[]>,
@@ -1124,6 +1139,10 @@ ${metaTags}
    */
   async function verifyTurnstile(token: string | undefined, ip: string): Promise<boolean> {
     const secret = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
+    if (process.env.NODE_ENV === 'production' && isTurnstileTestSecret(secret)) {
+      console.error('[Turnstile] Test secret configured in production — blocking request.');
+      return false;
+    }
     if (!secret) {
       // Development-only bypass: no secret means no Cloudflare account is configured.
       if (process.env.NODE_ENV === 'production') {
@@ -1140,12 +1159,20 @@ ${metaTags}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secret, response: token, remoteip: ip }),
       });
-      const data = await r.json() as { success: boolean };
+      if (!r.ok) {
+        console.error(`[Turnstile] Siteverify returned HTTP ${r.status}; request blocked.`);
+        return false;
+      }
+      const data = await r.json() as { success: boolean; ["error-codes"]?: string[] };
+      if (data.success !== true && data["error-codes"]?.length) {
+        const codes = data["error-codes"].map((code) => code.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40)).join(",");
+        console.warn(`[Turnstile] Token rejected (${codes || "unspecified"}).`);
+      }
       return data.success === true;
     } catch (err) {
       // Fail-closed: if Cloudflare is unreachable in production, block the request.
       // This prevents an outage from silently disabling bot protection.
-      console.error('[Turnstile] Verification request failed — blocking request:', err);
+      console.error('[Turnstile] Verification request failed — blocking request:', safeOtpErrorDiagnostic(err));
       return false;
     }
   }
@@ -1191,7 +1218,7 @@ ${metaTags}
         return res.status(500).json({ message: "Messaging service not configured" });
       }
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const code = randomInt(100000, 1000000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       await storage.createVerificationCode(phoneNumber, code, expiresAt);
 
@@ -1211,14 +1238,14 @@ ${metaTags}
       } catch {
         await twilioClient.messages.create({ body: smsBody, to: phoneNumber, from: fromNumber });
       }
-      console.log(`✅ SMS OTP sent to ${phoneNumber}`);
+      console.log(`[OTP] SMS delivery succeeded (${maskIdentifier(phoneNumber)})`);
 
       addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'sent', method: method as 'whatsapp' | 'sms', userAgent: ua });
       res.json({ success: true, method, message: method === "whatsapp" ? "Verification code sent via WhatsApp" : "Verification code sent via SMS" });
     } catch (error: any) {
       addOtpLog({ type: 'sms', identifier: maskIdentifier(req.body?.phoneNumber || '?'), ip, result: 'error', userAgent: ua });
-      console.error("OTP send error:", error);
-      res.status(500).json({ message: error.message || "Failed to send verification code" });
+      console.error("[OTP] SMS delivery failed:", safeOtpErrorDiagnostic(error));
+      res.status(503).json({ code: "DELIVERY_UNAVAILABLE", message: "We could not send a verification code. Please try again later." });
     }
   });
 
@@ -1238,7 +1265,7 @@ ${metaTags}
 
       res.json({ success: true, verified: true });
     } catch (error: any) {
-      console.error("Verify code error:", error);
+      console.error("[OTP] SMS verification failed:", safeOtpErrorDiagnostic(error));
       res.status(500).json({ message: error.message || "Verification failed" });
     }
   });
@@ -1270,16 +1297,18 @@ ${metaTags}
         return res.status(429).json({ message: "Too many email OTP attempts. Please wait 15 minutes." });
       }
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const code = randomInt(100000, 1000000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      emailOtpStore.set(email.toLowerCase(), { code, expiresAt, verified: false });
+      const key = normalizeAuthEmail(email);
       await sendEmailOtp(email, code);
+      emailOtpStore.set(key, { code, expiresAt, verified: false });
       addOtpLog({ type: 'email', identifier: maskIdentifier(email), ip, result: 'sent', userAgent: ua });
       res.json({ success: true });
     } catch (err: any) {
       addOtpLog({ type: 'email', identifier: maskIdentifier(req.body?.email || '?'), ip, result: 'error', userAgent: ua });
-      console.error("Email OTP send error:", err);
-      res.status(500).json({ message: err.message || "Failed to send email verification code" });
+      if (typeof req.body?.email === "string") emailOtpStore.delete(normalizeAuthEmail(req.body.email));
+      console.error("[OTP] Email verification delivery failed:", safeOtpErrorDiagnostic(err));
+      res.status(503).json({ code: "DELIVERY_UNAVAILABLE", message: "We could not send a verification code. Please try again later." });
     }
   });
 
@@ -1290,19 +1319,22 @@ ${metaTags}
       if (!email || !code) {
         return res.status(400).json({ message: "Email and code are required" });
       }
-      const key = email.toLowerCase();
+      const key = normalizeAuthEmail(email);
+      if (!checkOtpRateLimit(emailOtpVerifyRateLimit, key, 5)) {
+        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many verification attempts. Request a new code later." });
+      }
       const record = emailOtpStore.get(key);
-      if (!record || new Date() > record.expiresAt) {
+      if (!record || Date.now() >= record.expiresAt.getTime()) {
         return res.status(400).json({ message: "Invalid or expired verification code" });
       }
-      if (record.code !== code) {
+      if (!record || record.verified || !isOtpActive(record, String(code))) {
         return res.status(400).json({ message: "Invalid verification code" });
       }
       emailOtpStore.set(key, { ...record, verified: true });
       res.json({ success: true, verified: true });
     } catch (err: any) {
-      console.error("Email verify error:", err);
-      res.status(500).json({ message: err.message || "Verification failed" });
+      console.error("[OTP] Email verification failed:", safeOtpErrorDiagnostic(err));
+      res.status(503).json({ code: "VERIFICATION_UNAVAILABLE", message: "Verification is temporarily unavailable." });
     }
   });
 
@@ -1310,7 +1342,10 @@ ${metaTags}
   app.post("/api/auth/send-reset-otp", async (req, res) => {
     const ip = getClientIp(req);
     const ua = String(req.headers['user-agent'] || '').slice(0, 300);
-    const GENERIC_OK = { message: "If an account exists, a verification code will be sent." };
+    const GENERIC_OK = {
+      code: "RECOVERY_REQUEST_ACCEPTED",
+      message: "If an account exists, a code may be sent. We cannot confirm delivery; if it does not arrive, try again later.",
+    };
     try {
       const { method, phoneNumber, email, turnstileToken } = req.body;
 
@@ -1318,18 +1353,18 @@ ${metaTags}
       const ipStatus = checkIpOtpLimit(ip);
       if (ipStatus === 'blocked') {
         addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_blocked', userAgent: ua });
-        return res.status(429).json({ message: "Too many requests from your network. Please try again later." });
+        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many requests. Please wait before trying again." });
       }
       if (ipStatus === 'rate_limited') {
         addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_rate_limited', userAgent: ua });
-        return res.status(429).json({ message: "Too many requests from your network. Please wait 10 minutes." });
+        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many requests. Please wait before trying again." });
       }
 
       // 2. Turnstile CAPTCHA verification (blocks bots before any Twilio call)
       const captchaOk = await verifyTurnstile(turnstileToken, ip);
       if (!captchaOk) {
         addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'captcha_failed', userAgent: ua });
-        return res.status(403).json({ message: "Security verification failed. Please refresh the page and try again." });
+        return res.status(403).json({ code: "SECURITY_VALIDATION_FAILED", message: "Security verification failed. Please complete the check again." });
       }
 
       if (method === 'phone') {
@@ -1338,10 +1373,10 @@ ${metaTags}
         }
         if (!checkOtpRateLimit(passwordResetRateLimit, phoneNumber)) {
           addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber), ip, result: 'phone_rate_limited', userAgent: ua });
-          return res.status(429).json({ message: "Too many reset attempts. Please wait 15 minutes." });
+          return res.status(429).json({ code: "RATE_LIMITED", message: "Too many reset attempts. Please wait 15 minutes." });
         }
 
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const code = randomInt(100000, 1000000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         const msgBody = `🔐 Kinglike Luxury\nPassword reset code: ${code}\nValid for 10 minutes.`;
         let codeSent = false;
@@ -1358,7 +1393,7 @@ ${metaTags}
             }
             codeSent = true;
           } catch (smsErr: any) {
-            console.warn('[Reset OTP] SMS failed:', smsErr.message);
+            console.warn(`[Reset OTP] SMS delivery failed for ${maskIdentifier(phoneNumber)}:`, safeOtpErrorDiagnostic(smsErr));
           }
         }
 
@@ -1371,7 +1406,7 @@ ${metaTags}
               codeSent = true;
             }
           } catch (emailErr: any) {
-            console.warn('[Reset OTP] Email fallback failed:', emailErr.message);
+            console.warn(`[Reset OTP] Email fallback failed for ${maskIdentifier(phoneNumber)}:`, safeOtpErrorDiagnostic(emailErr));
           }
         }
 
@@ -1385,30 +1420,36 @@ ${metaTags}
         if (!email || typeof email !== 'string') {
           return res.status(400).json({ message: "Email required" });
         }
-        const emailKey = email.toLowerCase().trim();
+        const emailKey = normalizeAuthEmail(email);
         if (!checkOtpRateLimit(passwordResetRateLimit, emailKey)) {
-          return res.status(429).json({ message: "Too many reset attempts. Please wait 10 minutes." });
+          return res.status(429).json({ code: "RATE_LIMITED", message: "Too many reset attempts. Please wait 10 minutes." });
         }
 
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const code = randomInt(100000, 1000000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         try {
           const user = await storage.getUserByEmail(emailKey);
           if (user) {
-            await sendEmailOtp(emailKey, code);
-            passwordResetStore.set(`email:${emailKey}`, { code, expiresAt });
+            try {
+              await sendEmailOtp(emailKey, code);
+              passwordResetStore.set(`email:${emailKey}`, { code, expiresAt });
+              addOtpLog({ type: 'reset', identifier: maskIdentifier(emailKey), ip, result: 'sent', userAgent: ua });
+            } catch (deliveryError) {
+              console.warn(`[Reset OTP] Email delivery failed for ${maskIdentifier(emailKey)}:`, safeOtpErrorDiagnostic(deliveryError));
+              passwordResetStore.delete(`email:${emailKey}`);
+            }
           }
         } catch (err: any) {
-          console.warn('[Reset OTP] Email send failed:', err.message);
+          console.warn(`[Reset OTP] Email request failed for ${maskIdentifier(emailKey)}:`, safeOtpErrorDiagnostic(err));
         }
         return res.json(GENERIC_OK);
       }
 
       return res.status(400).json({ message: "Method must be 'phone' or 'email'" });
     } catch (err: any) {
-      console.error("Send reset OTP error:", err);
-      res.status(500).json({ message: "Failed to send verification code" });
+        console.error("[Reset OTP] Request failed:", safeOtpErrorDiagnostic(err));
+      res.status(503).json({ code: "RECOVERY_UNAVAILABLE", message: "Recovery is temporarily unavailable. Please try again later." });
     }
   });
 
@@ -1419,19 +1460,23 @@ ${metaTags}
       if (!code) return res.status(400).json({ message: "Code required" });
 
       let record: { code: string; expiresAt: Date } | undefined;
+      const verifyIdentifier = method === "phone" ? `phone:${phoneNumber || ""}` : `email:${typeof email === "string" ? normalizeAuthEmail(email) : ""}`;
+      if (!checkOtpRateLimit(passwordResetVerifyRateLimit, verifyIdentifier, 5)) {
+        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many verification attempts. Request a new code later." });
+      }
       if (method === 'phone' && phoneNumber) {
         record = passwordResetStore.get(`phone:${phoneNumber}`);
       } else if (method === 'email' && email) {
-        record = passwordResetStore.get(`email:${(email as string).toLowerCase().trim()}`);
+        record = passwordResetStore.get(`email:${normalizeAuthEmail(email as string)}`);
       }
 
-      if (!record || new Date() > record.expiresAt || record.code !== code) {
+      if (!isOtpActive(record, String(code))) {
         return res.status(400).json({ message: "Invalid or expired verification code" });
       }
       res.json({ success: true });
     } catch (err: any) {
-      console.error("Verify reset OTP error:", err);
-      res.status(500).json({ message: "Verification failed" });
+      console.error("[Reset OTP] Code verification failed:", safeOtpErrorDiagnostic(err));
+      res.status(503).json({ code: "VERIFICATION_UNAVAILABLE", message: "Verification is temporarily unavailable." });
     }
   });
 
@@ -1447,37 +1492,44 @@ ${metaTags}
         return res.status(400).json({ message: "Password must be at least 6 characters" });
       }
 
-      const INVALID = { message: "Invalid or expired verification code" };
+      const INVALID = { code: "INVALID_OR_EXPIRED_CODE", message: "Invalid or expired verification code" };
       let user: any = null;
+      let resetKey: string | null = null;
+      const resetIdentifier = method === "phone" ? `phone:${phoneNumber || ""}` : `email:${typeof email === "string" ? normalizeAuthEmail(email) : ""}`;
+      if (!checkOtpRateLimit(passwordResetVerifyRateLimit, resetIdentifier, 5)) {
+        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many verification attempts. Request a new code later." });
+      }
 
       if (method === 'phone' && phoneNumber) {
-        const record = passwordResetStore.get(`phone:${phoneNumber}`);
-        if (!record || new Date() > record.expiresAt || record.code !== code) {
+        resetKey = `phone:${phoneNumber}`;
+        const record = passwordResetStore.get(resetKey);
+        if (!isOtpActive(record, String(code))) {
           return res.status(400).json(INVALID);
         }
         user = await storage.getUserByPhone(phoneNumber);
-        passwordResetStore.delete(`phone:${phoneNumber}`);
       } else if (method === 'email' && email) {
-        const emailKey = (email as string).toLowerCase().trim();
-        const record = passwordResetStore.get(`email:${emailKey}`);
-        if (!record || new Date() > record.expiresAt || record.code !== code) {
+        const emailKey = normalizeAuthEmail(email as string);
+        resetKey = `email:${emailKey}`;
+        const record = passwordResetStore.get(resetKey);
+        if (!isOtpActive(record, String(code))) {
           return res.status(400).json(INVALID);
         }
         user = await storage.getUserByEmail(emailKey);
-        passwordResetStore.delete(`email:${emailKey}`);
       } else {
         return res.status(400).json({ message: "Phone number or email required" });
       }
 
       if (!user) {
-        return res.status(404).json({ message: "Account not found" });
+        if (resetKey) passwordResetStore.delete(resetKey);
+        return res.json({ success: true });
       }
 
       await storage.updateUserPassword(user.id, newPassword);
+      if (resetKey) passwordResetStore.delete(resetKey);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Reset password error:", error);
-      res.status(500).json({ message: "Failed to reset password" });
+      console.error("[Reset OTP] Password update failed:", safeOtpErrorDiagnostic(error));
+      res.status(503).json({ code: "RECOVERY_UNAVAILABLE", message: "Recovery is temporarily unavailable." });
     }
   });
 
@@ -1485,6 +1537,7 @@ ${metaTags}
   app.post("/api/auth/register", async (req, res) => {
     try {
       const { username, password, email, phoneNumber, authMethod } = req.body;
+      const emailKey = typeof email === "string" && email.trim() ? normalizeAuthEmail(email) : null;
 
       if (!username || typeof username !== 'string' || username.length < 3) {
         return res.status(400).json({ message: "Username must be at least 3 characters" });
@@ -1502,27 +1555,32 @@ ${metaTags}
       // Enforce phone verification — allow email OTP as fallback
       if (phoneNumber) {
         const isPhoneVerified = await storage.isPhoneVerified(phoneNumber);
-        const emailRecord = email ? emailOtpStore.get(email.toLowerCase()) : null;
-        const isEmailVerified = emailRecord?.verified === true;
+        const emailRecord = emailKey ? emailOtpStore.get(emailKey) : null;
+        const isEmailVerified = emailRecord?.verified === true && Date.now() < emailRecord.expiresAt.getTime();
 
         if (!isPhoneVerified && !isEmailVerified) {
           return res.status(400).json({ message: "Phone number must be verified before registration" });
-        }
-        const existingPhone = await storage.getUserByPhone(phoneNumber);
-        if (existingPhone) {
-          return res.status(400).json({ message: "Phone number already registered" });
         }
       } else if (authMethod === 'phone') {
         return res.status(400).json({ message: "Phone number is required" });
       }
 
+      if (emailKey && await storage.getUserByEmail(emailKey)) {
+        return res.status(409).json({
+          code: "EMAIL_ALREADY_REGISTERED",
+          message: "An account with this email already exists. Sign in or reset your password.",
+        });
+      }
+      if (phoneNumber && await storage.getUserByPhone(phoneNumber)) {
+        const conflict = registrationConflictResponse("phoneNumber");
+        return res.status(conflict.status).json(conflict.body);
+      }
+
       const user = await storage.createUser({
         username,
         password,
-        email: email || null,
-        phoneNumber: phoneNumber || null,
-        whatsappNumber: null,
-        facebookId: null,
+        email: emailKey ?? undefined,
+        phoneNumber: phoneNumber || undefined,
         authMethod: authMethod || 'phone',
         isAdmin: false,
         isVerified: true,
@@ -1531,6 +1589,7 @@ ${metaTags}
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;
       req.session.role = user.role ?? "user";
+      if (emailKey) emailOtpStore.delete(emailKey);
 
       // Fire-and-forget welcome notifications
       sendWelcomeEmail(user).catch(() => {});
@@ -1547,8 +1606,13 @@ ${metaTags}
 
       res.status(201).json(userResponse);
     } catch (error) {
-      console.error("Register error:", error);
-      res.status(500).json({ message: (error as any)?.message || "Server error" });
+      const uniqueField = uniqueUserFieldFromError(error);
+      if (uniqueField) {
+        const conflict = registrationConflictResponse(uniqueField);
+        return res.status(conflict.status).json(conflict.body);
+      }
+      console.error("[Auth] Registration failed:", safeOtpErrorDiagnostic(error));
+      res.status(500).json({ code: "REGISTRATION_UNAVAILABLE", message: "Registration could not be completed. Please try again." });
     }
   });
 
