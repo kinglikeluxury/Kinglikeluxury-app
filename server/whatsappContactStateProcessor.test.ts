@@ -42,6 +42,11 @@ function push(raw:Buffer) {
   return id;
 }
 function clone<T>(x:T):T {
+  if(x instanceof Map)return new Map([...x.entries()].map(([key,value])=>[
+    key,Object.fromEntries(Object.entries(value).map(([name,item])=>[
+      name,Buffer.isBuffer(item)?Buffer.from(item):item,
+    ])),
+  ])) as T;
   return structuredClone(x);
 }
 let authorized=true,dbFail=false;
