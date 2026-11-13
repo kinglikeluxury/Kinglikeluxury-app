@@ -1,0 +1,43 @@
+name: Staging Meta Coexistence contact-state intake (synthetic only)
+on:
+  pull_request:
+    paths:
+      - "server/whatsappPilotSignedWebhookAdapter.ts"
+      - "server/whatsappPilotSignedWebhookAdapter.test.ts"
+      - "server/whatsappContactStateDurableInbox.ts"
+      - "server/whatsappContactStateDurableInbox.test.ts"
+      - "scripts/staging-wa-contact-sync-schema-review.sql"
+      - ".github/workflows/whatsapp-coexistence-contact-state.yml"
+  push:
+    paths:
+      - "server/whatsappPilotSignedWebhookAdapter.ts"
+      - "server/whatsappPilotSignedWebhookAdapter.test.ts"
+      - "server/whatsappContactStateDurableInbox.ts"
+      - "server/whatsappContactStateDurableInbox.test.ts"
+      - "scripts/staging-wa-contact-sync-schema-review.sql"
+      - ".github/workflows/whatsapp-coexistence-contact-state.yml"
+permissions:
+  contents: read
+jobs:
+  verify-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install without side effects
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify strict signed routing and encrypted contact queue without DB/Meta
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_EMPLOYEE_ARCHIVE_PILOT_ENABLED: "false"
+          WHATSAPP_EMPLOYEE_MONITORING_ENABLED: "false"
+        run: node --import tsx --test server/whatsappPilotSignedWebhookAdapter.test.ts server/whatsappContactStateDurableInbox.test.ts
+      - name: Build without deployments
+        env:
+          APP_DEPLOYMENT_MODE: ci-test-disabled
+          WHATSAPP_EMPLOYEE_ARCHIVE_PILOT_ENABLED: "false"
+        run: npm run build
