@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { BlogPost } from "@shared/schema";
@@ -60,6 +61,7 @@ const STATUS_CONFIG = {
 
 const BlogManagement = () => {
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [editingPost, setEditingPost] = useState<BlogPostWithAuthor | null>(null);
@@ -421,6 +423,18 @@ const BlogManagement = () => {
                       <span className="text-xl">🇨🇾</span>
                       N. Cyprus (TRNC)
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setCountry("azerbaijan")}
+                      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition font-medium ${
+                        country === "azerbaijan"
+                          ? "border-[#3bcac4] bg-[#3bcac4]/10 text-[#005476]"
+                          : "border-gray-200 hover:border-gray-300 text-gray-500"
+                      }`}
+                    >
+                      <span className="text-xl">🇦🇿</span>
+                      {t("countries.azerbaijan", "Azerbaijan")}
+                    </button>
                   </div>
                 </div>
 
@@ -650,7 +664,7 @@ const BlogManagement = () => {
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="text-lg font-semibold text-[#005476] truncate">{post.title}</h3>
                         <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0">
-                          {(post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : (post as any).country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
+                          {(post as any).country === 'azerbaijan' ? `🇦🇿 ${t("countries.azerbaijan", "Azerbaijan")}` : (post as any).country === 'uae' ? '🇦🇪 UAE' : (post as any).country === 'turkey' ? '🇹🇷 Turkey' : (post as any).country === 'northern-cyprus' ? '🇨🇾 N. Cyprus' : '🇬🇪 Georgia'}
                         </span>
                         {post.published ? (
                           <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full shrink-0">

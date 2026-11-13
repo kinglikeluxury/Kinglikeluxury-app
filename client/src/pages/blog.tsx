@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarDays, User, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAutoTranslate, needsTranslation } from "@/hooks/useAutoTranslate";
+import { getBlogCountryOption } from "@shared/blogCountries";
 
 function BlogPostCard({ post, lang }: { post: any; lang: string }) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const currentLang = i18n.language?.split("-")[0] || "en";
 
   const rawExcerpt = post.excerpt || (post.content ? post.content.replace(/<[^>]*>/g, "").substring(0, 150) + "..." : "");
@@ -33,7 +34,7 @@ function BlogPostCard({ post, lang }: { post: any; lang: string }) {
             <div className="absolute top-3 left-3">
               <span className="text-xs bg-white/90 backdrop-blur-sm text-[#005476] px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
-                {post.country === "uae" ? "🇦🇪 UAE" : post.country === "turkey" ? "🇹🇷 Turkey" : post.country === "northern-cyprus" ? "🇨🇾 N. Cyprus" : "🇬🇪 Georgia"}
+                {getBlogCountryOption(post.country).flag} {t(getBlogCountryOption(post.country).translationKey, getBlogCountryOption(post.country).fallback)}
               </span>
             </div>
           </div>
@@ -166,6 +167,16 @@ export default function Blog() {
             }`}
           >
             <span>🇨🇾</span> {t("countries.northernCyprus", "N. Cyprus")}
+          </button>
+          <button
+            onClick={() => setCountryFilter("azerbaijan")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
+              countryFilter === "azerbaijan"
+                ? "bg-[#005476] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:border-[#3bcac4]"
+            }`}
+          >
+            <span>🇦🇿</span> {t("countries.azerbaijan", "Azerbaijan")}
           </button>
         </div>
 

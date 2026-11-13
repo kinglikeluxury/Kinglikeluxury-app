@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect } from "react";
 import { useContentProtection } from "@/hooks/use-content-protection";
 import { useAutoTranslate, useAutoTranslateText } from "@/hooks/useAutoTranslate";
+import { getBlogCountryOption } from "@shared/blogCountries";
 
 const SUPPORTED_LANGS = ["en", "ar", "fa", "tr", "ru", "ka", "az", "he", "zh", "pl", "it", "nl", "de", "sv", "fr"];
 const BASE_URL = "https://www.kinglikeluxury.app";
@@ -185,7 +186,7 @@ export default function BlogPostLang() {
               {post.country && (
                 <span className="inline-flex items-center gap-1 bg-[#005476]/10 text-[#005476] px-3 py-1 rounded-full font-medium">
                   <MapPin className="w-3.5 h-3.5" />
-                  {post.country === "uae" ? "🇦🇪 UAE" : post.country === "turkey" ? "🇹🇷 Turkey" : post.country === "northern-cyprus" ? "🇨🇾 N. Cyprus" : "🇬🇪 Georgia"}
+                  {getBlogCountryOption(post.country).flag} {t(getBlogCountryOption(post.country).translationKey, getBlogCountryOption(post.country).fallback)}
                 </span>
               )}
               <div className="flex items-center gap-1.5">

@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { randomInt } from "node:crypto";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
+import { filterBlogPostsByCountry } from "@shared/blogCountries";
 import bcrypt from "bcrypt";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
@@ -2174,7 +2175,7 @@ ${metaTags}
       let blogPosts = await storage.getBlogPosts(filters);
       
       if (countryFilter && countryFilter !== 'all') {
-        blogPosts = blogPosts.filter((p: any) => p.country === countryFilter);
+        blogPosts = filterBlogPostsByCountry(blogPosts, String(countryFilter));
       }
 
       if (lang) {
