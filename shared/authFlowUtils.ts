@@ -18,6 +18,28 @@ export function isOtpActive(
   );
 }
 
+export function consumeOtpRecord(
+  record: { code: string; expiresAt: Date; verified: boolean } | undefined,
+  candidate: string,
+  now = Date.now(),
+): boolean {
+  if (!record || record.verified || !isOtpActive(record, candidate, now)) return false;
+  record.verified = true;
+  return true;
+}
+
+export async function verifyStoredPassword(
+  storedPassword: string | null | undefined,
+  candidate: string,
+  compareBcrypt: (plainText: string, hash: string) => Promise<boolean>,
+): Promise<boolean> {
+  if (!storedPassword) return false;
+  if (storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2a$")) {
+    return compareBcrypt(candidate, storedPassword);
+  }
+  return storedPassword === candidate;
+}
+
 export function uniqueUserFieldFromError(error: unknown): UniqueUserField | null {
   let current: unknown = error;
   for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {

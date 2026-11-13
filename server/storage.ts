@@ -15,6 +15,7 @@ import {
   PROPERTY_TYPES
 } from "@shared/schema";
 import { propertyLocationMatches } from "./propertyLocationFilter";
+import { consumeOtpRecord } from "@shared/authFlowUtils";
 
 export interface IStorage {
   // User operations
@@ -489,12 +490,7 @@ export class MemStorage implements IStorage {
 
   async verifyCode(phoneNumber: string, code: string): Promise<boolean> {
     const record = this.verificationCodes.get(phoneNumber);
-    if (!record) return false;
-    if (record.verified) return false;
-    if (record.code !== code) return false;
-    if (Date.now() >= record.expiresAt.getTime()) return false;
-    record.verified = true;
-    return true;
+    return consumeOtpRecord(record, code);
   }
 
   async isPhoneVerified(phoneNumber: string): Promise<boolean> {

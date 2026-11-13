@@ -36,7 +36,7 @@ import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment"
 // } from "./objectStorage";
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
-import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail, registrationConflictResponse, uniqueUserFieldFromError } from "@shared/authFlowUtils";
+import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail, registrationConflictResponse, uniqueUserFieldFromError, verifyStoredPassword } from "@shared/authFlowUtils";
 
 import path from "path";
 import fs from "fs";
@@ -1566,10 +1566,8 @@ ${metaTags}
       }
 
       if (emailKey && await storage.getUserByEmail(emailKey)) {
-        return res.status(409).json({
-          code: "EMAIL_ALREADY_REGISTERED",
-          message: "An account with this email already exists. Sign in or reset your password.",
-        });
+        const conflict = registrationConflictResponse("email");
+        return res.status(conflict.status).json(conflict.body);
       }
       if (phoneNumber && await storage.getUserByPhone(phoneNumber)) {
         const conflict = registrationConflictResponse("phoneNumber");
@@ -1650,10 +1648,7 @@ ${metaTags}
         
         user = await storage.getUserByUsername(username);
         
-        const _emailPassOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password)
-          : user.password === password;
-        if (!user || !_emailPassOk) {
+        if (!user || !(await verifyStoredPassword(user.password, password, (plainText, hash) => bcrypt.compare(plainText, hash)))) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
       } 
@@ -1712,10 +1707,7 @@ ${metaTags}
         }
 
         // Generic error — never reveal whether username/email/phone exists or which field failed
-        const _passOk = user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$")
-          ? await bcrypt.compare(password, user.password!)
-          : user.password === password;
-        if (!user || !_passOk) {
+        if (!user || !(await verifyStoredPassword(user.password, password, (plainText, hash) => bcrypt.compare(plainText, hash)))) {
           return res.status(401).json({ message: "Invalid login credentials." });
         }
       }

@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   configuredTurnstileSiteKey,
+  consumeOtpRecord,
   isOtpActive,
   isTurnstileTestSecret,
   normalizeAuthEmail,
   parseHttpError,
   registrationConflictResponse,
   uniqueUserFieldFromError,
+  verifyStoredPassword,
 } from "./authFlowUtils";
 
 test("normalizes email identifiers consistently", () => {
@@ -21,6 +23,26 @@ test("OTP validation rejects wrong, malformed, and expired values", () => {
   assert.equal(isOtpActive(active, "12345", now), false);
   assert.equal(isOtpActive(active, "654321", now), false);
   assert.equal(isOtpActive(active, "123456", now + 60_000), false);
+});
+
+test("consumes an OTP exactly once and rejects expired records", () => {
+  const now = 1_000_000;
+  const active = { code: "123456", expiresAt: new Date(now + 60_000), verified: false };
+  assert.equal(consumeOtpRecord(active, "123456", now), true);
+  assert.equal(consumeOtpRecord(active, "123456", now), false);
+  assert.equal(consumeOtpRecord({ ...active, verified: false }, "123456", now + 60_000), false);
+});
+
+test("password verification rejects missing accounts and preserves legacy and bcrypt checks", async () => {
+  let compared = false;
+  const compare = async (plainText: string, hash: string) => {
+    compared = true;
+    return plainText === "password" && hash === "$2b$hash";
+  };
+  assert.equal(await verifyStoredPassword(undefined, "password", compare), false);
+  assert.equal(compared, false);
+  assert.equal(await verifyStoredPassword("legacy-password", "legacy-password", compare), true);
+  assert.equal(await verifyStoredPassword("$2b$hash", "password", compare), true);
 });
 
 test("maps database unique conflicts to safe validation fields", () => {
@@ -57,6 +79,10 @@ test("parses API status and safe machine-readable error code", () => {
   assert.deepEqual(
     parseHttpError(new Error('429: {"code":"RATE_LIMITED","message":"wait"}')),
     { status: 429, code: "RATE_LIMITED" },
+  );
+  assert.deepEqual(
+    parseHttpError(new Error('403: {"code":"SECURITY_VALIDATION_FAILED"}')),
+    { status: 403, code: "SECURITY_VALIDATION_FAILED" },
   );
   assert.deepEqual(parseHttpError(new Error("network failed")), { status: null });
 });
