@@ -27,12 +27,14 @@ export type PilotWebhookConfig=Readonly<{
   verifyToken:string;
   appSecret:string;
 }>;
-export type PilotWebhookKind="live"|"history";
+export type PilotWebhookKind="live"|"history"|"contacts";
 export type PilotWebhookDeps=Readonly<{
   // Re-verify current active employee, company number, Meta proof and consent.
   authorizeScope:(s:EmployeeInboxScope)=>Promise<boolean>;
   enqueueLive:(raw:Buffer,signature:string,s:EmployeeInboxScope)=>Promise<unknown>;
   enqueueHistory:(raw:Buffer,signature:string,s:EmployeeInboxScope)=>Promise<unknown>;
+  // Independent encrypted contact-state queue, NEVER the message/history queue.
+  enqueueContacts:(raw:Buffer,signature:string,s:EmployeeInboxScope)=>Promise<unknown>;
 }>;
 
 const required=[
@@ -99,11 +101,24 @@ export function classifySignedPilotDelivery(
         throw new PilotWebhookRefused("envelope");
       const field=change?.field;
       const next:PilotWebhookKind|undefined=field==="history"?"history":
-        field==="messages"||field==="smb_message_echoes"?"live":undefined;
+        field==="messages"||field==="smb_message_echoes"?"live":
+        field==="smb_app_state_sync"?"contacts":undefined;
       // A contacts/unrecognized field cannot be ACKed until a separate
       // durable sync handler is connected. Never ACK just the known half.
       if(!next ||(kind!==null&&kind!==next))
         throw new PilotWebhookRefused("mixed");
+      // Reject missing or unrecognised contact payloads until a secure
+      // contact-state consumer is connected. Never ACK an empty sync.
+      if(next==="contacts"){
+        const actions=change?.value?.state_sync;
+        if(!Array.isArray(actions)||!actions.length||actions.length>1000 ||
+          actions.some((a:any)=>a?.type!=="contact" ||
+            !["add","remove"].includes(a?.action) ||
+            typeof a?.contact?.phone_number!=="string" ||
+            !/^[0-9]{8,16}$/.test(a.contact.phone_number) ||
+            !/^[0-9]{1,13}$/.test(String(a?.metadata?.timestamp??""))))
+          throw new PilotWebhookRefused("envelope");
+      }
       kind=next;
       count++;
     }
@@ -121,6 +136,7 @@ export function registerStagingWhatsappPilotSignedCallback(
   const config=stagingPilotWebhookConfig(env);
   if(!config||!deps||typeof deps.enqueueLive!=="function"||
     typeof deps.enqueueHistory!=="function"||
+    typeof deps.enqueueContacts!=="function"||
     typeof deps.authorizeScope!=="function")return false;
   const scope:EmployeeInboxScope={
     employeeId:config.employeeId,wabaId:config.wabaId,
@@ -165,7 +181,8 @@ export function registerStagingWhatsappPilotSignedCallback(
         // Queue callbacks must resolve only AFTER durable COMMIT. Their real
         // implementations independently validate the SAME raw Meta HMAC.
         if(kind==="live")await deps.enqueueLive(raw,signature,scope);
-        else await deps.enqueueHistory(raw,signature,scope);
+        else if(kind==="history")await deps.enqueueHistory(raw,signature,scope);
+        else await deps.enqueueContacts(raw,signature,scope);
         return res.status(200).type("text/plain").send("EVENT_RECEIVED");
       }catch{return res.sendStatus(503);}
     },
