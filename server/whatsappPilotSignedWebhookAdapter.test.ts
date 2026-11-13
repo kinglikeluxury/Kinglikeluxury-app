@@ -42,7 +42,10 @@ const delivery=(fields:string[])=>Buffer.from(JSON.stringify({
     field,value:{metadata:{phone_number_id:cfg.phoneNumberId,
       display_phone_number:cfg.displayPhoneNumber},messaging_product:"whatsapp",
       ...(field==="history"?{history:[{metadata:{phase:0,chunk_order:1,progress:100},
-        threads:[]}]}:{messages:[{id:"wamid.synthetic"}]})},
+        threads:[]}]}:field==="smb_app_state_sync"?{state_sync:[{
+        type:"contact",action:"add",contact:{phone_number:"15550000044",full_name:"Synthetic Contact"},
+        metadata:{timestamp:"1730000000"},
+      }]}:{messages:[{id:"wamid.synthetic"}]})},
   }))}],
 }),"utf8");
 const sig=(raw:Buffer)=>"sha256="+createHmac("sha256",cfg.appSecret)
@@ -74,9 +77,10 @@ test("signed classifier never routes mixed, unknown or contact events to the wro
   for(const kind of ["messages","smb_message_echoes"])
     assert.equal(classifySignedPilotDelivery(delivery([kind]),sig(delivery([kind])),cfg),"live");
   assert.equal(classifySignedPilotDelivery(delivery(["history"]),sig(delivery(["history"])),cfg),"history");
+  assert.equal(classifySignedPilotDelivery(delivery(["smb_app_state_sync"]),sig(delivery(["smb_app_state_sync"])),cfg),"contacts");
   for(const fields of [
     ["history","messages"],["history","smb_app_state_sync"],
-    ["messages","history"],["smb_app_state_sync"],["unknown"],
+    ["messages","history"],["smb_app_state_sync","messages"],["unknown"],
   ]){
     const raw=delivery(fields);
     assert.throws(()=>classifySignedPilotDelivery(raw,sig(raw),cfg),PilotWebhookRefused);
@@ -100,6 +104,11 @@ test("signed Staging callback ACKs only after durable queue resolves; failed syn
       assert.ok(scope(s)&&sig.startsWith("sha256="));
       if(failed)throw Error("synthetic history DB unavailable");
       stored.push("history:"+raw.length);
+    },
+    enqueueContacts:async(raw,sig,s)=>{
+      assert.ok(scope(s)&&sig.startsWith("sha256="));
+      if(failed)throw Error("synthetic contacts DB unavailable");
+      stored.push("contacts:"+raw.length);
     },
   },env);
   assert.equal(r,true);
@@ -129,17 +138,19 @@ test("signed Staging callback ACKs only after durable queue resolves; failed syn
     }
     assert.equal((await send(["messages"])).status,200);
     assert.equal((await send(["history"])).status,200);
-    assert.equal(stored.length,2);
+    assert.equal((await send(["smb_app_state_sync"])).status,200);
+    assert.equal(stored.length,3);
     assert.equal((await send(["messages"],false)).status,401);
     assert.equal((await send(["history","messages"])).status,503);
-    assert.equal((await send(["smb_app_state_sync"])).status,503);
-    assert.equal(stored.length,2);
+    assert.equal((await send(["smb_app_state_sync","messages"])).status,503);
+    assert.equal(stored.length,3);
     authorized=false;
     assert.equal((await send(["messages"])).status,503);
-    assert.equal(stored.length,2);
+    assert.equal(stored.length,3);
     authorized=true;failed=true;
     assert.equal((await send(["history"])).status,503);
-    assert.equal(stored.length,2);
+    assert.equal((await send(["smb_app_state_sync"])).status,503);
+    assert.equal(stored.length,3);
   }finally{
     await new Promise<void>(r=>server.close(()=>r()));
   }
@@ -147,9 +158,12 @@ test("signed Staging callback ACKs only after durable queue resolves; failed syn
 test("route is never registered unless callback and flags are completely wired",()=>{
   const app=express();
   const deps={authorizeScope:async()=>true,
-    enqueueLive:async()=>{},enqueueHistory:async()=>{}};
+    enqueueLive:async()=>{},enqueueHistory:async()=>{},enqueueContacts:async()=>{}};
   assert.equal(registerStagingWhatsappPilotSignedCallback(app,deps,{}),false);
   assert.equal(registerStagingWhatsappPilotSignedCallback(app,{
     ...deps,enqueueHistory:undefined as never,
+  },env),false);
+  assert.equal(registerStagingWhatsappPilotSignedCallback(app,{
+    ...deps,enqueueContacts:undefined as never,
   },env),false);
 });
