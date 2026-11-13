@@ -36,7 +36,8 @@ import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment"
 // } from "./objectStorage";
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
-import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail, registrationConflictResponse, uniqueUserFieldFromError, verifyStoredPassword } from "@shared/authFlowUtils";
+import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail, registrationConflictResponse, uniqueUserFieldFromError } from "@shared/authFlowUtils";
+import { createLoginHandler } from "./authLoginRoute";
 
 import path from "path";
 import fs from "fs";
@@ -1633,114 +1634,10 @@ ${metaTags}
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password, phoneNumber, whatsappNumber, facebookId, authMethod } = req.body;
-      
-      // Get user based on auth method
-      let user;
-      
-      // Validate required fields based on auth method
-      if (authMethod === 'email') {
-        if (!username || !password) {
-          return res.status(400).json({ message: "Username and password are required for email login" });
-        }
-        
-        user = await storage.getUserByUsername(username);
-        
-        if (!user || !(await verifyStoredPassword(user.password, password, (plainText, hash) => bcrypt.compare(plainText, hash)))) {
-          return res.status(401).json({ message: "Invalid credentials" });
-        }
-      } 
-      else if (authMethod === 'phone') {
-        if (!phoneNumber) {
-          return res.status(400).json({ message: "Phone number is required for SMS login" });
-        }
-        
-        // Here we would normally validate a verification code
-        // For demo, we'll just check if a user with this phone number exists
-        user = await storage.getUserByField('phoneNumber', phoneNumber);
-        
-        // In production, verify OTP code here
-      }
-      else if (authMethod === 'whatsapp') {
-        if (!whatsappNumber) {
-          return res.status(400).json({ message: "WhatsApp number is required for WhatsApp login" });
-        }
-        
-        // Here we would normally validate a verification code
-        // For demo, we'll just check if a user with this WhatsApp number exists
-        user = await storage.getUserByField('whatsappNumber', whatsappNumber);
-        
-        // In production, verify WhatsApp code here
-      }
-      else if (authMethod === 'facebook') {
-        if (!facebookId) {
-          return res.status(400).json({ message: "Facebook ID is required for Facebook login" });
-        }
-        
-        // For demo, we'll just check if a user with this Facebook ID exists
-        user = await storage.getUserByField('facebookId', facebookId);
-        
-        // In production, Facebook OAuth would handle this
-      }
-      else {
-        // Default login — identifier can be username, email, or phone number
-        if (!username || !password) {
-          return res.status(401).json({ message: "Invalid login credentials." });
-        }
-        const identifier = (username as string).trim();
-
-        // Detect identifier type: email → email lookup, phone-like → phone lookup, else → username
-        const isEmail = identifier.includes('@');
-        const cleanedPhone = identifier.replace(/[\s\-().]/g, '');
-        const isPhone = !isEmail && /^[+\d]/.test(cleanedPhone) && /\d{6,}/.test(cleanedPhone);
-
-        if (isEmail) {
-          user = await storage.getUserByEmail(identifier.toLowerCase());
-        } else if (isPhone) {
-          user = await storage.getUserByPhone(cleanedPhone);
-          // Also try the original string in case it was stored without normalization
-          if (!user) user = await storage.getUserByPhone(identifier);
-        } else {
-          user = await storage.getUserByUsername(identifier);
-        }
-
-        // Generic error — never reveal whether username/email/phone exists or which field failed
-        if (!user || !(await verifyStoredPassword(user.password, password, (plainText, hash) => bcrypt.compare(plainText, hash)))) {
-          return res.status(401).json({ message: "Invalid login credentials." });
-        }
-      }
-      
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-      
-      // Set session
-      req.session.userId = user.id;
-      req.session.isAdmin = user.isAdmin;
-      req.session.role = user.role ?? "user";
-      
-      // Return appropriate user data
-      const userResponse: any = {
-        id: user.id, 
-        username: user.username,
-        authMethod: user.authMethod,
-        isAdmin: user.isAdmin,
-        role: user.role ?? "user",
-      };
-      
-      // Add method-specific fields to response
-      if (user.email) userResponse.email = user.email;
-      if (user.phoneNumber) userResponse.phoneNumber = user.phoneNumber;
-      if (user.whatsappNumber) userResponse.whatsappNumber = user.whatsappNumber;
-      if (user.facebookId) userResponse.facebookId = user.facebookId;
-      
-      res.json(userResponse);
-    } catch (error) {
-      res.status(500).json({ message: "Server error" });
-    }
-  });
+  app.post("/api/auth/login", createLoginHandler({
+    storage,
+    comparePassword: (plainText, hash) => bcrypt.compare(plainText, hash),
+  }));
 
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err) => {
