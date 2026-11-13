@@ -39,6 +39,7 @@ import { ObjectStorageService } from "./objectStorage";
 import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail } from "@shared/authFlowUtils";
 import { createLoginHandler } from "./authLoginRoute";
 import { createRegisterHandler } from "./authRegisterRoute";
+import { createPasswordRecoveryHandlers } from "./authPasswordRecoveryRoutes";
 
 import path from "path";
 import fs from "fs";
@@ -1181,6 +1182,33 @@ ${metaTags}
 
   // ── Password-reset OTP store (server-side only, expires 10 min) ───────────
   const passwordResetStore = new Map<string, { code: string; expiresAt: Date }>();
+  const passwordRecoveryHandlers = createPasswordRecoveryHandlers({
+    storage,
+    passwordResetStore,
+    getClientIp,
+    checkIpOtpLimit,
+    checkRequestRateLimit: (identifier) => checkOtpRateLimit(passwordResetRateLimit, identifier),
+    checkVerifyRateLimit: (identifier) => checkOtpRateLimit(passwordResetVerifyRateLimit, identifier, 5),
+    verifyTurnstile,
+    sendSms: async (phoneNumber, message) => {
+      if (!twilioClient) return false;
+      const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+      const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+      if (msgSid) {
+        await twilioClient.messages.create({ body: message, to: phoneNumber, messagingServiceSid: msgSid });
+      } else {
+        await twilioClient.messages.create({ body: message, to: phoneNumber, from: fromNumber });
+      }
+      return true;
+    },
+    sendEmailOtp,
+    generateCode: () => randomInt(100000, 1000000).toString(),
+    now: () => Date.now(),
+    maskIdentifier,
+    addOtpLog,
+    logWarning: (message, error) => console.warn(`${message}:`, safeOtpErrorDiagnostic(error)),
+    logError: (message, error) => console.error(`${message}:`, safeOtpErrorDiagnostic(error)),
+  });
 
   // Send verification code — WhatsApp first, SMS fallback via Messaging Service
   app.post("/api/auth/send-verification", async (req, res) => {
@@ -1340,200 +1368,9 @@ ${metaTags}
     }
   });
 
-  // Send password-reset OTP — supports phone (WhatsApp/SMS + email fallback) and email
-  app.post("/api/auth/send-reset-otp", async (req, res) => {
-    const ip = getClientIp(req);
-    const ua = String(req.headers['user-agent'] || '').slice(0, 300);
-    const GENERIC_OK = {
-      code: "RECOVERY_REQUEST_ACCEPTED",
-      message: "If an account exists, a code may be sent. We cannot confirm delivery; if it does not arrive, try again later.",
-    };
-    try {
-      const { method, phoneNumber, email, turnstileToken } = req.body;
-
-      // 1. IP-level check for all reset attempts
-      const ipStatus = checkIpOtpLimit(ip);
-      if (ipStatus === 'blocked') {
-        addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_blocked', userAgent: ua });
-        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many requests. Please wait before trying again." });
-      }
-      if (ipStatus === 'rate_limited') {
-        addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'ip_rate_limited', userAgent: ua });
-        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many requests. Please wait before trying again." });
-      }
-
-      // 2. Turnstile CAPTCHA verification (blocks bots before any Twilio call)
-      const captchaOk = await verifyTurnstile(turnstileToken, ip);
-      if (!captchaOk) {
-        addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber || email || '?'), ip, result: 'captcha_failed', userAgent: ua });
-        return res.status(403).json({ code: "SECURITY_VALIDATION_FAILED", message: "Security verification failed. Please complete the check again." });
-      }
-
-      if (method === 'phone') {
-        if (!phoneNumber || typeof phoneNumber !== 'string') {
-          return res.status(400).json({ message: "Phone number required" });
-        }
-        if (!checkOtpRateLimit(passwordResetRateLimit, phoneNumber)) {
-          addOtpLog({ type: 'reset', identifier: maskIdentifier(phoneNumber), ip, result: 'phone_rate_limited', userAgent: ua });
-          return res.status(429).json({ code: "RATE_LIMITED", message: "Too many reset attempts. Please wait 15 minutes." });
-        }
-
-        const code = randomInt(100000, 1000000).toString();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        const msgBody = `🔐 Kinglike Luxury\nPassword reset code: ${code}\nValid for 10 minutes.`;
-        let codeSent = false;
-
-        if (twilioClient) {
-          // Use SMS only — Twilio WhatsApp is not configured
-          const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-          const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-          try {
-            if (msgSid) {
-              await twilioClient.messages.create({ body: msgBody, to: phoneNumber, messagingServiceSid: msgSid });
-            } else {
-              await twilioClient.messages.create({ body: msgBody, to: phoneNumber, from: fromNumber });
-            }
-            codeSent = true;
-          } catch (smsErr: any) {
-            console.warn(`[Reset OTP] SMS delivery failed for ${maskIdentifier(phoneNumber)}:`, safeOtpErrorDiagnostic(smsErr));
-          }
-        }
-
-        if (!codeSent) {
-          // SMS/WhatsApp unavailable — email fallback using account email
-          try {
-            const user = await storage.getUserByPhone(phoneNumber);
-            if (user?.email) {
-              await sendEmailOtp(user.email, code);
-              codeSent = true;
-            }
-          } catch (emailErr: any) {
-            console.warn(`[Reset OTP] Email fallback failed for ${maskIdentifier(phoneNumber)}:`, safeOtpErrorDiagnostic(emailErr));
-          }
-        }
-
-        if (codeSent) {
-          passwordResetStore.set(`phone:${phoneNumber}`, { code, expiresAt });
-        }
-        return res.json(GENERIC_OK);
-      }
-
-      if (method === 'email') {
-        if (!email || typeof email !== 'string') {
-          return res.status(400).json({ message: "Email required" });
-        }
-        const emailKey = normalizeAuthEmail(email);
-        if (!checkOtpRateLimit(passwordResetRateLimit, emailKey)) {
-          return res.status(429).json({ code: "RATE_LIMITED", message: "Too many reset attempts. Please wait 10 minutes." });
-        }
-
-        const code = randomInt(100000, 1000000).toString();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-        try {
-          const user = await storage.getUserByEmail(emailKey);
-          if (user) {
-            try {
-              await sendEmailOtp(emailKey, code);
-              passwordResetStore.set(`email:${emailKey}`, { code, expiresAt });
-              addOtpLog({ type: 'reset', identifier: maskIdentifier(emailKey), ip, result: 'sent', userAgent: ua });
-            } catch (deliveryError) {
-              console.warn(`[Reset OTP] Email delivery failed for ${maskIdentifier(emailKey)}:`, safeOtpErrorDiagnostic(deliveryError));
-              passwordResetStore.delete(`email:${emailKey}`);
-            }
-          }
-        } catch (err: any) {
-          console.warn(`[Reset OTP] Email request failed for ${maskIdentifier(emailKey)}:`, safeOtpErrorDiagnostic(err));
-        }
-        return res.json(GENERIC_OK);
-      }
-
-      return res.status(400).json({ message: "Method must be 'phone' or 'email'" });
-    } catch (err: any) {
-        console.error("[Reset OTP] Request failed:", safeOtpErrorDiagnostic(err));
-      res.status(503).json({ code: "RECOVERY_UNAVAILABLE", message: "Recovery is temporarily unavailable. Please try again later." });
-    }
-  });
-
-  // Verify password-reset OTP (non-destructive — code remains valid for the reset step)
-  app.post("/api/auth/verify-reset-otp", async (req, res) => {
-    try {
-      const { method, phoneNumber, email, code } = req.body;
-      if (!code) return res.status(400).json({ message: "Code required" });
-
-      let record: { code: string; expiresAt: Date } | undefined;
-      const verifyIdentifier = method === "phone" ? `phone:${phoneNumber || ""}` : `email:${typeof email === "string" ? normalizeAuthEmail(email) : ""}`;
-      if (!checkOtpRateLimit(passwordResetVerifyRateLimit, verifyIdentifier, 5)) {
-        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many verification attempts. Request a new code later." });
-      }
-      if (method === 'phone' && phoneNumber) {
-        record = passwordResetStore.get(`phone:${phoneNumber}`);
-      } else if (method === 'email' && email) {
-        record = passwordResetStore.get(`email:${normalizeAuthEmail(email as string)}`);
-      }
-
-      if (!isOtpActive(record, String(code))) {
-        return res.status(400).json({ message: "Invalid or expired verification code" });
-      }
-      res.json({ success: true });
-    } catch (err: any) {
-      console.error("[Reset OTP] Code verification failed:", safeOtpErrorDiagnostic(err));
-      res.status(503).json({ code: "VERIFICATION_UNAVAILABLE", message: "Verification is temporarily unavailable." });
-    }
-  });
-
-  // Reset password using OTP from passwordResetStore (phone or email method)
-  app.post("/api/auth/reset-password", async (req, res) => {
-    try {
-      const { method, phoneNumber, email, code, newPassword } = req.body;
-
-      if (!code || !newPassword) {
-        return res.status(400).json({ message: "Code and new password are required" });
-      }
-      if (typeof newPassword !== 'string' || newPassword.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
-      }
-
-      const INVALID = { code: "INVALID_OR_EXPIRED_CODE", message: "Invalid or expired verification code" };
-      let user: any = null;
-      let resetKey: string | null = null;
-      const resetIdentifier = method === "phone" ? `phone:${phoneNumber || ""}` : `email:${typeof email === "string" ? normalizeAuthEmail(email) : ""}`;
-      if (!checkOtpRateLimit(passwordResetVerifyRateLimit, resetIdentifier, 5)) {
-        return res.status(429).json({ code: "RATE_LIMITED", message: "Too many verification attempts. Request a new code later." });
-      }
-
-      if (method === 'phone' && phoneNumber) {
-        resetKey = `phone:${phoneNumber}`;
-        const record = passwordResetStore.get(resetKey);
-        if (!isOtpActive(record, String(code))) {
-          return res.status(400).json(INVALID);
-        }
-        user = await storage.getUserByPhone(phoneNumber);
-      } else if (method === 'email' && email) {
-        const emailKey = normalizeAuthEmail(email as string);
-        resetKey = `email:${emailKey}`;
-        const record = passwordResetStore.get(resetKey);
-        if (!isOtpActive(record, String(code))) {
-          return res.status(400).json(INVALID);
-        }
-        user = await storage.getUserByEmail(emailKey);
-      } else {
-        return res.status(400).json({ message: "Phone number or email required" });
-      }
-
-      if (!user) {
-        if (resetKey) passwordResetStore.delete(resetKey);
-        return res.json({ success: true });
-      }
-
-      await storage.updateUserPassword(user.id, newPassword);
-      if (resetKey) passwordResetStore.delete(resetKey);
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("[Reset OTP] Password update failed:", safeOtpErrorDiagnostic(error));
-      res.status(503).json({ code: "RECOVERY_UNAVAILABLE", message: "Recovery is temporarily unavailable." });
-    }
-  });
+  app.post("/api/auth/send-reset-otp", passwordRecoveryHandlers.sendResetOtp);
+  app.post("/api/auth/verify-reset-otp", passwordRecoveryHandlers.verifyResetOtp);
+  app.post("/api/auth/reset-password", passwordRecoveryHandlers.resetPassword);
 
   // Auth routes
   app.post("/api/auth/register", createRegisterHandler({
