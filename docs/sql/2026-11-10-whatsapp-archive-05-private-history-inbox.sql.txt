@@ -1,0 +1,100 @@
+-- 05: ONE-TIME, REVIEW-ONLY private history inbox for Meta Coexistence.
+-- Execute exclusively on Kinglike-Web-Staging / Postgres-92tK /
+-- kinglike_whatsapp_archive after schemas 00-04. Never on Neon or app DB.
+-- No worker/number is activated; all runtime roles remain NOLOGIN.
+BEGIN;
+
+CREATE TABLE kinglike_whatsapp.whatsapp_employee_history_chunks (
+  id BIGSERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+  waba_id TEXT NOT NULL CHECK(waba_id ~ '^[0-9]{4,24}$'),
+  phone_number_id TEXT NOT NULL CHECK(phone_number_id ~ '^[0-9]{4,24}$'),
+  chunk_key CHAR(64) NOT NULL CHECK(chunk_key ~ '^[a-f0-9]{64}$'),
+  content_digest CHAR(64) NOT NULL CHECK(content_digest ~ '^[a-f0-9]{64}$'),
+  kind TEXT NOT NULL CHECK(kind IN ('chunk','declined')),
+  phase SMALLINT CHECK(phase BETWEEN 0 AND 2),
+  chunk_order INTEGER CHECK(chunk_order BETWEEN 1 AND 1000000),
+  progress SMALLINT CHECK(progress BETWEEN 0 AND 100),
+  thread_count INTEGER NOT NULL CHECK(thread_count BETWEEN 0 AND 5000),
+  message_count INTEGER NOT NULL CHECK(message_count BETWEEN 0 AND 50000),
+  payload_ciphertext BYTEA NOT NULL CHECK(octet_length(payload_ciphertext) > 0),
+  payload_iv BYTEA NOT NULL CHECK(octet_length(payload_iv) = 12),
+  payload_tag BYTEA NOT NULL CHECK(octet_length(payload_tag) = 16),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK(status IN ('pending','processing','retry','imported','blocked','dead_letter')),
+  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(attempt_count >= 0),
+  available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  locked_until TIMESTAMPTZ,
+  lease_token UUID,
+  imported_at TIMESTAMPTZ,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_error_class TEXT CHECK(last_error_class IN ('POLICY_REVOKED','IMPORT_FAILED','DECRYPT_FAILED','UNSUPPORTED')),
+  UNIQUE(employee_id,waba_id,phone_number_id,chunk_key),
+  CHECK(kind='declined' OR (phase IS NOT NULL AND chunk_order IS NOT NULL AND progress IS NOT NULL)),
+  CHECK(kind='chunk' OR (phase IS NULL AND chunk_order IS NULL AND progress IS NULL
+                        AND thread_count=0 AND message_count=0))
+);
+
+CREATE INDEX whatsapp_employee_history_chunks_status_idx
+  ON kinglike_whatsapp.whatsapp_employee_history_chunks(status,available_at,id);
+
+CREATE FUNCTION kinglike_whatsapp.reject_history_content_change()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.employee_id IS DISTINCT FROM OLD.employee_id OR
+     NEW.waba_id IS DISTINCT FROM OLD.waba_id OR
+     NEW.phone_number_id IS DISTINCT FROM OLD.phone_number_id OR
+     NEW.chunk_key IS DISTINCT FROM OLD.chunk_key OR
+     NEW.content_digest IS DISTINCT FROM OLD.content_digest OR
+     NEW.kind IS DISTINCT FROM OLD.kind OR
+     NEW.phase IS DISTINCT FROM OLD.phase OR
+     NEW.chunk_order IS DISTINCT FROM OLD.chunk_order OR
+     NEW.progress IS DISTINCT FROM OLD.progress OR
+     NEW.thread_count IS DISTINCT FROM OLD.thread_count OR
+     NEW.message_count IS DISTINCT FROM OLD.message_count OR
+     NEW.payload_ciphertext IS DISTINCT FROM OLD.payload_ciphertext OR
+     NEW.payload_iv IS DISTINCT FROM OLD.payload_iv OR
+     NEW.payload_tag IS DISTINCT FROM OLD.payload_tag OR
+     NEW.received_at IS DISTINCT FROM OLD.received_at
+  THEN
+    RAISE EXCEPTION 'WhatsApp history payload metadata is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER whatsapp_employee_history_chunks_immutable_payload
+  BEFORE UPDATE ON kinglike_whatsapp.whatsapp_employee_history_chunks
+  FOR EACH ROW EXECUTE FUNCTION kinglike_whatsapp.reject_history_content_change();
+CREATE TRIGGER whatsapp_employee_history_chunks_no_delete
+  BEFORE DELETE ON kinglike_whatsapp.whatsapp_employee_history_chunks
+  FOR EACH ROW EXECUTE FUNCTION public.whatsapp_employee_reject_event_mutation();
+CREATE TRIGGER whatsapp_employee_history_chunks_no_truncate
+  BEFORE TRUNCATE ON kinglike_whatsapp.whatsapp_employee_history_chunks
+  FOR EACH STATEMENT EXECUTE FUNCTION public.whatsapp_employee_reject_event_mutation();
+
+CREATE ROLE kinglike_wa_history_importer NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE;
+GRANT USAGE ON SCHEMA public,kinglike_whatsapp TO kinglike_wa_history_importer;
+REVOKE ALL ON kinglike_whatsapp.whatsapp_employee_history_chunks FROM PUBLIC;
+REVOKE ALL ON SEQUENCE kinglike_whatsapp.whatsapp_employee_history_chunks_id_seq FROM PUBLIC;
+
+-- The signed incoming webhook worker may ONLY add encrypted chunks and inspect
+-- immutable duplicate identity, never read ciphertext or change/delete rows.
+GRANT INSERT ON kinglike_whatsapp.whatsapp_employee_history_chunks
+  TO kinglike_wa_archive_worker;
+GRANT SELECT (employee_id,waba_id,phone_number_id,chunk_key,content_digest)
+  ON kinglike_whatsapp.whatsapp_employee_history_chunks
+  TO kinglike_wa_archive_worker;
+GRANT USAGE ON SEQUENCE kinglike_whatsapp.whatsapp_employee_history_chunks_id_seq
+  TO kinglike_wa_archive_worker;
+
+-- Dedicated history importer has a separate future login/secret. It may claim
+-- and mark chunks but CANNOT edit contents, delete records or read CRM.
+GRANT SELECT ON kinglike_whatsapp.whatsapp_employee_history_chunks
+  TO kinglike_wa_history_importer;
+GRANT UPDATE (status,attempt_count,available_at,locked_until,lease_token,
+              imported_at,last_error_class)
+  ON kinglike_whatsapp.whatsapp_employee_history_chunks
+  TO kinglike_wa_history_importer;
+
+COMMIT;
+-- Do not run ALTER ROLE LOGIN as part of this migration.

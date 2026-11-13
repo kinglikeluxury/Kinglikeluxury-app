@@ -420,6 +420,58 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
     finally { client.release(); }
   });
 
+  // List only scopes actually accessible to this actor after live consent/grant checks.
+  // Admin status alone does NOT bypass the explicit per-employee grant.
+  app.get("/api/whatsapp-employee/archive/scopes", async (req: any, res: any) => {
+    const actorId = authenticated(req,res);
+    if (!actorId) return;
+    if (!enabled()) return res.sendStatus(404);
+    const client = await safeConnect();
+    if (!client) return res.sendStatus(503);
+    try {
+      await client.query("BEGIN");
+      const actor = await activeActor(client,actorId);
+      if (!actor) {
+        await client.query("ROLLBACK");
+        await persistArchiveAccess({actorId,employeeId:actorId,action:"archive.search",outcome:"denied",reason:"policy_blocked"});
+        return res.sendStatus(403);
+      }
+      const result = await client.query(
+        `SELECT DISTINCT n.employee_id
+          FROM whatsapp_employee_numbers n
+          JOIN whatsapp_employee_consents c
+            ON c.phone_number_id=n.phone_number_id AND c.employee_id=n.employee_id
+         WHERE n.registration_kind='company' AND n.is_active=true
+           AND c.status='consented' AND c.revoked_at IS NULL
+           AND (n.employee_id=$1 OR EXISTS (
+             SELECT 1 FROM whatsapp_employee_supervisor_grants g
+              WHERE g.supervisor_id=$1 AND g.employee_id=n.employee_id
+                AND g.can_read=true AND g.revoked_at IS NULL
+           ))
+         ORDER BY n.employee_id LIMIT 100`,
+        [actorId],
+      );
+      for (const row of result.rows) {
+        const employeeId=Number(row.employee_id);
+        await persistArchiveAccess({actorId,employeeId,action:"archive.search",
+          outcome:"allowed",
+          reason:employeeId===actorId ? "employee_own_scope" :
+            actor.isAdmin ? "admin_explicit_grant" : "supervisor_grant",
+          resultCount:result.rowCount ?? 0});
+      }
+      if (!result.rowCount) {
+        await persistArchiveAccess({actorId,employeeId:actorId,action:"archive.search",
+          outcome:"denied",reason:"scope_denied",resultCount:0});
+      }
+      await client.query("COMMIT");
+      return res.json({employeeIds:result.rows.map(x=>Number(x.employee_id))});
+    } catch (error) {
+      await client.query("ROLLBACK");
+      if (error instanceof ArchiveAuditUnavailable) return auditFailureResponse(res);
+      return res.sendStatus(500);
+    } finally { client.release(); }
+  });
+
   app.get("/api/whatsapp-employee/archive/employees/:employeeId/conversations", async (req: any, res: any) => {
     const actorId = authenticated(req, res);
     if (!actorId) return;
@@ -518,9 +570,25 @@ export function registerWhatsappEmployeeArchiveRoutes(app: Express): void {
         return res.sendStatus(403);
       }
       const rows = await client.query(
-        `SELECT id,event_kind,direction,event_status,message_type,message_text,related_message_id,occurred_at,received_at
-           FROM whatsapp_employee_events
-           WHERE conversation_id=$1 ORDER BY received_at ASC,id ASC LIMIT 500`,
+        `SELECT e.id,e.event_kind,e.direction,e.event_status,e.message_type,e.message_text,
+                  e.related_message_id,e.occurred_at,e.received_at,
+                  e.media_mime_type,e.media_size_bytes,e.media_sha256,
+                  CASE WHEN e.event_kind='message' AND EXISTS (
+                    SELECT 1 FROM whatsapp_employee_events r
+                     WHERE r.conversation_id=e.conversation_id
+                       AND r.event_kind='revoke'
+                       AND r.direction=e.direction
+                       AND r.related_message_id=e.meta_message_id
+                  ) THEN 'meta_revoke_reported' ELSE 'not_reported' END AS deletion_status,
+                  CASE WHEN e.event_kind='message' THEN (
+                    SELECT MIN(r.received_at) FROM whatsapp_employee_events r
+                     WHERE r.conversation_id=e.conversation_id
+                       AND r.event_kind='revoke'
+                       AND r.direction=e.direction
+                       AND r.related_message_id=e.meta_message_id
+                  ) ELSE NULL END AS deletion_observed_at
+           FROM whatsapp_employee_events e
+           WHERE e.conversation_id=$1 ORDER BY e.received_at ASC,e.id ASC LIMIT 500`,
         [conversationId],
       );
       await persistArchiveAccess({

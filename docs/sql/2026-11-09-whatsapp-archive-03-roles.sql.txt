@@ -1,0 +1,84 @@
+-- 03: Explicit least-privilege role grants for the NEW standalone archive DB.
+-- MANUAL, REVIEW-ONLY. Run ONLY after:
+-- 00-isolated-principals.sql.txt
+-- 2026-11-07-whatsapp-employee-unified.sql.txt
+-- 2026-11-09-whatsapp-employee-durable-inbox.sql.txt
+--
+-- Run as the database ADMIN/OWNER, not from app startup or an API endpoint.
+-- Initially all roles are NOLOGIN; issue separate Railway-managed secrets
+-- and enable LOGIN only after security/privacy sign-off. No password in Git.
+-- Do NOT attach these credentials to app/Neon/proof database variables.
+
+BEGIN;
+
+CREATE ROLE kinglike_wa_archive_worker NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE;
+CREATE ROLE kinglike_wa_archive_reader NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE;
+CREATE ROLE kinglike_wa_archive_auditwriter NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE;
+CREATE ROLE kinglike_wa_archive_identitysync NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE;
+
+-- A new DB should not grant public access to employee records or role DDL.
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA kinglike_whatsapp FROM PUBLIC;
+REVOKE ALL ON ALL TABLES IN SCHEMA kinglike_whatsapp FROM PUBLIC;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA kinglike_whatsapp FROM PUBLIC;
+
+GRANT USAGE ON SCHEMA public TO
+  kinglike_wa_archive_worker,kinglike_wa_archive_reader,
+  kinglike_wa_archive_auditwriter,kinglike_wa_archive_identitysync;
+GRANT USAGE ON SCHEMA kinglike_whatsapp TO kinglike_wa_archive_worker;
+
+-- Read-only UI API, always paired with separate INSERT-ONLY access audit role.
+GRANT SELECT ON public.users,whatsapp_employee_numbers,whatsapp_employee_consents,
+  whatsapp_employee_supervisor_grants,whatsapp_employee_conversations,
+  whatsapp_employee_events TO kinglike_wa_archive_reader;
+
+-- Signed webhook worker: transactionally verifies registration/consent
+-- and appends conversation/message/audit events. No modification of originals.
+GRANT SELECT ON public.users,whatsapp_employee_numbers,whatsapp_employee_consents,
+  whatsapp_employee_supervisor_grants,whatsapp_employee_conversations,
+  whatsapp_employee_events TO kinglike_wa_archive_worker;
+GRANT INSERT ON whatsapp_employee_conversations,whatsapp_employee_events,
+  whatsapp_employee_audit TO kinglike_wa_archive_worker;
+GRANT UPDATE (updated_at,contact_user_id) ON whatsapp_employee_conversations
+  TO kinglike_wa_archive_worker;
+GRANT USAGE,SELECT ON SEQUENCE whatsapp_employee_conversations_id_seq,
+  whatsapp_employee_events_id_seq,whatsapp_employee_audit_id_seq
+  TO kinglike_wa_archive_worker;
+
+-- Durable encrypted inbox: work can be leased/retried and removed from
+-- the transient inbox row only AFTER an idempotent archive commit.
+GRANT SELECT,INSERT ON kinglike_whatsapp.whatsapp_employee_inbox
+  TO kinglike_wa_archive_worker;
+GRANT UPDATE (status,attempt_count,available_at,locked_until,lease_token,
+  last_error_class,processed_at,payload_ciphertext,payload_iv,payload_tag)
+  ON kinglike_whatsapp.whatsapp_employee_inbox TO kinglike_wa_archive_worker;
+GRANT USAGE,SELECT ON SEQUENCE kinglike_whatsapp.whatsapp_employee_inbox_id_seq
+  TO kinglike_wa_archive_worker;
+
+-- Access-audit role must not read message content or audit history.
+GRANT INSERT ON whatsapp_employee_access_audit
+  TO kinglike_wa_archive_auditwriter;
+GRANT USAGE,SELECT ON SEQUENCE whatsapp_employee_access_audit_id_seq
+  TO kinglike_wa_archive_auditwriter;
+
+-- The only role permitted to reconcile MINIMAL identity-mirror metadata.
+-- It does not confer any access to conversations, inbox or message content.
+GRANT SELECT,INSERT ON public.users TO kinglike_wa_archive_identitysync;
+GRANT UPDATE (is_active,is_admin,role,verified_at) ON public.users
+  TO kinglike_wa_archive_identitysync;
+
+-- No grants for activating numbers, changing consent or granting supervision
+-- here: a separately reviewed, MFA-protected provisioning process must own
+-- those writes. They must NOT be possible using the general archive worker.
+
+COMMIT;
+
+-- Operator-only follow-up, never automated by application bootstrap:
+--   ALTER ROLE kinglike_wa_archive_worker LOGIN PASSWORD '<secret-from-manager>';
+--   ALTER ROLE kinglike_wa_archive_reader LOGIN PASSWORD '<different-secret>';
+--   ALTER ROLE kinglike_wa_archive_auditwriter LOGIN PASSWORD '<different-secret>';
+--   ALTER ROLE kinglike_wa_archive_identitysync LOGIN PASSWORD '<different-secret>';
+-- Check login role cannot SET ROLE to table owner and cannot bypass RLS.
+-- Then run read-only privilege checks. DO NOT enable Meta webhooks yet.

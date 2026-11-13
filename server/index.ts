@@ -31,6 +31,7 @@ import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { shouldLogApiResponseBody } from "./apiResponseLogPolicy";
 import { registerWhatsappEmployeeArchiveRoutes } from "./whatsappEmployeeArchiveRoutes";
+import { registerWhatsappEmployeeLiveArchiveReadRoutes } from "./whatsappEmployeeArchiveLiveRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
 import { startDailyBackup } from "./dailyBackup";
@@ -64,6 +65,7 @@ import { registerStagingWhatsappOnboardingRoutes } from "./whatsappStagingOnboar
 import { createStagingMetaOnboardingVerifier } from "./whatsappStagingMetaVerifier";
 import { openWhatsappStagingProofDb } from "./whatsappStagingProofDb";
 import { registerWhatsappOperationsStatusRoutes } from "./whatsappOperationsStatusRoutes";
+import { registerEmployeeWhatsappVerificationRoutes } from "./whatsappEmployeeSelfVerificationRoutes";
 import { runSyntheticWhatsappProofE2E } from "./whatsappStagingSyntheticProofE2E";
 import {
   isStagingMode,
@@ -283,7 +285,40 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
   registerWhatsappEmployeeWebhook(app);
+  // Real read-only archive routes are registered only after every independent
+  // Staging privacy/Meta gate and private least-privilege DB URL is verified.
+  // This remains OFF on current Staging. Production never registers them.
+  // Source-of-truth account state is read from the actual Kinglike app DB.
+  registerWhatsappEmployeeLiveArchiveReadRoutes(app,{
+    authorizeCurrentActor: async (req) => {
+      const actorId=Number(req.session?.userId);
+      if(!Number.isSafeInteger(actorId)||actorId<1)return null;
+      const user=await storage.getUser(actorId);
+      if(!user?.isActive)return null;
+      return {id:actorId,isAdmin:user.isAdmin===true};
+    },
+    verifyCurrentSubject: async (employeeId) => {
+      if(!Number.isSafeInteger(employeeId)||employeeId<=0)return false;
+      // Current employee status is fetched from the real application DB,
+      // never inferred from a stale archive identity mirror.
+      const subject=await storage.getUser(employeeId);
+      return subject?.isActive===true &&
+        subject.isAdmin!==true && subject.role==="sub_agent";
+    },
+  });
   registerWhatsappEmployeeArchiveRoutes(app);
+  // A current employee may inspect ONLY their own pending Meta verification.
+  // Never a phone-activation, cancellation, archive or Meta Graph endpoint.
+  registerEmployeeWhatsappVerificationRoutes(app,{
+    currentActor:async(req)=>{
+      const actorId=Number(req.session?.userId);
+      if(!Number.isSafeInteger(actorId)||actorId<1)return null;
+      const actor=await storage.getUser(actorId);
+      if(!actor)return null;
+      return {id:actor.id,isActive:actor.isActive===true,
+        isAdmin:actor.isAdmin===true,role:actor.role??null};
+    },
+  });
   registerWhatsappMetaOnboardingRoutes(app, {
     // Re-read the active user from the same storage authority as the real
     // Express login session. The test-only route gate remains closed here.

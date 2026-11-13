@@ -499,7 +499,7 @@ export const MOCK_CONVERSATIONS: MockConversation[] = [
       { id: "unicode-15", direction: "outgoing", kind: "text", text: "💼 English emoji message — Project A", time: "09:44", dateLabel: "21/09/2026", status: "read" },
       { id: "unicode-16", direction: "incoming", kind: "text", text: "😀 رسالة عربية مع Emoji و LTR text", time: "09:45", dateLabel: "21/09/2026" },
       { id: "unicode-17", direction: "outgoing", kind: "note", text: "Internal note: احفظ ترتيب النص الأصلي ولا تترجمه.", time: "09:46", dateLabel: "21/09/2026" },
-      { id: "unicode-18", direction: "incoming", kind: "deleted", text: "تم حذف هذه الرسالة من WhatsApp.", time: "09:47", dateLabel: "21/09/2026", deletedAt: "09:48" },
+      { id: "unicode-18", direction: "incoming", kind: "deleted", text: "رسالة تجريبية أصلية: موعد اجتماع العميل الساعة 11:30.", time: "09:47", dateLabel: "21/09/2026", deletedAt: "09:48" },
     ],
   },
   {
@@ -525,8 +525,9 @@ export const MOCK_CONVERSATIONS: MockConversation[] = [
     messages: [
       { id: "message-9", direction: "incoming", kind: "text", text: "Is the video walkthrough available in English?", time: "11:02", dateLabel: "Today" },
       { id: "message-10", direction: "outgoing", kind: "media", text: "Video walkthrough", time: "11:05", dateLabel: "Today", status: "delivered", media: { kind: "video", name: "walkthrough.mp4", size: "2.1 MB", url: mediaPlaceholder("VIDEO", "#0f766e") } },
-      { id: "message-11", direction: "incoming", kind: "deleted", text: "This message was removed from WhatsApp.", time: "11:07", dateLabel: "Today", deletedAt: "11:08" },
+      { id: "message-11", direction: "incoming", kind: "deleted", text: "Archived original example: Please confirm the viewing appointment.", time: "11:07", dateLabel: "Today", deletedAt: "11:08" },
       { id: "message-12", direction: "outgoing", kind: "note", text: "Internal note: confirm the English brochure before the next follow-up.", time: "11:10", dateLabel: "Today" },
+      { id: "message-employee-revoke-example", direction: "outgoing", kind: "deleted", text: "Original employee message retained: the viewing appointment is at 14:00.", time: "11:11", dateLabel: "Today", status: "read", deletedAt: "11:13" },
     ],
   },
   {

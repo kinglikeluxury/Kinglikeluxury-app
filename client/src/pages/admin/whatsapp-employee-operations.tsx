@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
+import WhatsappSyntheticConversationReview from "@/components/admin/WhatsappSyntheticConversationReview";
 import { Activity, ArrowUpRight, CheckCircle2, Database, ExternalLink, LockKeyhole, MessageCircle, RefreshCcw, ShieldCheck } from "lucide-react";
 
 export type WhatsappOperationsStatus = {
@@ -11,10 +12,82 @@ export type WhatsappOperationsStatus = {
   testWebhook: "configured" | "not_configured";
   realEnrollment: "disabled" | "awaiting_separate_review";
   employeeMonitoring: "disabled";
+  identitySyncRuntime: "disabled" | "configured_not_running";
+  historyImporter: "code_ready_not_running";
+  historyCompleteness: "not_verified";
   employeeNumbersConnected: "not_verified";
   previousSyntheticResults: "see_ci_logs";
   nextStep: "meta_eligibility_and_privacy_review";
 };
+
+type ArchiveReadiness = {
+  environment: "isolated_staging";
+  checkedAt: string;
+  status: "disabled" | "blocked" | "configured_not_verified" | "verified_no_live_numbers";
+  blockers: string[];
+  checks: Record<
+    "isolatedApp" | "runtimeFlag" | "employeeNotice" | "customerNotice" |
+    "retentionPolicy" | "metaVerification" | "historyImport" | "privateMedia" |
+    "archiveDbIdentity" | "separateAuditRole" | "independentCryptoKeys" |
+    "databaseGrants", boolean
+  >;
+  databaseProbe: "not_run" | "passed" | "failed";
+  liveConnection: "not_connected";
+  liveNumbers: "not_verified";
+  webhookActive: false;
+};
+
+const ARCHIVE_CHECKS: { key: keyof ArchiveReadiness["checks"]; title: string }[] = [
+  { key:"isolatedApp",title:"عزل تطبيق Staging عن الإنتاج" },
+  { key:"archiveDbIdentity",title:"قاعدة أرشيف مستقلة عن Neon والتطبيق" },
+  { key:"separateAuditRole",title:"حساب منفصل لسجل الاطلاع" },
+  { key:"independentCryptoKeys",title:"مفتاحا تشفير مستقلان" },
+  { key:"databaseGrants",title:"صلاحيات وقاعدة أرشيف مدققة" },
+  { key:"employeeNotice",title:"إشعار الموظف وموافقته" },
+  { key:"customerNotice",title:"إشعار العملاء والأساس القانوني" },
+  { key:"retentionPolicy",title:"سياسة الاحتفاظ وحذف البيانات" },
+  { key:"metaVerification",title:"التحقق من Meta وأهلية الرقم" },
+  { key:"historyImport",title:"جاهزية استيراد المحادثات السابقة" },
+  { key:"privateMedia",title:"تخزين خاص وآمن للملفات" },
+  { key:"runtimeFlag",title:"إذن تشغيل نسخة Staging" },
+];
+
+type PilotGate =
+  | "isolated_staging" | "worker_credentials_configured"
+  | "reader_audit_credentials_configured" | "independent_keys_configured"
+  | "employee_notice_attested" | "customer_notice_attested"
+  | "retention_policy_attested" | "meta_verification_attested"
+  | "history_pipeline_attested" | "private_media_attested"
+  | "contacts_pipeline_attested" | "signed_queue_attested"
+  | "pilot_enabled_attested" | "pilot_identifiers_configured"
+  | "pilot_differs_from_test_waba";
+type OneNumberPilot = {
+  environment:"isolated_staging";
+  mode:"blocked"|"configuration_complete_not_connected";
+  checks:Record<PilotGate,boolean>;
+  blockers:PilotGate[];
+  metaTestAccount:"not_a_live_employee_connection";
+  employeeNumberConnection:"not_verified";
+  signedCallback:"not_registered_by_this_report";
+  realMessageDelivery:"not_verified";
+};
+const PILOT_GATES:ReadonlyArray<{key:PilotGate;label:string}>=[
+  {key:"isolated_staging",label:"العزل عن إنتاج Kinglike"},
+  {key:"worker_credentials_configured",label:"إعداد حساب تخزين الأرشيف"},
+  {key:"reader_audit_credentials_configured",label:"إعداد القراءة والتدقيق"},
+  {key:"independent_keys_configured",label:"مفتاحا التشفير مستقلان"},
+  {key:"pilot_identifiers_configured",label:"معرّفات الرقم الواحد من Meta"},
+  {key:"pilot_differs_from_test_waba",label:"عدم الخلط بين الرقم الحقيقي وحساب TEST"},
+  {key:"employee_notice_attested",label:"توثيق إخطار الموظف وموافقته"},
+  {key:"customer_notice_attested",label:"الأساس القانوني وإخطار العملاء"},
+  {key:"retention_policy_attested",label:"اعتماد سياسة الاحتفاظ والحذف"},
+  {key:"meta_verification_attested",label:"التحقق من أهلية Coexistence لدى Meta"},
+  {key:"history_pipeline_attested",label:"استيراد المحادثات السابقة الآمن"},
+  {key:"private_media_attested",label:"تخزين الوسائط داخل مخزن خاص"},
+  {key:"contacts_pipeline_attested",label:"المزامنة الآمنة لجهات الاتصال"},
+  {key:"signed_queue_attested",label:"اكتمال مسار الاستقبال الموقّع"},
+  {key:"pilot_enabled_attested",label:"إذن تشغيل تجربة الرقم الواحد"},
+];
 
 const REPO = "https://github.com/kinglikeluxury/Kinglikeluxury-app";
 const RAILWAY = "https://railway.com/project/8386a5b5-4964-4b37-b2fa-e7177d78111e";
@@ -42,8 +115,42 @@ export default function WhatsappEmployeeOperationsPage() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const [status, setStatus] = useState<WhatsappOperationsStatus | null>(null);
+  const [archiveReadiness, setArchiveReadiness] = useState<ArchiveReadiness | null>(null);
+  const [singleNumberPilot,setSingleNumberPilot]=useState<OneNumberPilot|null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rollbackProbeRunning,setRollbackProbeRunning]=useState(false);
+  const [rollbackProbeResult,setRollbackProbeResult]=useState<{
+    inbox:string;insert?:string;deduplication?:string;
+    encryptionAtRest?:string;rollback?:string;rowsPersisted:number|null;
+    liveArchive:string;
+  }|null>(null);
+  const [rollbackProbeError,setRollbackProbeError]=useState<string|null>(null);
+
+  const runRollbackProbe=useCallback(async()=>{
+    if(!user?.isAdmin || rollbackProbeRunning)return;
+    setRollbackProbeRunning(true);
+    setRollbackProbeResult(null);
+    setRollbackProbeError(null);
+    try{
+      const response=await fetch("/api/admin/staging/whatsapp-archive-inbox-rollback-probe",{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"x-kinglike-staging-probe":"synthetic-rollback",
+          Accept:"application/json"},
+      });
+      if(!response.ok)throw new Error("تعذّر إجراء الفحص الآمن.");
+      const result=await response.json();
+      if(result.environment!=="isolated_staging" ||
+         result.liveArchive!=="disabled" ||
+         !["passed","failed","configuration_blocked"].includes(result.inbox) ||
+         (result.rowsPersisted!==null && result.rowsPersisted!==0)){
+        throw new Error("نتيجة غير متوقعة. راجع صلاحيات القاعدة قبل أي اختبار آخر.");
+      }
+      setRollbackProbeResult(result);
+    }catch(e){
+      setRollbackProbeError(e instanceof Error?e.message:"تعذّر إكمال الاختبار.");
+    }finally{setRollbackProbeRunning(false);}
+  },[user?.isAdmin,rollbackProbeRunning]);
 
   const reload = useCallback(async () => {
     if (!user?.isAdmin) return;
@@ -66,8 +173,45 @@ export default function WhatsappEmployeeOperationsPage() {
         throw Error("استجابة حالة واتساب غير متوقعة؛ لن نعرض بيانات غير مؤكدة.");
       }
       setStatus(next);
+      // Separate read-only diagnostic; no number registration or DB mutation.
+      try {
+        const readinessResponse = await fetch("/api/admin/staging/whatsapp-archive-readiness",{
+          credentials:"same-origin", cache:"no-store",
+          headers:{Accept:"application/json"},
+        });
+        if (!readinessResponse.ok) throw new Error("readiness unavailable");
+        const readiness = await readinessResponse.json() as ArchiveReadiness;
+        if (readiness.environment !== "isolated_staging" ||
+            readiness.liveConnection !== "not_connected" ||
+            readiness.webhookActive !== false ||
+            readiness.liveNumbers !== "not_verified" ||
+            !readiness.checks || !Array.isArray(readiness.blockers)) {
+          throw new Error("invalid readiness");
+        }
+        setArchiveReadiness(readiness);
+      } catch {
+        // Never imply readiness when separate diagnostic is absent.
+        setArchiveReadiness(null);
+      }
+      // Explicitly read only; never enroll a number or contact Meta.
+      try {
+        const response=await fetch("/api/admin/staging/whatsapp-one-number-pilot-readiness",{
+          credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"},
+        });
+        if(!response.ok)throw new Error("unavailable");
+        const result=await response.json() as OneNumberPilot;
+        if(result.environment!=="isolated_staging" ||
+           result.employeeNumberConnection!=="not_verified" ||
+           result.realMessageDelivery!=="not_verified" ||
+           result.metaTestAccount!=="not_a_live_employee_connection" ||
+           !Array.isArray(result.blockers) || !result.checks)
+          throw new Error("invalid");
+        setSingleNumberPilot(result);
+      }catch{setSingleNumberPilot(null);}
     } catch (cause) {
       setStatus(null);
+      setArchiveReadiness(null);
+      setSingleNumberPilot(null);
       setError(cause instanceof Error ? cause.message : "تعذر قراءة الحالة.");
     } finally {
       setLoading(false);
@@ -140,8 +284,125 @@ export default function WhatsappEmployeeOperationsPage() {
             <SafeCard title="مراقبة المحادثات الفعلية"
               good={false} value="غير مفعّلة"
               detail="لا توجد صلاحية لقراءة محادثات سامر أو غيره عبر هذه الصفحة." />
+            <SafeCard title="مزامنة هويات الموظفين"
+              good={false}
+              value={status?.identitySyncRuntime === "configured_not_running"
+                ? "الإعدادات مهيأة — غير مشغّلة" : "مقفلة حالياً"}
+              detail="لا يوجد تشغيل دوري أو اتصال بهويات الموظفين حالياً. سحب الموافقة يوقف صلاحية الأرشيف عند تطبيقه عبر المصدر المعتمد." />
+            <SafeCard title="استيراد سجل واتساب السابق"
+              good={false}
+              value={status?.historyImporter === "code_ready_not_running"
+                ? "المستورد جاهز برمجياً — غير مشغّل" : "لم يتم التحقق"}
+              detail="دفعات التاريخ المشفرة قابلة للاستيراد بعد الربط المصرّح به. لم تبدأ أي عملية استيراد حقيقية، ولا يمكن تأكيد اكتمال التاريخ من دفعة واحدة، حتى إن كانت نسبة التقدم 100%." />
           </div>
         </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="جاهزية أرشيف واتساب الحقيقي">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-[#005476]">الجاهزية الفعلية لأرشيف محادثات الموظفين</h2>
+              <p className="mt-1 text-sm text-slate-500">فحص آمن لا يشغّل Webhook ولا يتصل بأرقام الموظفين ولا يغيّر قواعد البيانات.</p>
+            </div>
+            <StatusIndicator good={archiveReadiness?.status === "verified_no_live_numbers"}
+              label={archiveReadiness?.status === "verified_no_live_numbers"
+                ? "قاعدة الأرشيف جاهزة تقنياً — الأرقام غير متصلة"
+                : "مقفل — لا توجد مزامنة حقيقية"} />
+          </div>
+          {!archiveReadiness && <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">فحص الأرشيف غير متاح أو لم يكتمل. لا يمكن اعتبار التسجيل أو المزامنة جاهزين.</p>}
+          {archiveReadiness && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {ARCHIVE_CHECKS.map(item => (
+                  <div key={item.key} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-3">
+                    <span className="text-sm text-slate-700">{item.title}</span>
+                    <StatusIndicator good={archiveReadiness.checks[item.key]}
+                      label={archiveReadiness.checks[item.key] ? "مؤشر مهيأ" : "غير مكتمل"} />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-xs leading-6 text-slate-500">
+                صلاحيات قاعدة الأرشيف: {archiveReadiness.databaseProbe === "passed"
+                  ? "نجح الفحص القرائي للحسابين المنفصلين"
+                  : archiveReadiness.databaseProbe === "failed" ? "فشل الفحص، والتشغيل ممنوع"
+                  : "لم يُنفّذ الفحص لأن إعدادات الحماية أو الموافقات غير مكتملة"}.
+                مؤشرات الموافقة أعلاه تعتمد على الإعدادات، ولا تثبت موافقة فعلية من الموظف أو Meta بذاتها.
+              </p>
+            </>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="اختبار التخزين المشفر التجريبي">
+          <h2 className="text-lg font-bold text-[#005476]">اختبار تخزين الأرشيف المعزول</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            يفحص إدخال بيانات مشفّرة وهمية إلى قاعدة Staging داخل معاملة يتم التراجع عنها بالكامل.
+            لا يتصل بواتساب أو أرقام الموظفين، ولا يحفظ محادثات فعلية.
+          </p>
+          <button type="button" onClick={()=>void runRollbackProbe()} disabled={rollbackProbeRunning}
+            className="mt-4 rounded-xl bg-[#005476] px-5 py-3 text-sm font-semibold text-white hover:bg-[#006483] disabled:opacity-50">
+            {rollbackProbeRunning?"جارٍ اختبار المعاملة...":"تشغيل اختبار التخزين الآمن"}
+          </button>
+          {rollbackProbeResult && (
+            <div role="status" className="mt-3 rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+              <p>النتيجة: <b>{rollbackProbeResult.inbox==="passed"?"ناجح":
+                rollbackProbeResult.inbox==="configuration_blocked"?"إعدادات غير مكتملة":"فشل الاختبار"}</b></p>
+              <p>إدخال: {rollbackProbeResult.insert??"لم يُختبر"}،
+                منع التكرار: {rollbackProbeResult.deduplication??"لم يُختبر"}،
+                تشفير: {rollbackProbeResult.encryptionAtRest??"لم يُختبر"}،
+                إلغاء المعاملة: {rollbackProbeResult.rollback??"لم يُختبر"}</p>
+              <p>الصفوف الباقية: {rollbackProbeResult.rowsPersisted===null?"لم يمكن التحقق":
+                rollbackProbeResult.rowsPersisted}</p>
+            </div>
+          )}
+          {rollbackProbeError && (
+            <p role="alert" className="mt-3 text-sm text-amber-800">{rollbackProbeError}</p>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="جاهزية تجربة رقم واتساب واحد">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-[#005476]">تجربة ربط رقم موظف واحد — سامر أولاً</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                فحص متطلبات الربط المصرّح به عبر Meta Coexistence. لا يسحب محادثات،
+                ولا يفتح حسابات الموظفين أو يربط الهاتف تلقائياً.
+              </p>
+            </div>
+            <StatusIndicator good={false} label="لم يُتحقق من ربط رقم حقيقي"/>
+          </div>
+          {!singleNumberPilot ? (
+            <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+              فحص التجربة غير متاح. لا يُسمح ببدء الربط قبل التحقق.
+            </p>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {PILOT_GATES.map(gate=>(
+                  <div key={gate.key} className="flex items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                    <span>{gate.label}</span>
+                    <StatusIndicator good={singleNumberPilot.checks[gate.key]}
+                      label={singleNumberPilot.checks[gate.key]?"مهيأ أو مُصرّح به في الإعدادات":"غير مكتمل"}/>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-xs leading-6 text-slate-500">
+                هذه مؤشرات إعدادات وليست إثباتاً قانونياً للموافقة أو الأهلية لدى Meta.
+                إذا اكتملت كلها، يبقى إثبات ربط الهاتف واستقبال الرسالة الحقيقية مستقلاً.
+              </p>
+            </>
+          )}
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+            <b>قبل ضغط أي زر اتصال حقيقي:</b> تأكيد ملكية رقم الشركة، وتوثيق موافقة الموظف،
+            وإشعار العملاء، والتحقق من أن Meta تعرض خيار
+            «Connect your existing WhatsApp Business app» بدلاً من مسار نقل الرقم الذي قد يعطل التطبيق.
+            عملية التأكيد الأخيرة تتم من هاتف الموظف نفسه.
+          </div>
+          <button disabled type="button" title="لم تكتمل أدلة الربط والموافقات ولا استقبال الوسائط والتاريخ"
+            className="mt-4 cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-bold text-slate-500">
+            ربط رقم سامر الحقيقي — مقفل حتى اكتمال التحقق
+          </button>
+        </section>
+
+        <WhatsappSyntheticConversationReview />
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
           <div className="mb-4 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-[#005476]" /><h2 className="text-lg font-bold text-[#005476]">خطة ربط الموظفين</h2></div>
@@ -170,7 +431,7 @@ export default function WhatsappEmployeeOperationsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
           <div className="mb-4 flex items-center gap-2"><Database className="h-5 w-5 text-[#005476]" /><h2 className="text-lg font-bold text-[#005476]">ما أُنجز وما تبقى</h2></div>
           <ol className="space-y-3 text-sm leading-7">
-            <li><b className="text-[#005476]">1. منجز:</b> عزل قاعدة البيانات وتقييد صلاحيات الوصول؛ تُعرض حالتها الحية أعلاه.</li>
+            <li><b className="text-[#005476]">1. منجز تجريبياً:</b> اختبارات الأرشفة المشفّرة وإشعارات الحذف والصلاحيات؛ تحقق من جاهزية قاعدة التشغيل المستقلة أعلاه.</li>
             <li><b className="text-[#005476]">2. منجز في اختبارات GitHub:</b> محاكاة بدء التسجيل، منع التكرار، التحقق من الرقم، والتراجع عن البيانات.</li>
             <li><b className="text-[#005476]">3. منجز تجريبياً:</b> اختبار استقبال حدث Webhook موقّع دون الاحتفاظ بالمحتوى.</li>
             <li><b className="text-amber-800">4. قيد المراجعة:</b> أهلية تطبيق Meta، وموافقات الموظف والعملاء، وسياسة الاحتفاظ بالسجلات وإلغائها.</li>
@@ -182,7 +443,7 @@ export default function WhatsappEmployeeOperationsPage() {
           <h2 className="mb-4 text-lg font-bold text-[#005476]">ملفات العمل والاختبارات</h2>
           <div className="grid gap-3 md:grid-cols-2">
             {[
-              { label: "الكود الأحدث — PR #24", href: REPO + "/pull/24" },
+              { label: "نسخة Staging المجمّعة — PR #34", href: REPO + "/pull/34" },
               { label: "تسجيل تجريبي — PR #23", href: REPO + "/pull/23" },
               { label: "قاعدة واتساب — PR #22", href: REPO + "/pull/22" },
               { label: "نتائج اختبارات GitHub", href: REPO + "/actions" },
