@@ -36,8 +36,9 @@ import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment"
 // } from "./objectStorage";
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
-import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail, registrationConflictResponse, uniqueUserFieldFromError } from "@shared/authFlowUtils";
+import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail } from "@shared/authFlowUtils";
 import { createLoginHandler } from "./authLoginRoute";
+import { createRegisterHandler } from "./authRegisterRoute";
 
 import path from "path";
 import fs from "fs";
@@ -1535,85 +1536,13 @@ ${metaTags}
   });
 
   // Auth routes
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const { username, password, email, phoneNumber, authMethod } = req.body;
-      const emailKey = typeof email === "string" && email.trim() ? normalizeAuthEmail(email) : null;
-
-      if (!username || typeof username !== 'string' || username.length < 3) {
-        return res.status(400).json({ message: "Username must be at least 3 characters" });
-      }
-      if (!password || typeof password !== 'string' || password.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
-      }
-
-      // Check username uniqueness
-      const existingUser = await storage.getUserByUsername(username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-
-      // Enforce phone verification — allow email OTP as fallback
-      if (phoneNumber) {
-        const isPhoneVerified = await storage.isPhoneVerified(phoneNumber);
-        const emailRecord = emailKey ? emailOtpStore.get(emailKey) : null;
-        const isEmailVerified = emailRecord?.verified === true && Date.now() < emailRecord.expiresAt.getTime();
-
-        if (!isPhoneVerified && !isEmailVerified) {
-          return res.status(400).json({ message: "Phone number must be verified before registration" });
-        }
-      } else if (authMethod === 'phone') {
-        return res.status(400).json({ message: "Phone number is required" });
-      }
-
-      if (emailKey && await storage.getUserByEmail(emailKey)) {
-        const conflict = registrationConflictResponse("email");
-        return res.status(conflict.status).json(conflict.body);
-      }
-      if (phoneNumber && await storage.getUserByPhone(phoneNumber)) {
-        const conflict = registrationConflictResponse("phoneNumber");
-        return res.status(conflict.status).json(conflict.body);
-      }
-
-      const user = await storage.createUser({
-        username,
-        password,
-        email: emailKey ?? undefined,
-        phoneNumber: phoneNumber || undefined,
-        authMethod: authMethod || 'phone',
-        isAdmin: false,
-        isVerified: true,
-      });
-
-      req.session.userId = user.id;
-      req.session.isAdmin = user.isAdmin;
-      req.session.role = user.role ?? "user";
-      if (emailKey) emailOtpStore.delete(emailKey);
-
-      // Fire-and-forget welcome notifications
-      sendWelcomeEmail(user).catch(() => {});
-      sendWelcomeWhatsApp(user).catch(() => {});
-
-      const userResponse: any = {
-        id: user.id,
-        username: user.username,
-        authMethod: user.authMethod,
-        isAdmin: user.isAdmin,
-      };
-      if (user.email) userResponse.email = user.email;
-      if (user.phoneNumber) userResponse.phoneNumber = user.phoneNumber;
-
-      res.status(201).json(userResponse);
-    } catch (error) {
-      const uniqueField = uniqueUserFieldFromError(error);
-      if (uniqueField) {
-        const conflict = registrationConflictResponse(uniqueField);
-        return res.status(conflict.status).json(conflict.body);
-      }
-      console.error("[Auth] Registration failed:", safeOtpErrorDiagnostic(error));
-      res.status(500).json({ code: "REGISTRATION_UNAVAILABLE", message: "Registration could not be completed. Please try again." });
-    }
-  });
+  app.post("/api/auth/register", createRegisterHandler({
+    storage,
+    emailOtpStore,
+    sendWelcomeEmail,
+    sendWelcomeWhatsApp,
+    logError: (error) => console.error("[Auth] Registration failed:", safeOtpErrorDiagnostic(error)),
+  }));
 
   app.post("/api/auth/change-password", isAuthenticated, async (req, res) => {
     try {
