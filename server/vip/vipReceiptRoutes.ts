@@ -331,7 +331,7 @@ export function registerVipReceiptRoutes(
             "WHERE i.id=$1 GROUP BY i.id",[item.installment_id]
           );
           const total=amountToCents(sums.rows[0].total);
-          const paid=amountToCents(sums.rows[0].posted)??0n;
+          const paid=amountToCents(sums.rows[0].posted)??BigInt(0);
           const requested=amountToCents(amountRaw);
           if(!total || !requested || requested > total-paid) {
             await db.query("ROLLBACK");

@@ -29,12 +29,12 @@ test("file names remove traversal characters", () => {
 });
 
 test("money parse is exact, positive and limited to two decimals", () => {
-  assert.equal(amountToCents("1250.05"),125005n);
-  assert.equal(amountToCents("0.01"),1n);
-  assert.equal(amountToCents("100"),10000n);
+  assert.equal(amountToCents("1250.05"),BigInt(125005));
+  assert.equal(amountToCents("0.01"),BigInt(1));
+  assert.equal(amountToCents("100"),BigInt(10000));
   for(const bad of ["-1","0","0.00","1.001","1e3","Infinity","01.2","0,01",""]) {
     assert.equal(amountToCents(bad),null,bad);
   }
-  assert.equal(centsToAmount(125005n),"1250.05");
-  assert.equal(centsToAmount(1n),"0.01");
+  assert.equal(centsToAmount(BigInt(125005)),"1250.05");
+  assert.equal(centsToAmount(BigInt(1)),"0.01");
 });

@@ -30,12 +30,12 @@ export function normalizeReceiptName(raw: unknown): string {
 export function amountToCents(raw: string): bigint | null {
   if (!/^(0|[1-9]\d{0,13})(\.\d{1,2})?$/.test(raw)) return null;
   const [whole, decimal=""] = raw.split(".");
-  const cents = BigInt(whole) * 100n + BigInt(decimal.padEnd(2, "0") || "0");
-  return cents > 0n ? cents : null;
+  const cents = BigInt(whole) * BigInt(100) + BigInt(decimal.padEnd(2, "0") || "0");
+  return cents > BigInt(0) ? cents : null;
 }
 
 export function centsToAmount(value: bigint): string {
-  const sign = value < 0n ? "-" : "";
-  const absolute = value < 0n ? -value : value;
-  return sign + String(absolute / 100n) + "." + String(absolute % 100n).padStart(2,"0");
+  const sign = value < BigInt(0) ? "-" : "";
+  const absolute = value < BigInt(0) ? -value : value;
+  return sign + String(absolute / BigInt(100)) + "." + String(absolute % BigInt(100)).padStart(2,"0");
 }
