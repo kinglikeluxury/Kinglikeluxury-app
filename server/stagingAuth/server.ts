@@ -165,6 +165,11 @@ async function main() {
 
   const app = express();
   app.set("trust proxy", 1);
+  // Liveness only: does not assert Meta/webhook or archive readiness.
+  app.get("/health", (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, service: "kinglike-whatsapp-staging" });
+  });
   const webhookJsonParser = express.json({
     limit: "1mb",
     verify(req, _res, buffer) {
