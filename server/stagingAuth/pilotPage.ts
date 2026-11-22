@@ -21,6 +21,10 @@ button:disabled{opacity:.6;cursor:wait}.secondary{color:#dbeef2;background:#2046
 small{color:#a3c4d2}.hidden,[hidden]{display:none!important}
 a{color:#72e8e2}.items{padding:0;margin:15px 0;list-style:none}.items li{border-bottom:1px solid #274e5b;padding:11px 0;display:flex;justify-content:space-between;gap:12px}
 .value{direction:ltr;white-space:nowrap}
+.checkrow{display:flex;align-items:flex-start;gap:10px;line-height:1.6;font-size:.92rem}
+.checkrow input{width:22px;height:22px;flex-shrink:0;accent-color:#3bcac4;margin:3px 0 0}
+.signup-actions{margin-top:18px}.signup-actions button{margin-top:10px}
+.notice{font-size:.88rem;color:#a2bdc8;margin-top:12px}
 </style>
 </head>
 <body>
@@ -46,6 +50,17 @@ a{color:#72e8e2}.items{padding:0;margin:15px 0;list-style:none}.items li{border-
 <h2>حالة التجربة</h2>
 <p id="identity"></p>
 <ul id="checks" class="items"></ul>
+<section id="employeeSignup" hidden>
+<h2>تجهيز تسجيل رقم WhatsApp Business</h2>
+<div class="status" id="employeeSignupStatus" role="status">جارٍ فحص الموافقة السارية على رقمك…</div>
+<p class="notice">هذه الخطوة مخصصة للموظف المعتمد. لا تحذف واتساب Business من الهاتف ولا تُجري عملية نقل الرقم إلى Cloud API بدل Coexistence.</p>
+<label class="checkrow"><input id="employeeCoexAcknowledgement" type="checkbox"><span>أؤكد أنني أستخدم رقم العمل الموافق عليه، وأفهم أن تسجيل Coexistence يتطلب موافقتي داخل Meta، وأن الرسائل الواردة خلال مرحلة العزل قد لا تُحفظ.</span></label>
+<div class="signup-actions">
+<button id="prepareCoexistence" disabled type="button">تجهيز جلسة Coexistence الآمنة</button>
+<button id="launchMetaCoexistence" type="button" hidden>فتح نافذة Meta وربط WhatsApp Business</button>
+</div>
+<p id="signupOutcome" class="notice" aria-live="polite"></p>
+</section>
 <div class="status warning">لن يبدأ ربط WhatsApp Business هنا قبل اجتياز متطلبات Meta وموافقة المالك وشروط حفظ الرسائل.</div>
 <button id="refreshButton" class="secondary" type="button">تحديث الحالة</button>
 <button id="logoutButton" class="secondary" type="button">تسجيل الخروج</button>
@@ -68,7 +83,192 @@ function addCheck(name,value){
   n.textContent=name;v.textContent=value;v.className="value";
   item.append(n,v);$("checks").append(item);
 }
+// No Meta request or SDK load occurs until an authenticated employee, a current
+// preapproval, all server gates and an explicit employee action are present.
+let employeeApprovedRequest=null;
+let employeeReadyForSignup=false;
+let metaSession=null;
+let metaCode=null;
+let metaAssets=null;
+let metaSubmitting=false;
+let metaListenerActive=false;
+let metaSessionTimer=null;
+function result(message){ $("signupOutcome").textContent=message; }
+function resetMetaSession(){
+  metaSession=null;metaCode=null;metaAssets=null;metaSubmitting=false;
+  if(metaSessionTimer){clearTimeout(metaSessionTimer);metaSessionTimer=null;}
+  $("launchMetaCoexistence").hidden=true;
+}
+function updateEmployeeAction(){
+  $("prepareCoexistence").disabled=!(
+    employeeReadyForSignup&&employeeApprovedRequest&&
+    $("employeeCoexAcknowledgement").checked
+  );
+}
+async function loadMetaSdk(appId){
+  if(!/^[0-9]{1,40}$/.test(appId))throw Error("invalid_app_id");
+  if(!window.FB){
+    await new Promise((resolve,reject)=>{
+      const script=document.createElement("script");
+      script.src="https://connect.facebook.net/en_US/sdk.js";
+      script.async=true;
+      script.crossOrigin="anonymous";
+      script.onload=resolve;script.onerror=()=>reject(Error("sdk_unavailable"));
+      document.head.appendChild(script);
+    });
+  }
+  if(!window.FB||typeof window.FB.init!=="function")throw Error("sdk_unavailable");
+  window.FB.init({appId:appId,cookie:false,xfbml:false,version:"v25.0"});
+}
+async function tryCompleteMetaSignup(){
+  if(!metaSession||!metaCode||!metaAssets||metaSubmitting)return;
+  metaSubmitting=true;
+  result("جارٍ التحقق من الأصول التي أعادتها Meta على الخادم الآمن…");
+  try{
+    const answer=await json("/api/employee/whatsapp-coexistence/oauth/finish",{
+      method:"POST",headers:{
+        "Content-Type":"application/json",
+        "X-CSRF-Token":metaSession.csrfToken
+      },body:JSON.stringify({
+        state:metaSession.state,
+        code:metaCode,
+        assets:metaAssets
+      })
+    });
+    if(answer.status===200&&answer.data.status==="owner_approval_pending"){
+      result("تم التحقق من أصول Meta. بانتظار اعتماد المالك النهائي؛ أرشفة الرسائل متوقفة.");
+    }else{
+      result("لم يكتمل التحقق الآمن لدى الخادم. لم نفترض أن الرقم مرتبط.");
+    }
+  }catch{
+    result("فشل التواصل الآمن أثناء التحقق؛ لا نعتبر الرقم مرتبطًا.");
+  }finally{resetMetaSession();}
+}
+function metaMessageListener(event){
+  if(!metaSession||event.origin!=="https://www.facebook.com")return;
+  let body=event.data;
+  if(typeof body==="string"){
+    try{body=JSON.parse(body);}catch{return;}
+  }
+  if(!body||body.type!=="WA_EMBEDDED_SIGNUP")return;
+  if(body.event==="CANCEL"){
+    result("تم إلغاء العملية في Meta. لم يُطلب أي ربط.");
+    resetMetaSession();return;
+  }
+  // Only an explicitly completed Business App onboarding is eligible.
+  if(body.event==="FINISH"){
+    result("ظهر مسار WhatsApp Cloud API العادي، وليس Coexistence المؤكد. توقّف دون متابعة.");
+    resetMetaSession();return;
+  }
+  if(body.event!=="FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING")return;
+  const data=body.data||{};
+  const assets={
+    businessId:String(data.business_id||""),
+    wabaId:String(data.waba_id||""),
+    phoneNumberId:String(data.phone_number_id||"")
+  };
+  if(!Object.values(assets).every(x=>/^[0-9]{1,40}$/.test(x))){
+    result("لم تُعِد Meta جميع معرّفات الرقم الموثوقة؛ لن نكمل الربط.");
+    resetMetaSession();return;
+  }
+  metaAssets=assets;
+  void tryCompleteMetaSignup();
+}
+window.addEventListener("message",metaMessageListener);
+$("employeeCoexAcknowledgement").addEventListener("change",updateEmployeeAction);
+$("prepareCoexistence").addEventListener("click",async()=>{
+  const button=$("prepareCoexistence");
+  if(button.disabled||!employeeApprovedRequest||!employeeReadyForSignup)return;
+  button.disabled=true;resetMetaSession();
+  result("يتم التحقق من موافقة الرقم وإنشاء جلسة قصيرة محمية…");
+  try{
+    const [readiness,requests]=await Promise.all([
+      json("/api/employee/whatsapp-coexistence/readiness"),
+      json("/api/employee/whatsapp-number-preapproval")
+    ]);
+    const approved=(requests.data.requests||[]).find(x=>
+      x.requestId===employeeApprovedRequest.requestId&&
+      x.version===employeeApprovedRequest.version&&x.status==="approved"&&
+      new Date(x.expiresAt).getTime()>Date.now()
+    );
+    if(readiness.status!==200||readiness.data.onboardingQuarantineReady!==true||
+       readiness.data.oauthEnabled!==true||requests.status!==200||!approved){
+      throw Error("readiness_blocked");
+    }
+    const csrf=await json("/api/employee/whatsapp-coexistence/oauth/start/csrf",{
+      method:"POST",headers:{"Content-Type":"application/json"},body:"{}"
+    });
+    if(csrf.status!==200||typeof csrf.data.csrfToken!=="string")throw Error("csrf_blocked");
+    const prepared=await json("/api/employee/whatsapp-coexistence/oauth/start",{
+      method:"POST",headers:{
+        "Content-Type":"application/json",
+        "X-CSRF-Token":csrf.data.csrfToken
+      },
+      body:JSON.stringify({
+        approvalId:approved.requestId,version:approved.version
+      })
+    });
+    const conf=prepared.data.metaSignupConfig;
+    if(prepared.status!==200||prepared.data.mode!=="approved_number_quarantine"||
+       prepared.data.status!=="prepared_not_connected"||
+       !conf||!/^[0-9]{1,40}$/.test(conf.appId)||
+       !/^[0-9]{1,40}$/.test(conf.configId)||
+       typeof prepared.data.state!=="string"||
+       typeof prepared.data.csrfToken!=="string"){
+      throw Error("signup_not_ready");
+    }
+    metaSession={
+      state:prepared.data.state,csrfToken:prepared.data.csrfToken,
+      configId:conf.configId,appId:conf.appId
+    };
+    await loadMetaSdk(conf.appId);
+    metaSessionTimer=setTimeout(()=>{
+      if(metaSession){
+        resetMetaSession();
+        result("انتهت مهلة الجلسة التجريبية، ولم يتم تسجيل ربط.");
+      }
+    },5*60*1000);
+    $("launchMetaCoexistence").hidden=false;
+    result("الجلسة جاهزة. اضغط «فتح نافذة Meta» إذا كنت الموظف المصرّح وتريد بدء التسجيل.");
+  }catch{
+    resetMetaSession();
+    result("مسار التسجيل ما زال محجوبًا من الخادم. لا تغيير في واتساب Business.");
+  }finally{updateEmployeeAction();}
+});
+$("launchMetaCoexistence").addEventListener("click",()=>{
+  // Call FB.login directly within this click handler to avoid popup blocking.
+  if(!metaSession||!window.FB||typeof window.FB.login!=="function"||
+     !$("employeeCoexAcknowledgement").checked)return;
+  $("launchMetaCoexistence").hidden=true;
+  result("تحقق داخل Meta من ظهور خيار ربط WhatsApp Business الموجود. لا تتابع مسار نقل الرقم.");
+  try{
+    window.FB.login((response)=>{
+      if(!metaSession)return;
+      const code=response&&response.authResponse&&response.authResponse.code;
+      if(typeof code==="string"&&code.length>=8&&code.length<=4096){
+        metaCode=code;
+        void tryCompleteMetaSignup();
+      }else{
+        result("لم يصل رمز تفويض صالح من Meta؛ لم يكتمل التسجيل.");
+        resetMetaSession();
+      }
+    },{
+      config_id:metaSession.configId,
+      response_type:"code",
+      override_default_response_type:true,
+      extras:{featureType:"whatsapp_business_app_onboarding"}
+    });
+  }catch{
+    result("تعذر فتح Meta، ولم يتم تسجيل أي ربط.");
+    resetMetaSession();
+  }
+});
+
 async function refresh(){
+  employeeReadyForSignup=false;employeeApprovedRequest=null;
+  $("employeeSignup").hidden=true;
+  $("employeeCoexAcknowledgement").checked=false;
+  resetMetaSession();
   label("جارٍ فحص حالة Staging…");
   try {
     const session=await json("/api/staging/identity/session");
@@ -102,6 +302,7 @@ async function refresh(){
         addCheck("أرشفة الرسائل",x.messagesArchiveEnabled?"مفعّلة":"متوقفة");
       }
     }else if(role==="crm_employee"){
+      $("employeeSignup").hidden=false;
       const [pre,requests,coex]=await Promise.all([
         json("/api/employee/whatsapp-number-preapproval/readiness"),
         json("/api/employee/whatsapp-number-preapproval"),
@@ -119,6 +320,19 @@ async function refresh(){
         addCheck("جاهزية بدء التسجيل",coex.data.onboardingQuarantineReady?"READY":"BLOCKED");
         addCheck("فحص إعداد Meta",coex.data.metaConfigVerified||"BLOCKED");
       }else{addCheck("حالة التسجيل","غير متاحة");}
+      const approvals=requests.status===200&&Array.isArray(requests.data.requests)
+        ?requests.data.requests.filter(x=>x.status==="approved"&&new Date(x.expiresAt).getTime()>Date.now())
+        :[];
+      employeeApprovedRequest=approvals.length===1?approvals[0]:null;
+      employeeReadyForSignup=!!employeeApprovedRequest&&pre.status===200&&
+        pre.data.employeeNumberRequestReady===true&&coex.status===200&&
+        coex.data.onboardingQuarantineReady===true&&coex.data.oauthEnabled===true;
+      $("employeeSignupStatus").textContent=employeeReadyForSignup
+        ?"الموافقة سارية وخادم العزل جاهز. يلزم تأكيد الموظف قبل تجهيز الجلسة."
+        :approvals.length===1
+          ?"موافقة الرقم سارية. لا يمكن بدء Meta إلى حين اكتمال تدقيق الإعدادات وموافقات التشغيل."
+          :"لا توجد موافقة واحدة سارية مرتبطة بحساب الموظف.";
+      updateEmployeeAction();
       addCheck("ربط Meta الفعلي","لم يبدأ");
     }else{addCheck("صلاحية هذا الحساب","محدودة");}
     label("فحص قراءة فقط. لم يُنفذ تسجيل أو ربط أو أرشفة.");
@@ -141,6 +355,8 @@ $("loginForm").addEventListener("submit", async (e)=>{
 $("refreshButton").addEventListener("click",refresh);
 $("logoutButton").addEventListener("click",async()=>{
   try{await json("/api/staging/identity/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});}catch{}
+  resetMetaSession();employeeReadyForSignup=false;employeeApprovedRequest=null;
+  $("employeeSignup").hidden=true;
   showLogin();label("تم إنهاء الجلسة.");$("password").value="";
 });
 refresh();
@@ -148,15 +364,18 @@ refresh();
 </body></html>`;
 
 /**
- * Read-only, same-origin pilot interface. No Meta SDK, OAuth trigger, client
- * tokens, customer data, or archive controls are delivered by this page.
+ * Same-origin employee Coexistence pilot; all Meta controls are gated by
+ * authenticated, preapproved, server-side quarantine readiness. No Meta SDK
+ * loads until an explicit employee click after readiness; archiving is disabled.
  */
 export function registerStagingPilotPage(app: Express): void {
   app.get("/staging/whatsapp-pilot", (_req, res) => {
     const nonce = randomBytes(18).toString("base64");
     res.setHeader("Content-Security-Policy",
       "default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; " +
-      "script-src 'nonce-" + nonce + "'; style-src 'nonce-" + nonce + "'; connect-src 'self'");
+      "script-src 'nonce-" + nonce + "' https://connect.facebook.net; " +
+      "style-src 'nonce-" + nonce + "'; connect-src 'self' https://www.facebook.com; " +
+      "frame-src https://www.facebook.com https://web.facebook.com");
     res.setHeader("Cache-Control", "no-store, max-age=0");
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader("X-Frame-Options", "DENY");
