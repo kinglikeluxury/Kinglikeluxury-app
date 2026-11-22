@@ -31,10 +31,17 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - No storage or media upload endpoints in this slice.
 - This migration has NOT been applied in any database and the branch has NOT been deployed or built.
 
+## Fourth implementation slice (code added, not deployed)
+- Authorized administrators can create contractual installment schedules for each VIP unit, with an amount, currency, due date, and sequence number.
+- Owners can view installment due dates prominently, with verified paid and outstanding balances backed by financial posting records.
+- Existing public-site `payments` is NOT used as the property installment ledger.
+- Creating an installment does not mark it paid; no receipt upload or approval bypass is available.
+- All admin writes are validated and audited in the same DB transaction; no migration, storage writes, emails or deployment have run.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Secure invitation and activation for buyer accounts (existing-account assignments are now drafted).
-3. Installments/partial payments, private S3 receipts and finance-only verification.
+3. Private S3 receipts and finance-only verification (installment schedule endpoints added, not tested).
 4. Developer statement requests once per unit/calendar month, admin request queue.
 5. Management photo uploads and camera settings with signed/approved URLs (progress updates are drafted).
 6. Handover, digital VIP card, notifications and referral flows.

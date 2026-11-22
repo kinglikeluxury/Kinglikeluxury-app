@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Building2, ChartNoAxesCombined, KeyRound, Plus, ShieldCheck } from "lucide-react";
+import { Building2, TrendingUp, KeyRound, Plus, ShieldCheck } from "lucide-react";
+import VipInstallmentsAdmin from "./VipInstallmentsAdmin";
 
 type Project = { id: string; name: string; developer_name: string | null; progress_percent: number | null };
 type Unit = { id: string; project_id: string; unit_number: string; floor_number: number | null; owner_id: number | null; owner_email: string | null };
@@ -164,7 +165,7 @@ export default function VipProjectsAdmin() {
           <button className={primary+" mt-5"} disabled={busy||!selectedUnit} type="submit">{busy?t.saving:t.save}</button>
         </form>
         <form onSubmit={updateProgress} className={card}>
-          <h3 className="mb-5 flex items-center gap-2 font-semibold"><ChartNoAxesCombined className="h-5 w-5 text-[#008c93]"/>{t.progress}</h3>
+          <h3 className="mb-5 flex items-center gap-2 font-semibold"><TrendingUp className="h-5 w-5 text-[#008c93]"/>{t.progress}</h3>
           <label className="mb-2 block text-sm">{t.project}</label>
           <select className={field} value={selectedProject} onChange={e=>setProjectChoice(e.target.value)} disabled={!projects.length}>
             {projects.length===0?<option value="">{t.noProjects}</option>:projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
@@ -180,6 +181,7 @@ export default function VipProjectsAdmin() {
           <button className={primary+" mt-5"} disabled={busy||!selectedProject} type="submit">{busy?t.saving:t.save}</button>
         </form>
       </div>
+      <VipInstallmentsAdmin units={units} projects={projects} />
     </section>
   );
 }
