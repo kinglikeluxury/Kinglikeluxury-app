@@ -1,3 +1,4 @@
+import { registerStagingPilotPage } from "./pilotPage";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcrypt";
@@ -165,6 +166,7 @@ async function main() {
 
   const app = express();
   app.set("trust proxy", 1);
+  registerStagingPilotPage(app);
   // Liveness only: does not assert Meta/webhook or archive readiness.
   app.get("/health", (_req, res) => {
     res.set("Cache-Control", "no-store");
