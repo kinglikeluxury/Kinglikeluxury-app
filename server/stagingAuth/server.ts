@@ -386,6 +386,64 @@ async function main() {
     `trusted_notice=${coexistenceReadiness.trustedNoticeStatusWriter.toLowerCase()} ` +
     `webhook=${coexistenceReadiness.webhookEnabled ? "ready" : "blocked"}`,
   );
+  // Owner-only, read-only safety inventory for the isolated staging pilot.
+  // Nothing here can enable OAuth, register a number, or read customer messages.
+  app.get("/api/admin/whatsapp-staging/system-readiness", identityAuth.middleware, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const actor = getStagingIdentity(req)?.actor;
+    if (!actor?.active || !actor.identityVerified || !actor.isAdmin ||
+        actor.role !== "owner_approver" ||
+        actor.username?.trim().toLowerCase() !== "info@kinglikeluxury.app") {
+      return res.status(403).json({ status: "forbidden" });
+    }
+    try {
+      const [approval, grantCheck, vault] = await Promise.all([
+        pool.query(
+          `SELECT COUNT(*) FILTER (WHERE p.status = 'approved'
+                         AND p.expires_at > now())::int AS approved_count,
+                  COUNT(*) FILTER (WHERE p.meta_verified_at IS NOT NULL)::int
+                    AS meta_verified_count
+             FROM staging_whatsapp_number_preapprovals p
+             JOIN staging_auth_users u ON u.id = p.employee_user_id
+            WHERE u.is_active = TRUE AND u.identity_verified_at IS NOT NULL
+              AND u.is_admin = FALSE AND u.role = 'crm_employee'`,
+        ),
+        ownerApprovalStore.requiredGrantsReady().catch(() => false),
+        readArchiveServiceReadiness(),
+      ]);
+      const state = getWhatsappCoexistenceReadiness(process.env, {
+        preapprovalMigrationApplied: preapprovalStoreReady,
+        onboardingStoreAuthenticated: preapprovalStoreReady,
+        minimalMetadataStoreVerified: preapprovalStoreReady,
+        ...vault,
+        ownerApprovedArchiveBindingVerified: ownerApprovedBindingVerified,
+        trustedNoticeWriterVerified: trustedNoticeSourceReady,
+      });
+      return res.status(200).json({
+        status: "read_only",
+        approvedEmployeeNumberPresent:
+          Number(approval.rows[0]?.approved_count ?? 0) > 0,
+        metaNumberVerified:
+          Number(approval.rows[0]?.meta_verified_count ?? 0) > 0,
+        onboardingDatabaseReady: preapprovalStoreReady,
+        identityIsolationVerified: state.identityStoreIsolation === "READY",
+        vaultReady: state.encryptedTokenCustody === "READY",
+        metaConfigVerified: state.metaConfigVerified === "READY",
+        quarantineSignatureVerified: state.quarantineSignatureReview === "READY",
+        ownerGrantReady: grantCheck,
+        publicHttpsReady: state.publicHttpsCallback === "READY",
+        metaWebhookApproved:
+          process.env.WHATSAPP_ARCHIVE_STAGING_WEBHOOK_APPROVED === "true",
+        activationApproved: state.activationApproval === "READY",
+        quarantineReady: state.onboardingQuarantineReady,
+        archivePolicyReady: state.archivePolicyAndKey === "READY",
+        customerNoticeVerified: state.trustedNoticeStatusWriter === "READY",
+        messagesArchiveEnabled: state.archivingReady,
+      });
+    } catch {
+      return res.status(503).json({ status: "readiness_unavailable" });
+    }
+  });
   registerEmployeeWhatsappVerificationRoutes(app, {
     env: process.env,
     requireStagingIdentity: true,
