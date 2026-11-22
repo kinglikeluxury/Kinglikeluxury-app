@@ -444,6 +444,24 @@ CREATE TABLE IF NOT EXISTS vip_internal_commissions (
  CHECK (status <> 'voided' OR (voided_by IS NOT NULL AND voided_at IS NOT NULL))
 );
 CREATE INDEX IF NOT EXISTS vip_internal_commissions_unit_idx ON vip_internal_commissions(unit_id,created_at DESC);
+-- Manual cross-system association only. CRM lives outside the VIP data model,
+-- and its business tables are never altered by VIP operations or migrations.
+CREATE TABLE IF NOT EXISTS vip_crm_sale_links (
+ id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+ owner_user_id INTEGER NOT NULL REFERENCES users(id),
+ crm_lead_id INTEGER NOT NULL CHECK(crm_lead_id>0),
+ signed_sale_reference VARCHAR(120) NOT NULL CHECK(length(trim(signed_sale_reference))>=8),
+ note VARCHAR(400) NOT NULL,
+ linked_by INTEGER NOT NULL REFERENCES users(id),
+ linked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ revoked_at TIMESTAMPTZ,
+ revoked_by INTEGER REFERENCES users(id),
+ revocation_reason VARCHAR(450)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS vip_crm_sale_links_one_active_per_unit
+ ON vip_crm_sale_links(unit_id) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS vip_crm_sale_links_lead_idx ON vip_crm_sale_links(crm_lead_id);
 CREATE TABLE IF NOT EXISTS vip_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   actor_user_id INTEGER REFERENCES users(id),

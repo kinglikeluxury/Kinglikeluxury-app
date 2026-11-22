@@ -42,6 +42,6 @@ export function commissionEstimate(v:{basis_amount:string|null;percentage:string
  if(v.basis_amount===null||v.percentage===null)throw Error("Invalid commission method");
  const cents=BigInt(Math.round(Number(v.basis_amount)*100));
  const rate=BigInt(Math.round(Number(v.percentage)*10000));
- const result=(cents*rate+500000n)/1000000n;
+ const result=(cents*rate+BigInt(500000))/BigInt(1000000);
  return (Number(result)/100).toFixed(2);
 }

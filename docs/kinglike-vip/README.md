@@ -179,6 +179,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - The isolated PostgreSQL test asserts no mixed calculation method, no unapproved FX publication and no commission settlement without prior finance approval.
 - Missing real-world requirements: approved developer contracts, company VAT/tax policy per country, reconciliation against actual bank receipts and any accounting ledger used by the company.
 
+## CRM association safety boundary (new code; not deployed)
+- Management can associate a VIP unit with an existing `crm_leads.id` only after confirming the signed contract and buyer identity. A conflicting known lead email is rejected.
+- CRM lookups connect with `KINGLIKE_VIP_CRM_READONLY_DATABASE_URL` through a **dedicated, explicitly configured, read-only transaction**; no fallback to the normal application/Neon/Kay credentials is permitted. Missing credentials fail closed.
+- VIP's association metadata is stored in `vip_crm_sale_links`, not in CRM tables. The existing CRM leads, assignees, statuses, WhatsApp settings, contacts and workflow remain untouched.
+- At most one active CRM association per VIP unit, with explicit management reason and audit trail upon replacement or revocation.
+- No automatic marketing outreach, lead distribution, sale conversion, referral qualification, unit activation or commission payment may be triggered by this association.
+- Integration is **not yet connected** to a configured SELECT-only database role, and it has not been exercised against staging CRM data. A contract document reference is only an administrative attestation; legal document verification remains human-controlled.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

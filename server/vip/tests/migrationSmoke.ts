@@ -29,7 +29,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_referral_links","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_handover_key_receipts","vip_support_tickets","vip_support_messages","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments","vip_exchange_rates","vip_internal_commissions"
+      "vip_handover_snags","vip_handover_key_receipts","vip_support_tickets","vip_support_messages","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments","vip_exchange_rates","vip_internal_commissions","vip_crm_sale_links"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
@@ -208,6 +208,21 @@ async function run(){
     assert(unreviewedSettlementBlocked,"Commission settlement requires finance review first");
     await client.query("UPDATE vip_internal_commissions SET status='approved',approved_by=$2,approved_at=NOW() WHERE id=$1",[c,u2]);
     await client.query("UPDATE vip_internal_commissions SET status='settled',settled_by=$2,settled_at=NOW(),settlement_reference='Transfer 2026' WHERE id=$1",[c,u2]);
+    // CRM associations exist exclusively in VIP; no CRM source table changes.
+    const crmLink=(await client.query(
+      "INSERT INTO vip_crm_sale_links(unit_id,owner_user_id,crm_lead_id,signed_sale_reference,note,linked_by) "+
+      "VALUES($1,$2,1001,'SALE-CONTRACT-2026','Signed sale was confirmed by management',$3) RETURNING id",
+      [uid,u1,u2])).rows[0].id;
+    let duplicateCrmAssociationBlocked=false;
+    try{await client.query(
+      "INSERT INTO vip_crm_sale_links(unit_id,owner_user_id,crm_lead_id,signed_sale_reference,note,linked_by) "+
+      "VALUES($1,$2,1002,'SALE-CONTRACT-2027','Alternative buyer association',$3)",
+      [uid,u1,u2]);}
+    catch(e){duplicateCrmAssociationBlocked=(e as {code?:string}).code==="23505";}
+    assert(duplicateCrmAssociationBlocked,"One active CRM association per VIP unit");
+    await client.query("UPDATE vip_crm_sale_links SET revoked_at=NOW(),revoked_by=$2,revocation_reason='Replaced after review' WHERE id=$1",[crmLink,u2]);
+    await client.query("INSERT INTO vip_crm_sale_links(unit_id,owner_user_id,crm_lead_id,signed_sale_reference,note,linked_by) "+
+     "VALUES($1,$2,1002,'SALE-CONTRACT-2027','Revised association after signed contract',$3)",[uid,u1,u2]);
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     await client.query("INSERT INTO vip_handover_key_receipts(unit_id,owner_user_id,developer_handover_reference,approval_note,approved_by) "+
       "VALUES($1,$2,'DEVELOPER-DELIVERY-2027','Inspected and approved for key delivery',$3)",[uid,u1,u1]);
