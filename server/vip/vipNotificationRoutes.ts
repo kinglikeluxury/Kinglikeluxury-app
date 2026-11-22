@@ -26,7 +26,7 @@ export function registerVipNotificationRoutes(app:Express,enabled:RequestHandler
     try{
       const [notifications,upcoming]=await Promise.all([
         pool.query(
-          "SELECT n.id::text AS id,n.unit_id::text AS unit_id,n.title,n.body,n.event_type,n.created_at,n.read_at "+
+          "SELECT n.id::text AS id,n.unit_id::text AS unit_id,n.title,n.body,n.event_type,n.payload,n.created_at,n.read_at "+
           "FROM vip_notifications n WHERE n.user_id=$1 "+
           "AND (n.unit_id IS NULL OR EXISTS(SELECT 1 FROM vip_unit_access a "+
           "WHERE a.unit_id=n.unit_id AND a.user_id=$1 AND a.access_role='owner' AND a.revoked_at IS NULL)) "+
@@ -52,6 +52,26 @@ export function registerVipNotificationRoutes(app:Express,enabled:RequestHandler
       ]);
       return res.json({notifications:notifications.rows,dueSoon:upcoming.rows});
     }catch{return res.status(503).json({error:"VIP notifications unavailable"});}
+  });
+  app.get("/api/vip/notification-preferences",enabled,auth,async(_req:Request,res:Response)=>{
+    try{
+      const pref=await pool.query(
+        "SELECT in_app_due_reminders FROM vip_notification_preferences WHERE user_id=$1",
+        [res.locals.vipUser.id]);
+      return res.json({inAppDueReminders:pref.rows[0]?.in_app_due_reminders!==false});
+    }catch{return res.status(503).json({error:"Preferences unavailable"});}
+  });
+  app.put("/api/vip/notification-preferences",enabled,auth,originJson,async(req:Request,res:Response)=>{
+    if(typeof req.body?.inAppDueReminders!=="boolean"){
+      return res.status(400).json({error:"Valid notification preference required"});
+    }
+    try{
+      await pool.query(
+        "INSERT INTO vip_notification_preferences(user_id,in_app_due_reminders) VALUES($1,$2) "+
+        "ON CONFLICT(user_id) DO UPDATE SET in_app_due_reminders=EXCLUDED.in_app_due_reminders,updated_at=NOW()",
+        [res.locals.vipUser.id,req.body.inAppDueReminders]);
+      return res.json({saved:true});
+    }catch{return res.status(503).json({error:"Could not save preference"});}
   });
   app.post("/api/vip/notifications/:id/read",enabled,auth,originJson,async(req:Request,res:Response)=>{
     const notificationId=validId(req.params.id);

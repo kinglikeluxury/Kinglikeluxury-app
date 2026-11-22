@@ -261,7 +261,9 @@ CREATE TABLE IF NOT EXISTS vip_notifications (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   unit_id BIGINT REFERENCES vip_units(id),
-  event_type TEXT NOT NULL CHECK (event_type IN ('admin_update')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('admin_update','due_reminder','service_update','statement_ready','journey_update')),
+  source_key TEXT,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   title VARCHAR(90) NOT NULL,
   body VARCHAR(700) NOT NULL,
   created_by INTEGER REFERENCES users(id),
@@ -270,6 +272,13 @@ CREATE TABLE IF NOT EXISTS vip_notifications (
 );
 CREATE INDEX IF NOT EXISTS vip_notifications_by_owner
   ON vip_notifications(user_id,created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS vip_notifications_deduplicate_events
+  ON vip_notifications(user_id,event_type,source_key) WHERE source_key IS NOT NULL;
+CREATE TABLE IF NOT EXISTS vip_notification_preferences (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  in_app_due_reminders BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Stage history can be edited by management, but only published events appear
 -- in the owner's timeline. This is not a legal signature or payment receipt.

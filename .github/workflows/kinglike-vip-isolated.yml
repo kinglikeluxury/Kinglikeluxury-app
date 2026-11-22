@@ -50,7 +50,7 @@ jobs:
           fi
           echo "VIP files have no reported TypeScript errors. Existing legacy errors are outside this scope."
       - name: VIP security validation unit tests
-        run: npx tsx --test server/vip/vipInvitationSecurity.test.ts server/vip/vipReceiptValidation.test.ts server/vip/vipCameraSecurity.test.ts server/vip/vipPhotoValidation.test.ts server/vip/vipHandoverRules.test.ts server/vip/vipEngagementRules.test.ts server/vip/vipSellerRules.test.ts server/vip/vipExperienceRules.test.ts server/vip/vipAccountingRules.test.ts server/vip/vipReferralLinkRules.test.ts
+        run: npx tsx --test server/vip/vipInvitationSecurity.test.ts server/vip/vipReceiptValidation.test.ts server/vip/vipCameraSecurity.test.ts server/vip/vipPhotoValidation.test.ts server/vip/vipHandoverRules.test.ts server/vip/vipEngagementRules.test.ts server/vip/vipSellerRules.test.ts server/vip/vipExperienceRules.test.ts server/vip/vipAccountingRules.test.ts server/vip/vipReferralLinkRules.test.ts server/vip/vipDueReminderRules.test.ts
       - name: VIP schema migration smoke test (isolated local Postgres only)
         env:
           VIP_TEST_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb

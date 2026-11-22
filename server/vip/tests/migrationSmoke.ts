@@ -6,6 +6,7 @@ import {readFileSync} from "node:fs";
 import pg from "pg";
 const {Client}=pg;
 import {strict as assert} from "node:assert";
+import {generateVipDueReminders} from "../vipDueReminderJob";
 
 const testUrl=process.env.VIP_TEST_DATABASE_URL;
 if(!testUrl)throw Error("VIP_TEST_DATABASE_URL is required");
@@ -18,7 +19,7 @@ const client=new Client({connectionString:testUrl});
 async function run(){
   await client.connect();
   try{
-    await client.query("CREATE TABLE users(id SERIAL PRIMARY KEY,email TEXT)");
+    await client.query("CREATE TABLE users(id SERIAL PRIMARY KEY,email TEXT,is_active BOOLEAN NOT NULL DEFAULT TRUE)");
     const sql=readFileSync("server/vip/migrations/001_vip_foundation.sql","utf8");
     await client.query(sql);
     const tableNames=await client.query(
@@ -28,7 +29,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_referral_links","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
+      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
@@ -147,6 +148,30 @@ async function run(){
     await client.query(
       "INSERT INTO vip_financial_adjustments(unit_id,category,amount,currency,description,source,source_reference,published,created_by) "+
       "VALUES($1,'maintenance',2.06,'USD','Published service fee','signed_contract','Section 12.3',TRUE,$2)",[uid,u1]);
+    // Exactly two days before the due date, emit one private in-app notice.
+    // Testing runs against local vipdb only, never production.
+    const futureDue=(await client.query("SELECT ((NOW() AT TIME ZONE 'Asia/Tbilisi')::date+2)::text AS day")).rows[0].day;
+    const noticeUnit=(await client.query(
+      "INSERT INTO vip_units(project_id,unit_number) VALUES($1,'303') RETURNING id",[pid])).rows[0].id;
+    await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'owner')",[noticeUnit,u2]);
+    const installment=(await client.query(
+      "INSERT INTO vip_installments(unit_id,sequence_number,due_date,amount,currency) "+
+      "VALUES($1,1,$2,350,'USD') RETURNING id",[noticeUnit,futureDue])).rows[0].id;
+    assert.equal(await generateVipDueReminders(client),1);
+    assert.equal(await generateVipDueReminders(client),0,"Due notices must not duplicate");
+    await client.query(
+      "INSERT INTO vip_notification_preferences(user_id,in_app_due_reminders) VALUES($1,FALSE)",[u2]);
+    const installment2=(await client.query(
+      "INSERT INTO vip_installments(unit_id,sequence_number,due_date,amount,currency) "+
+      "VALUES($1,2,$2,125,'USD') RETURNING id",[noticeUnit,futureDue])).rows[0].id;
+    assert.equal(await generateVipDueReminders(client),0,"Opt-out blocks new scheduled notices");
+    await client.query("UPDATE vip_notification_preferences SET in_app_due_reminders=TRUE WHERE user_id=$1",[u2]);
+    await client.query("INSERT INTO vip_payment_postings(installment_id,amount,currency,verified_by) "+
+      "VALUES($1,125,'USD',$2)",[installment2,u1]);
+    assert.equal(await generateVipDueReminders(client),0,"Paid installments must not trigger notices");
+    assert.equal((await client.query("SELECT COUNT(*)::int AS n FROM vip_notifications "+
+      "WHERE event_type='due_reminder' AND user_id=$1",[u2])).rows[0].n,1);
+    assert(installment>0);
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     const result=await client.query("SELECT status FROM vip_handover WHERE unit_id=$1",[uid]);
     assert.equal(result.rows[0].status,"not_ready");

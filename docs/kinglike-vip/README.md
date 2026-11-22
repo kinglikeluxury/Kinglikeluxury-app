@@ -139,6 +139,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - The link does not create any sale or reward automatically. Conversion remains an administrative action with sale reference.
 - Still needed before real customer launch: spam mitigation beyond per-owner limit, legal retention/consent copy review, CRM synchronization and real public-link anti-abuse testing.
 
+## Idempotent 2-day in-app due reminder job (added; NOT automatically scheduled)
+- A standalone generator creates a reminder exactly two calendar days before an unpaid installment date, respecting active ownership, active accounts and opt-out preferences.
+- A unique event source key prevents duplicate reminders even if the generator runs multiple times or workers race.
+- A user's `in_app_due_reminders` preference controls future generated reminders. No external messages are sent and there is no background run on application startup.
+- The generator remains **inert until the operator explicitly configures a scheduler and tests staging**. No Railway/Replit scheduled job, WhatsApp message, email or push notification has been activated.
+- Isolated Postgres tests cover initial due alert, duplicate suppression, opt-out and fully paid installment suppression.
+- Future work: explicit opt-in for outbound channels, scheduled job idempotency in staging and localized push/WhatsApp/email templates after approvals.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
