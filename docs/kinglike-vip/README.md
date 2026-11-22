@@ -187,6 +187,13 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - No automatic marketing outreach, lead distribution, sale conversion, referral qualification, unit activation or commission payment may be triggered by this association.
 - Integration is **not yet connected** to a configured SELECT-only database role, and it has not been exercised against staging CRM data. A contract document reference is only an administrative attestation; legal document verification remains human-controlled.
 
+## Stage-2 HTTP role isolation testing (new check; no live deployment)
+- CI now starts a real Express HTTP test server with **fixture-only** session authentication and connects it to a disposable `127.0.0.1/vipdb` PostgreSQL service.
+- Production VIP route modules are loaded with a **test-only** database import alias; production database credentials, Replit, Railway and Neon are not consulted.
+- Test cases cover client ticket creation, denial to unrelated client/unassigned employee, correct assigned-staff reply, admin-only audit and insight endpoints, fail-closed CRM access when read-only credentials are absent, and immediate loss of staff access when owner access is revoked.
+- The local database adapter hard-rejects all database hosts other than `127.0.0.1` or `localhost`, and all database names except `vipdb`.
+- This is more comprehensive than schema-only tests, but is **not** a substitute for real session-cookie, storage, RTSP.RUN or device-level Staging tests.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

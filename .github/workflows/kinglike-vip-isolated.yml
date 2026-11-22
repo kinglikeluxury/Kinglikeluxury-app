@@ -55,5 +55,11 @@ jobs:
         env:
           VIP_TEST_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
         run: npx tsx server/vip/tests/migrationSmoke.ts
+      - name: VIP HTTP authorization integration (disposable localhost Postgres)
+        env:
+          VIP_TEST_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
+        run: |
+          npx esbuild server/vip/tests/httpIntegration.ts --bundle --platform=node --format=esm --packages=external --alias:../db=./server/vip/tests/localDbShim.ts --outfile=.vip-http-test.mjs
+          node .vip-http-test.mjs
       - name: Build (no deployment)
         run: npm run build

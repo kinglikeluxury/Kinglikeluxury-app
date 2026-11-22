@@ -29,6 +29,18 @@ self.addEventListener('fetch', (event) => {
   // This prevents stale cached responses from masking backend API endpoints.
   if (url.pathname.startsWith('/api/')) return;
 
+  // VIP HTML routes can carry one-time invitation, referral or verification
+  // tokens. Never put these URLs, their query strings, or private admin/seller
+  // navigation into the service worker's persistent offline cache.
+  // The app shell itself can be cached for public routes; VIP needs the network
+  // and must require a fresh server-side authorization for its API reads.
+  if (
+    url.pathname === '/vip' ||
+    url.pathname.startsWith('/vip/') ||
+    url.pathname === '/admin/vip' ||
+    url.pathname.startsWith('/admin/vip/')
+  ) return;
+
   // Leaflet tiles and reverse geocoding are cross-origin map services.
   // Let tile requests go directly to the network so a failed service-worker
   // fetch/cache fallback cannot leave the map without its basemap.
