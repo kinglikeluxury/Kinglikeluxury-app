@@ -56,6 +56,13 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Invite links are removed from browser history on opening. No database migration or actual emails have been executed.
 - Operational requirements: recovery and reissue UX, idempotency / delivery reconciliation, signed in-session account match, session flow integration, and dedicated staging security tests.
 
+## Seventh implementation slice (code added, not deployed)
+- Admin can save or disable one approved HTTPS camera link per VIP project. Every mutation is audited.
+- Camera provider domains must be explicitly allowed in `KINGLIKE_VIP_CAMERA_ALLOWED_HOSTS` (comma-separated exact hosts, no wildcard or IP addresses).
+- Clients can see the camera link only while they own an active unit in the relevant project, and only when the admin marks the camera active.
+- The approved vendor stream opens in a separate tab; in-app embedding requires provider permission, a reviewed Content Security Policy, and security assessment.
+- Streaming access restrictions enforced by the camera provider must be verified separately. Sharing a link may allow use outside the VIP portal unless the vendor supports per-client access tokens.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

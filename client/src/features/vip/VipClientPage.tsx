@@ -8,6 +8,7 @@ import VipStatementRequest from "./VipStatementRequest";
 import VipProjectProgress from "./VipProjectProgress";
 import VipInstallmentsList from "./VipInstallmentsList";
 import VipReceiptHistory from "./VipReceiptHistory";
+import VipProjectCamera from "./VipProjectCamera";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
 type VipMe = { units: VipUnit[] };
@@ -71,6 +72,7 @@ export default function VipClientPage() {
                       <div className="h-full rounded-full bg-[#3BCAC4]" style={{ width: String(Math.max(0,Math.min(100, unit.progress_percent ?? 0)))+"%" }}/>
                     </div>
                     <VipProjectProgress projectId={unit.project_id} />
+                    <VipProjectCamera projectId={unit.project_id} />
                     <VipInstallmentsList unitId={unit.unit_id} />
                     <VipReceiptHistory unitId={unit.unit_id} />
                     <VipStatementRequest unitId={unit.unit_id} />

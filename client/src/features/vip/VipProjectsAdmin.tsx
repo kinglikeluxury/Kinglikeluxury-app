@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Building2, TrendingUp, Plus, ShieldCheck } from "lucide-react";
 import VipInstallmentsAdmin from "./VipInstallmentsAdmin";
 import VipReceiptsAdmin from "./VipReceiptsAdmin";
+import VipCameraAdmin from "./VipCameraAdmin";
 
 type Project = { id: string; name: string; developer_name: string | null; progress_percent: number | null };
 type Unit = { id: string; project_id: string; unit_number: string; floor_number: number | null; owner_id: number | null; owner_email: string | null };
@@ -159,6 +160,7 @@ export default function VipProjectsAdmin() {
       </div>
       <VipInstallmentsAdmin units={units} projects={projects} />
       <VipReceiptsAdmin units={units} projects={projects} />
+      <VipCameraAdmin projects={projects} />
     </section>
   );
 }

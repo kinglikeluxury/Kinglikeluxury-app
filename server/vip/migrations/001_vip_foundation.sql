@@ -144,6 +144,15 @@ CREATE TABLE IF NOT EXISTS vip_project_photos (
   is_published BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS vip_project_cameras (
+  project_id BIGINT PRIMARY KEY REFERENCES vip_projects(id),
+  label TEXT NOT NULL,
+  embed_url TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_by INTEGER NOT NULL REFERENCES users(id),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS vip_handover (
   unit_id BIGINT PRIMARY KEY REFERENCES vip_units(id),
   status TEXT NOT NULL DEFAULT 'not_ready',
