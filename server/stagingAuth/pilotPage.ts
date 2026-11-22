@@ -91,7 +91,6 @@ let metaSession=null;
 let metaCode=null;
 let metaAssets=null;
 let metaSubmitting=false;
-let metaListenerActive=false;
 let metaSessionTimer=null;
 function result(message){ $("signupOutcome").textContent=message; }
 function resetMetaSession(){
@@ -187,7 +186,7 @@ $("prepareCoexistence").addEventListener("click",async()=>{
       json("/api/employee/whatsapp-number-preapproval")
     ]);
     const approved=(requests.data.requests||[]).find(x=>
-      x.requestId===employeeApprovedRequest.requestId&&
+      x.id===employeeApprovedRequest.id&&
       x.version===employeeApprovedRequest.version&&x.status==="approved"&&
       new Date(x.expiresAt).getTime()>Date.now()
     );
@@ -205,7 +204,7 @@ $("prepareCoexistence").addEventListener("click",async()=>{
         "X-CSRF-Token":csrf.data.csrfToken
       },
       body:JSON.stringify({
-        approvalId:approved.requestId,version:approved.version
+        approvalId:approved.id,version:approved.version
       })
     });
     const conf=prepared.data.metaSignupConfig;
