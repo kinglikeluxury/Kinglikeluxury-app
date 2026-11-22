@@ -4,6 +4,7 @@ import {ClipboardCheck,CalendarCheck,Flag,ShieldCheck} from "lucide-react";
 import {useTranslation} from "react-i18next";
 import {getHandoverCopy} from "./vipHandoverCopy";
 import type {HandoverInfo} from "./VipHandoverClient";
+import VipKeysAdmin from "./VipKeysAdmin";
 
 type Unit={id:string;project_id:string;unit_number:string};
 type Project={id:string;name:string};
@@ -128,6 +129,7 @@ export default function VipHandoverAdmin({units,projects}:{units:Unit[];projects
      </div>)}
     </div>}
     {message&&<p role="status" className={"mt-4 text-sm "+(okay?"text-emerald-800":"text-rose-700")}>{message}</p>}
+    <VipKeysAdmin unitId={unitId} status={state}/>
     <p className="mt-4 text-xs leading-relaxed text-[#80949b]">{t.notice}</p>
    </>
   }

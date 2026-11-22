@@ -155,6 +155,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Notification text is localized in the client's five supported languages. These are account-internal alerts only; no email, WhatsApp, push notification or SMS has been activated.
 - Safety requirements before launch: verify correct entitlement changes after transfer, in-app notification suppression for revoked owners, and end-to-end tests of stored document access in staging.
 
+## Handover approval and key receipts (new code; not deployed)
+- Admin approval of handover readiness is allowed only after an inspection is completed, all checklist items pass, no unresolved snags remain, and a developer document reference and explanatory note are provided.
+- The active buyer must confirm actual physical key receipt including date, key count and explicit acknowledgment; this is operational evidence only, **not a substitute for a signed legal handover document**.
+- Management may only mark keys delivered after the active buyer has acknowledged the keys and an additional developer delivery document reference and admin confirmation are recorded.
+- One immutable receipt record per unit; state changes are audited and are not automatically reversible. Reassigning ownership invalidates the original buyer's ability to acknowledge or confirm delivery.
+- Isolated schema tests cover rejection of an administrative delivered status before buyer acknowledgment.
+- Still required before production: actual signed handover document upload, optional delegated representative workflow, legal review of acknowledgment language and end-to-end account isolation tests in Staging.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

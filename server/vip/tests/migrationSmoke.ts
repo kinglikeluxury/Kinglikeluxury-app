@@ -29,7 +29,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_referral_links","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
+      "vip_handover_snags","vip_handover_key_receipts","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
@@ -173,6 +173,19 @@ async function run(){
       "WHERE event_type='due_reminder' AND user_id=$1",[u2])).rows[0].n,1);
     assert(installment>0);
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
+    await client.query("INSERT INTO vip_handover_key_receipts(unit_id,owner_user_id,developer_handover_reference,approval_note,approved_by) "+
+      "VALUES($1,$2,'DEVELOPER-DELIVERY-2027','Inspected and approved for key delivery',$3)",[uid,u1,u1]);
+    let prematureKeyConfirmationBlocked=false;
+    try{
+      await client.query("UPDATE vip_handover_key_receipts SET delivered_at=NOW(),delivered_by=$2,key_delivery_reference='DELIVERY-2027-01' WHERE unit_id=$1",[uid,u1]);
+    }catch(e){prematureKeyConfirmationBlocked=(e as {code?:string}).code==="23514";}
+    assert(prematureKeyConfirmationBlocked,"Management cannot finalize keys before buyer acknowledgment");
+    await client.query("UPDATE vip_handover_key_receipts SET received_keys_count=2,received_date=CURRENT_DATE,buyer_acknowledged_at=NOW() WHERE unit_id=$1",[uid]);
+    await client.query("UPDATE vip_handover_key_receipts SET delivered_at=NOW(),delivered_by=$2,key_delivery_reference='DELIVERY-2027-01' WHERE unit_id=$1",[uid,u1]);
+    const received=await client.query("SELECT received_keys_count,buyer_acknowledged_at,delivered_at FROM vip_handover_key_receipts WHERE unit_id=$1",[uid]);
+    assert.equal(received.rows[0].received_keys_count,2);
+    assert(received.rows[0].buyer_acknowledged_at);
+    assert(received.rows[0].delivered_at);
     const result=await client.query("SELECT status FROM vip_handover WHERE unit_id=$1",[uid]);
     assert.equal(result.rows[0].status,"not_ready");
     text("VIP database migration and constraints smoke test passed");

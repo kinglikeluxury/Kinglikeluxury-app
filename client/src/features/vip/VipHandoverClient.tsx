@@ -3,6 +3,7 @@ import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {useTranslation} from "react-i18next";
 import {ClipboardCheck,CalendarDays,Flag,CheckCircle2} from "lucide-react";
 import {getHandoverCopy} from "./vipHandoverCopy";
+import VipKeysClient from "./VipKeysClient";
 
 export type HandoverAppointment={id:string;preferred_at:string;status:"requested"|"confirmed"|"declined";requested_at:string;confirmed_at:string|null;note:string|null};
 export type HandoverSnag={id:string;description:string;status:"open"|"resolved";created_at:string;resolved_at:string|null;resolution_note:string|null};
@@ -106,6 +107,7 @@ export default function VipHandoverClient({unitId}:{unitId:string}){
     </div>)}
   </div>}
   {message&&<p role="status" className={"mt-3 text-xs "+(success?"text-emerald-800":"text-rose-700")}>{message}</p>}
+  <VipKeysClient unitId={unitId} status={h.status}/>
   <p className="mt-4 text-xs leading-relaxed text-[#81949d]">{t.notice}</p>
  </section>;
 }

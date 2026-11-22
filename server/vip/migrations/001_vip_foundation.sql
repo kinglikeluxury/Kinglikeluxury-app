@@ -174,6 +174,27 @@ CREATE TABLE IF NOT EXISTS vip_handover (
   updated_by INTEGER REFERENCES users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- An internal key receipt is not a legal signature or ownership-transfer deed.
+-- Buyer must affirm actual physical receipt; admin independently verifies.
+CREATE TABLE IF NOT EXISTS vip_handover_key_receipts (
+  unit_id BIGINT PRIMARY KEY REFERENCES vip_handover(unit_id),
+  owner_user_id INTEGER NOT NULL REFERENCES users(id),
+  developer_handover_reference VARCHAR(160) NOT NULL,
+  approval_note VARCHAR(500) NOT NULL,
+  approved_by INTEGER NOT NULL REFERENCES users(id),
+  approved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  received_keys_count INTEGER CHECK(received_keys_count BETWEEN 1 AND 100),
+  received_date DATE,
+  buyer_note VARCHAR(500),
+  buyer_acknowledged_at TIMESTAMPTZ,
+  delivered_by INTEGER REFERENCES users(id),
+  delivered_at TIMESTAMPTZ,
+  key_delivery_reference VARCHAR(160),
+  delivery_note VARCHAR(500),
+  CHECK (buyer_acknowledged_at IS NULL OR (received_keys_count IS NOT NULL AND received_date IS NOT NULL)),
+  CHECK (delivered_at IS NULL OR (buyer_acknowledged_at IS NOT NULL AND
+        delivered_by IS NOT NULL AND length(coalesce(key_delivery_reference,''))>=8))
+);
 -- Appointment times proposed by clients require explicit Kinglike confirmation.
 CREATE TABLE IF NOT EXISTS vip_handover_appointments (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
