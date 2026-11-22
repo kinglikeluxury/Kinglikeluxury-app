@@ -28,7 +28,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications"
+      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_journey_milestones","vip_benefits","vip_service_requests"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
@@ -102,6 +102,18 @@ async function run(){
       "AND access_role='owner' AND revoked_at IS NULL",[uid]);
     assert.equal((await client.query(scopedSql,[seller2])).rowCount,0,
       "No seller access without an active client owner");
+    // Only an admin-published stage belongs on the buyer timeline.
+    await client.query(
+      "INSERT INTO vip_journey_milestones(unit_id,stage_code,status,planned_date,published,updated_by) "+
+      "VALUES($1,'contract','planned','2027-04-01',FALSE,$2)",[uid,u1]);
+    assert.equal((await client.query(
+      "SELECT 1 FROM vip_journey_milestones WHERE unit_id=$1 AND published=TRUE",[uid])).rowCount,0);
+    let prematureCompletionBlocked=false;
+    try{
+      await client.query(
+        "UPDATE vip_journey_milestones SET status='completed' WHERE unit_id=$1",[uid]);
+    }catch(e){prematureCompletionBlocked=(e as {code?:string}).code==="23514";}
+    assert(prematureCompletionBlocked,"Actual milestone date must be recorded before completion");
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     const result=await client.query("SELECT status FROM vip_handover WHERE unit_id=$1",[uid]);
     assert.equal(result.rows[0].status,"not_ready");

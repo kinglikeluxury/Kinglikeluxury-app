@@ -14,6 +14,7 @@ import VipHandoverClient from "./VipHandoverClient";
 import VipCardClient from "./VipCardClient";
 import VipReferralsClient from "./VipReferralsClient";
 import VipNotificationsClient from "./VipNotificationsClient";
+import {VipJourneyClient,VipBenefitsClient,VipServicesClient} from "./VipExperienceClient";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
 type VipMe = { units: VipUnit[] };
@@ -75,6 +76,7 @@ export default function VipClientPage() {
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#dcebed]">
                       <div className="h-full rounded-full bg-[#3BCAC4]" style={{ width: String(Math.max(0,Math.min(100, unit.progress_percent ?? 0)))+"%" }}/>
                     </div>
+                    <VipJourneyClient unitId={unit.unit_id} />
                     <VipProjectProgress projectId={unit.project_id} />
                     <VipProjectCamera projectId={unit.project_id} />
                     <VipProjectPhotos projectId={unit.project_id} />
@@ -82,11 +84,12 @@ export default function VipClientPage() {
                     <VipInstallmentsList unitId={unit.unit_id} />
                     <VipReceiptHistory unitId={unit.unit_id} />
                     <VipStatementRequest unitId={unit.unit_id} />
+                    <VipServicesClient unitId={unit.unit_id} />
                   </article>
                 ))}
               </div>
             )}
-            {data.isSuccess && data.data.units.length>0 && <><VipCardClient/><VipReferralsClient/><VipNotificationsClient/></>}
+            {data.isSuccess && data.data.units.length>0 && <><VipCardClient/><VipBenefitsClient/><VipReferralsClient/><VipNotificationsClient/></>}
             <h2 className="mb-4 mt-10 text-xl font-semibold">{t.title}</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {features.map(({key,Icon}) => (

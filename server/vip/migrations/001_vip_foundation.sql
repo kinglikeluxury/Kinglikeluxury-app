@@ -260,6 +260,48 @@ CREATE TABLE IF NOT EXISTS vip_notifications (
 CREATE INDEX IF NOT EXISTS vip_notifications_by_owner
   ON vip_notifications(user_id,created_at DESC);
 
+-- Stage history can be edited by management, but only published events appear
+-- in the owner's timeline. This is not a legal signature or payment receipt.
+CREATE TABLE IF NOT EXISTS vip_journey_milestones (
+  unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+  stage_code TEXT NOT NULL CHECK (stage_code IN ('reservation','contract','down_payment','construction','inspection','handover')),
+  status TEXT NOT NULL CHECK (status IN ('planned','in_progress','completed')),
+  planned_date DATE,
+  actual_date DATE,
+  note VARCHAR(600),
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_by INTEGER NOT NULL REFERENCES users(id),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(unit_id,stage_code),
+  CHECK (status <> 'completed' OR actual_date IS NOT NULL)
+);
+-- Promotional terms are not contractual guarantees.
+CREATE TABLE IF NOT EXISTS vip_benefits (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  category TEXT NOT NULL CHECK (category IN ('second_purchase','fit_out','furnishing','after_sales','other')),
+  title VARCHAR(120) NOT NULL,
+  details VARCHAR(1300) NOT NULL,
+  valid_until DATE,
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Service requests are owner-only, per-property and do not auto-accept offers.
+CREATE TABLE IF NOT EXISTS vip_service_requests (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+  requested_by INTEGER NOT NULL REFERENCES users(id),
+  service_type TEXT NOT NULL CHECK (service_type IN ('fit_out','furnishing','utilities','rental_management','other')),
+  details VARCHAR(1200) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','reviewing','offered','in_progress','completed','closed')),
+  admin_reply VARCHAR(900),
+  reviewed_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS vip_service_requests_by_unit ON vip_service_requests(unit_id,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS vip_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   actor_user_id INTEGER REFERENCES users(id),

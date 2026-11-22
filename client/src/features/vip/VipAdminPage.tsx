@@ -10,6 +10,7 @@ import VipInviteAdmin from "./VipInviteAdmin";
 import VipCardsAdmin from "./VipCardsAdmin";
 import VipReferralsAdmin from "./VipReferralsAdmin";
 import VipSellerAssignmentAdmin from "./VipSellerAssignmentAdmin";
+import VipExperienceAdmin from "./VipExperienceAdmin";
 
 type Overview = { projects: number; units: number; clients: number; pending_receipts: number; statement_requests: number };
 export default function VipAdminPage() {
@@ -60,6 +61,7 @@ export default function VipAdminPage() {
             <VipProjectsAdmin />
             <VipInviteAdmin />
             <VipSellerAssignmentAdmin />
+            <VipExperienceAdmin />
             <VipStatementRequestsAdmin />
             <VipCardsAdmin />
             <VipReferralsAdmin />

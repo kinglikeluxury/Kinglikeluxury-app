@@ -114,6 +114,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - No seller permission to upload, validate payments, edit a buyer, issue membership rewards, schedule delivery or manage security settings.
 - Privacy prerequisite for launch: employee offboarding must revoke all seller grants, audit and session invalidation must be tested with actual accounts, and a concrete HR-role mapping must be reviewed before any employee invitation.
 
+## Journey, approved benefits and after-sales service requests (new code, not deployed)
+- Six dated milestones from reservation and contract through down payment, construction, inspection and handover; only management-published stages appear to the owner.
+- Timeline dates are explicitly recorded by admin. Stage completion cannot be marked without an actual date. Stage display does not claim a legal handover, confirmed payment or developer sign-off.
+- Admin-written benefits for second purchases, fit-out, furnishing and after-sales services default to drafts; only explicitly published written terms appear to owners. No automatic discount promises.
+- Owners may request fit-out, furnishing, utilities or rental-management assistance on their own units; admin moves requests through a reviewed state machine with written replies. Submission itself never commits a quoted price or service completion.
+- Owner access enforced per-unit at API level. Service requests are rate-limited to four submissions per owner per 24 hours.
+- Requires actual staging role tests, translated benefit content supplied by management, legal review of offers and developer milestone reconciliation before launch.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
