@@ -61,7 +61,10 @@ export default function VipClientPage() {
             {data.isPending ? <div className="rounded-xl bg-white p-6">{t.loading}</div> : data.isError ? (
               <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-6">{t.unavailable}</div>
             ) : data.data.units.length === 0 ? (
-              <div className="rounded-xl bg-white p-7 text-[#466a78]"><Building2 className="mb-3 h-6 w-6 text-[#21aea9]"/>{t.noUnits}</div>
+              <div className="rounded-xl bg-white p-7 text-[#466a78]">
+                <Building2 className="mb-3 h-6 w-6 text-[#21aea9]"/>{t.noUnits}
+                <p className="mt-3 text-sm"><Link href="/vip/sales" className="font-semibold text-[#005476] underline">KINGLIKE VIP — Sales</Link></p>
+              </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {data.data.units.map((unit) => (

@@ -31,6 +31,10 @@ CREATE INDEX IF NOT EXISTS vip_unit_access_member_idx
 -- The initial VIP release assigns exactly one active buyer to each unit.
 CREATE UNIQUE INDEX IF NOT EXISTS vip_unit_access_one_active_owner_per_unit_idx
   ON vip_unit_access(unit_id) WHERE revoked_at IS NULL AND access_role = 'owner';
+-- The unit's selling agent is the only non-admin staff member authorized to
+-- view this buyer's file. Reassignments revoke the previous grant first.
+CREATE UNIQUE INDEX IF NOT EXISTS vip_unit_access_one_active_seller_per_unit_idx
+  ON vip_unit_access(unit_id) WHERE revoked_at IS NULL AND access_role = 'seller';
 
 CREATE TABLE IF NOT EXISTS vip_progress_updates (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

@@ -68,6 +68,31 @@ async function run(){
     }catch(error){badPhoneBlocked=(error as {code?:string}).code==="23514";}
     assert(badPhoneBlocked,"International phone required");
 
+    // Seller access: one assigned staff member per unit and revocation works.
+    const seller1=(await client.query("INSERT INTO users(email) VALUES('sales1@example.test') RETURNING id")).rows[0].id;
+    const seller2=(await client.query("INSERT INTO users(email) VALUES('sales2@example.test') RETURNING id")).rows[0].id;
+    await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'seller')",[uid,seller1]);
+    let sellerCollisionBlocked=false;
+    try {
+      await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'seller')",[uid,seller2]);
+    } catch(error){sellerCollisionBlocked=(error as {code?:string}).code==="23505";}
+    assert(sellerCollisionBlocked,"One active seller per unit must be enforced");
+    const anotherUnit=(await client.query(
+      "INSERT INTO vip_units(project_id,unit_number) VALUES($1,'202') RETURNING id",[pid])).rows[0].id;
+    await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'owner')",[anotherUnit,u2]);
+    const scopedSql="SELECT u.id FROM vip_units u JOIN vip_unit_access a "+
+      "ON a.unit_id=u.id AND a.user_id=$1 AND a.access_role='seller' AND a.revoked_at IS NULL";
+    const seller1List=await client.query(scopedSql,[seller1]);
+    assert.deepEqual(seller1List.rows.map(r=>Number(r.id)),[Number(uid)]);
+    assert.equal((await client.query(scopedSql,[seller2])).rowCount,0);
+    await client.query(
+      "UPDATE vip_unit_access SET revoked_at=NOW() WHERE unit_id=$1 "+
+      "AND user_id=$2 AND access_role='seller' AND revoked_at IS NULL",[uid,seller1]);
+    assert.equal((await client.query(scopedSql,[seller1])).rowCount,0,
+      "Seller must lose access immediately after revocation");
+    await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'seller')",[uid,seller2]);
+    const seller2List=await client.query(scopedSql,[seller2]);
+    assert.deepEqual(seller2List.rows.map(r=>Number(r.id)),[Number(uid)]);
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     const result=await client.query("SELECT status FROM vip_handover WHERE unit_id=$1",[uid]);
     assert.equal(result.rows[0].status,"not_ready");

@@ -13,6 +13,7 @@ import VipClientPage from "@/features/vip/VipClientPage";
 import VipAdminPage from "@/features/vip/VipAdminPage";
 import VipActivationPage from "@/features/vip/VipActivationPage";
 import VipCardVerifyPage from "@/features/vip/VipCardVerifyPage";
+import VipSellerPage from "@/features/vip/VipSellerPage";
 import Properties from "@/pages/properties";
 import PropertyDetail from "@/pages/property-detail";
 import SubmitProperty from "@/pages/submit-property";
@@ -105,6 +106,7 @@ function Router() {
           <Route path="/register" component={Register} />
           {VIP_PAGE_ENABLED && <Route path="/vip/card/verify" component={VipCardVerifyPage} />}
           {VIP_PAGE_ENABLED && <Route path="/vip/activate" component={VipActivationPage} />}
+          {VIP_PAGE_ENABLED && <Route path="/vip/sales" component={VipSellerPage} />}
           {VIP_PAGE_ENABLED && <Route path="/vip" component={VipClientPage} />}
           {VIP_PAGE_ENABLED && <Route path="/admin/vip" component={VipAdminPage} />}
           <Route path="/admin/dashboard" component={AdminDashboard} />
