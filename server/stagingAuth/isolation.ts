@@ -71,11 +71,28 @@ export function buildStagingAuthChildEnv(
     throw new Error("DEV_DATABASE_URL is not the approved staging endpoint.");
   }
 
+  // Permit public binding only for the dedicated WhatsApp Staging service.
+  // A mismatched service identity fails closed; Replit keeps its loopback port.
+  const publicRailwayRequested =
+    parent.WHATSAPP_STAGING_RAILWAY_PUBLIC_BIND_APPROVED === "true";
+  const railwayPort = Number(parent.PORT);
+  const approvedRailwayTarget =
+    publicRailwayRequested &&
+    parent.RAILWAY_PROJECT_ID === "8386a5b5-4964-4b37-b2fa-e7177d78111e" &&
+    parent.RAILWAY_SERVICE_ID === "89c098c2-47ef-49d1-b25d-98c025ba0a63" &&
+    Number.isSafeInteger(railwayPort) &&
+    railwayPort >= 1024 &&
+    railwayPort <= 65535;
+  if (publicRailwayRequested && !approvedRailwayTarget) {
+    throw new Error("Public staging bind rejected: Railway target mismatch.");
+  }
+
   const child: NodeJS.ProcessEnv = {
     PATH: parent.PATH,
     HOME: parent.HOME,
     NODE_ENV: "development",
-    PORT: String(STAGING_AUTH_PORT),
+    PORT: String(approvedRailwayTarget ? railwayPort : STAGING_AUTH_PORT),
+    STAGING_AUTH_NETWORK_BIND: approvedRailwayTarget ? "railway-public" : "loopback",
     DEV_DATABASE_URL: rawUrl,
     DEV_RESOURCE_ISOLATION_CONFIRMED: "true",
     DEV_DATABASE_ISOLATION_CONFIRMED: "true",
