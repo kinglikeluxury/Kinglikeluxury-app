@@ -98,6 +98,13 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Future work: verified CRM sale reconciliation and referral consent proof, private marketing retention policy, actual approved benefit catalog, card reissue procedure and user notification integration.
 - Requires isolated DB migration and actual end-to-end authorization and QR scanning tests before launch.
 
+## Private in-app notifications (code added; not deployed)
+- Management can send a per-unit in-app message to the currently assigned owner. No outbound email, SMS, push, or WhatsApp call.
+- The owner can view and mark only their notifications read; server additionally checks current unit entitlement, preventing access after owner revocation.
+- The client UI also computes unpaid installments due within two days when the account is opened. This is an in-app view, **not a scheduled delivery/push notification**.
+- Per-unit limit of five manual admin notices in 24h, with audit logging, to reduce accidental repeats.
+- Future work: approved scheduled dispatch jobs for two-day due reminders, deduplication, client communication preferences and time-zone policy.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

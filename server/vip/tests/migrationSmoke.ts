@@ -28,7 +28,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos"
+      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;

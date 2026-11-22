@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/lib/auth";
-import { Bell, Building2, Crown, FileText, LockKeyhole, Route, Wallet } from "lucide-react";
+import { Building2, Crown, FileText, LockKeyhole, Route, Wallet } from "lucide-react";
 import { getVipCopy } from "./vipCopy";
 import VipStatementRequest from "./VipStatementRequest";
 import VipProjectProgress from "./VipProjectProgress";
@@ -13,13 +13,13 @@ import VipProjectPhotos from "./VipProjectPhotos";
 import VipHandoverClient from "./VipHandoverClient";
 import VipCardClient from "./VipCardClient";
 import VipReferralsClient from "./VipReferralsClient";
+import VipNotificationsClient from "./VipNotificationsClient";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
 type VipMe = { units: VipUnit[] };
 const features = [
   { key: "journey", Icon: Route },
   { key: "statement", Icon: Wallet },
-  { key: "alerts", Icon: Bell },
 ] as const;
 
 export default function VipClientPage() {
@@ -83,7 +83,7 @@ export default function VipClientPage() {
                 ))}
               </div>
             )}
-            {data.isSuccess && data.data.units.length>0 && <><VipCardClient/><VipReferralsClient/></>}
+            {data.isSuccess && data.data.units.length>0 && <><VipCardClient/><VipReferralsClient/><VipNotificationsClient/></>}
             <h2 className="mb-4 mt-10 text-xl font-semibold">{t.title}</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {features.map(({key,Icon}) => (

@@ -241,6 +241,21 @@ CREATE TABLE IF NOT EXISTS vip_referral_rewards (
   reviewed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- In-app customer messages. No SMS, email, push or WhatsApp is sent.
+CREATE TABLE IF NOT EXISTS vip_notifications (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  unit_id BIGINT REFERENCES vip_units(id),
+  event_type TEXT NOT NULL CHECK (event_type IN ('admin_update')),
+  title VARCHAR(90) NOT NULL,
+  body VARCHAR(700) NOT NULL,
+  created_by INTEGER REFERENCES users(id),
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS vip_notifications_by_owner
+  ON vip_notifications(user_id,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS vip_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   actor_user_id INTEGER REFERENCES users(id),
