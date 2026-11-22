@@ -63,6 +63,13 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - The approved vendor stream opens in a separate tab; in-app embedding requires provider permission, a reviewed Content Security Policy, and security assessment.
 - Streaming access restrictions enforced by the camera provider must be verified separately. Sharing a link may allow use outside the VIP portal unless the vendor supports per-client access tokens.
 
+## Eighth implementation slice (code added, not deployed or tested)
+- Kinglike management can upload JPEG/PNG project photos with dates and captions to private GCS; all photos start as unpublished drafts.
+- Admin explicitly publishes/unpublishes each photo. All visibility and upload changes produce audit events.
+- Only clients owning units in the corresponding project can list or view published photos. The image is served by a session-protected, no-store server endpoint; no public image URLs are used.
+- Files are limited to 8 MB and inspected for image signatures. Storage remains disabled without configured private bucket credentials.
+- Further hardening before production: image re-encoding / EXIF stripping, malware scanning, retention policy and full access-control regression tests.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

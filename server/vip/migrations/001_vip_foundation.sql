@@ -140,6 +140,9 @@ CREATE TABLE IF NOT EXISTS vip_project_photos (
   project_id BIGINT NOT NULL REFERENCES vip_projects(id),
   object_path TEXT NOT NULL UNIQUE,
   photo_date DATE NOT NULL,
+  caption TEXT,
+  mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg','image/png')),
+  size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 8 AND 8388608),
   uploaded_by INTEGER NOT NULL REFERENCES users(id),
   is_published BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()

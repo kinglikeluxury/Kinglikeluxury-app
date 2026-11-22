@@ -78,3 +78,39 @@ export async function removePrivateReceipt(key: string) {
   const bucket = await checkedBucket();
   await bucket.file(key).delete({ignoreNotFound:true});
 }
+
+
+/** Private construction photos: never served from public Cloudinary or object URLs. */
+export async function savePrivateProjectPhoto(projectId:number,data:Buffer,kind:"image/jpeg"|"image/png") {
+  if(!Number.isSafeInteger(projectId)||projectId<1||data.length<8||data.length>8*1024*1024) {
+    throw new Error("Invalid private project photo");
+  }
+  const bucket=await checkedBucket();
+  const ext=kind==="image/jpeg"?"jpg":"png";
+  const key="kinglike-vip/project-photos/"+projectId+"/"+randomUUID()+"."+ext;
+  await bucket.file(key).save(data,{
+    resumable:false,contentType:kind,
+    metadata:{cacheControl:"private, no-store"},
+    preconditionOpts:{ifGenerationMatch:0}
+  });
+  return key;
+}
+
+export async function readPrivateProjectPhoto(key:string):Promise<Buffer> {
+  if(!/^kinglike-vip\/project-photos\/[1-9]\d*\/[0-9a-f-]{36}\.(jpg|png)$/.test(key)) {
+    throw new Error("Invalid photo key");
+  }
+  const bucket=await checkedBucket();
+  const [meta]=await bucket.file(key).getMetadata();
+  const size=Number(meta.size);
+  if(!Number.isSafeInteger(size)||size<8||size>8*1024*1024)throw new Error("Invalid photo size");
+  const [data]=await bucket.file(key).download();
+  if(data.length!==size)throw new Error("Private photo changed size");
+  return data;
+}
+
+export async function removePrivateProjectPhoto(key:string):Promise<void> {
+  if(!/^kinglike-vip\/project-photos\/[1-9]\d*\/[0-9a-f-]{36}\.(jpg|png)$/.test(key))return;
+  const bucket=await checkedBucket();
+  await bucket.file(key).delete({ignoreNotFound:true});
+}
