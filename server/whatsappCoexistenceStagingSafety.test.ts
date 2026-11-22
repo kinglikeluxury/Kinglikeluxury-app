@@ -101,7 +101,7 @@ test("Meta completion: a verified Business App + Cloud API phone can pass the Co
       exchangeCode: async () => "synthetic-token",
       inspectToken: async () => ({
         valid: true, appId: "123", expiresAt: Math.floor(Date.now() / 1000) + 900,
-        scopes: ["whatsapp_business_management", "whatsapp_business_messaging", "business_management"],
+        scopes: ["whatsapp_business_management", "whatsapp_business_messaging"],
       }),
       listBusinessOwnedWabas: async () => ["777"],
       listWabaPhoneNumberDetails: async () => [{ id: "888", displayPhoneNumber: number }],
