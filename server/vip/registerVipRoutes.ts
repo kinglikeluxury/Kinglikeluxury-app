@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { pool } from "../db";
+import { registerVipStatementRoutes } from "./vipStatementRoutes";
 
 /**
  * KINGLIKE VIP: disabled unless explicitly enabled on the server.
@@ -79,4 +80,6 @@ export function registerVipRoutes(app: Express): void {
       return res.status(503).json({ error: "VIP data not ready" });
     }
   });
+  registerVipStatementRoutes(app, enabled, requireSession, requireAdmin);
+
 }

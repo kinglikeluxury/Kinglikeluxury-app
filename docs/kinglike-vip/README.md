@@ -16,6 +16,13 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Postgres foundation migration in `server/vip/migrations/001_vip_foundation.sql`. Not executed.
 - Responsive React/Tailwind entry screens, five-language headings, real-session gating, no fake financial data.
 
+## Second implementation slice (code added, not deployed)
+- Client can request an official developer statement once per unit per month, subject to active owner-unit authorization.
+- Duplicate requests are blocked by a database unique constraint.
+- Admin queue lists requests; admin may mark a new request as 'following up with developer' without issuing an inaccurate statement or sending a message.
+- POST/PATCH reject non-JSON and cross-origin requests. No developer outreach, file upload, or emails occur.
+- These routes remain disabled until a separate staging environment, database migration and both feature flags are reviewed.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. VIP admin management for projects, units, owner invitation and secure activation.
