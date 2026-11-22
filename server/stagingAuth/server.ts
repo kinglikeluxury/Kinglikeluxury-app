@@ -1,3 +1,4 @@
+import { createStagingCoexistenceMetaAdapter } from "./metaGraphAdapter";
 import { registerStagingPilotPage } from "./pilotPage";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
@@ -280,22 +281,7 @@ async function main() {
     appId: process.env.WHATSAPP_MONITOR_META_APP_ID ?? "",
     appSecret: process.env.META_APP_SECRET ?? "",
   });
-  const metaGraph: MetaGraphClient = {
-    exchangeCode: (code) => createMetaGraph().exchangeCode(code),
-    inspectToken: (token) => createMetaGraph().inspectToken(token),
-    listBusinessOwnedWabas: (businessId, token) =>
-      createMetaGraph().listBusinessOwnedWabas(businessId, token),
-    listWabaPhoneNumbers: (wabaId, token) =>
-      createMetaGraph().listWabaPhoneNumbers(wabaId, token),
-    listWabaPhoneNumberDetails: (wabaId, token) =>
-      createMetaGraph().listWabaPhoneNumberDetails(wabaId, token),
-    // Fail-closed Business App + Cloud API verification, required before
-    // treating the approved work number as a genuine Coexistence signup.
-    getCoexistencePhoneStatus: (phoneNumberId, token) =>
-      createMetaGraph().getCoexistencePhoneStatus!(phoneNumberId, token),
-    subscribeAppToWaba: (wabaId, token) =>
-      createMetaGraph().subscribeAppToWaba!(wabaId, token),
-  };
+  const metaGraph: MetaGraphClient = createStagingCoexistenceMetaAdapter(createMetaGraph);
   const archiveSignupWriter = createWhatsappCoexistenceSignupPostgresWriter({
     env: process.env,
   });
