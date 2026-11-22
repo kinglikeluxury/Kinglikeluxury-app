@@ -3,7 +3,8 @@
  * Never accepts a Neon or Railway database URL, and does not migrate production.
  */
 import {readFileSync} from "node:fs";
-import {Client} from "pg";
+import pg from "pg";
+const {Client}=pg;
 import {strict as assert} from "node:assert";
 
 const testUrl=process.env.VIP_TEST_DATABASE_URL;
