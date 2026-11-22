@@ -198,14 +198,48 @@ CREATE TABLE IF NOT EXISTS vip_handover_snags (
 );
 CREATE INDEX IF NOT EXISTS vip_handover_snags_by_unit
   ON vip_handover_snags(unit_id,status,created_at DESC);
+-- Anonymous member cards are not proofs of identity or guaranteed benefits.
+CREATE TABLE IF NOT EXISTS vip_member_cards (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  member_code VARCHAR(28) NOT NULL UNIQUE,
+  tier TEXT NOT NULL DEFAULT 'VIP' CHECK (tier IN ('VIP','Silver','Gold','Platinum')),
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS vip_referrals (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   referrer_user_id INTEGER NOT NULL REFERENCES users(id),
-  lead_name TEXT NOT NULL,
-  lead_phone_e164 TEXT NOT NULL,
-  contact_consent BOOLEAN NOT NULL DEFAULT FALSE,
-  status TEXT NOT NULL DEFAULT 'new',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  lead_name VARCHAR(100) NOT NULL,
+  lead_phone_e164 VARCHAR(16) NOT NULL CHECK (lead_phone_e164 ~ '^[+][1-9][0-9]{7,14}$'),
+  contact_consent BOOLEAN NOT NULL CHECK (contact_consent=TRUE),
+  consented_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new'
+    CHECK (status IN ('new','contacted','qualified','converted','declined')),
+  sale_reference VARCHAR(80),
+  reviewed_by INTEGER REFERENCES users(id),
+  reviewed_at TIMESTAMPTZ,
+  review_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(referrer_user_id,lead_phone_e164)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS vip_referral_unique_sale_reference
+  ON vip_referrals(sale_reference) WHERE sale_reference IS NOT NULL;
+CREATE INDEX IF NOT EXISTS vip_referrals_status_idx ON vip_referrals(status,created_at DESC);
+
+-- Rewards require a documented conversion and separate administrative approval.
+CREATE TABLE IF NOT EXISTS vip_referral_rewards (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  referral_id BIGINT NOT NULL UNIQUE REFERENCES vip_referrals(id),
+  description VARCHAR(250) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'proposed'
+    CHECK (status IN ('proposed','approved','declined','fulfilled')),
+  proposed_by INTEGER NOT NULL REFERENCES users(id),
+  reviewed_by INTEGER REFERENCES users(id),
+  reviewed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS vip_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

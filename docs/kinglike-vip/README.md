@@ -87,6 +87,17 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - **Legal acceptance and key handover are intentionally not activated:** the flow does not substitute for signed inspection/handover documents or authorized key delivery confirmation.
 - Requires isolated database migration, workflow integration and cross-account tests prior to activation.
 
+## Digital VIP card, anonymous QR verification and referral review (new slice; code not deployed)
+- A buyer with at least one active unit assignment can issue a revocable KINGLIKE VIP card, with a cryptographically random 96-bit code. No fake cards or personally identifiable data in QR.
+- Local MIT-licensed qrcode-generator code generates QR artwork inside the app. No external QR API receives customer card codes. Its source and license are included in the feature directory.
+- A public verifier returns only active/inactive and tier; never names, email, personal identifiers or properties.
+- Admin may review membership tiers and revoke a card. Tiers alone do not convey benefits or discounts; revoked codes must not silently reactivate.
+- Owners may submit up to three referral contacts per 24h, only after explicit contact consent, using E.164 phone format. Duplicate contact submissions by the same owner are blocked.
+- Admin manages referral transitions: new -> contacted -> qualified -> converted, with a sale reference required to record conversion. Rewards are separate: proposed -> approved -> fulfilled, or declined. Nothing auto-awards discounts.
+- Referral phone/name are not exposed to other customers. Only the referrer and admin see them. Referral audit logs never contain lead phone numbers.
+- Future work: verified CRM sale reconciliation and referral consent proof, private marketing retention policy, actual approved benefit catalog, card reissue procedure and user notification integration.
+- Requires isolated DB migration and actual end-to-end authorization and QR scanning tests before launch.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

@@ -36,6 +36,6 @@ jobs:
           fi
           echo "VIP files have no reported TypeScript errors. Existing legacy errors are outside this scope."
       - name: VIP security validation unit tests
-        run: npx tsx --test server/vip/vipInvitationSecurity.test.ts server/vip/vipReceiptValidation.test.ts server/vip/vipCameraSecurity.test.ts server/vip/vipPhotoValidation.test.ts server/vip/vipHandoverRules.test.ts
+        run: npx tsx --test server/vip/vipInvitationSecurity.test.ts server/vip/vipReceiptValidation.test.ts server/vip/vipCameraSecurity.test.ts server/vip/vipPhotoValidation.test.ts server/vip/vipHandoverRules.test.ts server/vip/vipEngagementRules.test.ts
       - name: Build (no deployment)
         run: npm run build
