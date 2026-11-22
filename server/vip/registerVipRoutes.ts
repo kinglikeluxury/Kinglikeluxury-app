@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { pool } from "../db";
 import { registerVipStatementRoutes } from "./vipStatementRoutes";
+import { registerVipProjectRoutes } from "./vipProjectRoutes";
 
 /**
  * KINGLIKE VIP: disabled unless explicitly enabled on the server.
@@ -81,5 +82,6 @@ export function registerVipRoutes(app: Express): void {
     }
   });
   registerVipStatementRoutes(app, enabled, requireSession, requireAdmin);
+  registerVipProjectRoutes(app, enabled, requireSession, requireAdmin);
 
 }

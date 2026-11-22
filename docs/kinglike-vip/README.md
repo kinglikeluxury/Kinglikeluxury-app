@@ -23,12 +23,20 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - POST/PATCH reject non-JSON and cross-origin requests. No developer outreach, file upload, or emails occur.
 - These routes remain disabled until a separate staging environment, database migration and both feature flags are reviewed.
 
+## Third implementation slice (code added, not deployed)
+- The admin project control panel can create projects, units, assign units to existing verified active user accounts, and publish or draft construction progress updates.
+- The API limits client progress history to projects where they own an actively assigned unit; drafts remain hidden.
+- Mutations are transacted with audit records. Assignment is serialized and only one current owner is allowed per unit.
+- No invitation emails or new user creation: the invite/activation service remains a separate future phase.
+- No storage or media upload endpoints in this slice.
+- This migration has NOT been applied in any database and the branch has NOT been deployed or built.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
-2. VIP admin management for projects, units, owner invitation and secure activation.
+2. Secure invitation and activation for buyer accounts (existing-account assignments are now drafted).
 3. Installments/partial payments, private S3 receipts and finance-only verification.
 4. Developer statement requests once per unit/calendar month, admin request queue.
-5. Progress updates, management photos and camera settings with signed/approved URLs.
+5. Management photo uploads and camera settings with signed/approved URLs (progress updates are drafted).
 6. Handover, digital VIP card, notifications and referral flows.
 7. Automated tests of cross-account authorization, audit records and email idempotency, then controlled staging launch.
 

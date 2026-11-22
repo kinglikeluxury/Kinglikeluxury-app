@@ -28,6 +28,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS vip_unit_access_active_unique
   ON vip_unit_access(unit_id,user_id,access_role) WHERE revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS vip_unit_access_member_idx
   ON vip_unit_access(user_id,access_role,unit_id) WHERE revoked_at IS NULL;
+-- The initial VIP release assigns exactly one active buyer to each unit.
+CREATE UNIQUE INDEX IF NOT EXISTS vip_unit_access_one_active_owner_per_unit_idx
+  ON vip_unit_access(unit_id) WHERE revoked_at IS NULL AND access_role = 'owner';
 
 CREATE TABLE IF NOT EXISTS vip_progress_updates (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

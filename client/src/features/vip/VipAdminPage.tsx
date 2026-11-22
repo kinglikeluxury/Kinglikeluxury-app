@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Building2, Crown, FileClock, Receipt, ShieldCheck, Users } from "lucide-react";
 import { getVipCopy } from "./vipCopy";
 import VipStatementRequestsAdmin from "./VipStatementRequestsAdmin";
+import VipProjectsAdmin from "./VipProjectsAdmin";
 
 type Overview = { projects: number; units: number; clients: number; pending_receipts: number; statement_requests: number };
 export default function VipAdminPage() {
@@ -52,6 +53,7 @@ export default function VipAdminPage() {
                 </div>
               ))}
             </div>
+            <VipProjectsAdmin />
             <VipStatementRequestsAdmin />
             <p className="mt-7 text-sm text-[#557989]">{t.soon}</p>
           </>
