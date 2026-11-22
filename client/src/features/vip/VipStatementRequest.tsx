@@ -28,7 +28,10 @@ export default function VipStatementRequest({ unitId }: {unitId: string}) {
     onSuccess:()=>{qc.invalidateQueries({queryKey:["vip","statement-requests"]})}
   });
   // Local calendar month (server enforces the authoritative period and uniqueness).
-  const currentMonth=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Tbilisi",year:"numeric",month:"2-digit"}).slice(0,7);
+  const parts = new Intl.DateTimeFormat("en-US", {timeZone:"Asia/Tbilisi",year:"numeric",month:"2-digit"}).formatToParts(new Date());
+  const year = parts.find((p)=>p.type==="year")?.value;
+  const month = parts.find((p)=>p.type==="month")?.value;
+  const currentMonth = year && month ? year+"-"+month : "";
   const already=requests.data?.requests.some(x=>x.unit_id===unitId && String(x.month_start).slice(0,7)===currentMonth);
   return <div className="mt-5 border-t border-[#e2eff0] pt-4">
     <button type="button" disabled={requests.isPending||requests.isError||already||send.isPending}
