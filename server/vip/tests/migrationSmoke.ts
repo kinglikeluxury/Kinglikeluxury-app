@@ -81,7 +81,9 @@ async function run(){
       "INSERT INTO vip_units(project_id,unit_number) VALUES($1,'202') RETURNING id",[pid])).rows[0].id;
     await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'owner')",[anotherUnit,u2]);
     const scopedSql="SELECT u.id FROM vip_units u JOIN vip_unit_access a "+
-      "ON a.unit_id=u.id AND a.user_id=$1 AND a.access_role='seller' AND a.revoked_at IS NULL";
+      "ON a.unit_id=u.id AND a.user_id=$1 AND a.access_role='seller' AND a.revoked_at IS NULL "+
+      "WHERE EXISTS(SELECT 1 FROM vip_unit_access owner WHERE owner.unit_id=u.id "+
+      "AND owner.access_role='owner' AND owner.revoked_at IS NULL)";
     const seller1List=await client.query(scopedSql,[seller1]);
     assert.deepEqual(seller1List.rows.map(r=>Number(r.id)),[Number(uid)]);
     assert.equal((await client.query(scopedSql,[seller2])).rowCount,0);
@@ -93,6 +95,13 @@ async function run(){
     await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'seller')",[uid,seller2]);
     const seller2List=await client.query(scopedSql,[seller2]);
     assert.deepEqual(seller2List.rows.map(r=>Number(r.id)),[Number(uid)]);
+    // If a sale is canceled and its buyer assignment is revoked, even an
+    // assigned seller must stop seeing that unit (including linked receipts).
+    await client.query(
+      "UPDATE vip_unit_access SET revoked_at=NOW() WHERE unit_id=$1 "+
+      "AND access_role='owner' AND revoked_at IS NULL",[uid]);
+    assert.equal((await client.query(scopedSql,[seller2])).rowCount,0,
+      "No seller access without an active client owner");
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     const result=await client.query("SELECT status FROM vip_handover WHERE unit_id=$1",[uid]);
     assert.equal(result.rows[0].status,"not_ready");

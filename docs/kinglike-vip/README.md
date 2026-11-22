@@ -109,7 +109,7 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Admin can assign exactly one **active verified staff account** as the unit's selling agent, after a buyer has accepted the ownership invitation.
 - Only allowed staff roles can be assigned (`sub_agent`, `crm_employee`, `sales_agent`, `employee`, `agent`); ordinary buyers cannot be assigned as agents.
 - Reassignment automatically revokes the previous agent. Explicit revocation and any transfer both require a reason and write an audit record.
-- Seller's private dashboard `/vip/sales` reads only units with an active seller entitlement. Installments, receipt metadata, statement request states and handover status are visible in **read-only** mode. Seller downloads of receipts use the existing server-checked entitlement gate.
+- Seller's private dashboard `/vip/sales` reads only units with an active seller entitlement. Every read additionally requires an active buyer owner on that unit; canceling an owner's access also stops seller file and receipt downloads. Installments, receipt metadata, statement request states and handover status are visible in **read-only** mode. Seller downloads of receipts use the existing server-checked entitlement gate.
 - Database enforces **at most one active seller per unit**, and isolated Postgres tests validate uniqueness, seller isolation and access revocation.
 - No seller permission to upload, validate payments, edit a buyer, issue membership rewards, schedule delivery or manage security settings.
 - Privacy prerequisite for launch: employee offboarding must revoke all seller grants, audit and session invalidation must be tested with actual accounts, and a concrete HR-role mapping must be reviewed before any employee invitation.

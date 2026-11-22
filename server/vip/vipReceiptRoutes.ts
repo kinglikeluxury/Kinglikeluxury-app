@@ -186,7 +186,9 @@ export function registerVipReceiptRoutes(
       const {object_path,file_name,mime_type,unit_id}=rows[0];
       const access=await pool.query(
         "SELECT 1 FROM vip_unit_access WHERE user_id=$1 AND unit_id=$2 " +
-        "AND access_role IN ('owner','seller') AND revoked_at IS NULL LIMIT 1",
+        "AND revoked_at IS NULL AND (access_role='owner' OR "+
+        "(access_role='seller' AND EXISTS(SELECT 1 FROM vip_unit_access ow "+
+        "WHERE ow.unit_id=$2 AND ow.access_role='owner' AND ow.revoked_at IS NULL))) LIMIT 1",
         [actor.id,unit_id]
       );
       if(!actor.isAdmin && access.rowCount!==1 && !(await isFinanceApprover(actor.id))) {

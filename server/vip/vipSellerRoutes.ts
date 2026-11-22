@@ -36,6 +36,8 @@ export function registerVipSellerRoutes(app:Express,enabled:RequestHandler,authe
           "AND owner_a.access_role='owner' AND owner_a.revoked_at IS NULL "+
         "LEFT JOIN users owner_usr ON owner_usr.id=owner_a.user_id "+
         "WHERE a.user_id=$1 AND a.access_role='seller' AND a.revoked_at IS NULL "+
+        "AND EXISTS(SELECT 1 FROM vip_unit_access oa WHERE oa.unit_id=a.unit_id "+
+           "AND oa.access_role='owner' AND oa.revoked_at IS NULL) "+
         "ORDER BY p.name,u.unit_number LIMIT 150",[res.locals.vipUser.id]);
       return res.json({units:units.rows});
     }catch{return unavailable(res);}
@@ -50,7 +52,9 @@ export function registerVipSellerRoutes(app:Express,enabled:RequestHandler,authe
       // entitlement. Guessing or altering unitId cannot enumerate client data.
       const entitlement=
         "EXISTS(SELECT 1 FROM vip_unit_access a WHERE a.unit_id=$1 "+
-        "AND a.user_id=$2 AND a.access_role='seller' AND a.revoked_at IS NULL)";
+        "AND a.user_id=$2 AND a.access_role='seller' AND a.revoked_at IS NULL) "+
+        "AND EXISTS(SELECT 1 FROM vip_unit_access oa WHERE oa.unit_id=$1 "+
+        "AND oa.access_role='owner' AND oa.revoked_at IS NULL)";
       const unit=await pool.query(
         "SELECT u.id::text AS unit_id,u.unit_number,u.floor_number,"+
         "p.id::text AS project_id,p.name AS project_name,p.developer_name,"+
