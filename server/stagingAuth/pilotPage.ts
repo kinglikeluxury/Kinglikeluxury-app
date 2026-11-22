@@ -255,7 +255,7 @@ $("launchMetaCoexistence").addEventListener("click",()=>{
       config_id:metaSession.configId,
       response_type:"code",
       override_default_response_type:true,
-      extras:{setup:{},featureType:"whatsapp_business_app_onboarding"}
+      extras:{setup:{},featureType:"whatsapp_business_app_onboarding",sessionInfoVersion:"3"}
     });
   }catch{
     result("تعذر فتح Meta، ولم يتم تسجيل أي ربط.");
