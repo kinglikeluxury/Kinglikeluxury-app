@@ -16,4 +16,11 @@ test("camera links must be HTTPS on an exact provider allowlist",()=>{
    "javascript:alert(1)"
  ]) assert.equal(validateVipCameraUrl(url,list),null,url);
  assert.equal(validateVipCameraUrl("https://video.example.com/live",undefined),null);
+ // Official RTSP.RUN HTTPS viewer pages work without arbitrary host allowlisting.
+ assert.equal(validateVipCameraUrl("https://rtsp.run/en/demo",undefined),"https://rtsp.run/en/demo");
+ assert.equal(validateVipCameraUrl("https://www.rtsp.run/en/demo",undefined),"https://www.rtsp.run/en/demo");
+ assert.equal(validateVipCameraUrl("rtsp://camera.example.com/live",list),null);
+ assert.equal(validateVipCameraUrl("https://rtsp.run.evil.example/en/demo",undefined),null);
+ assert.equal(validateVipCameraUrl("https://rtsp.run/play?password=secret",undefined),null);
+ assert.equal(validateVipCameraUrl("https://rtsp.run/play?source=rtsp%3A%2F%2Fsomewhere",undefined),null);
 });

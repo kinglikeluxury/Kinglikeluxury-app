@@ -70,6 +70,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Files are limited to 8 MB and inspected for image signatures. Storage remains disabled without configured private bucket credentials.
 - Further hardening before production: image re-encoding / EXIF stripping, malware scanning, retention policy and full access-control regression tests.
 
+## RTSP.RUN preferred camera playback (additional code; not launched)
+- Prefer an RTSP.RUN-generated HTTPS browser player URL. Never paste raw RTSP/RTSPS camera URLs or camera credentials into VIP.
+- RTSP.RUN and www.rtsp.run are accepted as exact providers; custom providers still require `KINGLIKE_VIP_CAMERA_ALLOWED_HOSTS`.
+- The owner may opt into an iframe player inside VIP, with a new-tab fallback if the provider disallows embedding. It is not automatic autoplay and never verifies that a given player page contains a working stream.
+- RTSP.RUN currently expects a **publicly reachable stream**, so a VIP login protects access to the link in Kinglike, not the underlying public stream. Do not use for private CCTV or sensitive areas.
+- Before launch, confirm the generated RTSP.RUN embed URL format, actual playback on Android/iOS, provider terms, frame-src CSP, camera/network exposure and project-developer authorization. The provider may block iframing.
+- No client camera credentials, IP camera addresses or raw RTSP strings are stored in the VIP project camera URL field.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
