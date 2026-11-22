@@ -14,6 +14,8 @@ export type MetaGraphClient = {
   listBusinessOwnedWabas(businessId: string, token: string): Promise<string[]>;
   listWabaPhoneNumbers(wabaId: string, token: string): Promise<string[]>;
   listWabaPhoneNumberDetails(wabaId: string, token: string): Promise<Array<{ id: string; displayPhoneNumber: string }>>;
+  /** Verify the phone is still present in the Business App alongside Cloud API. */
+  getCoexistencePhoneStatus?(phoneNumberId: string, token: string): Promise<{ isOnBizApp: boolean; platformType: string }>; 
   subscribeAppToWaba?(wabaId: string, token: string): Promise<void>;
 };
 
@@ -150,6 +152,17 @@ export function createWhatsappCoexistenceMetaGraphClient(dependencies: {
           ? { id: row.id, displayPhoneNumber: row.display_phone_number }
           : null;
       }).filter((row): row is { id: string; displayPhoneNumber: string } => row !== null);
+    },
+    async getCoexistencePhoneStatus(phoneNumberId, token) {
+      if (!numericId(phoneNumberId)) throw new Error("Meta phone identity is invalid.");
+      const url = new URL(`${GRAPH_BASE}/${phoneNumberId}`);
+      url.searchParams.set("fields", "id,is_on_biz_app,platform_type");
+      const response = await getJson(url, token);
+      if (response.id !== phoneNumberId || response.is_on_biz_app !== true ||
+          response.platform_type !== "CLOUD_API") {
+        return { isOnBizApp: false, platformType: "" };
+      }
+      return { isOnBizApp: true, platformType: "CLOUD_API" };
     },
     async subscribeAppToWaba(wabaId, token) {
       if (!numericId(wabaId)) throw new Error("Meta WhatsApp identity is invalid.");
