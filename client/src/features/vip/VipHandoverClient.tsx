@@ -68,7 +68,7 @@ export default function VipHandoverClient({unitId}:{unitId:string}){
   <div className="grid grid-cols-2 gap-2">
    {keys.map(k=><div key={k} className="rounded-lg border border-[#d8e9eb] bg-[#f9fcfc] p-3">
      <p className="text-xs font-medium">{t[k]}</p>
-     <p className={"mt-1 text-xs "+(h.checklist?.[k]==="passed"?"text-emerald-700":h.checklist?.[k]==="issue"?"text-rose-700":"text-[#7c9299]")}>{t[h.checklist?.[k]]||t.pending}</p>
+     <p className={"mt-1 text-xs "+(h.checklist?.[k]==="passed"?"text-emerald-700":h.checklist?.[k]==="issue"?"text-rose-700":"text-[#7c9299]")}>{t[h.checklist[k] || "pending"]||t.pending}</p>
    </div>)}
   </div>
   {h.inspection_note&&<p className="mt-3 text-xs text-[#627b89]">{h.inspection_note}</p>}

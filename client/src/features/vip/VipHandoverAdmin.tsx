@@ -26,7 +26,7 @@ export default function VipHandoverAdmin({units,projects}:{units:Unit[];projects
   enabled:!!unitId,retry:false
  });
  useEffect(()=>{
-  setChecklist(query.data?.handover.checklist||{});
+  setChecklist({electrical:"pending",plumbing:"pending",windows:"pending",walls:"pending",fixtures:"pending",access:"pending",...(query.data?.handover.checklist||{})});
   setInspectionNote(query.data?.handover.inspection_note||"");
  },[query.data]);
  const base="/api/admin/vip/units/"+encodeURIComponent(unitId)+"/handover";
@@ -51,7 +51,7 @@ export default function VipHandoverAdmin({units,projects}:{units:Unit[];projects
  }
  function saveChecklist(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!keys.every(k=>options.includes(checklist[k])))return;
-  void action(base+"/checklist","PUT",{checklist});
+  void action(base+"/checklist","PUT",{checklist,note:inspectionNote});
  }
  if(!units.length)return null;
  const fmt=(iso:string)=>new Date(iso).toLocaleString(i18n.language,{year:"numeric",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});

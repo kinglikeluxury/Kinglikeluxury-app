@@ -124,7 +124,8 @@ export function registerVipHandoverRoutes(app:Express,enabled:RequestHandler,aut
   app.put("/api/admin/vip/units/:unitId/handover/checklist",
     enabled,authenticated,adminOnly,originJson,async(req:Request,res:Response)=>{
       const unitId=id(req.params.unitId),checklist=req.body?.checklist;
-      if(!unitId||!validHandoverChecklist(checklist))return res.status(400).json({error:"Invalid checklist"});
+      const note=req.body?.note;
+      if(!unitId||!validHandoverChecklist(checklist)||(note!==undefined&&(typeof note!=="string"||note.length>1200)))return res.status(400).json({error:"Invalid checklist"});
       const db=await pool.connect().catch(()=>null);
       if(!db)return fail(res);
       try{
@@ -134,8 +135,8 @@ export function registerVipHandoverRoutes(app:Express,enabled:RequestHandler,aut
           await db.query("ROLLBACK");return res.status(409).json({error:"Inspection checklist not yet editable"});
         }
         await db.query(
-          "UPDATE vip_handover SET checklist=$2::jsonb,updated_by=$3,updated_at=NOW() WHERE unit_id=$1",
-          [unitId,JSON.stringify(checklist),res.locals.vipUser.id]);
+          "UPDATE vip_handover SET checklist=$2::jsonb,updated_by=$3,inspection_note=$4,updated_at=NOW() WHERE unit_id=$1",
+          [unitId,JSON.stringify(checklist),res.locals.vipUser.id,typeof note==="string"?note.trim()||null:null]);
         await db.query("INSERT INTO vip_audit_events(actor_user_id,event_type,unit_id,metadata) "+
           "VALUES($1,'handover_checklist_updated',$2,$3::jsonb)",
           [res.locals.vipUser.id,unitId,JSON.stringify({checklist})]);
@@ -202,6 +203,10 @@ export function registerVipHandoverRoutes(app:Express,enabled:RequestHandler,aut
           "WHERE id=$1 AND unit_id=$2 FOR UPDATE",[appointmentId,unitId]);
         if(!a.rowCount||a.rows[0].status!=="requested"){
           await db.query("ROLLBACK");return res.status(409).json({error:"Appointment already processed"});
+        }
+        if(decision==="confirm" && new Date(a.rows[0].preferred_at).getTime() <= Date.now()+30*60*1000){
+          await db.query("ROLLBACK");
+          return res.status(409).json({error:"Proposed appointment time has passed; request a new time"});
         }
         await db.query(
           "UPDATE vip_handover_appointments SET status=$2,handled_by=$3,confirmed_at=CASE WHEN $2='confirmed' THEN NOW() ELSE NULL END "+
