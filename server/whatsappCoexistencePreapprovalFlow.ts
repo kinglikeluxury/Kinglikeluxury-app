@@ -72,10 +72,19 @@ export function createVerifiedPreapprovalSignupCompleter(deps: {
       throw new Error("meta_token_verification_failed");
     }
 
-    const [wabas, phoneNumbers] = await Promise.all([
+    // If Meta cannot positively confirm coexistence, refuse to treat a
+    // potentially migrated Cloud API-only phone as the approved Business App number.
+    if (!deps.graph.getCoexistencePhoneStatus) {
+      throw new Error("meta_coexistence_status_verification_unavailable");
+    }
+    const [wabas, phoneNumbers, coexistence] = await Promise.all([
       deps.graph.listBusinessOwnedWabas(input.claims.businessId, token),
       deps.graph.listWabaPhoneNumberDetails(input.claims.wabaId, token),
+      deps.graph.getCoexistencePhoneStatus(input.claims.phoneNumberId, token),
     ]);
+    if (coexistence.isOnBizApp !== true || coexistence.platformType !== "CLOUD_API") {
+      throw new Error("meta_phone_not_verified_as_coexistence");
+    }
     const phone = phoneNumbers.find((candidate) => candidate.id === input.claims.phoneNumberId);
     const returnedNumber = normalizeMetaDisplayNumber(phone?.displayPhoneNumber);
     if (!wabas.includes(input.claims.wabaId) || !phone || returnedNumber !== approvedNumber) {
