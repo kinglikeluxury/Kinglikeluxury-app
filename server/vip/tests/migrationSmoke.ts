@@ -29,7 +29,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_referral_links","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_handover_key_receipts","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
+      "vip_handover_snags","vip_handover_key_receipts","vip_support_tickets","vip_support_messages","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
@@ -172,6 +172,18 @@ async function run(){
     assert.equal((await client.query("SELECT COUNT(*)::int AS n FROM vip_notifications "+
       "WHERE event_type='due_reminder' AND user_id=$1",[u2])).rows[0].n,1);
     assert(installment>0);
+    const ticket=(await client.query(
+      "INSERT INTO vip_support_tickets(unit_id,owner_user_id,category,subject,due_at) "+
+      "VALUES($1,$2,'payment','Payment clarification',NOW()+INTERVAL '48 hours') RETURNING id",
+      [uid,u1])).rows[0].id;
+    await client.query("INSERT INTO vip_support_messages(ticket_id,sender_user_id,message) "+
+      "VALUES($1,$2,'Please clarify the outstanding installment')",[ticket,u1]);
+    assert.equal((await client.query("SELECT COUNT(*)::int AS n FROM vip_support_messages WHERE ticket_id=$1",[ticket])).rows[0].n,1);
+    assert.equal((await client.query("SELECT 1 FROM vip_support_tickets WHERE id=$1 AND owner_user_id=$2",[ticket,u2])).rowCount,0);
+    let bogusTicketStatusBlocked=false;
+    try{await client.query("UPDATE vip_support_tickets SET status='bypass' WHERE id=$1",[ticket]);}
+    catch(e){bogusTicketStatusBlocked=(e as {code?:string}).code==="23514";}
+    assert(bogusTicketStatusBlocked,"Invalid ticket statuses must be rejected");
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     await client.query("INSERT INTO vip_handover_key_receipts(unit_id,owner_user_id,developer_handover_reference,approval_note,approved_by) "+
       "VALUES($1,$2,'DEVELOPER-DELIVERY-2027','Inspected and approved for key delivery',$3)",[uid,u1,u1]);

@@ -163,6 +163,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Isolated schema tests cover rejection of an administrative delivered status before buyer acknowledgment.
 - Still required before production: actual signed handover document upload, optional delegated representative workflow, legal review of acknowledgment language and end-to-end account isolation tests in Staging.
 
+## Operations dashboard, audit trail and support desk (new code; not deployed)
+- Owner or assigned verified staff can open the private `/vip/support` desk. Ticket reads, messages and follow-up replies require live per-unit buyer access or explicitly assigned verified staff access; arbitrary IDs cannot enumerate other clients.
+- An owner opens a ticket for a unit they actively own, with throttling to three new tickets per 24 hours and 15 replies per ticket/user per day.
+- Admin can monitor incoming tickets, assign a verified staff member by email, record an internal reason, set a follow-up deadline and change status under constrained transitions. All updates create an audit event.
+- The executive report groups amounts **by currency** without synthetic conversions or auto-generated commission amounts; it displays support SLA backlog, project milestones behind schedule, overdue installments, pending finance review and statements.
+- A paginated admin-only audit viewer can inspect recorded VIP events and metadata; this is not an immutable/WORM or tamper-proof ledger.
+- Next: actual CRM sales reconciliation, time-window SLA escalation workflow, private attachment upload for support tickets, audit retention/export policy, runtime performance and cross-account staging tests.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

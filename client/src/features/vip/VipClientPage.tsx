@@ -16,6 +16,7 @@ import VipReferralsClient from "./VipReferralsClient";
 import VipNotificationsClient from "./VipNotificationsClient";
 import {VipJourneyClient,VipBenefitsClient,VipServicesClient} from "./VipExperienceClient";
 import VipFinanceClient from "./VipFinanceClient";
+import {LifeBuoy} from "lucide-react";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
 type VipMe = { units: VipUnit[] };
@@ -59,6 +60,9 @@ export default function VipClientPage() {
         ) : (
           <>
             <div className="mb-7 rounded-xl border border-[#cfe7e8] bg-white px-5 py-4 text-sm text-[#43677a]"><LockKeyhole className="me-2 inline h-4 w-4"/>{t.privacy}</div>
+            <Link href="/vip/support" className="mb-5 inline-flex items-center gap-2 rounded-lg border border-[#b9dcdc] bg-white px-4 py-3 text-sm font-semibold text-[#005476]">
+              <LifeBuoy className="h-4 w-4"/> KINGLIKE VIP Support
+            </Link>
             <h2 className="mb-4 text-xl font-semibold">{t.projects}</h2>
             {data.isPending ? <div className="rounded-xl bg-white p-6">{t.loading}</div> : data.isError ? (
               <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-6">{t.unavailable}</div>

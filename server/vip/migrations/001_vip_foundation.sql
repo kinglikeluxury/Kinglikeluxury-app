@@ -363,6 +363,34 @@ CREATE TABLE IF NOT EXISTS vip_financial_adjustments (
 );
 CREATE INDEX IF NOT EXISTS vip_financial_adjustments_by_unit
  ON vip_financial_adjustments(unit_id,created_at DESC);
+-- Operational client support desk; no direct use of legacy CRM data.
+CREATE TABLE IF NOT EXISTS vip_support_tickets (
+ id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+ owner_user_id INTEGER NOT NULL REFERENCES users(id),
+ category TEXT NOT NULL CHECK(category IN ('payment','construction','handover','maintenance','membership','other')),
+ subject VARCHAR(140) NOT NULL CHECK(length(trim(subject))>=5),
+ status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','waiting_customer','resolved','closed')),
+ assigned_to INTEGER REFERENCES users(id),
+ due_at TIMESTAMPTZ,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS vip_support_tickets_owner_idx
+ ON vip_support_tickets(owner_user_id,updated_at DESC);
+CREATE INDEX IF NOT EXISTS vip_support_tickets_due_idx
+ ON vip_support_tickets(due_at) WHERE status NOT IN ('resolved','closed');
+CREATE INDEX IF NOT EXISTS vip_support_tickets_assignee_idx
+ ON vip_support_tickets(assigned_to,updated_at DESC) WHERE assigned_to IS NOT NULL;
+CREATE TABLE IF NOT EXISTS vip_support_messages (
+ id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ ticket_id BIGINT NOT NULL REFERENCES vip_support_tickets(id),
+ sender_user_id INTEGER NOT NULL REFERENCES users(id),
+ message VARCHAR(2000) NOT NULL CHECK(length(trim(message))>=2),
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS vip_support_messages_ticket_idx
+ ON vip_support_messages(ticket_id,id);
 CREATE TABLE IF NOT EXISTS vip_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   actor_user_id INTEGER REFERENCES users(id),

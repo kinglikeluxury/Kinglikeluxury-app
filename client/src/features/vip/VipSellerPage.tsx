@@ -3,7 +3,7 @@ import {useQuery} from "@tanstack/react-query";
 import {useAuth} from "@/lib/auth";
 import {useTranslation} from "react-i18next";
 import {Link} from "wouter";
-import {BriefcaseBusiness,Building2,CalendarClock,FileDown,FileText,LockKeyhole,ReceiptText,ShieldCheck} from "lucide-react";
+import {BriefcaseBusiness,Building2,CalendarClock,FileDown,FileText,LockKeyhole,ReceiptText,ShieldCheck,LifeBuoy} from "lucide-react";
 
 type Unit={unit_id:string;unit_number:string;floor_number:number|null;project_id:string;project_name:string;developer_name:string|null;owner_email:string|null};
 type Installment={id:string;sequence_number:number;due_date:string;amount:string;currency:string;paid_amount:string;remaining_amount:string};
@@ -41,6 +41,7 @@ export default function VipSellerPage(){
     <p className="mt-3 text-sm text-white/80">{t.intro}</p></div>
   </header>
   <div className="mx-auto max-w-6xl space-y-5 px-4 py-8">
+   <Link href="/vip/support" className="inline-flex items-center gap-2 rounded-lg border border-[#b0dada] bg-white px-4 py-2 text-sm font-semibold"><LifeBuoy className="h-4 w-4"/> KINGLIKE VIP Support</Link>
    {!user?<Link href="/login" className="inline-flex items-center gap-2 rounded-xl bg-[#005476] px-5 py-3 text-white"><LockKeyhole className="h-5 w-5"/>{t.loginButton}</Link>:
     units.isPending?<p>{t.loading}</p>:units.isError?<p role="alert">{t.unavailable}</p>:!assigned.length?
     <div className="rounded-2xl bg-white p-7"><Building2 className="mb-3 h-7 w-7 text-[#19a6a4]"/>{t.empty}</div>:<>
