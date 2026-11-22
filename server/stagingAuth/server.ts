@@ -602,8 +602,15 @@ async function main() {
   });
 
   const server = createServer(app);
-  server.listen(STAGING_AUTH_PORT, "127.0.0.1", () => {
-    console.log("Isolated staging auth server ready on loopback.");
+  const publicRailwayBind = process.env.STAGING_AUTH_NETWORK_BIND === "railway-public";
+  const listenPort = publicRailwayBind ? Number(process.env.PORT) : STAGING_AUTH_PORT;
+  if (!Number.isSafeInteger(listenPort) || listenPort < 1024 || listenPort > 65535) {
+    throw new Error("Staging auth port rejected.");
+  }
+  server.listen(listenPort, publicRailwayBind ? "0.0.0.0" : "127.0.0.1", () => {
+    console.log(publicRailwayBind
+      ? "Isolated staging auth server ready on approved Railway service."
+      : "Isolated staging auth server ready on loopback.");
   });
   const shutdown = () => server.close(async () => {
     await pool.end();
