@@ -51,6 +51,40 @@ export function createWhatsappArchiveOwnerApprovalPostgresStore(dependencies: {
   };
 
   return {
+    /**
+     * Read-only verification of the exact capabilities required by the
+     * owner's post-Meta approval flow. No DB grant is changed here.
+     */
+    async requiredGrantsReady(): Promise<boolean> {
+      const db = await getPool();
+      const signatures = [
+        "staging_whatsapp_archive.list_pending_owner_approvals(text)",
+        "staging_whatsapp_archive.approve_employee_phone_binding(bigint,text)",
+        "staging_whatsapp_archive.create_customer_notice_echo_intent(text,bytea,text)",
+      ];
+      const result = await db.query(
+        `SELECT current_user = $1 AS exact_owner_role,
+                bool_and(
+                  to_regprocedure(s.signature) IS NOT NULL
+                  AND COALESCE(has_function_privilege(
+                    current_user, to_regprocedure(s.signature), 'EXECUTE'
+                  ), false)
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM pg_proc p
+                    CROSS JOIN LATERAL aclexplode(
+                      COALESCE(p.proacl, acldefault('f', p.proowner))
+                    ) acl
+                    WHERE p.oid = to_regprocedure(s.signature)
+                      AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+                  )
+                ) AS functions_ready
+           FROM unnest($2::text[]) AS s(signature)`,
+        [OWNER_ROLE, signatures],
+      );
+      return result.rows[0]?.exact_owner_role === true &&
+        result.rows[0]?.functions_ready === true;
+    },
     async listPending(sessionUserId: string) {
       if (!/^[0-9]{1,20}$/.test(sessionUserId)) throw new Error("Archive owner identity is invalid.");
       const db = await getPool();
