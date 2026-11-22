@@ -23,7 +23,7 @@ a{color:#72e8e2}.items{padding:0;margin:15px 0;list-style:none}.items li{border-
 .value{direction:ltr;white-space:nowrap}
 .checkrow{display:flex;align-items:flex-start;gap:10px;line-height:1.6;font-size:.92rem}
 .checkrow input{width:22px;height:22px;flex-shrink:0;accent-color:#3bcac4;margin:3px 0 0}
-.signup-actions{margin-top:18px}.signup-actions button{margin-top:10px}
+.signup-actions{margin-top:18px}.signup-actions button{margin-top:10px}.signup-actions button:disabled{background:#526772;color:#b8cdd5;opacity:1;cursor:not-allowed;box-shadow:none}
 .notice{font-size:.88rem;color:#a2bdc8;margin-top:12px}
 </style>
 </head>
@@ -56,7 +56,7 @@ a{color:#72e8e2}.items{padding:0;margin:15px 0;list-style:none}.items li{border-
 <p class="notice">هذه الخطوة مخصصة للموظف المعتمد. لا تحذف واتساب Business من الهاتف ولا تُجري عملية نقل الرقم إلى Cloud API بدل Coexistence.</p>
 <label class="checkrow"><input id="employeeCoexAcknowledgement" type="checkbox"><span>أؤكد أنني أستخدم رقم العمل الموافق عليه، وأفهم أن تسجيل Coexistence يتطلب موافقتي داخل Meta، وأن الرسائل الواردة خلال مرحلة العزل قد لا تُحفظ.</span></label>
 <div class="signup-actions">
-<button id="prepareCoexistence" disabled type="button">تجهيز جلسة Coexistence الآمنة</button>
+<button id="prepareCoexistence" disabled type="button" title="لا يُتاح حتى تصبح جميع فحوص Meta وWebhook جاهزة">تجهيز جلسة Coexistence الآمنة</button>
 <button id="launchMetaCoexistence" type="button" hidden>فتح نافذة Meta وربط WhatsApp Business</button>
 </div>
 <p id="signupOutcome" class="notice" aria-live="polite"></p>
@@ -255,7 +255,7 @@ $("launchMetaCoexistence").addEventListener("click",()=>{
       config_id:metaSession.configId,
       response_type:"code",
       override_default_response_type:true,
-      extras:{featureType:"whatsapp_business_app_onboarding"}
+      extras:{setup:{},featureType:"whatsapp_business_app_onboarding",sessionInfoVersion:"3"}
     });
   }catch{
     result("تعذر فتح Meta، ولم يتم تسجيل أي ربط.");
