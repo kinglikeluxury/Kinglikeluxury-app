@@ -17,7 +17,7 @@ export function validateVipCameraUrl(raw:unknown,allowedRaw:string|undefined):st
     if(!approved.has(host))return null;
     const suspicious=decodeURIComponent(parsed.search).toLowerCase();
     if(/rtsp(s)?:\/\//.test(suspicious)||
-       [...parsed.searchParams.keys()].some(k=>/^(password|passwd|pass|username|user|rtsp|rtspurl|cameraurl|credentials|secret)$/i.test(k))){
+       Array.from(parsed.searchParams.keys()).some(k=>/^(password|passwd|pass|username|user|rtsp|rtspurl|cameraurl|credentials|secret)$/i.test(k))){
       return null;
     }
     return parsed.toString();
