@@ -289,6 +289,10 @@ async function main() {
       createMetaGraph().listWabaPhoneNumbers(wabaId, token),
     listWabaPhoneNumberDetails: (wabaId, token) =>
       createMetaGraph().listWabaPhoneNumberDetails(wabaId, token),
+    // Fail-closed Business App + Cloud API verification, required before
+    // treating the approved work number as a genuine Coexistence signup.
+    getCoexistencePhoneStatus: (phoneNumberId, token) =>
+      createMetaGraph().getCoexistencePhoneStatus!(phoneNumberId, token),
     subscribeAppToWaba: (wabaId, token) =>
       createMetaGraph().subscribeAppToWaba!(wabaId, token),
   };
