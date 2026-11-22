@@ -1,5 +1,6 @@
 import type {Express,Request,Response,RequestHandler} from "express";
 import {pool} from "../db";
+import type { PoolClient } from "pg";
 import {canTransitionReferral,canTransitionReward,normalizedReferralName,normalizedReferralPhone,
   type ReferralStatus,type RewardStatus} from "./vipEngagementRules";
 function idOf(raw:unknown):number|null{
@@ -19,7 +20,7 @@ const listClientSql=
  "w.status AS reward_status,CASE WHEN w.status IN ('approved','fulfilled') THEN w.description ELSE NULL END AS reward_description "+
  "FROM vip_referrals r LEFT JOIN vip_referral_rewards w ON w.referral_id=r.id "+
  "WHERE r.referrer_user_id=$1 ORDER BY r.created_at DESC LIMIT 100";
-async function isVipOwner(userId:number,conn=pool):Promise<boolean>{
+async function isVipOwner(userId:number,conn:typeof pool | PoolClient=pool):Promise<boolean>{
   const a=await conn.query(
     "SELECT 1 FROM vip_unit_access WHERE user_id=$1 AND access_role='owner' AND revoked_at IS NULL LIMIT 1",
     [userId]);

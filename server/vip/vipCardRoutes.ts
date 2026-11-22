@@ -1,5 +1,6 @@
 import type { Express,Request,Response,RequestHandler } from "express";
 import {pool} from "../db";
+import type { PoolClient } from "pg";
 import {isVipTier,newMembershipCode,validMembershipCode} from "./vipEngagementRules";
 
 const originJson:RequestHandler=(req,res,next)=>{
@@ -14,7 +15,7 @@ function positiveId(raw:unknown):number|null{
   if(typeof raw!=="string"||!/^[1-9]\d*$/.test(raw))return null;
   const n=Number(raw);return Number.isSafeInteger(n)?n:null;
 }
-async function isOwner(userId:number,conn=pool):Promise<boolean>{
+async function isOwner(userId:number,conn:typeof pool | PoolClient=pool):Promise<boolean>{
   const result=await conn.query(
     "SELECT 1 FROM vip_unit_access a JOIN vip_units u ON u.id=a.unit_id "+
     "WHERE a.user_id=$1 AND a.access_role='owner' AND a.revoked_at IS NULL LIMIT 1",[userId]
