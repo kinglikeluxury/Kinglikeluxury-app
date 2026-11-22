@@ -29,7 +29,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_referral_links","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_handover_key_receipts","vip_support_tickets","vip_support_messages","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
+      "vip_handover_snags","vip_handover_key_receipts","vip_support_tickets","vip_support_messages","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments","vip_exchange_rates","vip_internal_commissions"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
@@ -184,6 +184,30 @@ async function run(){
     try{await client.query("UPDATE vip_support_tickets SET status='bypass' WHERE id=$1",[ticket]);}
     catch(e){bogusTicketStatusBlocked=(e as {code?:string}).code==="23514";}
     assert(bogusTicketStatusBlocked,"Invalid ticket statuses must be rejected");
+    // Private commissions: no unsettled draft may claim a documented settlement.
+    const fx=(await client.query(
+      "INSERT INTO vip_exchange_rates(base_currency,quote_currency,rate,effective_date,source,source_reference,created_by) "+
+      "VALUES('USD','GEL',2.70,CURRENT_DATE,'Verified source','Official 2026 FX source',$1) RETURNING id",[u1])).rows[0].id;
+    let fxUnreviewedBlocked=false;
+    try{await client.query("UPDATE vip_exchange_rates SET published=TRUE WHERE id=$1",[fx]);}
+    catch(e){fxUnreviewedBlocked=(e as {code?:string}).code==="23514";}
+    assert(fxUnreviewedBlocked,"FX rates require separate approval before publication");
+    await client.query("UPDATE vip_exchange_rates SET published=TRUE,approved_by=$2,approved_at=NOW() WHERE id=$1",[fx,u2]);
+    let badMethodBlocked=false;
+    try{await client.query(
+      "INSERT INTO vip_internal_commissions(unit_id,side,category,basis_amount,percentage,fixed_amount,currency,payee_label,contract_reference,created_by) "+
+      "VALUES($1,'expense','employee',139000,1,2000,'USD','Agent','Signed contract 2026',$2)",[uid,u1]);}
+    catch(e){badMethodBlocked=(e as {code?:string}).code==="23514";}
+    assert(badMethodBlocked,"Commission cannot mix percentage and fixed amount");
+    const c=(await client.query(
+      "INSERT INTO vip_internal_commissions(unit_id,side,category,basis_amount,percentage,currency,payee_label,contract_reference,created_by) "+
+      "VALUES($1,'expense','employee',139000,1,'USD','Agent','Signed contract 2026',$2) RETURNING id",[uid,u1])).rows[0].id;
+    let unreviewedSettlementBlocked=false;
+    try{await client.query("UPDATE vip_internal_commissions SET status='settled',settled_by=$2,settled_at=NOW(),settlement_reference='Transfer 2026' WHERE id=$1",[c,u2]);}
+    catch(e){unreviewedSettlementBlocked=(e as {code?:string}).code==="23514";}
+    assert(unreviewedSettlementBlocked,"Commission settlement requires finance review first");
+    await client.query("UPDATE vip_internal_commissions SET status='approved',approved_by=$2,approved_at=NOW() WHERE id=$1",[c,u2]);
+    await client.query("UPDATE vip_internal_commissions SET status='settled',settled_by=$2,settled_at=NOW(),settlement_reference='Transfer 2026' WHERE id=$1",[c,u2]);
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     await client.query("INSERT INTO vip_handover_key_receipts(unit_id,owner_user_id,developer_handover_reference,approval_note,approved_by) "+
       "VALUES($1,$2,'DEVELOPER-DELIVERY-2027','Inspected and approved for key delivery',$3)",[uid,u1,u1]);

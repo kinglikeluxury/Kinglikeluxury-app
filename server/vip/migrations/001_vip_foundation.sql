@@ -391,6 +391,59 @@ CREATE TABLE IF NOT EXISTS vip_support_messages (
 );
 CREATE INDEX IF NOT EXISTS vip_support_messages_ticket_idx
  ON vip_support_messages(ticket_id,id);
+-- Source-attested, finance-approved dated FX references; not automatic conversions.
+CREATE TABLE IF NOT EXISTS vip_exchange_rates (
+ id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ base_currency VARCHAR(3) NOT NULL CHECK(base_currency~'^[A-Z]{3}$'),
+ quote_currency VARCHAR(3) NOT NULL CHECK(quote_currency~'^[A-Z]{3}$'),
+ rate NUMERIC(20,8) NOT NULL CHECK(rate>0),
+ effective_date DATE NOT NULL,
+ source VARCHAR(120) NOT NULL,
+ source_reference VARCHAR(180) NOT NULL CHECK(length(trim(source_reference))>=8),
+ published BOOLEAN NOT NULL DEFAULT FALSE,
+ created_by INTEGER NOT NULL REFERENCES users(id),
+ approved_by INTEGER REFERENCES users(id),
+ approved_at TIMESTAMPTZ,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ CHECK(base_currency<>quote_currency),
+ CHECK(NOT published OR (approved_by IS NOT NULL AND approved_at IS NOT NULL AND approved_by<>created_by))
+);
+CREATE INDEX IF NOT EXISTS vip_fx_rates_dates_idx
+ ON vip_exchange_rates(effective_date DESC,created_at DESC);
+
+-- Internal estimates only: never exposed through any owner or seller endpoint.
+-- Settlement is an audit entry; it does not transfer money.
+CREATE TABLE IF NOT EXISTS vip_internal_commissions (
+ id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+ side TEXT NOT NULL CHECK(side IN ('income','expense')),
+ category TEXT NOT NULL CHECK(category IN ('developer','employee','field','manager','referral','bonus','other')),
+ basis_amount NUMERIC(16,2) CHECK(basis_amount>0),
+ percentage NUMERIC(7,4) CHECK(percentage>=0 AND percentage<=100),
+ fixed_amount NUMERIC(16,2) CHECK(fixed_amount>0),
+ currency VARCHAR(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),
+ payee_label VARCHAR(100) NOT NULL,
+ contract_reference VARCHAR(180) NOT NULL CHECK(length(trim(contract_reference))>=8),
+ note VARCHAR(500),
+ status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','approved','settled','voided')),
+ created_by INTEGER NOT NULL REFERENCES users(id),
+ approved_by INTEGER REFERENCES users(id),
+ approved_at TIMESTAMPTZ,
+ settled_by INTEGER REFERENCES users(id),
+ settled_at TIMESTAMPTZ,
+ settlement_reference VARCHAR(180),
+ voided_by INTEGER REFERENCES users(id),
+ voided_at TIMESTAMPTZ,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ CHECK ((fixed_amount IS NOT NULL AND basis_amount IS NULL AND percentage IS NULL) OR
+        (fixed_amount IS NULL AND basis_amount IS NOT NULL AND percentage IS NOT NULL)),
+ CHECK (status NOT IN ('approved','settled') OR
+        (approved_by IS NOT NULL AND approved_at IS NOT NULL AND approved_by<>created_by)),
+ CHECK (status <> 'settled' OR
+        (settled_by IS NOT NULL AND settled_at IS NOT NULL AND length(coalesce(settlement_reference,''))>=8)),
+ CHECK (status <> 'voided' OR (voided_by IS NOT NULL AND voided_at IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS vip_internal_commissions_unit_idx ON vip_internal_commissions(unit_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS vip_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   actor_user_id INTEGER REFERENCES users(id),

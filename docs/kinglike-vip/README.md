@@ -171,6 +171,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - A paginated admin-only audit viewer can inspect recorded VIP events and metadata; this is not an immutable/WORM or tamper-proof ledger.
 - Next: actual CRM sales reconciliation, time-window SLA escalation workflow, private attachment upload for support tickets, audit retention/export policy, runtime performance and cross-account staging tests.
 
+## Advanced finance and internal commissions (new code; not deployed)
+- Finance-sourced FX rate records include source, reference, effective date and currency pair, and are created as **drafts**. Only a different authorized finance reviewer may publish them; they are never auto-applied to an installment or contract.
+- Internal commission estimates support percentage of a sale basis **or** a fixed incentive amount, not both. Record type distinguishes developer revenue from employee/manager/field expenses.
+- Admin can inspect private commission estimates. Clients and selling staff do not have commission endpoints or access to their amounts.
+- Finance must separately approve an estimate before a second, externally-referenced settlement attestation can be recorded. None of these actions transfer money or independently prove a bank payment.
+- The isolated PostgreSQL test asserts no mixed calculation method, no unapproved FX publication and no commission settlement without prior finance approval.
+- Missing real-world requirements: approved developer contracts, company VAT/tax policy per country, reconciliation against actual bank receipts and any accounting ledger used by the company.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

@@ -16,6 +16,7 @@ import VipReferralsClient from "./VipReferralsClient";
 import VipNotificationsClient from "./VipNotificationsClient";
 import {VipJourneyClient,VipBenefitsClient,VipServicesClient} from "./VipExperienceClient";
 import VipFinanceClient from "./VipFinanceClient";
+import VipFxRatesClient from "./VipFxRatesClient";
 import {LifeBuoy} from "lucide-react";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
@@ -95,7 +96,7 @@ export default function VipClientPage() {
                 ))}
               </div>
             )}
-            {data.isSuccess && data.data.units.length>0 && <><VipCardClient/><VipBenefitsClient/><VipReferralsClient/><VipNotificationsClient/></>}
+            {data.isSuccess && data.data.units.length>0 && <><VipCardClient/><VipBenefitsClient/><VipFxRatesClient/><VipReferralsClient/><VipNotificationsClient/></>}
             <h2 className="mb-4 mt-10 text-xl font-semibold">{t.title}</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {features.map(({key,Icon}) => (
