@@ -13,10 +13,12 @@ import {
 } from "./stagingArchive/metaTokenVault";
 import type { createWhatsappCoexistenceSignupPostgresWriter } from "./whatsappCoexistenceSignupPostgresWriter";
 
+// Embedded Signup v4 requires the two WhatsApp scopes. Some app configurations
+// do not grant business_management; actual business ownership and exact WABA
+// membership must still be proven by Meta Graph, or signup fails closed.
 const REQUIRED_SCOPES = [
   "whatsapp_business_management",
   "whatsapp_business_messaging",
-  "business_management",
 ];
 
 type MetaClaims = { businessId: string; wabaId: string; phoneNumberId: string };
