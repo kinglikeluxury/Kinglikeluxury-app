@@ -8,7 +8,8 @@
   },
   "scripts": {
     "staging-auth:server": "tsx scripts/run-staging-auth-isolated.ts server",
-    "start": "npm run staging-auth:server"
+    "start": "npm run staging-auth:server",
+    "test:staging-safety": "tsx --test server/stagingAuth/metaGraphAdapter.test.ts server/whatsappCoexistenceStagingSafety.test.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
