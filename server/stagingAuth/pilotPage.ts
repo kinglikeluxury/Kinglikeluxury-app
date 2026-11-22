@@ -32,7 +32,7 @@ a{color:#72e8e2}.items{padding:0;margin:15px 0;list-style:none}.items li{border-
 <header>
 <div class="tag">KINGLIKE LUXURY · ISOLATED STAGING</div>
 <h1>بوابة واتساب التجريبية</h1>
-<p>هذه بوابة اختبار محمية، ولا تُجري أي ربط مع Meta أو تحفظ رسائل عملاء.</p>
+<p>بوابة تجريبية محمية. لن يبدأ ربط Meta إلا بعد الموافقة واجتياز فحوص الأمان؛ وأرشفة الرسائل متوقفة.</p>
 </header>
 <div id="feedback" class="status" role="status" aria-live="polite">جارٍ فحص الجلسة…</div>
 <section id="loginPanel" hidden>
@@ -255,7 +255,7 @@ $("launchMetaCoexistence").addEventListener("click",()=>{
       config_id:metaSession.configId,
       response_type:"code",
       override_default_response_type:true,
-      extras:{setup:{},featureType:"whatsapp_business_app_onboarding",sessionInfoVersion:"3"}
+      extras:{setup:{},featureType:"whatsapp_business_app_onboarding"}
     });
   }catch{
     result("تعذر فتح Meta، ولم يتم تسجيل أي ربط.");
