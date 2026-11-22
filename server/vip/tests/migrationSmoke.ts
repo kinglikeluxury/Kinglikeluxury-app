@@ -27,7 +27,7 @@ async function run(){
     for(const name of [
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
-      "vip_referral_rewards","vip_handover","vip_handover_appointments",
+      "vip_referral_rewards","vip_referral_links","vip_handover","vip_handover_appointments",
       "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
     ]) assert(names.has(name),"Missing table "+name);
 
@@ -68,6 +68,23 @@ async function run(){
     }catch(error){badPhoneBlocked=(error as {code?:string}).code==="23514";}
     assert(badPhoneBlocked,"International phone required");
 
+    // Share-link referrals never disclose submitted contact data to the inviter.
+    await client.query("INSERT INTO vip_referral_links(user_id,code) VALUES($1,$2)",
+      [u1,"KLR-0123456789ABCDEF0123456789ABCDEF"]);
+    const linkReferral=(await client.query(
+      "INSERT INTO vip_referrals(referrer_user_id,lead_name,lead_phone_e164,contact_consent,consented_at,source) "+
+      "VALUES($1,'Private Lead','+995555654320',TRUE,NOW(),'share_link') RETURNING id",[u1])).rows[0].id;
+    const privateView=await client.query(
+      "SELECT CASE WHEN source='share_link' THEN NULL ELSE lead_name END AS lead_name,"+
+      "CASE WHEN source='share_link' THEN NULL ELSE lead_phone_e164 END AS lead_phone_e164 "+
+      "FROM vip_referrals WHERE id=$1",[linkReferral]);
+    assert.equal(privateView.rows[0].lead_name,null);
+    assert.equal(privateView.rows[0].lead_phone_e164,null);
+    let duplicateLinkBlocked=false;
+    try{await client.query("INSERT INTO vip_referral_links(user_id,code) VALUES($1,$2)",
+      [u2,"KLR-0123456789ABCDEF0123456789ABCDEF"]);}
+    catch(e){duplicateLinkBlocked=(e as {code?:string}).code==="23505";}
+    assert(duplicateLinkBlocked,"Referral link code must be globally unique");
     // Seller access: one assigned staff member per unit and revocation works.
     const seller1=(await client.query("INSERT INTO users(email) VALUES('sales1@example.test') RETURNING id")).rows[0].id;
     const seller2=(await client.query("INSERT INTO users(email) VALUES('sales2@example.test') RETURNING id")).rows[0].id;

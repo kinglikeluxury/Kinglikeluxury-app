@@ -131,6 +131,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Private document storage requires dedicated isolated GCS credentials and enforced bucket privacy. No secret has been transferred, and no real PDF upload has yet been tested.
 - Still needed: approved currency conversion/exchange-rate source and effective date, internal-only commission reporting, official payment penalty policy per developer, full accrual/credit accounting and real Staging owner-versus-stranger tests.
 
+## Private referral share link and opt-in landing (new code, not deployed)
+- Each active VIP owner can generate a 128-bit cryptographically random and anonymous referral URL.
+- The visitor may submit their name and international phone **only after giving their own contact consent**. The URL and page reveal no VIP owner identity, property or email.
+- The referrer may track linked referral status and approved rewards; name and phone from the public visitor form are withheld from the referrer. Admin alone sees contact details.
+- The direct referral form remains supported; invitee-submitted referrals share the same three-per-owner-per-day cap and deduplication.
+- The link does not create any sale or reward automatically. Conversion remains an administrative action with sale reference.
+- Still needed before real customer launch: spam mitigation beyond per-owner limit, legal retention/consent copy review, CRM synchronization and real public-link anti-abuse testing.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

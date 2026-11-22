@@ -2,7 +2,8 @@ import {useState,type FormEvent} from "react";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {useTranslation} from "react-i18next";
 import {Gift,UserPlus,Phone,ShieldCheck} from "lucide-react";
-type Referral={id:string;lead_name:string;lead_phone_e164:string;status:string;reward_status:string|null;reward_description:string|null;created_at:string};
+import VipReferralLinkClient from "./VipReferralLinkClient";
+type Referral={id:string;lead_name:string|null;lead_phone_e164:string|null;source:"direct"|"share_link";status:string;reward_status:string|null;reward_description:string|null;created_at:string};
 const l:Record<string,Record<string,string>>={
  ar:{title:"ترشيحات VIP والمكافآت",intro:"رشّح شخصًا مهتمًا بالاستثمار العقاري، وسيتواصل فريقنا معه بعد الحصول على موافقته.",name:"اسم الشخص",phone:"رقم الهاتف الدولي",consent:"أؤكد أن الشخص وافق على مشاركة بياناته مع Kinglike Luxury والتواصل معه بشأن العقارات.",send:"إضافة ترشيح",sending:"جاري الإرسال...",success:"تم تسجيل الترشيح، وسيُراجع من الإدارة.",error:"تعذر تسجيل الترشيح. تأكد من الرقم الدولي والموافقة.",history:"ترشيحاتي",empty:"لم تسجّل أي ترشيحات بعد.",new:"جديد",contacted:"تم التواصل",qualified:"مهتم",converted:"تمت صفقة",declined:"مغلق",proposed:"مكافأة قيد المراجعة",approved:"مكافأة معتمدة",fulfilled:"تم تقديم المكافأة",note:"المكافآت والخصومات ليست تلقائية؛ تعتمد فقط عند مراجعة الإدارة ووفق الشروط المعتمدة."},
  en:{title:"VIP referrals & rewards",intro:"Refer someone interested in property investment after obtaining their consent to be contacted.",name:"Contact name",phone:"International phone number",consent:"I confirm this person consented to sharing their information with Kinglike Luxury for property-related contact.",send:"Submit referral",sending:"Sending...",success:"Referral submitted for management review.",error:"Could not save referral. Check phone and consent.",history:"My referrals",empty:"No referrals yet.",new:"New",contacted:"Contacted",qualified:"Qualified",converted:"Sale recorded",declined:"Closed",proposed:"Reward under review",approved:"Reward approved",fulfilled:"Reward delivered",note:"Benefits are never automatic and require explicit management approval."},
@@ -35,6 +36,7 @@ export default function VipReferralsClient(){
  return <section className="mt-10">
   <h2 className="mb-3 flex items-center gap-2 text-xl font-semibold"><Gift className="h-6 w-6 text-[#008c93]"/>{t.title}</h2>
   <p className="mb-5 text-sm text-[#67828c]">{t.intro}</p>
+  <VipReferralLinkClient/>
   <form onSubmit={submit} className="rounded-2xl border border-[#d6e8ea] bg-white p-5 shadow-sm">
    <div className="grid gap-4 md:grid-cols-2">
     <label className="block text-sm">{t.name}
@@ -72,10 +74,10 @@ export default function VipReferralsClient(){
     <div className="grid gap-3 md:grid-cols-2">{data.data.referrals.map(r=>
       <div key={r.id} className="rounded-xl border border-[#d7e8e9] bg-white p-4">
        <div className="flex flex-wrap items-center justify-between gap-2">
-        <strong className="text-sm">{r.lead_name}</strong>
+        <strong className="text-sm">{r.lead_name||"KINGLIKE VIP · Referral"}</strong>
         <span className="rounded-full bg-[#e6f6f4] px-3 py-1 text-xs text-[#00676f]">{t[r.status]||r.status}</span>
        </div>
-       <p dir="ltr" className="mt-2 text-xs text-[#6d8692]">{r.lead_phone_e164}</p>
+       {r.lead_phone_e164&&<p dir="ltr" className="mt-2 text-xs text-[#6d8692]">{r.lead_phone_e164}</p>}
        {r.reward_status&&<div className="mt-3 border-t border-[#e1eff0] pt-3">
         <span className="text-xs font-semibold text-[#005476]">{t[r.reward_status]||r.reward_status}</span>
         {r.reward_description&&<p className="mt-2 text-xs text-[#577b84]">{r.reward_description}</p>}

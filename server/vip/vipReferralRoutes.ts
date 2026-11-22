@@ -16,7 +16,10 @@ const originJson:RequestHandler=(req,res,next)=>{
   next();
 };
 const listClientSql=
- "SELECT r.id::text AS id,r.lead_name,r.lead_phone_e164,r.status,r.created_at, "+
+ "SELECT r.id::text AS id,"+
+ "CASE WHEN r.source='share_link' THEN NULL ELSE r.lead_name END AS lead_name,"+
+ "CASE WHEN r.source='share_link' THEN NULL ELSE r.lead_phone_e164 END AS lead_phone_e164,"+
+ "r.source,r.status,r.created_at, "+
  "w.status AS reward_status,CASE WHEN w.status IN ('approved','fulfilled') THEN w.description ELSE NULL END AS reward_description "+
  "FROM vip_referrals r LEFT JOIN vip_referral_rewards w ON w.referral_id=r.id "+
  "WHERE r.referrer_user_id=$1 ORDER BY r.created_at DESC LIMIT 100";

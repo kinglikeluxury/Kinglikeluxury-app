@@ -225,6 +225,7 @@ CREATE TABLE IF NOT EXISTS vip_referrals (
   consented_at TIMESTAMPTZ NOT NULL,
   status TEXT NOT NULL DEFAULT 'new'
     CHECK (status IN ('new','contacted','qualified','converted','declined')),
+  source TEXT NOT NULL DEFAULT 'direct' CHECK(source IN ('direct','share_link')),
   sale_reference VARCHAR(80),
   reviewed_by INTEGER REFERENCES users(id),
   reviewed_at TIMESTAMPTZ,
@@ -237,6 +238,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS vip_referral_unique_sale_reference
 CREATE INDEX IF NOT EXISTS vip_referrals_status_idx ON vip_referrals(status,created_at DESC);
 
 -- Rewards require a documented conversion and separate administrative approval.
+-- One random anonymous share link per VIP owner.
+CREATE TABLE IF NOT EXISTS vip_referral_links (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  code VARCHAR(36) NOT NULL UNIQUE CHECK (code ~ '^KLR-[A-F0-9]{32}$'),
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 CREATE TABLE IF NOT EXISTS vip_referral_rewards (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   referral_id BIGINT NOT NULL UNIQUE REFERENCES vip_referrals(id),

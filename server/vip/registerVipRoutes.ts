@@ -14,6 +14,7 @@ import { registerVipNotificationRoutes } from "./vipNotificationRoutes";
 import { registerVipSellerRoutes } from "./vipSellerRoutes";
 import {registerVipExperienceRoutes} from "./vipExperienceRoutes";
 import {registerVipAccountingRoutes} from "./vipAccountingRoutes";
+import {registerVipReferralLinkRoutes} from "./vipReferralLinkRoutes";
 
 /**
  * KINGLIKE VIP: disabled unless explicitly enabled on the server.
@@ -107,5 +108,6 @@ export function registerVipRoutes(app: Express): void {
   registerVipSellerRoutes(app, enabled, requireSession, requireAdmin);
   registerVipExperienceRoutes(app, enabled, requireSession, requireAdmin);
   registerVipAccountingRoutes(app, enabled, requireSession, requireAdmin);
+  registerVipReferralLinkRoutes(app, enabled, requireSession);
 
 }
