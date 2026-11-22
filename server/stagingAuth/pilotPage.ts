@@ -69,31 +69,60 @@ function addCheck(name,value){
   item.append(n,v);$("checks").append(item);
 }
 async function refresh(){
-  label("جارٍ التحقق من صلاحية الجلسة…");
+  label("جارٍ فحص حالة Staging…");
   try {
     const session=await json("/api/staging/identity/session");
     if(session.status===401){showLogin();label("سجّل الدخول بحساب Staging المصرّح.");return;}
-    if(session.status!==200){showLogin();label("تعذّر التحقق من جلسة Staging. حاول لاحقًا.");return;}
+    if(session.status!==200){showLogin();label("تعذّر التحقق من جلسة Staging.");return;}
     showDashboard();
     const role=session.data.role;
-    $("identity").textContent="الحساب: "+String(session.data.username||"مصرح")+" · الدور: "+String(role||"غير معروف");
-    const path=role==="crm_employee" ?
-      "/api/employee/whatsapp-number-preapproval/readiness" :
-      role==="owner_approver" ? "/api/admin/whatsapp-number-preapproval/readiness" : null;
+    $("identity").textContent="الحساب: "+String(session.data.username||"مصرّح")+" · الدور: "+String(role||"غير معروف");
     $("checks").replaceChildren();
-    addCheck("الهوية","موثّقة");
-    if(path){
-      const r=await json(path);
-      if(r.status===200){
-        addCheck("فحص طلب الرقم",r.data.numberPreapprovalReady?"READY":"BLOCKED");
-        addCheck("صلاحية الحساب",role==="crm_employee"?
-          (r.data.employeeNumberRequestReady?"READY":"BLOCKED"):
-          (r.data.ownerNumberReviewReady?"READY":"BLOCKED"));
-      }else{addCheck("خدمة أرقام واتساب","غير متاحة أو غير مصرح");}
-    }else{addCheck("صلاحيات التجربة","محدودة");}
-    addCheck("ربط Meta الفعلي","غير مفعّل");
-    label("تم التحقق من الجلسة دون ربط Meta أو تعديل بيانات.");
-  }catch{showLogin();label("تعذر الاتصال بالخادم التجريبي.");}
+    addCheck("هوية المستخدم","موثّقة");
+    if(role==="owner_approver"){
+      const r=await json("/api/admin/whatsapp-staging/system-readiness");
+      if(r.status!==200){addCheck("الفحص الأمني","غير متاح");}
+      else{
+        const x=r.data;
+        const ok=(value)=>value===true?"READY":"BLOCKED";
+        addCheck("موافقة رقم الموظف",x.approvedEmployeeNumberPresent?"موجودة":"غير موجودة");
+        addCheck("التحقق من الرقم لدى Meta",x.metaNumberVerified?"مكتمل":"لم يكتمل");
+        addCheck("قاعدة تسجيل الرقم",ok(x.onboardingDatabaseReady));
+        addCheck("عزل هوية Staging",ok(x.identityIsolationVerified));
+        addCheck("حفظ رمز Meta مشفّرًا",ok(x.vaultReady));
+        addCheck("تدقيق إعداد Meta",ok(x.metaConfigVerified));
+        addCheck("تدقيق توقيع Webhook",ok(x.quarantineSignatureVerified));
+        addCheck("صلاحيات الاعتماد النهائي للمالك",ok(x.ownerGrantReady));
+        addCheck("HTTPS",ok(x.publicHttpsReady));
+        addCheck("موافقة Webhook",ok(x.metaWebhookApproved));
+        addCheck("الموافقة على تفعيل التجربة",ok(x.activationApproved));
+        addCheck("جاهزية تسجيل Coexistence المعزول",ok(x.quarantineReady));
+        addCheck("سياسة الأرشفة",ok(x.archivePolicyReady));
+        addCheck("إثبات إشعار العميل",ok(x.customerNoticeVerified));
+        addCheck("أرشفة الرسائل",x.messagesArchiveEnabled?"مفعّلة":"متوقفة");
+      }
+    }else if(role==="crm_employee"){
+      const [pre,requests,coex]=await Promise.all([
+        json("/api/employee/whatsapp-number-preapproval/readiness"),
+        json("/api/employee/whatsapp-number-preapproval"),
+        json("/api/employee/whatsapp-coexistence/readiness")
+      ]);
+      if(pre.status===200){
+        addCheck("تسجيل طلب الرقم",pre.data.numberPreapprovalReady?"READY":"BLOCKED");
+        addCheck("صلاحية طلب الموظف",pre.data.employeeNumberRequestReady?"READY":"BLOCKED");
+      }else{addCheck("تسجيل طلب الرقم","غير متاح");}
+      if(requests.status===200&&Array.isArray(requests.data.requests)){
+        const approved=requests.data.requests.some(x=>x.status==="approved"&&new Date(x.expiresAt).getTime()>Date.now());
+        addCheck("الموافقة السارية على الرقم",approved?"موجودة":"غير متاحة");
+      }else{addCheck("الموافقة السارية على الرقم","تعذر التحقق");}
+      if(coex.status===200){
+        addCheck("جاهزية بدء التسجيل",coex.data.onboardingQuarantineReady?"READY":"BLOCKED");
+        addCheck("فحص إعداد Meta",coex.data.metaConfigVerified||"BLOCKED");
+      }else{addCheck("حالة التسجيل","غير متاحة");}
+      addCheck("ربط Meta الفعلي","لم يبدأ");
+    }else{addCheck("صلاحية هذا الحساب","محدودة");}
+    label("فحص قراءة فقط. لم يُنفذ تسجيل أو ربط أو أرشفة.");
+  }catch{label("تعذّر الوصول إلى فحوص Staging.");}
 }
 $("loginForm").addEventListener("submit", async (e)=>{
   e.preventDefault();
