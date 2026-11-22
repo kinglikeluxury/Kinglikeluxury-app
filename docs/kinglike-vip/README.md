@@ -78,6 +78,15 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Before launch, confirm the generated RTSP.RUN embed URL format, actual playback on Android/iOS, provider terms, frame-src CSP, camera/network exposure and project-developer authorization. The provider may block iframing.
 - No client camera credentials, IP camera addresses or raw RTSP strings are stored in the VIP project camera URL field.
 
+## Handover Center — staged implementation (code added; no database migration run)
+- Owner can request a preferred appointment only after management marks the unit ready; a request never schedules automatically.
+- Kinglike admin may confirm/decline requests and updates only a unit's stage. All changes are auditable.
+- Technical inspection checklist has six fields; all must pass and open snags must be zero before marking inspection complete.
+- Buyer can report issues after a confirmed inspection appointment; staff can resolve each with a recorded note. A pending issue blocks completion.
+- Client sees only the unit assigned to their active owner entitlement; the server enforces access independently of UI.
+- **Legal acceptance and key handover are intentionally not activated:** the flow does not substitute for signed inspection/handover documents or authorized key delivery confirmation.
+- Requires isolated database migration, workflow integration and cross-account tests prior to activation.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

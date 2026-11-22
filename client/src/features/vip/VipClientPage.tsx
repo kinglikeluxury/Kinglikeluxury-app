@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/lib/auth";
-import { Bell, Building2, CalendarCheck, Crown, FileText, Gift, LockKeyhole, Route, Wallet } from "lucide-react";
+import { Bell, Building2, Crown, FileText, Gift, LockKeyhole, Route, Wallet } from "lucide-react";
 import { getVipCopy } from "./vipCopy";
 import VipStatementRequest from "./VipStatementRequest";
 import VipProjectProgress from "./VipProjectProgress";
@@ -10,13 +10,13 @@ import VipInstallmentsList from "./VipInstallmentsList";
 import VipReceiptHistory from "./VipReceiptHistory";
 import VipProjectCamera from "./VipProjectCamera";
 import VipProjectPhotos from "./VipProjectPhotos";
+import VipHandoverClient from "./VipHandoverClient";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
 type VipMe = { units: VipUnit[] };
 const features = [
   { key: "journey", Icon: Route },
   { key: "statement", Icon: Wallet },
-  { key: "handover", Icon: CalendarCheck },
   { key: "card", Icon: Crown },
   { key: "alerts", Icon: Bell },
   { key: "rewards", Icon: Gift },
@@ -75,6 +75,7 @@ export default function VipClientPage() {
                     <VipProjectProgress projectId={unit.project_id} />
                     <VipProjectCamera projectId={unit.project_id} />
                     <VipProjectPhotos projectId={unit.project_id} />
+                    <VipHandoverClient unitId={unit.unit_id} />
                     <VipInstallmentsList unitId={unit.unit_id} />
                     <VipReceiptHistory unitId={unit.unit_id} />
                     <VipStatementRequest unitId={unit.unit_id} />

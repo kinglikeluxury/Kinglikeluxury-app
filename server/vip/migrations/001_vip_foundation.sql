@@ -158,12 +158,46 @@ CREATE TABLE IF NOT EXISTS vip_project_cameras (
 
 CREATE TABLE IF NOT EXISTS vip_handover (
   unit_id BIGINT PRIMARY KEY REFERENCES vip_units(id),
-  status TEXT NOT NULL DEFAULT 'not_ready',
+  status TEXT NOT NULL DEFAULT 'not_ready'
+    CHECK (status IN ('not_ready','ready_for_appointment','appointment_scheduled',
+      'inspection_completed','snags_open','handover_approved','keys_delivered')),
   scheduled_at TIMESTAMPTZ,
   checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
+  inspection_note TEXT,
   updated_by INTEGER REFERENCES users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Appointment times proposed by clients require explicit Kinglike confirmation.
+CREATE TABLE IF NOT EXISTS vip_handover_appointments (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+  requested_by INTEGER NOT NULL REFERENCES users(id),
+  preferred_at TIMESTAMPTZ NOT NULL,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'requested'
+    CHECK (status IN ('requested','confirmed','declined')),
+  handled_by INTEGER REFERENCES users(id),
+  confirmed_at TIMESTAMPTZ,
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS vip_one_pending_handover_appointment_per_unit
+  ON vip_handover_appointments(unit_id) WHERE status='requested';
+CREATE INDEX IF NOT EXISTS vip_handover_appointments_by_unit
+  ON vip_handover_appointments(unit_id,requested_at DESC);
+-- Issues are tracked independently of the checklist, and resolution is audited.
+CREATE TABLE IF NOT EXISTS vip_handover_snags (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  description TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','resolved')),
+  resolution_note TEXT,
+  resolved_by INTEGER REFERENCES users(id),
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS vip_handover_snags_by_unit
+  ON vip_handover_snags(unit_id,status,created_at DESC);
 CREATE TABLE IF NOT EXISTS vip_referrals (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   referrer_user_id INTEGER NOT NULL REFERENCES users(id),

@@ -6,6 +6,7 @@ import VipInstallmentsAdmin from "./VipInstallmentsAdmin";
 import VipReceiptsAdmin from "./VipReceiptsAdmin";
 import VipCameraAdmin from "./VipCameraAdmin";
 import VipPhotosAdmin from "./VipPhotosAdmin";
+import VipHandoverAdmin from "./VipHandoverAdmin";
 
 type Project = { id: string; name: string; developer_name: string | null; progress_percent: number | null };
 type Unit = { id: string; project_id: string; unit_number: string; floor_number: number | null; owner_id: number | null; owner_email: string | null };
@@ -163,6 +164,7 @@ export default function VipProjectsAdmin() {
       <VipReceiptsAdmin units={units} projects={projects} />
       <VipCameraAdmin projects={projects} />
       <VipPhotosAdmin projects={projects} />
+      <VipHandoverAdmin units={units} projects={projects} />
     </section>
   );
 }
