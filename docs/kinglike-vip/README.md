@@ -47,9 +47,18 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - No migrations executed and no GCS credentials, deployments, or production variables changed.
 - Production blockers: isolated staging tests; private storage IAM/CORS review, malware scanning, retention and backup, financial authority review, CSRF and session review, and safe integration with the active WhatsApp branch.
 
+## Sixth implementation slice (code added, not deployed or tested)
+- Admin may email a one-use 72-hour invitation for a specific unassigned unit. Invite token is stored as a SHA-256 digest only.
+- Two independent email controls default OFF: `KINGLIKE_VIP_EMAIL_ENABLED` plus a recipient allowlist (`KINGLIKE_VIP_INVITE_ALLOWED_EMAILS`). General sending requires another explicit `KINGLIKE_VIP_EMAIL_LIVE_APPROVED` flag.
+- `KINGLIKE_VIP_BASE_URL` must be an HTTPS URL to the isolated staging site while testing. Resend is used through the existing notification service. There is no email sending unless the flags are explicitly enabled.
+- New buyers activate with a strong password. Existing accounts must sign in with the invited email first; invitation tokens never reset passwords. Activation creates the owner entitlement atomically and consumes the token.
+- Owner assignment by email alone has been removed: `is_verified` can be set by phone verification and does not guarantee ownership of an email address.
+- Invite links are removed from browser history on opening. No database migration or actual emails have been executed.
+- Operational requirements: recovery and reissue UX, idempotency / delivery reconciliation, signed in-session account match, session flow integration, and dedicated staging security tests.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
-2. Secure invitation and activation for buyer accounts (existing-account assignments are now drafted).
+2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
 3. Run isolated staging tests of private receipt uploads, downloads and finance verification; implementation exists but is not validated.
 4. Developer statement requests once per unit/calendar month, admin request queue.
 5. Management photo uploads and camera settings with signed/approved URLs (progress updates are drafted).

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Building2, TrendingUp, KeyRound, Plus, ShieldCheck } from "lucide-react";
+import { Building2, TrendingUp, Plus, ShieldCheck } from "lucide-react";
 import VipInstallmentsAdmin from "./VipInstallmentsAdmin";
 import VipReceiptsAdmin from "./VipReceiptsAdmin";
 
@@ -36,14 +36,11 @@ export default function VipProjectsAdmin() {
   });
   const projects = catalog.data?.projects || [];
   const units = catalog.data?.units || [];
-  const unassigned = useMemo(() => units.filter(u => !u.owner_id),[units]);
   const [projectName,setProjectName] = useState("");
   const [developerName,setDeveloperName] = useState("");
   const [projectChoice,setProjectChoice] = useState("");
   const [unitNumber,setUnitNumber] = useState("");
   const [floor,setFloor] = useState("");
-  const [unitChoice,setUnitChoice] = useState("");
-  const [email,setEmail] = useState("");
   const [percent,setPercent] = useState(0);
   const [stage,setStage] = useState("");
   const [note,setNote] = useState("");
@@ -52,14 +49,9 @@ export default function VipProjectsAdmin() {
   const [feedback,setFeedback] = useState<{type:"ok"|"error";message:string}|null>(null);
 
   const selectedProject = projectChoice || projects[0]?.id || "";
-  const selectedUnit = unitChoice || unassigned[0]?.id || "";
   useEffect(() => {
     if (projectChoice && !projects.some(p=>p.id===projectChoice)) setProjectChoice("");
   },[projectChoice,projects]);
-  useEffect(() => {
-    if (unitChoice && !unassigned.some(u=>u.id===unitChoice)) setUnitChoice("");
-  },[unitChoice,unassigned]);
-
   async function save(path: string, body: unknown) {
     setBusy(true);
     setFeedback(null);
@@ -97,13 +89,7 @@ export default function VipProjectsAdmin() {
     const result=await save("/api/admin/vip/projects/"+encodeURIComponent(selectedProject)+"/units",{
       unitNumber,floorNumber:floor.trim() ? Number(floor) : null
     });
-    if(result){setUnitNumber("");setFloor("");setUnitChoice(result.unit.id);}
-  }
-  async function assignOwner(e:FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if(!selectedUnit)return;
-    const result=await save("/api/admin/vip/units/"+encodeURIComponent(selectedUnit)+"/assign-owner",{email});
-    if(result){setEmail("");setUnitChoice("");}
+    if(result){setUnitNumber("");setFloor("");}
   }
   async function updateProgress(e:FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -153,17 +139,6 @@ export default function VipProjectsAdmin() {
             <div><label className="mb-2 block text-sm">{t.floor}</label><input className={field} type="number" min={-5} max={250} step={1} value={floor} onChange={e=>setFloor(e.target.value)} /></div>
           </div>
           <button className={primary+" mt-5"} disabled={busy||!selectedProject} type="submit">{busy?t.saving:t.save}</button>
-        </form>
-        <form onSubmit={assignOwner} className={card}>
-          <h3 className="mb-5 flex items-center gap-2 font-semibold"><KeyRound className="h-5 w-5 text-[#008c93]"/>{t.owner}</h3>
-          <label className="mb-2 block text-sm">{t.choose}</label>
-          <select className={field} value={selectedUnit} onChange={e=>setUnitChoice(e.target.value)} disabled={!unassigned.length}>
-            {!unassigned.length?<option value="">{t.noUnits}</option>:unassigned.map(u=><option key={u.id} value={u.id}>{projects.find(p=>p.id===u.project_id)?.name} · {u.unit_number}</option>)}
-          </select>
-          <label className="mb-2 mt-4 block text-sm">{t.email}</label>
-          <input className={field} type="email" value={email} onChange={e=>setEmail(e.target.value)} required maxLength={254} />
-          <p className="mt-2 text-xs text-[#78929b]">{t.verified}</p>
-          <button className={primary+" mt-5"} disabled={busy||!selectedUnit} type="submit">{busy?t.saving:t.save}</button>
         </form>
         <form onSubmit={updateProgress} className={card}>
           <h3 className="mb-5 flex items-center gap-2 font-semibold"><TrendingUp className="h-5 w-5 text-[#008c93]"/>{t.progress}</h3>

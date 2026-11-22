@@ -115,6 +115,26 @@ CREATE TABLE IF NOT EXISTS vip_statement_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(unit_id,requested_by,month_start)
 );
+-- Email-based account invitations; invite tokens are stored only as SHA-256 hashes.
+-- The pending row is the only unclaimed invitation for a unit.
+CREATE TABLE IF NOT EXISTS vip_invitations (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+  invited_email TEXT NOT NULL,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','claimed','revoked')),
+  delivery_status TEXT NOT NULL DEFAULT 'pending' CHECK (delivery_status IN ('pending','sent','failed')),
+  invited_by INTEGER NOT NULL REFERENCES users(id),
+  claimed_by INTEGER REFERENCES users(id),
+  sent_at TIMESTAMPTZ,
+  claimed_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS vip_one_pending_invitation_per_unit
+  ON vip_invitations(unit_id) WHERE status='pending';
+CREATE INDEX IF NOT EXISTS vip_invitations_recent_idx ON vip_invitations(unit_id,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS vip_project_photos (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   project_id BIGINT NOT NULL REFERENCES vip_projects(id),

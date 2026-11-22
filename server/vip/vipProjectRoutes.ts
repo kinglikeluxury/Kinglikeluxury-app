@@ -10,9 +10,6 @@ const unitInput = z.object({
   unitNumber: z.string().trim().min(1).max(40),
   floorNumber: z.number().int().min(-5).max(250).nullable().optional(),
 }).strict();
-const ownerInput = z.object({
-  email: z.string().trim().email().max(254),
-}).strict();
 const progressInput = z.object({
   percent: z.number().int().min(0).max(100),
   stage: z.string().trim().min(2).max(100),
@@ -133,54 +130,6 @@ export function registerVipProjectRoutes(
     } catch(e) {
       await db.query("ROLLBACK").catch(() => {});
       return res.status(errorStatus(e)).json({ error: "Unit could not be created" });
-    } finally {
-      db.release();
-    }
-  });
-
-  // Invitation/activation is NOT performed here: only a previously verified
-  // Kinglike account may be assigned. No guessing or automatic email invitations.
-  app.post("/api/admin/vip/units/:unitId/assign-owner", enabled, authenticated, adminOnly, sameOriginJson, async (req: Request, res: Response) => {
-    const unitId = positiveId(req.params.unitId);
-    const parsed = ownerInput.safeParse(req.body);
-    if (!unitId || !parsed.success) return res.status(400).json({ error: "Invalid owner" });
-    const db = await pool.connect().catch(() => null);
-    if (!db) return res.status(503).json({ error: "Database unavailable" });
-    try {
-      await db.query("BEGIN");
-      const unit = await db.query("SELECT id FROM vip_units WHERE id=$1 FOR UPDATE",[unitId]);
-      if (unit.rowCount !== 1) {
-        await db.query("ROLLBACK"); return res.status(404).json({ error: "Unit not found" });
-      }
-      const user = await db.query(
-        "SELECT id,email FROM users WHERE lower(email)=lower($1) AND is_active=TRUE AND is_verified=TRUE LIMIT 1",
-        [parsed.data.email]
-      );
-      if (user.rowCount !== 1) {
-        await db.query("ROLLBACK");
-        return res.status(404).json({ error: "No verified active account matches this email" });
-      }
-      const existing = await db.query(
-        "SELECT user_id FROM vip_unit_access WHERE unit_id=$1 AND access_role='owner' AND revoked_at IS NULL FOR UPDATE",
-        [unitId]
-      );
-      if ((existing.rowCount ?? 0) > 0) {
-        await db.query("ROLLBACK"); return res.status(409).json({ error: "Unit already assigned to an owner" });
-      }
-      const assignment = await db.query(
-        "INSERT INTO vip_unit_access(unit_id,user_id,access_role,granted_by) VALUES($1,$2,'owner',$3) " +
-        "RETURNING id::text AS id",
-        [unitId,user.rows[0].id,res.locals.vipUser.id]
-      );
-      await db.query(
-        "INSERT INTO vip_audit_events(actor_user_id,event_type,unit_id,metadata) VALUES($1,'owner_assigned',$2,$3::jsonb)",
-        [res.locals.vipUser.id,unitId,JSON.stringify({assignmentId:assignment.rows[0].id,ownerUserId:user.rows[0].id})]
-      );
-      await db.query("COMMIT");
-      return res.status(201).json({ assignment: { id: assignment.rows[0].id,ownerEmail:user.rows[0].email } });
-    } catch(e) {
-      await db.query("ROLLBACK").catch(() => {});
-      return res.status(errorStatus(e)).json({ error: "Owner assignment failed" });
     } finally {
       db.release();
     }
