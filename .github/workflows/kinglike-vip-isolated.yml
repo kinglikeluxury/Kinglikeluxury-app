@@ -1,0 +1,33 @@
+name: KINGLIKE VIP isolated checks
+on:
+  push:
+    branches:
+      - feature/kinglike-vip-20261122
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vip-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      KINGLIKE_VIP_ENABLED: "false"
+      VITE_KINGLIKE_VIP_ENABLED: "false"
+      KINGLIKE_VIP_EMAIL_ENABLED: "false"
+      KINGLIKE_VIP_EMAIL_LIVE_APPROVED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: TypeScript typecheck
+        run: npm run check
+      - name: VIP security validation unit tests
+        run: npx tsx --test server/vip/vipInvitationSecurity.test.ts server/vip/vipReceiptValidation.test.ts
+      - name: Build (no deployment)
+        run: npm run build
