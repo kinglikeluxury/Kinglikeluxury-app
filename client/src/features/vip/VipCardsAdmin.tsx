@@ -4,8 +4,8 @@ import {useTranslation} from "react-i18next";
 import {Crown,ShieldCheck} from "lucide-react";
 type VipCard={user_id:string;email:string;member_code:string;tier:string;is_active:boolean;created_at:string};
 const copy:Record<string,Record<string,string>>={
- ar:{title:"إدارة بطاقات KINGLIKE VIP",client:"العميل",tier:"الفئة",status:"حالة البطاقة",active:"فعالة",revoked:"ملغاة",save:"تحديث الفئة",revoke:"إلغاء البطاقة",empty:"لم يتم إصدار بطاقات بعد.",error:"تعذر تحديث البطاقة",notice:"تغيير الفئة لا يمنح مزايا أو خصومات تلقائيًا. البطاقة الملغاة لا يعاد تفعيلها دون إصدار رمز جديد.",saving:"جارٍ الحفظ..."},
- en:{title:"KINGLIKE VIP card management",client:"Client",tier:"Tier",status:"Card status",active:"Active",revoked:"Revoked",save:"Update tier",revoke:"Revoke card",empty:"No cards issued yet.",error:"Card could not be updated",notice:"Tiers do not grant automatic benefits. Revoked cards require a new code.",saving:"Saving..."},
+ ar:{title:"إدارة بطاقات KINGLIKE VIP",client:"العميل",tier:"الفئة",status:"حالة البطاقة",active:"فعالة",revoked:"ملغاة",save:"تحديث الفئة",revoke:"إلغاء البطاقة",confirmRevoke:"هل أنت متأكد من إلغاء هذه البطاقة؟ لن يعمل رمزها بعد الإلغاء.",empty:"لم يتم إصدار بطاقات بعد.",error:"تعذر تحديث البطاقة",notice:"تغيير الفئة لا يمنح مزايا أو خصومات تلقائيًا. البطاقة الملغاة لا يعاد تفعيلها دون إصدار رمز جديد.",saving:"جارٍ الحفظ..."},
+ en:{title:"KINGLIKE VIP card management",client:"Client",tier:"Tier",status:"Card status",active:"Active",revoked:"Revoked",save:"Update tier",revoke:"Revoke card",confirmRevoke:"Revoke this card permanently? Its verification code will stop working.",empty:"No cards issued yet.",error:"Card could not be updated",notice:"Tiers do not grant automatic benefits. Revoked cards require a new code.",saving:"Saving..."},
  he:{title:"ניהול כרטיסי VIP",client:"לקוח",tier:"דרגה",status:"מצב",active:"פעיל",revoked:"בוטל",save:"עדכון דרגה",revoke:"ביטול",empty:"אין כרטיסים.",error:"עדכון נכשל",notice:"אין הטבות אוטומטיות.",saving:"שומר..."},
  tr:{title:"VIP kart yönetimi",client:"Müşteri",tier:"Seviye",status:"Durum",active:"Aktif",revoked:"İptal",save:"Seviyeyi güncelle",revoke:"Kartı iptal et",empty:"Henüz kart yok.",error:"Kart güncellenemedi",notice:"Kart seviyeleri otomatik avantaj sağlamaz.",saving:"Kaydediliyor..."},
  az:{title:"VIP kart idarəetməsi",client:"Müştəri",tier:"Səviyyə",status:"Vəziyyət",active:"Aktiv",revoked:"Ləğv edilib",save:"Səviyyəni yenilə",revoke:"Kartı ləğv et",empty:"Kart yoxdur.",error:"Yenilənmə alınmadı",notice:"Səviyyələr avtomatik güzəşt vermir.",saving:"Yadda saxlanılır"}
@@ -58,7 +58,7 @@ export default function VipCardsAdmin(){
          className="rounded-lg bg-[#005476] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{t.save}</button>}
       </div>
       <p className="mt-3 text-xs text-[#64828c]">{t.status}: {c.is_active?t.active:t.revoked}</p>
-      {c.is_active&&<button type="button" disabled={busy} onClick={()=>update(c,false)}
+      {c.is_active&&<button type="button" disabled={busy} onClick={()=>{if(window.confirm(t.confirmRevoke||t.revoke))void update(c,false)}}
        className="mt-3 rounded-lg border border-rose-300 px-3 py-2 text-xs text-rose-800 disabled:opacity-50">{t.revoke}</button>}
     </article>)}</div>}
  </section>;

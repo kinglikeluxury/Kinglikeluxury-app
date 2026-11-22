@@ -1,4 +1,5 @@
 import {useQuery} from "@tanstack/react-query";
+import {useEffect,useState} from "react";
 import {useTranslation} from "react-i18next";
 import {Crown,ShieldCheck,ShieldX} from "lucide-react";
 const copy:Record<string,Record<string,string>>={
@@ -10,7 +11,10 @@ const copy:Record<string,Record<string,string>>={
 };
 export default function VipCardVerifyPage(){
  const {i18n}=useTranslation();const t=copy[i18n.language.split("-")[0]]||copy.en;
- const code=new URLSearchParams(window.location.search).get("code")||"";
+ const [code]=useState(()=>new URLSearchParams(window.location.search).get("code")||"");
+ useEffect(()=>{
+   if(code)window.history.replaceState(window.history.state,"","/vip/card/verify");
+ },[code]);
  const data=useQuery<{valid:boolean;tier?:string}>({
    queryKey:["vip","card-verification",code],
    queryFn:async()=>{const r=await fetch("/api/vip/cards/verify?code="+encodeURIComponent(code),{cache:"no-store",referrerPolicy:"no-referrer"});if(!r.ok)throw Error("Unavailable");return r.json()},
