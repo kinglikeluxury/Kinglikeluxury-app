@@ -43,7 +43,7 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Uploads are limited to 10 MB, checked by signature, and sent server-side to a dedicated **private GCS bucket** via the existing SDK. Access fails closed when a dedicated bucket or credentials are missing. Bucket settings must enforce uniform access and public access prevention.
 - Private receipts are downloaded through a permission-checked endpoint, never public object URLs.
 - Uploads remain pending and **never automatically mark installments paid**.
-- Dedicated finance grants are separate from admin status; reviewers cannot approve their own uploads. Amount verification and posting occur transactionally with a unique receipt constraint, locking and audit history.
+- Dedicated finance grants are separate from admin status, can be revoked by the administrator, and every grant/revocation is audited; reviewers cannot approve their own uploads. Amount verification and posting occur transactionally with a unique receipt constraint, locking and audit history.
 - No migrations executed and no GCS credentials, deployments, or production variables changed.
 - Production blockers: isolated staging tests; private storage IAM/CORS review, malware scanning, retention and backup, financial authority review, CSRF and session review, and safe integration with the active WhatsApp branch.
 

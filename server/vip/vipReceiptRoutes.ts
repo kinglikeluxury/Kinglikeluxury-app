@@ -251,6 +251,44 @@ export function registerVipReceiptRoutes(
     } finally {db.release();}
   });
 
+  // Revoking finance approval is immediate for all subsequent requests.
+  // Keep the permission row for auditing; disable rather than deleting it.
+  app.delete("/api/admin/vip/finance-permissions",enabled,authenticated,adminOnly,originGuard,async (req:Request,res:Response)=>{
+    if(!req.is("application/json"))return res.status(415).json({error:"JSON required"});
+    const email=req.body?.email;
+    if(typeof email!=="string" || !/^.{1,100}@.{2,150}$/.test(email)){
+      return res.status(400).json({error:"Valid staff email required"});
+    }
+    const db=await pool.connect().catch(()=>null);
+    if(!db)return res.status(503).json({error:"Database unavailable"});
+    try {
+      await db.query("BEGIN");
+      const found=await db.query("SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1",[email.trim()]);
+      if(found.rowCount!==1){
+        await db.query("ROLLBACK");
+        return res.status(404).json({error:"Staff account not found"});
+      }
+      const disabled=await db.query(
+        "UPDATE vip_finance_permissions SET can_approve=FALSE,updated_at=NOW() " +
+        "WHERE user_id=$1 AND can_approve=TRUE RETURNING user_id",
+        [found.rows[0].id]
+      );
+      if(disabled.rowCount!==1){
+        await db.query("ROLLBACK");
+        return res.status(409).json({error:"Permission is not currently active"});
+      }
+      await db.query(
+        "INSERT INTO vip_audit_events(actor_user_id,event_type,metadata) VALUES($1,'finance_permission_revoked',$2::jsonb)",
+        [res.locals.vipUser.id,JSON.stringify({userId:found.rows[0].id})]
+      );
+      await db.query("COMMIT");
+      return res.json({revoked:true});
+    } catch {
+      await db.query("ROLLBACK").catch(()=>{});
+      return res.status(503).json({error:"Revocation failed"});
+    } finally {db.release();}
+  });
+
   app.post("/api/admin/vip/receipts/:receiptId/review",
     enabled,authenticated,requireFinance,originGuard,async (req:Request,res:Response)=>{
       if(!req.is("application/json"))return res.status(415).json({error:"JSON required"});

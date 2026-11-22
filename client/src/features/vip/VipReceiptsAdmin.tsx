@@ -8,11 +8,11 @@ type Project={id:string;name:string};
 type Installment={id:string;sequence_number:number;due_date:string;amount:string;currency:string};
 type ReceiptRow={id:string;file_name:string;upload_source:string;review_status:string;uploaded_by:number;uploaded_by_name:string;created_at:string;installment_id:string;unit_id:string;due_date:string;installment_amount:string;currency:string;project_name:string;unit_number:string};
 const labels:Record<string,Record<string,string>>={
-  ar:{title:"مركز الإيصالات والمراجعة المالية",upload:"رفع إيصال نيابة عن العميل",unit:"العقار والوحدة",installment:"القسط",pending:"بانتظار المراجعة",approved:"مؤكد",rejected:"مرفوض",view:"تنزيل الإيصال",amount:"المبلغ المؤكد",approve:"اعتماد المبلغ",reject:"رفض الإيصال",reason:"سبب الرفض",grant:"منح صلاحية المراجعة المالية",email:"بريد موظف موثّق",applyGrant:"منح الصلاحية",finance:"صلاحية الاعتماد المالي",authorized:"مصرح",restricted:"غير مصرح",error:"تعذر تنفيذ العملية",empty:"لا توجد إيصالات بعد",sending:"جارٍ الحفظ...",source:"المصدر",note:"الإيصال لا يصبح مدفوعًا تلقائيًا. الاعتماد مسموح فقط لمن خُوّل ماليًا، ولا يمكنه اعتماد إيصال رفعه بنفسه."},
-  en:{title:"Receipts & finance verification",upload:"Upload for client",unit:"Property / unit",installment:"Installment",pending:"Pending",approved:"Verified",rejected:"Rejected",view:"Download",amount:"Verified amount",approve:"Approve amount",reject:"Reject receipt",reason:"Rejection reason",grant:"Grant finance permission",email:"Verified staff email",applyGrant:"Grant access",finance:"Finance approval access",authorized:"Authorized",restricted:"Not authorized",error:"Operation failed",empty:"No receipts yet",sending:"Saving...",source:"Source",note:"Uploads never automatically confirm payment. Only finance approvers may verify someone else's receipt."},
-  he:{title:"אישור קבלות כספי",upload:"העלאת קבלה ללקוח",unit:"יחידה",installment:"תשלום",pending:"ממתין",approved:"אושר",rejected:"נדחה",view:"הורדה",amount:"סכום שאושר",approve:"אישור",reject:"דחייה",reason:"סיבת הדחייה",grant:"מתן הרשאה פיננסית",email:"דוא״ל עובד מאומת",applyGrant:"אישור גישה",finance:"הרשאת כספים",authorized:"מורשה",restricted:"לא מורשה",error:"הפעולה נכשלה",empty:"אין קבלות",sending:"שומר...",source:"מקור",note:"העלאה אינה מאשרת תשלום. נדרשת הרשאה פיננסית נפרדת."},
-  tr:{title:"Dekontlar ve finans onayı",upload:"Müşteri adına dekont yükle",unit:"Ünite",installment:"Taksit",pending:"Bekliyor",approved:"Onaylandı",rejected:"Reddedildi",view:"İndir",amount:"Onaylanan tutar",approve:"Tutarı onayla",reject:"Reddet",reason:"Ret nedeni",grant:"Finans yetkisi ver",email:"Doğrulanmış çalışan e-postası",applyGrant:"Yetki ver",finance:"Finans onay yetkisi",authorized:"Yetkili",restricted:"Yetkisiz",error:"İşlem başarısız",empty:"Dekont yok",sending:"Kaydediliyor...",source:"Kaynak",note:"Yükleme ödeme onayı değildir. Finans onayı ayrı yetki gerektirir."},
-  az:{title:"Qəbz və maliyyə yoxlaması",upload:"Müştərinin adından qəbz yüklə",unit:"Mənzil",installment:"Ödəniş",pending:"Gözlənilir",approved:"Təsdiqləndi",rejected:"Rədd edildi",view:"Endir",amount:"Təsdiq olunan məbləğ",approve:"Təsdiq et",reject:"Rədd et",reason:"Rədd səbəbi",grant:"Maliyyə icazəsi ver",email:"Təsdiqlənmiş əməkdaş e-poçtu",applyGrant:"İcazə ver",finance:"Maliyyə icazəsi",authorized:"İcazəlidir",restricted:"İcazəsizdir",error:"Əməliyyat uğursuz oldu",empty:"Qəbz yoxdur",sending:"Yadda saxlanılır...",source:"Mənbə",note:"Qəbzin yüklənməsi ödənişin təsdiqi deyil."}
+  ar:{title:"مركز الإيصالات والمراجعة المالية",upload:"رفع إيصال نيابة عن العميل",unit:"العقار والوحدة",installment:"القسط",pending:"بانتظار المراجعة",approved:"مؤكد",rejected:"مرفوض",view:"تنزيل الإيصال",amount:"المبلغ المؤكد",approve:"اعتماد المبلغ",reject:"رفض الإيصال",reason:"سبب الرفض",grant:"منح صلاحية المراجعة المالية",email:"بريد موظف موثّق",applyGrant:"منح الصلاحية",revokeGrant:"سحب الصلاحية",finance:"صلاحية الاعتماد المالي",authorized:"مصرح",restricted:"غير مصرح",error:"تعذر تنفيذ العملية",empty:"لا توجد إيصالات بعد",sending:"جارٍ الحفظ...",source:"المصدر",note:"الإيصال لا يصبح مدفوعًا تلقائيًا. الاعتماد مسموح فقط لمن خُوّل ماليًا، ولا يمكنه اعتماد إيصال رفعه بنفسه."},
+  en:{title:"Receipts & finance verification",upload:"Upload for client",unit:"Property / unit",installment:"Installment",pending:"Pending",approved:"Verified",rejected:"Rejected",view:"Download",amount:"Verified amount",approve:"Approve amount",reject:"Reject receipt",reason:"Rejection reason",grant:"Grant finance permission",email:"Verified staff email",applyGrant:"Grant access",revokeGrant:"Revoke access",finance:"Finance approval access",authorized:"Authorized",restricted:"Not authorized",error:"Operation failed",empty:"No receipts yet",sending:"Saving...",source:"Source",note:"Uploads never automatically confirm payment. Only finance approvers may verify someone else's receipt."},
+  he:{title:"אישור קבלות כספי",upload:"העלאת קבלה ללקוח",unit:"יחידה",installment:"תשלום",pending:"ממתין",approved:"אושר",rejected:"נדחה",view:"הורדה",amount:"סכום שאושר",approve:"אישור",reject:"דחייה",reason:"סיבת הדחייה",grant:"מתן הרשאה פיננסית",email:"דוא״ל עובד מאומת",applyGrant:"ביטול גישה",revokeGrant:"ביטול הרשאה",finance:"הרשאת כספים",authorized:"מורשה",restricted:"לא מורשה",error:"הפעולה נכשלה",empty:"אין קבלות",sending:"שומר...",source:"מקור",note:"העלאה אינה מאשרת תשלום. נדרשת הרשאה פיננסית נפרדת."},
+  tr:{title:"Dekontlar ve finans onayı",upload:"Müşteri adına dekont yükle",unit:"Ünite",installment:"Taksit",pending:"Bekliyor",approved:"Onaylandı",rejected:"Reddedildi",view:"İndir",amount:"Onaylanan tutar",approve:"Tutarı onayla",reject:"Reddet",reason:"Ret nedeni",grant:"Finans yetkisi ver",email:"Doğrulanmış çalışan e-postası",applyGrant:"Yetki ver",revokeGrant:"Yetkiyi kaldır",finance:"Finans onay yetkisi",authorized:"Yetkili",restricted:"Yetkisiz",error:"İşlem başarısız",empty:"Dekont yok",sending:"Kaydediliyor...",source:"Kaynak",note:"Yükleme ödeme onayı değildir. Finans onayı ayrı yetki gerektirir."},
+  az:{title:"Qəbz və maliyyə yoxlaması",upload:"Müştərinin adından qəbz yüklə",unit:"Mənzil",installment:"Ödəniş",pending:"Gözlənilir",approved:"Təsdiqləndi",rejected:"Rədd edildi",view:"Endir",amount:"Təsdiq olunan məbləğ",approve:"Təsdiq et",reject:"Rədd et",reason:"Rədd səbəbi",grant:"Maliyyə icazəsi ver",email:"Təsdiqlənmiş əməkdaş e-poçtu",applyGrant:"İcazə ver",revokeGrant:"İcazəni ləğv et",finance:"Maliyyə icazəsi",authorized:"İcazəlidir",restricted:"İcazəsizdir",error:"Əməliyyat uğursuz oldu",empty:"Qəbz yoxdur",sending:"Yadda saxlanılır...",source:"Mənbə",note:"Qəbzin yüklənməsi ödənişin təsdiqi deyil."}
 };
 const input="w-full rounded-xl border border-[#cce0e3] bg-white px-3 py-2 text-sm";
 export default function VipReceiptsAdmin({units,projects}:{units:Unit[];projects:Project[]}) {
@@ -33,10 +33,10 @@ export default function VipReceiptsAdmin({units,projects}:{units:Unit[];projects
    queryKey:["vip","admin","finance","me"],
    queryFn:async()=>{const r=await fetch("/api/admin/vip/finance/me",{credentials:"include",cache:"no-store"});if(!r.ok)throw Error("Unavailable");return r.json();},retry:false
  });
- async function post(path:string,body:unknown) {
+ async function post(path:string,body:unknown,method:"POST"|"DELETE"="POST") {
    setBusy(true);setMessage("");
    try {
-     const response=await fetch(path,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+     const response=await fetch(path,{method,credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
      if(!response.ok){const x=await response.json().catch(()=>null);throw Error(x?.error||t.error)}
      setMessage("✓");
      await Promise.all([
@@ -51,6 +51,10 @@ export default function VipReceiptsAdmin({units,projects}:{units:Unit[];projects
  }
  async function grant(e:FormEvent<HTMLFormElement>) {
    e.preventDefault(); await post("/api/admin/vip/finance-permissions",{email});setEmail("");
+ }
+ async function revoke(){
+   if(!email||busy)return;
+   await post("/api/admin/vip/finance-permissions",{email},"DELETE");setEmail("");
  }
  return <section className="mt-9 rounded-2xl border border-[#d7e6e9] bg-white p-5 md:p-6">
    <h2 className="flex items-center gap-2 text-xl font-semibold"><Receipt className="h-6 w-6 text-[#008c93]"/>{t.title}</h2>
@@ -74,7 +78,10 @@ export default function VipReceiptsAdmin({units,projects}:{units:Unit[];projects
        <h3 className="mb-4 font-semibold">{t.grant}</h3>
        <label className="mb-2 block text-xs">{t.email}</label>
        <input className={input} type="email" required value={email} onChange={e=>setEmail(e.target.value)} maxLength={254}/>
-       <button className="mt-4 rounded-xl bg-[#005476] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50" type="submit" disabled={busy}>{busy?t.sending:t.applyGrant}</button>
+       <div className="mt-4 flex flex-wrap gap-2">
+         <button className="rounded-xl bg-[#005476] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50" type="submit" disabled={busy}>{busy?t.sending:t.applyGrant}</button>
+         <button className="rounded-xl border border-rose-300 px-4 py-2 text-xs font-semibold text-rose-800 disabled:opacity-50" type="button" disabled={busy||!email.trim()} onClick={revoke}>{t.revokeGrant}</button>
+       </div>
      </form>
    </div>
    <div className="mt-6 space-y-3">
