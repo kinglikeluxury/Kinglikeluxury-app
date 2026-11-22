@@ -38,10 +38,19 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Creating an installment does not mark it paid; no receipt upload or approval bypass is available.
 - All admin writes are validated and audited in the same DB transaction; no migration, storage writes, emails or deployment have run.
 
+## Fifth implementation slice (code added; not deployed or integration-tested)
+- Customers can upload PDF/JPEG/PNG transfer receipts against their own installments; admins can upload for clients and record the original source.
+- Uploads are limited to 10 MB, checked by signature, and sent server-side to a dedicated **private GCS bucket** via the existing SDK. Access fails closed when a dedicated bucket or credentials are missing. Bucket settings must enforce uniform access and public access prevention.
+- Private receipts are downloaded through a permission-checked endpoint, never public object URLs.
+- Uploads remain pending and **never automatically mark installments paid**.
+- Dedicated finance grants are separate from admin status; reviewers cannot approve their own uploads. Amount verification and posting occur transactionally with a unique receipt constraint, locking and audit history.
+- No migrations executed and no GCS credentials, deployments, or production variables changed.
+- Production blockers: isolated staging tests; private storage IAM/CORS review, malware scanning, retention and backup, financial authority review, CSRF and session review, and safe integration with the active WhatsApp branch.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Secure invitation and activation for buyer accounts (existing-account assignments are now drafted).
-3. Private S3 receipts and finance-only verification (installment schedule endpoints added, not tested).
+3. Run isolated staging tests of private receipt uploads, downloads and finance verification; implementation exists but is not validated.
 4. Developer statement requests once per unit/calendar month, admin request queue.
 5. Management photo uploads and camera settings with signed/approved URLs (progress updates are drafted).
 6. Handover, digital VIP card, notifications and referral flows.

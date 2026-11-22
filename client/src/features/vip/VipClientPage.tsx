@@ -7,6 +7,7 @@ import { getVipCopy } from "./vipCopy";
 import VipStatementRequest from "./VipStatementRequest";
 import VipProjectProgress from "./VipProjectProgress";
 import VipInstallmentsList from "./VipInstallmentsList";
+import VipReceiptHistory from "./VipReceiptHistory";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
 type VipMe = { units: VipUnit[] };
@@ -71,6 +72,7 @@ export default function VipClientPage() {
                     </div>
                     <VipProjectProgress projectId={unit.project_id} />
                     <VipInstallmentsList unitId={unit.unit_id} />
+                    <VipReceiptHistory unitId={unit.unit_id} />
                     <VipStatementRequest unitId={unit.unit_id} />
                   </article>
                 ))}

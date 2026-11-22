@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Building2, TrendingUp, KeyRound, Plus, ShieldCheck } from "lucide-react";
 import VipInstallmentsAdmin from "./VipInstallmentsAdmin";
+import VipReceiptsAdmin from "./VipReceiptsAdmin";
 
 type Project = { id: string; name: string; developer_name: string | null; progress_percent: number | null };
 type Unit = { id: string; project_id: string; unit_number: string; floor_number: number | null; owner_id: number | null; owner_email: string | null };
@@ -182,6 +183,7 @@ export default function VipProjectsAdmin() {
         </form>
       </div>
       <VipInstallmentsAdmin units={units} projects={projects} />
+      <VipReceiptsAdmin units={units} projects={projects} />
     </section>
   );
 }

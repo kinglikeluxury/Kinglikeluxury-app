@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { CalendarClock, ReceiptText } from "lucide-react";
+import VipReceiptUpload from "./VipReceiptUpload";
 
 type Installment = {
   id:string; sequence_number:number; due_date:string; amount:string;
@@ -65,6 +66,7 @@ export default function VipInstallmentsList({unitId}:{unitId:string}) {
             <div><p className="text-xs text-[#698794]">{t.amount}</p><strong>{money(item.amount,item.currency,i18n.language)}</strong></div>
             <div><p className="text-xs text-[#698794]">{t.remaining}</p><strong>{money(item.remaining_amount,item.currency,i18n.language)}</strong></div>
           </div>
+          <VipReceiptUpload installmentId={item.id} />
         </article>;
       })}
       <p className="text-xs leading-relaxed text-[#78929b]">{t.notVerified}</p>

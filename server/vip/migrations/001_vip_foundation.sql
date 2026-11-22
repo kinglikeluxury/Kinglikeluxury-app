@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS vip_receipts (
   installment_id BIGINT NOT NULL REFERENCES vip_installments(id),
   object_path TEXT NOT NULL UNIQUE,
   file_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL CHECK (mime_type IN ('application/pdf','image/jpeg','image/png')),
+  size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 1 AND 10485760),
   uploaded_by INTEGER NOT NULL REFERENCES users(id),
   upload_source TEXT NOT NULL CHECK (upload_source IN ('client','admin','whatsapp','email')),
   review_status TEXT NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending','approved','rejected')),
@@ -78,6 +80,18 @@ CREATE TABLE IF NOT EXISTS vip_payment_postings (
   currency VARCHAR(3) NOT NULL,
   verified_by INTEGER NOT NULL REFERENCES users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- A receipt may credit an installment only once.
+CREATE UNIQUE INDEX IF NOT EXISTS vip_payment_postings_unique_receipt
+  ON vip_payment_postings(receipt_id) WHERE receipt_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS vip_finance_permissions (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  can_approve BOOLEAN NOT NULL DEFAULT FALSE,
+  granted_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS vip_private_documents (
