@@ -1,4 +1,4 @@
-import type {Pool,PoolClient} from "pg";
+import type {Client,Pool,PoolClient} from "pg";
 
 /**
  * Idempotent local in-app installment reminders.
@@ -6,7 +6,7 @@ import type {Pool,PoolClient} from "pg";
  * scheduler after staged verification; no WhatsApp, email, SMS, or push calls.
  * Project due dates use the Georgia/Azerbaijan business calendar (UTC+4).
  */
-export async function generateVipDueReminders(db:Pool|PoolClient):Promise<number>{
+export async function generateVipDueReminders(db:Pool|PoolClient|Client):Promise<number>{
  const result=await db.query(
   "INSERT INTO vip_notifications(user_id,unit_id,event_type,title,body,source_key,payload) "+
   "SELECT a.user_id,i.unit_id,'due_reminder', "+

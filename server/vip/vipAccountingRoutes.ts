@@ -149,6 +149,13 @@ export function registerVipAccountingRoutes(app:Express,enabled:RequestHandler,a
      await db.query("INSERT INTO vip_audit_events(actor_user_id,event_type,unit_id,metadata) "+
        "VALUES($1,'vip_official_statement_attached',$2,$3::jsonb)",
        [res.locals.vipUser.id,v.unit_id,JSON.stringify({requestId,documentId:doc.rows[0].id})]);
+     await db.query(
+       "INSERT INTO vip_notifications(user_id,unit_id,event_type,title,body,source_key,payload,created_by) "+
+       "VALUES($1,$2,'statement_ready','Official developer statement available',"+
+       "'Your requested official developer statement is ready to download.',"+
+       "$3,$4::jsonb,$5) ON CONFLICT DO NOTHING",
+       [v.requested_by,v.unit_id,"statement:"+requestId,JSON.stringify({requestId}),res.locals.vipUser.id]
+     );
      await db.query("COMMIT");objectPath=undefined;
      return res.status(201).json({available:true});
    }catch{

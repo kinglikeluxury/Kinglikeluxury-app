@@ -66,6 +66,17 @@ export function registerVipExperienceRoutes(app:Express,enabled:RequestHandler,a
       await db.query("INSERT INTO vip_audit_events(actor_user_id,event_type,unit_id,metadata) "+
         "VALUES($1,'vip_journey_updated',$2,$3::jsonb)",
         [res.locals.vipUser.id,unitId,JSON.stringify({stage:v.stage,status:v.status,published:v.published})]);
+      if(v.published){
+        const eventKey=["journey",unitId,v.stage,v.status,v.actualDate||v.plannedDate||"undated"].join(":");
+        await db.query(
+          "INSERT INTO vip_notifications(user_id,unit_id,event_type,title,body,source_key,payload,created_by) "+
+          "SELECT a.user_id,$1,'journey_update','Investment milestone updated', "+
+          "'An investment milestone was published. Open your property journey to review it.',"+
+          "$2,$3::jsonb,$4 FROM vip_unit_access a JOIN users u ON u.id=a.user_id AND u.is_active=TRUE "+
+          "WHERE a.unit_id=$1 AND a.access_role='owner' AND a.revoked_at IS NULL ON CONFLICT DO NOTHING",
+          [unitId,eventKey,JSON.stringify({stage:v.stage,status:v.status}),res.locals.vipUser.id]
+        );
+      }
       await db.query("COMMIT");return res.json({saved:true});
     }catch{await db.query("ROLLBACK").catch(()=>{});return unavailable(res);}
     finally{db.release();}
@@ -186,7 +197,7 @@ export function registerVipExperienceRoutes(app:Express,enabled:RequestHandler,a
     if(!db)return unavailable(res);
     try{
       await db.query("BEGIN");
-      const r=await db.query("SELECT unit_id,status FROM vip_service_requests WHERE id=$1 FOR UPDATE",[id]);
+      const r=await db.query("SELECT unit_id,status,requested_by,service_type FROM vip_service_requests WHERE id=$1 FOR UPDATE",[id]);
       if(!r.rowCount){await db.query("ROLLBACK");return res.status(404).json({error:"Service not found"});}
       if(!nextServiceStatus(r.rows[0].status,status)){
         await db.query("ROLLBACK");return res.status(409).json({error:"Unsupported status transition"});
@@ -196,6 +207,16 @@ export function registerVipExperienceRoutes(app:Express,enabled:RequestHandler,a
       await db.query("INSERT INTO vip_audit_events(actor_user_id,event_type,unit_id,metadata) "+
         "VALUES($1,'vip_service_updated',$2,$3::jsonb)",
         [res.locals.vipUser.id,r.rows[0].unit_id,JSON.stringify({requestId:id,from:r.rows[0].status,to:status})]);
+      await db.query(
+        "INSERT INTO vip_notifications(user_id,unit_id,event_type,title,body,source_key,payload,created_by) "+
+        "SELECT a.user_id,$2,'service_update','Service request updated', "+
+        "'Your after-sales service request has been updated. Open your VIP profile for details.',"+
+        "$3,$4::jsonb,$5 FROM vip_unit_access a JOIN users u ON u.id=a.user_id AND u.is_active=TRUE "+
+        "WHERE a.user_id=$1 AND a.unit_id=$2 AND a.access_role='owner' AND a.revoked_at IS NULL "+
+        "ON CONFLICT DO NOTHING",
+        [r.rows[0].requested_by,r.rows[0].unit_id,"service:"+id+":"+status,
+          JSON.stringify({requestId:id,serviceType:r.rows[0].service_type,status}),res.locals.vipUser.id]
+      );
       await db.query("COMMIT");return res.json({updated:true});
     }catch{await db.query("ROLLBACK").catch(()=>{});return unavailable(res);}
     finally{db.release();}

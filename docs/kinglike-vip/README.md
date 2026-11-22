@@ -147,6 +147,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Isolated Postgres tests cover initial due alert, duplicate suppression, opt-out and fully paid installment suppression.
 - Future work: explicit opt-in for outbound channels, scheduled job idempotency in staging and localized push/WhatsApp/email templates after approvals.
 
+## Owner-only in-app status events (new code; not deployed)
+- Admin publication of an investment milestone creates a unique owner-only `journey_update` event with no buyer payment authorization implied.
+- Management replies that change an after-sales request state create a unique `service_update` event, visible to the current owner who submitted that request.
+- Attaching an actual developer statement creates a `statement_ready` event in the same database transaction, avoiding a notification before the official PDF is recorded.
+- A composite per-owner event key deduplicates retries and prevents a customer from receiving repeat alerts for the same event.
+- Notification text is localized in the client's five supported languages. These are account-internal alerts only; no email, WhatsApp, push notification or SMS has been activated.
+- Safety requirements before launch: verify correct entitlement changes after transfer, in-app notification suppression for revoked owners, and end-to-end tests of stored document access in staging.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
