@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 type RequestRow = { id: string; unit_id: string; status: string; month_start: string };
-const labels: Record<string, {request:string, sent:string, error:string, waiting:string, note:string}> = {
-  ar: {request:"طلب كشف حساب رسمي",sent:"تم تقديم طلب هذا الشهر",error:"تعذر تقديم الطلب الآن",waiting:"جاري الإرسال…",note:"مرة واحدة شهريًا لكل وحدة. تتابع Kinglike Luxury مع المطور لتأمين الكشف."},
-  en: {request:"Request official statement",sent:"Already requested this month",error:"Could not submit request",waiting:"Submitting…",note:"One request per unit per month. Kinglike Luxury will follow up with the developer."},
-  he: {request:"בקשת דוח רשמי",sent:"כבר נשלחה בקשה החודש",error:"לא ניתן לשלוח בקשה",waiting:"שולח…",note:"בקשה אחת לחודש ליחידה. Kinglike Luxury תטפל מול היזם."},
-  tr: {request:"Resmi hesap dökümü iste",sent:"Bu ay zaten talep edildi",error:"Talep gönderilemedi",waiting:"Gönderiliyor…",note:"Her ünite için ayda bir talep. Kinglike Luxury geliştiriciyle takip eder."},
-  az: {request:"Rəsmi hesab çıxarışı istə",sent:"Bu ay artıq sorğu göndərilib",error:"Sorğu göndərilmədi",waiting:"Göndərilir…",note:"Hər mənzil üçün ayda bir sorğu. Kinglike Luxury tikinti şirkəti ilə əlaqə saxlayır."}
+const labels: Record<string, {request:string, sent:string, error:string, waiting:string, note:string, available:string, download:string}> = {
+  ar: {request:"طلب كشف حساب رسمي",sent:"تم تقديم طلب هذا الشهر",error:"تعذر تقديم الطلب الآن",waiting:"جاري الإرسال…",note:"مرة واحدة شهريًا لكل وحدة. تتابع Kinglike Luxury مع المطور لتأمين الكشف.",available:"وصل الكشف الرسمي من المطور",download:"تحميل PDF الرسمي"},
+  en: {request:"Request official statement",sent:"Already requested this month",error:"Could not submit request",waiting:"Submitting…",note:"One request per unit per month. Kinglike Luxury will follow up with the developer.",available:"Developer statement available",download:"Download official PDF"},
+  he: {request:"בקשת דוח רשמי",sent:"כבר נשלחה בקשה החודש",error:"לא ניתן לשלוח בקשה",waiting:"שולח…",note:"בקשה אחת לחודש ליחידה. Kinglike Luxury תטפל מול היזם.",available:"הדוח הרשמי זמין",download:"הורדת PDF"},
+  tr: {request:"Resmi hesap dökümü iste",sent:"Bu ay zaten talep edildi",error:"Talep gönderilemedi",waiting:"Gönderiliyor…",note:"Her ünite için ayda bir talep. Kinglike Luxury geliştiriciyle takip eder.",available:"Resmi döküm hazır",download:"Resmi PDF indir"},
+  az: {request:"Rəsmi hesab çıxarışı istə",sent:"Bu ay artıq sorğu göndərilib",error:"Sorğu göndərilmədi",waiting:"Göndərilir…",note:"Hər mənzil üçün ayda bir sorğu. Kinglike Luxury tikinti şirkəti ilə əlaqə saxlayır.",available:"Rəsmi çıxarış hazırdır",download:"PDF yüklə"}
 };
 export default function VipStatementRequest({ unitId }: {unitId: string}) {
   const { i18n } = useTranslation();
@@ -40,6 +40,13 @@ export default function VipStatementRequest({ unitId }: {unitId: string}) {
       {send.isPending?t.waiting:already?t.sent:t.request}
     </button>
     <p className="mt-2 text-xs text-[#6d8996]">{t.note}</p>
+    <div className="mt-3 space-y-2">
+     {requests.data?.requests.filter(x=>x.unit_id===unitId && x.status==="available").map(x=>
+       <a key={x.id} href={"/api/vip/statements/"+encodeURIComponent(x.id)+"/download"}
+         className="flex items-center justify-between gap-2 rounded-lg border border-[#a2d9d6] bg-[#edf9f7] px-3 py-2 text-xs font-semibold text-[#005476]">
+         <span>{t.available} · {String(x.month_start).slice(0,7)}</span><span>{t.download}</span>
+       </a>)}
+    </div>
     {(send.isError||requests.isError)&&<p role="alert" className="mt-2 text-xs text-red-700">{t.error}</p>}
   </div>;
 }

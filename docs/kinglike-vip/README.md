@@ -122,6 +122,15 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Owner access enforced per-unit at API level. Service requests are rate-limited to four submissions per owner per 24 hours.
 - Requires actual staging role tests, translated benefit content supplied by management, legal review of offers and developer milestone reconciliation before launch.
 
+## Financial summary, documented adjustments and official developer statements (new code, not deployed)
+- Customer account summary totals are grouped by each installment currency. Scheduled, finance-verified and outstanding installment amounts are derived from independent verified payment postings; never mix currency totals or auto-apply exchange rates.
+- Documented tax, penalty, maintenance, discount or service fee entries are **separate records**; they do not silently modify installment balances. Unverified internal notes cannot be published to clients.
+- Admin can record and publish external-source financial adjustments and void an entry without deleting audit history.
+- Client requests an official developer statement at most once monthly per unit. Admin now can attach an actually received developer PDF (source attested), stored in the private VIP bucket; only the requesting active unit owner may download it.
+- Uploaded receipts are not official statements, and the locally generated financial summary must never be labeled as one.
+- Private document storage requires dedicated isolated GCS credentials and enforced bucket privacy. No secret has been transferred, and no real PDF upload has yet been tested.
+- Still needed: approved currency conversion/exchange-rate source and effective date, internal-only commission reporting, official payment penalty policy per developer, full accrual/credit accounting and real Staging owner-versus-stranger tests.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

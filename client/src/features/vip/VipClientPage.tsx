@@ -15,6 +15,7 @@ import VipCardClient from "./VipCardClient";
 import VipReferralsClient from "./VipReferralsClient";
 import VipNotificationsClient from "./VipNotificationsClient";
 import {VipJourneyClient,VipBenefitsClient,VipServicesClient} from "./VipExperienceClient";
+import VipFinanceClient from "./VipFinanceClient";
 
 type VipUnit = { unit_id: string; unit_number: string; floor_number: number | null; project_name: string; project_id: string; developer_name: string | null; progress_percent: number | null };
 type VipMe = { units: VipUnit[] };
@@ -81,6 +82,7 @@ export default function VipClientPage() {
                     <VipProjectCamera projectId={unit.project_id} />
                     <VipProjectPhotos projectId={unit.project_id} />
                     <VipHandoverClient unitId={unit.unit_id} />
+                    <VipFinanceClient unitId={unit.unit_id} />
                     <VipInstallmentsList unitId={unit.unit_id} />
                     <VipReceiptHistory unitId={unit.unit_id} />
                     <VipStatementRequest unitId={unit.unit_id} />

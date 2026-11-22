@@ -114,3 +114,33 @@ export async function removePrivateProjectPhoto(key:string):Promise<void> {
   const bucket=await checkedBucket();
   await bucket.file(key).delete({ignoreNotFound:true});
 }
+
+/** Signed developer statements: private server-side PDF files only. */
+export async function savePrivateOfficialStatement(data:Buffer):Promise<string>{
+  if(!Buffer.isBuffer(data)||data.length<10||data.length>10*1024*1024){
+    throw Error("Invalid official statement");
+  }
+  const bucket=await checkedBucket();
+  const key="kinglike-vip/official-statements/"+randomUUID()+".pdf";
+  await bucket.file(key).save(data,{
+    resumable:false,contentType:"application/pdf",
+    metadata:{cacheControl:"private, no-store"},
+    preconditionOpts:{ifGenerationMatch:0}
+  });
+  return key;
+}
+export async function readPrivateOfficialStatement(key:string):Promise<Buffer>{
+  if(!/^kinglike-vip\/official-statements\/[0-9a-f-]{36}\.pdf$/.test(key))throw Error("Invalid statement path");
+  const bucket=await checkedBucket();
+  const [meta]=await bucket.file(key).getMetadata();
+  const size=Number(meta.size);
+  if(!Number.isSafeInteger(size)||size<10||size>10*1024*1024)throw Error("Invalid statement size");
+  const [data]=await bucket.file(key).download();
+  if(data.length!==size)throw Error("Official statement storage mismatch");
+  return data;
+}
+export async function removePrivateOfficialStatement(key:string):Promise<void>{
+  if(!/^kinglike-vip\/official-statements\/[0-9a-f-]{36}\.pdf$/.test(key))return;
+  const bucket=await checkedBucket();
+  await bucket.file(key).delete({ignoreNotFound:true});
+}

@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS vip_private_documents (
   file_name TEXT NOT NULL,
   category TEXT NOT NULL,
   uploaded_by INTEGER NOT NULL REFERENCES users(id),
+  source_note VARCHAR(200),
+  mime_type TEXT CHECK(mime_type IS NULL OR mime_type='application/pdf'),
+  size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes BETWEEN 10 AND 10485760),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS vip_statement_requests (
@@ -302,6 +305,26 @@ CREATE TABLE IF NOT EXISTS vip_service_requests (
 );
 CREATE INDEX IF NOT EXISTS vip_service_requests_by_unit ON vip_service_requests(unit_id,created_at DESC);
 
+-- A documented fee or adjustment is not automatically a payment obligation.
+-- Draft notes cannot be published to a buyer.
+CREATE TABLE IF NOT EXISTS vip_financial_adjustments (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  unit_id BIGINT NOT NULL REFERENCES vip_units(id),
+  category TEXT NOT NULL CHECK(category IN ('tax','penalty','maintenance','service_fee','credit','discount','other')),
+  amount NUMERIC(16,2) NOT NULL CHECK(amount>0),
+  currency VARCHAR(3) NOT NULL,
+  description VARCHAR(300) NOT NULL,
+  source TEXT NOT NULL CHECK(source IN ('developer_statement','signed_contract','internal_note')),
+  source_reference VARCHAR(180),
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  voided_at TIMESTAMPTZ,
+  voided_by INTEGER REFERENCES users(id),
+  CHECK(NOT published OR (source<>'internal_note' AND length(coalesce(source_reference,''))>=8))
+);
+CREATE INDEX IF NOT EXISTS vip_financial_adjustments_by_unit
+ ON vip_financial_adjustments(unit_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS vip_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   actor_user_id INTEGER REFERENCES users(id),

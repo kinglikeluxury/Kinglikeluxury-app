@@ -28,7 +28,7 @@ async function run(){
       "vip_projects","vip_units","vip_unit_access","vip_installments","vip_receipts",
       "vip_finance_permissions","vip_referrals","vip_member_cards",
       "vip_referral_rewards","vip_handover","vip_handover_appointments",
-      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_journey_milestones","vip_benefits","vip_service_requests"
+      "vip_handover_snags","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments"
     ]) assert(names.has(name),"Missing table "+name);
 
     const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
@@ -114,6 +114,22 @@ async function run(){
         "UPDATE vip_journey_milestones SET status='completed' WHERE unit_id=$1",[uid]);
     }catch(e){prematureCompletionBlocked=(e as {code?:string}).code==="23514";}
     assert(prematureCompletionBlocked,"Actual milestone date must be recorded before completion");
+    // Draft financial entries must never leak into published buyer summaries.
+    await client.query(
+      "INSERT INTO vip_financial_adjustments(unit_id,category,amount,currency,description,source,published,created_by) "+
+      "VALUES($1,'maintenance',2.06,'USD','Internal test entry','internal_note',FALSE,$2)",[uid,u1]);
+    assert.equal((await client.query(
+      "SELECT 1 FROM vip_financial_adjustments WHERE unit_id=$1 AND published=TRUE",[uid])).rowCount,0);
+    let badPublishedFeeBlocked=false;
+    try{
+      await client.query(
+        "INSERT INTO vip_financial_adjustments(unit_id,category,amount,currency,description,source,published,created_by) "+
+        "VALUES($1,'tax',100,'USD','Unverified tax','internal_note',TRUE,$2)",[uid,u1]);
+    }catch(e){badPublishedFeeBlocked=(e as {code?:string}).code==="23514";}
+    assert(badPublishedFeeBlocked,"Unverified fee must not be visible");
+    await client.query(
+      "INSERT INTO vip_financial_adjustments(unit_id,category,amount,currency,description,source,source_reference,published,created_by) "+
+      "VALUES($1,'maintenance',2.06,'USD','Published service fee','signed_contract','Section 12.3',TRUE,$2)",[uid,u1]);
     await client.query("INSERT INTO vip_handover(unit_id) VALUES($1)",[uid]);
     const result=await client.query("SELECT status FROM vip_handover WHERE unit_id=$1",[uid]);
     assert.equal(result.rows[0].status,"not_ready");
