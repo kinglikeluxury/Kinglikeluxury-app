@@ -136,8 +136,10 @@ async function tryCompleteMetaSignup(){
     });
     if(answer.status===200&&answer.data.status==="owner_approval_pending"){
       result("تم التحقق من أصول Meta. بانتظار اعتماد المالك النهائي؛ أرشفة الرسائل متوقفة.");
+    }else if(answer.status===403&&answer.data.error==="signup_state_invalid"){
+      result("انتهت مهلة التفويض الآمنة. قد يكون الاتصال تم لدى Meta، لكن Kinglike لم يتحقق منه. لا تفصل الرقم ولا تعِد مسح QR؛ راجع حالة الربط مع المالك.");
     }else{
-      result("لم يكتمل التحقق الآمن لدى الخادم. لم نفترض أن الرقم مرتبط.");
+      result("لم يكتمل التحقق الآمن لدى خادم Kinglike. قد يكون الحساب متصلاً في Meta فقط؛ لا نعتبر الرقم معتمداً أو الأرشفة مفعّلة.");
     }
   }catch{
     result("فشل التواصل الآمن أثناء التحقق؛ لا نعتبر الرقم مرتبطًا.");
@@ -216,6 +218,10 @@ $("prepareCoexistence").addEventListener("click",async()=>{
        typeof prepared.data.csrfToken!=="string"){
       throw Error("signup_not_ready");
     }
+    const ttlSeconds=prepared.data.expiresInSeconds;
+    if(!Number.isInteger(ttlSeconds)||ttlSeconds<300||ttlSeconds>1800){
+      throw Error("signup_ttl_invalid");
+    }
     metaSession={
       state:prepared.data.state,csrfToken:prepared.data.csrfToken,
       configId:conf.configId,appId:conf.appId
@@ -226,7 +232,7 @@ $("prepareCoexistence").addEventListener("click",async()=>{
         resetMetaSession();
         result("انتهت مهلة الجلسة التجريبية، ولم يتم تسجيل ربط.");
       }
-    },5*60*1000);
+    },ttlSeconds*1000);
     $("launchMetaCoexistence").hidden=false;
     result("الجلسة جاهزة. اضغط «فتح نافذة Meta» إذا كنت الموظف المصرّح وتريد بدء التسجيل.");
   }catch{
