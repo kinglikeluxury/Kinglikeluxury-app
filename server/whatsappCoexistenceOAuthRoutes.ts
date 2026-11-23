@@ -34,7 +34,10 @@ type SessionWithSignupState = {
   whatsappCoexistenceStartCsrf?: StartCsrfState;
 };
 
-const STATE_TTL_MS = 5 * 60_000;
+// The Meta Business App QR and verification flow may take more than five minutes.
+// Keep one-time, session-bound CSRF/state protection; allow up to 25 minutes.
+export const COEXISTENCE_SIGNUP_TTL_MS = 25 * 60_000;
+const STATE_TTL_MS = COEXISTENCE_SIGNUP_TTL_MS;
 const START_WINDOW_MS = 15 * 60_000;
 const MAX_STARTS_PER_EMPLOYEE = 5;
 const START_PATH = "/api/employee/whatsapp-coexistence/oauth/start";
@@ -79,6 +82,8 @@ export function registerWhatsappCoexistenceOAuthRoutes(
     enabled?: boolean;
     /** Separate, still-disabled path for exact-number preapproval quarantine signup. */
     quarantineEnabled?: boolean;
+    /** If true, verify exact Meta phone without creating archive approval/binding. */
+    quarantineVerificationOnly?: boolean;
     requireStagingIdentity?: boolean;
     env?: NodeJS.ProcessEnv;
     /** In the isolated fixture server, returns a simulation result without Meta or persistence. */
@@ -330,7 +335,8 @@ export function registerWhatsappCoexistenceOAuthRoutes(
         });
         if (result === "stale") return res.status(409).json({ error: "preapproval_changed" });
         return res.status(200).json({
-          status: "owner_approval_pending",
+          status: dependencies.quarantineVerificationOnly === true
+            ? "meta_verified_no_archive" : "owner_approval_pending",
           metaAssetsVerified: true,
           messagesStored: false,
           archiveEnabled: false,
