@@ -261,6 +261,26 @@ async function main(){
     email:"http-finance@qa.local"
   });
   assert.equal(grant.status,200,JSON.stringify(grant.body));
+  assert.equal((await api(reviewer,"/api/admin/vip/finance/me")).body.canApprove,true);
+  // The permission row must NOT outlive the employee's eligible role.
+  // Changing staff role in the original app immediately suspends authority to
+  // approve financial evidence; the upload must remain unverified.
+  await pool.query("UPDATE users SET role='user' WHERE id=$1",[reviewer]);
+  assert.equal((await api(reviewer,"/api/admin/vip/finance/me")).body.canApprove,false,
+    "Demoted staff cannot keep old finance approval privileges");
+  assert.equal((await api(reviewer,"/api/admin/vip/receipts")).status,403,
+    "Demoted reviewer cannot list other clients' payment receipts");
+  assert.equal((await api(reviewer,"/api/admin/vip/receipts/"+receiptId+"/review","POST",{
+    decision:"approve",verifiedAmount:"50.00",note:"Attempt after finance role removal"
+  })).status,403,"Demoted reviewer cannot approve even with old grant row");
+  const remainsPending=await pool.query(
+    "SELECT review_status FROM vip_receipts WHERE id=$1",[receiptId]);
+  assert.equal(remainsPending.rows[0]?.review_status,"pending");
+  const noPosting=await pool.query(
+    "SELECT COUNT(*)::int AS count FROM vip_payment_postings WHERE receipt_id=$1",[receiptId]);
+  assert.equal(noPosting.rows[0]?.count,0);
+  await pool.query("UPDATE users SET role='crm_employee' WHERE id=$1",[reviewer]);
+  assert.equal((await api(reviewer,"/api/admin/vip/finance/me")).body.canApprove,true);
   const financeReview=await api(reviewer,"/api/admin/vip/receipts/"+receiptId+"/review","POST",{
    decision:"approve",verifiedAmount:"50.00",note:"Bank proof reviewed against transfer"
   });
