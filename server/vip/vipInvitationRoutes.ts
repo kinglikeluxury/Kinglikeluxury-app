@@ -5,7 +5,7 @@ import { pool } from "../db";
 import { sendEmail } from "../notificationService";
 import { VIP_INVITATION_TTL_HOURS, VIP_INVITATION_COOLDOWN_MINUTES,
   allowedVipInviteRecipient, hashInvitationToken, newInvitationToken,
-  normalizedVipEmail, safeEmailMarkup, sameEmail, validInvitationToken,
+  normalizedVipEmail, safeEmailMarkup, canAttachVipToExistingAccount, validInvitationToken,
   validNewVipPassword, vipActivationLink } from "./vipInvitationSecurity";
 
 const numericId = (raw:unknown):number|null => {
@@ -136,12 +136,12 @@ export function registerVipInvitationRoutes(app:Express,enabled:RequestHandler,a
         "SELECT 1 FROM vip_unit_access WHERE unit_id=$1 AND access_role='owner' AND revoked_at IS NULL LIMIT 1",
         [row.unit_id]);
       if(owned.rowCount){await db.query("ROLLBACK");return res.status(409).json({error:"Unit already assigned"});}
-      const existing=await db.query("SELECT id,email,is_active FROM users WHERE lower(email)=$1 LIMIT 1",[row.invited_email]);
+      const existing=await db.query("SELECT id,email,is_active,is_verified FROM users WHERE lower(email)=$1 LIMIT 1",[row.invited_email]);
       if(existing.rowCount){
         const u=existing.rows[0];
-        if(!u.is_active || Number(u.id)!==Number(req.session?.userId) || !sameEmail(u.email,row.invited_email)){
+        if(!canAttachVipToExistingAccount(u,req.session?.userId,row.invited_email)){
           await db.query("ROLLBACK");
-          return res.status(409).json({error:"Sign in with the invited email account, then reopen the invitation."});
+          return res.status(409).json({error:"Sign in with a verified, active account for the invited email, then reopen the invitation."});
         }
         clientId=Number(u.id);
       }else{
