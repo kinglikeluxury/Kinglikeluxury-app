@@ -1,4 +1,5 @@
-import { apiRequest } from "./queryClient";
+import { apiRequest, queryClient } from "./queryClient";
+import { clearVipSessionCache } from "@/features/vip/vipSessionCache";
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { subscribeToPush, isPushSupported } from "./push-notifications";
@@ -25,7 +26,15 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setAuthUser] = useState<User | null>(null);
+
+  // The same browser may be used by a buyer, seller and administrator. Clear
+  // private VIP React Query data before every identity transition so cached
+  // financial statements or receipts cannot follow a previous account.
+  const setUser = (next: User | null) => {
+    clearVipSessionCache(queryClient);
+    setAuthUser(next);
+  };
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -40,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const user = await response.json();
           setUser(user);
+        } else {
+          clearVipSessionCache(queryClient);
         }
       } catch (error) {
         console.error("Authentication check failed:", error);
