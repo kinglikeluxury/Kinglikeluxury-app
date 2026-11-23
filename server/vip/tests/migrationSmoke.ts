@@ -21,8 +21,57 @@ async function run(){
   try{
     // This exact QA-only schema refuses an existing CRM/production users table.
     await client.query(readFileSync("server/vip/migrations/000_qa_users_only.sql","utf8"));
+
+    // Compatibility rehearsal: represent the real application's pre-existing
+    // users and CRM tables with SYNTHETIC records in disposable CI Postgres.
+    // The QA-only 000 migration is intentionally run *before* this mock CRM table.
+    // Neither its schema nor its records may be changed by the additive VIP SQL.
+    const legacyUser=(await client.query(
+      "INSERT INTO users(username,email,role,is_verified,is_active) "+
+      "VALUES('existing_app_user','existing.user@example.test','user',TRUE,TRUE) RETURNING id"
+    )).rows[0].id;
+    await client.query(
+      "CREATE TABLE crm_leads(id INTEGER PRIMARY KEY,full_name TEXT NOT NULL,status TEXT NOT NULL)");
+    await client.query(
+      "INSERT INTO crm_leads(id,full_name,status) VALUES(501,'Synthetic existing CRM lead','existing')");
+    const existingSchema=async()=>({
+      columns:(await client.query(
+        "SELECT table_name,column_name,ordinal_position,data_type,is_nullable,column_default "+
+        "FROM information_schema.columns WHERE table_schema='public' "+
+        "AND table_name IN ('users','crm_leads') ORDER BY table_name,ordinal_position"
+      )).rows,
+      indexes:(await client.query(
+        "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='public' "+
+        "AND tablename IN ('users','crm_leads') ORDER BY tablename,indexname"
+      )).rows,
+      constraints:(await client.query(
+        "SELECT c.conrelid::regclass::text AS tablename,c.conname,pg_get_constraintdef(c.oid) AS definition "+
+        "FROM pg_constraint c WHERE c.conrelid IN ('users'::regclass,'crm_leads'::regclass) "+
+        "ORDER BY tablename,c.conname"
+      )).rows
+    });
+    const baseline=await existingSchema();
+    assert(baseline.columns.some(r=>r.table_name==='users'&&r.column_name==='is_verified'));
+    assert(baseline.columns.some(r=>r.table_name==='users'&&r.column_name==='is_active'));
+    assert(baseline.columns.some(r=>r.table_name==='users'&&r.column_name==='is_admin'));
     const sql=readFileSync("server/vip/migrations/001_vip_foundation.sql","utf8");
     await client.query(sql);
+    // Replaying an additive migration should be safe and must not replace,
+    // rename, re-index, or alter any pre-existing application object.
+    await client.query(sql);
+    assert.deepEqual(await existingSchema(),baseline,
+      "VIP migration unexpectedly changed existing app tables, indexes or constraints");
+    const preservedUser=await client.query(
+      "SELECT id,username,email,is_active,is_verified FROM users WHERE id=$1",[legacyUser]);
+    assert.deepEqual(preservedUser.rows,[{id:legacyUser,username:'existing_app_user',
+      email:'existing.user@example.test',is_active:true,is_verified:true}]);
+    const preservedCrm=await client.query("SELECT * FROM crm_leads WHERE id=501");
+    assert.deepEqual(preservedCrm.rows,[{id:501,full_name:'Synthetic existing CRM lead',
+      status:'existing'}]);
+    const nonVip=await client.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT LIKE 'vip_%' ORDER BY tablename");
+    assert.deepEqual(nonVip.rows.map(r=>r.tablename),['crm_leads','users'],
+      "VIP schema must create only new vip_* tables");
     const tableNames=await client.query(
       "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'vip_%'");
     const names=new Set(tableNames.rows.map(r=>r.tablename));
