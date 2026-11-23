@@ -41,6 +41,7 @@ import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail } from "@shared/
 import { createLoginHandler } from "./authLoginRoute";
 import { createRegisterHandler } from "./authRegisterRoute";
 import { createPasswordRecoveryHandlers } from "./authPasswordRecoveryRoutes";
+import { createChangePasswordHandler } from "./authChangePasswordRoute";
 
 import path from "path";
 import fs from "fs";
@@ -1382,24 +1383,7 @@ ${metaTags}
     logError: (error) => console.error("[Auth] Registration failed:", safeOtpErrorDiagnostic(error)),
   }));
 
-  app.post("/api/auth/change-password", isAuthenticated, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Both passwords are required" });
-      }
-      const user = await storage.getUser(userId);
-      if (!user || user.password !== currentPassword) {
-        return res.status(401).json({ message: "Current password is incorrect" });
-      }
-      await storage.updateUserPassword(userId, newPassword);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Change password error:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
+  app.post("/api/auth/change-password", isAuthenticated, createChangePasswordHandler(storage));
 
   app.post("/api/auth/login", createLoginHandler({
     storage,

@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import bcrypt from "bcrypt";
 import type { IStorage } from "./storage";
 import { isOtpActive, normalizeAuthEmail } from "@shared/authFlowUtils";
 
@@ -226,7 +227,7 @@ export function createPasswordRecoveryHandlers(dependencies: {
       if (!code || !newPassword) {
         return res.status(400).json({ message: "Code and new password are required" });
       }
-      if (typeof newPassword !== "string" || newPassword.length < 6) {
+      if (typeof newPassword !== "string" || newPassword.length < 6 || Buffer.byteLength(newPassword, "utf8") > 72) {
         return res.status(400).json({ message: "Password must be at least 6 characters" });
       }
 
@@ -261,7 +262,9 @@ export function createPasswordRecoveryHandlers(dependencies: {
 
       if (!user) return res.json({ success: true });
 
-      const updatedUser = await storage.updateUserPassword(user.id, newPassword);
+      // Storage persists password as provided: never send plaintext.
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+      const updatedUser = await storage.updateUserPassword(user.id, passwordHash);
       if (!updatedUser) {
         return res.status(503).json({
           code: "RECOVERY_UNAVAILABLE",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import express from "express";
+import bcrypt from "bcrypt";
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import {
@@ -281,4 +282,26 @@ test("RESET HTTP returns generic success without consuming a code if the account
   assert.equal(result.status, 200);
   assert.deepEqual(result.body, { success: true });
   assert.equal(store.has(`email:${email}`), true);
+});
+
+test("RESET saves a bcrypt hash, not plaintext, after a valid OTP",async(t)=>{
+  const store = new Map([[`email:${email}`, {code:otp,expiresAt:new Date(Date.now()+60_000)}]]);
+  let persisted:string|null=null;
+  const harness=await startRecoveryHarness(t,{
+    store,
+    storage:fakeStorage({
+      updateUserPassword:async(id,password)=>{
+        assert.equal(id,user.id);
+        persisted=password;
+        return {...user,password};
+      }
+    })
+  });
+  const result=await resetEmailPassword(harness.baseUrl,otp,"NewSafePassword-2026!");
+  assert.equal(result.status,200);
+  assert(persisted);
+  assert.match(persisted,/^\$2[ab]\$12\$/);
+  assert.notEqual(persisted,"NewSafePassword-2026!");
+  assert.equal(await bcrypt.compare("NewSafePassword-2026!",persisted),true);
+  assert.equal(store.has(`email:${email}`),false);
 });
