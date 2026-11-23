@@ -3,6 +3,7 @@ import multer from "multer";
 import { pool } from "../db";
 import { inspectReceiptFile, normalizeReceiptName, amountToCents, centsToAmount, MAX_VIP_RECEIPT_BYTES } from "./vipReceiptValidation";
 import { savePrivateReceipt, readPrivateReceipt, removePrivateReceipt } from "./vipPrivateReceiptStorage";
+import { validSellerAccount } from "./vipSellerRules";
 
 const receiptUpload = multer({
   storage: multer.memoryStorage(),
@@ -185,13 +186,21 @@ export function registerVipReceiptRoutes(
       if(rows.length===0)return res.status(404).json({error:"Receipt not found"});
       const {object_path,file_name,mime_type,unit_id}=rows[0];
       const access=await pool.query(
-        "SELECT 1 FROM vip_unit_access WHERE user_id=$1 AND unit_id=$2 " +
-        "AND revoked_at IS NULL AND (access_role='owner' OR "+
-        "(access_role='seller' AND EXISTS(SELECT 1 FROM vip_unit_access ow "+
-        "WHERE ow.unit_id=$2 AND ow.access_role='owner' AND ow.revoked_at IS NULL))) LIMIT 1",
+        "SELECT a.access_role,staff.is_active,staff.is_verified,staff.is_admin,staff.role,staff.email "+
+        "FROM vip_unit_access a JOIN users staff ON staff.id=a.user_id "+
+        "WHERE a.user_id=$1 AND a.unit_id=$2 AND a.revoked_at IS NULL "+
+        "AND (a.access_role='owner' OR "+
+        "(a.access_role='seller' AND EXISTS(SELECT 1 FROM vip_unit_access ow "+
+        "WHERE ow.unit_id=$2 AND ow.access_role='owner' AND ow.revoked_at IS NULL)))",
         [actor.id,unit_id]
       );
-      if(!actor.isAdmin && access.rowCount!==1 && !(await isFinanceApprover(actor.id))) {
+      // An old seller grant is not sufficient: verify that the main app still
+      // recognizes this account as an active sales employee on every download.
+      const activeEntitlement=access.rows.some(item=>
+        item.access_role==="owner" ||
+        (item.access_role==="seller" && validSellerAccount(item))
+      );
+      if(!actor.isAdmin && !activeEntitlement && !(await isFinanceApprover(actor.id))) {
         return res.status(404).json({error:"Receipt not found"});
       }
       const file=await readPrivateReceipt(object_path);
