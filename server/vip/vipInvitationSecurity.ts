@@ -29,6 +29,25 @@ export function sameEmail(expected: string, candidate: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/**
+ * Existing application identities must already be verified before an invitation
+ * can grant a VIP unit. Possession of a matching email string alone is not proof
+ * that the account holder controls that address.
+ */
+export function canAttachVipToExistingAccount(
+  existing: { id: number; email: string | null; is_active: boolean; is_verified: boolean },
+  signedInUserId: unknown,
+  invitedEmail: string,
+): boolean {
+  return existing.is_active === true &&
+    existing.is_verified === true &&
+    Number.isSafeInteger(signedInUserId) &&
+    Number(signedInUserId) > 0 &&
+    existing.id === signedInUserId &&
+    typeof existing.email === "string" &&
+    sameEmail(existing.email, invitedEmail);
+}
+
 export function validNewVipPassword(input: unknown): input is string {
   return typeof input === "string" &&
     input.length >= 12 && input.length <= 72 &&
