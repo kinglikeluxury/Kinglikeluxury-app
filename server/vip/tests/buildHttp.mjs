@@ -22,6 +22,13 @@ for(const [entry,outfile,dbModule] of [
     builder.onResolve({filter:/^\.\.\/db$/},()=>({
      path:resolve(dbModule)
     }));
+    // Only the fixture-header HTTP suite uses synthetic file bytes. The
+    // genuine QA preview and production builds use the private GCS adapter.
+    if(entry==="server/vip/tests/httpIntegration.ts"){
+     builder.onResolve({filter:/^\.\/vipPrivateReceiptStorage$/},()=>({
+      path:resolve("server/vip/tests/privateStorageShim.ts")
+     }));
+    }
    }
   }]
  });

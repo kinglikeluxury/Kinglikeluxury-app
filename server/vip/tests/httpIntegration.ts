@@ -12,6 +12,8 @@ import {registerVipAccountingRoutes} from "../vipAccountingRoutes";
 import {registerVipNotificationRoutes} from "../vipNotificationRoutes";
 import {registerVipKeyReceiptRoutes} from "../vipKeyReceiptRoutes";
 import {registerVipReferralLinkRoutes} from "../vipReferralLinkRoutes";
+import {registerVipReceiptRoutes} from "../vipReceiptRoutes";
+import {registerVipStatementRoutes} from "../vipStatementRoutes";
 
 /**
  * HTTP integration test against disposable localhost PostgreSQL only.
@@ -34,6 +36,7 @@ async function main(){
  const stranger=await user("http-stranger@qa.local","user");
  const staff=await user("http-agent@qa.local","sub_agent");
  const manager=await user("http-admin@qa.local","user",true);
+ const reviewer=await user("http-finance@qa.local","crm_employee");
  const project=(await pool.query("INSERT INTO vip_projects(name) VALUES('HTTP isolated QA') RETURNING id")).rows[0].id;
  const unit=(await pool.query(
   "INSERT INTO vip_units(project_id,unit_number) VALUES($1,'HTTP-101') RETURNING id",[project])).rows[0].id;
@@ -63,6 +66,8 @@ async function main(){
  registerVipNotificationRoutes(app,enabled,auth,admin);
  registerVipKeyReceiptRoutes(app,enabled,auth,admin);
  registerVipReferralLinkRoutes(app,enabled,auth);
+ registerVipReceiptRoutes(app,enabled,auth,admin);
+ registerVipStatementRoutes(app,enabled,auth,admin);
  const server=app.listen(0,"127.0.0.1");
  await new Promise<void>((resolve,reject)=>{server.once("listening",resolve);server.once("error",reject)});
  const base="http://127.0.0.1:"+(server.address() as AddressInfo).port;
@@ -199,6 +204,62 @@ async function main(){
   })).status,409);
   assert.equal((await api(stranger,"/api/vip/units/"+unit+"/keys")).status,404);
   assert.equal((await api(buyer,"/api/vip/units/"+unit+"/keys")).status,200);
+
+  // Protected, actual multipart receipt upload -> separate finance reviewer ->
+  // posting -> tenant isolation, using ONLY an in-memory storage adapter.
+  const installment=(await pool.query(
+    "INSERT INTO vip_installments(unit_id,sequence_number,due_date,amount,currency) "+
+    "VALUES($1,1,'2027-07-01',120,'USD') RETURNING id",[unit])).rows[0].id;
+  const form=new FormData();
+  const pdf="%PDF-1.7\n1 0 obj <<>> endobj\n%%EOF\n";
+  form.set("receipt",new Blob([pdf],{type:"application/pdf"}),"bank-transfer.pdf");
+  form.set("source","client");
+  const receiptResponse=await fetch(base+"/api/vip/installments/"+installment+"/receipts",{
+   method:"POST",headers:{"x-vip-fixture-user":String(buyer),Origin:base},body:form
+  });
+  assert.equal(receiptResponse.status,201,await receiptResponse.text().then(t=>t.slice(0,500)));
+  // The file had a valid PDF signature, but payment remains pending until a
+  // different active, finance-granted reviewer confirms an exact amount.
+  const receiptList=await api(buyer,"/api/vip/units/"+unit+"/receipts");
+  assert.equal(receiptList.status,200,JSON.stringify(receiptList.body));
+  assert.equal(receiptList.body.receipts.length,1);
+  assert.equal(receiptList.body.receipts[0].review_status,"pending");
+  const receiptId=receiptList.body.receipts[0].id;
+  assert.equal((await api(stranger,"/api/vip/units/"+unit+"/receipts")).status,404);
+  assert.equal((await api(stranger,"/api/vip/receipts/"+receiptId+"/download")).status,404);
+  const fileResponse=await fetch(base+"/api/vip/receipts/"+receiptId+"/download",{
+    headers:{"x-vip-fixture-user":String(buyer),Origin:base}
+  });
+  assert.equal(fileResponse.status,200);
+  assert.equal(await fileResponse.text(),pdf);
+  assert.equal((await api(buyer,"/api/admin/vip/receipts/"+receiptId+"/review","POST",{
+   decision:"approve",verifiedAmount:"50.00",note:"Owner tried approving own payment"
+  })).status,403);
+  assert.equal((await api(reviewer,"/api/admin/vip/receipts/"+receiptId+"/review","POST",{
+   decision:"approve",verifiedAmount:"50.00",note:"Unassigned reviewer"
+  })).status,403);
+  const grant=await api(manager,"/api/admin/vip/finance-permissions","POST",{
+    email:"http-finance@qa.local"
+  });
+  assert.equal(grant.status,200,JSON.stringify(grant.body));
+  const financeReview=await api(reviewer,"/api/admin/vip/receipts/"+receiptId+"/review","POST",{
+   decision:"approve",verifiedAmount:"50.00",note:"Bank proof reviewed against transfer"
+  });
+  assert.equal(financeReview.status,200,JSON.stringify(financeReview.body));
+  assert.equal((await api(reviewer,"/api/admin/vip/receipts/"+receiptId+"/review","POST",{
+   decision:"approve",verifiedAmount:"50.00",note:"Try to repeat the same posting"
+  })).status,409,"Receipt cannot be posted twice");
+  const financeTotals=await api(buyer,"/api/vip/units/"+unit+"/account");
+  assert.equal(financeTotals.status,200);
+  assert.equal(financeTotals.body.totals.length,1);
+  assert.equal(financeTotals.body.totals[0].verified_paid,"50.00");
+  assert.equal(financeTotals.body.totals[0].outstanding,"70.00");
+  assert.equal((await api(stranger,"/api/vip/units/"+unit+"/account")).status,404);
+  const disable=await api(manager,"/api/admin/vip/finance-permissions","DELETE",{
+    email:"http-finance@qa.local"
+  });
+  assert.equal(disable.status,200,JSON.stringify(disable.body));
+  assert.equal((await api(reviewer,"/api/admin/vip/finance/me")).body.canApprove,false);
 
   // CRM credentials are intentionally missing: must fail closed without
   // importing or mutating existing production CRM data.

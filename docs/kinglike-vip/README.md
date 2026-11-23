@@ -234,6 +234,13 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - Startup commands for the new isolated Railway service are `npm run vip:qa:build` and `npm run vip:qa:start`. Do not reuse them on production or existing WhatsApp staging.
 - Both database provisioning and account creation are held pending manual secret entry, review of potential Railway usage charges, and approval of the staged infrastructure patch.
 
+## Stage-2 private receipt and independent financial approval HTTP QA (test-only)
+- A disposable, **in-memory storage shim** is substituted at CI bundle time for private GCS functions. The actual production and standalone QA preview continue to use their fail-closed private storage implementation.
+- The HTTP suite posts a valid synthetic PDF receipt through Multer, verifies the buyer's own receipt list and private download, denies another owner's access, and confirms the receipt remains `pending` before independent review.
+- A verified finance staff member must receive a separate administrative permission grant. Buyer and ungranted reviewer cannot approve, and repeated approval cannot create duplicate payment postings.
+- Finance-approved amounts change only the authorized buyer's grouped financial summary; unrelated owners remain denied, and the finance grant can be revoked.
+- This exercises actual Express + SQL + transaction logic with local PostgreSQL, but does NOT test GCS access policies, malware scanning, real financial evidence, or real physical developer statements. Those remain Staging acceptance gates.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
