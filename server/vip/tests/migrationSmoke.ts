@@ -19,7 +19,17 @@ const client=new Client({connectionString:testUrl});
 async function run(){
   await client.connect();
   try{
-    await client.query("CREATE TABLE users(id SERIAL PRIMARY KEY,email TEXT,is_active BOOLEAN NOT NULL DEFAULT TRUE)");
+    // Mirror the real users columns verified read-only against Neon. The
+    // invite endpoint must supply a username; production has no default.
+    await client.query(
+      "CREATE TABLE users ("+
+      "id SERIAL PRIMARY KEY,username TEXT NOT NULL UNIQUE,password TEXT,"+
+      "email TEXT UNIQUE,role TEXT NOT NULL DEFAULT 'user',"+
+      "auth_method TEXT NOT NULL DEFAULT 'email',"+
+      "is_verified BOOLEAN NOT NULL DEFAULT FALSE,"+
+      "is_admin BOOLEAN NOT NULL DEFAULT FALSE,"+
+      "is_active BOOLEAN NOT NULL DEFAULT TRUE)"
+    );
     const sql=readFileSync("server/vip/migrations/001_vip_foundation.sql","utf8");
     await client.query(sql);
     const tableNames=await client.query(
@@ -32,8 +42,8 @@ async function run(){
       "vip_handover_snags","vip_handover_key_receipts","vip_support_tickets","vip_support_messages","vip_audit_events","vip_project_cameras","vip_project_photos","vip_notifications","vip_notification_preferences","vip_journey_milestones","vip_benefits","vip_service_requests","vip_financial_adjustments","vip_exchange_rates","vip_internal_commissions","vip_crm_sale_links"
     ]) assert(names.has(name),"Missing table "+name);
 
-    const u1=(await client.query("INSERT INTO users(email) VALUES('one@example.test') RETURNING id")).rows[0].id;
-    const u2=(await client.query("INSERT INTO users(email) VALUES('two@example.test') RETURNING id")).rows[0].id;
+    const u1=(await client.query("INSERT INTO users(username,email,is_verified) VALUES('vip_one','one@example.test',TRUE) RETURNING id")).rows[0].id;
+    const u2=(await client.query("INSERT INTO users(username,email,is_verified) VALUES('vip_two','two@example.test',TRUE) RETURNING id")).rows[0].id;
     const pid=(await client.query("INSERT INTO vip_projects(name) VALUES('Test Project') RETURNING id")).rows[0].id;
     const uid=(await client.query("INSERT INTO vip_units(project_id,unit_number) VALUES($1,'101') RETURNING id",[pid])).rows[0].id;
     await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'owner')",[uid,u1]);
@@ -87,8 +97,8 @@ async function run(){
     catch(e){duplicateLinkBlocked=(e as {code?:string}).code==="23505";}
     assert(duplicateLinkBlocked,"Referral link code must be globally unique");
     // Seller access: one assigned staff member per unit and revocation works.
-    const seller1=(await client.query("INSERT INTO users(email) VALUES('sales1@example.test') RETURNING id")).rows[0].id;
-    const seller2=(await client.query("INSERT INTO users(email) VALUES('sales2@example.test') RETURNING id")).rows[0].id;
+    const seller1=(await client.query("INSERT INTO users(username,email,is_verified) VALUES('vip_sales1','sales1@example.test',TRUE) RETURNING id")).rows[0].id;
+    const seller2=(await client.query("INSERT INTO users(username,email,is_verified) VALUES('vip_sales2','sales2@example.test',TRUE) RETURNING id")).rows[0].id;
     await client.query("INSERT INTO vip_unit_access(unit_id,user_id,access_role) VALUES($1,$2,'seller')",[uid,seller1]);
     let sellerCollisionBlocked=false;
     try {

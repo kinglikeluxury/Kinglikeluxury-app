@@ -14,14 +14,14 @@ import {registerVipAdvancedFinanceRoutes} from "../vipAdvancedFinanceRoutes";
  * database row-level scoping are the production modules under test.
  */
 async function main(){
- await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'");
- await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE");
- await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE");
+ // Foundation now tests the live users schema shape rather than a simplified
+ // fixture. No production credentials or production data are consulted.
 
  async function user(email:string,role:string,admin=false){
   const r=await pool.query(
-   "INSERT INTO users(email,role,is_verified,is_active,is_admin) "+
-   "VALUES($1,$2,TRUE,TRUE,$3) RETURNING id",[email,role,admin]);
+   "INSERT INTO users(username,email,role,is_verified,is_active,is_admin) "+
+   "VALUES($1,$2,$3,TRUE,TRUE,$4) RETURNING id",
+   ["vip_http_"+email.split("@")[0].replace(/[^a-z0-9_]/gi,"_"),email,role,admin]);
   return Number(r.rows[0].id);
  }
  const buyer=await user("http-buyer@qa.local","user");
