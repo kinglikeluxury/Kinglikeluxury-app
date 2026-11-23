@@ -3,6 +3,10 @@ import { test } from "node:test";
 import {
   saveNeonPrivateObject, readNeonPrivateObject, removeNeonPrivateObject
 } from "./vipNeonS3Storage";
+import {savePrivateReceipt,readPrivateReceipt,removePrivateReceipt,
+  savePrivateProjectPhoto,readPrivateProjectPhoto,removePrivateProjectPhoto,
+  savePrivateOfficialStatement,readPrivateOfficialStatement,removePrivateOfficialStatement
+} from "./vipPrivateReceiptStorage";
 
 const key="kinglike-vip/receipts/00000000-0000-4000-8000-000000000001.pdf";
 const fakeConfig:Record<string,string>={
@@ -106,5 +110,32 @@ test("Bounded backend reads fail closed when object exceeds approved size",async
     await saveNeonPrivateObject(key,Buffer.from("12345"),"application/pdf");
     await assert.rejects(readNeonPrivateObject(key,4),/too large/);
     assert.equal(calls.filter(x=>x.method==="GET").length,1);
+  });
+});
+
+test("existing VIP file API uses the same private Neon adapter for all three document types",async()=>{
+  await mockStorage(async({calls,objects})=>{
+    const receipt=Buffer.from("%PDF-1.7\n1 0 obj <<>> endobj\n%%EOF");
+    const receiptKey=await savePrivateReceipt(receipt,"application/pdf","pdf");
+    assert.equal(receiptKey.startsWith("kinglike-vip/receipts/"),true);
+    assert.deepEqual(await readPrivateReceipt(receiptKey),receipt);
+
+    const photo=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]);
+    const photoKey=await savePrivateProjectPhoto(7,photo,"image/png");
+    assert.equal(photoKey.startsWith("kinglike-vip/project-photos/7/"),true);
+    assert.deepEqual(await readPrivateProjectPhoto(photoKey),photo);
+
+    const statement=Buffer.from("%PDF-1.7\nStatement test document");
+    const statementKey=await savePrivateOfficialStatement(statement);
+    assert.equal(statementKey.startsWith("kinglike-vip/official-statements/"),true);
+    assert.deepEqual(await readPrivateOfficialStatement(statementKey),statement);
+
+    await removePrivateReceipt(receiptKey);
+    await removePrivateProjectPhoto(photoKey);
+    await removePrivateOfficialStatement(statementKey);
+    assert.equal(objects.size,0);
+    assert.equal(calls.filter(x=>x.method==="PUT").length,3);
+    assert.equal(calls.filter(x=>x.method==="GET").length,3);
+    assert.equal(calls.filter(x=>x.method==="DELETE").length,3);
   });
 });
