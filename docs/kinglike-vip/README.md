@@ -194,6 +194,13 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - The local database adapter hard-rejects all database hosts other than `127.0.0.1` or `localhost`, and all database names except `vipdb`.
 - This is more comprehensive than schema-only tests, but is **not** a substitute for real session-cookie, storage, RTSP.RUN or device-level Staging tests.
 
+## Stage-2 extended access matrix (new test-only checks; not deployed)
+- The HTTP suite now exercises real Express handlers for read-only seller files, management assignment, owner financial summaries, unpublished fee isolation, construction milestone visibility, private notifications and read-state isolation, opt-out settings, anonymous referral links and rejection of premature key delivery.
+- The tests include authorization revocation after owner access ends: former owner and seller must lose private unit files and unit-linked notifications.
+- The disposable PostgreSQL user table now mirrors real, read-only-verified Neon account columns, including **username NOT NULL** and exact employee-role and verification flags. No production records are copied.
+- All tests run against localhost-only `vipdb`, with a test-only DB module mapping. Live CRM, Railway, Replit, email and WhatsApp are never contacted.
+- Still missing before launch: real auth cookies, private GCS IAM, actual RTSP.RUN device testing and an isolated preview host with dedicated credentials.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

@@ -6,6 +6,12 @@ import {registerVipSupportRoutes} from "../vipSupportRoutes";
 import {registerVipOperationsRoutes} from "../vipOperationsRoutes";
 import {registerVipCrmBridgeRoutes} from "../vipCrmBridgeRoutes";
 import {registerVipAdvancedFinanceRoutes} from "../vipAdvancedFinanceRoutes";
+import {registerVipSellerRoutes} from "../vipSellerRoutes";
+import {registerVipExperienceRoutes} from "../vipExperienceRoutes";
+import {registerVipAccountingRoutes} from "../vipAccountingRoutes";
+import {registerVipNotificationRoutes} from "../vipNotificationRoutes";
+import {registerVipKeyReceiptRoutes} from "../vipKeyReceiptRoutes";
+import {registerVipReferralLinkRoutes} from "../vipReferralLinkRoutes";
 
 /**
  * HTTP integration test against disposable localhost PostgreSQL only.
@@ -51,6 +57,12 @@ async function main(){
  registerVipOperationsRoutes(app,enabled,auth,admin);
  registerVipCrmBridgeRoutes(app,enabled,auth,admin);
  registerVipAdvancedFinanceRoutes(app,enabled,auth,admin);
+ registerVipSellerRoutes(app,enabled,auth,admin);
+ registerVipExperienceRoutes(app,enabled,auth,admin);
+ registerVipAccountingRoutes(app,enabled,auth,admin);
+ registerVipNotificationRoutes(app,enabled,auth,admin);
+ registerVipKeyReceiptRoutes(app,enabled,auth,admin);
+ registerVipReferralLinkRoutes(app,enabled,auth);
  const server=app.listen(0,"127.0.0.1");
  await new Promise<void>((resolve,reject)=>{server.once("listening",resolve);server.once("error",reject)});
  const base="http://127.0.0.1:"+(server.address() as AddressInfo).port;
@@ -99,6 +111,95 @@ async function main(){
   assert.equal(audit.status,200);
   assert(audit.body.events.some((e:{event_type:string})=>e.event_type==="vip_support_replied"));
 
+  // Real HTTP account isolation: no guessed unit ID may expose another
+  // buyer's investments or signed financial information.
+  assert.equal((await api(stranger,"/api/vip/units/"+unit+"/account")).status,404);
+  const ownerAccount=await api(buyer,"/api/vip/units/"+unit+"/account");
+  assert.equal(ownerAccount.status,200,JSON.stringify(ownerAccount.body));
+  assert.equal(ownerAccount.body.official,false);
+  assert.equal((await api(staff,"/api/vip/units/"+unit+"/account")).status,404);
+
+  // A buyer cannot publish project construction milestones, discounts,
+  // or self-assign sales staff. These are owner/admin operations only.
+  assert.equal((await api(buyer,"/api/admin/vip/units/"+unit+"/journey","PUT",{
+    stage:"construction",status:"in_progress",plannedDate:"2027-09-01",
+    actualDate:null,note:"Customer request",published:true
+  })).status,403);
+  assert.equal((await api(buyer,"/api/admin/vip/units/"+unit+"/seller","PUT",{
+    email:"http-agent@qa.local",reason:"I wish to assign a sales agent"
+  })).status,403);
+  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,404);
+  const sellerAssignment=await api(manager,"/api/admin/vip/units/"+unit+"/seller","PUT",{
+    email:"http-agent@qa.local",reason:"Agent completed verified sales transaction"
+  });
+  assert.equal(sellerAssignment.status,200,JSON.stringify(sellerAssignment.body));
+  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,200,
+    "Assigned employee receives read-only file");
+  assert.equal((await api(stranger,"/api/vip/seller/units/"+unit)).status,404);
+
+  const journey=await api(manager,"/api/admin/vip/units/"+unit+"/journey","PUT",{
+    stage:"construction",status:"in_progress",plannedDate:"2027-09-01",
+    actualDate:null,note:"Construction progress published by management",published:true
+  });
+  assert.equal(journey.status,200,JSON.stringify(journey.body));
+  const journeyVisible=await api(buyer,"/api/vip/units/"+unit+"/journey");
+  assert.equal(journeyVisible.status,200);
+  assert(journeyVisible.body.milestones.some((m:{stage_code:string})=>m.stage_code==="construction"));
+  assert.equal((await api(stranger,"/api/vip/units/"+unit+"/journey")).status,404);
+
+  // Buyer-facing fees must be sourced and published explicitly. An internal
+  // accounting note cannot be made public by switching a visibility flag.
+  const internal=await api(manager,"/api/admin/vip/units/"+unit+"/adjustments","POST",{
+    category:"maintenance",amount:"2.06",currency:"USD",
+    description:"Internal accounting draft for service maintenance",
+    source:"internal_note",sourceReference:"",publish:false
+  });
+  assert.equal(internal.status,201,JSON.stringify(internal.body));
+  const buyerFinancial=await api(buyer,"/api/vip/units/"+unit+"/account");
+  assert.equal(buyerFinancial.status,200);
+  assert.equal(buyerFinancial.body.adjustments.length,0,"Internal fees must remain hidden");
+  assert.equal((await api(manager,"/api/admin/vip/adjustments/"+
+    internal.body.adjustment.id,"PATCH",{action:"publish"})).status,409);
+
+  // In-app notifications go to the current owner only; a stranger may
+  // access their empty own inbox, never the buyer's notification data.
+  const sent=await api(manager,"/api/admin/vip/units/"+unit+"/notifications","POST",{
+    title:"New developer update",body:"Please review the latest approved project milestone."
+  });
+  assert.equal(sent.status,201,JSON.stringify(sent.body));
+  const inbox=await api(buyer,"/api/vip/notifications");
+  assert.equal(inbox.status,200);
+  assert(inbox.body.notifications.some((n:{title:string})=>n.title==="New developer update"));
+  const strangerInbox=await api(stranger,"/api/vip/notifications");
+  assert.equal(strangerInbox.status,200);
+  assert(!strangerInbox.body.notifications.some((n:{title:string})=>n.title==="New developer update"));
+  const notifyId=inbox.body.notifications.find((n:{title:string})=>n.title==="New developer update").id;
+  assert.equal((await api(stranger,"/api/vip/notifications/"+notifyId+"/read","POST",{})).status,404);
+  assert.equal((await api(buyer,"/api/vip/notifications/"+notifyId+"/read","POST",{})).status,200);
+  assert.equal((await api(buyer,"/api/vip/notification-preferences","PUT",{
+    inAppDueReminders:false
+  })).status,200);
+  assert.equal((await api(buyer,"/api/vip/notification-preferences")).body.inAppDueReminders,false);
+
+  // A card-style anonymous link never exposes client account information.
+  const referral=await api(buyer,"/api/vip/referral-link","POST",{});
+  assert.equal(referral.status,201,JSON.stringify(referral.body));
+  const invitationCode=referral.body.link.code;
+  assert(/^KLR-[A-F0-9]{32}$/.test(invitationCode));
+  const publicLookup=await api(0,"/api/vip/referral-share/"+invitationCode);
+  assert.equal(publicLookup.status,200);
+  assert.deepEqual(publicLookup.body,{valid:true});
+  const disabledLink=await api(0,"/api/vip/referral-share/KLR-BAD");
+  assert.deepEqual(disabledLink.body,{valid:false});
+
+  // Handover signoff must not be bypassed by sending a key count when the
+  // developer has not approved the unit's physical inspection.
+  assert.equal((await api(buyer,"/api/vip/units/"+unit+"/keys/acknowledge","POST",{
+    receivedKeys:true,keyCount:2,receivedDate:"2026-11-21",note:""
+  })).status,409);
+  assert.equal((await api(stranger,"/api/vip/units/"+unit+"/keys")).status,404);
+  assert.equal((await api(buyer,"/api/vip/units/"+unit+"/keys")).status,200);
+
   // CRM credentials are intentionally missing: must fail closed without
   // importing or mutating existing production CRM data.
   const crmUnavailable=await api(manager,"/api/admin/vip/crm/leads/1");
@@ -110,6 +211,15 @@ async function main(){
     [unit,buyer]);
   assert.equal((await api(buyer,"/api/vip/support/"+ticketId)).status,404,"Revoked buyer access stops");
   assert.equal((await api(staff,"/api/vip/support/"+ticketId)).status,404,"Assigned staff loses access when buyer ownership ends");
+  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,404,
+    "Selling agent loses file access immediately after buyer revocation");
+  assert.equal((await api(buyer,"/api/vip/units/"+unit+"/journey")).status,404);
+  assert.equal((await api(buyer,"/api/vip/units/"+unit+"/account")).status,404);
+  assert.equal((await api(buyer,"/api/vip/units/"+unit+"/keys")).status,404);
+  const revokedInbox=await api(buyer,"/api/vip/notifications");
+  assert.equal(revokedInbox.status,200);
+  assert(!revokedInbox.body.notifications.some((n:{title:string})=>n.title==="New developer update"),
+    "Revoked owner must no longer see messages connected to the unit");
   const staffList=await api(staff,"/api/vip/support");
   assert.equal(staffList.status,200);
   assert(!staffList.body.tickets.some((t:{id:string})=>t.id===ticketId));
