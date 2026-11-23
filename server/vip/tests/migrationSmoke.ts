@@ -19,18 +19,8 @@ const client=new Client({connectionString:testUrl});
 async function run(){
   await client.connect();
   try{
-    // Mirror the real users columns verified read-only against Neon. The
-    // invite endpoint must supply a username; production has no default.
-    await client.query(
-      "CREATE TABLE users ("+
-      "id SERIAL PRIMARY KEY,username TEXT NOT NULL UNIQUE,password TEXT,"+
-      "email TEXT UNIQUE,phone_number TEXT UNIQUE,whatsapp_number TEXT UNIQUE,"+
-      "facebook_id TEXT UNIQUE,role TEXT NOT NULL DEFAULT 'user',"+
-      "auth_method TEXT NOT NULL DEFAULT 'email',"+
-      "is_verified BOOLEAN NOT NULL DEFAULT FALSE,"+
-      "is_admin BOOLEAN NOT NULL DEFAULT FALSE,"+
-      "is_active BOOLEAN NOT NULL DEFAULT TRUE)"
-    );
+    // This exact QA-only schema refuses an existing CRM/production users table.
+    await client.query(readFileSync("server/vip/migrations/000_qa_users_only.sql","utf8"));
     const sql=readFileSync("server/vip/migrations/001_vip_foundation.sql","utf8");
     await client.query(sql);
     const tableNames=await client.query(

@@ -226,6 +226,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - The test config is ephemeral and synthetic. CI does not provision or deploy any Railway service, import real customer records or configure real credentials.
 - This test must pass before the separate QA project's staged PostgreSQL resources can be reviewed for activation.
 
+## Private QA schema provisioning and synthetic accounts (code only; NOT executed)
+- `server/vip/migrations/000_qa_users_only.sql` creates a minimal production-compatible users schema. It refuses any database that already contains real users or CRM tables.
+- `server/vip/qaMigrate.ts` requires `KINGLIKE_VIP_QA_MIGRATE_APPROVED=true`, a private Railway database URL, and **zero existing public tables**; it applies the reviewed `000` and `001` schema files only to that dedicated new database.
+- `server/vip/qaBootstrapAccount.ts` creates a single initial admin, and test-only buyer or seller accounts, using bcrypt password hashes. The operator must explicitly set `KINGLIKE_VIP_QA_BOOTSTRAP_ONLY=true`, `KINGLIKE_VIP_QA_BOOTSTRAP_ROLE=admin|buyer|seller`, `KINGLIKE_VIP_QA_BOOTSTRAP_USERNAME=qa_...`, `KINGLIKE_VIP_QA_BOOTSTRAP_EMAIL=qa_...@....test`, and `KINGLIKE_VIP_QA_BOOTSTRAP_PASSWORD` privately.
+- No passwords or connection strings are printed or stored in the repository, application logs or ChatGPT. The bootstrap is a CLI-only command, never an HTTP endpoint or startup hook.
+- Startup commands for the new isolated Railway service are `npm run vip:qa:build` and `npm run vip:qa:start`. Do not reuse them on production or existing WhatsApp staging.
+- Both database provisioning and account creation are held pending manual secret entry, review of potential Railway usage charges, and approval of the staged infrastructure patch.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
