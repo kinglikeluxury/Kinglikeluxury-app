@@ -61,7 +61,7 @@ test("wrong current password and missing session never update account",async(t)=
   assert.equal((await s.post({currentPassword:"wrong",newPassword:"NewPassword-2026!"})).status,401);
   assert.equal(s.getStored(),before);
   assert.equal(s.getWrites(),0);
-  const noSession=await start(t,"legacy-password",undefined);
+  const noSession=await start(t,"legacy-password",0);
   assert.equal((await noSession.post({currentPassword:"legacy-password",newPassword:"NewPassword-2026!"})).status,401);
   assert.equal(noSession.getWrites(),0);
 });
