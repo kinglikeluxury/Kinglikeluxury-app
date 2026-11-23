@@ -109,6 +109,15 @@ async function main(){
   assert.equal(admin.status,200,JSON.stringify(admin.body));
   assert(Number(admin.body.overview.units)>=2);
 
+  // A previously signed-in owner must immediately lose access if identity
+  // verification is revoked. A valid session cookie alone is not sufficient.
+  await pool.query("UPDATE users SET is_verified=FALSE WHERE id=$1",[buyer1]);
+  assert.equal((await api(c1,"/api/vip/me")).status,403,
+    "Unverified account cannot retain VIP access using an old cookie");
+  assert.equal((await api(c1,"/api/vip/units/"+unit1+"/account")).status,403);
+  await pool.query("UPDATE users SET is_verified=TRUE WHERE id=$1",[buyer1]);
+  assert.equal((await api(c1,"/api/vip/me")).status,200);
+
   // Per-unit entitlement checks must follow the authenticated session,
   // never a user ID submitted by the browser.
   assert.equal((await api(c1,"/api/vip/units/"+unit2+"/journey")).status,404);
