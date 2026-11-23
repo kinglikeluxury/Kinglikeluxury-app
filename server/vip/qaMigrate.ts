@@ -16,7 +16,7 @@ async function run(){
   // Protect against competing migration attempts and make both SQL scripts
   // one all-or-nothing transaction; neither users nor VIP tables can be left
   // half-created if either phase or the readiness check fails.
-  function statements(path:string):string{
+  const statements=(path:string):string=>{
    const source=readFileSync(path,"utf8");
    const stripped=source
     .replace(/^(?:\s*--[^\n]*\n)*\s*BEGIN;\s*/i,"")
@@ -25,7 +25,7 @@ async function run(){
     throw Error("QA migration file has unexpected transaction boundaries");
    }
    return stripped;
-  }
+  };
   const usersSql=statements("server/vip/migrations/000_qa_users_only.sql");
   const vipSql=statements("server/vip/migrations/001_vip_foundation.sql");
   await client.query("BEGIN");
