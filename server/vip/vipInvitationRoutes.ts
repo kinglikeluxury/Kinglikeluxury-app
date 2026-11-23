@@ -99,7 +99,7 @@ export function registerVipInvitationRoutes(app:Express,enabled:RequestHandler,a
         "SELECT i.invited_email,i.expires_at,u.unit_number,p.name AS project_name,"+
         "EXISTS(SELECT 1 FROM users us WHERE lower(us.email)=i.invited_email) AS account_exists, "+
         "EXISTS(SELECT 1 FROM users me WHERE me.id=$2 AND me.is_active=TRUE "+
-        "AND lower(me.email)=i.invited_email) AS matches_signed_in "+
+        "AND me.is_verified=TRUE AND lower(me.email)=i.invited_email) AS matches_signed_in "+
         "FROM vip_invitations i JOIN vip_units u ON u.id=i.unit_id JOIN vip_projects p ON p.id=u.project_id "+
         "WHERE i.token_hash=$1 AND i.status='pending' AND i.delivery_status='sent' AND i.expires_at>NOW() LIMIT 1",
         [hashInvitationToken(token),req.session?.userId||-1]);
