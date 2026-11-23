@@ -97,6 +97,7 @@ test("No overwrite and no path traversal outside VIP namespace",async()=>{
     await assert.rejects(readNeonPrivateObject("../../users.sql"),/Invalid VIP object key/);
     await assert.rejects(removeNeonPrivateObject("kinglike-vip/receipts/../secret.pdf"),/Invalid VIP object key/);
     await assert.rejects(saveNeonPrivateObject(key,Buffer.alloc(10*1024*1024+1),"application/pdf"),/size/);
+    await assert.rejects(saveNeonPrivateObject(key,Buffer.from("wrong-type"),"image/png"),/type does not match/);
     assert.equal(calls.length,0);
     const body=Buffer.from("one");
     await saveNeonPrivateObject(key,body,"application/pdf");
