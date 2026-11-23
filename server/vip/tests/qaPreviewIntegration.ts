@@ -94,6 +94,13 @@ async function main(){
    await pool.query("UPDATE users SET is_active=FALSE WHERE id=$1",[manager]);
    assert.equal((await call("/api/admin/vip/overview","GET",undefined,managerCookie)).status,403,
      "Disabled admin's signed session must lose privileges");
+   // Genuine QA login session must not survive loss of account verification.
+   await pool.query("UPDATE users SET is_verified=FALSE WHERE id=$1",[buyer]);
+   assert.equal((await call("/api/vip/me","GET",undefined,buyerCookie)).status,403,
+     "Previously authenticated but unverified buyer must be denied");
+   await pool.query("UPDATE users SET is_verified=TRUE WHERE id=$1",[buyer]);
+   assert.equal((await call("/api/vip/me","GET",undefined,buyerCookie)).status,200);
+
    await pool.query("UPDATE vip_unit_access SET revoked_at=NOW() "+
      "WHERE unit_id=$1 AND user_id=$2 AND access_role='owner' AND revoked_at IS NULL",
      [unit,buyer]);
