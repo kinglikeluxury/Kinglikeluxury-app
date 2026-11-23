@@ -8,6 +8,7 @@ import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useVipNavigation } from "@/features/vip/useVipNavigation";
 import { isCrmEmployeeRole } from "@shared/crmRoles";
 import { useFavorites } from "@/hooks/use-favorites";
 import { languages, getLanguageName } from "@/lib/i18n";
@@ -23,6 +24,7 @@ interface MobileDrawerProps {
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
+  const vipNav = useVipNavigation(user);
   const { favorites } = useFavorites();
 
   const { data: notifications = [] } = useQuery<UserNotification[]>({
@@ -304,6 +306,19 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.privacyPolicy", "سياسة الخصوصية"), path: "/privacy-policy", icon: Shield })}
             {renderItem({ label: t("nav.termsConditions", "الشروط والأحكام"), path: "/terms", icon: FileText })}
           </div>
+
+          {/* Only current owners and assigned selling employees see VIP links. */}
+          {(vipNav.showOwner || vipNav.showSeller) && (
+            <div className="mb-2">
+              <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                KINGLIKE VIP
+              </p>
+              <div className="bg-white">
+                {vipNav.showOwner && renderItem({ label: t("vip.myInvestments", "My VIP Investments"), path: "/vip", icon: Crown, highlight: true })}
+                {vipNav.showSeller && renderItem({ label: t("vip.myClients", "My VIP Clients"), path: "/vip/sales", icon: Crown, highlight: true })}
+              </div>
+            </div>
+          )}
 
           {/* Sub-Agent CRM section */}
           {user && isCrmEmployeeRole(user.role) && (
