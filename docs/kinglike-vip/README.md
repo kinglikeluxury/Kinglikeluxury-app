@@ -209,6 +209,18 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - This closes a test gap in fixture-only header authentication but is not equivalent to exercising the app's actual production login form, third-party OAuth, or session persistence across live infrastructure.
 - Staging still requires its own isolated secrets, storage IAM, actual login/activation, RTSP.RUN live camera test, PWA test, and independent security review.
 
+## Dedicated VIP QA runtime architecture (preview code; NOT DEPLOYED)
+- Railway project `Kinglike-VIP-Isolated-QA` was created, with its own environment `vip-qa`. A PostgreSQL template is **staged only**, not provisioned or billed by execution yet.
+- The preview has a dedicated server entrypoint `server/vip/qaPreviewServer.ts` and build script `npm run vip:qa:build`. It does **not** import or start `server/index.ts`, CRM assignment, Kay jobs, Meta/WhatsApp handlers, or the production scheduler.
+- It uses the genuine existing React VIP pages and server VIP routes, but requires separate per-preview Basic Auth in addition to the normal VIP account's signed session.
+- Requires `KINGLIKE_VIP_QA_PREVIEW=true`, `KINGLIKE_VIP_ENABLED=true`, and explicit `KINGLIKE_VIP_QA_DATABASE_URL` (a Railway **private-network** PostgreSQL hostname only, not Neon or a public database).
+- Requires strong `KINGLIKE_VIP_QA_GATE_USER` (4+ chars), `KINGLIKE_VIP_QA_GATE_PASSWORD` (20+ chars) and `KINGLIKE_VIP_QA_SESSION_SECRET` (48+ chars), set **by owner through their secret manager**, not stored in GitHub or conversation.
+- Startup refuses a production Neon URL, CRM read-only credentials, or outbound mail credentials, and refuses to run until the isolated database has the reviewed VIP schema and accounts.
+- Users log in using verified accounts created in the isolated database. Open registration is disabled, sessions are volatile/single-instance, and preview routes expose no real customer information.
+- `npm run vip:qa:start` is intended only for the new **separate** Railway service, never the real Kinglike application. No existing Railway service build or start command has been changed.
+- CI builds both normal application and this isolated preview variant. No preview host or domain is running yet.
+- Before making preview live: review staged resources and possible charges, provision a clean database with synthetic test users, configure credentials and secure gateway, choose correct Railway QA build/start commands, run smoke tests including real Browser, GCS and camera. No real customer data should be imported.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
