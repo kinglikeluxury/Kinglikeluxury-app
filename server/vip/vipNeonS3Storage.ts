@@ -117,8 +117,10 @@ export async function saveNeonPrivateObject(
   if(!Buffer.isBuffer(data)||data.length<1||data.length>MAX_BYTES){
     throw Error("Invalid VIP private object size");
   }
-  if(!["application/pdf","image/jpeg","image/png"].includes(mime)){
-    throw Error("Unsupported VIP object type");
+  const expectedMime=key.endsWith(".pdf")?"application/pdf":
+    key.endsWith(".jpg")?"image/jpeg":key.endsWith(".png")?"image/png":null;
+  if(!expectedMime || mime!==expectedMime) {
+    throw Error("VIP private file type does not match its storage key");
   }
   const response=await signedRequest("PUT",key,data,mime);
   if(!response.ok)throw Error("Private VIP storage write failed");
