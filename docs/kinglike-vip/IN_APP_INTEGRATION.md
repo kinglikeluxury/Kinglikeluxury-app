@@ -6,6 +6,28 @@ supersedes the *separate Railway VIP hosting recommendation* in the older QA
 runbook. The isolated Railway draft is not a release prerequisite and must not
 be committed merely to continue development. It can remain staged and unused.
 
+## Additional integration blocker found on 23 November 2026
+
+A **read-only** inspection of the original Replit app `kinglike luxury`
+shows that the active Replit checkout is on a local branch
+`release/auth-priority`, tracking `origin/main` but without a corresponding
+`origin/release/auth-priority` remote ref in its local Git inventory.
+Replit reports this checkout as **134 commits ahead and 1 behind**
+`origin/main`, with changes touching `server/routes.ts`, `server/index.ts`,
+`client/src/App.tsx`, and `package.json`. Its working tree is clean.
+These details do **not** establish which commit currently serves the live
+domain, but they demonstrate that GitHub `main` is **not** a safe substitute
+for the Replit checkout without explicit reconciliation.
+
+The VIP GitHub feature branch and draft PR #65 were based on GitHub `main`.
+Do not merge the PR, retarget Replit, replace the checkout, or run a sync that
+might overwrite its unpushed authentication/WhatsApp/CRM work. First preserve
+the Replit branch on a separately named remote backup using an authorized
+Free-mode workflow (no force pushes or production publish), verify commit
+identities, then rebase/cherry-pick or manually reconcile the VIP changes onto
+an approved integration branch with a reviewed conflict diff and tests.
+**No Replit branch push was executed during this review.**
+
 ## One application, one existing login, additive VIP tables
 
 - Client route: `/vip`; employee who sold the unit: `/vip/sales`; Kinglike
