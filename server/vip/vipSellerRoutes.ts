@@ -25,7 +25,9 @@ const requireActiveSeller:RequestHandler=async (_req,res,next)=>{
       "SELECT is_active,is_verified,is_admin,role,email FROM users WHERE id=$1 LIMIT 1",
       [res.locals.vipUser.id]);
     if(r.rowCount!==1||!validSellerAccount(r.rows[0])){
-      return res.status(403).json({error:"Active sales employee permission required"});
+      return req.params.unitId
+        ? res.status(404).json({error:"Unit not found"})
+        : res.status(403).json({error:"Active sales employee permission required"});
     }
     next();
   }catch{
