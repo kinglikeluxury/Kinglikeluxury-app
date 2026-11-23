@@ -551,6 +551,7 @@ async function main() {
   registerWhatsappCoexistenceOAuthRoutes(app, {
     enabled: false,
     quarantineEnabled: coexistenceReadiness.oauthEnabled,
+    quarantineVerificationOnly: true,
     requireStagingIdentity: true,
     env: process.env,
     currentEmployee: async (req) => getStagingIdentity(req)?.actor ?? null,
@@ -559,9 +560,10 @@ async function main() {
       graph: metaGraph,
       store: preapprovalStore,
       expectedAppId: process.env.WHATSAPP_MONITOR_META_APP_ID ?? "",
-      archiveSignupWriter,
-      getArchiveEligibility: (employeeId) =>
-        whatsappEmployeeArchivePostgresStore.getSignupEligibility(employeeId),
+      // Verification-only: confirm Meta's exact phone + Coexistence status
+      // and persist minimal onboarding metadata. Never store a Meta token,
+      // create an archive binding, subscribe to message events, or archive chats.
+      // Those operations require a separate authorized retention flow.
     }),
     preapprovalStoreReady: async () => preapprovalStoreReady,
     readinessContext: readArchiveServiceReadiness,
