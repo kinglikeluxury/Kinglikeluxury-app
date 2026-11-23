@@ -82,6 +82,8 @@ export function registerWhatsappCoexistenceOAuthRoutes(
     enabled?: boolean;
     /** Separate, still-disabled path for exact-number preapproval quarantine signup. */
     quarantineEnabled?: boolean;
+    /** If true, verify exact Meta phone without creating archive approval/binding. */
+    quarantineVerificationOnly?: boolean;
     requireStagingIdentity?: boolean;
     env?: NodeJS.ProcessEnv;
     /** In the isolated fixture server, returns a simulation result without Meta or persistence. */
@@ -333,7 +335,8 @@ export function registerWhatsappCoexistenceOAuthRoutes(
         });
         if (result === "stale") return res.status(409).json({ error: "preapproval_changed" });
         return res.status(200).json({
-          status: "owner_approval_pending",
+          status: dependencies.quarantineVerificationOnly === true
+            ? "meta_verified_no_archive" : "owner_approval_pending",
           metaAssetsVerified: true,
           messagesStored: false,
           archiveEnabled: false,
