@@ -134,7 +134,9 @@ async function tryCompleteMetaSignup(){
         assets:metaAssets
       })
     });
-    if(answer.status===200&&answer.data.status==="owner_approval_pending"){
+    if(answer.status===200&&answer.data.status==="meta_verified_no_archive"){
+      result("تم التحقق من رقم WhatsApp Business الحالي عبر Meta وتسجيل حالة التحقق في Kinglike. لا يوجد أرشفة أو حفظ للمحادثات، ولم يتم اعتماد الربط للأرشفة.");
+    }else if(answer.status===200&&answer.data.status==="owner_approval_pending"){
       result("تم التحقق من أصول Meta. بانتظار اعتماد المالك النهائي؛ أرشفة الرسائل متوقفة.");
     }else if(answer.status===403&&answer.data.error==="signup_state_invalid"){
       result("انتهت مهلة التفويض الآمنة. قد يكون الاتصال تم لدى Meta، لكن Kinglike لم يتحقق منه. لا تفصل الرقم ولا تعِد مسح QR؛ راجع حالة الربط مع المالك.");
