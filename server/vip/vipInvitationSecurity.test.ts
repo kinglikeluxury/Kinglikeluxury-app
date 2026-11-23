@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { allowedVipInviteRecipient, hashInvitationToken, newInvitationToken,
- normalizedVipEmail, sameEmail, validInvitationToken, validNewVipPassword, vipActivationLink, safeEmailMarkup
+ normalizedVipEmail, sameEmail, canAttachVipToExistingAccount, validInvitationToken, validNewVipPassword, vipActivationLink, safeEmailMarkup
 } from "./vipInvitationSecurity";
 
 test("invitation tokens have 256 bits of randomness and are only stored hashed",()=>{
@@ -59,4 +59,15 @@ test("activation links require HTTPS and carry token only in query",()=>{
     if(old===undefined)delete process.env.KINGLIKE_VIP_BASE_URL;
     else process.env.KINGLIKE_VIP_BASE_URL=old;
   }
+});
+
+test("existing VIP buyer invitation requires same verified active signed-in account", () => {
+  const user={id:42,email:"customer@example.com",is_active:true,is_verified:true};
+  assert.equal(canAttachVipToExistingAccount(user,42,"CUSTOMER@EXAMPLE.COM"),true);
+  assert.equal(canAttachVipToExistingAccount({...user,is_verified:false},42,"customer@example.com"),false);
+  assert.equal(canAttachVipToExistingAccount({...user,is_active:false},42,"customer@example.com"),false);
+  assert.equal(canAttachVipToExistingAccount(user,43,"customer@example.com"),false);
+  assert.equal(canAttachVipToExistingAccount(user,undefined,"customer@example.com"),false);
+  assert.equal(canAttachVipToExistingAccount(user,42,"other@example.com"),false);
+  assert.equal(canAttachVipToExistingAccount({...user,email:null},42,"customer@example.com"),false);
 });
