@@ -8,6 +8,14 @@
 - The original Replit checkout is on its locally advanced
   `release/auth-priority` branch (134 commits ahead, 1 behind
   `origin/main` when last inspected). It does NOT yet contain VIP.
+  Read-only Git identity check on 2026-11-23 established current local
+  **HEAD = `80ba567bbba36809af048259ce468c813366d379`** and tracked
+  **`origin/main` = `b71f3755cfb9917c288562cbcc4ff137e454d6b5`**.
+  Working tree is clean; upstream is `origin/main`. Replit reported that
+  no local backup branch currently points to this exact HEAD. Its existing
+  older `backup/*` branches must NOT be mistaken for an up-to-date backup.
+  Preserve this exact source state in a private, local, non-deploying
+  reference *before* attempting an integration worktree or any sync.
 - Draft GitHub PR #65 is based on `main`, not on that Replit checkout.
   It was **not merged** and must not be pushed or rebased over the original
   Replit working tree without preservation of existing work.
