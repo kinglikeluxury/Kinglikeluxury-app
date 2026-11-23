@@ -1,0 +1,82 @@
+name: KINGLIKE VIP isolated checks
+on:
+  push:
+    branches:
+      - feature/kinglike-vip-20261122
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vip-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: vipdb
+          POSTGRES_USER: vip
+          POSTGRES_PASSWORD: vip-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vip -d vipdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      KINGLIKE_VIP_ENABLED: "false"
+      VITE_KINGLIKE_VIP_ENABLED: "false"
+      KINGLIKE_VIP_EMAIL_ENABLED: "false"
+      KINGLIKE_VIP_EMAIL_LIVE_APPROVED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: TypeScript regression check (VIP code only)
+        shell: bash
+        run: |
+          npm run check > vip-typecheck.log 2>&1 || true
+          echo "Project-wide TypeScript diagnostics: $(grep -c 'error TS' vip-typecheck.log || true)"
+          if grep -E '^(server/vip/|client/src/features/vip/|client/src/App.tsx|client/src/components/layout/(Navbar|MobileDrawer)\.tsx|client/src/lib/(auth|adminNavItems)\.ts|server/index.ts).*error TS' vip-typecheck.log; then
+            echo "VIP-related type errors detected"
+            exit 1
+          fi
+          echo "VIP files have no reported TypeScript errors. Existing legacy errors are outside this scope."
+      - name: VIP security validation unit tests
+        run: npx tsx --test server/vip/vipInvitationSecurity.test.ts server/vip/vipNeonStorageConfig.test.ts server/vip/vipNeonS3Storage.test.ts server/vip/vipReceiptValidation.test.ts server/vip/vipCameraSecurity.test.ts server/vip/vipPhotoValidation.test.ts server/vip/vipHandoverRules.test.ts server/vip/vipEngagementRules.test.ts server/vip/vipSellerRules.test.ts server/vip/vipExperienceRules.test.ts server/vip/vipAccountingRules.test.ts server/vip/vipReferralLinkRules.test.ts server/vip/vipDueReminderRules.test.ts server/vip/vipKeyReceiptRules.test.ts server/vip/vipSupportRules.test.ts server/vip/vipAdvancedFinanceRules.test.ts server/vip/vipCrmBridgeRules.test.ts server/vip/qaPreviewRules.test.ts server/vip/qaBootstrapRules.test.ts client/src/features/vip/vipSessionCache.test.ts server/vip/tests/inAppSafety.test.ts
+      - name: VIP schema migration smoke test (isolated local Postgres only)
+        env:
+          VIP_TEST_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
+        run: npx tsx server/vip/tests/migrationSmoke.ts
+      - name: VIP HTTP authorization integration (disposable localhost Postgres)
+        env:
+          VIP_TEST_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
+        run: |
+          node server/vip/tests/buildHttp.mjs
+          node .vip-http-test.mjs
+          node .vip-session-http-test.mjs
+      - name: Build (no deployment)
+        run: npm run build
+      - name: Build isolated QA preview entrypoint (no deployment)
+        run: npm run vip:qa:build
+      - name: VIP QA protected preview + real bcrypt login HTTP test (isolated localhost)
+        env:
+          NODE_ENV: test
+          VIP_QA_LOCAL_TEST: "true"
+          VIP_TEST_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
+          KINGLIKE_VIP_QA_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
+          KINGLIKE_VIP_QA_PREVIEW: "true"
+          KINGLIKE_VIP_ENABLED: "true"
+          KINGLIKE_VIP_QA_GATE_USER: qaoperator
+          KINGLIKE_VIP_QA_GATE_PASSWORD: local-only-test-gateway-password-not-for-deployment
+          KINGLIKE_VIP_QA_SESSION_SECRET: local-only-session-test-secret-abcdefghijklmnopqrstuvwxyz-0123456789
+        run: |
+          node server/vip/tests/buildHttp.mjs
+          node .vip-qa-preview-http-test.mjs

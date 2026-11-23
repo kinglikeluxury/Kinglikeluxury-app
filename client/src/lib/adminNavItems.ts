@@ -48,6 +48,16 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     path: "/admin/dashboard",
     Icon: LayoutDashboard,
   },
+  // Shared desktop/mobile admin navigation. Hidden in production until the
+  // existing app's VIP UI flag is deliberately enabled after migration QA.
+  ...(import.meta.env.VITE_KINGLIKE_VIP_ENABLED === "true" ? [{
+    labelKey: "vip.admin",
+    labelFallback: "KINGLIKE VIP — Administration",
+    path: "/admin/vip",
+    Icon: Crown,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+  }] : []),
   {
     labelKey: "admin.approvals",
     labelFallback: "Property Approvals",

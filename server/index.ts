@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { registerVipRoutes } from "./vip/registerVipRoutes";
 import {registerEmployeeWhatsappVerificationRoutes} from "./whatsappEmployeeSelfVerificationRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
@@ -241,7 +242,12 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // VIP responses may contain private unit, payment, receipt or client
+      // information. Keep request diagnostics, never log response JSON.
+      const vipSensitiveApi =
+        path === "/api/vip" || path.startsWith("/api/vip/") ||
+        path === "/api/admin/vip" || path.startsWith("/api/admin/vip/");
+      if (capturedJsonResponse && !vipSensitiveApi) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -260,6 +266,8 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+  // VIP remains unavailable unless KINGLIKE_VIP_ENABLED=true; no side effects at registration.
+  registerVipRoutes(app);
   // Read-only self-service status for the current authenticated CRM employee.
   // No Meta enrollment, message access, cancellation or disconnection.
   registerEmployeeWhatsappVerificationRoutes(app,{

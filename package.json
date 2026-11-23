@@ -8,6 +8,10 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
+    "vip:qa:build": "VITE_KINGLIKE_VIP_ENABLED=true vite build && node server/vip/qaPreviewBuild.mjs",
+    "vip:qa:start": "NODE_ENV=production KINGLIKE_VIP_ENABLED=true KINGLIKE_VIP_QA_START=true node dist/vip-qa.mjs",
+    "vip:qa:migrate": "tsx server/vip/qaMigrate.ts",
+    "vip:qa:bootstrap-user": "tsx server/vip/qaBootstrapAccount.ts",
     "db:push": "drizzle-kit push",
     "kay:test-schema": "tsx scripts/complete-kay-test-schema.ts",
     "kay:daily-cycle": "tsx scripts/run-kay-daily-cycle.ts"

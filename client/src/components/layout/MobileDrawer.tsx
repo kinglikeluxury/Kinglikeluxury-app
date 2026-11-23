@@ -8,6 +8,8 @@ import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useVipNavigation } from "@/features/vip/useVipNavigation";
+import { getVipCopy } from "@/features/vip/vipCopy";
 import { isCrmEmployeeRole } from "@shared/crmRoles";
 import { useFavorites } from "@/hooks/use-favorites";
 import { languages, getLanguageName } from "@/lib/i18n";
@@ -22,7 +24,9 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { t, i18n } = useTranslation();
+  const vipLabels = getVipCopy(i18n.language);
   const { user, logout } = useAuth();
+  const vipNav = useVipNavigation(user);
   const { favorites } = useFavorites();
 
   const { data: notifications = [] } = useQuery<UserNotification[]>({
@@ -305,6 +309,19 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.termsConditions", "الشروط والأحكام"), path: "/terms", icon: FileText })}
           </div>
 
+          {/* Only current owners and assigned selling employees see VIP links. */}
+          {(vipNav.showOwner || vipNav.showSeller) && (
+            <div className="mb-2">
+              <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                KINGLIKE VIP
+              </p>
+              <div className="bg-white">
+                {vipNav.showOwner && renderItem({ label: vipLabels.myInvestments, path: "/vip", icon: Crown, highlight: true })}
+                {vipNav.showSeller && renderItem({ label: vipLabels.myClients, path: "/vip/sales", icon: Crown, highlight: true })}
+              </div>
+            </div>
+          )}
+
           {/* Sub-Agent CRM section */}
           {user && isCrmEmployeeRole(user.role) && (
             <div className="mb-2">
@@ -331,7 +348,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                   user?.isAdmin || item.visibleToUserIds?.includes(user?.id ?? -1)
                 ).map((item) =>
                   renderItem({
-                    label: t(item.labelKey, item.labelFallback),
+                    label: item.path === "/admin/vip" ? vipLabels.admin : t(item.labelKey, item.labelFallback),
                     path: item.path,
                     icon: item.Icon,
                     highlight: item.highlight,
