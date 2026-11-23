@@ -227,6 +227,25 @@ async function main(){
   const receiptId=receiptList.body.receipts[0].id;
   assert.equal((await api(stranger,"/api/vip/units/"+unit+"/receipts")).status,404);
   assert.equal((await api(stranger,"/api/vip/receipts/"+receiptId+"/download")).status,404);
+
+  // Permission revocation on the MAIN app must take effect without
+  // waiting for an explicit VIP assignment edit. Reusing a seller grant
+  // after staff demotion must not expose customer financial attachments.
+  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,200);
+  assert.equal((await api(staff,"/api/vip/receipts/"+receiptId+"/download")).status,200,
+    "Verified, assigned active sales employee may download their buyer's receipt");
+  await pool.query("UPDATE users SET role='user' WHERE id=$1",[staff]);
+  assert.equal((await api(staff,"/api/vip/seller/units")).status,403,
+    "Former sales employee must lose seller menu access immediately");
+  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,403,
+    "Former sales employee must lose customer file access immediately");
+  assert.equal((await api(staff,"/api/vip/receipts/"+receiptId+"/download")).status,404,
+    "Former sales employee cannot download receipt from a stale VIP grant");
+  await pool.query("UPDATE users SET role='sub_agent' WHERE id=$1",[staff]);
+  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,200,
+    "Restored verified sales account may use its still-active unit assignment");
+
+
   const fileResponse=await fetch(base+"/api/vip/receipts/"+receiptId+"/download",{
     headers:{"x-vip-fixture-user":String(buyer),Origin:base}
   });
