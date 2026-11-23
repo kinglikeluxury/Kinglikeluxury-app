@@ -21,11 +21,12 @@ for the Replit checkout without explicit reconciliation.
 
 The VIP GitHub feature branch and draft PR #65 were based on GitHub `main`.
 Do not merge the PR, retarget Replit, replace the checkout, or run a sync that
-might overwrite its unpushed authentication/WhatsApp/CRM work. First preserve
-the Replit branch on a separately named remote backup using an authorized
-Free-mode workflow (no force pushes or production publish), verify commit
-identities, then rebase/cherry-pick or manually reconcile the VIP changes onto
-an approved integration branch with a reviewed conflict diff and tests.
+might overwrite its unpushed authentication/WhatsApp/CRM work. First preserve a **private, non-published** backup of the Replit work,
+review the entire Git history for confidential release assets and credentials,
+and only then decide whether any branch can safely be published to a remote.
+Never push the entire existing checkout to a public repository as a routine
+backup. Verify commit identities, then cherry-pick or manually reconcile VIP
+changes onto an approved integration branch with a reviewed diff and tests.
 **No Replit branch push was executed during this review.**
 
 ## One application, one existing login, additive VIP tables
