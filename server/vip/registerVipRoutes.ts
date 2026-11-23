@@ -42,7 +42,7 @@ export function registerVipRoutes(app: Express): void {
     }
     try {
       const { rows } = await pool.query(
-        "SELECT id, is_admin FROM users WHERE id = $1 AND is_active = TRUE LIMIT 1",
+        "SELECT id, is_admin FROM users WHERE id = $1 AND is_active = TRUE AND is_verified = TRUE LIMIT 1",
         [userId],
       );
       if (rows.length !== 1) return res.status(403).json({ error: "Account not authorized" });
