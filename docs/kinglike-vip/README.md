@@ -221,6 +221,11 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - CI builds both normal application and this isolated preview variant. No preview host or domain is running yet.
 - Before making preview live: review staged resources and possible charges, provision a clean database with synthetic test users, configure credentials and secure gateway, choose correct Railway QA build/start commands, run smoke tests including real Browser, GCS and camera. No real customer data should be imported.
 
+## Isolated preview HTTP acceptance (additional QA, no live deployment)
+- A localhost-only test now launches the **same standalone QA entrypoint** that would run on a dedicated Railway service. It exercises the gateway password, actual bcrypt-backed QA login, signed application sessions, owner/admin unit isolation, cross-site write refusal, disabled public registration and real React HTML served from the dedicated QA build.
+- The test config is ephemeral and synthetic. CI does not provision or deploy any Railway service, import real customer records or configure real credentials.
+- This test must pass before the separate QA project's staged PostgreSQL resources can be reviewed for activation.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).

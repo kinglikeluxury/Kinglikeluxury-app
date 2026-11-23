@@ -24,7 +24,8 @@ async function run(){
     await client.query(
       "CREATE TABLE users ("+
       "id SERIAL PRIMARY KEY,username TEXT NOT NULL UNIQUE,password TEXT,"+
-      "email TEXT UNIQUE,role TEXT NOT NULL DEFAULT 'user',"+
+      "email TEXT UNIQUE,phone_number TEXT UNIQUE,whatsapp_number TEXT UNIQUE,"+
+      "facebook_id TEXT UNIQUE,role TEXT NOT NULL DEFAULT 'user',"+
       "auth_method TEXT NOT NULL DEFAULT 'email',"+
       "is_verified BOOLEAN NOT NULL DEFAULT FALSE,"+
       "is_admin BOOLEAN NOT NULL DEFAULT FALSE,"+

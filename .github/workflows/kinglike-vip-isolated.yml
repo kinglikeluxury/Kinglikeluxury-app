@@ -66,3 +66,17 @@ jobs:
         run: npm run build
       - name: Build isolated QA preview entrypoint (no deployment)
         run: npm run vip:qa:build
+      - name: VIP QA protected preview + real bcrypt login HTTP test (isolated localhost)
+        env:
+          NODE_ENV: test
+          VIP_QA_LOCAL_TEST: "true"
+          VIP_TEST_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
+          KINGLIKE_VIP_QA_DATABASE_URL: postgresql://vip:vip-test-only@127.0.0.1:5432/vipdb
+          KINGLIKE_VIP_QA_PREVIEW: "true"
+          KINGLIKE_VIP_ENABLED: "true"
+          KINGLIKE_VIP_QA_GATE_USER: qaoperator
+          KINGLIKE_VIP_QA_GATE_PASSWORD: local-only-test-gateway-password-not-for-deployment
+          KINGLIKE_VIP_QA_SESSION_SECRET: local-only-session-test-secret-abcdefghijklmnopqrstuvwxyz-0123456789
+        run: |
+          node server/vip/tests/buildHttp.mjs
+          node .vip-qa-preview-http-test.mjs
