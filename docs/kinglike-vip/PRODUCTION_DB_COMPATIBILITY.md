@@ -27,8 +27,14 @@
 2. Snapshot the pre-existing tables' **columns, indexes and constraints**,
    and insert synthetic existing user and CRM rows.
 3. Apply `001_vip_foundation.sql` and repeat it once.
-4. Verify both original table definitions and fixture rows are unchanged;
-   confirm that every additional table has the `vip_` prefix.
+4. Verify original table **columns, indexes, constraints and fixture rows**
+   are unchanged; confirm every additional table has the `vip_` prefix.
+   PostgreSQL necessarily attaches *internal referential-integrity triggers*
+   to the existing `users` table when new `vip_*` tables reference its
+   primary key. Assert there are **no new custom business triggers** on
+   existing application tables and **no new triggers at all** on `crm_leads`.
+   These internal FK checks also have a potential (normally small) write cost
+   when modifying or deleting referenced user IDs; assess before production DDL.
 5. Continue tests of ownership, seller revocation, receipt verification,
    multi-currency accounting and all other tested VIP schema restrictions.
 
