@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useVipNavigation } from "@/features/vip/useVipNavigation";
+import { getVipCopy } from "@/features/vip/vipCopy";
 
 const Navbar = () => {
   const [location, navigate] = useLocation();
@@ -28,7 +29,8 @@ const Navbar = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [adminSearchId, setAdminSearchId] = useState("");
   const { favorites, removeFromFavorites } = useFavorites();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const vipLabels = getVipCopy(i18n.language);
 
   const handleLogout = async () => {
     await logout();
@@ -215,14 +217,14 @@ const Navbar = () => {
                           {vipNav.showOwner && (
                             <DropdownMenuItem asChild>
                               <Link href="/vip" className="flex items-center gap-2">
-                                <Crown className="h-4 w-4 text-[#3bcac4]" />{t("vip.myInvestments", "My VIP Investments")}
+                                <Crown className="h-4 w-4 text-[#3bcac4]" />{vipLabels.myInvestments}
                               </Link>
                             </DropdownMenuItem>
                           )}
                           {vipNav.showSeller && (
                             <DropdownMenuItem asChild>
                               <Link href="/vip/sales" className="flex items-center gap-2">
-                                <Crown className="h-4 w-4 text-[#005476]" />{t("vip.myClients", "My VIP Clients")}
+                                <Crown className="h-4 w-4 text-[#005476]" />{vipLabels.myClients}
                               </Link>
                             </DropdownMenuItem>
                           )}
@@ -281,7 +283,7 @@ const Navbar = () => {
                                   className={`w-3.5 h-3.5${item.iconColorClass ? ` ${item.iconColorClass}` : ""}`}
                                   style={item.iconColorHex ? { color: item.iconColorHex } : undefined}
                                 />
-                                {t(item.labelKey, item.labelFallback)}
+                                {item.path === "/admin/vip" ? vipLabels.admin : t(item.labelKey, item.labelFallback)}
                               </Link>
                             </DropdownMenuItem>
                           ))}
