@@ -19,7 +19,7 @@ const unavailable=(res:Response)=>res.status(503).json({error:"VIP seller access
 // downgrading the employee in the main application must immediately revoke
 // their ability to view any VIP customer file, even if a stale assignment
 // remains for audit purposes.
-const requireActiveSeller:RequestHandler=async (_req,res,next)=>{
+const requireActiveSeller:RequestHandler=async (req,res,next)=>{
   try{
     const r=await pool.query(
       "SELECT is_active,is_verified,is_admin,role,email FROM users WHERE id=$1 LIMIT 1",
