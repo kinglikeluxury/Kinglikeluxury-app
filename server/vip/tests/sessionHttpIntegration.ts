@@ -79,7 +79,9 @@ async function main(){
   });
   assert.equal(r.status,200);
   const cookie=r.headers.get("set-cookie")?.split(";")[0];
-  assert(cookie?.startsWith("connect.sid="),"Real signed session cookie must be issued");
+  if(!cookie||!cookie.startsWith("connect.sid=")){
+    throw Error("Real signed session cookie was not issued");
+  }
   return cookie;
  }
 
