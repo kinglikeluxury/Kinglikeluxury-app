@@ -34,7 +34,10 @@ type SessionWithSignupState = {
   whatsappCoexistenceStartCsrf?: StartCsrfState;
 };
 
-const STATE_TTL_MS = 5 * 60_000;
+// The Meta Business App QR and verification flow may take more than five minutes.
+// Keep one-time, session-bound CSRF/state protection; allow up to 25 minutes.
+export const COEXISTENCE_SIGNUP_TTL_MS = 25 * 60_000;
+const STATE_TTL_MS = COEXISTENCE_SIGNUP_TTL_MS;
 const START_WINDOW_MS = 15 * 60_000;
 const MAX_STARTS_PER_EMPLOYEE = 5;
 const START_PATH = "/api/employee/whatsapp-coexistence/oauth/start";
