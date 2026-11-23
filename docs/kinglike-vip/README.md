@@ -201,6 +201,14 @@ This is the first **code-backed foundation** for VIP, not a production-ready por
 - All tests run against localhost-only `vipdb`, with a test-only DB module mapping. Live CRM, Railway, Replit, email and WhatsApp are never contacted.
 - Still missing before launch: real auth cookies, private GCS IAM, actual RTSP.RUN device testing and an isolated preview host with dedicated credentials.
 
+## Stage-2 genuine-session HTTP authorization QA (new, test-only)
+- CI bundles the actual VIP route registry and exercises it through Express with real signed `express-session` cookies and a fixture-only local sign-in handler.
+- A separate disposable PostgreSQL database is used; all DB references are resolved by a test-only local adapter. No Neon, Railway, Replit, public host, CRM, email or external storage credentials are available to the test.
+- Coverage: feature flag kill switch; unauthenticated and forged-cookie rejection; active administrator access; strict buyer-to-unit isolation; scoped financial reads; same-origin CSRF protection; preference isolation between two buyers; immediate administrator deactivation; owner revocation without session renewal.
+- The `/__qa/login` handler exists **only inside the CI test file** and is never registered in the deployed application.
+- This closes a test gap in fixture-only header authentication but is not equivalent to exercising the app's actual production login form, third-party OAuth, or session persistence across live infrastructure.
+- Staging still requires its own isolated secrets, storage IAM, actual login/activation, RTSP.RUN live camera test, PWA test, and independent security review.
+
 ## Next implementation slices (not yet completed)
 1. Validate schema against the exact staging database and create migration review/tests.
 2. Verify secure buyer invitations and activation flows in isolated staging (first code slice now added).
