@@ -242,7 +242,12 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // VIP responses may contain private unit, payment, receipt or client
+      // information. Keep request diagnostics, never log response JSON.
+      const vipSensitiveApi =
+        path === "/api/vip" || path.startsWith("/api/vip/") ||
+        path === "/api/admin/vip" || path.startsWith("/api/admin/vip/");
+      if (capturedJsonResponse && !vipSensitiveApi) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
