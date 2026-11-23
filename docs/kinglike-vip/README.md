@@ -1,5 +1,14 @@
 # KINGLIKE VIP — isolated implementation branch
 
+> **Integration decision — 23 Nov 2026:** VIP will be a gated module within
+> the existing Kinglike Luxury website/app and current login/Neon database.
+> A separately hosted VIP service is **not** the target architecture. The
+> older Railway QA proposal is not an authorization or dependency for launch.
+> See [IN_APP_INTEGRATION.md](./IN_APP_INTEGRATION.md) for the current plan.
+> The feature branch is not yet merged or deployed; migrations require explicit
+> reviewed owner approval.
+
+
 This is the first **code-backed foundation** for VIP, not a production-ready portal.
 
 ## Isolation invariants
