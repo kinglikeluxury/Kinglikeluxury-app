@@ -237,8 +237,8 @@ async function main(){
   await pool.query("UPDATE users SET role='user' WHERE id=$1",[staff]);
   assert.equal((await api(staff,"/api/vip/seller/units")).status,403,
     "Former sales employee must lose seller menu access immediately");
-  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,403,
-    "Former sales employee must lose customer file access immediately");
+  assert.equal((await api(staff,"/api/vip/seller/units/"+unit)).status,404,
+    "Former sales employee must not discover whether that customer file exists");
   assert.equal((await api(staff,"/api/vip/receipts/"+receiptId+"/download")).status,404,
     "Former sales employee cannot download receipt from a stale VIP grant");
   await pool.query("UPDATE users SET role='sub_agent' WHERE id=$1",[staff]);
