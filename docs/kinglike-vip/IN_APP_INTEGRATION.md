@@ -6,6 +6,25 @@ supersedes the *separate Railway VIP hosting recommendation* in the older QA
 runbook. The isolated Railway draft is not a release prerequisite and must not
 be committed merely to continue development. It can remain staged and unused.
 
+## Verified production deployment source (read-only Railway inspection)
+
+On 2026-11-23, Railway project `perpetual-caring`, environment
+`production`, service `kinglikeluxury.app` was confirmed to have Git
+source `kinglikeluxury/Kinglikeluxury-app` on branch **`main`**.
+Its last reported successful deployment was 2026-11-13, and there were
+no staged service changes at inspection. In particular, the Replit
+checkout `release/auth-priority` is **not** the source branch configured
+for this Railway production service.
+
+**Hard stop:** Merging VIP PR #65 or authentication-hardening PR #66 into
+`main` would change the branch used by the live service. It may trigger
+a production deployment, so **do not merge either PR** merely because
+tests pass or a user asks to "continue" without affecting the original
+application. Preserve the currently deployed commit and verify rollback,
+secret/feature-flag state, and the exact scope of every intervening commit
+before an expressly approved production release. No Railway settings,
+deployments, or variables were changed during this review.
+
 ## Additional integration blocker found on 23 November 2026
 
 A **read-only** inspection of the original Replit app `kinglike luxury`
