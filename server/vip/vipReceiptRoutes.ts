@@ -50,7 +50,8 @@ async function hasOwnerAccess(unitId:number, userId:number) {
 async function isFinanceApprover(userId:number):Promise<boolean> {
   const r=await pool.query(
     "SELECT 1 FROM vip_finance_permissions v JOIN users u ON u.id=v.user_id " +
-    "WHERE v.user_id=$1 AND v.can_approve=TRUE AND u.is_active=TRUE AND u.is_verified=TRUE LIMIT 1",
+    "WHERE v.user_id=$1 AND v.can_approve=TRUE AND u.is_active=TRUE AND u.is_verified=TRUE " +
+    "AND (u.is_admin=TRUE OR u.role IN ('crm_employee','finance')) LIMIT 1",
     [userId]
   );
   return r.rowCount===1;
