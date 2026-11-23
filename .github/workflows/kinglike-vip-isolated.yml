@@ -44,7 +44,7 @@ jobs:
         run: |
           npm run check > vip-typecheck.log 2>&1 || true
           echo "Project-wide TypeScript diagnostics: $(grep -c 'error TS' vip-typecheck.log || true)"
-          if grep -E '^(server/vip/|client/src/features/vip/|client/src/App.tsx|server/index.ts).*error TS' vip-typecheck.log; then
+          if grep -E '^(server/vip/|client/src/features/vip/|client/src/App.tsx|client/src/components/layout/(Navbar|MobileDrawer)\.tsx|client/src/lib/(auth|adminNavItems)\.ts|server/index.ts).*error TS' vip-typecheck.log; then
             echo "VIP-related type errors detected"
             exit 1
           fi
