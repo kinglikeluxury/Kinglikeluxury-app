@@ -50,6 +50,16 @@ async function run(){
         "ORDER BY tablename,c.conname"
       )).rows
     });
+    const originalTableTriggers=async()=>(
+      await client.query(
+        "SELECT c.relname AS table_name,t.tgname AS trigger_name,t.tgisinternal AS is_internal,"+
+        "pg_get_triggerdef(t.oid) AS definition "+
+        "FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid "+
+        "WHERE t.tgrelid IN ('users'::regclass,'crm_leads'::regclass) "+
+        "ORDER BY table_name,trigger_name"
+      )
+    ).rows;
+    const beforeTriggers=await originalTableTriggers();
     const baseline=await existingSchema();
     assert(baseline.columns.some(r=>r.table_name==='users'&&r.column_name==='is_verified'));
     assert(baseline.columns.some(r=>r.table_name==='users'&&r.column_name==='is_active'));
@@ -61,6 +71,18 @@ async function run(){
     await client.query(sql);
     assert.deepEqual(await existingSchema(),baseline,
       "VIP migration unexpectedly changed existing app tables, indexes or constraints");
+    const afterTriggers=await originalTableTriggers();
+    const originalTriggerKeys=new Set(beforeTriggers.map(r=>r.table_name+":"+r.trigger_name));
+    const addedTriggers=afterTriggers.filter(r=>
+      !originalTriggerKeys.has(r.table_name+":"+r.trigger_name));
+    // PostgreSQL adds standard *internal* RI triggers to the referenced
+    // users table when new VIP tables declare FKs. This is expected metadata
+    // and should not be confused with a new CRM/application business trigger.
+    assert(addedTriggers.every(r=>r.table_name==="users"&&r.is_internal===true),
+      "VIP migration must not attach custom triggers to existing app or CRM tables");
+    assert.deepEqual(afterTriggers.filter(r=>r.table_name==="crm_leads"),
+      beforeTriggers.filter(r=>r.table_name==="crm_leads"),
+      "VIP migration must not add CRM triggers");
     const preservedUser=await client.query(
       "SELECT id,username,email,is_active,is_verified FROM users WHERE id=$1",[legacyUser]);
     assert.deepEqual(preservedUser.rows,[{id:legacyUser,username:'existing_app_user',
