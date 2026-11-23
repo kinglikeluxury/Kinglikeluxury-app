@@ -11,11 +11,12 @@
   Read-only Git identity check on 2026-11-23 established current local
   **HEAD = `80ba567bbba36809af048259ce468c813366d379`** and tracked
   **`origin/main` = `b71f3755cfb9917c288562cbcc4ff137e454d6b5`**.
-  Working tree is clean; upstream is `origin/main`. Replit reported that
-  no local backup branch currently points to this exact HEAD. Its existing
-  older `backup/*` branches must NOT be mistaken for an up-to-date backup.
-  Preserve this exact source state in a private, local, non-deploying
-  reference *before* attempting an integration worktree or any sync.
+  Working tree is clean; upstream is `origin/main`. **Update, verified later
+  on 2026-11-23:** a local matching backup was created as
+  `backup/release-auth-priority-80ba567-20261123`, still pointing to the same
+  SHA; the original remains unchanged. The separate local worktree
+  `feature/kinglike-vip-merge` was subsequently created from this commit.
+  This is a local Git reference, **not** a geographically independent backup.
 - Draft GitHub PR #65 is based on `main`, not on that Replit checkout.
   It was **not merged** and must not be pushed or rebased over the original
   Replit working tree without preservation of existing work.
@@ -78,12 +79,31 @@ The eight shared-file integration hotspots are:
 9. Do not start another VIP Railway service or database; the intended
    architecture is the current app + current Neon project.
 
-## Current release blocker
+## Current integration state and release blockers (revised 2026-11-24)
 
-No tool used in this review can automatically and safely reconcile the
-unpublished Replit branch with GitHub VIP code without a verified private
-backup and source-history audit. Draft PR #65 stays open and unmerged.
-Tests of the GitHub VIP branch confirm its isolated behavior, not its safe
-merge against the 134 unpublished Replit commits.
+The local Replit worktree `feature/kinglike-vip-merge` now contains the 126
+new VIP files, and minimum-diff integrations for server routing, protected
+client routes, desktop/mobile/admin navigation, client-side auth cache
+clearing and service worker exclusions. The original Replit checkout was
+rechecked clean and unchanged. The two VIP SQL migration files were staged
+locally in the worktree but **never executed against production**.
+
+Replit reported the following *isolated* results: client/server build passes;
+43/43 local pure tests pass; four of four disposable PostgreSQL integration
+suites pass; the merged worktree and untouched original each produce exactly
+77 TypeScript diagnostics with zero new and zero resolved. None of these
+results proves a live preview URL or actual external bucket interoperability.
+
+**Outstanding:** the original application's real login handlers need dedicated
+session regeneration and account-status regression tests. An isolated Replit
+hardening task has been launched, but its completion has not been confirmed.
+Neon private storage has not been provisioned/verified in a controlled QA
+branch, and browser/user-device acceptance has not been run. No URL has been
+confirmed for a safe owner-facing VIP preview. No production release has
+occurred; draft PR #65 remains unmerged.
+
+Practical QA release gates and evidence tracking are in
+`docs/kinglike-vip/PRACTICAL_TEST_READINESS.md`. It is NOT a mandate to
+activate the staged Railway QA patch or add paid resources.
 
 **Do not interpret "no GitHub merge conflicts" as release approval.**
