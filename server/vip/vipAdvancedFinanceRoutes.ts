@@ -15,7 +15,8 @@ const unavailable=(res:Response)=>res.status(503).json({error:"Advanced finance 
 const requireFinance:RequestHandler=async(_req,res,next)=>{
  try{
   const r=await pool.query("SELECT 1 FROM vip_finance_permissions f JOIN users u ON u.id=f.user_id "+
-   "WHERE f.user_id=$1 AND f.can_approve=TRUE AND u.is_active=TRUE AND u.is_verified=TRUE LIMIT 1",
+   "WHERE f.user_id=$1 AND f.can_approve=TRUE AND u.is_active=TRUE AND u.is_verified=TRUE " +
+   "AND (u.is_admin=TRUE OR u.role IN ('crm_employee','finance')) LIMIT 1",
     [res.locals.vipUser.id]);
   if(!r.rowCount)return res.status(403).json({error:"Finance approval permission required"});
   next();
