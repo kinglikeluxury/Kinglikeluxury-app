@@ -125,3 +125,43 @@ test("Meta onboarding TTL accommodates a human QR scan while remaining time-boun
   assert.equal(COEXISTENCE_SIGNUP_TTL_MS, 25 * 60_000);
   assert.ok(COEXISTENCE_SIGNUP_TTL_MS <= 30 * 60_000);
 });
+
+test("archive-specific prerequisites cannot be bypassed by Meta-only verification", async () => {
+  const number = "+995511746491";
+  const key = randomBytes(32);
+  const encrypted = protectApprovedNumber(number, key);
+  let persisted = false;
+  const verify = createVerifiedPreapprovalSignupCompleter({
+    env: { WHATSAPP_STAGING_ONBOARDING_ENCRYPTION_KEY: key.toString("base64") } as NodeJS.ProcessEnv,
+    expectedAppId: "123",
+    graph: {
+      exchangeCode: async () => "synthetic-token",
+      inspectToken: async () => ({
+        valid: true, appId: "123", expiresAt: Math.floor(Date.now() / 1000) + 900,
+        scopes: ["whatsapp_business_management", "whatsapp_business_messaging"],
+      }),
+      listBusinessOwnedWabas: async () => ["777"],
+      listWabaPhoneNumberDetails: async () => [{id:"888",displayPhoneNumber:number}],
+      getCoexistencePhoneStatus: async () => ({ isOnBizApp: true, platformType: "CLOUD_API" }),
+    },
+    store: {
+      getApprovedForAttempt: async () => ({
+        id: "11111111-2222-3333-4444-555555555555",
+        employeeId: 7, version: 1, status: "approved",
+        numberFingerprint: encrypted.fingerprint, numberCiphertext: encrypted.ciphertext,
+      }),
+      recordMetaVerified: async () => { persisted = true; return true; },
+    } as any,
+    archiveSignupWriter: {} as any,
+    // Deliberately no getArchiveEligibility: archive flow must fail closed.
+  });
+  await assert.rejects(
+    () => verify({
+      approvalId:"11111111-2222-3333-4444-555555555555",
+      version:1,employeeId:7,code:"synthetic-code-long-enough",
+      claims:{businessId:"666",wabaId:"777",phoneNumberId:"888"},
+    }),
+    /staging_archive_binding_store_unavailable/,
+  );
+  assert.equal(persisted, false);
+});
