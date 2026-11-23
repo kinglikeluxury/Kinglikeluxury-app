@@ -4,6 +4,7 @@ import type {AddressInfo} from "node:net";
 import {strict as assert} from "node:assert";
 import {pool} from "./localDbShim";
 import {registerVipRoutes} from "../registerVipRoutes";
+import {hashInvitationToken,newInvitationToken} from "../vipInvitationSecurity";
 
 /**
  * Execute production VIP route registration + real express-session cookies
@@ -69,7 +70,7 @@ async function main(){
      method,headers,redirect:"manual",
      body:body===undefined?undefined:JSON.stringify(body)
    });
-   return {status:r.status,body:await r.json().catch(()=>({}))};
+   return {status:r.status,body:await r.json().catch(()=>({})),setCookie:r.headers.get("set-cookie")};
  }
  async function login(userId:number){
   const r=await fetch(base+"/__qa/login",{
@@ -136,6 +137,92 @@ async function main(){
   assert.equal((await api(c1,"/api/vip/notification-preferences")).body.inAppDueReminders,false);
   assert.equal((await api(c2,"/api/vip/notification-preferences")).body.inAppDueReminders,true,
     "Another buyer's preference cannot be modified by buyer1");
+
+  // Real invitation HTTP lifecycle in disposable Postgres. Invitations here
+  // are marked "sent" directly as synthetic fixtures; no email is dispatched.
+  const extraUnit=(await pool.query(
+    "INSERT INTO vip_units(project_id,unit_number) VALUES($1,'INVITED-303') RETURNING id",
+    [project])).rows[0].id;
+  const invitationToken=newInvitationToken();
+  await pool.query(
+    "INSERT INTO vip_invitations(unit_id,invited_email,token_hash,invited_by,expires_at,delivery_status) "+
+    "VALUES($1,$2,$3,$4,NOW()+interval '1 hour','sent')",
+    [extraUnit,"vip_session_buyer2@fixture.example.test",hashInvitationToken(invitationToken),administrator]);
+  const previewPath="/api/vip/invitations/preview?token="+invitationToken;
+  const readyPreview=await api(c2,previewPath);
+  assert.equal(readyPreview.status,200);
+  assert.equal(readyPreview.body.invitation.accountExists,true);
+  assert.equal(readyPreview.body.invitation.matchesSignedIn,true);
+
+  await pool.query("UPDATE users SET is_verified=FALSE WHERE id=$1",[buyer2]);
+  const unverifiedPreview=await api(c2,previewPath);
+  assert.equal(unverifiedPreview.status,200);
+  assert.equal(unverifiedPreview.body.invitation.matchesSignedIn,false,
+    "Unverified legacy buyer cannot be shown as ready for VIP activation");
+  assert.equal((await api(c2,"/api/vip/invitations/accept","POST",
+    {token:invitationToken})).status,409,
+    "Invite must not assign a unit to an unverified legacy app account");
+  assert.equal((await pool.query(
+    "SELECT 1 FROM vip_unit_access WHERE unit_id=$1 AND access_role='owner' AND revoked_at IS NULL",
+    [extraUnit])).rowCount,0);
+  await pool.query("UPDATE users SET is_verified=TRUE WHERE id=$1",[buyer2]);
+  assert.equal((await api(c1,"/api/vip/invitations/accept","POST",
+    {token:invitationToken})).status,409,
+    "An otherwise valid logged-in user cannot redeem another email's invitation");
+  assert.equal((await api(c2,"/api/vip/invitations/accept","POST",
+    {token:invitationToken},"https://outside.fixture.test")).status,403,
+    "Cross-origin activation must be rejected");
+  const redeemed=await api(c2,"/api/vip/invitations/accept","POST",{token:invitationToken});
+  assert.equal(redeemed.status,200,JSON.stringify(redeemed.body));
+  assert.equal(redeemed.body.activated,true);
+  assert.equal((await api(c2,"/api/vip/me")).body.units.some(
+    (u:{unit_id:number})=>Number(u.unit_id)===Number(extraUnit)),true);
+  assert.equal((await api(c1,"/api/vip/units/"+extraUnit+"/account")).status,404);
+  assert.equal((await api(c2,"/api/vip/invitations/accept","POST",
+    {token:invitationToken})).status,404,
+    "Invitation tokens must be single-use");
+
+  const expiredUnit=(await pool.query(
+    "INSERT INTO vip_units(project_id,unit_number) VALUES($1,'EXPIRED-404') RETURNING id",
+    [project])).rows[0].id;
+  const expiredToken=newInvitationToken();
+  await pool.query(
+    "INSERT INTO vip_invitations(unit_id,invited_email,token_hash,invited_by,expires_at,delivery_status) "+
+    "VALUES($1,$2,$3,$4,NOW()-interval '1 hour','sent')",
+    [expiredUnit,"expired@fixture.example.test",hashInvitationToken(expiredToken),administrator]);
+  assert.equal((await api(null,"/api/vip/invitations/preview?token="+expiredToken)).status,404);
+  assert.equal((await api(null,"/api/vip/invitations/accept","POST",
+    {token:expiredToken,password:"SafeTestInvite-2026!"})).status,404,
+    "Expired invitation must not create user or owner grant");
+
+  // A fresh invited buyer can activate the existing app's user identity.
+  // The session cookie must be regenerated and bound to that new buyer only.
+  const newUnit=(await pool.query(
+    "INSERT INTO vip_units(project_id,unit_number) VALUES($1,'NEW-505') RETURNING id",
+    [project])).rows[0].id;
+  const newToken=newInvitationToken();
+  const newEmail="new-buyer@fixture.example.test";
+  await pool.query(
+    "INSERT INTO vip_invitations(unit_id,invited_email,token_hash,invited_by,expires_at,delivery_status) "+
+    "VALUES($1,$2,$3,$4,NOW()+interval '1 hour','sent')",
+    [newUnit,newEmail,hashInvitationToken(newToken),administrator]);
+  const created=await api(null,"/api/vip/invitations/accept","POST",
+    {token:newToken,password:"SafeTestInvite-2026!"});
+  assert.equal(created.status,200,JSON.stringify(created.body));
+  const newCookie=created.setCookie?.split(";")[0]||"";
+  assert(newCookie.startsWith("connect.sid="),
+    "New buyer activation must issue a real signed session cookie");
+  const newlyOwned=await api(newCookie,"/api/vip/me");
+  assert.equal(newlyOwned.status,200);
+  assert.deepEqual(newlyOwned.body.units.map(
+    (u:{unit_id:number})=>Number(u.unit_id)),[Number(newUnit)]);
+  assert.equal((await api(newCookie,"/api/vip/units/"+unit1+"/account")).status,404);
+  const newAccount=await pool.query(
+    "SELECT is_verified,is_active,is_admin FROM users WHERE email=$1",[newEmail]);
+  assert.equal(newAccount.rowCount,1);
+  assert.deepEqual(newAccount.rows[0],{is_verified:true,is_active:true,is_admin:false});
+  assert.equal((await api(null,"/api/vip/invitations/accept","POST",
+    {token:newToken,password:"SafeTestInvite-2026!"})).status,404);
 
   // The same signed cookie must fail as soon as the associated account
   // is disabled. Session data cannot override DB-based active checks.
