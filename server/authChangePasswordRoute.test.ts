@@ -1,12 +1,12 @@
 import { strict as assert } from "node:assert";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 import express from "express";
 import bcrypt from "bcrypt";
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { createChangePasswordHandler } from "./authChangePasswordRoute";
 
-async function start(t: Parameters<Parameters<typeof test>[1]>[0], initial: string, userId: number | undefined = 41) {
+async function start(t: TestContext, initial: string, userId: number | undefined = 41) {
   let saved = initial;
   let writes = 0;
   const app = express();
