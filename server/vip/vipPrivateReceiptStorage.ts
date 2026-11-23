@@ -1,6 +1,7 @@
 import { Storage } from "@google-cloud/storage";
 import { randomUUID } from "node:crypto";
 import { type ReceiptMime, MAX_VIP_RECEIPT_BYTES } from "./vipReceiptValidation";
+import {saveNeonPrivateObject,readNeonPrivateObject,removeNeonPrivateObject} from "./vipNeonS3Storage";
 
 /**
  * Dedicated, non-public Google Cloud Storage bucket using the already-installed
@@ -13,6 +14,8 @@ import { type ReceiptMime, MAX_VIP_RECEIPT_BYTES } from "./vipReceiptValidation"
  */
 let storage: Storage | null = null;
 let verifiedBucketName: string | null = null;
+// Never auto-enable Neon storage merely because Neon credentials exist.
+const neonEnabled=()=>process.env.KINGLIKE_VIP_STORAGE_PROVIDER==="neon-s3";
 
 function configuredBucket() {
   const name = process.env.KINGLIKE_VIP_PRIVATE_BUCKET;
@@ -47,8 +50,9 @@ async function checkedBucket() {
 
 export async function savePrivateReceipt(data: Buffer, mime: ReceiptMime, extension: string) {
   if (!data.length || data.length > MAX_VIP_RECEIPT_BYTES) throw new Error("Invalid receipt size");
-  const bucket = await checkedBucket();
   const key = "kinglike-vip/receipts/" + randomUUID() + "." + extension;
+  if(neonEnabled())return saveNeonPrivateObject(key,data,mime);
+  const bucket = await checkedBucket();
   await bucket.file(key).save(data, {
     resumable: false,
     contentType: mime,
@@ -62,6 +66,7 @@ export async function readPrivateReceipt(key: string): Promise<Buffer> {
   if (!/^kinglike-vip\/receipts\/[0-9a-f-]{36}\.(pdf|jpg|png)$/.test(key)) {
     throw new Error("Invalid receipt key");
   }
+  if(neonEnabled())return readNeonPrivateObject(key,MAX_VIP_RECEIPT_BYTES);
   const bucket = await checkedBucket();
   const [meta] = await bucket.file(key).getMetadata();
   const size = Number(meta.size);
@@ -75,6 +80,7 @@ export async function readPrivateReceipt(key: string): Promise<Buffer> {
 
 export async function removePrivateReceipt(key: string) {
   if (!/^kinglike-vip\/receipts\/[0-9a-f-]{36}\.(pdf|jpg|png)$/.test(key)) return;
+  if(neonEnabled())return removeNeonPrivateObject(key);
   const bucket = await checkedBucket();
   await bucket.file(key).delete({ignoreNotFound:true});
 }
@@ -85,9 +91,10 @@ export async function savePrivateProjectPhoto(projectId:number,data:Buffer,kind:
   if(!Number.isSafeInteger(projectId)||projectId<1||data.length<8||data.length>8*1024*1024) {
     throw new Error("Invalid private project photo");
   }
-  const bucket=await checkedBucket();
   const ext=kind==="image/jpeg"?"jpg":"png";
   const key="kinglike-vip/project-photos/"+projectId+"/"+randomUUID()+"."+ext;
+  if(neonEnabled())return saveNeonPrivateObject(key,data,kind);
+  const bucket=await checkedBucket();
   await bucket.file(key).save(data,{
     resumable:false,contentType:kind,
     metadata:{cacheControl:"private, no-store"},
@@ -100,6 +107,7 @@ export async function readPrivateProjectPhoto(key:string):Promise<Buffer> {
   if(!/^kinglike-vip\/project-photos\/[1-9]\d*\/[0-9a-f-]{36}\.(jpg|png)$/.test(key)) {
     throw new Error("Invalid photo key");
   }
+  if(neonEnabled())return readNeonPrivateObject(key,8*1024*1024);
   const bucket=await checkedBucket();
   const [meta]=await bucket.file(key).getMetadata();
   const size=Number(meta.size);
@@ -111,6 +119,7 @@ export async function readPrivateProjectPhoto(key:string):Promise<Buffer> {
 
 export async function removePrivateProjectPhoto(key:string):Promise<void> {
   if(!/^kinglike-vip\/project-photos\/[1-9]\d*\/[0-9a-f-]{36}\.(jpg|png)$/.test(key))return;
+  if(neonEnabled())return removeNeonPrivateObject(key);
   const bucket=await checkedBucket();
   await bucket.file(key).delete({ignoreNotFound:true});
 }
@@ -120,8 +129,9 @@ export async function savePrivateOfficialStatement(data:Buffer):Promise<string>{
   if(!Buffer.isBuffer(data)||data.length<10||data.length>10*1024*1024){
     throw Error("Invalid official statement");
   }
-  const bucket=await checkedBucket();
   const key="kinglike-vip/official-statements/"+randomUUID()+".pdf";
+  if(neonEnabled())return saveNeonPrivateObject(key,data,"application/pdf");
+  const bucket=await checkedBucket();
   await bucket.file(key).save(data,{
     resumable:false,contentType:"application/pdf",
     metadata:{cacheControl:"private, no-store"},
@@ -131,6 +141,7 @@ export async function savePrivateOfficialStatement(data:Buffer):Promise<string>{
 }
 export async function readPrivateOfficialStatement(key:string):Promise<Buffer>{
   if(!/^kinglike-vip\/official-statements\/[0-9a-f-]{36}\.pdf$/.test(key))throw Error("Invalid statement path");
+  if(neonEnabled())return readNeonPrivateObject(key,10*1024*1024);
   const bucket=await checkedBucket();
   const [meta]=await bucket.file(key).getMetadata();
   const size=Number(meta.size);
@@ -141,6 +152,7 @@ export async function readPrivateOfficialStatement(key:string):Promise<Buffer>{
 }
 export async function removePrivateOfficialStatement(key:string):Promise<void>{
   if(!/^kinglike-vip\/official-statements\/[0-9a-f-]{36}\.pdf$/.test(key))return;
+  if(neonEnabled())return removeNeonPrivateObject(key);
   const bucket=await checkedBucket();
   await bucket.file(key).delete({ignoreNotFound:true});
 }
