@@ -4,6 +4,7 @@ import test from "node:test";
 import { createWhatsappCoexistenceMetaGraphClient } from "./whatsappCoexistenceMetaGraph";
 import { createVerifiedPreapprovalSignupCompleter } from "./whatsappCoexistencePreapprovalFlow";
 import { protectApprovedNumber } from "./stagingAuth/whatsappPreapproval";
+import { COEXISTENCE_SIGNUP_TTL_MS } from "./whatsappCoexistenceOAuthRoutes";
 
 function fixtureGraphResponse(body: unknown, status = 200): typeof fetch {
   return (async (_url: URL | RequestInfo, opts?: RequestInit) => {
@@ -117,4 +118,10 @@ test("Meta completion: a verified Business App + Cloud API phone can pass the Co
   });
   assert.equal(status, "verified");
   assert.equal(wroteMetaVerification, true);
+});
+
+
+test("Meta onboarding TTL accommodates a human QR scan while remaining time-bounded", () => {
+  assert.equal(COEXISTENCE_SIGNUP_TTL_MS, 25 * 60_000);
+  assert.ok(COEXISTENCE_SIGNUP_TTL_MS <= 30 * 60_000);
 });
