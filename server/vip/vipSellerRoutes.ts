@@ -15,6 +15,23 @@ const sameOriginJson:RequestHandler=(req,res,next)=>{
   next();
 };
 const unavailable=(res:Response)=>res.status(503).json({error:"VIP seller access unavailable"});
+// Re-check the employee's CURRENT role on every seller request. Revoking or
+// downgrading the employee in the main application must immediately revoke
+// their ability to view any VIP customer file, even if a stale assignment
+// remains for audit purposes.
+const requireActiveSeller:RequestHandler=async (_req,res,next)=>{
+  try{
+    const r=await pool.query(
+      "SELECT is_active,is_verified,is_admin,role,email FROM users WHERE id=$1 LIMIT 1",
+      [res.locals.vipUser.id]);
+    if(r.rowCount!==1||!validSellerAccount(r.rows[0])){
+      return res.status(403).json({error:"Active sales employee permission required"});
+    }
+    next();
+  }catch{
+    return unavailable(res);
+  }
+};
 
 /**
  * Selling agent is an existing, verified staff account chosen by VIP admin.
@@ -23,7 +40,7 @@ const unavailable=(res:Response)=>res.status(503).json({error:"VIP seller access
  * or entitlement management.
  */
 export function registerVipSellerRoutes(app:Express,enabled:RequestHandler,authenticated:RequestHandler,adminOnly:RequestHandler):void{
-  app.get("/api/vip/seller/units",enabled,authenticated,async(_req:Request,res:Response)=>{
+  app.get("/api/vip/seller/units",enabled,authenticated,requireActiveSeller,async(_req:Request,res:Response)=>{
     try{
       const units=await pool.query(
         "SELECT u.id::text AS unit_id,u.unit_number,u.floor_number,"+
@@ -43,7 +60,7 @@ export function registerVipSellerRoutes(app:Express,enabled:RequestHandler,authe
     }catch{return unavailable(res);}
   });
 
-  app.get("/api/vip/seller/units/:unitId",enabled,authenticated,async(req:Request,res:Response)=>{
+  app.get("/api/vip/seller/units/:unitId",enabled,authenticated,requireActiveSeller,async(req:Request,res:Response)=>{
     const unitId=strictId(req.params.unitId);
     if(!unitId)return res.status(404).json({error:"Unit not found"});
     const sellerId=res.locals.vipUser.id;
