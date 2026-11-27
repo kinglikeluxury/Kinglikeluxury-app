@@ -156,13 +156,15 @@ test("bootstrap configuration failures use safe non-value diagnostics",()=>{
     "configuration_credentials");
 });
 
-test("bootstrap removes only package-build metadata before strict environment validation",()=>{
+test("bootstrap removes build and shell metadata before strict environment validation",()=>{
   const env:Record<string,string|undefined>={
     ...environment(),
     CI:"true",
     NIXPACKS_NODE_VERSION:"20",
     NIXPACKS_INSTALL_CMD:"must-not-be-used-at-runtime",
     npm_config_user_agent:"synthetic-test",
+    BASH_VERSION:"synthetic-test",
+    SHELL:"/bin/bash",
     DATABASE_URL:"postgresql://unapproved.invalid/nope",
   };
   stripQaBootstrapBuildMetadata(env);
@@ -170,6 +172,8 @@ test("bootstrap removes only package-build metadata before strict environment va
   assert.equal(env.NIXPACKS_NODE_VERSION,undefined);
   assert.equal(env.NIXPACKS_INSTALL_CMD,undefined);
   assert.equal(env.npm_config_user_agent,undefined);
+  assert.equal(env.BASH_VERSION,undefined);
+  assert.equal(env.SHELL,undefined);
   assert.ok(env.DATABASE_URL);
   assert.throws(()=>validateRailwayBootstrapEnvironment(env));
 });

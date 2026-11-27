@@ -114,9 +114,14 @@ function configFailure(
 export function stripQaBootstrapBuildMetadata(
   env:Record<string,string|undefined>,
 ):void{
+  const shellMetadata=new Set([
+    "BASH_ENV","BASHOPTS","BASH_VERSION","INIT_CWD","LOGNAME",
+    "OLDPWD","SHELL","SHELLOPTS","USER",
+  ]);
   for(const name of Object.keys(env)){
     if(/^npm_config_/i.test(name)||/^NIXPACKS_[A-Z0-9_]+$/.test(name)||
-      name==="CI"||name==="npm_execpath"||name==="npm_node_execpath"){
+      name==="CI"||name==="npm_execpath"||name==="npm_node_execpath"||
+      shellMetadata.has(name)){
       delete env[name];
     }
   }
