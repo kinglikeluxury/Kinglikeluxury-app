@@ -27,10 +27,10 @@ const environment=()=>({
   KINGLIKE_VIP_QA_GATE_PASSWORD:"synthetic-only-gateway-password-long",
   KINGLIKE_VIP_QA_SESSION_SECRET:"s".repeat(64),
   KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD:"Synthetic-Migrator-QA-2026!",
-  KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD:"Synthetic-Admin-QA-2026!",
-  KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD:"Synthetic-Buyer-QA-2026!",
-  KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD:"Synthetic-Seller-QA-2026!",
-  KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD:"Synthetic-Finance-QA-2026!",
+   KINGLIKE_VIP_QA_LOGIN_ADMIN_PASSWORD:"Synthetic-Admin-QA-2026!",
+   KINGLIKE_VIP_QA_LOGIN_BUYER_PASSWORD:"Synthetic-Buyer-QA-2026!",
+   KINGLIKE_VIP_QA_LOGIN_SELLER_PASSWORD:"Synthetic-Seller-QA-2026!",
+   KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD:"Synthetic-Finance-QA-2026!",
 });
 
 test("Railway bootstrap accepts only private synthetic service identities",()=>{
@@ -46,6 +46,18 @@ test("Railpack installs the locked development toolchain needed for the isolated
   }));
   assert.throws(()=>validateRailwayBootstrapEnvironment({
     ...environment(),RAILPACK_INSTALL_CMD:"npm install",
+  }));
+});
+
+test("unused legacy seed variables must be empty while owner login credentials remain separate",()=>{
+  assert.doesNotThrow(()=>validateRailwayBootstrapEnvironment({
+    ...environment(),KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD:"",
+    KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD:"",
+    KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD:"",
+    KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD:"",
+  }));
+  assert.throws(()=>validateRailwayBootstrapEnvironment({
+    ...environment(),KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD:"stale-seed-secret",
   }));
 });
 
@@ -75,8 +87,8 @@ test("Railway bootstrap rejects malformed roles and non-unique synthetic credent
       "postgresql://postgres:synthetic-only@vip-pg.railway.internal:5432/vipqa_demo",
   }));
   assert.throws(()=>validateRailwayBootstrapEnvironment({
-    ...env,KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD:
-      env.KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD,
+    ...env,KINGLIKE_VIP_QA_LOGIN_SELLER_PASSWORD:
+      env.KINGLIKE_VIP_QA_LOGIN_BUYER_PASSWORD,
   }));
   assert.throws(()=>validateRailwayBootstrapEnvironment({
     ...env,KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED:"false",

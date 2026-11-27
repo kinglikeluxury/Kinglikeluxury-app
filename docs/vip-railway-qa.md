@@ -117,44 +117,41 @@ a reference to the omitted Kay notice asset, so that non-VIP notice will not
 play in QA; its source content was not opened. Do not use the Kay screen as an
 acceptance surface for this preview.
 
-## Still required before an owner preview
+## Deployment gates
 
-The deployment has not been activated or runtime-tested. Before activation:
+Railway source, build, runtime, pre-deploy, network and variable changes are
+staged in the isolated `vip-qa` environment only; no service has been deployed
+and no database has been initialized. Before first deployment:
 
-1. Confirm the existing QA service is separate from the live service and follows
-   only `feature/kinglike-vip-qa-clean`; never connect the live service or
+1. Review the staged patch to confirm the web service follows only
+   `feature/kinglike-vip-qa-clean` in `vip-qa`, with one replica in the same
+   region as the separate Postgres service. Do not connect the live service or
    production environment to this branch.
-2. Confirm current Railway quotas/pricing for the separate service, runtime,
-   and PostgreSQL bytes. No cost estimate is asserted here.
-3. Configure the isolated PostgreSQL service and approved setup variables below.
-   The pre-deploy initializer creates the target database and roles only when
-   the database and roles are absent. Review names and generated credentials
-   without exposing their values.
-4. Configure only the runtime variable names listed above using the existing QA
-   service's secret/settings flow; keep all mail, WhatsApp, CRM, push, and
+2. The pre-deploy initializer creates the target database and roles only when
+   the database and roles are absent. It refuses partially created state.
+   Setup-only admin and migrator values must be cleared after it succeeds.
+3. The runtime variables are staged; keep all mail, WhatsApp, CRM, push, and
    external-storage credentials absent. The launcher sets its QA runtime/start
-   markers itself. Do not change the live service or its start command.
-5. After pre-deploy succeeds, run authenticated HTTP and browser acceptance on
+   markers itself and drops bootstrap/login secrets before importing the app.
+4. After pre-deploy succeeds, run authenticated HTTP and browser acceptance on
    the isolated QA service:
    health minimality, Basic Auth on every other path, all account roles,
    receipt review/download, upload-not-paid, session switching, private-file
    persistence after sleep/restart, and outbound-denial logs.
-6. Remove the pre-deploy command and clear its setup-only admin URL and
-   migration password, then redeploy and verify the app still starts. Keep the
-   synthetic account passwords only in the secure variable store until testing
-   is complete.
-7. Confirm the documented Kay-audio limitation is acceptable. The
+5. Remove the pre-deploy command and clear its setup-only admin URL, execution
+   approvals, migration password, and legacy seed-password variables; then
+   redeploy and verify the app still starts. Keep only the `KINGLIKE_VIP_QA_LOGIN_*`
+   credentials in the secure variable store until testing is complete.
+6. Confirm the documented Kay-audio limitation is acceptable. The
    application-level network guard is not OS-level egress isolation.
 
-### Owner-only provisioner inputs
+### One-shot bootstrap inputs
 
-The separate setup command requires names only here; values must not be stored
-in this document. For Railway mode it accepts only an exact `*.railway.internal`
-host, port 5432, a matching private IPv4 address, a `vipqa_` database, distinct
-`vipqa_` migrator/runtime roles, and an owner-reviewed environment UUID. It
-requires an explicit provision approval flag and four unique strong synthetic
-account passwords. Local test mode is restricted to a `/tmp/kinglike-vip-pg-*`
-cluster with a verified loopback process.
+The Railway pre-deploy initializer requires names only here; values must not
+be stored in this document. It accepts only a `*.railway.internal` host on port
+5432, a single private IPv4 address, the synthetic `vipqa_demo` database,
+distinct `vipqa_migrator`/`vipqa_runtime` roles, the reviewed environment UUID,
+an explicit approval pair, and unique strong synthetic account passwords.
 
 Railpack needs the locked development toolchain during the QA build. The
 `RAILPACK_INSTALL_CMD` setting is fixed to `npm ci --include=dev`; the QA build
@@ -165,13 +162,19 @@ before starting the application.
   `KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED`,
   `KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL`,
   `KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD`,
-- `KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD`,
-  `KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD`,
-  `KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD`,
-  `KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD`.
+- `KINGLIKE_VIP_QA_LOGIN_ADMIN_PASSWORD`,
+  `KINGLIKE_VIP_QA_LOGIN_BUYER_PASSWORD`,
+  `KINGLIKE_VIP_QA_LOGIN_SELLER_PASSWORD`,
+  `KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD`.
+
+`KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD`, `_BUYER_PASSWORD`,
+`_SELLER_PASSWORD`, and `_FINANCE_PASSWORD` must be empty. The bootstrap copies
+the persistent `KINGLIKE_VIP_QA_LOGIN_*_PASSWORD` values into the synthetic
+account hashes. The generated launcher removes all four login password
+variables before the app server starts.
 
 Rollback must affect only the isolated QA service: stop it, restore its prior
 QA branch/build snapshot, then remove QA-only settings and the synthetic
 database only after the owner confirms they are no longer needed. Never use
-this rollback procedure on the live service. No service, database, or setting
-was changed during this code-preparation turn.
+this rollback procedure on the live service. No service has been deployed and
+no database has been initialized; only the isolated QA patch is staged.

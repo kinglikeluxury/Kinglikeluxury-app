@@ -18,6 +18,10 @@ const allowedNames=new Set([
   "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",
   "KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD",
   "KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD",
+  "KINGLIKE_VIP_QA_LOGIN_ADMIN_PASSWORD",
+  "KINGLIKE_VIP_QA_LOGIN_BUYER_PASSWORD",
+  "KINGLIKE_VIP_QA_LOGIN_SELLER_PASSWORD",
+  "KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD",
 ]);
 
 export type RailwayBootstrapConfig=Readonly<{
@@ -66,6 +70,11 @@ export function validateRailwayBootstrapEnvironment(
   }
   if(env.NODE_ENV!=="production"||
     (env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!=="npm ci --include=dev")||
+    ["KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
+      "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",
+      "KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD",
+      "KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD",
+    ].some(name=>env[name]!==undefined&&env[name]!=="")||
     env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE!=="true"||
     env.KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED!=="true"||
     env.KINGLIKE_VIP_QA_PREVIEW!=="true"||
@@ -87,10 +96,10 @@ export function validateRailwayBootstrapEnvironment(
   const sessionSecret=required(env,"KINGLIKE_VIP_QA_SESSION_SECRET");
   const migratorPassword=required(env,"KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD");
   const accountPasswords={
-    admin:required(env,"KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD"),
-    buyer:required(env,"KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD"),
-    seller:required(env,"KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD"),
-    finance:required(env,"KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD"),
+    admin:required(env,"KINGLIKE_VIP_QA_LOGIN_ADMIN_PASSWORD"),
+    buyer:required(env,"KINGLIKE_VIP_QA_LOGIN_BUYER_PASSWORD"),
+    seller:required(env,"KINGLIKE_VIP_QA_LOGIN_SELLER_PASSWORD"),
+    finance:required(env,"KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD"),
   };
 
   let admin:URL,runtime:URL;
