@@ -1,8 +1,12 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npx playwright install-deps chromium && npx playwright install chromium && npm run build"
+buildCommand = "npm ci --include=dev && npm run vip:qa:build"
 
 [deploy]
-startCommand = "npm run start"
+preDeployCommand = ["node .local/qa-vip-railway-build/qaRailwayBootstrap.mjs"]
+startCommand = "npm run vip:qa:start"
+healthcheckPath = "/health"
+healthcheckTimeout = 180
+sleepApplication = true
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 2

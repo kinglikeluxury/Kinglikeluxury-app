@@ -119,30 +119,35 @@ acceptance surface for this preview.
 
 ## Deployment gates
 
-Railway source, build, runtime, pre-deploy, network and variable changes are
-staged in the isolated `vip-qa` environment only; no service has been deployed
-and no database has been initialized. Before first deployment:
+The isolated PostgreSQL service is live, but the two web deployment attempts
+failed before the pre-deploy initializer or app server ran. The database
+service contains only its new empty default database; no synthetic VIP schema
+has been initialized. The failed build followed the repository's default
+Railway file rather than the staged service build override.
 
-1. Review the staged patch to confirm the web service follows only
+1. The dedicated `feature/kinglike-vip-qa-clean` branch changes its own
+   `railway.toml` to use the QA build and start commands. The original branch
+   and its Railway file are untouched. Never merge this QA-only config.
+2. Review the staged patch to confirm the web service follows only
    `feature/kinglike-vip-qa-clean` in `vip-qa`, with one replica in the same
    region as the separate Postgres service. Do not connect the live service or
    production environment to this branch.
-2. The pre-deploy initializer creates the target database and roles only when
+3. The pre-deploy initializer creates the target database and roles only when
    the database and roles are absent. It refuses partially created state.
    Setup-only admin and migrator values must be cleared after it succeeds.
-3. The runtime variables are staged; keep all mail, WhatsApp, CRM, push, and
+4. The runtime variables are staged; keep all mail, WhatsApp, CRM, push, and
    external-storage credentials absent. The launcher sets its QA runtime/start
    markers itself and drops bootstrap/login secrets before importing the app.
-4. After pre-deploy succeeds, run authenticated HTTP and browser acceptance on
+5. After pre-deploy succeeds, run authenticated HTTP and browser acceptance on
    the isolated QA service:
    health minimality, Basic Auth on every other path, all account roles,
    receipt review/download, upload-not-paid, session switching, private-file
    persistence after sleep/restart, and outbound-denial logs.
-5. Remove the pre-deploy command and clear its setup-only admin URL, execution
+6. Remove the pre-deploy command and clear its setup-only admin URL, execution
    approvals, migration password, and legacy seed-password variables; then
    redeploy and verify the app still starts. Keep only the `KINGLIKE_VIP_QA_LOGIN_*`
    credentials in the secure variable store until testing is complete.
-6. Confirm the documented Kay-audio limitation is acceptable. The
+7. Confirm the documented Kay-audio limitation is acceptable. The
    application-level network guard is not OS-level egress isolation.
 
 ### One-shot bootstrap inputs
@@ -153,11 +158,11 @@ be stored in this document. It accepts only a `*.railway.internal` host on port
 distinct `vipqa_migrator`/`vipqa_runtime` roles, the reviewed environment UUID,
 an explicit approval pair, and unique strong synthetic account passwords.
 
-The isolated service uses `server/vip/railway-qa.toml` as its Railway config
-file because the repository-root `railway.toml` selects the full application
-build. The QA-only file installs the locked toolchain and runs only the VIP QA
-build/start commands; the root config remains unchanged. The app launcher
-removes build/bootstrap settings before starting the application.
+In this dedicated branch only, the repository-root `railway.toml` now selects
+the isolated VIP QA build/start/bootstrap commands. Do not merge that config
+into a production branch. It installs the locked toolchain and does not run the
+full app build. The app launcher removes build/bootstrap settings before
+starting the application.
 
 - `KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE`,
   `KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED`,
@@ -177,5 +182,6 @@ variables before the app server starts.
 Rollback must affect only the isolated QA service: stop it, restore its prior
 QA branch/build snapshot, then remove QA-only settings and the synthetic
 database only after the owner confirms they are no longer needed. Never use
-this rollback procedure on the live service. No service has been deployed and
-no database has been initialized; only the isolated QA patch is staged.
+this rollback procedure on the live service. Railway has a new empty QA
+PostgreSQL service and a failed web service without a public domain; no
+production service or database was touched.
