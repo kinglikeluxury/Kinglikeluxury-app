@@ -40,6 +40,9 @@ test("Railway QA accepts only an explicitly pinned private synthetic database",(
   assert.equal(isAllowedRailwayQaDatabaseTarget(parsed.host,parsed.port,parsed),true);
   assert.equal(isAllowedRailwayQaDatabaseTarget("other.railway.internal",5432,parsed),false);
   assert.equal(isAllowedRailwayQaDatabaseTarget(parsed.host,443,parsed),false);
+  assert.equal(assertRailwayQaPreviewEnvironment({
+    ...environment(),KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS:"auto",
+  }).serverAddress,"auto");
   assert.doesNotThrow(()=>assertRailwayQaPreviewEnvironment({
     ...environment(),
     KINGLIKE_VIP_EMAIL_ENABLED:"false",

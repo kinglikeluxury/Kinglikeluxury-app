@@ -1,4 +1,5 @@
 import pg from "pg";
+import dns from "node:dns";
 import {
   validateRailwayQaDatabaseConfig,
   verifySyntheticRailwayQaSnapshot,
@@ -19,6 +20,9 @@ export const pool=new Pool({
 
 export async function assertQaRailwayDatabaseIdentity():Promise<void>{
   try{
+    const resolvedDatabase=await dns.promises.lookup(config.host,{family:4});
+    const expectedAddress=config.serverAddress==="auto"
+      ?resolvedDatabase.address:config.serverAddress;
     const identity=await pool.query<{
       database:string;role:string;database_owner:string;
       server_address:string|null;server_port:number;
@@ -166,8 +170,8 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "WHERE r.review_status='pending') AS pending_receipts_unposted",
     );
     const row=identity.rows[0];
-    if(!row||!row.server_address)throw new Error("identity");
-    verifySyntheticRailwayQaSnapshot(config,{
+     if(!row||!row.server_address||row.server_address!==expectedAddress)throw new Error("identity");
+     verifySyntheticRailwayQaSnapshot({...config,serverAddress:expectedAddress},{
       database:row.database,
       role:row.role,
       databaseOwner:row.database_owner,

@@ -50,23 +50,27 @@ existing isolated QA service, never in this file):
   startup rechecks every table/sequence grant and rejects public views,
   triggers, or functions; schema changes fail closed until the explicit grant
   plan is updated. Runtime startup never runs migrations or grants privileges.
+- `qaRailwayBootstrap.ts` runs only as a Railway pre-deploy initializer. It
+  requires the private Postgres service, a new empty `vipqa_*` database, and an
+  explicit approval flag. It creates separate non-superuser migrator/runtime
+  roles, applies the isolated SQL migrations in order, then calls the owner
+  provisioner. It refuses an existing database or partial role/database state;
+  it never drops or repairs data. Repeat runs only verify the existing marker
+  and grants. The generated app launcher removes bootstrap and migration
+  credentials before importing the server.
 - A one-row `synthetic-only` identity marker in
   `vip_qa_environment_identity`, matching the configured environment UUID.
 
-Initialize only a separately provisioned empty database: apply
-`000_qa_users_only.sql`, `001_vip_foundation.sql`, and `003_qa_sessions.sql`
-as the migration owner; then apply `002_railway_qa_identity.sql` once while
-every table is still empty. Run the separate `qaRailwayProvision.ts` owner
-command only after reviewing the host, address, database, roles, and environment
-UUID. In one transaction it seeds four synthetic accounts (admin, buyer,
+The initializer applies `000_qa_users_only.sql`, `001_vip_foundation.sql`,
+`003_qa_sessions.sql`, and then `002_railway_qa_identity.sql` while the tables
+are empty. The owner provisioner seeds four synthetic accounts (admin, buyer,
 assigned seller, and non-admin finance reviewer), a synthetic project/unit,
-one pending receipt stored as private database bytes, its single-use identity
-marker, and the least-privilege runtime ACL. It refuses any existing row,
-unexpected relation, mismatched database identity, or privileged runtime role.
-The receipt remains pending and creates no payment posting. Migration `002` refuses
-unexpected tables, CRM/Kay tables, or any existing business rows; it is never
-invoked by startup or the local QA migrator. Runtime repeats identity checks
-for account/project/unit/receipt/file identifiers before binding the listener.
+one pending receipt stored as private database bytes, its identity marker, and
+the least-privilege runtime ACL. It refuses unexpected relations, mismatched
+database identity, existing business rows, or privileged runtime roles. The
+receipt remains pending and creates no payment posting. Runtime repeats
+identity checks for account/project/unit/receipt/file identifiers before
+binding the listener.
 The marker is an owner attestation; the runtime does not prove that arbitrary
 free-text fields in every VIP table contain synthetic text.
 
@@ -82,16 +86,18 @@ attempt counters remain process-local even though signed sessions are stored
 in PostgreSQL. Horizontal scaling requires a shared limiter before it is safe.
 
 `qaMigrate.ts` and `qaBootstrapAccount.ts` remain local loopback-only helpers;
-they are not hosted Railway administration tools. The separate provisioner has
-an explicit one-shot approval flag and strict environment allowlist. Its local
-mode was exercised against a newly created loopback cluster only; its Railway
-mode has not been run. Never put its owner URL or seed password variables into
-the runtime service environment.
+they are not hosted Railway administration tools. The Railway initializer uses
+a separate strict environment allowlist. Its migration, seed, grant, and
+refusal behavior were exercised against a fresh loopback-only PostgreSQL
+cluster. The Railway-private setup has not been run. Never leave the bootstrap
+database URL or migration password in the long-running app environment.
 
 ## Network, auth, and files
 
 The Railway-only network guard allows a PostgreSQL socket only to the exact
-expected private Railway hostname, port 5432, and expected private IPv4 result.
+expected private Railway hostname and port 5432. `EXPECTED_DB_ADDRESS=auto`
+pins the first DNS result only if it is exactly one private IPv4 address; the
+database identity check requires the connected server to match that pin.
 It blocks HTTP(S), `fetch`, DNS lookups for other hosts, UDP, child processes,
 and other socket destinations at the application layer. This is not operating
 system network isolation.
@@ -115,26 +121,29 @@ acceptance surface for this preview.
 
 The deployment has not been activated or runtime-tested. Before activation:
 
-1. Confirm the existing QA service is separate from the live service and will
-   use a fresh owner-approved snapshot of `feature/kinglike-vip-merge`; the
-   current worktree is dirty, so do not deploy an ambiguous/stale branch tip.
+1. Confirm the existing QA service is separate from the live service and follows
+   only `feature/kinglike-vip-qa-clean`; never connect the live service or
+   production environment to this branch.
 2. Confirm current Railway quotas/pricing for the separate service, runtime,
    and PostgreSQL bytes. No cost estimate is asserted here.
-  3. Provision a separate empty database (never a production clone), distinct
-     migrator and runtime roles, then apply `000`, `001`, and `003`, followed
-   by `002` while the schema has no rows. Review the target identity and run
-   the owner-only provisioner to seed the marker and synthetic fixtures/grants.
-   It requires the separate `KINGLIKE_VIP_QA_PROVISION_*` variable family listed
-   below; those are one-shot inputs, not persistent runtime settings.
-4. Configure only the variable names listed above using the existing QA
+3. Configure the isolated PostgreSQL service and approved setup variables below.
+   The pre-deploy initializer creates the target database and roles only when
+   the database and roles are absent. Review names and generated credentials
+   without exposing their values.
+4. Configure only the runtime variable names listed above using the existing QA
    service's secret/settings flow; keep all mail, WhatsApp, CRM, push, and
    external-storage credentials absent. The launcher sets its QA runtime/start
    markers itself. Do not change the live service or its start command.
-5. Run authenticated HTTP and browser acceptance on the isolated QA service:
+5. After pre-deploy succeeds, run authenticated HTTP and browser acceptance on
+   the isolated QA service:
    health minimality, Basic Auth on every other path, all account roles,
    receipt review/download, upload-not-paid, session switching, private-file
    persistence after sleep/restart, and outbound-denial logs.
-6. Confirm the documented Kay-audio limitation is acceptable. The
+6. Remove the pre-deploy command and clear its setup-only admin URL and
+   migration password, then redeploy and verify the app still starts. Keep the
+   synthetic account passwords only in the secure variable store until testing
+   is complete.
+7. Confirm the documented Kay-audio limitation is acceptable. The
    application-level network guard is not OS-level egress isolation.
 
 ### Owner-only provisioner inputs
@@ -147,16 +156,10 @@ requires an explicit provision approval flag and four unique strong synthetic
 account passwords. Local test mode is restricted to a `/tmp/kinglike-vip-pg-*`
 cluster with a verified loopback process.
 
-- `KINGLIKE_VIP_QA_PROVISION_EXECUTE`,
-  `KINGLIKE_VIP_QA_PROVISION_MODE`,
-  `KINGLIKE_VIP_QA_PROVISION_APPROVED`.
-- `KINGLIKE_VIP_QA_MIGRATION_DATABASE_URL`,
-  `KINGLIKE_VIP_QA_PROVISION_HOST`,
-  `KINGLIKE_VIP_QA_PROVISION_DATABASE`,
-  `KINGLIKE_VIP_QA_PROVISION_MIGRATOR_ROLE`,
-  `KINGLIKE_VIP_QA_PROVISION_RUNTIME_ROLE`,
-  `KINGLIKE_VIP_QA_PROVISION_ADDRESS`,
-  `KINGLIKE_VIP_QA_PROVISION_ENVIRONMENT_ID`.
+- `KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE`,
+  `KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED`,
+  `KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL`,
+  `KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD`,
 - `KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD`,
   `KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD`,
   `KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD`,

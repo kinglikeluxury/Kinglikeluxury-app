@@ -8,6 +8,11 @@ import tls from "node:tls";
 import childProcess from "node:child_process";
 import workerThreads from "node:worker_threads";
 import cluster from "node:cluster";
+import {isPrivateRailwayIpv4,selectSingleRailwayIpv4} from "./qaRailwayDnsPin.mjs";
+
+if(typeof dns.setDefaultResultOrder==="function"){
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 const blocked=()=>{
   const error=new Error("Outbound traffic is disabled in Railway VIP QA");
@@ -28,31 +33,41 @@ try{
   throw new Error("Railway VIP QA database target is invalid");
 }
 const dbHost=(process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST||"").toLowerCase();
-const expectedAddress=process.env.KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS||"";
+const configuredAddress=process.env.KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS||"";
+let pinnedAddress=configuredAddress==="auto"?null:configuredAddress;
 const dbPort=parsed.port?Number(parsed.port):5432;
 const dbName=decodeURIComponent(parsed.pathname.replace(/^\/+/,""));
 const dbRole=decodeURIComponent(parsed.username);
 if(!["postgres:","postgresql:"].includes(parsed.protocol)||
   parsed.hostname.toLowerCase()!==dbHost||
-  !/^[a-z0-9.-]+\.railway\.internal$/i.test(dbHost)||
-  !net.isIPv4(expectedAddress)||
-  !isPrivateAddress(expectedAddress)||
+   !/^[a-z0-9.-]+\.railway\.internal$/i.test(dbHost)||
+   (configuredAddress!=="auto"&&
+     (!net.isIPv4(configuredAddress)||!isPrivateRailwayIpv4(configuredAddress)))||
   !/^vipqa_[a-z0-9_]{2,32}$/.test(dbName)||
   !/^vipqa_[a-z0-9_]{2,32}$/.test(dbRole)||dbPort!==5432||
   parsed.search||parsed.hash){
   throw new Error("Railway VIP QA database target is outside its private allowlist");
 }
 
-function isPrivateAddress(value){
-  const octets=value.split(".").map(Number);
-  return octets[0]===10||
-    (octets[0]===172&&octets[1]>=16&&octets[1]<=31)||
-    (octets[0]===192&&octets[1]===168)||
-    (octets[0]===100&&octets[1]>=64&&octets[1]<=127);
+function pinAddress(results){
+  let resolved;
+  try{
+    resolved=selectSingleRailwayIpv4(results);
+  }catch{
+    throw blocked();
+  }
+  if(configuredAddress!=="auto"&&resolved!==configuredAddress)throw blocked();
+  if(pinnedAddress&&resolved!==pinnedAddress)throw blocked();
+  pinnedAddress=resolved;
+  return resolved;
 }
 
 export function isAllowedRailwayQaTarget(host,port){
   return typeof host==="string"&&host.toLowerCase()===dbHost&&Number(port)===dbPort;
+}
+
+export function getPinnedRailwayQaDatabaseAddress(){
+  return pinnedAddress;
 }
 
 function targetFrom(args){
@@ -92,13 +107,13 @@ dns.lookup=function(hostname,...args){
   if(typeof callback!=="function")throw blocked();
   const wrapped=(error,address,family)=>{
     if(error)return callback(error,address,family);
-    if(Array.isArray(address)){
-      const allowed=address.filter(item=>item?.address===expectedAddress);
-      if(allowed.length===0)return callback(blocked());
-      return callback(null,allowed,4);
+    try{
+      const resolved=pinAddress(Array.isArray(address)?address:[{address,family}]);
+      if(Array.isArray(address))return callback(null,[{address:resolved,family:4}],4);
+      return callback(null,resolved,4);
+    }catch(error){
+      return callback(error?.code==="EACCES"?error:blocked());
     }
-    if(address!==expectedAddress)return callback(blocked());
-    return callback(null,address,family);
   };
   args[args.length-1]=wrapped;
   return Reflect.apply(originalLookup,dns,[hostname,...args]);
@@ -107,13 +122,13 @@ const originalPromiseLookup=dns.promises.lookup.bind(dns.promises);
 dns.promises.lookup=async(hostname,...args)=>{
   if(typeof hostname!=="string"||hostname.toLowerCase()!==dbHost)throw blocked();
   const result=await originalPromiseLookup(hostname,...args);
-  if(Array.isArray(result)){
-    const allowed=result.filter(item=>item?.address===expectedAddress);
-    if(allowed.length===0)throw blocked();
-    return allowed;
+  try{
+    const resolved=pinAddress(Array.isArray(result)?result:[result]);
+    if(Array.isArray(result))return [{address:resolved,family:4}];
+    return {address:resolved,family:4};
+  }catch{
+    throw blocked();
   }
-  if(result?.address!==expectedAddress)throw blocked();
-  return result;
 };
 for(const method of Object.getOwnPropertyNames(dns)){
   if((method==="reverse"||method.startsWith("resolve"))&&typeof dns[method]==="function"){

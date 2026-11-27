@@ -15,7 +15,32 @@ process.env.KINGLIKE_VIP_QA_DATABASE_URL=
 process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST="vip-pg.railway.internal";
 process.env.KINGLIKE_VIP_QA_EXPECTED_DB_NAME="vipqa_demo";
 process.env.KINGLIKE_VIP_QA_EXPECTED_DB_ROLE="vipqa_runtime";
-process.env.KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS="10.21.4.7";
+process.env.KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS="auto";
+let fakeDatabaseAddress="10.21.4.7";
+const fakeLookup=(hostname,...args)=>{
+  const callback=args.at(-1);
+  if(typeof callback!=="function")throw new Error("test resolver requires callback");
+  if(hostname!==process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST){
+    queueMicrotask(()=>callback(Object.assign(new Error("not found"),{code:"ENOTFOUND"})));
+    return;
+  }
+  const options=args[0]&&typeof args[0]==="object"?args[0]:{};
+  if(options.all){
+    queueMicrotask(()=>callback(null,[
+      {address:fakeDatabaseAddress,family:4},
+      {address:"fd12::7",family:6},
+    ]));
+    return;
+  }
+  queueMicrotask(()=>callback(null,fakeDatabaseAddress,4));
+};
+dns.lookup=fakeLookup;
+dns.promises.lookup=async hostname=>{
+  if(hostname!==process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST){
+    throw Object.assign(new Error("not found"),{code:"ENOTFOUND"});
+  }
+  return {address:fakeDatabaseAddress,family:4};
+};
 await import("../qaRailwayNetworkGuard.mjs");
 
 let assertions=0;
@@ -50,6 +75,35 @@ await new Promise(resolve=>{
   });
 });
 await assert.rejects(dns.promises.lookup("outside.invalid"),error=>error?.code==="EACCES");
+assertions++;
+const allowedDatabaseAddress=await new Promise((resolve,reject)=>{
+  dns.lookup(process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST,(error,address,family)=>{
+    if(error)return reject(error);
+    assert.equal(family,4);
+    resolve(address);
+  });
+});
+assert.equal(allowedDatabaseAddress,"10.21.4.7");
+assert.equal((await dns.promises.lookup(
+  process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST,
+  {family:4},
+)).address,"10.21.4.7");
+assert.equal((await import("../qaRailwayNetworkGuard.mjs"))
+  .getPinnedRailwayQaDatabaseAddress(),"10.21.4.7");
+assertions+=3;
+fakeDatabaseAddress="10.21.4.8";
+await new Promise(resolve=>{
+  dns.lookup(process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST,error=>{
+    assert.equal(error?.code,"EACCES");
+    assertions++;
+    resolve();
+  });
+});
+fakeDatabaseAddress="203.0.113.7";
+await assert.rejects(dns.promises.lookup(
+  process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST,
+  {family:4},
+),error=>error?.code==="EACCES");
 assertions++;
 
 process.stdout.write(`network guard denials verified: ${assertions}\n`);

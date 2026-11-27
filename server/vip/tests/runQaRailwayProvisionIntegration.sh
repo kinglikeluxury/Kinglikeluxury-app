@@ -79,11 +79,11 @@ fi
 printf '%s\n' "provision_test_initial_database_identity=verified"
 
 psql -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U "$SUPERUSER" -d postgres \
-  -c "CREATE ROLE vipqa_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT"
+  -c "CREATE ROLE vipqa_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD 'Synthetic-Migrator-QA-2026!'"
 psql -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U "$SUPERUSER" -d postgres \
-  -c "CREATE ROLE vipqa_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT"
+  -c "CREATE ROLE vipqa_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD 'Synthetic-Runtime-QA-2026!'"
 psql -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U "$SUPERUSER" -d postgres \
-  -c "CREATE DATABASE vipqa_demo OWNER vipqa_migrator"
+  -c "CREATE DATABASE vipqa_demo OWNER vipqa_migrator TEMPLATE template0 ENCODING 'UTF8'"
 
 for migration in \
   server/vip/migrations/000_qa_users_only.sql \
@@ -94,8 +94,8 @@ for migration in \
     -U vipqa_migrator -d vipqa_demo -f "$migration"
 done
 
-MIGRATOR_URL="postgresql://vipqa_migrator:synthetic-migrator-only@127.0.0.1:$PORT/vipqa_demo"
-RUNTIME_URL="postgresql://vipqa_runtime:synthetic-runtime-only@127.0.0.1:$PORT/vipqa_demo"
+MIGRATOR_URL="postgresql://vipqa_migrator:Synthetic-Migrator-QA-2026!@127.0.0.1:$PORT/vipqa_demo"
+RUNTIME_URL="postgresql://vipqa_runtime:Synthetic-Runtime-QA-2026!@127.0.0.1:$PORT/vipqa_demo"
 ENVIRONMENT_ID="a45d1f9e-4a24-4c84-99bc-90b48e2d41c7"
 
 run_provisioner() {

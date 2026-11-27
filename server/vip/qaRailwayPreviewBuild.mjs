@@ -101,11 +101,17 @@ await copyFile(
   resolve(root,"server/vip/qaRailwayNetworkGuard.mjs"),
   resolve(output,"qaRailwayNetworkGuard.mjs"),
 );
+await copyFile(
+  resolve(root,"server/vip/qaRailwayDnsPin.mjs"),
+  resolve(output,"qaRailwayDnsPin.mjs"),
+);
 await writeFile(
   launcher,
-  `import "./qaRailwayNetworkGuard.mjs";\n`+
+  `const runtimeNames=new Set(["PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL","HOSTNAME","TERM","KINGLIKE_VIP_QA_PREVIEW","KINGLIKE_VIP_ENABLED","VITE_KINGLIKE_VIP_ENABLED","KINGLIKE_VIP_EMAIL_ENABLED","KINGLIKE_VIP_EMAIL_LIVE_APPROVED","KINGLIKE_VIP_QA_DATABASE_URL","KINGLIKE_VIP_QA_EXPECTED_DB_HOST","KINGLIKE_VIP_QA_EXPECTED_DB_NAME","KINGLIKE_VIP_QA_EXPECTED_DB_ROLE","KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS","KINGLIKE_VIP_QA_ENVIRONMENT_ID","KINGLIKE_VIP_QA_GATE_USER","KINGLIKE_VIP_QA_GATE_PASSWORD","KINGLIKE_VIP_QA_SESSION_SECRET","KINGLIKE_VIP_QA_STATIC_DIR","KINGLIKE_VIP_QA_RUNTIME","KINGLIKE_VIP_QA_START"]);\n`+
+  `for(const name of Object.keys(process.env)){if(!runtimeNames.has(name)&&!/^RAILWAY_[A-Z0-9_]+$/.test(name))delete process.env[name];}\n`+
   `process.env.KINGLIKE_VIP_QA_RUNTIME="railway";\n`+
   `process.env.KINGLIKE_VIP_QA_START="true";\n`+
+  `await import("./qaRailwayNetworkGuard.mjs");\n`+
   `await import("./server.mjs");\n`,
   {mode:0o600},
 );

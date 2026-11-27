@@ -114,6 +114,7 @@ function isUuid(value:string):boolean{
 }
 
 function isValidExpectedAddress(value:string):boolean{
+  if(value==="auto")return true;
   if(isIP(value)!==4)return false;
   const octets=value.split(".").map(Number);
   return octets[0]===10||
