@@ -111,6 +111,17 @@ function configFailure(
   });
 }
 
+export function stripQaBootstrapBuildMetadata(
+  env:Record<string,string|undefined>,
+):void{
+  for(const name of Object.keys(env)){
+    if(/^npm_config_/i.test(name)||/^NIXPACKS_[A-Z0-9_]+$/.test(name)||
+      name==="CI"||name==="npm_execpath"||name==="npm_node_execpath"){
+      delete env[name];
+    }
+  }
+}
+
 function required(env:Record<string,string|undefined>,name:string):string{
   const value=env[name];
   if(typeof value!=="string"||value.length===0){

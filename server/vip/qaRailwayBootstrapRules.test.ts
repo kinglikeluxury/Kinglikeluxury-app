@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
   classifyQaBootstrapFailure,
+  stripQaBootstrapBuildMetadata,
   validateRailwayBootstrapEnvironment,
 } from "./qaRailwayBootstrapRules";
 
@@ -153,4 +154,22 @@ test("bootstrap configuration failures use safe non-value diagnostics",()=>{
   }),"configuration_database_identity");
   assert.equal(category({...environment(),KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD:"weak"}),
     "configuration_credentials");
+});
+
+test("bootstrap removes only package-build metadata before strict environment validation",()=>{
+  const env:Record<string,string|undefined>={
+    ...environment(),
+    CI:"true",
+    NIXPACKS_NODE_VERSION:"20",
+    NIXPACKS_INSTALL_CMD:"must-not-be-used-at-runtime",
+    npm_config_user_agent:"synthetic-test",
+    DATABASE_URL:"postgresql://unapproved.invalid/nope",
+  };
+  stripQaBootstrapBuildMetadata(env);
+  assert.equal(env.CI,undefined);
+  assert.equal(env.NIXPACKS_NODE_VERSION,undefined);
+  assert.equal(env.NIXPACKS_INSTALL_CMD,undefined);
+  assert.equal(env.npm_config_user_agent,undefined);
+  assert.ok(env.DATABASE_URL);
+  assert.throws(()=>validateRailwayBootstrapEnvironment(env));
 });

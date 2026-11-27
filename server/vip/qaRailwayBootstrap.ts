@@ -5,6 +5,7 @@ import {quoteQaSqlIdentifier} from "./qaRailwayProvisionRules";
 import {
   classifyQaBootstrapFailure,
   isPrivateRailwayBootstrapIpv4,
+  stripQaBootstrapBuildMetadata,
   validateRailwayBootstrapEnvironment,
 } from "./qaRailwayBootstrapRules";
 
@@ -142,6 +143,7 @@ async function applyMigrations(
 
 async function bootstrap():Promise<void>{
   activeStage="configuration";
+  stripQaBootstrapBuildMetadata(process.env);
   const config=validateRailwayBootstrapEnvironment(process.env);
   if(!privateHost(config.host))throw new Error("QA database host is not private");
   activeStage="database_endpoint";
