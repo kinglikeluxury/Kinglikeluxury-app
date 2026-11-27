@@ -22,7 +22,8 @@ try{
   await access(bundlePath);
   process.stdout.write("qa_predeploy=bootstrap_bundle_present\n");
   stage="bootstrap_execution";
-  await import(pathToFileURL(bundlePath).href);
+  const bootstrap=await import(pathToFileURL(bundlePath).href);
+  await bootstrap.qaRailwayBootstrapExecution;
   if(process.exitCode===1){
     throw new Error("QA bootstrap reported a refused initialization");
   }
