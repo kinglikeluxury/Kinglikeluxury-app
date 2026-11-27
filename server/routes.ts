@@ -5,6 +5,7 @@ import { randomInt } from "node:crypto";
 import { registerAiIntelligenceRoutes } from "./ai-intelligence-routes";
 import { registerMetaLeadsRoutes } from "./metaLeadsRoutes";
 import { filterBlogPostsByCountry } from "@shared/blogCountries";
+import { isAuthAccountEligible } from "@shared/authFlowUtils";
 import bcrypt from "bcrypt";
 import { Resend } from "resend";
 import { sendEmail, buildConsultationConfirmEmail, buildConsultationBookedEmail, sendPushNotification } from "./notificationService";
@@ -38,9 +39,23 @@ import { createBOGOrder, getBOGOrderStatus, refundBOGOrder } from "./bogPayment"
 import multer from "multer";
 import { ObjectStorageService } from "./objectStorage";
 import { isOtpActive, isTurnstileTestSecret, normalizeAuthEmail } from "@shared/authFlowUtils";
-import { createLoginHandler } from "./authLoginRoute";
 import { createRegisterHandler } from "./authRegisterRoute";
 import { createPasswordRecoveryHandlers } from "./authPasswordRecoveryRoutes";
+import {
+  createSessionAuthGuards,
+  registerAuthSessionRoutes,
+} from "./authSessionRoutes";
+import {
+  createPhoneOtpIssueHandler,
+  createPhoneOtpVerificationHandler,
+} from "./authPhoneOtpRoutes";
+import {
+  checkPhoneOtpIssueRateLimit,
+  checkSharedOtpIpRateLimit,
+  createSharedPhoneOtpAttemptLimiter,
+} from "./phoneOtpRateLimit";
+import { registerUserNotificationRoutes } from "./userNotificationRoutes";
+import { registerPushSubscriptionRoutes } from "./pushSubscriptionRoutes";
 
 import path from "path";
 import fs from "fs";
@@ -446,13 +461,17 @@ ${metaTags}
 
   // Configure sessions with PostgreSQL store
   const isProduction = process.env.NODE_ENV === "production";
+  const sessionCookiePolicy = {
+    secure: isProduction,
+    sameSite: isProduction ? "none" as const : "lax" as const,
+  };
 
   const sessionMiddleware: RequestHandler = session({
       cookie: {
         maxAge: 86400000, // 24 hours
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
+        secure: sessionCookiePolicy.secure,
+        sameSite: sessionCookiePolicy.sameSite,
       },
       store: storage.sessionStore,
       resave: false,
@@ -484,21 +503,12 @@ ${metaTags}
   // always reach the live admin middleware, including unauthenticated requests.
   registerKayRecordingRoutes(app);
 
-  // Middleware to check if user is authenticated
-  const isAuthenticated = (req: Request, res: Response, next: Function) => {
-    if (req.session.userId) {
-      return next();
-    }
-    res.status(401).json({ message: "Not authenticated" });
-  };
-
-  // Middleware to check if user is admin
-  const isAdmin = (req: Request, res: Response, next: Function) => {
-    if (req.session.userId && req.session.isAdmin) {
-      return next();
-    }
-    res.status(403).json({ message: "Not authorized" });
-  };
+  // Re-read current account status and role for authenticated requests. This
+  // keeps session-cached admin privileges from surviving a DB-side revocation.
+  const { isAuthenticated, isAdmin } = createSessionAuthGuards(
+    storage,
+    sessionCookiePolicy,
+  );
 
   // Production hardening: all Kay mutations are centrally denied and audited.
   // GET inspection and the aggregate-only dry-run remain available.
@@ -1065,50 +1075,25 @@ ${metaTags}
     ].filter(Boolean).join(" ") || "provider_error";
   }
 
-  // Per-identifier (phone / email) rate limit: max 3 per 15 min
-  const smsOtpRateLimit   = new Map<string, number[]>();
-  const emailOtpRateLimit = new Map<string, number[]>();
-  const emailOtpVerifyRateLimit = new Map<string, number[]>();
-  const passwordResetRateLimit = new Map<string, number[]>();
-  const passwordResetVerifyRateLimit = new Map<string, number[]>();
-
-  function checkOtpRateLimit(
-    map: Map<string, number[]>,
-    key: string,
+  // Explicit administrator blocks remain process-local; automatic OTP
+  // issuance limits below are shared in PostgreSQL.
+  const blockedIPs    = new Set<string>();
+  const consumeOtpRateLimit = storage.consumeOtpRateLimit.bind(storage);
+  const allowPhoneOtpAttempt = createSharedPhoneOtpAttemptLimiter(
+    consumeOtpRateLimit,
+  );
+  const checkOtpRateLimit = (
+    scope: string,
+    identifier: string,
     maxAttempts = 3,
     windowMs = 15 * 60 * 1000,
-  ): boolean {
-    const now = Date.now();
-    const attempts = (map.get(key) || []).filter((t: number) => now - t < windowMs);
-    if (attempts.length >= maxAttempts) return false;
-    attempts.push(now);
-    map.set(key, attempts);
-    return true;
-  }
-
-  // Per-IP rate limit: max 5 per 10 min; auto-block after 10 per hour
-  const ipOtpAttempts = new Map<string, number[]>();
-  const blockedIPs    = new Set<string>();
-  const IP_RATE_MAX    = 5;
-  const IP_RATE_WIN_MS = 10 * 60 * 1000;  // 10 min
-  const IP_BLOCK_THR   = 10;
-  const IP_BLOCK_WIN_MS = 60 * 60 * 1000; // 1 hour
-
-  function checkIpOtpLimit(ip: string): 'ok' | 'rate_limited' | 'blocked' {
-    if (blockedIPs.has(ip)) return 'blocked';
-    const now  = Date.now();
-    const all  = (ipOtpAttempts.get(ip) || []).filter((t: number) => now - t < IP_BLOCK_WIN_MS);
-    const recent = all.filter((t: number) => now - t < IP_RATE_WIN_MS);
-    if (recent.length >= IP_RATE_MAX) return 'rate_limited';
-    all.push(now);
-    ipOtpAttempts.set(ip, all);
-    if (all.length >= IP_BLOCK_THR) {
-      blockedIPs.add(ip);
-      console.warn(`[OTP Security] Auto-blocked suspicious IP: ${ip} (${all.length} req/hr)`);
-      return 'blocked';
-    }
-    return 'ok';
-  }
+  ) =>
+    consumeOtpRateLimit(scope, identifier, maxAttempts, windowMs)
+      .then((result) => result.allowed);
+  const checkIpOtpLimit = async (ip: string): Promise<"ok" | "rate_limited" | "blocked"> => {
+    if (blockedIPs.has(ip)) return "blocked";
+    return checkSharedOtpIpRateLimit(consumeOtpRateLimit, ip);
+  };
 
   // In-memory OTP request log — circular buffer, newest last (max 500 entries)
   interface OtpLogEntry {
@@ -1188,8 +1173,10 @@ ${metaTags}
     passwordResetStore,
     getClientIp,
     checkIpOtpLimit,
-    checkRequestRateLimit: (identifier) => checkOtpRateLimit(passwordResetRateLimit, identifier),
-    checkVerifyRateLimit: (identifier) => checkOtpRateLimit(passwordResetVerifyRateLimit, identifier, 5),
+    checkRequestRateLimit: (identifier) =>
+      checkOtpRateLimit("password-reset-send", identifier),
+    checkVerifyRateLimit: (identifier) =>
+      checkOtpRateLimit("password-reset-verify", identifier, 5),
     verifyTurnstile,
     sendSms: async (phoneNumber, message) => {
       if (!twilioClient) return false;
@@ -1211,95 +1198,90 @@ ${metaTags}
     logError: (message, error) => console.error(`${message}:`, safeOtpErrorDiagnostic(error)),
   });
 
-  // Send verification code — WhatsApp first, SMS fallback via Messaging Service
-  app.post("/api/auth/send-verification", async (req, res) => {
-    const ip = getClientIp(req);
-    const ua = String(req.headers['user-agent'] || '').slice(0, 300);
-    try {
-      const { phoneNumber, turnstileToken } = req.body;
-      if (!phoneNumber) {
-        return res.status(400).json({ message: "Phone number is required" });
+  // OTP issuance core is injectable for local database tests; production still
+  // keeps CAPTCHA, rate limiting and Twilio behind this authorization gate.
+  app.post("/api/auth/send-verification", createPhoneOtpIssueHandler({
+    storage,
+    authorizeSend: async (req, phoneNumber) => {
+      const ip = getClientIp(req);
+      const ua = String(req.headers["user-agent"] || "").slice(0, 300);
+      if (blockedIPs.has(ip)) {
+        addOtpLog({ type: "sms", identifier: maskIdentifier(phoneNumber), ip, result: "ip_blocked", userAgent: ua });
+        return { allowed: false, status: 429, body: { message: "Too many requests from your network. Please try again later." } };
       }
-
-      // 1. IP-level check (blocked / rate-limited)
-      const ipStatus = checkIpOtpLimit(ip);
-      if (ipStatus === 'blocked') {
-        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'ip_blocked', userAgent: ua });
-        return res.status(429).json({ message: "Too many requests from your network. Please try again later." });
+      let limitResult: Awaited<ReturnType<typeof checkPhoneOtpIssueRateLimit>>;
+      try {
+        limitResult = await checkPhoneOtpIssueRateLimit(
+          consumeOtpRateLimit,
+          phoneNumber,
+          ip,
+        );
+      } catch {
+        return {
+          allowed: false,
+          status: 503,
+          body: {
+            code: "RATE_LIMIT_UNAVAILABLE",
+            message: "Verification is temporarily unavailable.",
+          },
+        };
       }
-      if (ipStatus === 'rate_limited') {
-        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'ip_rate_limited', userAgent: ua });
-        return res.status(429).json({ message: "Too many OTP requests from your network. Please wait 10 minutes." });
+      if (limitResult === "ip_blocked") {
+        console.warn("[OTP Security] Shared hourly request limit reached");
+        addOtpLog({ type: "sms", identifier: maskIdentifier(phoneNumber), ip, result: "ip_blocked", userAgent: ua });
+        return { allowed: false, status: 429, body: { message: "Too many requests from your network. Please try again later." } };
       }
-
-      // 2. Per-phone rate limit (max 3 per 15 min)
-      if (!checkOtpRateLimit(smsOtpRateLimit, phoneNumber)) {
-        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'phone_rate_limited', userAgent: ua });
-        return res.status(429).json({ message: "Too many OTP requests for this number. Please wait 15 minutes." });
+      if (limitResult === "ip_rate_limited") {
+        addOtpLog({ type: "sms", identifier: maskIdentifier(phoneNumber), ip, result: "ip_rate_limited", userAgent: ua });
+        return { allowed: false, status: 429, body: { message: "Too many OTP requests from your network. Please wait 10 minutes." } };
       }
-
-      // 3. Turnstile CAPTCHA verification
-      const captchaOk = await verifyTurnstile(turnstileToken, ip);
-      if (!captchaOk) {
-        addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'captcha_failed', userAgent: ua });
-        return res.status(403).json({ message: "Security verification failed. Please refresh the page and try again." });
+      if (limitResult === "phone_rate_limited") {
+        addOtpLog({ type: "sms", identifier: maskIdentifier(phoneNumber), ip, result: "phone_rate_limited", userAgent: ua });
+        return { allowed: false, status: 429, body: { message: "Too many OTP requests for this number. Please wait 15 minutes." } };
       }
-
+      if (!(await verifyTurnstile(req.body?.turnstileToken, ip))) {
+        addOtpLog({ type: "sms", identifier: maskIdentifier(phoneNumber), ip, result: "captcha_failed", userAgent: ua });
+        return { allowed: false, status: 403, body: { message: "Security verification failed. Please refresh the page and try again." } };
+      }
       if (!twilioClient) {
-        return res.status(500).json({ message: "Messaging service not configured" });
+        return { allowed: false, status: 500, body: { message: "Messaging service not configured" } };
       }
-
-      const code = randomInt(100000, 1000000).toString();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      await storage.createVerificationCode(phoneNumber, code, expiresAt);
-
+      return { allowed: true };
+    },
+    deliverCode: async (phoneNumber, code) => {
+      if (!twilioClient) throw new Error("Messaging service not configured");
       const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
       const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-      const msgBody = `🔐 Kinglike Luxury\nرمز التحقق: *${code}*\nصالح 10 دقائق.`;
-
-      // Send OTP via SMS only (Twilio) — WhatsApp OTP removed, Twilio WhatsApp is not configured
-      const method = "sms";
       const smsBody = `Kinglike Luxury - رمز التحقق: ${code} (صالح 10 دقائق)`;
-      try {
-        if (msgSid) {
+      if (msgSid) {
+        try {
           await twilioClient.messages.create({ body: smsBody, to: phoneNumber, messagingServiceSid: msgSid });
-        } else {
-          throw new Error("No messaging service SID");
+          return;
+        } catch {
+          // Fall back to the configured sender only when the messaging service fails.
         }
-      } catch {
-        await twilioClient.messages.create({ body: smsBody, to: phoneNumber, from: fromNumber });
       }
+      await twilioClient.messages.create({ body: smsBody, to: phoneNumber, from: fromNumber });
+    },
+    onSuccess: (req, phoneNumber) => {
+      const ip = getClientIp(req);
+      const ua = String(req.headers["user-agent"] || "").slice(0, 300);
+      addOtpLog({ type: "sms", identifier: maskIdentifier(phoneNumber), ip, result: "sent", method: "sms", userAgent: ua });
       console.log(`[OTP] SMS delivery succeeded (${maskIdentifier(phoneNumber)})`);
-
-      addOtpLog({ type: 'sms', identifier: maskIdentifier(phoneNumber), ip, result: 'sent', method: method as 'whatsapp' | 'sms', userAgent: ua });
-      res.json({ success: true, method, message: method === "whatsapp" ? "Verification code sent via WhatsApp" : "Verification code sent via SMS" });
-    } catch (error: any) {
-      addOtpLog({ type: 'sms', identifier: maskIdentifier(req.body?.phoneNumber || '?'), ip, result: 'error', userAgent: ua });
+    },
+    onFailure: (req, error) => {
+      const ip = getClientIp(req);
+      const ua = String(req.headers["user-agent"] || "").slice(0, 300);
+      addOtpLog({ type: "sms", identifier: maskIdentifier(req.body?.phoneNumber || "?"), ip, result: "error", userAgent: ua });
       console.error("[OTP] SMS delivery failed:", safeOtpErrorDiagnostic(error));
-      res.status(503).json({ code: "DELIVERY_UNAVAILABLE", message: "We could not send a verification code. Please try again later." });
-    }
-  });
+    },
+  }));
 
-  // Verify SMS code
-  app.post("/api/auth/verify-code", async (req, res) => {
-    try {
-      const { phoneNumber, code } = req.body;
-      if (!phoneNumber || !code) {
-        return res.status(400).json({ message: "Phone number and code are required" });
-      }
-
-      // Verify against local DB (codes are generated and stored by send-verification)
-      const isValid = await storage.verifyCode(phoneNumber, code);
-      if (!isValid) {
-        return res.status(400).json({ message: "Invalid or expired verification code" });
-      }
-
-      res.json({ success: true, verified: true });
-    } catch (error: any) {
-      console.error("[OTP] SMS verification failed:", safeOtpErrorDiagnostic(error));
-      res.status(500).json({ message: error.message || "Verification failed" });
-    }
-  });
+  // Verify SMS code against the challenge in this server-side session.
+  app.post("/api/auth/verify-code", createPhoneOtpVerificationHandler({
+    storage,
+    allowPhoneOtpAttempt,
+  }));
 
   // Send Email OTP — fallback verification (server-side only, credentials never exposed)
   app.post("/api/auth/send-email-otp", async (req, res) => {
@@ -1312,7 +1294,7 @@ ${metaTags}
       }
 
       // IP-level check
-      const ipStatus = checkIpOtpLimit(ip);
+      const ipStatus = await checkIpOtpLimit(ip);
       if (ipStatus === 'blocked') {
         addOtpLog({ type: 'email', identifier: maskIdentifier(email), ip, result: 'ip_blocked', userAgent: ua });
         return res.status(429).json({ message: "Too many requests from your network. Please try again later." });
@@ -1323,7 +1305,7 @@ ${metaTags}
       }
 
       // Per-email rate limit
-      if (!checkOtpRateLimit(emailOtpRateLimit, email.toLowerCase())) {
+      if (!(await checkOtpRateLimit("email-otp-send", normalizeAuthEmail(email)))) {
         addOtpLog({ type: 'email', identifier: maskIdentifier(email), ip, result: 'phone_rate_limited', userAgent: ua });
         return res.status(429).json({ message: "Too many email OTP attempts. Please wait 15 minutes." });
       }
@@ -1351,7 +1333,7 @@ ${metaTags}
         return res.status(400).json({ message: "Email and code are required" });
       }
       const key = normalizeAuthEmail(email);
-      if (!checkOtpRateLimit(emailOtpVerifyRateLimit, key, 5)) {
+      if (!(await checkOtpRateLimit("email-otp-verify", key, 5))) {
         return res.status(429).json({ code: "RATE_LIMITED", message: "Too many verification attempts. Request a new code later." });
       }
       const record = emailOtpStore.get(key);
@@ -1377,6 +1359,7 @@ ${metaTags}
   app.post("/api/auth/register", createRegisterHandler({
     storage,
     emailOtpStore,
+    hashPassword: (plainText) => bcrypt.hash(plainText, 10),
     sendWelcomeEmail,
     sendWelcomeWhatsApp,
     logError: (error) => console.error("[Auth] Registration failed:", safeOtpErrorDiagnostic(error)),
@@ -1401,18 +1384,11 @@ ${metaTags}
     }
   });
 
-  app.post("/api/auth/login", createLoginHandler({
+  registerAuthSessionRoutes(app, {
     storage,
     comparePassword: (plainText, hash) => bcrypt.compare(plainText, hash),
-  }));
-
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Failed to logout" });
-      }
-      res.json({ message: "Logged out successfully" });
-    });
+    allowPhoneOtpAttempt,
+    cookiePolicy: sessionCookiePolicy,
   });
 
   // ─── Admin Leads ───────────────────────────────────────────────────────────
@@ -1613,28 +1589,6 @@ ${metaTags}
     }
   });
 
-  app.get("/api/auth/me", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    
-    const user = await storage.getUser(req.session.userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    
-    res.json({ 
-      id: user.id, 
-      username: user.username,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      authMethod: user.authMethod,
-      isAdmin: user.isAdmin,
-      role: user.role ?? "user",
-    });
-  });
-
   // Property routes
   registerPropertyProjectReadRoutes(app, storage, getLocationFilter);
 
@@ -1648,10 +1602,14 @@ ${metaTags}
       }
       
       // If property is not approved, only show to owner or admin
+      const sessionUser = req.session?.userId
+        ? await storage.getUser(req.session.userId)
+        : undefined;
       if (
-        property.status !== PROPERTY_STATUS.APPROVED && 
-        (!req.session.userId || 
-          (property.ownerId !== req.session.userId && !req.session.isAdmin))
+        property.status !== PROPERTY_STATUS.APPROVED &&
+        (!sessionUser ||
+          !isAuthAccountEligible(sessionUser) ||
+          (property.ownerId !== sessionUser.id && sessionUser.isAdmin !== true))
       ) {
         return res.status(403).json({ message: "Not authorized to view this property" });
       }
@@ -2163,7 +2121,14 @@ ${metaTags}
       const { published, authorId, category, lang, country: countryFilter } = req.query;
       
       const filters: any = {};
-      const isAdmin = req.session?.userId ? (await storage.getUser(req.session.userId))?.isAdmin : false;
+      const sessionUser = req.session?.userId
+        ? await storage.getUser(req.session.userId)
+        : undefined;
+      const isAdmin = Boolean(
+        sessionUser &&
+        isAuthAccountEligible(sessionUser) &&
+        sessionUser.isAdmin === true,
+      );
       if (published === 'all' && isAdmin) {
         // Admin can see all posts - don't filter by published
       } else {
@@ -2284,7 +2249,7 @@ ${metaTags}
         return res.status(401).json({ message: "Not authenticated" });
       }
       const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!user || !isAuthAccountEligible(user) || user.isAdmin !== true) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
@@ -2384,7 +2349,7 @@ ${metaTags}
         return res.status(401).json({ message: "Not authenticated" });
       }
       const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!user || !isAuthAccountEligible(user) || user.isAdmin !== true) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
@@ -2652,7 +2617,7 @@ ${metaTags}
         return res.status(401).json({ message: "Not authenticated" });
       }
       const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!user || !isAuthAccountEligible(user) || user.isAdmin !== true) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
@@ -2676,7 +2641,7 @@ ${metaTags}
         return res.status(401).json({ message: "Not authenticated" });
       }
       const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!user || !isAuthAccountEligible(user) || user.isAdmin !== true) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
@@ -3149,7 +3114,7 @@ ${metaTags}
   });
 
   // POST create booking (auth required)
-  app.post("/api/consultation/bookings", async (req, res) => {
+  app.post("/api/consultation/bookings", isAuthenticated, async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
     try {
       const user = await storage.getUser(req.session.userId);
@@ -3242,7 +3207,7 @@ ${metaTags}
   });
 
   // GET user's bookings
-  app.get("/api/consultation/bookings/mine", async (req, res) => {
+  app.get("/api/consultation/bookings/mine", isAuthenticated, async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
     try {
       const bookings = await storage.getUserConsultationBookings(req.session.userId);
@@ -3426,7 +3391,7 @@ ${metaTags}
                 );
                 // If subscription expired, clean it up
                 if (!result.sent && result.error === "subscription_expired") {
-                  await storage.deletePushSubscriptionByEndpoint(sub.endpoint);
+                  await storage.deletePushSubscriptionByEndpoint(sub.endpoint, sub.userId);
                 }
                 pushResults.push(result);
               }
@@ -3451,83 +3416,14 @@ ${metaTags}
     }
   });
 
-  // ── Notification API routes ─────────────────────────────────────────────────
+  registerUserNotificationRoutes(app, isAuthenticated, storage);
 
-  // GET user's notifications
-  app.get("/api/notifications", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    try {
-      const notifs = await storage.getUserNotifications(req.session.userId);
-      res.json(notifs);
-    } catch (err) {
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // PATCH mark single notification as read
-  app.patch("/api/notifications/:id/read", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    try {
-      await storage.markNotificationRead(parseInt(req.params.id));
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // PATCH mark all as read
-  app.patch("/api/notifications/read-all", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    try {
-      await storage.markAllNotificationsRead(req.session.userId);
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // ── Push Subscription API ───────────────────────────────────────────────────
-
-  // Return VAPID public key to client (needed to create subscription)
-  app.get("/api/push/vapid-key", (_req, res) => {
-    const key = process.env.VAPID_PUBLIC_KEY;
-    if (!key) return res.status(503).json({ error: "Push notifications not configured" });
-    res.json({ publicKey: key });
-  });
-
-  // Save push subscription
-  app.post("/api/push/subscribe", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    try {
-      const { endpoint, p256dh, auth, userAgent } = req.body;
-      if (!endpoint || !p256dh || !auth) {
-        return res.status(400).json({ message: "endpoint, p256dh, auth required" });
-      }
-      const sub = await storage.savePushSubscription({
-        userId: req.session.userId,
-        endpoint,
-        p256dh,
-        auth,
-        userAgent: userAgent || null,
-      });
-      res.json({ success: true, id: sub.id });
-    } catch (err: any) {
-      console.error("[Push] Subscribe error:", err.message);
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  // Remove push subscription
-  app.delete("/api/push/unsubscribe", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    try {
-      const { endpoint } = req.body;
-      if (endpoint) await storage.deletePushSubscriptionByEndpoint(endpoint);
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
+  registerPushSubscriptionRoutes(
+    app,
+    isAuthenticated,
+    storage,
+    () => process.env.VAPID_PUBLIC_KEY,
+  );
 
   // ── Admin: Test Notifications ───────────────────────────────────────────────
 
@@ -3661,7 +3557,7 @@ ${metaTags}
   const AI_UNAVAILABLE_MSG = "AI advisor is temporarily unavailable. Please try again later.";
 
   // POST /api/ai/start — begin a new conversation
-  app.post("/api/ai/start", async (req, res) => {
+  app.post("/api/ai/start", isAuthenticated, async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
     const userId = req.session.userId;
 
@@ -3722,7 +3618,7 @@ ${metaTags}
   });
 
   // POST /api/ai/chat — streaming SSE response
-  app.post("/api/ai/chat", async (req, res) => {
+  app.post("/api/ai/chat", isAuthenticated, async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
     const userId = req.session.userId;
 

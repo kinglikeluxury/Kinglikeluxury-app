@@ -39,9 +39,19 @@ export interface AdminNavItem {
   iconColorHex?: string;
   highlight?: boolean;
   visibleToUserIds?: number[];
+  requiresVipAdmin?: boolean;
 }
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
+  ...(import.meta.env.VITE_KINGLIKE_VIP_ENABLED === "true" ? [{
+    labelKey: "vip.admin",
+    labelFallback: "KINGLIKE VIP — Administration",
+    path: "/admin/vip",
+    Icon: Crown,
+    iconColorHex: "#3bcac4",
+    highlight: true,
+    requiresVipAdmin: true,
+  }] : []),
   {
     labelKey: "admin.dashboard",
     labelFallback: "Admin Dashboard",

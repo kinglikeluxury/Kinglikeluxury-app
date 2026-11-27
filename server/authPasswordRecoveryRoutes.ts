@@ -31,9 +31,9 @@ export function createPasswordRecoveryHandlers(dependencies: {
   storage: PasswordRecoveryStorage;
   passwordResetStore: PasswordResetStore;
   getClientIp(req: Parameters<RequestHandler>[0]): string;
-  checkIpOtpLimit(ip: string): IpOtpLimitStatus;
-  checkRequestRateLimit(identifier: string): boolean;
-  checkVerifyRateLimit(identifier: string): boolean;
+  checkIpOtpLimit(ip: string): IpOtpLimitStatus | Promise<IpOtpLimitStatus>;
+  checkRequestRateLimit(identifier: string): boolean | Promise<boolean>;
+  checkVerifyRateLimit(identifier: string): boolean | Promise<boolean>;
   verifyTurnstile(token: string | undefined, ip: string): Promise<boolean>;
   sendSms(phoneNumber: string, message: string): Promise<boolean>;
   sendEmailOtp(email: string, code: string): Promise<unknown>;
@@ -62,7 +62,7 @@ export function createPasswordRecoveryHandlers(dependencies: {
       const { method, phoneNumber, email, turnstileToken } = req.body;
       const identifier = phoneNumber || email || "?";
 
-      const ipStatus = checkIpOtpLimit(ip);
+      const ipStatus = await checkIpOtpLimit(ip);
       if (ipStatus === "blocked" || ipStatus === "rate_limited") {
         addOtpLog({
           type: "reset",
@@ -96,7 +96,7 @@ export function createPasswordRecoveryHandlers(dependencies: {
         if (!phoneNumber || typeof phoneNumber !== "string") {
           return res.status(400).json({ message: "Phone number required" });
         }
-        if (!checkRequestRateLimit(phoneNumber)) {
+        if (!(await checkRequestRateLimit(phoneNumber))) {
           addOtpLog({
             type: "reset",
             identifier: maskIdentifier(phoneNumber),
@@ -142,7 +142,7 @@ export function createPasswordRecoveryHandlers(dependencies: {
           return res.status(400).json({ message: "Email required" });
         }
         const emailKey = normalizeAuthEmail(email);
-        if (!checkRequestRateLimit(emailKey)) {
+        if (!(await checkRequestRateLimit(emailKey))) {
           return res.status(429).json({
             code: "RATE_LIMITED",
             message: "Too many reset attempts. Please wait 10 minutes.",
@@ -193,7 +193,7 @@ export function createPasswordRecoveryHandlers(dependencies: {
       const verifyIdentifier = method === "phone"
         ? `phone:${phoneNumber || ""}`
         : `email:${typeof email === "string" ? normalizeAuthEmail(email) : ""}`;
-      if (!checkVerifyRateLimit(verifyIdentifier)) {
+      if (!(await checkVerifyRateLimit(verifyIdentifier))) {
         return res.status(429).json({
           code: "RATE_LIMITED",
           message: "Too many verification attempts. Request a new code later.",

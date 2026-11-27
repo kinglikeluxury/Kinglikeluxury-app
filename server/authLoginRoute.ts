@@ -1,25 +1,29 @@
 import type { RequestHandler } from "express";
 import type { IStorage } from "./storage";
-import { verifyStoredPassword } from "@shared/authFlowUtils";
+import { isAuthAccountEligible, verifyStoredPassword } from "@shared/authFlowUtils";
+import {
+  consumePhoneOtpLoginChallenge,
+  getValidPhoneOtpLoginChallenge,
+  type PhoneOtpAttemptLimiter,
+} from "./phoneOtpProof";
 
 type LoginUser = Awaited<ReturnType<IStorage["getUserByUsername"]>>;
 
 export type LoginStorage = Pick<
   IStorage,
-  "getUserByUsername" | "getUserByEmail" | "getUserByPhone"
-> & {
-  getUserByField(field: string, value: string): Promise<LoginUser>;
-};
+  "getUserByUsername" | "getUserByEmail" | "getUserByPhone" | "verifyCode"
+>;
 
 export function createLoginHandler(dependencies: {
   storage: LoginStorage;
   comparePassword(plainText: string, hash: string): Promise<boolean>;
+  allowPhoneOtpAttempt: PhoneOtpAttemptLimiter;
 }): RequestHandler {
-  const { storage, comparePassword } = dependencies;
+  const { storage, comparePassword, allowPhoneOtpAttempt } = dependencies;
 
   return async (req, res) => {
     try {
-      const { username, password, phoneNumber, whatsappNumber, facebookId, authMethod } = req.body;
+      const { username, password, phoneNumber, authMethod } = req.body;
       let user: LoginUser;
 
       if (authMethod === "email") {
@@ -32,20 +36,46 @@ export function createLoginHandler(dependencies: {
           return res.status(401).json({ message: "Invalid credentials" });
         }
       } else if (authMethod === "phone") {
-        if (!phoneNumber) {
-          return res.status(400).json({ message: "Phone number is required for SMS login" });
+        const phone = typeof phoneNumber === "string" ? phoneNumber : "";
+        const code = typeof req.body?.code === "string" ? req.body.code : "";
+        const challenge = getValidPhoneOtpLoginChallenge(req.session, phone);
+        if (!phone || !challenge) {
+          return res.status(401).json({ message: "Invalid login credentials." });
         }
-        user = await storage.getUserByField("phoneNumber", phoneNumber);
-      } else if (authMethod === "whatsapp") {
-        if (!whatsappNumber) {
-          return res.status(400).json({ message: "WhatsApp number is required for WhatsApp login" });
+        let allowedAttempt: boolean;
+        try {
+          allowedAttempt = await allowPhoneOtpAttempt(
+            phone,
+            req.ip || req.socket.remoteAddress || "",
+          );
+        } catch {
+          return res.status(503).json({
+            code: "RATE_LIMIT_UNAVAILABLE",
+            message: "Authentication is temporarily unavailable.",
+          });
         }
-        user = await storage.getUserByField("whatsappNumber", whatsappNumber);
-      } else if (authMethod === "facebook") {
-        if (!facebookId) {
-          return res.status(400).json({ message: "Facebook ID is required for Facebook login" });
+        if (!allowedAttempt) {
+          return res.status(429).json({ code: "RATE_LIMITED", message: "Too many verification attempts. Request a new code later." });
         }
-        user = await storage.getUserByField("facebookId", facebookId);
+        if (!/^\d{6}$/.test(code)) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+        if (!(await storage.verifyCode(phone, code))) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+        const consumedChallenge = consumePhoneOtpLoginChallenge(req.session, phone);
+        if (!consumedChallenge) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+        user = await storage.getUserByPhone(phone);
+        if (!user || user.phoneNumber !== phone || user.id !== challenge.accountId) {
+          return res.status(401).json({ message: "Invalid login credentials." });
+        }
+      } else if (authMethod === "whatsapp" || authMethod === "facebook") {
+        // No server-side verifier exists for these legacy identifier-only paths.
+        // Never treat a client-supplied phone, WhatsApp number, Facebook ID, or
+        // assertion-shaped value as proof of identity.
+        return res.status(401).json({ message: "Invalid login credentials." });
       } else {
         if (!username || !password) {
           return res.status(401).json({ message: "Invalid login credentials." });
@@ -69,9 +99,18 @@ export function createLoginHandler(dependencies: {
         }
       }
 
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
+      if (!user || !isAuthAccountEligible(user)) {
+        return res.status(401).json({ message: "Invalid login credentials." });
       }
+
+      // Rotate the signed session ID only after credentials and account state
+      // have passed. This invalidates any pre-login or prior-user session.
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
 
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin;

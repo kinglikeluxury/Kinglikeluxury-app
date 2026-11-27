@@ -29,6 +29,7 @@ import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { registerVipRoutes } from "./vip/registerVipRoutes";
 import {registerEmployeeWhatsappVerificationRoutes} from "./whatsappEmployeeSelfVerificationRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./schedulerService";
@@ -229,6 +230,11 @@ app.use("/api", (_req, res, next) => {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  const vipSensitiveApi =
+    path === "/api/vip" ||
+    path.startsWith("/api/vip/") ||
+    path === "/api/admin/vip" ||
+    path.startsWith("/api/admin/vip/");
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
@@ -241,7 +247,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      if (capturedJsonResponse && !vipSensitiveApi) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -260,6 +266,10 @@ app.use((req, res, next) => {
   app.use("/locales", express.static(path.join(process.cwd(), "public/locales")));
 
   const server = await registerRoutes(app);
+  // VIP routes are registered after the existing session middleware. Their
+  // server-side feature gate remains closed unless explicitly enabled.
+  // Registration itself performs no database setup or migration.
+  registerVipRoutes(app);
   // Read-only self-service status for the current authenticated CRM employee.
   // No Meta enrollment, message access, cancellation or disconnection.
   registerEmployeeWhatsappVerificationRoutes(app,{

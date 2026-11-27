@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test, { type TestContext } from "node:test";
 import express from "express";
 import type { AddressInfo } from "node:net";
@@ -8,6 +9,7 @@ import {
   type EmailRegistrationOtpStore,
   type RegistrationStorage,
 } from "./authRegisterRoute";
+import { setPhoneRegistrationProof } from "./phoneOtpProof";
 
 const email = "client@example.test";
 const phone = "+995555000000";
@@ -19,7 +21,7 @@ function fakeStorage(overrides: Partial<RegistrationStorage> = {}): Registration
     getUserByUsername: async () => undefined,
     getUserByEmail: async () => undefined,
     getUserByPhone: async () => undefined,
-    isPhoneVerified: async () => false,
+    consumePhoneVerification: async () => false,
     createUser: async (data) => ({
       ...data,
       id: nextId++,
@@ -44,10 +46,34 @@ async function startRegisterHttpHarness(
   options: {
     storage?: RegistrationStorage;
     emailOtpStore?: EmailRegistrationOtpStore;
+    hashPassword?: (plainText: string) => Promise<string>;
+    phoneProof?: boolean;
+    failSessionRegeneration?: boolean;
   } = {},
 ) {
   const app = express();
   const fakeSession: Record<string, unknown> = {};
+  let sessionId = "anonymous-registration-session";
+  let sessionGeneration = 0;
+  Object.defineProperty(fakeSession, "regenerate", {
+    enumerable: false,
+    value: (callback: (error?: Error | null) => void) => {
+      if (options.failSessionRegeneration) {
+        callback(new Error("synthetic session regeneration failure"));
+        return;
+      }
+      for (const key of Object.keys(fakeSession)) delete fakeSession[key];
+      sessionId = `rotated-registration-session-${++sessionGeneration}`;
+      callback(null);
+    },
+  });
+  if (options.phoneProof) {
+    setPhoneRegistrationProof(fakeSession, {
+      phoneNumber: phone,
+      accountId: null,
+      expiresAt: Date.now() + 60_000,
+    });
+  }
   const storage = options.storage ?? fakeStorage();
   const emailOtpStore = options.emailOtpStore ?? new Map();
   let welcomeEmailCalls = 0;
@@ -64,6 +90,7 @@ async function startRegisterHttpHarness(
     createRegisterHandler({
       storage,
       emailOtpStore,
+      hashPassword: options.hashPassword ?? (async (plainText) => `synthetic-bcrypt:${plainText}`),
       sendWelcomeEmail: async () => { welcomeEmailCalls += 1; },
       sendWelcomeWhatsApp: async () => { welcomeWhatsAppCalls += 1; },
       logError: (error) => appErrors.push(error),
@@ -83,6 +110,7 @@ async function startRegisterHttpHarness(
   return {
     url: `http://127.0.0.1:${address.port}/api/auth/register`,
     fakeSession,
+    get sessionId() { return sessionId; },
     emailOtpStore,
     appErrors,
     get notifications() { return { welcomeEmailCalls, welcomeWhatsAppCalls }; },
@@ -109,17 +137,20 @@ function validRegistration(overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function mockedPhoneVerification(turnstileAccepted: boolean, otpAccepted: boolean) {
-  const turnstile = async () => turnstileAccepted;
-  const smsOtp = async () => otpAccepted;
-  return (await turnstile()) && (await smsOtp());
-}
-
-test("REGISTER HTTP succeeds with mocked prior Turnstile and OTP proof", async (t) => {
-  const verifiedPhone = await mockedPhoneVerification(true, true);
-  const harness = await startRegisterHttpHarness(t, {
-    storage: fakeStorage({ isPhoneVerified: async () => verifiedPhone }),
+test("REGISTER HTTP succeeds with same-session phone OTP proof", async (t) => {
+  let storedPassword: string | null = null;
+  const storage = fakeStorage({
+    consumePhoneVerification: async () => true,
+    createUser: async (data) => {
+      storedPassword = data.password ?? null;
+      return fakeStorage().createUser!(data);
+    },
   });
+  const harness = await startRegisterHttpHarness(t, {
+    storage,
+    phoneProof: true,
+  });
+  const oldSessionId = harness.sessionId;
   const result = await postRegister(harness.url, validRegistration());
   assert.equal(result.status, 201);
   assert.deepEqual(result.body, {
@@ -130,8 +161,38 @@ test("REGISTER HTTP succeeds with mocked prior Turnstile and OTP proof", async (
     email,
     phoneNumber: phone,
   });
+  assert.equal(storedPassword, `synthetic-bcrypt:${validRegistration().password}`);
+  assert.equal(JSON.stringify(result.body).includes(String(validRegistration().password)), false);
   assert.deepEqual(harness.fakeSession, { userId: 1, isAdmin: false, role: "user" });
+  assert.notEqual(harness.sessionId, oldSessionId);
   assert.deepEqual(harness.notifications, { welcomeEmailCalls: 1, welcomeWhatsAppCalls: 1 });
+});
+
+test("production registration injects the server bcrypt hasher", () => {
+  const routes = readFileSync("server/routes.ts", "utf8");
+  assert.match(routes, /hashPassword:\s*\(plainText\)\s*=>\s*bcrypt\.hash\(plainText,\s*10\)/);
+});
+
+test("REGISTER fails closed before account creation if session rotation fails", async (t) => {
+  let createUserCalls = 0;
+  const storage = fakeStorage({
+    consumePhoneVerification: async () => true,
+    createUser: async (data) => {
+      createUserCalls += 1;
+      return fakeStorage().createUser!(data);
+    },
+  });
+  const harness = await startRegisterHttpHarness(t, {
+    storage,
+    phoneProof: true,
+    failSessionRegeneration: true,
+  });
+
+  const result = await postRegister(harness.url, validRegistration());
+  assert.equal(result.status, 500);
+  assert.equal(createUserCalls, 0);
+  assert.equal(harness.fakeSession.userId, undefined);
+  assert.deepEqual(harness.notifications, { welcomeEmailCalls: 0, welcomeWhatsAppCalls: 0 });
 });
 
 test("REGISTER HTTP consumes a verified email OTP after successful creation", async (t) => {
@@ -168,11 +229,13 @@ test("REGISTER HTTP rejects missing, expired, and unverified OTP proof", async (
 test("REGISTER HTTP returns 409 for an existing email without creating or changing records", async (t) => {
   let createCalls = 0;
   const store = fakeStorage({
-    isPhoneVerified: async () => true,
     getUserByEmail: async () => ({ id: 88 } as any),
     createUser: async () => { createCalls += 1; throw new Error("must not create"); },
   });
-  const harness = await startRegisterHttpHarness(t, { storage: store });
+  const harness = await startRegisterHttpHarness(t, {
+    storage: store,
+    emailOtpStore: new Map([[email, futureOtp()]]),
+  });
   const result = await postRegister(harness.url, validRegistration());
   assert.equal(result.status, 409);
   assert.equal(result.body.code, "EMAIL_ALREADY_REGISTERED");
@@ -186,7 +249,6 @@ test("REGISTER HTTP maps a concurrent duplicate-email insert to one 409, not 500
   const created = new Set<string>();
   let nextId = 1;
   const store = fakeStorage({
-    isPhoneVerified: async () => true,
     getUserByEmail: async () => {
       emailLookups += 1;
       if (emailLookups === 2) releaseLookups();
@@ -201,7 +263,10 @@ test("REGISTER HTTP maps a concurrent duplicate-email insert to one 409, not 500
       return { ...await fakeStorage().createUser(data), id: nextId++ };
     },
   });
-  const harness = await startRegisterHttpHarness(t, { storage: store });
+  const harness = await startRegisterHttpHarness(t, {
+    storage: store,
+    emailOtpStore: new Map([[email, futureOtp()]]),
+  });
   const [first, second] = await Promise.all([
     postRegister(harness.url, validRegistration({ username: "client-a" })),
     postRegister(harness.url, validRegistration({ username: "client-b" })),
@@ -219,9 +284,10 @@ test("REGISTER HTTP returns safe unique-conflict responses for username and phon
   ]) {
     const harness = await startRegisterHttpHarness(t, {
       storage: fakeStorage({
-        isPhoneVerified: async () => true,
+        consumePhoneVerification: async () => true,
         createUser: async () => { throw { code: "23505", constraint: conflict.constraint }; },
       }),
+      phoneProof: true,
     });
     const result = await postRegister(harness.url, validRegistration());
     assert.equal(result.status, 409);
@@ -231,17 +297,15 @@ test("REGISTER HTTP returns safe unique-conflict responses for username and phon
 });
 
 test("REGISTER HTTP fails closed on verification/storage errors without leaking diagnostics", async (t) => {
-  const turnstileRejectedProof = await mockedPhoneVerification(false, true);
-  const noProof = await startRegisterHttpHarness(t, {
-    storage: fakeStorage({ isPhoneVerified: async () => turnstileRejectedProof }),
-  });
+  const noProof = await startRegisterHttpHarness(t);
   const denied = await postRegister(noProof.url, validRegistration());
   assert.equal(denied.status, 400);
 
   const failingStore = await startRegisterHttpHarness(t, {
     storage: fakeStorage({
-      isPhoneVerified: async () => { throw new Error("private provider secret"); },
+      consumePhoneVerification: async () => { throw new Error("private provider secret"); },
     }),
+    phoneProof: true,
   });
   const failed = await postRegister(failingStore.url, validRegistration());
   assert.equal(failed.status, 500);

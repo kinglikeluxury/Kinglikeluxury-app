@@ -1,4 +1,5 @@
-import { eq, and, like, ilike, gte, lte, asc, desc, or, isNull, sql, gte as gteOp, inArray } from "drizzle-orm";
+import { eq, and, like, ilike, gt, gte, lte, asc, desc, or, isNull, sql, gte as gteOp, inArray } from "drizzle-orm";
+import { createHmac } from "node:crypto";
 import { db, withRetry } from "./db";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -63,6 +64,7 @@ import { IStorage } from "./storage";
 const PostgresSessionStore = connectPg(session);
 
 export class DatabaseStorage implements IStorage {
+  private static otpRateLimitCleanupCounter = 0;
   sessionStore: any; // Use 'any' type for sessionStore to fix type issues
 
   constructor() {
@@ -595,25 +597,102 @@ export class DatabaseStorage implements IStorage {
           eq(verificationCodes.phoneNumber, phoneNumber),
           eq(verificationCodes.code, code),
           eq(verificationCodes.verified, false),
-          gte(verificationCodes.expiresAt, new Date())
+          gt(verificationCodes.expiresAt, new Date())
         )
       )
       .returning({ id: verificationCodes.id });
     return verified.length > 0;
   }
 
-  async isPhoneVerified(phoneNumber: string): Promise<boolean> {
-    const [record] = await db
-      .select()
-      .from(verificationCodes)
+  async consumePhoneVerification(phoneNumber: string): Promise<boolean> {
+    const consumed = await db
+      .delete(verificationCodes)
       .where(
         and(
           eq(verificationCodes.phoneNumber, phoneNumber),
           eq(verificationCodes.verified, true),
-          gte(verificationCodes.expiresAt, new Date())
+          gt(verificationCodes.expiresAt, new Date())
         )
+      )
+      .returning({ id: verificationCodes.id });
+    return consumed.length > 0;
+  }
+
+  async consumeOtpRateLimit(
+    scope: string,
+    identifier: string,
+    maxAttempts: number,
+    windowMs: number,
+  ): Promise<{ allowed: boolean; attemptCount: number }> {
+    if (
+      !/^[a-z0-9-]{1,48}$/.test(scope) ||
+      typeof identifier !== "string" ||
+      !identifier.trim() ||
+      identifier.length > 512 ||
+      !Number.isSafeInteger(maxAttempts) ||
+      maxAttempts < 1 ||
+      maxAttempts > 100_000 ||
+      !Number.isSafeInteger(windowMs) ||
+      windowMs < 1 ||
+      windowMs > 24 * 60 * 60 * 1000
+    ) {
+      throw new Error("Invalid OTP rate-limit request");
+    }
+    const key = process.env.SESSION_SECRET;
+    if (typeof key !== "string" || key.length < 32) {
+      throw new Error("OTP rate-limit key is unavailable");
+    }
+    const bucketHash = createHmac("sha256", key)
+      .update(scope)
+      .update("\0")
+      .update(identifier.trim())
+      .digest("hex");
+
+    const result = await pool.query(
+      `INSERT INTO auth_otp_rate_limits
+         (bucket_hash, attempt_count, window_started_at, expires_at)
+       VALUES ($1, 1, clock_timestamp(),
+         clock_timestamp() + ($2::bigint * INTERVAL '1 millisecond'))
+       ON CONFLICT (bucket_hash) DO UPDATE
+       SET attempt_count = CASE
+             WHEN auth_otp_rate_limits.expires_at <= clock_timestamp() THEN 1
+             ELSE LEAST(auth_otp_rate_limits.attempt_count + 1, $3::integer + 1)
+           END,
+           window_started_at = CASE
+             WHEN auth_otp_rate_limits.expires_at <= clock_timestamp() THEN clock_timestamp()
+             ELSE auth_otp_rate_limits.window_started_at
+           END,
+           expires_at = CASE
+             WHEN auth_otp_rate_limits.expires_at <= clock_timestamp()
+               THEN clock_timestamp() + ($2::bigint * INTERVAL '1 millisecond')
+             ELSE auth_otp_rate_limits.expires_at
+           END
+       RETURNING attempt_count, attempt_count <= $3::integer AS allowed`,
+      [bucketHash, windowMs, maxAttempts],
+    );
+    const row = result.rows[0];
+    if (!row || !Number.isSafeInteger(Number(row.attempt_count))) {
+      throw new Error("OTP rate-limit database response was invalid");
+    }
+
+    // Cleanup is opportunistic; counters and expiry decisions remain
+    // database-atomic and do not depend on this process-local cadence.
+    DatabaseStorage.otpRateLimitCleanupCounter += 1;
+    if (DatabaseStorage.otpRateLimitCleanupCounter % 256 === 0) {
+      await pool.query(
+        `DELETE FROM auth_otp_rate_limits
+         WHERE bucket_hash IN (
+           SELECT bucket_hash FROM auth_otp_rate_limits
+           WHERE expires_at <= clock_timestamp()
+           ORDER BY expires_at
+           LIMIT 128
+         )`,
       );
-    return !!record;
+    }
+    return {
+      allowed: row.allowed === true,
+      attemptCount: Number(row.attempt_count),
+    };
   }
 
   async createContactLog(data: {
@@ -812,11 +891,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(userNotifications.createdAt));
   }
 
-  async markNotificationRead(id: number): Promise<void> {
+  async markNotificationRead(id: number, userId: number): Promise<void> {
     await db
       .update(userNotifications)
       .set({ isRead: true })
-      .where(eq(userNotifications.id, id));
+      .where(and(
+        eq(userNotifications.id, id),
+        eq(userNotifications.userId, userId),
+      ));
   }
 
   async markAllNotificationsRead(userId: number): Promise<void> {
@@ -837,17 +919,43 @@ export class DatabaseStorage implements IStorage {
   // ── Push Subscriptions ──────────────────────────────────────────────────────
 
   async savePushSubscription(data: InsertPushSubscription): Promise<PushSubscription> {
-    // Upsert: update keys if endpoint already exists
-    const [sub] = await db
+    // Never let another signed-in account replace the keys for an endpoint
+    // owned by someone else. Every update is scoped by endpoint and user ID.
+    const [updated] = await db
+      .update(pushSubscriptions)
+      .set({ p256dh: data.p256dh, auth: data.auth, userAgent: data.userAgent })
+      .where(and(
+        eq(pushSubscriptions.endpoint, data.endpoint),
+        eq(pushSubscriptions.userId, data.userId),
+      ))
+      .returning();
+    if (updated) return updated;
+
+    const [created] = await db
       .insert(pushSubscriptions)
       .values(data)
-      .onConflictDoUpdate({
-        target: pushSubscriptions.endpoint,
-        set: { p256dh: data.p256dh, auth: data.auth, userAgent: data.userAgent },
-      })
+      .onConflictDoNothing({ target: pushSubscriptions.endpoint })
       .returning();
+    if (created) {
+      console.log(`[Push] ✓ Subscription saved for userId=${data.userId}`);
+      return created;
+    }
+
+    // A same-owner insert may have won a concurrent race; retry only that
+    // owner's update. A foreign owner's endpoint remains unchanged.
+    const [retryUpdate] = await db
+      .update(pushSubscriptions)
+      .set({ p256dh: data.p256dh, auth: data.auth, userAgent: data.userAgent })
+      .where(and(
+        eq(pushSubscriptions.endpoint, data.endpoint),
+        eq(pushSubscriptions.userId, data.userId),
+      ))
+      .returning();
+    if (!retryUpdate) {
+      throw new Error("Push subscription endpoint is already registered");
+    }
     console.log(`[Push] ✓ Subscription saved for userId=${data.userId}`);
-    return sub;
+    return retryUpdate;
   }
 
   async getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]> {
@@ -857,8 +965,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(pushSubscriptions.userId, userId));
   }
 
-  async deletePushSubscriptionByEndpoint(endpoint: string): Promise<void> {
-    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+  async deletePushSubscriptionByEndpoint(endpoint: string, userId: number): Promise<void> {
+    await db.delete(pushSubscriptions).where(and(
+      eq(pushSubscriptions.endpoint, endpoint),
+      eq(pushSubscriptions.userId, userId),
+    ));
   }
 
   // ── AI Advisor ──────────────────────────────────────────────────────────────

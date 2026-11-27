@@ -2,6 +2,10 @@ import type { RequestHandler } from "express";
 import type { User } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { normalizeAuthEmail, registrationConflictResponse, uniqueUserFieldFromError } from "@shared/authFlowUtils";
+import {
+  consumePhoneRegistrationProof,
+  getValidPhoneRegistrationProof,
+} from "./phoneOtpProof";
 
 export type EmailRegistrationOtpStore = Map<
   string,
@@ -10,17 +14,25 @@ export type EmailRegistrationOtpStore = Map<
 
 export type RegistrationStorage = Pick<
   IStorage,
-  "getUserByUsername" | "getUserByEmail" | "getUserByPhone" | "isPhoneVerified" | "createUser"
+  "getUserByUsername" | "getUserByEmail" | "getUserByPhone" | "consumePhoneVerification" | "createUser"
 >;
 
 export function createRegisterHandler(dependencies: {
   storage: RegistrationStorage;
   emailOtpStore: EmailRegistrationOtpStore;
+  hashPassword(plainText: string): Promise<string>;
   sendWelcomeEmail(user: User): Promise<unknown>;
   sendWelcomeWhatsApp(user: User): Promise<unknown>;
   logError(error: unknown): void;
 }): RequestHandler {
-  const { storage, emailOtpStore, sendWelcomeEmail, sendWelcomeWhatsApp, logError } = dependencies;
+  const {
+    storage,
+    emailOtpStore,
+    hashPassword,
+    sendWelcomeEmail,
+    sendWelcomeWhatsApp,
+    logError,
+  } = dependencies;
 
   return async (req, res) => {
     try {
@@ -41,9 +53,11 @@ export function createRegisterHandler(dependencies: {
 
       const emailRecord = emailKey ? emailOtpStore.get(emailKey) : null;
       const isEmailVerified = emailRecord?.verified === true && Date.now() < emailRecord.expiresAt.getTime();
+      const phoneProof = phoneNumber
+        ? getValidPhoneRegistrationProof(req.session, phoneNumber)
+        : null;
       if (phoneNumber) {
-        const isPhoneVerified = await storage.isPhoneVerified(phoneNumber);
-        if (!isPhoneVerified && !isEmailVerified) {
+        if (!phoneProof && !isEmailVerified) {
           return res.status(400).json({ message: "Phone number must be verified before registration" });
         }
       } else if (authMethod === "phone") {
@@ -61,9 +75,23 @@ export function createRegisterHandler(dependencies: {
         return res.status(conflict.status).json(conflict.body);
       }
 
+      if (phoneProof && phoneNumber) {
+        const consumed = await storage.consumePhoneVerification(phoneNumber);
+        consumePhoneRegistrationProof(req.session, phoneNumber);
+        if (!consumed && !isEmailVerified) {
+          return res.status(400).json({ message: "Phone number must be verified before registration" });
+        }
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
       const user = await storage.createUser({
         username,
-        password,
+        password: await hashPassword(password),
         email: emailKey ?? undefined,
         phoneNumber: phoneNumber || undefined,
         authMethod: authMethod || "phone",

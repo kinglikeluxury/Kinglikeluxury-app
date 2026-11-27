@@ -72,7 +72,13 @@ export interface IStorage {
   // Verification code operations
   createVerificationCode(phoneNumber: string, code: string, expiresAt: Date): Promise<void>;
   verifyCode(phoneNumber: string, code: string): Promise<boolean>;
-  isPhoneVerified(phoneNumber: string): Promise<boolean>;
+  consumePhoneVerification(phoneNumber: string): Promise<boolean>;
+  consumeOtpRateLimit(
+    scope: string,
+    identifier: string,
+    maxAttempts: number,
+    windowMs: number,
+  ): Promise<{ allowed: boolean; attemptCount: number }>;
 
   // Contact log operations
   createContactLog(data: {
@@ -126,14 +132,14 @@ export interface IStorage {
   // User Notification operations
   createUserNotification(data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification>;
   getUserNotifications(userId: number): Promise<import("@shared/schema").UserNotification[]>;
-  markNotificationRead(id: number): Promise<void>;
+  markNotificationRead(id: number, userId: number): Promise<void>;
   markAllNotificationsRead(userId: number): Promise<void>;
   getUnreadNotificationCount(userId: number): Promise<number>;
 
   // Push Subscription operations
   savePushSubscription(data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription>;
   getPushSubscriptionsByUserId(userId: number): Promise<import("@shared/schema").PushSubscription[]>;
-  deletePushSubscriptionByEndpoint(endpoint: string): Promise<void>;
+  deletePushSubscriptionByEndpoint(endpoint: string, userId: number): Promise<void>;
 
   // AI Advisor operations
   createAiConversation(userId: number, language: string): Promise<import("@shared/schema").AiConversation>;
@@ -176,6 +182,7 @@ export class MemStorage implements IStorage {
   private propertyIdCounter: number;
   private projectIdCounter: number;
   private blogPostIdCounter: number;
+  private otpRateLimits: Map<string, { attemptCount: number; expiresAt: number }> = new Map();
 
   constructor() {
     this.users = new Map();
@@ -493,9 +500,34 @@ export class MemStorage implements IStorage {
     return consumeOtpRecord(record, code);
   }
 
-  async isPhoneVerified(phoneNumber: string): Promise<boolean> {
+  async consumePhoneVerification(phoneNumber: string): Promise<boolean> {
     const record = this.verificationCodes.get(phoneNumber);
-    return Boolean(record?.verified && Date.now() < record.expiresAt.getTime());
+    if (!record?.verified || Date.now() >= record.expiresAt.getTime()) return false;
+    this.verificationCodes.delete(phoneNumber);
+    return true;
+  }
+
+  async consumeOtpRateLimit(
+    scope: string,
+    identifier: string,
+    maxAttempts: number,
+    windowMs: number,
+  ): Promise<{ allowed: boolean; attemptCount: number }> {
+    if (!scope || !identifier || !Number.isSafeInteger(maxAttempts) || maxAttempts < 1 ||
+      !Number.isSafeInteger(windowMs) || windowMs < 1) {
+      throw new Error("Invalid OTP rate-limit request");
+    }
+    const key = `${scope}\0${identifier}`;
+    const now = Date.now();
+    const existing = this.otpRateLimits.get(key);
+    const attemptCount = !existing || existing.expiresAt <= now
+      ? 1
+      : Math.min(existing.attemptCount + 1, maxAttempts + 1);
+    this.otpRateLimits.set(key, {
+      attemptCount,
+      expiresAt: !existing || existing.expiresAt <= now ? now + windowMs : existing.expiresAt,
+    });
+    return { allowed: attemptCount <= maxAttempts, attemptCount };
   }
 
   async createContactLog(_data: {
@@ -575,12 +607,12 @@ export class MemStorage implements IStorage {
   async deleteLiveCamera(_id: number): Promise<boolean> { return false; }
   async createUserNotification(_data: import("@shared/schema").InsertUserNotification): Promise<import("@shared/schema").UserNotification> { throw new Error("Not implemented"); }
   async getUserNotifications(_userId: number): Promise<import("@shared/schema").UserNotification[]> { return []; }
-  async markNotificationRead(_id: number): Promise<void> {}
+  async markNotificationRead(_id: number, _userId: number): Promise<void> {}
   async markAllNotificationsRead(_userId: number): Promise<void> {}
   async getUnreadNotificationCount(_userId: number): Promise<number> { return 0; }
   async savePushSubscription(_data: import("@shared/schema").InsertPushSubscription): Promise<import("@shared/schema").PushSubscription> { throw new Error("Not implemented"); }
   async getPushSubscriptionsByUserId(_userId: number): Promise<import("@shared/schema").PushSubscription[]> { return []; }
-  async deletePushSubscriptionByEndpoint(_endpoint: string): Promise<void> {}
+  async deletePushSubscriptionByEndpoint(_endpoint: string, _userId: number): Promise<void> {}
 
   // AI Advisor stubs
   async createAiConversation(_userId: number, _language: string): Promise<import("@shared/schema").AiConversation> { throw new Error("Not implemented"); }

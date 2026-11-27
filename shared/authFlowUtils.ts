@@ -40,6 +40,18 @@ export async function verifyStoredPassword(
   return storedPassword === candidate;
 }
 
+/**
+ * Authentication and VIP access both require explicit active + verified
+ * account state. The shared users schema marks both columns NOT NULL, so
+ * unexpected null/missing values fail closed rather than being inferred.
+ */
+export function isAuthAccountEligible(user: {
+  isActive?: unknown;
+  isVerified?: unknown;
+} | null | undefined): boolean {
+  return user?.isActive === true && user.isVerified === true;
+}
+
 export function uniqueUserFieldFromError(error: unknown): UniqueUserField | null {
   let current: unknown = error;
   for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {

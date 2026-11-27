@@ -1,0 +1,220 @@
+import {strict as assert} from "node:assert";
+import {test} from "node:test";
+import {
+  assertRailwayQaPreviewEnvironment,
+  isAllowedRailwayQaDatabaseTarget,
+  isMinimalQaHealthProbe,
+  RAILWAY_QA_PUBLIC_TABLES,
+  RAILWAY_QA_RUNTIME_TABLE_PRIVILEGES,
+  verifySyntheticRailwayQaSnapshot,
+} from "./qaRailwayPreviewRules";
+
+const environment=()=>({
+  PATH:"/usr/bin",
+  HOME:"/tmp",
+  TMPDIR:"/tmp",
+  NODE_ENV:"production",
+  PORT:"3000",
+  KINGLIKE_VIP_QA_RUNTIME:"railway",
+  KINGLIKE_VIP_QA_START:"true",
+  KINGLIKE_VIP_QA_PREVIEW:"true",
+  KINGLIKE_VIP_ENABLED:"true",
+  KINGLIKE_VIP_QA_DATABASE_URL:
+    "postgresql://vipqa_runtime:synthetic-only@vip-pg.railway.internal:5432/vipqa_demo",
+  KINGLIKE_VIP_QA_EXPECTED_DB_HOST:"vip-pg.railway.internal",
+  KINGLIKE_VIP_QA_EXPECTED_DB_NAME:"vipqa_demo",
+  KINGLIKE_VIP_QA_EXPECTED_DB_ROLE:"vipqa_runtime",
+  KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS:"10.21.4.7",
+  KINGLIKE_VIP_QA_ENVIRONMENT_ID:"a45d1f9e-4a24-4c84-99bc-90b48e2d41c7",
+  KINGLIKE_VIP_QA_GATE_USER:"qa-owner",
+  KINGLIKE_VIP_QA_GATE_PASSWORD:"synthetic-only-qa-gateway-password",
+  KINGLIKE_VIP_QA_SESSION_SECRET:"s".repeat(64),
+});
+
+test("Railway QA accepts only an explicitly pinned private synthetic database",()=>{
+  const parsed=assertRailwayQaPreviewEnvironment(environment());
+  assert.equal(parsed.host,"vip-pg.railway.internal");
+  assert.equal(parsed.database,"vipqa_demo");
+  assert.equal(parsed.role,"vipqa_runtime");
+  assert.equal(parsed.port,5432);
+  assert.equal(isAllowedRailwayQaDatabaseTarget(parsed.host,parsed.port,parsed),true);
+  assert.equal(isAllowedRailwayQaDatabaseTarget("other.railway.internal",5432,parsed),false);
+  assert.equal(isAllowedRailwayQaDatabaseTarget(parsed.host,443,parsed),false);
+  assert.doesNotThrow(()=>assertRailwayQaPreviewEnvironment({
+    ...environment(),
+    KINGLIKE_VIP_EMAIL_ENABLED:"false",
+    KINGLIKE_VIP_EMAIL_LIVE_APPROVED:"false",
+    VITE_KINGLIKE_VIP_ENABLED:"true",
+  }));
+});
+
+test("Railway QA rejects production targets, mismatched identities, and unsafe env",()=>{
+  const base=environment();
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,
+    KINGLIKE_VIP_QA_DATABASE_URL:
+      "postgresql://vipqa_runtime:synthetic-only@ep-production.aws.neon.tech/neondb",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,KINGLIKE_VIP_QA_EXPECTED_DB_HOST:"other.railway.internal",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,KINGLIKE_VIP_QA_EXPECTED_DB_NAME:"production",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS:"8.8.8.8",
+  }));
+  assert.doesNotThrow(()=>assertRailwayQaPreviewEnvironment({
+    ...base,KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS:"100.64.12.34",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,KINGLIKE_VIP_EMAIL_LIVE_APPROVED:"true",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,KINGLIKE_VIP_EMAIL_ENABLED:"true",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,DATABASE_URL:"postgresql://unapproved.invalid/production",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,VITE_KINGLIKE_VIP_ENABLED:"false",
+  }));
+  assert.throws(()=>assertRailwayQaPreviewEnvironment({
+    ...base,KINGLIKE_VIP_QA_GATE_PASSWORD:"short",
+  }));
+});
+
+test("Railway QA requires a synthetic-only marker, schema, and fixture identities",()=>{
+  const config=assertRailwayQaPreviewEnvironment(environment());
+  const valid={
+    database:"vipqa_demo",
+    role:"vipqa_runtime",
+    databaseOwner:"vipqa_owner",
+    serverAddress:"10.21.4.7",
+    serverPort:5432,
+    hasPrivilegedRoleMembership:false,
+    canCreateInPublicSchema:false,
+    ownedPublicObjectCount:0,
+    roleIsSuperuser:false,
+    roleCanCreateDatabase:false,
+    roleCanCreateRole:false,
+    roleCanReplicate:false,
+    roleCanBypassRls:false,
+    environmentRows:[{
+      environmentId:"a45d1f9e-4a24-4c84-99bc-90b48e2d41c7",
+      classification:"synthetic-only",
+    }],
+    publicTables:[...RAILWAY_QA_PUBLIC_TABLES],
+    publicObjectsWithinAllowlist:true,
+    users:[
+      {id:1,username:"qa_preview_admin",email:"qa_preview_admin@vipqa.test",role:"admin",isAdmin:true,isActive:true,isVerified:true},
+      {id:2,username:"qa_preview_buyer",email:"qa_preview_buyer@vipqa.test",role:"user",isAdmin:false,isActive:true,isVerified:true},
+      {id:3,username:"qa_preview_seller",email:"qa_preview_seller@vipqa.test",role:"sub_agent",isAdmin:false,isActive:true,isVerified:true},
+      {id:4,username:"qa_preview_finance",email:"qa_preview_finance@vipqa.test",role:"finance",isAdmin:false,isActive:true,isVerified:true},
+    ],
+    unitAccess:[
+      {userId:2,accessRole:"owner",unitNumber:"QA-A",revoked:false},
+      {userId:3,accessRole:"seller",unitNumber:"QA-A",revoked:false},
+    ],
+    financeReviewers:[
+      {userId:4,username:"qa_preview_finance",role:"finance",canApprove:true},
+    ],
+    tablePrivileges:RAILWAY_QA_PUBLIC_TABLES.map((tableName)=>{
+      const privileges=RAILWAY_QA_RUNTIME_TABLE_PRIVILEGES[tableName]||
+        ["SELECT","INSERT","UPDATE"];
+      return {
+        tableName,select:privileges.includes("SELECT"),insert:privileges.includes("INSERT"),
+        update:privileges.includes("UPDATE"),delete:privileges.includes("DELETE"),
+        truncate:false,references:false,trigger:false,
+      };
+    }),
+    sequencePrivileges:[
+      {sequenceName:"users_id_seq",ownerTableName:"users",usage:false,select:false,update:false},
+      {sequenceName:"vip_projects_id_seq",ownerTableName:"vip_projects",usage:true,select:true,update:false},
+    ],
+    projectNames:["Synthetic QA Project"],
+    unitNumbers:["QA-A"],
+    receipts:[{
+      fileName:"synthetic-receipt.pdf",
+      uploadedBy:2,
+      uploaderUsername:"qa_preview_buyer",
+    }],
+    fileObjects:[{
+      objectKey:"kinglike-vip/receipts/11111111-1111-4111-8111-111111111111.pdf",
+      contentType:"application/pdf",
+      sizeBytes:128,
+    }],
+    receiptObjectsAvailable:true,
+    receiptSourcesAreInternal:true,
+    fileObjectsConsistent:true,
+    sessionStoreReady:true,
+    pendingReceiptCount:1,
+    pendingReceiptsUnposted:true,
+  };
+  assert.doesNotThrow(()=>verifySyntheticRailwayQaSnapshot(config,valid));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,hasPrivilegedRoleMembership:true,
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,environmentRows:[],
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,publicTables:[...valid.publicTables,"crm_leads"],
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,publicObjectsWithinAllowlist:false,
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,users:[...valid.users,{
+      id:5,username:"customer",email:"person@example.com",role:"user",
+      isAdmin:false,isActive:true,isVerified:true,
+    }],
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,tablePrivileges:valid.tablePrivileges.map(row=>
+      row.tableName==="vip_payment_postings"?{...row,update:true}:row),
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,financeReviewers:[],
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,sequencePrivileges:valid.sequencePrivileges.map(row=>
+      row.ownerTableName==="users"?{...row,usage:true}:row),
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,pendingReceiptsUnposted:false,
+  }));
+  assert.doesNotThrow(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,
+    financeReviewers:valid.financeReviewers.map(row=>({...row,canApprove:false})),
+    unitAccess:valid.unitAccess.map(row=>row.accessRole==="seller"?{...row,revoked:true}:row),
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,receipts:[{fileName:"receipt.pdf",uploadedBy:2,uploaderUsername:"qa_preview_buyer"}],
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,receiptObjectsAvailable:false,
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,fileObjects:[{...valid.fileObjects[0],contentType:"image/jpeg"}],
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,sessionStoreReady:false,
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,roleIsSuperuser:true,
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,roleCanCreateDatabase:true,
+  }));
+  assert.throws(()=>verifySyntheticRailwayQaSnapshot(config,{
+    ...valid,ownedPublicObjectCount:1,
+  }));
+});
+
+test("only GET /health is eligible for the minimal Railway probe",()=>{
+  assert.equal(isMinimalQaHealthProbe("GET","/health"),true);
+  assert.equal(isMinimalQaHealthProbe("POST","/health"),false);
+  assert.equal(isMinimalQaHealthProbe("GET","/api/auth/me"),false);
+  assert.equal(isMinimalQaHealthProbe("GET","/health/"),false);
+});

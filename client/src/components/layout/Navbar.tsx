@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { isCrmEmployeeRole } from "@shared/crmRoles";
-import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Crown, LayoutDashboard, ListTodo } from "lucide-react";
+import { Menu, Heart, Home, Building2, FolderOpen, BookOpen, Map, Star, PlusCircle, Shield, FileText, KeyRound, LogOut, Search, CalendarDays, Bell, Bot, Sparkles, Tv, Crown, LayoutDashboard, ListTodo, Receipt } from "lucide-react";
 import logoPath from "@assets/LUXURY_20230822_234540_0000-removebg.png";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MobileDrawer from "./MobileDrawer";
@@ -19,14 +19,20 @@ import NotificationBell from "./NotificationBell";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
+import { useVipNavigation } from "@/features/vip/useVipNavigation";
+import { getVipCopy } from "@/features/vip/vipCopy";
+import { getVipFinanceCopy } from "@/features/vip/vipFinanceCopy";
 
 const Navbar = () => {
   const [location, navigate] = useLocation();
   const { user, logout } = useAuth();
+  const vipNav = useVipNavigation(user);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [adminSearchId, setAdminSearchId] = useState("");
   const { favorites, removeFromFavorites } = useFavorites();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const vipLabels = getVipCopy(i18n.language);
+  const vipFinanceLabels = getVipFinanceCopy(i18n.language);
 
   const handleLogout = async () => {
     await logout();
@@ -205,6 +211,34 @@ const Navbar = () => {
                         <Link href="/terms" className="flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" />{t("nav.termsConditions", "Terms & Conditions")}</Link>
                       </DropdownMenuItem>
 
+                      {(vipNav.showOwner || vipNav.showSeller || vipNav.showFinanceReview) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuLabel className="text-xs text-gray-400 font-semibold uppercase">KINGLIKE VIP</DropdownMenuLabel>
+                          {vipNav.showOwner && (
+                            <DropdownMenuItem asChild>
+                              <Link href="/vip" className="flex items-center gap-2">
+                                <Crown className="h-4 w-4 text-[#3bcac4]" />{vipLabels.myInvestments}
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
+                          {vipNav.showSeller && (
+                            <DropdownMenuItem asChild>
+                              <Link href="/vip/sales" className="flex items-center gap-2">
+                                <Crown className="h-4 w-4 text-[#005476]" />{vipLabels.myClients}
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
+                          {vipNav.showFinanceReview && (
+                            <DropdownMenuItem asChild>
+                              <Link href="/vip/finance-review" className="flex items-center gap-2">
+                                <Receipt className="h-4 w-4 text-[#005476]" />{vipFinanceLabels.nav}
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
+                        </>
+                      )}
+
                       {/* Sub-Agent CRM section */}
                       {isCrmEmployeeRole(user.role) && (
                         <>
@@ -249,7 +283,8 @@ const Navbar = () => {
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel className="text-xs text-gray-400 font-semibold uppercase">Admin</DropdownMenuLabel>
                           {ADMIN_NAV_ITEMS.filter(item =>
-                            user.isAdmin || item.visibleToUserIds?.includes(user.id)
+                            (user.isAdmin || item.visibleToUserIds?.includes(user.id)) &&
+                            (!item.requiresVipAdmin || vipNav.showAdmin)
                           ).map((item) => (
                             <DropdownMenuItem key={item.path} asChild>
                               <Link href={item.path} className="flex items-center gap-2">
@@ -257,7 +292,7 @@ const Navbar = () => {
                                   className={`w-3.5 h-3.5${item.iconColorClass ? ` ${item.iconColorClass}` : ""}`}
                                   style={item.iconColorHex ? { color: item.iconColorHex } : undefined}
                                 />
-                                {t(item.labelKey, item.labelFallback)}
+                                {item.requiresVipAdmin ? vipLabels.admin : t(item.labelKey, item.labelFallback)}
                               </Link>
                             </DropdownMenuItem>
                           ))}

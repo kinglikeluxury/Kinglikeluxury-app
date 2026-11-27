@@ -2,12 +2,15 @@ import { Link, useLocation } from "wouter";
 import {
   Home, Building2, FolderOpen, BookOpen, Heart, PlusCircle,
   LogOut, LogIn, UserPlus,
-  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv, Crown, LayoutDashboard, ListTodo,
+  Globe, ChevronRight, X, Star, ChevronDown, ChevronUp, Map, KeyRound, Shield, FileText, Lock, Search, CalendarDays, Bell, Sparkles, Tv, Crown, LayoutDashboard, ListTodo, Receipt,
 } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/lib/adminNavItems";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useVipNavigation } from "@/features/vip/useVipNavigation";
+import { getVipCopy } from "@/features/vip/vipCopy";
+import { getVipFinanceCopy } from "@/features/vip/vipFinanceCopy";
 import { isCrmEmployeeRole } from "@shared/crmRoles";
 import { useFavorites } from "@/hooks/use-favorites";
 import { languages, getLanguageName } from "@/lib/i18n";
@@ -22,7 +25,10 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { t, i18n } = useTranslation();
+  const vipLabels = getVipCopy(i18n.language);
+  const vipFinanceLabels = getVipFinanceCopy(i18n.language);
   const { user, logout } = useAuth();
+  const vipNav = useVipNavigation(user);
   const { favorites } = useFavorites();
 
   const { data: notifications = [] } = useQuery<UserNotification[]>({
@@ -305,6 +311,24 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             {renderItem({ label: t("nav.termsConditions", "الشروط والأحكام"), path: "/terms", icon: FileText })}
           </div>
 
+          {(vipNav.showOwner || vipNav.showSeller || vipNav.showFinanceReview) && (
+            <div className="mb-2">
+              <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                KINGLIKE VIP
+              </p>
+              <div className="bg-white">
+                {vipNav.showOwner && renderItem({ label: vipLabels.myInvestments, path: "/vip", icon: Crown, highlight: true })}
+                {vipNav.showSeller && renderItem({ label: vipLabels.myClients, path: "/vip/sales", icon: Crown, highlight: true })}
+                {vipNav.showFinanceReview && renderItem({
+                  label: vipFinanceLabels.nav,
+                  path: "/vip/finance-review",
+                  icon: Receipt,
+                  highlight: true,
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Sub-Agent CRM section */}
           {user && isCrmEmployeeRole(user.role) && (
             <div className="mb-2">
@@ -328,10 +352,11 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               </p>
               <div className="bg-white">
                 {ADMIN_NAV_ITEMS.filter(item =>
-                  user?.isAdmin || item.visibleToUserIds?.includes(user?.id ?? -1)
+                  (user?.isAdmin || item.visibleToUserIds?.includes(user?.id ?? -1)) &&
+                  (!item.requiresVipAdmin || vipNav.showAdmin)
                 ).map((item) =>
                   renderItem({
-                    label: t(item.labelKey, item.labelFallback),
+                    label: item.requiresVipAdmin ? vipLabels.admin : t(item.labelKey, item.labelFallback),
                     path: item.path,
                     icon: item.Icon,
                     highlight: item.highlight,
