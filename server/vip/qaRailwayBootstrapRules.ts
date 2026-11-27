@@ -42,6 +42,9 @@ export type QaBootstrapFailureCategory=
   |"configuration_environment_npm_metadata"
   |"configuration_environment_build_metadata"
   |"configuration_environment_other"
+  |"configuration_environment_npm_build"
+  |"configuration_environment_npm_other"
+  |"configuration_environment_build_other"
   |"configuration_environment_mixed"
   |"configuration_runtime_mode"
   |"configuration_package_override"
@@ -69,6 +72,8 @@ export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCate
   const configurationCategories=new Set([
     "configuration_environment","configuration_environment_npm_metadata",
     "configuration_environment_build_metadata","configuration_environment_other",
+    "configuration_environment_npm_build","configuration_environment_npm_other",
+    "configuration_environment_build_other",
     "configuration_environment_mixed","configuration_runtime_mode",
     "configuration_package_override","configuration_seed_variables",
     "configuration_approval_flags","configuration_external_communications",
@@ -140,7 +145,13 @@ export function validateRailwayBootstrapEnvironment(
     const families=new Set(unexpectedNames.map(name=>
       /^npm_/i.test(name)?"npm_metadata":
       /^NIXPACKS_/i.test(name)?"build_metadata":"other"));
-    const category=(families.size>1?"configuration_environment_mixed":
+    const hasNpm=families.has("npm_metadata");
+    const hasBuild=families.has("build_metadata");
+    const hasOther=families.has("other");
+    const category=(hasNpm&&hasBuild&&hasOther?"configuration_environment_mixed":
+      hasNpm&&hasBuild?"configuration_environment_npm_build":
+      hasNpm&&hasOther?"configuration_environment_npm_other":
+      hasBuild&&hasOther?"configuration_environment_build_other":
       families.has("npm_metadata")?"configuration_environment_npm_metadata":
       families.has("build_metadata")?"configuration_environment_build_metadata":
       "configuration_environment_other") as Extract<

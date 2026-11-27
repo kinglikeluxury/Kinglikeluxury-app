@@ -128,6 +128,10 @@ test("bootstrap configuration failures use safe non-value diagnostics",()=>{
     "configuration_environment_npm_metadata");
   assert.equal(category({...environment(),NIXPACKS_NODE_VERSION:"20"}),
     "configuration_environment_build_metadata");
+  assert.equal(category({...environment(),npm_config_user_agent:"synthetic",CI:"true"}),
+    "configuration_environment_npm_other");
+  assert.equal(category({...environment(),NIXPACKS_NODE_VERSION:"20",CI:"true"}),
+    "configuration_environment_build_other");
   assert.equal(category({...environment(),NODE_ENV:"test"}),
     "configuration_runtime_mode");
   assert.equal(category({...environment(),RAILPACK_INSTALL_CMD:"npm install"}),
