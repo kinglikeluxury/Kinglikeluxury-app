@@ -162,6 +162,7 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
     CI:"true",
     NIXPACKS_NODE_VERSION:"20",
     NIXPACKS_INSTALL_CMD:"must-not-be-used-at-runtime",
+    nixpacks_node_version:"20",
     npm_config_user_agent:"synthetic-test",
     npm_package_json:"synthetic-test",
     BASH_VERSION:"synthetic-test",
@@ -173,6 +174,7 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
   assert.equal(env.CI,undefined);
   assert.equal(env.NIXPACKS_NODE_VERSION,undefined);
   assert.equal(env.NIXPACKS_INSTALL_CMD,undefined);
+  assert.equal(env.nixpacks_node_version,undefined);
   assert.equal(env.npm_config_user_agent,undefined);
   assert.equal(env.npm_package_json,undefined);
   assert.equal(env.BASH_VERSION,undefined);
