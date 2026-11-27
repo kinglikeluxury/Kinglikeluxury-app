@@ -271,11 +271,13 @@ async function bootstrap():Promise<void>{
 }
 
 if(process.env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE==="true"){
-  bootstrap().catch((error:unknown)=>{
+  try{
+    await bootstrap();
+  }catch(error:unknown){
     process.stderr.write(
       `synthetic_vip_qa_database=refused_or_failed stage=${activeStage} `+
       `category=${classifyQaBootstrapFailure(error)}; no credentials logged\n`,
     );
     process.exitCode=1;
-  });
+  }
 }

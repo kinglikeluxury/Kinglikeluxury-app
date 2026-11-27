@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "npm run vip:qa:build"
 
 [deploy]
-preDeployCommand = ["node dist/qa-vip-railway-build/qaRailwayBootstrap.mjs"]
+preDeployCommand = ["node server/vip/qaRailwayPreDeploy.mjs"]
 startCommand = "npm run vip:qa:start"
 healthcheckPath = "/health"
 healthcheckTimeout = 180
