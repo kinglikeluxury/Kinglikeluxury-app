@@ -3,11 +3,13 @@ import {resolve4} from "node:dns/promises";
 import pg from "pg";
 import {quoteQaSqlIdentifier} from "./qaRailwayProvisionRules";
 import {
+  classifyQaBootstrapFailure,
   isPrivateRailwayBootstrapIpv4,
   validateRailwayBootstrapEnvironment,
 } from "./qaRailwayBootstrapRules";
 
 const {Pool}=pg;
+let activeStage="configuration";
 const runtimeEnvNames=new Set([
   "PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL",
   "HOSTNAME","TERM","KINGLIKE_VIP_QA_PREVIEW","KINGLIKE_VIP_ENABLED",
@@ -139,9 +141,12 @@ async function applyMigrations(
 }
 
 async function bootstrap():Promise<void>{
+  activeStage="configuration";
   const config=validateRailwayBootstrapEnvironment(process.env);
   if(!privateHost(config.host))throw new Error("QA database host is not private");
+  activeStage="database_endpoint";
   const address=await pinnedAddress(config.host);
+  activeStage="database_admin_connection";
   const adminUrl=new URL(config.adminDatabaseUrl);
   if(!adminUrl.port)adminUrl.port="5432";
   const adminPool=new Pool({
@@ -153,6 +158,7 @@ async function bootstrap():Promise<void>{
   let createdDatabase=false;
   try{
     client=await adminPool.connect();
+    activeStage="database_admin_identity";
     const identity=await client.query<{
       database:string;role:string;server_address:string|null;server_port:number;
       superuser:boolean;createdb:boolean;createrole:boolean;member_of_any:boolean;
@@ -185,6 +191,7 @@ async function bootstrap():Promise<void>{
       client.release();
       client=undefined;
       await adminPool.end();
+      activeStage="runtime_database_identity";
       await verifyRuntimeDatabase();
       process.stdout.write("synthetic_vip_qa_database=already_verified\n");
       return;
@@ -195,6 +202,7 @@ async function bootstrap():Promise<void>{
 
     const migrator=quoteQaSqlIdentifier(config.migratorRole);
     const runtime=quoteQaSqlIdentifier(config.runtimeRole);
+    activeStage="database_roles";
     await client.query(
       `CREATE ROLE ${migrator} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE `+
       `NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD ${quoteLiteral(config.migratorPassword)}`,
@@ -210,6 +218,7 @@ async function bootstrap():Promise<void>{
       `OWNER ${migrator} TEMPLATE template0 ENCODING 'UTF8'`,
     );
     createdDatabase=true;
+    activeStage="database_access_grants";
     await client.query(
       `REVOKE CONNECT ON DATABASE ${quoteQaSqlIdentifier(config.database)} FROM PUBLIC`,
     );
@@ -222,6 +231,7 @@ async function bootstrap():Promise<void>{
   }
 
   if(!createdDatabase)throw new Error("QA database bootstrap did not create its target");
+  activeStage="database_migrations";
   const migratorUrl=new URL(config.adminDatabaseUrl);
   migratorUrl.username=config.migratorRole;
   migratorUrl.password=config.migratorPassword;
@@ -235,6 +245,7 @@ async function bootstrap():Promise<void>{
 
   const {validateQaProvisionConfig}=await import("./qaRailwayProvisionRules");
   const {provisionSyntheticVipQaDatabase}=await import("./qaRailwayProvision");
+  activeStage="synthetic_seed";
   const provisionConfig=validateQaProvisionConfig({
     NODE_ENV:"production",
     KINGLIKE_VIP_QA_PROVISION_MODE:"railway",
@@ -252,6 +263,7 @@ async function bootstrap():Promise<void>{
     KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD:config.accountPasswords.finance,
   });
   await provisionSyntheticVipQaDatabase(provisionConfig);
+  activeStage="runtime_database_identity";
   await verifyRuntimeDatabase();
   process.stdout.write(
     "synthetic_vip_qa_database=initialized accounts=4 receipt=pending payment_postings=0 grants=verified\n",
@@ -259,8 +271,11 @@ async function bootstrap():Promise<void>{
 }
 
 if(process.env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE==="true"){
-  bootstrap().catch(()=>{
-    process.stderr.write("synthetic_vip_qa_database=refused_or_failed; no credentials logged\n");
+  bootstrap().catch((error:unknown)=>{
+    process.stderr.write(
+      `synthetic_vip_qa_database=refused_or_failed stage=${activeStage} `+
+      `category=${classifyQaBootstrapFailure(error)}; no credentials logged\n`,
+    );
     process.exitCode=1;
   });
 }

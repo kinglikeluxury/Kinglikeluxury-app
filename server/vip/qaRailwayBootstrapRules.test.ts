@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {validateRailwayBootstrapEnvironment} from "./qaRailwayBootstrapRules";
+import {
+  classifyQaBootstrapFailure,
+  validateRailwayBootstrapEnvironment,
+} from "./qaRailwayBootstrapRules";
 
 const environment=()=>({
   PATH:"/usr/bin",
@@ -93,4 +96,19 @@ test("Railway bootstrap rejects malformed roles and non-unique synthetic credent
   assert.throws(()=>validateRailwayBootstrapEnvironment({
     ...env,KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED:"false",
   }));
+});
+
+test("bootstrap failure logs reduce database errors to safe categories",()=>{
+  assert.equal(classifyQaBootstrapFailure(Object.assign(new Error("hidden"),{code:"28P01"})),
+    "database_authentication");
+  assert.equal(classifyQaBootstrapFailure(Object.assign(new Error("hidden"),{code:"ECONNREFUSED"})),
+    "database_connection");
+  assert.equal(classifyQaBootstrapFailure(Object.assign(new Error("hidden"),{code:"42501"})),
+    "database_permission");
+  assert.equal(classifyQaBootstrapFailure(Object.assign(new Error("hidden"),{code:"42P01"})),
+    "database_schema");
+  assert.equal(classifyQaBootstrapFailure(new Error("QA migration connection identity is invalid")),
+    "database_identity");
+  assert.equal(classifyQaBootstrapFailure(new Error("sensitive unclassified value")),
+    "unknown");
 });

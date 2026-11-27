@@ -36,6 +36,38 @@ export type RailwayBootstrapConfig=Readonly<{
   accountPasswords:Readonly<{admin:string;buyer:string;seller:string;finance:string}>;
 }>;
 
+export type QaBootstrapFailureCategory=
+  |"configuration"
+  |"database_endpoint"
+  |"database_connection"
+  |"database_authentication"
+  |"database_identity"
+  |"database_permission"
+  |"database_schema"
+  |"synthetic_seed"
+  |"unknown";
+
+export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCategory{
+  const source=error&&typeof error==="object"?error as {code?:unknown;message?:unknown}:{};
+  const code=typeof source.code==="string"?source.code:"";
+  const message=typeof source.message==="string"?source.message.toLowerCase():"";
+  if(["ENOTFOUND","EAI_AGAIN","ECONNREFUSED","ECONNRESET","ETIMEDOUT",
+    "EHOSTUNREACH","ENETUNREACH","EPIPE"].includes(code)){
+    return "database_connection";
+  }
+  if(["28P01","28000"].includes(code))return "database_authentication";
+  if(code==="42501")return "database_permission";
+  if(["3D000","42P01","42P07","42704"].includes(code))return "database_schema";
+  if(code==="23505")return "synthetic_seed";
+  if(/identity|privilege|authority/.test(message))return "database_identity";
+  if(/dns|private ipv4|private host/.test(message))return "database_endpoint";
+  if(/schema|migration|relation|database is not empty/.test(message))return "database_schema";
+  if(/configuration|credential policy|external communication|unapproved environment/.test(message)){
+    return "configuration";
+  }
+  return "unknown";
+}
+
 function required(env:Record<string,string|undefined>,name:string):string{
   const value=env[name];
   if(typeof value!=="string"||value.length===0){
