@@ -112,3 +112,37 @@ test("bootstrap failure logs reduce database errors to safe categories",()=>{
   assert.equal(classifyQaBootstrapFailure(new Error("sensitive unclassified value")),
     "unknown");
 });
+
+test("bootstrap configuration failures use safe non-value diagnostics",()=>{
+  const category=(env:Record<string,string|undefined>)=>{
+    try{
+      validateRailwayBootstrapEnvironment(env);
+      return "accepted";
+    }catch(error){
+      return classifyQaBootstrapFailure(error);
+    }
+  };
+  assert.equal(category({...environment(),UNAPPROVED_SETTING:"synthetic"}),
+    "configuration_environment");
+  assert.equal(category({...environment(),NODE_ENV:"test"}),
+    "configuration_runtime_mode");
+  assert.equal(category({...environment(),RAILPACK_INSTALL_CMD:"npm install"}),
+    "configuration_package_override");
+  assert.equal(category({...environment(),KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD:"legacy"}),
+    "configuration_seed_variables");
+  assert.equal(category({...environment(),KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED:"false"}),
+    "configuration_approval_flags");
+  assert.equal(category({...environment(),KINGLIKE_VIP_EMAIL_ENABLED:"true"}),
+    "configuration_external_communications");
+  const missing:Record<string,string|undefined>=environment();
+  delete missing.KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD;
+  assert.equal(category(missing),"configuration_required_fields");
+  assert.equal(category({...environment(),KINGLIKE_VIP_QA_DATABASE_URL:"invalid"}),
+    "configuration_database_url");
+  assert.equal(category({...environment(),
+    KINGLIKE_VIP_QA_DATABASE_URL:
+      "postgresql://vipqa_runtime:Synthetic-Runtime-QA-2026!@other.railway.internal:5432/vipqa_demo",
+  }),"configuration_database_identity");
+  assert.equal(category({...environment(),KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD:"weak"}),
+    "configuration_credentials");
+});

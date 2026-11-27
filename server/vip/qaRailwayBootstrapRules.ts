@@ -38,6 +38,16 @@ export type RailwayBootstrapConfig=Readonly<{
 
 export type QaBootstrapFailureCategory=
   |"configuration"
+  |"configuration_environment"
+  |"configuration_runtime_mode"
+  |"configuration_package_override"
+  |"configuration_seed_variables"
+  |"configuration_approval_flags"
+  |"configuration_external_communications"
+  |"configuration_required_fields"
+  |"configuration_database_url"
+  |"configuration_database_identity"
+  |"configuration_credentials"
   |"database_endpoint"
   |"database_connection"
   |"database_authentication"
@@ -49,6 +59,19 @@ export type QaBootstrapFailureCategory=
 
 export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCategory{
   const source=error&&typeof error==="object"?error as {code?:unknown;message?:unknown}:{};
+  const explicitCategory=(error&&typeof error==="object"&&
+    "qaBootstrapCategory" in error&&typeof error.qaBootstrapCategory==="string")?
+    error.qaBootstrapCategory:"";
+  const configurationCategories=new Set([
+    "configuration_environment","configuration_runtime_mode",
+    "configuration_package_override","configuration_seed_variables",
+    "configuration_approval_flags","configuration_external_communications",
+    "configuration_required_fields","configuration_database_url",
+    "configuration_database_identity","configuration_credentials",
+  ]);
+  if(configurationCategories.has(explicitCategory)){
+    return explicitCategory as QaBootstrapFailureCategory;
+  }
   const code=typeof source.code==="string"?source.code:"";
   const message=typeof source.message==="string"?source.message.toLowerCase():"";
   if(["ENOTFOUND","EAI_AGAIN","ECONNREFUSED","ECONNRESET","ETIMEDOUT",
@@ -65,13 +88,22 @@ export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCate
   if(/configuration|credential policy|external communication|unapproved environment/.test(message)){
     return "configuration";
   }
+  if(error instanceof URIError)return "configuration_database_url";
   return "unknown";
+}
+
+function configFailure(
+  category:Extract<QaBootstrapFailureCategory,`configuration_${string}`>,
+):Error{
+  return Object.assign(new Error("Isolated VIP QA configuration was refused"),{
+    qaBootstrapCategory:category,
+  });
 }
 
 function required(env:Record<string,string|undefined>,name:string):string{
   const value=env[name];
   if(typeof value!=="string"||value.length===0){
-    throw new Error("Isolated VIP QA bootstrap configuration is incomplete");
+    throw configFailure("configuration_required_fields");
   }
   return value;
 }
@@ -98,23 +130,32 @@ export function validateRailwayBootstrapEnvironment(
 ):RailwayBootstrapConfig{
   if(Object.entries(env).some(([name,value])=>
     value!==undefined&&!allowedNames.has(name)&&!/^RAILWAY_[A-Z0-9_]+$/.test(name))){
-    throw new Error("Isolated VIP QA bootstrap rejected an unapproved environment");
+    throw configFailure("configuration_environment");
   }
-  if(env.NODE_ENV!=="production"||
-    (env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!=="")||
-    ["KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
+  if(env.NODE_ENV!=="production"){
+    throw configFailure("configuration_runtime_mode");
+  }
+  if(env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!==""){
+    throw configFailure("configuration_package_override");
+  }
+  if(["KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
       "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",
       "KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD",
       "KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD",
-    ].some(name=>env[name]!==undefined&&env[name]!=="")||
+    ].some(name=>env[name]!==undefined&&env[name]!=="")){
+    throw configFailure("configuration_seed_variables");
+  }
+  if(
     env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE!=="true"||
     env.KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED!=="true"||
     env.KINGLIKE_VIP_QA_PREVIEW!=="true"||
     env.KINGLIKE_VIP_ENABLED!=="true"||
-    (env.KINGLIKE_VIP_EMAIL_ENABLED!==undefined&&env.KINGLIKE_VIP_EMAIL_ENABLED!=="false")||
-    (env.KINGLIKE_VIP_EMAIL_LIVE_APPROVED!==undefined&&env.KINGLIKE_VIP_EMAIL_LIVE_APPROVED!=="false")||
     (env.VITE_KINGLIKE_VIP_ENABLED!==undefined&&env.VITE_KINGLIKE_VIP_ENABLED!=="true")){
-    throw new Error("Isolated VIP QA bootstrap requires closed external communications");
+    throw configFailure("configuration_approval_flags");
+  }
+  if((env.KINGLIKE_VIP_EMAIL_ENABLED!==undefined&&env.KINGLIKE_VIP_EMAIL_ENABLED!=="false")||
+    (env.KINGLIKE_VIP_EMAIL_LIVE_APPROVED!==undefined&&env.KINGLIKE_VIP_EMAIL_LIVE_APPROVED!=="false")){
+    throw configFailure("configuration_external_communications");
   }
 
   const host=required(env,"KINGLIKE_VIP_QA_EXPECTED_DB_HOST").toLowerCase();
@@ -139,18 +180,22 @@ export function validateRailwayBootstrapEnvironment(
     admin=new URL(adminDatabaseUrl);
     runtime=new URL(runtimeDatabaseUrl);
   }catch{
-    throw new Error("Isolated VIP QA database URL is invalid");
+    throw configFailure("configuration_database_url");
   }
-  const adminRole=decodeURIComponent(admin.username);
-  const runtimeUsername=decodeURIComponent(runtime.username);
-  const runtimePassword=decodeURIComponent(runtime.password);
-  const runtimeDatabase=decodeURIComponent(runtime.pathname.replace(/^\/+/,""));
+  let adminRole:string,runtimeUsername:string,runtimePassword:string,runtimeDatabase:string;
+  try{
+    adminRole=decodeURIComponent(admin.username);
+    runtimeUsername=decodeURIComponent(runtime.username);
+    runtimePassword=decodeURIComponent(runtime.password);
+    runtimeDatabase=decodeURIComponent(runtime.pathname.replace(/^\/+/,""));
+  }catch{
+    throw configFailure("configuration_database_url");
+  }
   if(!["postgres:","postgresql:"].includes(admin.protocol)||
     !admin.password||admin.hostname.toLowerCase()!==host||
     (admin.port&&Number(admin.port)!==5432)||admin.search||admin.hash||
-    /^vipqa_[a-z0-9_]{2,32}$/.test(adminRole)||
     !["postgres:","postgresql:"].includes(runtime.protocol)||
-    !strongSecret(runtimePassword)||runtime.hostname.toLowerCase()!==host||
+    runtime.hostname.toLowerCase()!==host||
     (runtime.port&&Number(runtime.port)!==5432)||runtime.search||runtime.hash||
     runtimeUsername!==runtimeRole||runtimeDatabase!==database||
     !/^[a-z0-9.-]+\.railway\.internal$/.test(host)||
@@ -159,7 +204,11 @@ export function validateRailwayBootstrapEnvironment(
     runtimeRole==="vipqa_migrator"||
     env.KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS!=="auto"||
     !isUuid(environmentId)||
-    (env.RAILWAY_ENVIRONMENT_ID!==undefined&&env.RAILWAY_ENVIRONMENT_ID!==environmentId)||
+    (env.RAILWAY_ENVIRONMENT_ID!==undefined&&env.RAILWAY_ENVIRONMENT_ID!==environmentId)){
+    throw configFailure("configuration_database_identity");
+  }
+  if(/^vipqa_[a-z0-9_]{2,32}$/.test(adminRole)||
+    !strongSecret(runtimePassword)||
     gateUser.length<4||gatePassword.length<20||sessionSecret.length<48||
     !strongSecret(migratorPassword)||
     new Set(Object.values(accountPasswords)).size!==4||
@@ -169,7 +218,7 @@ export function validateRailwayBootstrapEnvironment(
         `qa_preview_${role}@vipqa.test`,
         password,
       ))){
-    throw new Error("Isolated VIP QA bootstrap identity or credential policy failed");
+    throw configFailure("configuration_credentials");
   }
 
   return Object.freeze({
