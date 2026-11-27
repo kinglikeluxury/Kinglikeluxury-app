@@ -3,6 +3,7 @@ import {validateQaBootstrapIdentity} from "./qaBootstrapRules";
 
 const allowedNames=new Set([
   "PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL",
+  "RAILPACK_INSTALL_CMD",
   "KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE","KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED",
   "KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL",
   "KINGLIKE_VIP_QA_PREVIEW","KINGLIKE_VIP_ENABLED","VITE_KINGLIKE_VIP_ENABLED",
@@ -64,6 +65,7 @@ export function validateRailwayBootstrapEnvironment(
     throw new Error("Isolated VIP QA bootstrap rejected an unapproved environment");
   }
   if(env.NODE_ENV!=="production"||
+    (env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!=="npm ci --include=dev")||
     env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE!=="true"||
     env.KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED!=="true"||
     env.KINGLIKE_VIP_QA_PREVIEW!=="true"||

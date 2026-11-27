@@ -156,6 +156,11 @@ requires an explicit provision approval flag and four unique strong synthetic
 account passwords. Local test mode is restricted to a `/tmp/kinglike-vip-pg-*`
 cluster with a verified loopback process.
 
+Railpack needs the locked development toolchain during the QA build. The
+`RAILPACK_INSTALL_CMD` setting is fixed to `npm ci --include=dev`; the QA build
+itself runs with an empty environment, and the launcher removes build settings
+before starting the application.
+
 - `KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE`,
   `KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED`,
   `KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL`,

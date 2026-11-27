@@ -96,6 +96,17 @@ await bundleServer({
   }],
 });
 
+await bundleServer({
+  absWorkingDir:root,
+  entryPoints:["server/vip/qaRailwayBootstrap.ts"],
+  bundle:true,
+  platform:"node",
+  format:"esm",
+  packages:"external",
+  outfile:resolve(output,"qaRailwayBootstrap.mjs"),
+  sourcemap:false,
+});
+
 const launcher=resolve(output,"start-railway-qa.mjs");
 await copyFile(
   resolve(root,"server/vip/qaRailwayNetworkGuard.mjs"),
