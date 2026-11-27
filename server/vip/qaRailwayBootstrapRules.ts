@@ -39,6 +39,10 @@ export type RailwayBootstrapConfig=Readonly<{
 export type QaBootstrapFailureCategory=
   |"configuration"
   |"configuration_environment"
+  |"configuration_environment_npm_metadata"
+  |"configuration_environment_build_metadata"
+  |"configuration_environment_other"
+  |"configuration_environment_mixed"
   |"configuration_runtime_mode"
   |"configuration_package_override"
   |"configuration_seed_variables"
@@ -63,7 +67,9 @@ export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCate
     "qaBootstrapCategory" in error&&typeof error.qaBootstrapCategory==="string")?
     error.qaBootstrapCategory:"";
   const configurationCategories=new Set([
-    "configuration_environment","configuration_runtime_mode",
+    "configuration_environment","configuration_environment_npm_metadata",
+    "configuration_environment_build_metadata","configuration_environment_other",
+    "configuration_environment_mixed","configuration_runtime_mode",
     "configuration_package_override","configuration_seed_variables",
     "configuration_approval_flags","configuration_external_communications",
     "configuration_required_fields","configuration_database_url",
@@ -128,9 +134,19 @@ export function isPrivateRailwayBootstrapIpv4(value:string):boolean{
 export function validateRailwayBootstrapEnvironment(
   env:Record<string,string|undefined>,
 ):RailwayBootstrapConfig{
-  if(Object.entries(env).some(([name,value])=>
-    value!==undefined&&!allowedNames.has(name)&&!/^RAILWAY_[A-Z0-9_]+$/.test(name))){
-    throw configFailure("configuration_environment");
+  const unexpectedNames=Object.keys(env).filter(name=>
+    env[name]!==undefined&&!allowedNames.has(name)&&!/^RAILWAY_[A-Z0-9_]+$/.test(name));
+  if(unexpectedNames.length){
+    const families=new Set(unexpectedNames.map(name=>
+      /^npm_/i.test(name)?"npm_metadata":
+      /^NIXPACKS_/i.test(name)?"build_metadata":"other"));
+    const category=(families.size>1?"configuration_environment_mixed":
+      families.has("npm_metadata")?"configuration_environment_npm_metadata":
+      families.has("build_metadata")?"configuration_environment_build_metadata":
+      "configuration_environment_other") as Extract<
+        QaBootstrapFailureCategory,`configuration_${string}`
+      >;
+    throw configFailure(category);
   }
   if(env.NODE_ENV!=="production"){
     throw configFailure("configuration_runtime_mode");
