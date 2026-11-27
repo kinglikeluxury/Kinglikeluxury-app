@@ -119,7 +119,7 @@ export function stripQaBootstrapBuildMetadata(
     "OLDPWD","SHELL","SHELLOPTS","USER",
   ]);
   for(const name of Object.keys(env)){
-    if(/^npm_config_/i.test(name)||/^NIXPACKS_[A-Z0-9_]+$/.test(name)||
+    if(/^npm_/i.test(name)||/^NIXPACKS_[A-Z0-9_]+$/.test(name)||
       name==="CI"||name==="npm_execpath"||name==="npm_node_execpath"||
       shellMetadata.has(name)){
       delete env[name];

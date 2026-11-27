@@ -163,6 +163,7 @@ test("bootstrap removes build and shell metadata before strict environment valid
     NIXPACKS_NODE_VERSION:"20",
     NIXPACKS_INSTALL_CMD:"must-not-be-used-at-runtime",
     npm_config_user_agent:"synthetic-test",
+    npm_package_json:"synthetic-test",
     BASH_VERSION:"synthetic-test",
     SHELL:"/bin/bash",
     DATABASE_URL:"postgresql://unapproved.invalid/nope",
@@ -172,6 +173,7 @@ test("bootstrap removes build and shell metadata before strict environment valid
   assert.equal(env.NIXPACKS_NODE_VERSION,undefined);
   assert.equal(env.NIXPACKS_INSTALL_CMD,undefined);
   assert.equal(env.npm_config_user_agent,undefined);
+  assert.equal(env.npm_package_json,undefined);
   assert.equal(env.BASH_VERSION,undefined);
   assert.equal(env.SHELL,undefined);
   assert.ok(env.DATABASE_URL);
