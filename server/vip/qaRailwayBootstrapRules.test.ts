@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
   classifyQaBootstrapFailure,
-  stripQaBootstrapBuildMetadata,
+  sanitizeQaBootstrapEnvironment,
   validateRailwayBootstrapEnvironment,
 } from "./qaRailwayBootstrapRules";
 
@@ -156,7 +156,7 @@ test("bootstrap configuration failures use safe non-value diagnostics",()=>{
     "configuration_credentials");
 });
 
-test("bootstrap removes build and shell metadata before strict environment validation",()=>{
+test("bootstrap removes harmless runtime metadata but rejects unknown sensitive settings",()=>{
   const env:Record<string,string|undefined>={
     ...environment(),
     CI:"true",
@@ -166,9 +166,10 @@ test("bootstrap removes build and shell metadata before strict environment valid
     npm_package_json:"synthetic-test",
     BASH_VERSION:"synthetic-test",
     SHELL:"/bin/bash",
+    BUILD_ID:"synthetic-build",
     DATABASE_URL:"postgresql://unapproved.invalid/nope",
   };
-  stripQaBootstrapBuildMetadata(env);
+  sanitizeQaBootstrapEnvironment(env);
   assert.equal(env.CI,undefined);
   assert.equal(env.NIXPACKS_NODE_VERSION,undefined);
   assert.equal(env.NIXPACKS_INSTALL_CMD,undefined);
@@ -176,6 +177,13 @@ test("bootstrap removes build and shell metadata before strict environment valid
   assert.equal(env.npm_package_json,undefined);
   assert.equal(env.BASH_VERSION,undefined);
   assert.equal(env.SHELL,undefined);
+  assert.equal(env.BUILD_ID,undefined);
   assert.ok(env.DATABASE_URL);
   assert.throws(()=>validateRailwayBootstrapEnvironment(env));
+  const risky:Record<string,string|undefined>={...environment(),NODE_OPTIONS:"--require=unsafe"};
+  sanitizeQaBootstrapEnvironment(risky);
+  assert.equal(risky.NODE_OPTIONS,"--require=unsafe");
+  assert.equal(classifyQaBootstrapFailure((()=>{
+    try{validateRailwayBootstrapEnvironment(risky);}catch(error){return error;}
+  })()),"configuration_environment_other");
 });

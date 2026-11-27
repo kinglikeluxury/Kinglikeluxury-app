@@ -111,7 +111,7 @@ function configFailure(
   });
 }
 
-export function stripQaBootstrapBuildMetadata(
+export function sanitizeQaBootstrapEnvironment(
   env:Record<string,string|undefined>,
 ):void{
   const shellMetadata=new Set([
@@ -119,11 +119,16 @@ export function stripQaBootstrapBuildMetadata(
     "OLDPWD","SHELL","SHELLOPTS","USER",
   ]);
   for(const name of Object.keys(env)){
-    if(/^npm_/i.test(name)||/^NIXPACKS_[A-Z0-9_]+$/.test(name)||
-      name==="CI"||name==="npm_execpath"||name==="npm_node_execpath"||
+    if(allowedNames.has(name)||/^RAILWAY_[A-Z0-9_]+$/.test(name))continue;
+    if(/(?:DATABASE|(?:^|_)DB(?:_|$)|PASSWORD|SECRET|TOKEN|API.?KEY|PRIVATE.?KEY|CREDENTIAL|AUTH|EMAIL|SMS|WHATSAPP|CRM|META|CLOUDINARY|NEON|(?:^|_)S3(?:_|$)|STORAGE|PAYMENT|PUSH|WEBHOOK|OAUTH|TURNSTILE|NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|ENABLED|APPROVED|(?:^|_)MODE(?:_|$))/i.test(name)){
+      continue;
+    }
+    if(/^npm_/i.test(name)||/^NIXPACKS_[A-Z0-9_]+$/.test(name)||name==="CI"||
       shellMetadata.has(name)){
       delete env[name];
+      continue;
     }
+    delete env[name];
   }
 }
 
