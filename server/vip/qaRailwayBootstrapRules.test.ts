@@ -40,12 +40,12 @@ test("Railway bootstrap accepts only private synthetic service identities",()=>{
   assert.equal(config.runtimeRole,"vipqa_runtime");
 });
 
-test("Railpack installs the locked development toolchain needed for the isolated QA build",()=>{
+test("unexpected package-manager overrides are refused by the QA bootstrap",()=>{
   assert.doesNotThrow(()=>validateRailwayBootstrapEnvironment({
-    ...environment(),RAILPACK_INSTALL_CMD:"npm ci --include=dev",
+    ...environment(),RAILPACK_INSTALL_CMD:"",
   }));
   assert.throws(()=>validateRailwayBootstrapEnvironment({
-    ...environment(),RAILPACK_INSTALL_CMD:"npm install",
+    ...environment(),RAILPACK_INSTALL_CMD:"npm ci --include=dev",
   }));
 });
 

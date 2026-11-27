@@ -1,0 +1,12 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm ci --include=dev && npm run vip:qa:build"
+
+[deploy]
+preDeployCommand = ["node .local/qa-vip-railway-build/qaRailwayBootstrap.mjs"]
+startCommand = "npm run vip:qa:start"
+healthcheckPath = "/health"
+healthcheckTimeout = 180
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 2
+sleepApplication = true

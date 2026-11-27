@@ -69,7 +69,7 @@ export function validateRailwayBootstrapEnvironment(
     throw new Error("Isolated VIP QA bootstrap rejected an unapproved environment");
   }
   if(env.NODE_ENV!=="production"||
-    (env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!=="npm ci --include=dev")||
+    (env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!=="")||
     ["KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
       "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",
       "KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD",

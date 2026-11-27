@@ -153,10 +153,11 @@ be stored in this document. It accepts only a `*.railway.internal` host on port
 distinct `vipqa_migrator`/`vipqa_runtime` roles, the reviewed environment UUID,
 an explicit approval pair, and unique strong synthetic account passwords.
 
-Railpack needs the locked development toolchain during the QA build. The
-`RAILPACK_INSTALL_CMD` setting is fixed to `npm ci --include=dev`; the QA build
-itself runs with an empty environment, and the launcher removes build settings
-before starting the application.
+The isolated service uses `server/vip/railway-qa.toml` as its Railway config
+file because the repository-root `railway.toml` selects the full application
+build. The QA-only file installs the locked toolchain and runs only the VIP QA
+build/start commands; the root config remains unchanged. The app launcher
+removes build/bootstrap settings before starting the application.
 
 - `KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE`,
   `KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED`,
