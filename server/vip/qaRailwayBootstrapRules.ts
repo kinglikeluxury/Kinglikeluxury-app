@@ -45,6 +45,7 @@ export type QaBootstrapFailureCategory=
   |"configuration_environment_npm_build"
   |"configuration_environment_npm_other"
   |"configuration_environment_build_other"
+  |"configuration_environment_sensitive_name"
   |"configuration_environment_mixed"
   |"configuration_runtime_mode"
   |"configuration_package_override"
@@ -74,6 +75,7 @@ export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCate
     "configuration_environment_build_metadata","configuration_environment_other",
     "configuration_environment_npm_build","configuration_environment_npm_other",
     "configuration_environment_build_other",
+    "configuration_environment_sensitive_name",
     "configuration_environment_mixed","configuration_runtime_mode",
     "configuration_package_override","configuration_seed_variables",
     "configuration_approval_flags","configuration_external_communications",
@@ -163,6 +165,10 @@ export function validateRailwayBootstrapEnvironment(
   const unexpectedNames=Object.keys(env).filter(name=>
     env[name]!==undefined&&!allowedNames.has(name)&&!/^RAILWAY_[A-Z0-9_]+$/.test(name));
   if(unexpectedNames.length){
+    if(unexpectedNames.some(name=>
+      /(?:DATABASE|(?:^|_)DB(?:_|$)|PASSWORD|SECRET|TOKEN|API.?KEY|PRIVATE.?KEY|CREDENTIAL|AUTH|EMAIL|SMS|WHATSAPP|CRM|META|CLOUDINARY|NEON|(?:^|_)S3(?:_|$)|STORAGE|PAYMENT|PUSH|WEBHOOK|OAUTH|TURNSTILE|NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|ENABLED|APPROVED|(?:^|_)MODE(?:_|$))/i.test(name))){
+      throw configFailure("configuration_environment_sensitive_name");
+    }
     const families=new Set(unexpectedNames.map(name=>
       /^npm_/i.test(name)?"npm_metadata":
       /^NIXPACKS_/i.test(name)?"build_metadata":"other"));

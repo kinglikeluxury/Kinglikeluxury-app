@@ -123,16 +123,18 @@ test("bootstrap configuration failures use safe non-value diagnostics",()=>{
       return classifyQaBootstrapFailure(error);
     }
   };
-  assert.equal(category({...environment(),UNAPPROVED_SETTING:"synthetic"}),
+  assert.equal(category({...environment(),BUILD_TRACE:"synthetic"}),
     "configuration_environment_other");
   assert.equal(category({...environment(),npm_config_user_agent:"synthetic"}),
     "configuration_environment_npm_metadata");
   assert.equal(category({...environment(),NIXPACKS_NODE_VERSION:"20"}),
     "configuration_environment_build_metadata");
-  assert.equal(category({...environment(),npm_config_user_agent:"synthetic",CI:"true"}),
+  assert.equal(category({...environment(),npm_config_user_agent:"synthetic",BUILD_TRACE:"synthetic"}),
     "configuration_environment_npm_other");
-  assert.equal(category({...environment(),NIXPACKS_NODE_VERSION:"20",CI:"true"}),
+  assert.equal(category({...environment(),NIXPACKS_NODE_VERSION:"20",BUILD_TRACE:"synthetic"}),
     "configuration_environment_build_other");
+  assert.equal(category({...environment(),NIXPACKS_REGISTRY_TOKEN:"synthetic"}),
+    "configuration_environment_sensitive_name");
   assert.equal(category({...environment(),NODE_ENV:"test"}),
     "configuration_runtime_mode");
   assert.equal(category({...environment(),RAILPACK_INSTALL_CMD:"npm install"}),
@@ -187,5 +189,5 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
   assert.equal(risky.NODE_OPTIONS,"--require=unsafe");
   assert.equal(classifyQaBootstrapFailure((()=>{
     try{validateRailwayBootstrapEnvironment(risky);}catch(error){return error;}
-  })()),"configuration_environment_other");
+  })()),"configuration_environment_sensitive_name");
 });
