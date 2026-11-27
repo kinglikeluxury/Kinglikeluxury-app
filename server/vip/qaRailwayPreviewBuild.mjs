@@ -15,7 +15,7 @@ if(Object.keys(process.env).some(name=>!allowedBuildEnv.has(name))||
 }
 
 const root=process.cwd();
-const output=resolve(root,".local/qa-vip-railway-build");
+const output=resolve(root,"dist/qa-vip-railway-build");
 const publicDir=resolve(output,"public");
 const emptyEnv=resolve(root,".local/qa-vip-empty-env");
 await mkdir(emptyEnv,{recursive:true});

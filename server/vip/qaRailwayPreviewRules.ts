@@ -173,7 +173,7 @@ export function assertRailwayQaPreviewEnvironment(
     return fail();
   }
   const staticDir=env.KINGLIKE_VIP_QA_STATIC_DIR;
-  if(staticDir!==undefined&&staticDir!==".local/qa-vip-railway-build/public")return fail();
+  if(staticDir!==undefined&&staticDir!=="dist/qa-vip-railway-build/public")return fail();
   return validateRailwayQaDatabaseConfig(env);
 }
 

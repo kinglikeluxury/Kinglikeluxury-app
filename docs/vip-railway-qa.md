@@ -1,12 +1,13 @@
 # Kinglike VIP isolated Railway QA
 
-This is a separate QA entrypoint for the existing isolated QA service. It is
-not the application entrypoint and must not replace `npm start` or
-`railway.toml`. It has not been connected to Railway or started.
+This is a separate QA entrypoint for the existing isolated QA service. The
+`railway.toml` in this dedicated QA branch selects it; do not merge this branch
+into the application release branch. It is not the normal application
+entrypoint and must not replace `npm start`.
 
 ## Local code commands
 
-- `npm run vip:qa:build` creates `.local/qa-vip-railway-build`; it uses an
+- `npm run vip:qa:build` creates `dist/qa-vip-railway-build`; it uses an
   empty environment and does not start a server or apply migrations.
 - `npm run vip:qa:start` starts only that generated QA entrypoint. It should
   be used only by the already-isolated QA service after its owner has reviewed

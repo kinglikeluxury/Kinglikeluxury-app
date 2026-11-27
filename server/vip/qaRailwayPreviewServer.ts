@@ -5,7 +5,7 @@ import {assertQaRailwayDatabaseIdentity} from "./qaRailwayPreviewDb";
 import {assertRailwayQaPreviewEnvironment} from "./qaRailwayPreviewRules";
 
 const RAILWAY_QA_HOST="0.0.0.0";
-const RAILWAY_QA_STATIC_DIR=".local/qa-vip-railway-build/public";
+const RAILWAY_QA_STATIC_DIR="dist/qa-vip-railway-build/public";
 
 export async function startQaRailwayPreview():Promise<void>{
   assertRailwayQaPreviewEnvironment(process.env);
