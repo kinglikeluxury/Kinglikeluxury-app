@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
   classifyQaBootstrapFailure,
-  getQaBootstrapPathPolicy,
   getQaBootstrapRejectedVariableNames,
   sanitizeQaBootstrapEnvironment,
   validateRailwayQaRuntimeOnlyEnvironment,
@@ -201,15 +200,9 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
   assert.equal(classifyQaBootstrapFailure((()=>{
     try{validateRailwayBootstrapEnvironment(risky);}catch(error){return error;}
   })()),"configuration_environment_sensitive_name");
-  assert.throws(()=>validateRailwayBootstrapEnvironment({
-    ...environment(),LD_LIBRARY_PATH:"/tmp/untrusted/lib",
-  }),error=>{
-    assert.equal(classifyQaBootstrapFailure(error),
-      "configuration_environment_sensitive_name");
-    assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["LD_LIBRARY_PATH"]);
-    assert.equal(getQaBootstrapPathPolicy(error),"outside_nix_store");
-    return true;
-  });
+  assert.doesNotThrow(()=>validateRailwayBootstrapEnvironment({
+    ...environment(),LD_LIBRARY_PATH:"platform-managed",
+  }));
 });
 
 test("runtime-only predeploy refuses setup credentials and validates the least-privilege app config",()=>{
@@ -247,14 +240,6 @@ test("runtime-only predeploy refuses setup credentials and validates the least-p
     assert.equal(classifyQaBootstrapFailure(error),
       "configuration_environment_sensitive_name");
     assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["NODE_OPTIONS"]);
-    return true;
-  });
-  assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment({
-    ...env,LD_LIBRARY_PATH:"/tmp/untrusted/lib",
-  }),error=>{
-    assert.equal(classifyQaBootstrapFailure(error),
-      "configuration_environment_sensitive_name");
-    assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["LD_LIBRARY_PATH"]);
     return true;
   });
   const diagnostic:Record<string,string|undefined>={

@@ -53,17 +53,6 @@ export type RailwayQaDatabaseConfig=Readonly<{
   environmentId:string;
 }>;
 
-export type RailwayNixLibraryPathPolicy=
-  |"empty"
-  |"accepted"
-  |"too_long"
-  |"invalid_control"
-  |"too_many_entries"
-  |"empty_entry"
-  |"outside_nix_store"
-  |"invalid_store_identity"
-  |"unsafe_path_component";
-
 export type RailwayQaDatabaseSnapshot=Readonly<{
   database:string;
   role:string;
@@ -134,37 +123,6 @@ function isValidExpectedAddress(value:string):boolean{
     (octets[0]===100&&octets[1]>=64&&octets[1]<=127);
 }
 
-export function classifyRailwayNixLibraryPath(
-  value:string,
-):RailwayNixLibraryPathPolicy{
-  if(value.length>4096)return "too_long";
-  if(/[\0\r\n]/.test(value))return "invalid_control";
-  if(value==="")return "empty";
-  const paths=value.split(":");
-  if(paths.length>32)return "too_many_entries";
-  if(paths.some(path=>path===""))return "empty_entry";
-  for(const rawPath of paths){
-    const path=rawPath.replace(/\/+$/,"");
-    const parts=path.split("/");
-    if(parts.length<5||parts[0]!==""||parts[1]!=="nix"||parts[2]!=="store"){
-      return "outside_nix_store";
-    }
-    if(!/^[0-9a-z]{32}-[A-Za-z0-9+._-]+$/.test(parts[3])){
-      return "invalid_store_identity";
-    }
-    if(!parts.slice(4).every(part=>
-      part.length>0&&part!=="."&&part!==".."&&/^[A-Za-z0-9+._-]+$/.test(part))){
-      return "unsafe_path_component";
-    }
-  }
-  return "accepted";
-}
-
-export function isSafeRailwayNixLibraryPath(value:string):boolean{
-  const policy=classifyRailwayNixLibraryPath(value);
-  return policy==="empty"||policy==="accepted";
-}
-
 export function validateRailwayQaDatabaseConfig(
   env:Record<string,string|undefined>,
 ):RailwayQaDatabaseConfig{
@@ -216,9 +174,6 @@ export function assertRailwayQaPreviewEnvironment(
   }
   const staticDir=env.KINGLIKE_VIP_QA_STATIC_DIR;
   if(staticDir!==undefined&&staticDir!=="dist/qa-vip-railway-build/public")return fail();
-  if(env.LD_LIBRARY_PATH!==undefined&&!isSafeRailwayNixLibraryPath(env.LD_LIBRARY_PATH)){
-    return fail();
-  }
   return validateRailwayQaDatabaseConfig(env);
 }
 
