@@ -2,7 +2,7 @@ import {isIP} from "node:net";
 
 export const RAILWAY_QA_RUNTIME_ENV_ALLOWLIST=new Set([
   "PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL",
-  "HOSTNAME","TERM",
+  "HOSTNAME","TERM","LD_LIBRARY_PATH",
   "KINGLIKE_VIP_QA_RUNTIME","KINGLIKE_VIP_QA_START","KINGLIKE_VIP_QA_PREVIEW",
   "KINGLIKE_VIP_ENABLED","KINGLIKE_VIP_QA_DATABASE_URL",
   "KINGLIKE_VIP_QA_EXPECTED_DB_HOST","KINGLIKE_VIP_QA_EXPECTED_DB_NAME",
@@ -123,6 +123,19 @@ function isValidExpectedAddress(value:string):boolean{
     (octets[0]===100&&octets[1]>=64&&octets[1]<=127);
 }
 
+export function isSafeRailwayNixLibraryPath(value:string):boolean{
+  if(value.length<1||value.length>4096||/[\0\r\n]/.test(value))return false;
+  const paths=value.split(":");
+  if(paths.length<1||paths.length>32)return false;
+  return paths.every(path=>{
+    const parts=path.split("/");
+    if(parts.length<5||parts[0]!==""||parts[1]!=="nix"||parts[2]!=="store")return false;
+    if(!/^[0-9a-z]{32}-[A-Za-z0-9+._-]+$/.test(parts[3]))return false;
+    return parts.slice(4).every(part=>
+      part.length>0&&part!=="."&&part!==".."&&/^[A-Za-z0-9+._-]+$/.test(part));
+  });
+}
+
 export function validateRailwayQaDatabaseConfig(
   env:Record<string,string|undefined>,
 ):RailwayQaDatabaseConfig{
@@ -174,6 +187,9 @@ export function assertRailwayQaPreviewEnvironment(
   }
   const staticDir=env.KINGLIKE_VIP_QA_STATIC_DIR;
   if(staticDir!==undefined&&staticDir!=="dist/qa-vip-railway-build/public")return fail();
+  if(env.LD_LIBRARY_PATH!==undefined&&!isSafeRailwayNixLibraryPath(env.LD_LIBRARY_PATH)){
+    return fail();
+  }
   return validateRailwayQaDatabaseConfig(env);
 }
 

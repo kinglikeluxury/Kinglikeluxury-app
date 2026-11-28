@@ -2,11 +2,13 @@ import {isIP} from "node:net";
 import {validateQaBootstrapIdentity} from "./qaBootstrapRules";
 import {
   assertRailwayQaPreviewEnvironment,
+  isSafeRailwayNixLibraryPath,
   RAILWAY_QA_RUNTIME_ENV_ALLOWLIST,
 } from "./qaRailwayPreviewRules";
 
 const allowedNames=new Set([
   "PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL",
+  "LD_LIBRARY_PATH",
   "RAILPACK_INSTALL_CMD",
   "KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE","KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED",
   "KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL",
@@ -152,6 +154,10 @@ export function sanitizeQaBootstrapEnvironment(
     "OLDPWD","SHELL","SHELLOPTS","USER",
   ]);
   for(const name of Object.keys(env)){
+    if(/^NIXPACKS_METADATA$/i.test(name)){
+      delete env[name];
+      continue;
+    }
     if(allowedNames.has(name)||/^RAILWAY_[A-Z0-9_]+$/.test(name))continue;
     if(/(?:DATABASE|(?:^|_)DB(?:_|$)|PASSWORD|SECRET|TOKEN|API.?KEY|PRIVATE.?KEY|CREDENTIAL|AUTH|EMAIL|SMS|WHATSAPP|CRM|META|CLOUDINARY|NEON|(?:^|_)S3(?:_|$)|STORAGE|PAYMENT|PUSH|WEBHOOK|OAUTH|TURNSTILE|NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|ENABLED|APPROVED|(?:^|_)MODE(?:_|$))/i.test(name)){
       continue;
@@ -205,6 +211,9 @@ export function validateRailwayQaRuntimeOnlyEnvironment(
   }
   if(env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!==""){
     throw configFailure("configuration_package_override",["RAILPACK_INSTALL_CMD"]);
+  }
+  if(env.LD_LIBRARY_PATH!==undefined&&!isSafeRailwayNixLibraryPath(env.LD_LIBRARY_PATH)){
+    throw configFailure("configuration_environment_sensitive_name",["LD_LIBRARY_PATH"]);
   }
   runtimeEnv.KINGLIKE_VIP_QA_RUNTIME="railway";
   runtimeEnv.KINGLIKE_VIP_QA_START="true";
@@ -268,6 +277,9 @@ export function validateRailwayBootstrapEnvironment(
   }
   if(env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!==""){
     throw configFailure("configuration_package_override");
+  }
+  if(env.LD_LIBRARY_PATH!==undefined&&!isSafeRailwayNixLibraryPath(env.LD_LIBRARY_PATH)){
+    throw configFailure("configuration_environment_sensitive_name",["LD_LIBRARY_PATH"]);
   }
   if(["KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
       "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",

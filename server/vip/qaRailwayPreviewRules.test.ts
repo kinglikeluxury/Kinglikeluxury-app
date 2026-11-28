@@ -4,6 +4,7 @@ import {
   assertRailwayQaPreviewEnvironment,
   isAllowedRailwayQaDatabaseTarget,
   isMinimalQaHealthProbe,
+  isSafeRailwayNixLibraryPath,
   RAILWAY_QA_PUBLIC_TABLES,
   RAILWAY_QA_RUNTIME_TABLE_PRIVILEGES,
   verifySyntheticRailwayQaSnapshot,
@@ -220,4 +221,15 @@ test("only GET /health is eligible for the minimal Railway probe",()=>{
   assert.equal(isMinimalQaHealthProbe("POST","/health"),false);
   assert.equal(isMinimalQaHealthProbe("GET","/api/auth/me"),false);
   assert.equal(isMinimalQaHealthProbe("GET","/health/"),false);
+});
+
+test("only immutable Nix store directories are accepted for the library path",()=>{
+  const safe=`/nix/store/${"0".repeat(32)}-glibc-2.40/lib`;
+  assert.equal(isSafeRailwayNixLibraryPath(safe),true);
+  assert.equal(isSafeRailwayNixLibraryPath(
+    `${safe}:/nix/store/${"1".repeat(32)}-openssl/lib64`,
+  ),true);
+  assert.equal(isSafeRailwayNixLibraryPath("/tmp/untrusted/lib"),false);
+  assert.equal(isSafeRailwayNixLibraryPath(`${safe}/../writable`),false);
+  assert.equal(isSafeRailwayNixLibraryPath(`${safe}:`),false);
 });

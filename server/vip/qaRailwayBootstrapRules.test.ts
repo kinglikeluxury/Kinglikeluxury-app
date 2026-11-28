@@ -172,6 +172,7 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
     CI:"true",
     NIXPACKS_NODE_VERSION:"20",
     NIXPACKS_INSTALL_CMD:"must-not-be-used-at-runtime",
+    NIXPACKS_METADATA:"synthetic-build-metadata",
     nixpacks_node_version:"20",
     npm_config_user_agent:"synthetic-test",
     npm_package_json:"synthetic-test",
@@ -184,6 +185,7 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
   assert.equal(env.CI,undefined);
   assert.equal(env.NIXPACKS_NODE_VERSION,undefined);
   assert.equal(env.NIXPACKS_INSTALL_CMD,undefined);
+  assert.equal(env.NIXPACKS_METADATA,undefined);
   assert.equal(env.nixpacks_node_version,undefined);
   assert.equal(env.npm_config_user_agent,undefined);
   assert.equal(env.npm_package_json,undefined);
@@ -198,6 +200,14 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
   assert.equal(classifyQaBootstrapFailure((()=>{
     try{validateRailwayBootstrapEnvironment(risky);}catch(error){return error;}
   })()),"configuration_environment_sensitive_name");
+  assert.throws(()=>validateRailwayBootstrapEnvironment({
+    ...environment(),LD_LIBRARY_PATH:"/tmp/untrusted/lib",
+  }),error=>{
+    assert.equal(classifyQaBootstrapFailure(error),
+      "configuration_environment_sensitive_name");
+    assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["LD_LIBRARY_PATH"]);
+    return true;
+  });
 });
 
 test("runtime-only predeploy refuses setup credentials and validates the least-privilege app config",()=>{
@@ -214,6 +224,7 @@ test("runtime-only predeploy refuses setup credentials and validates the least-p
   env.KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED="false";
   env.PORT="5000";
   env.KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD="synthetic-user-login";
+  env.LD_LIBRARY_PATH=`/nix/store/${"0".repeat(32)}-glibc-2.40/lib`;
   assert.doesNotThrow(()=>validateRailwayQaRuntimeOnlyEnvironment(env));
   assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment({
     ...env,KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL:"synthetic-admin",
@@ -234,6 +245,14 @@ test("runtime-only predeploy refuses setup credentials and validates the least-p
     assert.equal(classifyQaBootstrapFailure(error),
       "configuration_environment_sensitive_name");
     assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["NODE_OPTIONS"]);
+    return true;
+  });
+  assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment({
+    ...env,LD_LIBRARY_PATH:"/tmp/untrusted/lib",
+  }),error=>{
+    assert.equal(classifyQaBootstrapFailure(error),
+      "configuration_environment_sensitive_name");
+    assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["LD_LIBRARY_PATH"]);
     return true;
   });
   const diagnostic:Record<string,string|undefined>={
