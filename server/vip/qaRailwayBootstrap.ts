@@ -4,6 +4,8 @@ import pg from "pg";
 import {quoteQaSqlIdentifier} from "./qaRailwayProvisionRules";
 import {
   classifyQaBootstrapFailure,
+  getQaBootstrapAdminIdentityFailures,
+  getQaBootstrapIdentityFailureChecks,
   getQaBootstrapRejectedVariableNames,
   isPrivateRailwayBootstrapIpv4,
   sanitizeQaBootstrapEnvironment,
@@ -72,9 +74,12 @@ function logBootstrapFailure(error:unknown):void{
   const rejectedNames=getQaBootstrapRejectedVariableNames(error);
   const rejectedNameLog=rejectedNames.length?
     ` rejected_env_names=${rejectedNames.join(",")}`:"";
+  const identityChecks=getQaBootstrapIdentityFailureChecks(error);
+  const identityCheckLog=identityChecks.length?
+    ` identity_checks_failed=${identityChecks.join(",")}`:"";
   process.stderr.write(
     `synthetic_vip_qa_database=refused_or_failed stage=${activeStage} `+
-    `category=${classifyQaBootstrapFailure(error)}${rejectedNameLog}; `+
+    `category=${classifyQaBootstrapFailure(error)}${rejectedNameLog}${identityCheckLog}; `+
     "no credential values logged\n",
   );
   process.exitCode=1;
@@ -186,11 +191,22 @@ async function bootstrap():Promise<void>{
       "AS member_of_any FROM pg_roles r WHERE r.rolname=current_user",
     );
     const row=identity.rows[0];
-    if(!row||!row.role||row.role!==decodeURIComponent(adminUrl.username)||
-      row.database===config.database||row.server_address!==address||
-      Number(row.server_port)!==5432||!row.superuser||!row.createdb||
-      !row.createrole){
-      throw new Error("QA bootstrap admin identity lacks the isolated setup authority");
+    const identityFailures=getQaBootstrapAdminIdentityFailures(
+      row?{
+        database:row.database,role:row.role,serverAddress:row.server_address,
+        serverPort:Number(row.server_port),superuser:row.superuser,
+        createdb:row.createdb,createrole:row.createrole,
+      }:undefined,
+      {
+        database:config.database,address,
+        adminRole:decodeURIComponent(adminUrl.username),
+      },
+    );
+    if(identityFailures.length){
+      throw Object.assign(
+        new Error("QA bootstrap admin identity lacks isolated setup authority"),
+        {qaBootstrapIdentityFailures:identityFailures},
+      );
     }
     const state=await client.query<{
       target_database_exists:boolean;migrator_exists:boolean;runtime_exists:boolean;

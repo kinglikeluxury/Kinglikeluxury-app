@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
   classifyQaBootstrapFailure,
+  getQaBootstrapAdminIdentityFailures,
+  getQaBootstrapIdentityFailureChecks,
   getQaBootstrapRejectedVariableNames,
   sanitizeQaBootstrapEnvironment,
   validateRailwayQaRuntimeOnlyEnvironment,
@@ -114,6 +116,25 @@ test("bootstrap failure logs reduce database errors to safe categories",()=>{
     "database_identity");
   assert.equal(classifyQaBootstrapFailure(new Error("sensitive unclassified value")),
     "unknown");
+});
+
+test("bootstrap admin diagnostics expose failed predicates only",()=>{
+  const failures=getQaBootstrapAdminIdentityFailures({
+    database:"railway",role:"qa_setup",serverAddress:"10.1.1.1",
+    serverPort:5432,superuser:false,createdb:true,createrole:false,
+  },{
+    database:"vipqa_demo",address:"10.1.1.1",
+    adminRole:"qa_setup",
+  });
+  assert.deepEqual(failures,["setup_superuser","setup_createrole"]);
+  const error=Object.assign(new Error("synthetic"),{
+    qaBootstrapIdentityFailures:failures,
+  });
+  assert.deepEqual(getQaBootstrapIdentityFailureChecks(error),failures);
+  assert.deepEqual(getQaBootstrapAdminIdentityFailures(undefined,{
+    database:"vipqa_demo",address:"10.1.1.1",
+    adminRole:"qa_setup",
+  }),["identity_row_present"]);
 });
 
 test("bootstrap configuration failures use safe non-value diagnostics",()=>{

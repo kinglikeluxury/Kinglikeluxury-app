@@ -145,6 +145,45 @@ export function getQaBootstrapRejectedVariableNames(error:unknown):string[]{
     typeof name==="string"&&/^[A-Z][A-Z0-9_]{1,127}$/.test(name)).slice(0,12);
 }
 
+export type QaBootstrapAdminIdentity=Readonly<{
+  database:string;
+  role:string;
+  serverAddress:string|null;
+  serverPort:number;
+  superuser:boolean;
+  createdb:boolean;
+  createrole:boolean;
+}>;
+
+export function getQaBootstrapAdminIdentityFailures(
+  row:QaBootstrapAdminIdentity|undefined,
+  expected:{database:string;address:string;adminRole:string},
+):string[]{
+  if(!row)return ["identity_row_present"];
+  const checks:ReadonlyArray<[string,boolean]>=[
+    ["role_matches",expected.adminRole.length>0&&row.role===expected.adminRole],
+    ["admin_database_is_separate",row.database!==expected.database],
+    ["private_address_matches",row.serverAddress===expected.address],
+    ["port_is_5432",Number(row.serverPort)===5432],
+    ["setup_superuser",row.superuser],
+    ["setup_createdb",row.createdb],
+    ["setup_createrole",row.createrole],
+  ];
+  return checks.filter(([,passed])=>!passed).map(([name])=>name);
+}
+
+export function getQaBootstrapIdentityFailureChecks(error:unknown):string[]{
+  if(!error||typeof error!=="object"||
+    !("qaBootstrapIdentityFailures" in error)||
+    !Array.isArray(error.qaBootstrapIdentityFailures))return [];
+  return error.qaBootstrapIdentityFailures.filter((name):name is string=>
+    typeof name==="string"&&[
+      "identity_row_present","role_matches","admin_database_is_separate",
+      "private_address_matches","port_is_5432","setup_superuser",
+      "setup_createdb","setup_createrole",
+    ].includes(name));
+}
+
 export function sanitizeQaBootstrapEnvironment(
   env:Record<string,string|undefined>,
 ):void{
