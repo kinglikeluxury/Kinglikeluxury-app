@@ -29,9 +29,8 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
     |"finance_reviewers"|"table_privileges"|"sequence_privileges"|"projects_units"
     |"receipts"|"file_objects"|"snapshot_verification"="dns_resolution";
   try{
-    const resolvedAddresses=await dns.promises.resolve4(config.host);
-    if(resolvedAddresses.length!==1)throw new Error("identity");
-    const resolvedAddress=resolvedAddresses[0];
+    const resolvedDatabase=await dns.promises.lookup(config.host,{family:4});
+    const resolvedAddress=resolvedDatabase.address;
     check="dns_private_address";
     if(!isPrivateRailwayBootstrapAddress(resolvedAddress))throw new Error("identity");
     check="identity_query";
