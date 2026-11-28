@@ -10,6 +10,7 @@ const RAILWAY_QA_STATIC_DIR="dist/qa-vip-railway-build/public";
 export async function startQaRailwayPreview():Promise<void>{
   let stage="environment";
   let listenerErrorCode="not_available";
+  let listenerPortClass="invalid";
   try{
   assertRailwayQaPreviewEnvironment(process.env);
   stage="database_identity";
@@ -28,6 +29,7 @@ export async function startQaRailwayPreview():Promise<void>{
   stage="listener";
   const port=Number(process.env.PORT);
   if(!Number.isInteger(port)||port<1||port>65535)throw new Error("Invalid Railway QA port");
+  listenerPortClass=port<1024?"privileged":"unprivileged";
   await new Promise<void>((resolvePromise,rejectPromise)=>{
     const server=app.listen(port,RAILWAY_QA_HOST,()=>{
       process.stdout.write("Synthetic VIP QA service ready.\n");
@@ -42,7 +44,9 @@ export async function startQaRailwayPreview():Promise<void>{
   });
   }catch{
     const portState=process.env.PORT?"set":"missing";
-    const listenerState=stage==="listener"?` listener_code=${listenerErrorCode} port=${portState}`:"";
+    const listenerState=stage==="listener"
+      ?` listener_code=${listenerErrorCode} port=${portState} port_class=${listenerPortClass}`
+      :"";
     process.stderr.write(`Railway VIP QA startup refused stage=${stage}${listenerState}.\n`);
     process.exitCode=1;
   }
