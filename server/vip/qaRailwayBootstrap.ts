@@ -4,6 +4,7 @@ import pg from "pg";
 import {quoteQaSqlIdentifier} from "./qaRailwayProvisionRules";
 import {
   classifyQaBootstrapFailure,
+  getQaBootstrapPathPolicy,
   getQaBootstrapRejectedVariableNames,
   isPrivateRailwayBootstrapIpv4,
   sanitizeQaBootstrapEnvironment,
@@ -15,7 +16,7 @@ const {Pool}=pg;
 let activeStage="configuration";
 const runtimeEnvNames=new Set([
   "PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL",
-  "HOSTNAME","TERM","KINGLIKE_VIP_QA_PREVIEW","KINGLIKE_VIP_ENABLED",
+  "HOSTNAME","TERM","LD_LIBRARY_PATH","KINGLIKE_VIP_QA_PREVIEW","KINGLIKE_VIP_ENABLED",
   "VITE_KINGLIKE_VIP_ENABLED","KINGLIKE_VIP_EMAIL_ENABLED",
   "KINGLIKE_VIP_EMAIL_LIVE_APPROVED","KINGLIKE_VIP_QA_DATABASE_URL",
   "KINGLIKE_VIP_QA_EXPECTED_DB_HOST","KINGLIKE_VIP_QA_EXPECTED_DB_NAME",
@@ -72,9 +73,11 @@ function logBootstrapFailure(error:unknown):void{
   const rejectedNames=getQaBootstrapRejectedVariableNames(error);
   const rejectedNameLog=rejectedNames.length?
     ` rejected_env_names=${rejectedNames.join(",")}`:"";
+  const pathPolicy=getQaBootstrapPathPolicy(error);
+  const pathPolicyLog=pathPolicy?` path_policy=${pathPolicy}`:"";
   process.stderr.write(
     `synthetic_vip_qa_database=refused_or_failed stage=${activeStage} `+
-    `category=${classifyQaBootstrapFailure(error)}${rejectedNameLog}; `+
+    `category=${classifyQaBootstrapFailure(error)}${rejectedNameLog}${pathPolicyLog}; `+
     "no credential values logged\n",
   );
   process.exitCode=1;

@@ -2,6 +2,7 @@ import {strict as assert} from "node:assert";
 import {test} from "node:test";
 import {
   assertRailwayQaPreviewEnvironment,
+  classifyRailwayNixLibraryPath,
   isAllowedRailwayQaDatabaseTarget,
   isMinimalQaHealthProbe,
   isSafeRailwayNixLibraryPath,
@@ -226,10 +227,14 @@ test("only GET /health is eligible for the minimal Railway probe",()=>{
 test("only immutable Nix store directories are accepted for the library path",()=>{
   const safe=`/nix/store/${"0".repeat(32)}-glibc-2.40/lib`;
   assert.equal(isSafeRailwayNixLibraryPath(safe),true);
+  assert.equal(isSafeRailwayNixLibraryPath(""),true);
+  assert.equal(isSafeRailwayNixLibraryPath(`${safe}/`),true);
   assert.equal(isSafeRailwayNixLibraryPath(
     `${safe}:/nix/store/${"1".repeat(32)}-openssl/lib64`,
   ),true);
   assert.equal(isSafeRailwayNixLibraryPath("/tmp/untrusted/lib"),false);
   assert.equal(isSafeRailwayNixLibraryPath(`${safe}/../writable`),false);
   assert.equal(isSafeRailwayNixLibraryPath(`${safe}:`),false);
+  assert.equal(classifyRailwayNixLibraryPath("/tmp/untrusted/lib"),"outside_nix_store");
+  assert.equal(classifyRailwayNixLibraryPath(`${safe}/../writable`),"unsafe_path_component");
 });

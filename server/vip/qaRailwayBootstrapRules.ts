@@ -2,6 +2,7 @@ import {isIP} from "node:net";
 import {validateQaBootstrapIdentity} from "./qaBootstrapRules";
 import {
   assertRailwayQaPreviewEnvironment,
+  classifyRailwayNixLibraryPath,
   isSafeRailwayNixLibraryPath,
   RAILWAY_QA_RUNTIME_ENV_ALLOWLIST,
 } from "./qaRailwayPreviewRules";
@@ -139,6 +140,15 @@ function configFailure(
   });
 }
 
+export function getQaBootstrapPathPolicy(error:unknown):string|undefined{
+  if(!error||typeof error!=="object"||!("qaBootstrapPathPolicy" in error))return;
+  const value=error.qaBootstrapPathPolicy;
+  return typeof value==="string"&&[
+    "empty","accepted","too_long","invalid_control","too_many_entries",
+    "empty_entry","outside_nix_store","invalid_store_identity","unsafe_path_component",
+  ].includes(value)?value:undefined;
+}
+
 export function getQaBootstrapRejectedVariableNames(error:unknown):string[]{
   if(!error||typeof error!=="object"||!("qaBootstrapVariableNames" in error)||
     !Array.isArray(error.qaBootstrapVariableNames))return [];
@@ -213,7 +223,10 @@ export function validateRailwayQaRuntimeOnlyEnvironment(
     throw configFailure("configuration_package_override",["RAILPACK_INSTALL_CMD"]);
   }
   if(env.LD_LIBRARY_PATH!==undefined&&!isSafeRailwayNixLibraryPath(env.LD_LIBRARY_PATH)){
-    throw configFailure("configuration_environment_sensitive_name",["LD_LIBRARY_PATH"]);
+    throw Object.assign(
+      configFailure("configuration_environment_sensitive_name",["LD_LIBRARY_PATH"]),
+      {qaBootstrapPathPolicy:classifyRailwayNixLibraryPath(env.LD_LIBRARY_PATH)},
+    );
   }
   runtimeEnv.KINGLIKE_VIP_QA_RUNTIME="railway";
   runtimeEnv.KINGLIKE_VIP_QA_START="true";
@@ -279,7 +292,10 @@ export function validateRailwayBootstrapEnvironment(
     throw configFailure("configuration_package_override");
   }
   if(env.LD_LIBRARY_PATH!==undefined&&!isSafeRailwayNixLibraryPath(env.LD_LIBRARY_PATH)){
-    throw configFailure("configuration_environment_sensitive_name",["LD_LIBRARY_PATH"]);
+    throw Object.assign(
+      configFailure("configuration_environment_sensitive_name",["LD_LIBRARY_PATH"]),
+      {qaBootstrapPathPolicy:classifyRailwayNixLibraryPath(env.LD_LIBRARY_PATH)},
+    );
   }
   if(["KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
       "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",

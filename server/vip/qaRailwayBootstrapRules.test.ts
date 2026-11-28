@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
   classifyQaBootstrapFailure,
+  getQaBootstrapPathPolicy,
   getQaBootstrapRejectedVariableNames,
   sanitizeQaBootstrapEnvironment,
   validateRailwayQaRuntimeOnlyEnvironment,
@@ -206,6 +207,7 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
     assert.equal(classifyQaBootstrapFailure(error),
       "configuration_environment_sensitive_name");
     assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["LD_LIBRARY_PATH"]);
+    assert.equal(getQaBootstrapPathPolicy(error),"outside_nix_store");
     return true;
   });
 });
