@@ -186,6 +186,17 @@ export function getQaBootstrapIdentityFailureChecks(error:unknown):string[]{
     ].includes(name));
 }
 
+export function getQaDatabaseIdentityCheck(error:unknown):string|undefined{
+  if(!error||typeof error!=="object"||!("qaDatabaseIdentityCheck" in error))return;
+  const check=error.qaDatabaseIdentityCheck;
+  return typeof check==="string"&&[
+    "dns_resolution","dns_private_address","identity_query","server_address",
+    "public_tables","public_objects","environment_marker","users","unit_access",
+    "finance_reviewers","table_privileges","sequence_privileges","projects_units",
+    "receipts","file_objects","snapshot_verification",
+  ].includes(check)?check:undefined;
+}
+
 export function sanitizeQaBootstrapEnvironment(
   env:Record<string,string|undefined>,
 ):void{

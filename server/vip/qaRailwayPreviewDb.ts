@@ -5,7 +5,10 @@ import {
   verifySyntheticRailwayQaSnapshot,
   type RailwayQaDatabaseConfig,
 } from "./qaRailwayPreviewRules";
-import {isAllowedRailwayQaServerAddress} from "./qaRailwayBootstrapRules";
+import {
+  isAllowedRailwayQaServerAddress,
+  isPrivateRailwayBootstrapAddress,
+} from "./qaRailwayBootstrapRules";
 
 const {Pool}=pg;
 const config:RailwayQaDatabaseConfig=validateRailwayQaDatabaseConfig(process.env);
@@ -20,10 +23,18 @@ export const pool=new Pool({
 });
 
 export async function assertQaRailwayDatabaseIdentity():Promise<void>{
+  let check:
+    |"dns_resolution"|"dns_private_address"|"identity_query"|"server_address"
+    |"public_tables"|"public_objects"|"environment_marker"|"users"|"unit_access"
+    |"finance_reviewers"|"table_privileges"|"sequence_privileges"|"projects_units"
+    |"receipts"|"file_objects"|"snapshot_verification"="dns_resolution";
   try{
     const resolvedAddresses=await dns.promises.resolve4(config.host);
     if(resolvedAddresses.length!==1)throw new Error("identity");
     const resolvedAddress=resolvedAddresses[0];
+    check="dns_private_address";
+    if(!isPrivateRailwayBootstrapAddress(resolvedAddress))throw new Error("identity");
+    check="identity_query";
     const identity=await pool.query<{
       database:string;role:string;database_owner:string;
       server_address:string|null;server_port:number;
@@ -65,10 +76,12 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
        "has_table_privilege(current_user,to_regclass('public.vip_qa_sessions'),'DELETE') END "+
        "AS session_store_ready",
     );
+     check="public_tables";
     const tables=await pool.query<{table_name:string}>(
       "SELECT table_name FROM information_schema.tables "+
       "WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name",
     );
+     check="public_objects";
     const publicObjects=await pool.query<{safe:boolean}>(
       "SELECT "+
       "NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "+
@@ -79,10 +92,12 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "+
       "WHERE n.nspname='public') AS safe",
     );
+     check="environment_marker";
     const environment=await pool.query<{environment_id:string;classification:string}>(
       "SELECT environment_id::text AS environment_id,classification "+
       "FROM public.vip_qa_environment_identity WHERE singleton=TRUE",
     );
+     check="users";
     const users=await pool.query<{
       id:number;username:string;email:string|null;role:string;
       is_admin:boolean;is_active:boolean;is_verified:boolean;
@@ -90,6 +105,7 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "SELECT id,username,email,role,is_admin,is_active,is_verified "+
       "FROM public.users ORDER BY id",
     );
+     check="unit_access";
     const unitAccess=await pool.query<{
       user_id:number;access_role:string;unit_number:string;revoked_at:Date|null;
     }>(
@@ -97,6 +113,7 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "FROM public.vip_unit_access a JOIN public.vip_units u ON u.id=a.unit_id "+
       "ORDER BY a.id",
     );
+     check="finance_reviewers";
     const financeReviewers=await pool.query<{
       user_id:number;username:string;role:string;can_approve:boolean;
     }>(
@@ -104,6 +121,7 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "FROM public.vip_finance_permissions p JOIN public.users u ON u.id=p.user_id "+
       "WHERE u.is_admin=TRUE OR u.role IN ('crm_employee','finance')",
     );
+     check="table_privileges";
     const tablePrivileges=await pool.query<{
       table_name:string;select:boolean;insert:boolean;update:boolean;delete:boolean;
       truncate:boolean;references:boolean;trigger:boolean;
@@ -119,6 +137,7 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "+
       "WHERE n.nspname='public' AND c.relkind IN ('r','p') ORDER BY c.relname",
     );
+     check="sequence_privileges";
     const sequencePrivileges=await pool.query<{
       sequence_name:string;owner_table_name:string;usage:boolean;select:boolean;update:boolean;
     }>(
@@ -133,12 +152,14 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "WHERE seq.relkind='S' AND sn.nspname='public' AND tn.nspname='public' "+
       "ORDER BY seq.relname",
     );
+     check="projects_units";
     const projects=await pool.query<{name:string}>(
       "SELECT name FROM public.vip_projects ORDER BY id",
     );
     const units=await pool.query<{unit_number:string}>(
       "SELECT unit_number FROM public.vip_units ORDER BY id",
     );
+     check="receipts";
     const receipts=await pool.query<{
       file_name:string;uploaded_by:number;uploader_username:string|null;upload_source:string;
     }>(
@@ -146,6 +167,7 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "FROM public.vip_receipts r LEFT JOIN public.users u ON u.id=r.uploaded_by "+
       "ORDER BY r.id",
     );
+     check="file_objects";
     const fileObjects=await pool.query<{
       object_key:string;content_type:string;size_bytes:number;
     }>(
@@ -172,9 +194,11 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
     );
      const row=identity.rows[0];
       const actualServerAddress=row?.server_address;
+      check="server_address";
       if(!row||!actualServerAddress||!isAllowedRailwayQaServerAddress(
         actualServerAddress,config.serverAddress,resolvedAddress,
       ))throw new Error("identity");
+      check="snapshot_verification";
       verifySyntheticRailwayQaSnapshot({...config,serverAddress:actualServerAddress},{
       database:row.database,
       role:row.role,
@@ -234,7 +258,10 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       pendingReceiptsUnposted:receiptObjects.rows[0]?.pending_receipts_unposted===true,
     });
   }catch{
-    throw new Error("Managed VIP QA database identity or synthetic-only data check failed");
+    throw Object.assign(
+      new Error("Managed VIP QA database identity or synthetic-only data check failed"),
+      {qaBootstrapCategory:"database_identity",qaDatabaseIdentityCheck:check},
+    );
   }
 }
 

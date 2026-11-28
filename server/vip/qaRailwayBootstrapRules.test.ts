@@ -5,6 +5,7 @@ import {
   getQaBootstrapAdminIdentityFailures,
   getQaBootstrapIdentityFailureChecks,
   getQaBootstrapRejectedVariableNames,
+  getQaDatabaseIdentityCheck,
   isAllowedRailwayQaServerAddress,
   isPrivateRailwayBootstrapAddress,
   sanitizeQaBootstrapEnvironment,
@@ -155,6 +156,9 @@ test("bootstrap admin diagnostics expose failed predicates only",()=>{
     qaBootstrapIdentityFailures:failures,
   });
   assert.deepEqual(getQaBootstrapIdentityFailureChecks(error),failures);
+  assert.equal(getQaDatabaseIdentityCheck(Object.assign(new Error("synthetic"),{
+    qaDatabaseIdentityCheck:"snapshot_verification",
+  })),"snapshot_verification");
   assert.deepEqual(getQaBootstrapAdminIdentityFailures(undefined,{
     database:"vipqa_demo",address:"10.1.1.1",
     adminRole:"qa_setup",

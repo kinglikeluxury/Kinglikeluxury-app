@@ -7,6 +7,7 @@ import {
   getQaBootstrapAdminIdentityFailures,
   getQaBootstrapIdentityFailureChecks,
   getQaBootstrapRejectedVariableNames,
+  getQaDatabaseIdentityCheck,
   isPrivateRailwayBootstrapAddress,
   isPrivateRailwayBootstrapIpv4,
   sanitizeQaBootstrapEnvironment,
@@ -78,9 +79,12 @@ function logBootstrapFailure(error:unknown):void{
   const identityChecks=getQaBootstrapIdentityFailureChecks(error);
   const identityCheckLog=identityChecks.length?
     ` identity_checks_failed=${identityChecks.join(",")}`:"";
+  const databaseCheck=getQaDatabaseIdentityCheck(error);
+  const databaseCheckLog=databaseCheck?` database_check=${databaseCheck}`:"";
   process.stderr.write(
     `synthetic_vip_qa_database=refused_or_failed stage=${activeStage} `+
-    `category=${classifyQaBootstrapFailure(error)}${rejectedNameLog}${identityCheckLog}; `+
+    `category=${classifyQaBootstrapFailure(error)}${rejectedNameLog}`+
+    `${identityCheckLog}${databaseCheckLog}; `+
     "no credential values logged\n",
   );
   process.exitCode=1;
