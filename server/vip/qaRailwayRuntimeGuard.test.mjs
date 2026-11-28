@@ -18,4 +18,8 @@ test("runtime launch refuses bootstrap flags and setup credentials",()=>{
   assert.equal(qaBootstrapPrivilegesPresent({
     KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD:"synthetic-only",
   }),false);
+  assert.equal(qaBootstrapPrivilegesPresent({
+    KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL:"__DISABLED__",
+    KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD:"__DISABLED__",
+  }),false);
 });

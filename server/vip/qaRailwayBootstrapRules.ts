@@ -42,6 +42,7 @@ const setupOnlyNames=Object.freeze([
   "KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD",
   "KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD",
 ]);
+const setupDisabledSentinel="__DISABLED__";
 
 export type RailwayBootstrapConfig=Readonly<{
   adminDatabaseUrl:string;
@@ -251,7 +252,7 @@ export function validateRailwayQaRuntimeOnlyEnvironment(
     throw configFailure("configuration_approval_flags",bootstrapFlags);
   }
   const presentSetupCredentials=setupOnlyNames.filter(name=>
-    env[name]!==undefined&&env[name]!=="");
+    env[name]!==undefined&&env[name]!==""&&env[name]!==setupDisabledSentinel);
   if(presentSetupCredentials.length){
     throw configFailure(
       "configuration_bootstrap_privileges_present",presentSetupCredentials,

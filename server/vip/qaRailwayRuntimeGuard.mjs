@@ -10,10 +10,11 @@ const bootstrapFlagNames=Object.freeze([
   "KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE",
   "KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED",
 ]);
+const setupDisabledSentinel="__DISABLED__";
 
 export function qaBootstrapPrivilegesPresent(env=process.env){
   if(bootstrapFlagNames.some(name=>
     env[name]!==undefined&&env[name]!==""&&env[name]!=="false"))return true;
   return setupCredentialNames.some(name=>
-    env[name]!==undefined&&env[name]!=="");
+    env[name]!==undefined&&env[name]!==""&&env[name]!==setupDisabledSentinel);
 }

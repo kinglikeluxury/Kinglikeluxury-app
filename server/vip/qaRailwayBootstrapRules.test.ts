@@ -280,6 +280,10 @@ test("runtime-only predeploy refuses setup credentials and validates the least-p
     ]);
     return true;
   });
+  assert.doesNotThrow(()=>validateRailwayQaRuntimeOnlyEnvironment({
+    ...env,KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL:"__DISABLED__",
+    KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD:"__DISABLED__",
+  }));
   assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment({
     ...env,KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE:"true",
   }),error=>classifyQaBootstrapFailure(error)==="configuration_bootstrap_privileges_present");
