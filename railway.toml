@@ -1,10 +1,10 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm run vip:qa:build"
+builder = "RAILPACK"
+buildCommand = "npm ci --offline --ignore-scripts --no-audit --no-fund"
 
 [deploy]
-preDeployCommand = ["node server/vip/qaRailwayPreDeploy.mjs"]
-startCommand = "npm run vip:qa:start"
+preDeployCommand = []
+startCommand = "env -i PATH=\"$PATH\" PORT=\"$PORT\" node server.mjs"
 sleepApplication = true
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 2
+restartPolicyType = "never"
+restartPolicyMaxRetries = 0
