@@ -139,6 +139,9 @@ test("bootstrap admin diagnostics expose failed predicates only",()=>{
   assert.equal(isAllowedRailwayQaServerAddress(
     "10.1.1.8","auto","10.1.1.1",
   ),true);
+  assert.equal(isAllowedRailwayQaServerAddress(
+    "fd12:3456:789a::1","auto","10.1.1.1",
+  ),true);
   assert.equal(isPrivateRailwayBootstrapAddress("fd12:3456:789a::1"),true);
   assert.equal(isPrivateRailwayBootstrapAddress("::ffff:10.1.1.8"),true);
   assert.equal(isPrivateRailwayBootstrapAddress("2606:4700:4700::1111"),false);

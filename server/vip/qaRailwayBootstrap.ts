@@ -163,6 +163,43 @@ async function applyMigrations(
   }
 }
 
+function createMigratorUrl(config:Awaited<ReturnType<typeof validateRailwayBootstrapEnvironment>>):string{
+  const url=new URL(config.adminDatabaseUrl);
+  url.username=config.migratorRole;
+  url.password=config.migratorPassword;
+  url.pathname=`/${config.database}`;
+  url.search="";
+  url.hash="";
+  url.port="5432";
+  return url.toString();
+}
+
+async function seedSyntheticDatabase(
+  config:Awaited<ReturnType<typeof validateRailwayBootstrapEnvironment>>,
+  address:string,
+  migratorUrl:string,
+):Promise<void>{
+  const {validateQaProvisionConfig}=await import("./qaRailwayProvisionRules");
+  const {provisionSyntheticVipQaDatabase}=await import("./qaRailwayProvision");
+  const provisionConfig=validateQaProvisionConfig({
+    NODE_ENV:"production",
+    KINGLIKE_VIP_QA_PROVISION_MODE:"railway",
+    KINGLIKE_VIP_QA_PROVISION_APPROVED:"true",
+    KINGLIKE_VIP_QA_MIGRATION_DATABASE_URL:migratorUrl,
+    KINGLIKE_VIP_QA_PROVISION_HOST:config.host,
+    KINGLIKE_VIP_QA_PROVISION_DATABASE:config.database,
+    KINGLIKE_VIP_QA_PROVISION_MIGRATOR_ROLE:config.migratorRole,
+    KINGLIKE_VIP_QA_PROVISION_RUNTIME_ROLE:config.runtimeRole,
+    KINGLIKE_VIP_QA_PROVISION_ADDRESS:address,
+    KINGLIKE_VIP_QA_PROVISION_ENVIRONMENT_ID:config.expectedEnvironmentId,
+    KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD:config.accountPasswords.admin,
+    KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD:config.accountPasswords.buyer,
+    KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD:config.accountPasswords.seller,
+    KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD:config.accountPasswords.finance,
+  });
+  await provisionSyntheticVipQaDatabase(provisionConfig);
+}
+
 async function bootstrap():Promise<void>{
   activeStage="configuration";
   sanitizeQaBootstrapEnvironment(process.env);
@@ -180,6 +217,8 @@ async function bootstrap():Promise<void>{
   });
   let client:pg.PoolClient|undefined;
   let createdDatabase=false;
+  let existingDatabase=false;
+  const migratorUrl=createMigratorUrl(config);
   try{
     client=await adminPool.connect();
     activeStage="database_admin_identity";
@@ -223,81 +262,63 @@ async function bootstrap():Promise<void>{
     const current=state.rows[0];
     if(!current)throw new Error("QA bootstrap state could not be read");
     if(current.target_database_exists){
-      client.release();
-      client=undefined;
-      await adminPool.end();
-      activeStage="runtime_database_identity";
-      await verifyRuntimeDatabase();
-      process.stdout.write("synthetic_vip_qa_database=already_verified\n");
-      return;
-    }
-    if(current.migrator_exists||current.runtime_exists){
+      if(!current.migrator_exists||!current.runtime_exists){
+        throw new Error("QA bootstrap found an incomplete database role set");
+      }
+      existingDatabase=true;
+    }else if(current.migrator_exists||current.runtime_exists){
       throw new Error("QA bootstrap found partial role state; refusing recovery");
+    }else{
+      const migrator=quoteQaSqlIdentifier(config.migratorRole);
+      const runtime=quoteQaSqlIdentifier(config.runtimeRole);
+      activeStage="database_roles";
+      await client.query(
+        `CREATE ROLE ${migrator} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE `+
+        `NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD ${quoteLiteral(config.migratorPassword)}`,
+      );
+      await client.query(
+        `CREATE ROLE ${runtime} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE `+
+        `NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD ${quoteLiteral(
+          decodeURIComponent(new URL(config.runtimeDatabaseUrl).password),
+        )}`,
+      );
+      await client.query(
+        `CREATE DATABASE ${quoteQaSqlIdentifier(config.database)} `+
+        `OWNER ${migrator} TEMPLATE template0 ENCODING 'UTF8'`,
+      );
+      createdDatabase=true;
+      activeStage="database_access_grants";
+      await client.query(
+        `REVOKE CONNECT ON DATABASE ${quoteQaSqlIdentifier(config.database)} FROM PUBLIC`,
+      );
+      await client.query(
+        `GRANT CONNECT ON DATABASE ${quoteQaSqlIdentifier(config.database)} TO ${migrator},${runtime}`,
+      );
     }
-
-    const migrator=quoteQaSqlIdentifier(config.migratorRole);
-    const runtime=quoteQaSqlIdentifier(config.runtimeRole);
-    activeStage="database_roles";
-    await client.query(
-      `CREATE ROLE ${migrator} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE `+
-      `NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD ${quoteLiteral(config.migratorPassword)}`,
-    );
-    await client.query(
-      `CREATE ROLE ${runtime} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE `+
-      `NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD ${quoteLiteral(
-        decodeURIComponent(new URL(config.runtimeDatabaseUrl).password),
-      )}`,
-    );
-    await client.query(
-      `CREATE DATABASE ${quoteQaSqlIdentifier(config.database)} `+
-      `OWNER ${migrator} TEMPLATE template0 ENCODING 'UTF8'`,
-    );
-    createdDatabase=true;
-    activeStage="database_access_grants";
-    await client.query(
-      `REVOKE CONNECT ON DATABASE ${quoteQaSqlIdentifier(config.database)} FROM PUBLIC`,
-    );
-    await client.query(
-      `GRANT CONNECT ON DATABASE ${quoteQaSqlIdentifier(config.database)} TO ${migrator},${runtime}`,
-    );
   }finally{
     client?.release();
     await adminPool.end().catch(()=>{});
   }
 
-  if(!createdDatabase)throw new Error("QA database bootstrap did not create its target");
-  activeStage="database_migrations";
-  const migratorUrl=new URL(config.adminDatabaseUrl);
-  migratorUrl.username=config.migratorRole;
-  migratorUrl.password=config.migratorPassword;
-  migratorUrl.pathname=`/${config.database}`;
-  migratorUrl.search="";
-  migratorUrl.hash="";
-  migratorUrl.port="5432";
-  await applyMigrations(migratorUrl.toString(),{
-    host:config.host,database:config.database,role:config.migratorRole,address,
-  });
-
-  const {validateQaProvisionConfig}=await import("./qaRailwayProvisionRules");
-  const {provisionSyntheticVipQaDatabase}=await import("./qaRailwayProvision");
+  if(existingDatabase){
+    activeStage="runtime_database_identity";
+    try{
+      await verifyRuntimeDatabase();
+      process.stdout.write("synthetic_vip_qa_database=already_verified\n");
+      return;
+    }catch{
+      // Existing schema may be the verified empty output of a prior interrupted
+      // bootstrap; the provisioning transaction will reject any non-empty state.
+    }
+  }else{
+    if(!createdDatabase)throw new Error("QA database bootstrap did not create its target");
+    activeStage="database_migrations";
+    await applyMigrations(migratorUrl,{
+      host:config.host,database:config.database,role:config.migratorRole,address,
+    });
+  }
   activeStage="synthetic_seed";
-  const provisionConfig=validateQaProvisionConfig({
-    NODE_ENV:"production",
-    KINGLIKE_VIP_QA_PROVISION_MODE:"railway",
-    KINGLIKE_VIP_QA_PROVISION_APPROVED:"true",
-    KINGLIKE_VIP_QA_MIGRATION_DATABASE_URL:migratorUrl.toString(),
-    KINGLIKE_VIP_QA_PROVISION_HOST:config.host,
-    KINGLIKE_VIP_QA_PROVISION_DATABASE:config.database,
-    KINGLIKE_VIP_QA_PROVISION_MIGRATOR_ROLE:config.migratorRole,
-    KINGLIKE_VIP_QA_PROVISION_RUNTIME_ROLE:config.runtimeRole,
-    KINGLIKE_VIP_QA_PROVISION_ADDRESS:address,
-    KINGLIKE_VIP_QA_PROVISION_ENVIRONMENT_ID:config.expectedEnvironmentId,
-    KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD:config.accountPasswords.admin,
-    KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD:config.accountPasswords.buyer,
-    KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD:config.accountPasswords.seller,
-    KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD:config.accountPasswords.finance,
-  });
-  await provisionSyntheticVipQaDatabase(provisionConfig);
+  await seedSyntheticDatabase(config,address,migratorUrl);
   activeStage="runtime_database_identity";
   await verifyRuntimeDatabase();
   process.stdout.write(

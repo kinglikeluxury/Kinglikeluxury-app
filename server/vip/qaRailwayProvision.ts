@@ -13,6 +13,10 @@ import {
   validateQaProvisionConfig,
   type QaProvisionConfig,
 } from "./qaRailwayProvisionRules";
+import {
+  isPrivateRailwayBootstrapAddress,
+  isPrivateRailwayBootstrapIpv4,
+} from "./qaRailwayBootstrapRules";
 
 const {Pool}=pg;
 const pdfFixture=Buffer.from("%PDF-1.4\n% Synthetic VIP QA receipt\n%%EOF\n","ascii");
@@ -37,7 +41,9 @@ async function assertTargetIsEmptyAndDedicated(
   const identity=await readTargetIdentity(client);
   if(!identity||identity.database!==config.database||
     identity.role!==config.migratorRole||identity.database_owner!==config.migratorRole||
-    identity.server_address!==config.serverAddress||Number(identity.server_port)!==config.port){
+    !isPrivateRailwayBootstrapAddress(identity.server_address)||
+    !isPrivateRailwayBootstrapIpv4(config.serverAddress)||
+    Number(identity.server_port)!==config.port){
     throw new Error("target identity mismatch");
   }
   const migrator=await client.query<{
@@ -290,7 +296,8 @@ export async function provisionSyntheticVipQaDatabase(
     );
   }else{
     const addresses=await resolve4(config.host);
-    if(addresses.length!==1||addresses[0]!==config.serverAddress){
+    if(addresses.length!==1||!isPrivateRailwayBootstrapIpv4(addresses[0])||
+      !isPrivateRailwayBootstrapIpv4(config.serverAddress)){
       throw new Error("private QA database DNS identity mismatch");
     }
   }
