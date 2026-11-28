@@ -7,6 +7,7 @@ import {
   getQaBootstrapAdminIdentityFailures,
   getQaBootstrapIdentityFailureChecks,
   getQaBootstrapRejectedVariableNames,
+  isPrivateRailwayBootstrapAddress,
   isPrivateRailwayBootstrapIpv4,
   sanitizeQaBootstrapEnvironment,
   validateRailwayQaRuntimeOnlyEnvironment,
@@ -116,7 +117,7 @@ async function applyMigrations(
     const row=identity.rows[0];
     if(!row||row.database!==expected.database||row.role!==expected.role||
       row.database_owner!==expected.role||
-      !isPrivateRailwayBootstrapIpv4(row.server_address||"")||
+      !isPrivateRailwayBootstrapAddress(row.server_address)||
       !isPrivateRailwayBootstrapIpv4(expected.address)||
       Number(row.server_port)!==5432||row.superuser||row.createdb||row.createrole||
       row.replication||row.bypass_rls||row.member_of_any){

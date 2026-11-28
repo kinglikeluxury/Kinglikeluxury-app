@@ -165,7 +165,7 @@ export function getQaBootstrapAdminIdentityFailures(
     ["admin_database_is_separate",row.database!==expected.database],
     ["private_address_is_private",
       isPrivateRailwayBootstrapIpv4(expected.address)&&
-      isPrivateRailwayBootstrapIpv4(row.serverAddress||"")],
+      isPrivateRailwayBootstrapAddress(row.serverAddress)],
     ["port_is_5432",Number(row.serverPort)===5432],
     ["setup_superuser",row.superuser],
     ["setup_createdb",row.createdb],
@@ -282,12 +282,38 @@ export function isPrivateRailwayBootstrapIpv4(value:string):boolean{
     (a===192&&b===168)||(a===100&&b>=64&&b<=127);
 }
 
+export function isPrivateRailwayBootstrapAddress(value:string|null):boolean{
+  if(!value)return false;
+  if(isPrivateRailwayBootstrapIpv4(value))return true;
+  const normalized=value.split("%",1)[0].toLowerCase();
+  if(isIP(normalized)!==6)return false;
+  const mappedIpv4=normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if(mappedIpv4)return isPrivateRailwayBootstrapIpv4(mappedIpv4[1]);
+  const [left,right=""]=normalized.split("::");
+  const leftParts=left?left.split(":"):[];
+  const rightParts=right?right.split(":"):[];
+  const parsed=[...leftParts,...rightParts].map(part=>Number.parseInt(part,16));
+  if(parsed.some(word=>!Number.isInteger(word)||word<0||word>0xffff))return false;
+  let words=parsed;
+  if(normalized.includes("::")){
+    const missing=8-parsed.length;
+    if(missing<1)return false;
+    words=[
+      ...leftParts.map(part=>Number.parseInt(part,16)),
+      ...Array(missing).fill(0),
+      ...rightParts.map(part=>Number.parseInt(part,16)),
+    ];
+  }
+  if(words.length!==8)return false;
+  return (words[0]&0xfe00)===0xfc00;
+}
+
 export function isAllowedRailwayQaServerAddress(
   actual:string|null,
   expectedAddress:string,
   resolvedAddress:string,
 ):boolean{
-  if(!actual||!isPrivateRailwayBootstrapIpv4(actual)||
+  if(!actual||!isPrivateRailwayBootstrapAddress(actual)||
     !isPrivateRailwayBootstrapIpv4(resolvedAddress))return false;
   return expectedAddress==="auto"||
     (isPrivateRailwayBootstrapIpv4(expectedAddress)&&expectedAddress===resolvedAddress);
