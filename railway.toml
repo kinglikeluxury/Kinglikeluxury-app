@@ -5,8 +5,6 @@ buildCommand = "npm run vip:qa:build"
 [deploy]
 preDeployCommand = ["node server/vip/qaRailwayPreDeploy.mjs"]
 startCommand = "npm run vip:qa:start"
-healthcheckPath = "/health"
-healthcheckTimeout = 180
 sleepApplication = true
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 2

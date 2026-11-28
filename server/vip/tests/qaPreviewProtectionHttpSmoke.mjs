@@ -105,7 +105,7 @@ try {
   const health = await request("/health", { authenticated: true });
   check("Basic Auth permits the health endpoint", health.status === 200);
   check("health response contains only its non-sensitive QA status",
-    JSON.stringify(JSON.parse(health.body)) === JSON.stringify({ ok: true, mode: "private-vip-qa" }));
+    JSON.stringify(JSON.parse(health.body)) === JSON.stringify({ ok: true }));
   check("health response is not cacheable", health.headers["cache-control"] === "no-store");
   check("security headers are present on authorized health",
     Boolean(health.headers["content-security-policy"]) &&

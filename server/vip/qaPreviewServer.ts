@@ -23,7 +23,6 @@ type ActiveUser={id:number;username:string;email:string|null;phone_number:string
  auth_method:string|null;is_admin:boolean;role:string};
 type QaAppOptions={
   validateConfiguration?:()=>void;
-  minimalPublicHealth?:boolean;
   staticDirectory?:string;
 };
 const publicUser=(u:ActiveUser)=>({
@@ -69,7 +68,6 @@ export function createQaApp(options:QaAppOptions={}){
  // browser Basic-Auth password. This is independent of VIP account sessions.
  const invalidAttempts=new Map<string,{n:number;until:number}>();
  app.use((req,res,next)=>{
-    if(options.minimalPublicHealth&&isMinimalQaHealthProbe(req.method,req.path))return next();
   const key=req.ip||"unknown";
   const current=invalidAttempts.get(key);
   const authorized=qaGateMatches(req.get("Authorization"),
@@ -96,12 +94,9 @@ export function createQaApp(options:QaAppOptions={}){
    return res.status(404).type("text/plain").send("Not found");
   });
  app.use(express.json({limit:"32kb"}));
-  app.get("/health",(_req,res)=>{
-    if(options.minimalPublicHealth&&isMinimalQaHealthProbe(_req.method,_req.path)){
-    res.setHeader("Content-Length","11");
+  app.get("/health",(req,res)=>{
+    if(!isMinimalQaHealthProbe(req.method,req.path))return res.status(404).end();
     return res.status(200).type("application/json").send('{"ok":true}');
-   }
-   return res.json({ok:true,mode:"private-vip-qa"});
   });
  app.get("/robots.txt",(_req,res)=>res.type("text/plain").send("User-agent: *\nDisallow: /\n"));
  app.get("/sw.js",(_req,res)=>res.status(404).type("text/plain").send("Service workers are disabled in local VIP QA."));
