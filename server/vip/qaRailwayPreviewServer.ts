@@ -30,6 +30,10 @@ export async function startQaRailwayPreview():Promise<void>{
   const port=Number(process.env.PORT);
   if(!Number.isInteger(port)||port<1||port>65535)throw new Error("Invalid Railway QA port");
   listenerPortClass=port<1024?"privileged":"unprivileged";
+  const processClass=typeof process.getuid==="function"
+    ?(process.getuid()===0?"root":"nonroot")
+    :"unknown";
+  process.stdout.write(`qa_listener_attempt host=${RAILWAY_QA_HOST} port=${port} process=${processClass}\n`);
   await new Promise<void>((resolvePromise,rejectPromise)=>{
     const server=app.listen(port,RAILWAY_QA_HOST,()=>{
       process.stdout.write("Synthetic VIP QA service ready.\n");

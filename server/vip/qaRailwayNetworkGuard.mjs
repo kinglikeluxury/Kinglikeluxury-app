@@ -20,6 +20,10 @@ const blocked=()=>{
   return error;
 };
 const denyRequest=function(){throw blocked();};
+const qaListenerPort=Number(process.env.PORT);
+if(!Number.isInteger(qaListenerPort)||qaListenerPort<1||qaListenerPort>65535){
+  throw new Error("Railway VIP QA listener port is invalid");
+}
 
 const forbiddenEnv=/^(?:DATABASE_URL|NEON_DATABASE_URL|CLOUDINARY_|RESEND_API_KEY$|GMAIL_|TWILIO_|WHATSAPP_|META_|VAPID_)/i;
 if(Object.keys(process.env).some(name=>forbiddenEnv.test(name))){
@@ -66,9 +70,31 @@ export function isAllowedRailwayQaTarget(host,port){
   return typeof host==="string"&&host.toLowerCase()===dbHost&&Number(port)===dbPort;
 }
 
+export function isAllowedRailwayQaListener(host,port){
+  return host==="0.0.0.0"&&Number(port)===qaListenerPort;
+}
+
 export function getPinnedRailwayQaDatabaseAddress(){
   return pinnedAddress;
 }
+
+function listenTargetFrom(args){
+  const first=args[0];
+  if(first&&typeof first==="object"){
+    return {host:typeof first.host==="string"?first.host:"",port:Number(first.port)};
+  }
+  return {
+    host:typeof args[1]==="string"?args[1]:"",
+    port:Number(first),
+  };
+}
+
+const originalServerListen=net.Server.prototype.listen;
+net.Server.prototype.listen=function(...args){
+  const target=listenTargetFrom(args);
+  if(!isAllowedRailwayQaListener(target.host,target.port))throw blocked();
+  return Reflect.apply(originalServerListen,this,args);
+};
 
 function targetFrom(args){
   const first=args[0];

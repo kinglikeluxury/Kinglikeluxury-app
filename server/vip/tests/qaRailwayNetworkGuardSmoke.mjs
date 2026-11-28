@@ -16,6 +16,7 @@ process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST="vip-pg.railway.internal";
 process.env.KINGLIKE_VIP_QA_EXPECTED_DB_NAME="vipqa_demo";
 process.env.KINGLIKE_VIP_QA_EXPECTED_DB_ROLE="vipqa_runtime";
 process.env.KINGLIKE_VIP_QA_EXPECTED_DB_ADDRESS="auto";
+process.env.PORT="3000";
 let fakeDatabaseAddress="10.21.4.7";
 const fakeLookup=(hostname,...args)=>{
   const callback=args.at(-1);
@@ -41,7 +42,7 @@ dns.promises.lookup=async hostname=>{
   }
   return {address:fakeDatabaseAddress,family:4};
 };
-await import("../qaRailwayNetworkGuard.mjs");
+const networkGuard=await import("../qaRailwayNetworkGuard.mjs");
 
 let assertions=0;
 const throwsBlocked=(operation)=>{
@@ -91,6 +92,12 @@ assert.equal((await dns.promises.lookup(
 assert.equal((await import("../qaRailwayNetworkGuard.mjs"))
   .getPinnedRailwayQaDatabaseAddress(),"10.21.4.7");
 assertions+=3;
+assert.equal(networkGuard.isAllowedRailwayQaListener("0.0.0.0",3000),true);
+assert.equal(networkGuard.isAllowedRailwayQaListener("127.0.0.1",3000),false);
+assert.equal(networkGuard.isAllowedRailwayQaListener("0.0.0.0",3001),false);
+assert.throws(()=>new net.Server().listen(3001,"0.0.0.0"),error=>error?.code==="EACCES");
+assert.throws(()=>new net.Server().listen(3000,"127.0.0.1"),error=>error?.code==="EACCES");
+assertions+=5;
 fakeDatabaseAddress="10.21.4.8";
 await new Promise(resolve=>{
   dns.lookup(process.env.KINGLIKE_VIP_QA_EXPECTED_DB_HOST,error=>{
