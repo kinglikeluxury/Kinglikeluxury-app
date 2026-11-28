@@ -4,6 +4,8 @@ import {pathToFileURL} from "node:url";
 
 const bootstrapEnabled=process.env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE==="true";
 const approved=process.env.KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED==="true";
+const bootstrapMode=bootstrapEnabled&&approved;
+const runtimeOnlyMode=!bootstrapEnabled&&!approved;
 const productionEnv=process.env.NODE_ENV==="production";
 process.stdout.write(
   `qa_predeploy=entered node=${process.versions.node} `+
@@ -12,7 +14,7 @@ process.stdout.write(
 
 let stage="configuration";
 try{
-  if(!productionEnv||!bootstrapEnabled||!approved){
+  if(!productionEnv||(!bootstrapMode&&!runtimeOnlyMode)){
     throw new Error("QA bootstrap gates are closed");
   }
   stage="bundle_presence";
@@ -23,7 +25,11 @@ try{
   process.stdout.write("qa_predeploy=bootstrap_bundle_present\n");
   stage="bootstrap_execution";
   const bootstrap=await import(pathToFileURL(bundlePath).href);
-  await bootstrap.qaRailwayBootstrapExecution;
+  if(bootstrapMode){
+    await bootstrap.qaRailwayBootstrapExecution;
+  }else{
+    await bootstrap.runQaRailwayRuntimeGuard();
+  }
   if(process.exitCode===1){
     throw new Error("QA bootstrap reported a refused initialization");
   }

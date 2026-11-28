@@ -1,6 +1,6 @@
 import {isIP} from "node:net";
 
-const runtimeEnvAllowlist=new Set([
+export const RAILWAY_QA_RUNTIME_ENV_ALLOWLIST=new Set([
   "PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL",
   "HOSTNAME","TERM",
   "KINGLIKE_VIP_QA_RUNTIME","KINGLIKE_VIP_QA_START","KINGLIKE_VIP_QA_PREVIEW",
@@ -158,7 +158,7 @@ export function validateRailwayQaDatabaseConfig(
 export function assertRailwayQaPreviewEnvironment(
   env:Record<string,string|undefined>=process.env,
 ):RailwayQaDatabaseConfig{
-  if(Object.keys(env).some(name=>!runtimeEnvAllowlist.has(name)&&
+  if(Object.keys(env).some(name=>!RAILWAY_QA_RUNTIME_ENV_ALLOWLIST.has(name)&&
     !/^RAILWAY_[A-Z0-9_]+$/.test(name)))fail();
   if(env.NODE_ENV!=="production"||env.KINGLIKE_VIP_QA_RUNTIME!=="railway"||
     env.KINGLIKE_VIP_QA_START!=="true"||env.KINGLIKE_VIP_QA_PREVIEW!=="true"||

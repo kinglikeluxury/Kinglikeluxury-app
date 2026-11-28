@@ -1,5 +1,9 @@
 import {isIP} from "node:net";
 import {validateQaBootstrapIdentity} from "./qaBootstrapRules";
+import {
+  assertRailwayQaPreviewEnvironment,
+  RAILWAY_QA_RUNTIME_ENV_ALLOWLIST,
+} from "./qaRailwayPreviewRules";
 
 const allowedNames=new Set([
   "PATH","HOME","TMPDIR","LANG","LC_ALL","TZ","NODE_ENV","PORT","PWD","SHLVL",
@@ -22,6 +26,20 @@ const allowedNames=new Set([
   "KINGLIKE_VIP_QA_LOGIN_BUYER_PASSWORD",
   "KINGLIKE_VIP_QA_LOGIN_SELLER_PASSWORD",
   "KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD",
+]);
+const seedLoginNames=Object.freeze([
+  "KINGLIKE_VIP_QA_LOGIN_ADMIN_PASSWORD",
+  "KINGLIKE_VIP_QA_LOGIN_BUYER_PASSWORD",
+  "KINGLIKE_VIP_QA_LOGIN_SELLER_PASSWORD",
+  "KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD",
+]);
+const setupOnlyNames=Object.freeze([
+  "KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL",
+  "KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD",
+  "KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
+  "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",
+  "KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD",
+  "KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD",
 ]);
 
 export type RailwayBootstrapConfig=Readonly<{
@@ -47,6 +65,7 @@ export type QaBootstrapFailureCategory=
   |"configuration_environment_build_other"
   |"configuration_environment_sensitive_name"
   |"configuration_environment_mixed"
+  |"configuration_bootstrap_privileges_present"
   |"configuration_runtime_mode"
   |"configuration_package_override"
   |"configuration_seed_variables"
@@ -77,6 +96,7 @@ export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCate
     "configuration_environment_build_other",
     "configuration_environment_sensitive_name",
     "configuration_environment_mixed","configuration_runtime_mode",
+    "configuration_bootstrap_privileges_present",
     "configuration_package_override","configuration_seed_variables",
     "configuration_approval_flags","configuration_external_communications",
     "configuration_required_fields","configuration_database_url",
@@ -107,10 +127,21 @@ export function classifyQaBootstrapFailure(error:unknown):QaBootstrapFailureCate
 
 function configFailure(
   category:Extract<QaBootstrapFailureCategory,`configuration_${string}`>,
+  variableNames:readonly string[]=[],
 ):Error{
+  const safeNames=Array.from(new Set(variableNames.filter(name=>
+    /^[A-Z][A-Z0-9_]{1,127}$/.test(name)))).slice(0,12);
   return Object.assign(new Error("Isolated VIP QA configuration was refused"),{
     qaBootstrapCategory:category,
+    qaBootstrapVariableNames:safeNames,
   });
+}
+
+export function getQaBootstrapRejectedVariableNames(error:unknown):string[]{
+  if(!error||typeof error!=="object"||!("qaBootstrapVariableNames" in error)||
+    !Array.isArray(error.qaBootstrapVariableNames))return [];
+  return error.qaBootstrapVariableNames.filter((name):name is string=>
+    typeof name==="string"&&/^[A-Z][A-Z0-9_]{1,127}$/.test(name)).slice(0,12);
 }
 
 export function sanitizeQaBootstrapEnvironment(
@@ -132,6 +163,52 @@ export function sanitizeQaBootstrapEnvironment(
     }
     delete env[name];
   }
+}
+
+export function validateRailwayQaRuntimeOnlyEnvironment(
+  env:Record<string,string|undefined>,
+):void{
+  const bootstrapFlags=[
+    "KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE",
+    "KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED",
+  ];
+  const runtimeEnv={...env};
+  for(const name of [
+    ...bootstrapFlags,...setupOnlyNames,...seedLoginNames,"RAILPACK_INSTALL_CMD",
+  ]){
+    delete runtimeEnv[name];
+  }
+  sanitizeQaBootstrapEnvironment(runtimeEnv);
+  const unexpectedNames=Object.keys(runtimeEnv).filter(name=>
+    !RAILWAY_QA_RUNTIME_ENV_ALLOWLIST.has(name)&&
+    !/^RAILWAY_[A-Z0-9_]+$/.test(name));
+  if(unexpectedNames.length){
+    throw configFailure("configuration_environment_sensitive_name",unexpectedNames);
+  }
+  const activeFlags=bootstrapFlags.filter(name=>env[name]==="true");
+  if(activeFlags.length){
+    throw configFailure("configuration_bootstrap_privileges_present",activeFlags);
+  }
+  if(bootstrapFlags.some(name=>env[name]!==undefined&&
+    env[name]!==""&&env[name]!=="false")){
+    throw configFailure("configuration_approval_flags",bootstrapFlags);
+  }
+  const presentSetupCredentials=setupOnlyNames.filter(name=>
+    env[name]!==undefined&&env[name]!=="");
+  if(presentSetupCredentials.length){
+    throw configFailure(
+      "configuration_bootstrap_privileges_present",presentSetupCredentials,
+    );
+  }
+  if(env.NODE_ENV!=="production"){
+    throw configFailure("configuration_runtime_mode");
+  }
+  if(env.RAILPACK_INSTALL_CMD!==undefined&&env.RAILPACK_INSTALL_CMD!==""){
+    throw configFailure("configuration_package_override",["RAILPACK_INSTALL_CMD"]);
+  }
+  runtimeEnv.KINGLIKE_VIP_QA_RUNTIME="railway";
+  runtimeEnv.KINGLIKE_VIP_QA_START="true";
+  assertRailwayQaPreviewEnvironment(runtimeEnv);
 }
 
 function required(env:Record<string,string|undefined>,name:string):string{
@@ -167,7 +244,7 @@ export function validateRailwayBootstrapEnvironment(
   if(unexpectedNames.length){
     if(unexpectedNames.some(name=>
       /(?:DATABASE|(?:^|_)DB(?:_|$)|PASSWORD|SECRET|TOKEN|API.?KEY|PRIVATE.?KEY|CREDENTIAL|AUTH|EMAIL|SMS|WHATSAPP|CRM|META|CLOUDINARY|NEON|(?:^|_)S3(?:_|$)|STORAGE|PAYMENT|PUSH|WEBHOOK|OAUTH|TURNSTILE|NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|ENABLED|APPROVED|(?:^|_)MODE(?:_|$))/i.test(name))){
-      throw configFailure("configuration_environment_sensitive_name");
+      throw configFailure("configuration_environment_sensitive_name",unexpectedNames);
     }
     const families=new Set(unexpectedNames.map(name=>
       /^npm_/i.test(name)?"npm_metadata":

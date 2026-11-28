@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
   classifyQaBootstrapFailure,
+  getQaBootstrapRejectedVariableNames,
   sanitizeQaBootstrapEnvironment,
+  validateRailwayQaRuntimeOnlyEnvironment,
   validateRailwayBootstrapEnvironment,
 } from "./qaRailwayBootstrapRules";
 
@@ -135,6 +137,12 @@ test("bootstrap configuration failures use safe non-value diagnostics",()=>{
     "configuration_environment_build_other");
   assert.equal(category({...environment(),NIXPACKS_REGISTRY_TOKEN:"synthetic"}),
     "configuration_environment_sensitive_name");
+  let rejected:unknown;
+  try{validateRailwayBootstrapEnvironment({
+    ...environment(),NIXPACKS_REGISTRY_TOKEN:"synthetic-value-must-not-be-logged",
+  });}catch(error){rejected=error;}
+  assert.deepEqual(getQaBootstrapRejectedVariableNames(rejected),["NIXPACKS_REGISTRY_TOKEN"]);
+  assert.equal(String(rejected).includes("synthetic-value-must-not-be-logged"),false);
   assert.equal(category({...environment(),NODE_ENV:"test"}),
     "configuration_runtime_mode");
   assert.equal(category({...environment(),RAILPACK_INSTALL_CMD:"npm install"}),
@@ -190,4 +198,55 @@ test("bootstrap removes harmless runtime metadata but rejects unknown sensitive 
   assert.equal(classifyQaBootstrapFailure((()=>{
     try{validateRailwayBootstrapEnvironment(risky);}catch(error){return error;}
   })()),"configuration_environment_sensitive_name");
+});
+
+test("runtime-only predeploy refuses setup credentials and validates the least-privilege app config",()=>{
+  const env:Record<string,string|undefined>=environment();
+  for(const name of [
+    "KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL",
+    "KINGLIKE_VIP_QA_PROVISION_MIGRATOR_PASSWORD",
+    "KINGLIKE_VIP_QA_PROVISION_ADMIN_PASSWORD",
+    "KINGLIKE_VIP_QA_PROVISION_BUYER_PASSWORD",
+    "KINGLIKE_VIP_QA_PROVISION_SELLER_PASSWORD",
+    "KINGLIKE_VIP_QA_PROVISION_FINANCE_PASSWORD",
+  ])delete env[name];
+  env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE="false";
+  env.KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED="false";
+  env.PORT="5000";
+  env.KINGLIKE_VIP_QA_LOGIN_FINANCE_PASSWORD="synthetic-user-login";
+  assert.doesNotThrow(()=>validateRailwayQaRuntimeOnlyEnvironment(env));
+  assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment({
+    ...env,KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL:"synthetic-admin",
+  }),error=>{
+    assert.equal(classifyQaBootstrapFailure(error),
+      "configuration_bootstrap_privileges_present");
+    assert.deepEqual(getQaBootstrapRejectedVariableNames(error),[
+      "KINGLIKE_VIP_QA_BOOTSTRAP_ADMIN_DATABASE_URL",
+    ]);
+    return true;
+  });
+  assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment({
+    ...env,KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE:"true",
+  }),error=>classifyQaBootstrapFailure(error)==="configuration_bootstrap_privileges_present");
+  assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment({
+    ...env,NODE_OPTIONS:"--require=synthetic",
+  }),error=>{
+    assert.equal(classifyQaBootstrapFailure(error),
+      "configuration_environment_sensitive_name");
+    assert.deepEqual(getQaBootstrapRejectedVariableNames(error),["NODE_OPTIONS"]);
+    return true;
+  });
+  const diagnostic:Record<string,string|undefined>={
+    ...environment(),KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE:"false",
+    KINGLIKE_VIP_QA_BOOTSTRAP_APPROVED:"false",
+    NIXPACKS_REGISTRY_TOKEN:"synthetic-only",
+  };
+  assert.throws(()=>validateRailwayQaRuntimeOnlyEnvironment(diagnostic),error=>{
+    assert.equal(classifyQaBootstrapFailure(error),
+      "configuration_environment_sensitive_name");
+    assert.deepEqual(getQaBootstrapRejectedVariableNames(error),[
+      "NIXPACKS_REGISTRY_TOKEN",
+    ]);
+    return true;
+  });
 });

@@ -4,8 +4,10 @@ import pg from "pg";
 import {quoteQaSqlIdentifier} from "./qaRailwayProvisionRules";
 import {
   classifyQaBootstrapFailure,
+  getQaBootstrapRejectedVariableNames,
   isPrivateRailwayBootstrapIpv4,
   sanitizeQaBootstrapEnvironment,
+  validateRailwayQaRuntimeOnlyEnvironment,
   validateRailwayBootstrapEnvironment,
 } from "./qaRailwayBootstrapRules";
 
@@ -64,6 +66,18 @@ async function verifyRuntimeDatabase():Promise<void>{
   }finally{
     await pool.end();
   }
+}
+
+function logBootstrapFailure(error:unknown):void{
+  const rejectedNames=getQaBootstrapRejectedVariableNames(error);
+  const rejectedNameLog=rejectedNames.length?
+    ` rejected_env_names=${rejectedNames.join(",")}`:"";
+  process.stderr.write(
+    `synthetic_vip_qa_database=refused_or_failed stage=${activeStage} `+
+    `category=${classifyQaBootstrapFailure(error)}${rejectedNameLog}; `+
+    "no credential values logged\n",
+  );
+  process.exitCode=1;
 }
 
 async function applyMigrations(
@@ -272,12 +286,18 @@ async function bootstrap():Promise<void>{
   );
 }
 
+export async function runQaRailwayRuntimeGuard():Promise<void>{
+  try{
+    activeStage="configuration";
+    validateRailwayQaRuntimeOnlyEnvironment(process.env);
+    activeStage="runtime_database_identity";
+    await verifyRuntimeDatabase();
+    process.stdout.write("synthetic_vip_qa_database=runtime_identity_verified\n");
+  }catch(error:unknown){
+    logBootstrapFailure(error);
+  }
+}
+
 export const qaRailwayBootstrapExecution:Promise<void>=
   process.env.KINGLIKE_VIP_QA_BOOTSTRAP_EXECUTE==="true"?
-    bootstrap().catch((error:unknown)=>{
-    process.stderr.write(
-      `synthetic_vip_qa_database=refused_or_failed stage=${activeStage} `+
-      `category=${classifyQaBootstrapFailure(error)}; no credentials logged\n`,
-    );
-    process.exitCode=1;
-    }):Promise.resolve();
+    bootstrap().catch(logBootstrapFailure):Promise.resolve();
