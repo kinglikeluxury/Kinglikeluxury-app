@@ -92,7 +92,11 @@ function listenTargetFrom(args){
 const originalServerListen=net.Server.prototype.listen;
 net.Server.prototype.listen=function(...args){
   const target=listenTargetFrom(args);
-  if(!isAllowedRailwayQaListener(target.host,target.port))throw blocked();
+  if(!isAllowedRailwayQaListener(target.host,target.port)){
+    process.stderr.write("qa_listener_policy=refuse\n");
+    throw blocked();
+  }
+  process.stdout.write("qa_listener_policy=allow\n");
   return Reflect.apply(originalServerListen,this,args);
 };
 
