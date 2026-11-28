@@ -5,6 +5,7 @@ import {
   getQaBootstrapAdminIdentityFailures,
   getQaBootstrapIdentityFailureChecks,
   getQaBootstrapRejectedVariableNames,
+  isAllowedRailwayQaServerAddress,
   sanitizeQaBootstrapEnvironment,
   validateRailwayQaRuntimeOnlyEnvironment,
   validateRailwayBootstrapEnvironment,
@@ -120,13 +121,29 @@ test("bootstrap failure logs reduce database errors to safe categories",()=>{
 
 test("bootstrap admin diagnostics expose failed predicates only",()=>{
   const failures=getQaBootstrapAdminIdentityFailures({
-    database:"railway",role:"qa_setup",serverAddress:"10.1.1.1",
+    database:"railway",role:"qa_setup",serverAddress:"10.1.1.8",
     serverPort:5432,superuser:false,createdb:true,createrole:false,
   },{
     database:"vipqa_demo",address:"10.1.1.1",
     adminRole:"qa_setup",
   });
   assert.deepEqual(failures,["setup_superuser","setup_createrole"]);
+  assert.deepEqual(getQaBootstrapAdminIdentityFailures({
+    database:"railway",role:"qa_setup",serverAddress:"8.8.8.8",
+    serverPort:5432,superuser:true,createdb:true,createrole:true,
+  },{
+    database:"vipqa_demo",address:"10.1.1.1",
+    adminRole:"qa_setup",
+  }),["private_address_is_private"]);
+  assert.equal(isAllowedRailwayQaServerAddress(
+    "10.1.1.8","auto","10.1.1.1",
+  ),true);
+  assert.equal(isAllowedRailwayQaServerAddress(
+    "8.8.8.8","auto","10.1.1.1",
+  ),false);
+  assert.equal(isAllowedRailwayQaServerAddress(
+    "10.1.1.8","10.1.1.2","10.1.1.1",
+  ),false);
   const error=Object.assign(new Error("synthetic"),{
     qaBootstrapIdentityFailures:failures,
   });

@@ -163,7 +163,9 @@ export function getQaBootstrapAdminIdentityFailures(
   const checks:ReadonlyArray<[string,boolean]>=[
     ["role_matches",expected.adminRole.length>0&&row.role===expected.adminRole],
     ["admin_database_is_separate",row.database!==expected.database],
-    ["private_address_matches",row.serverAddress===expected.address],
+    ["private_address_is_private",
+      isPrivateRailwayBootstrapIpv4(expected.address)&&
+      isPrivateRailwayBootstrapIpv4(row.serverAddress||"")],
     ["port_is_5432",Number(row.serverPort)===5432],
     ["setup_superuser",row.superuser],
     ["setup_createdb",row.createdb],
@@ -179,7 +181,7 @@ export function getQaBootstrapIdentityFailureChecks(error:unknown):string[]{
   return error.qaBootstrapIdentityFailures.filter((name):name is string=>
     typeof name==="string"&&[
       "identity_row_present","role_matches","admin_database_is_separate",
-      "private_address_matches","port_is_5432","setup_superuser",
+      "private_address_is_private","port_is_5432","setup_superuser",
       "setup_createdb","setup_createrole",
     ].includes(name));
 }
@@ -278,6 +280,17 @@ export function isPrivateRailwayBootstrapIpv4(value:string):boolean{
   const [a,b]=value.split(".").map(Number);
   return a===10||(a===172&&b>=16&&b<=31)||
     (a===192&&b===168)||(a===100&&b>=64&&b<=127);
+}
+
+export function isAllowedRailwayQaServerAddress(
+  actual:string|null,
+  expectedAddress:string,
+  resolvedAddress:string,
+):boolean{
+  if(!actual||!isPrivateRailwayBootstrapIpv4(actual)||
+    !isPrivateRailwayBootstrapIpv4(resolvedAddress))return false;
+  return expectedAddress==="auto"||
+    (isPrivateRailwayBootstrapIpv4(expectedAddress)&&expectedAddress===resolvedAddress);
 }
 
 export function validateRailwayBootstrapEnvironment(

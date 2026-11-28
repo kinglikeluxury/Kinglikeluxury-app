@@ -5,6 +5,7 @@ import {
   verifySyntheticRailwayQaSnapshot,
   type RailwayQaDatabaseConfig,
 } from "./qaRailwayPreviewRules";
+import {isAllowedRailwayQaServerAddress} from "./qaRailwayBootstrapRules";
 
 const {Pool}=pg;
 const config:RailwayQaDatabaseConfig=validateRailwayQaDatabaseConfig(process.env);
@@ -20,9 +21,9 @@ export const pool=new Pool({
 
 export async function assertQaRailwayDatabaseIdentity():Promise<void>{
   try{
-    const resolvedDatabase=await dns.promises.lookup(config.host,{family:4});
-    const expectedAddress=config.serverAddress==="auto"
-      ?resolvedDatabase.address:config.serverAddress;
+    const resolvedAddresses=await dns.promises.resolve4(config.host);
+    if(resolvedAddresses.length!==1)throw new Error("identity");
+    const resolvedAddress=resolvedAddresses[0];
     const identity=await pool.query<{
       database:string;role:string;database_owner:string;
       server_address:string|null;server_port:number;
@@ -169,13 +170,16 @@ export async function assertQaRailwayDatabaseIdentity():Promise<void>{
       "JOIN public.vip_payment_postings p ON p.receipt_id=r.id "+
       "WHERE r.review_status='pending') AS pending_receipts_unposted",
     );
-    const row=identity.rows[0];
-     if(!row||!row.server_address||row.server_address!==expectedAddress)throw new Error("identity");
-     verifySyntheticRailwayQaSnapshot({...config,serverAddress:expectedAddress},{
+     const row=identity.rows[0];
+      const actualServerAddress=row?.server_address;
+      if(!row||!actualServerAddress||!isAllowedRailwayQaServerAddress(
+        actualServerAddress,config.serverAddress,resolvedAddress,
+      ))throw new Error("identity");
+      verifySyntheticRailwayQaSnapshot({...config,serverAddress:actualServerAddress},{
       database:row.database,
       role:row.role,
       databaseOwner:row.database_owner,
-      serverAddress:row.server_address,
+       serverAddress:actualServerAddress,
       serverPort:Number(row.server_port),
       hasPrivilegedRoleMembership:row.has_privileged_role_membership===true,
       canCreateInPublicSchema:row.can_create_in_public_schema===true,
